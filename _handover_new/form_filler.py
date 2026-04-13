@@ -1,0 +1,7522 @@
+"""
+form_filler.py -- Plan B: field-level extraction + programmatic fill-in (v3.7)
+===============================================================================
+Processing paths:
+  1. XX placeholders -> JSON extraction -> run-level replacement
+  2. Checkboxes -> tick judgment -> run-level replacement
+  3. Example paragraphs -> LLM rewrite -> paragraph replacement
+  4. Financial analysis -> Python ratio calc + LLM narrative -> paragraph insertion
+
+v7.19: Four critical fixes:
+       - Column semantic annotations in table prompt (年报 vs 中期)
+       - 3-way table classification (financial large / non-financial large / small)
+       - Per-paragraph Word comments (not per-cell merge), cap 30
+       - Financial analysis fallback + wider section detection + paragraph creation
+v7.18: Merged GPT v8_auditfix increments:
+       - Sentence-level anti-hallucination filter (_sanitize_generated_text_by_periods)
+       - Web search context for financial analysis (_get_financial_analysis_web_context)
+       - Allowed time period constraint in financial analysis LLM prompt
+v7.17: Added financial analysis generation (step 6c in pipeline).
+       Extracts data from filled financial table, calculates ratios in Python,
+       calls LLM for professional analysis narrative, inserts into document.
+
+Key fix vs v2: scans TABLE CELLS (not doc.paragraphs), because the form
+content lives inside a single table cell (Row 3 of 7x1 table).
+"""
+
+import re, os, json, tempfile, traceback, zipfile, shutil, statistics, difflib
+from dataclasses import dataclass, field
+from typing import Optional, Callable
+from io import BytesIO
+from lxml import etree
+from docx import Document
+from material_kb import (
+    build_material_kb,
+    kb_to_prompt_text,
+    build_dimension_text,
+    infer_dimensions_for_batch,
+    infer_dimensions_for_label,
+    infer_dimensions_for_example,
+)
+from period_matcher import build_alignment_plan, normalize_period, period_sort_key
+from truth_fill import (
+    prefill_supply_chain_tables,
+    prefill_kb_structured_tables,
+    prefill_shareholder_table,
+    prefill_asset_table,
+    prefill_bank_flow_table,
+    prefill_labeled_fields_from_kb,
+)
+from quality_check import QualityChecker
+# ============================================================
+# 1. Data structures
+# ============================================================
+
+@dataclass
+class FieldSlot:
+    """An XX placeholder found in the template."""
+    field_id: str           # f001, f002, ...
+    context_before: str     # up to 40 chars before XX
+    context_after: str      # up to 40 chars after XX
+    xx_text: str            # the original XX string (e.g. "XX" or "XXXX")
+    para_idx: int           # paragraph index within the cell
+    run_idx: int            # run index within the paragraph
+    char_offset: int        # character offset within the run
+    cell_path: tuple        # (table_idx, row_idx, cell_idx)
+    is_example: bool = False
+
+
+@dataclass
+class CheckboxSlot:
+    """An unchecked checkbox found in the template."""
+    cb_id: str              # cb001, cb002, ...
+    option_text: str        # text immediately after the checkbox
+    group_context: str      # surrounding line for context
+    para_idx: int
+    run_idx: int
+    char_offset: int
+    cell_path: tuple
+
+
+@dataclass
+class ExampleParagraph:
+    """A paragraph containing example/placeholder narrative text."""
+    ex_id: str
+    original_text: str
+    section_context: str    # heading above this paragraph
+    para_idx: int
+    cell_path: tuple
+
+
+@dataclass
+class LabeledField:
+    """A label:blank field (e.g. '客户名称：       ')."""
+    lf_id: str              # lf001, lf002, ...
+    label: str              # e.g. "客户名称"
+    context_line: str       # full line text for context
+    para_idx: int
+    run_idx: int            # run containing the blank space
+    cell_path: tuple
+    unit: str = ""          # trailing unit like "万元" or "人"
+
+
+# ============================================================
+# 2. Template scanning
+# ============================================================
+
+_XX_RE = re.compile(r'X{2,}')
+_SINGLE_X_RE = re.compile(r'(?<![A-Za-z])X(?![A-Za-z0-9])')  # standalone X
+_CB_RE = re.compile(r'[□☐]')
+# Pattern for "label：    blank" fields (3+ spaces or tabs after colon)
+_LABEL_BLANK_RE = re.compile(r'([\u4e00-\u9fff\w（）\-/]+)[：:](\s{3,}|\t+)')
+_EXAMPLE_MARKERS = [
+    'XX年', 'XX月', 'XX日', 'XX万元', 'XX万', 'XX元',
+    'XX平方', 'XX公司', 'XX人', 'XX台', 'XX套', 'XX吨',
+    'XX%', 'XXX%', 'XX亿', 'XX银行', 'XX事务所',
+    'XX有限', 'XX集团', 'XX名下', 'XX生产线',
+]
+
+
+def to_wan_int(v):
+    try:
+        if v is None:
+            return None
+        s = str(v).strip()
+        if not s:
+            return None
+        return int(round(float(v) / 10000.0))
+    except Exception:
+        return None
+
+
+
+def _append_fill_run_output(text: str):
+    """Append diagnostic text to fill_run_output.txt (non-blocking)."""
+    if not text:
+        return
+    try:
+        out_path = os.path.join(os.getcwd(), 'fill_run_output.txt')
+        with open(out_path, 'a', encoding='utf-8') as f:
+            if not text.endswith('\n'):
+                text += '\n'
+            f.write(text)
+    except Exception:
+        pass
+
+
+def _collect_document_text(doc: Document) -> str:
+    """Collect plain text from body paragraphs + all table/nested-table cells."""
+    chunks = []
+
+    def _walk_table(table, prefix: str = ''):
+        for r_idx, row in enumerate(table.rows):
+            for c_idx, cell in enumerate(row.cells):
+                cell_prefix = f"{prefix}T{r_idx + 1}C{c_idx + 1}: " if prefix else ''
+                for para in cell.paragraphs:
+                    txt = (para.text or '').strip()
+                    if txt:
+                        chunks.append(cell_prefix + txt)
+                for nt_idx, nt in enumerate(cell.tables):
+                    _walk_table(nt, prefix=f"{cell_prefix}N{nt_idx + 1}-")
+
+    for para in doc.paragraphs:
+        txt = (para.text or '').strip()
+        if txt:
+            chunks.append(txt)
+
+    for table in doc.tables:
+        _walk_table(table)
+
+    return '\n'.join(chunks)
+
+
+def _normalize_fin_year(period_label) -> str | None:
+    if period_label is None:
+        return None
+    m = re.search(r"(20\d{2})", str(period_label))
+    return m.group(1) if m else None
+
+
+def _to_wan_float(value) -> float | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    s = s.replace(",", "").replace("，", "")
+    m = re.search(r"-?\d+(?:\.\d+)?", s)
+    if not m:
+        return None
+    try:
+        num = float(m.group(0))
+    except ValueError:
+        return None
+
+    # default unit: 万元 (most table fills in this project are already 万元)
+    if "亿" in s:
+        return num * 10000.0
+    if "元" in s and "万元" not in s and "亿" not in s:
+        return num / 10000.0
+    return num
+
+
+def _pick_amount_by_alias(data: dict, aliases: list[str]) -> float | None:
+    if not data:
+        return None
+    for k in aliases:
+        if k in data:
+            v = _to_wan_float(data.get(k))
+            if v is not None:
+                return v
+    # fallback: normalized key match
+    norm = {}
+    for k, v in data.items():
+        nk = re.sub(r"\s+", "", str(k or ""))
+        if nk and nk not in norm:
+            norm[nk] = v
+    for k in aliases:
+        nk = re.sub(r"\s+", "", k)
+        if nk in norm:
+            v = _to_wan_float(norm.get(nk))
+            if v is not None:
+                return v
+    return None
+
+
+def cross_validate_financials(truth_data: dict, doc_financial_data: dict) -> list[str]:
+    """Cross-check key annual values. Returns warning lines for fill_run_output."""
+    if not truth_data or not doc_financial_data:
+        return []
+
+    truth_by_year: dict[str, dict] = {}
+    doc_by_year: dict[str, dict] = {}
+
+    for period, values in (truth_data or {}).items():
+        y = _normalize_fin_year(period)
+        if y and isinstance(values, dict):
+            truth_by_year[y] = values
+    for period, values in (doc_financial_data or {}).items():
+        y = _normalize_fin_year(period)
+        if y and isinstance(values, dict):
+            doc_by_year[y] = values
+
+    years = sorted(set(truth_by_year.keys()) & set(doc_by_year.keys()))
+    if not years:
+        return []
+
+    checks = [
+        ("收入", ["营业收入", "主营业务收入", "销售收入"]),
+        ("净利润", ["净利润"]),
+        ("总资产", ["总资产", "资产合计", "资产总计", "资产总额"]),
+    ]
+
+    warnings = []
+    for year in years:
+        truth_row = truth_by_year.get(year, {}) or {}
+        doc_row = doc_by_year.get(year, {}) or {}
+
+        for label, aliases in checks:
+            expected = _pick_amount_by_alias(truth_row, aliases)
+            actual = _pick_amount_by_alias(doc_row, aliases)
+            if expected in (None, 0) or actual is None:
+                continue
+            diff = abs(actual - expected) / abs(expected)
+            if diff > 0.05:
+                warnings.append(
+                    f"[财务校验] {year}年{label}不一致：应为{int(round(expected))}万，填了{int(round(actual))}万。"
+                )
+
+    return warnings
+
+def scan_cell_fields(cell, table_idx: int, row_idx: int, cell_idx: int):
+    """
+    Scan a table cell for XX fields, checkboxes, and example paragraphs.
+    Returns: (fields: list[FieldSlot], checkboxes: list[CheckboxSlot],
+              examples: list[ExampleParagraph])
+    """
+    fields = []
+    checkboxes = []
+    examples = []
+
+    f_counter = 0
+    cb_counter = 0
+    ex_counter = 0
+    current_heading = ""
+    cell_path = (table_idx, row_idx, cell_idx)
+
+    for p_idx, para in enumerate(cell.paragraphs):
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # Track section headings for context
+        if re.match(r'^[\(（][一二三四五六七八九十]+[\)）]', text):
+            current_heading = text[:40]
+
+        # --- XX fields ---
+        char_offset_global = 0
+        for r_idx, run in enumerate(para.runs):
+            run_text = run.text
+            for m in _XX_RE.finditer(run_text):
+                f_counter += 1
+                # Build context (80 chars each side for better LLM understanding)
+                full_text = para.text
+                global_start = char_offset_global + m.start()
+                before = full_text[max(0, global_start - 80):global_start]
+                after = full_text[global_start + len(m.group()):
+                                  global_start + len(m.group()) + 80]
+                fields.append(FieldSlot(
+                    field_id=f"f{f_counter:03d}",
+                    context_before=before.strip(),
+                    context_after=after.strip(),
+                    xx_text=m.group(),
+                    para_idx=p_idx,
+                    run_idx=r_idx,
+                    char_offset=m.start(),
+                    cell_path=cell_path,
+                ))
+            char_offset_global += len(run_text)
+
+        # --- Checkboxes ---
+        char_offset_global = 0
+        for r_idx, run in enumerate(para.runs):
+            run_text = run.text
+            for m in _CB_RE.finditer(run_text):
+                cb_counter += 1
+                # Option text: chars after checkbox until next checkbox or end
+                after_pos = char_offset_global + m.start() + 1
+                full_text = para.text
+                next_cb = _CB_RE.search(full_text[after_pos:])
+                end_pos = after_pos + next_cb.start() if next_cb else min(after_pos + 30, len(full_text))
+                option_text = full_text[after_pos:end_pos].strip()
+                # Clean option text
+                option_text = re.sub(r'\s+', '', option_text)[:20]
+
+                checkboxes.append(CheckboxSlot(
+                    cb_id=f"cb{cb_counter:03d}",
+                    option_text=option_text,
+                    group_context=text[:60],
+                    para_idx=p_idx,
+                    run_idx=r_idx,
+                    char_offset=m.start(),
+                    cell_path=cell_path,
+                ))
+            char_offset_global += len(run_text)
+
+        # --- Example paragraphs (text with many XX => full rewrite) ---
+        xx_count = len(_XX_RE.findall(text))
+        single_x_count = len(_SINGLE_X_RE.findall(text))
+        total_x = xx_count + single_x_count
+        # A paragraph is "example" if it has enough placeholders to warrant
+        # a full rewrite rather than individual field extraction:
+        #   - 4+ XX groups (regardless of markers), OR
+        #   - 3+ XX groups AND has a marker keyword, OR
+        #   - 2+ XX groups AND text > 100 chars AND has marker
+        is_example = False
+        if total_x >= 4 and len(text) > 60:
+            is_example = True
+        elif xx_count >= 3 and len(text) > 60:
+            is_example = True
+        elif xx_count >= 2 and len(text) > 100:
+            has_marker = any(mk in text for mk in _EXAMPLE_MARKERS)
+            if has_marker:
+                is_example = True
+
+        # Additional pattern-based detection: template guidance phrases and
+        # known sample-industry words also indicate example/template content
+        if not is_example and len(text) > 20:
+            # "描述" followed by "情况" within 20 chars
+            m_desc = re.search(r"描述", text)
+            if m_desc:
+                after = text[m_desc.start():m_desc.start() + 20]
+                if "情况" in after:
+                    is_example = True
+            # Template guidance keywords
+            if not is_example and any(kw in text for kw in ("简述", "列明", "例如", "请勿")):
+                is_example = True
+            # Known template sample-industry words
+            if not is_example and any(kw in text for kw in ("模具", "塑胶", "注塑")):
+                is_example = True
+
+        if is_example:
+            ex_counter += 1
+            examples.append(ExampleParagraph(
+                ex_id=f"ex{ex_counter:03d}",
+                original_text=text,
+                section_context=current_heading,
+                para_idx=p_idx,
+                cell_path=cell_path,
+            ))
+
+    # Remove fields that belong to example paragraphs (will be rewritten wholly)
+    example_para_idxs = {ex.para_idx for ex in examples}
+    fields = [f for f in fields if f.para_idx not in example_para_idxs]
+
+    return fields, checkboxes, examples
+
+
+def scan_labeled_fields(cell, table_idx: int, row_idx: int, cell_idx: int,
+                        is_nested: bool = False):
+    """
+    Scan a table cell for 'label：blank' fields.
+    These are fields like '客户名称：       ' where the value is blank spaces.
+    Also handles embedded blanks like '上年度资产总额       万元'.
+    """
+    labeled_fields = []
+    lf_counter = 0
+    cell_path = (table_idx, row_idx, cell_idx)
+
+    for p_idx, para in enumerate(cell.paragraphs):
+        text = para.text
+        if not text.strip():
+            continue
+
+        # Skip lines that contain any checkboxes (handled separately)
+        if text.count('□') + text.count('☐') + text.count('☑') >= 1:
+            continue
+
+        # Strategy: look at runs for blank segments (3+ spaces/tabs OR 3+ underscores)
+        for r_idx, run in enumerate(para.runs):
+            rt = run.text
+            # ★ v7.14: Check if this run is blank spaces/tabs OR underscore blanks
+            is_space_blank = re.match(r'^[\s\t]{3,}$', rt) and len(rt.strip()) == 0
+            is_underscore_blank = bool(re.match(r'^_{3,}$', rt))
+            if is_space_blank or is_underscore_blank:
+                # Find what label is before this blank run
+                # Look at previous runs to build label
+                label_parts = []
+                for prev_ri in range(r_idx - 1, max(r_idx - 5, -1), -1):
+                    prev_text = para.runs[prev_ri].text.strip()
+                    if prev_text:
+                        label_parts.insert(0, prev_text)
+                        # Stop at colon - we found the label
+                        if prev_text.endswith('：') or prev_text.endswith(':'):
+                            break
+                        if '：' in prev_text or ':' in prev_text:
+                            break
+
+                label = ''.join(label_parts).strip()
+                if not label or len(label) < 2:
+                    continue
+
+                # Find trailing unit (what comes after the blank)
+                unit = ""
+                for next_ri in range(r_idx + 1, min(r_idx + 3, len(para.runs))):
+                    next_text = para.runs[next_ri].text.strip()
+                    if next_text:
+                        # Common units
+                        for u in ['万元', '元', '人', '年', '月', '个', '户',
+                                  '天', '%', '万', '㎡', '平']:
+                            if next_text.startswith(u):
+                                unit = u
+                        break
+
+                lf_counter += 1
+                labeled_fields.append(LabeledField(
+                    lf_id=f"lf{lf_counter:03d}",
+                    label=label,
+                    context_line=text.strip()[:100],
+                    para_idx=p_idx,
+                    run_idx=r_idx,
+                    cell_path=cell_path,
+                    unit=unit,
+                ))
+
+    # Filter out signature/approval/irrelevant fields
+    SKIP_LABELS = [
+        '日期', '客户经理', '共同调查人', '管理经理', '二级支行行长',
+        '分管行长', '行长', '审查员', '审批人', '签名', '盖章',
+        '最新股权结构表',  # table header, not a field
+    ]
+    # Also skip fields in Row 2 (pre-filled row with loan terms)
+    filtered = []
+    seen_contexts = set()
+    for lf in labeled_fields:
+        # Skip signature fields
+        skip = False
+        for sl in SKIP_LABELS:
+            if sl in lf.label and len(lf.label) < 25:
+                skip = True
+                break
+        if skip:
+            continue
+
+        # Skip Row 2 (already pre-filled in template) — only for outer cells
+        if not is_nested and lf.cell_path[1] == 2:
+            continue
+
+        # Deduplicate: same paragraph + same label = duplicate detection
+        dedup_key = (lf.cell_path, lf.para_idx, lf.label)
+        if dedup_key in seen_contexts:
+            continue
+        seen_contexts.add(dedup_key)
+
+        filtered.append(lf)
+
+    return filtered
+
+
+# ============================================================
+# 2b. Nested table scanning
+# ============================================================
+
+@dataclass
+class TableSlot:
+    """A nested table inside a cell that needs to be filled."""
+    table_id: str           # nt001, nt002, ...
+    header_row: list        # column header texts
+    row_labels: list        # first column of each data row
+    num_rows: int
+    num_cols: int
+    nested_table_idx: int   # index within parent cell.tables
+    cell_path: tuple        # parent cell (table_idx, row_idx, cell_idx)
+    context: str            # nearby text for LLM context
+    existing_data: dict     # {(row, col): value} for pre-filled cells
+    empty_cells: list       # [(row, col), ...] cells that need filling
+
+
+def scan_nested_tables(cell, table_idx: int, row_idx: int, cell_idx: int):
+    """Scan nested tables inside a cell, find empty cells that need filling."""
+    tables = []
+    cell_path = (table_idx, row_idx, cell_idx)
+
+    # Build a map of paragraph text to find context for each table
+    para_texts = [p.text.strip() for p in cell.paragraphs]
+
+    for nt_idx, nt in enumerate(cell.tables):
+        if len(nt.rows) < 2:
+            continue  # Need at least header + 1 data row
+
+        # Extract header row
+        header = [c.text.strip().replace('\n', '/') for c in nt.rows[0].cells]
+
+        # Deduplicate merged header cells
+        deduped_header = []
+        for i, h in enumerate(header):
+            if i == 0 or h != header[i - 1]:
+                deduped_header.append(h)
+            else:
+                deduped_header.append("")
+
+        # Check if row 1 is also a header (sometimes tables have 2 header rows)
+        row1_texts = [c.text.strip() for c in nt.rows[1].cells]
+        data_start = 1
+        # Heuristic: row 1 is a sub-header ONLY if:
+        # - ALL cells have text (not mostly empty)
+        # - No numeric values
+        # - Short text in each cell
+        # If most cells in row 1 are empty, it's a data row (just unfilled)
+        row1_filled = sum(1 for t in row1_texts if t.strip())
+        row1_numeric = sum(1 for t in row1_texts if t and re.match(r'^[\d,.\-%]+$', t.replace(' ', '')))
+        # Only treat as sub-header if >50% of cells have text and none are numeric
+        if (row1_numeric == 0
+                and row1_filled > len(row1_texts) * 0.5
+                and all(len(t) < 30 for t in row1_texts)):
+            # Likely a sub-header; merge with main header
+            for i in range(min(len(deduped_header), len(row1_texts))):
+                if row1_texts[i] and not deduped_header[i]:
+                    deduped_header[i] = row1_texts[i]
+                elif row1_texts[i] and deduped_header[i]:
+                    deduped_header[i] = deduped_header[i] + '/' + row1_texts[i]
+            data_start = 2
+
+        # Scan data rows for empty cells and row labels
+        row_labels = []
+        empty_cells = []
+        existing_data = {}
+
+        for ri in range(data_start, len(nt.rows)):
+            cells_in_row = nt.rows[ri].cells
+            # First column is typically the row label
+            label = cells_in_row[0].text.strip() if cells_in_row else ""
+            row_labels.append(label)
+
+            for ci in range(len(cells_in_row)):
+                val = cells_in_row[ci].text.strip()
+                if val:
+                    existing_data[(ri, ci)] = val
+                else:
+                    # Only mark as empty if header is meaningful
+                    if ci < len(deduped_header) and deduped_header[ci]:
+                        empty_cells.append((ri, ci))
+
+        # Skip tables with no empty cells
+        if not empty_cells:
+            continue
+
+        # Find context: text near this table in the parent cell
+        # (Use the first row's text to locate approximate position)
+        table_first_text = nt.rows[0].cells[0].text.strip()[:30]
+        context = ""
+        for pi, pt in enumerate(para_texts):
+            if table_first_text and table_first_text in pt:
+                # Get surrounding paragraphs
+                start = max(0, pi - 2)
+                end = min(len(para_texts), pi + 2)
+                context = " | ".join(para_texts[start:end])[:200]
+                break
+
+        tables.append(TableSlot(
+            table_id=f"nt{nt_idx + 1:03d}",
+            header_row=deduped_header,
+            row_labels=row_labels,
+            num_rows=len(nt.rows),
+            num_cols=len(nt.columns),
+            nested_table_idx=nt_idx,
+            cell_path=cell_path,
+            context=context,
+            existing_data=existing_data,
+            empty_cells=empty_cells,
+        ))
+
+    return tables
+
+
+def scan_document(doc: Document):
+    """Scan entire document for fields, checkboxes, examples, nested tables,
+    AND labeled blank fields."""
+    all_fields = []
+    all_checkboxes = []
+    all_examples = []
+    all_tables = []
+    all_labeled = []
+
+    # Global counters to ensure unique IDs across all cells
+    global_f = 0
+    global_cb = 0
+    global_ex = 0
+    global_lf = 0
+
+    for t_idx, table in enumerate(doc.tables):
+        for r_idx, row in enumerate(table.rows):
+            for c_idx, cell in enumerate(row.cells):
+                f, cb, ex = scan_cell_fields(cell, t_idx, r_idx, c_idx)
+                # Re-assign globally unique IDs
+                for item in f:
+                    global_f += 1
+                    item.field_id = f"f{global_f:03d}"
+                for item in cb:
+                    global_cb += 1
+                    item.cb_id = f"cb{global_cb:03d}"
+                for item in ex:
+                    global_ex += 1
+                    item.ex_id = f"ex{global_ex:03d}"
+                all_fields.extend(f)
+                all_checkboxes.extend(cb)
+                all_examples.extend(ex)
+
+                # Scan labeled blank fields
+                lf = scan_labeled_fields(cell, t_idx, r_idx, c_idx)
+                for item in lf:
+                    global_lf += 1
+                    item.lf_id = f"lf{global_lf:03d}"
+                all_labeled.extend(lf)
+
+                # Scan nested tables
+                nt = scan_nested_tables(cell, t_idx, r_idx, c_idx)
+                all_tables.extend(nt)
+
+                # ★ v7.13/v7.14: Scan nested table cells for XX/checkbox/example/labeled.
+                # Use 6-tuple cell_path so _get_cell() resolves to the correct
+                # nested cell (fixes v7.12 bug where 3-tuple was used, causing
+                # apply_field_values to write into wrong outer-table cells).
+                for nt_idx2, nt_obj in enumerate(cell.tables):
+                    for nr_idx2, nr2 in enumerate(nt_obj.rows):
+                        for nc_idx2, nc2 in enumerate(nr2.cells):
+                            nested_path = (t_idx, r_idx, c_idx,
+                                           nt_idx2, nr_idx2, nc_idx2)
+                            f2, cb2, ex2 = scan_cell_fields(
+                                nc2, t_idx, r_idx, c_idx)
+                            # Override cell_path to 6-tuple for correct lookup
+                            for item in f2:
+                                global_f += 1
+                                item.field_id = f"f{global_f:03d}"
+                                item.cell_path = nested_path
+                            for item in cb2:
+                                global_cb += 1
+                                item.cb_id = f"cb{global_cb:03d}"
+                                item.cell_path = nested_path
+                            for item in ex2:
+                                global_ex += 1
+                                item.ex_id = f"ex{global_ex:03d}"
+                                item.cell_path = nested_path
+                            all_fields.extend(f2)
+                            all_checkboxes.extend(cb2)
+                            all_examples.extend(ex2)
+
+                            # ★ v7.14: Also scan nested cells for labeled blank fields
+                            # (e.g. 应收账款___万元 inside financial analysis tables)
+                            lf2 = scan_labeled_fields(nc2, t_idx, r_idx, c_idx,
+                                                       is_nested=True)
+                            for item in lf2:
+                                global_lf += 1
+                                item.lf_id = f"lf{global_lf:03d}"
+                                item.cell_path = nested_path  # 6-tuple for correct lookup
+                            all_labeled.extend(lf2)
+
+    # Also scan doc.paragraphs (in case some content is outside tables)
+    for p_idx, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text:
+            continue
+        char_offset_global = 0
+        for r_idx, run in enumerate(para.runs):
+            for m in _XX_RE.finditer(run.text):
+                fid = f"f{len(all_fields)+1:03d}"
+                full_text = para.text
+                gs = char_offset_global + m.start()
+                before = full_text[max(0, gs-40):gs]
+                after = full_text[gs+len(m.group()):gs+len(m.group())+40]
+                all_fields.append(FieldSlot(
+                    field_id=fid,
+                    context_before=before.strip(),
+                    context_after=after.strip(),
+                    xx_text=m.group(),
+                    para_idx=p_idx,
+                    run_idx=r_idx,
+                    char_offset=m.start(),
+                    cell_path=None,
+                ))
+            char_offset_global += len(run.text)
+
+    return all_fields, all_checkboxes, all_examples, all_tables, all_labeled
+
+
+# ============================================================
+# 2.5 Template semantic analysis (改造一: 模板语义解析层)
+# ============================================================
+
+def build_template_semantic_analysis_prompt(
+    fields: list[FieldSlot],
+    checkboxes: list[CheckboxSlot],
+    examples: list[ExampleParagraph],
+    labeled_fields: list[LabeledField],
+    nested_tables: list,
+) -> tuple[str, str]:
+    """Build a prompt for LLM to analyze template semantics.
+
+    ★ 改造一: 让 LLM 理解模板的语义规范，而非简单把模板当作"容器来填充"。
+
+    Returns (system_prompt, user_prompt).
+    """
+    # 收集模板结构摘要
+    field_summaries = []
+    for f in fields[:50]:  # 限制数量避免prompt过长
+        ctx = f"{f.context_before} [XX] {f.context_after}".strip()
+        field_summaries.append(f'  - {f.field_id}: "{ctx}"')
+
+    checkbox_summaries = []
+    for cb in checkboxes[:30]:
+        checkbox_summaries.append(f'  - {cb.cb_id}: "{cb.option_text}" (组: {cb.group_context[:30]}...)')
+
+    example_summaries = []
+    for ex in examples[:20]:
+        ex_text = ex.original_text[:80].replace('\n', ' ')
+        example_summaries.append(f'  - {ex.ex_id}: [{ex.section_context}] {ex_text}...')
+
+    labeled_summaries = []
+    for lf in labeled_fields[:30]:
+        labeled_summaries.append(f'  - {lf.lf_id}: "{lf.label}" (单位: {lf.unit or "无"})')
+
+    table_summaries = []
+    for ts in nested_tables[:10]:
+        headers = " | ".join(str(h) for h in (ts.header_row or [])[:5])
+        rows = len(ts.row_labels) if hasattr(ts, 'row_labels') and ts.row_labels else 0
+        table_summaries.append(f'  - {ts.table_id}: 列头=[{headers}] 行数={rows}')
+
+    system_prompt = """你是银行授信调查报告模板分析专家。任务是从模板结构中提取语义规范。
+
+【分析目标】
+1. 理解每个字段在审批决策中的作用（不是简单填空，而是回答审批问题）
+2. 识别字段的语义类型（事实型/判断型/计算型/选项型）
+3. 确定字段的预期数据来源（材料原文/计算推导/人工判断）
+4. 发现字段之间的语义关联（如"资产负债率"依赖"总资产"和"总负债"）
+5. ★识别语义块：将逻辑相关的字段组织成语义块，便于整体处理
+
+【字段语义类型定义】
+- 事实型: 可从材料中直接提取的事实（如企业名称、注册资本、股东名称）
+- 计算型: 需要从其他数据计算得出（如资产负债率=负债/资产）
+- 判断型: 需要人工或专业判断（如风险等级、审批意见）
+- 选项型: 从预设选项中选择（如ESG评级A/B/C）
+- 描述型: 需要综合信息撰写专业描述（如经营分析、风险评价）
+
+【语义块定义】
+语义块是逻辑上相关的字段集合，应该一起填写以保证一致性：
+- 企业基本块：企业名称、成立时间、注册资本、法人等
+- 股东结构块：股东名称、持股比例、出资额等
+- 经营情况块：主营业务、收入结构、上下游客户等
+- 财务指标块：资产负债率、流动比率、营收、利润等
+- 风险评价块：风险信号、负面信息、ESG评级等
+
+【输出格式】返回JSON：
+{
+  "template_overview": "模板整体结构说明（2-3句）",
+  "semantic_blocks": [
+    {
+      "block_id": "block_001",
+      "block_name": "企业基本信息",
+      "block_type": "basic_info/shareholder/business/financial/risk/custom",
+      "purpose": "该语义块在审批中的作用",
+      "field_ids": ["f001", "f002", "lf001"],
+      "checkbox_ids": ["cb001"],
+      "example_ids": ["ex001"],
+      "table_ids": ["table_001"],
+      "data_requirements": ["需要的材料类型"],
+      "fill_strategy": "一起填写/分开填写/优先级"
+    }
+  ],
+  "sections": [
+    {
+      "name": "章节名称",
+      "purpose": "该章节在审批中的作用",
+      "key_fields": ["字段ID列表"]
+    }
+  ],
+  "field_semantics": {
+    "f001": {
+      "semantic_type": "事实型/计算型/判断型/选项型/描述型",
+      "description": "字段语义描述",
+      "data_source": "材料原文/计算推导/人工判断/选项勾选",
+      "related_fields": ["相关字段ID"],
+      "validation_hints": ["填写提示"]
+    }
+  },
+  "checkbox_groups": {
+    "cb001": {
+      "group_name": "选项组名称",
+      "is_exclusive": true/false,
+      "material_key": "材料中对应的关键词"
+    }
+  },
+  "writing_guidelines": [
+    "报告撰写的关键指导原则"
+  ]
+}"""
+
+    user_prompt = f"""请分析以下银行授信调查报告模板的语义规范。
+
+===== XX字段列表 (共{len(fields)}个) =====
+{chr(10).join(field_summaries)}
+
+===== 复选框列表 (共{len(checkboxes)}个) =====
+{chr(10).join(checkbox_summaries)}
+
+===== 示例段落列表 (共{len(examples)}个) =====
+{chr(10).join(example_summaries)}
+
+===== 标签字段列表 (共{len(labeled_fields)}个) =====
+{chr(10).join(labeled_summaries)}
+
+===== 嵌套表格列表 (共{len(nested_tables)}个) =====
+{chr(10).join(table_summaries)}
+
+请返回JSON格式的语义分析结果。"""
+
+    return system_prompt, user_prompt
+
+
+def parse_template_semantic_analysis(response: str) -> dict:
+    """Parse LLM response for template semantic analysis."""
+    try:
+        # 尝试提取JSON
+        json_match = re.search(r'\{[\s\S]*\}', response)
+        if json_match:
+            return json.loads(json_match.group())
+    except Exception:
+        pass
+    return {}
+
+
+def enhance_prompt_with_semantics(
+    base_prompt: str,
+    field_semantics: dict,
+    field_ids: list[str],
+) -> str:
+    """Enhance a prompt with semantic hints for specific fields.
+
+    ★ 改造一: 将语义分析结果注入填写prompt，指导LLM正确填写。
+    """
+    if not field_semantics:
+        return base_prompt
+
+    hints = []
+    for fid in field_ids:
+        sem = field_semantics.get(fid, {})
+        if not sem:
+            continue
+        sem_type = sem.get("semantic_type", "")
+        data_source = sem.get("data_source", "")
+        validation = sem.get("validation_hints", [])
+
+        hint_parts = []
+        if sem_type:
+            hint_parts.append(f"类型:{sem_type}")
+        if data_source:
+            hint_parts.append(f"来源:{data_source}")
+        if validation:
+            hint_parts.append(f"提示:{validation[0]}")
+
+        if hint_parts:
+            hints.append(f"  {fid}: {', '.join(hint_parts)}")
+
+    if not hints:
+        return base_prompt
+
+    semantic_block = f"""
+【字段语义指导】
+{chr(10).join(hints)}
+"""
+    return base_prompt + semantic_block
+
+
+# ============================================================
+# 2.6 Semantic block driven filling (改造三: 语义块驱动填写)
+# ============================================================
+
+def build_semantic_block_prompt(
+    block: dict,
+    fields: list[FieldSlot],
+    checkboxes: list[CheckboxSlot],
+    examples: list[ExampleParagraph],
+    labeled_fields: list[LabeledField],
+    materials: str,
+    company_profile: str = "",
+    kb: dict = None,
+) -> tuple[str, str]:
+    """Build a prompt for filling a semantic block.
+
+    ★ 改造三: 按语义块而非字段类型组织填写，保证相关字段的一致性。
+
+    Args:
+        block: 语义块定义，包含 block_id, block_name, field_ids, checkbox_ids 等
+        fields/checkboxes/examples/labeled_fields: 全部字段列表
+        materials: 材料文本
+        company_profile: 企业画像
+        kb: 知识库
+
+    Returns:
+        (system_prompt, user_prompt)
+    """
+    block_id = block.get("block_id", "unknown")
+    block_name = block.get("block_name", "")
+    block_type = block.get("block_type", "custom")
+    purpose = block.get("purpose", "")
+    field_ids = block.get("field_ids", [])
+    checkbox_ids = block.get("checkbox_ids", [])
+    example_ids = block.get("example_ids", [])
+    labeled_ids = block.get("labeled_ids", [])
+
+    # 筛选本语义块的字段
+    block_fields = [f for f in fields if f.field_id in field_ids]
+    block_checkboxes = [cb for cb in checkboxes if cb.cb_id in checkbox_ids]
+    block_examples = [ex for ex in examples if ex.ex_id in example_ids]
+    block_labeled = [lf for lf in labeled_fields if lf.lf_id in labeled_ids]
+
+    # 构建字段列表
+    field_list_lines = []
+    for f in block_fields:
+        ctx = f'"{f.context_before}" [__XX__({f.xx_text})] "{f.context_after}"'
+        field_list_lines.append(f'  "{f.field_id}" (XX字段): {ctx}')
+    for lf in block_labeled:
+        unit_hint = f" (单位: {lf.unit})" if lf.unit else ""
+        field_list_lines.append(f'  "{lf.lf_id}" (标签字段): {lf.label}{unit_hint}')
+    for cb in block_checkboxes:
+        field_list_lines.append(f'  "{cb.cb_id}" (复选框): {cb.option_text}')
+
+    field_list = "\n".join(field_list_lines)
+
+    # KB 维度推断
+    materials_text = materials
+    if kb and (block_fields or block_labeled):
+        from material_kb import infer_dimensions_for_batch, build_dimension_text
+        dimensions = infer_dimensions_for_batch(block_fields) if block_fields else ["basic_info"]
+        kb_materials = build_dimension_text(kb, dimensions, max_chars=6000)
+        if len(kb_materials) > 200:
+            materials_text = kb_materials
+        elif materials:
+            materials_text = f"{kb_materials}\n\n===== 补充材料 =====\n{materials[:3000]}"
+
+    profile_prefix = f"{company_profile}\n\n" if company_profile else ""
+
+    system_prompt = (
+        f"{profile_prefix}"
+        f"你是银行授信调查报告填写专家。现在填写【{block_name}】语义块。\n"
+        f"该语义块的目的：{purpose}\n\n"
+        "【填写规则】\n"
+        "1. 严格基于材料填写，不编造数据\n"
+        "2. 同一语义块内的字段应该保持逻辑一致性\n"
+        "3. 金额单位与上下文保持一致（看前后文是万元还是亿元）\n"
+        "4. 日期格式：YYYY年MM月DD日 或 YYYY年MM月\n"
+        "5. 只有材料中完全没有该信息时，才填 \"待补充\"\n"
+        "6. 复选框：返回需要勾选的ID列表\n"
+        "7. 返回纯JSON格式\n\n"
+        "【输出格式】\n"
+        '{"fields": {"f001": "值", "lf001": "值"}, "checked": ["cb001", "cb002"]}'
+    )
+
+    example_section = ""
+    if block_examples:
+        ex_texts = []
+        for ex in block_examples:
+            ex_texts.append(f"- [{ex.section_context}] {ex.original_text[:150]}...")
+        example_section = f"\n\n【相关示例段落】\n" + "\n".join(ex_texts)
+
+    user_prompt = (
+        f"请填写【{block_name}】语义块的以下字段：\n\n"
+        f"===== 字段列表 =====\n"
+        f"{field_list}\n"
+        f"{example_section}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials_text}\n\n"
+        f"返回JSON格式结果。"
+    )
+
+    return system_prompt, user_prompt
+
+
+def organize_fields_by_semantic_blocks(
+    fields: list[FieldSlot],
+    checkboxes: list[CheckboxSlot],
+    examples: list[ExampleParagraph],
+    labeled_fields: list[LabeledField],
+    template_semantics: dict,
+) -> list[dict]:
+    """Organize fields into semantic blocks based on template analysis.
+
+    ★ 改造三: 根据语义分析结果将字段组织成语义块。
+
+    Returns:
+        List of semantic block dicts, each containing:
+        - block_id, block_name, block_type, purpose
+        - field_ids, checkbox_ids, example_ids, labeled_ids
+    """
+    semantic_blocks = template_semantics.get("semantic_blocks", [])
+    if semantic_blocks:
+        return semantic_blocks
+
+    # 如果没有语义块定义，按章节/类型自动组织
+    sections = template_semantics.get("sections", [])
+    field_semantics = template_semantics.get("field_semantics", {})
+
+    # 按语义类型分组
+    type_groups = {
+        "basic_info": {"block_name": "企业基本信息", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+        "shareholder": {"block_name": "股东结构", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+        "business": {"block_name": "经营情况", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+        "financial": {"block_name": "财务指标", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+        "risk": {"block_name": "风险评价", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+        "other": {"block_name": "其他字段", "field_ids": [], "checkbox_ids": [], "labeled_ids": []},
+    }
+
+    # 根据字段语义类型分组
+    for f in fields:
+        sem = field_semantics.get(f.field_id, {})
+        sem_type = sem.get("semantic_type", "fact")
+        # 映射语义类型到块类型
+        if sem_type in ["fact"]:
+            block_type = "basic_info"
+        elif sem_type in ["calculate", "computed"]:
+            block_type = "financial"
+        elif sem_type in ["judgment", "option"]:
+            block_type = "risk"
+        else:
+            block_type = "other"
+
+        # 根据字段上下文细化
+        ctx = f"{f.context_before} {f.context_after}"
+        if any(kw in ctx for kw in ["股东", "持股", "出资"]):
+            block_type = "shareholder"
+        elif any(kw in ctx for kw in ["业务", "经营", "主营", "上游", "下游"]):
+            block_type = "business"
+        elif any(kw in ctx for kw in ["财务", "资产", "负债", "收入", "利润"]):
+            block_type = "financial"
+        elif any(kw in ctx for kw in ["风险", "ESG", "诉讼", "负面"]):
+            block_type = "risk"
+
+        type_groups[block_type]["field_ids"].append(f.field_id)
+
+    # 标签字段分组
+    for lf in labeled_fields:
+        label = lf.label
+        if any(kw in label for kw in ["股东", "持股"]):
+            type_groups["shareholder"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["业务", "经营"]):
+            type_groups["business"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["财务", "资产", "负债"]):
+            type_groups["financial"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["风险", "ESG"]):
+            type_groups["risk"]["labeled_ids"].append(lf.lf_id)
+        else:
+            type_groups["basic_info"]["labeled_ids"].append(lf.lf_id)
+
+    # 复选框分组
+    for cb in checkboxes:
+        ctx = cb.group_context or cb.option_text
+        if any(kw in ctx for kw in ["ESG", "风险", "评级"]):
+            type_groups["risk"]["checkbox_ids"].append(cb.cb_id)
+        else:
+            type_groups["other"]["checkbox_ids"].append(cb.cb_id)
+
+    # 构建语义块列表
+    blocks = []
+    block_idx = 1
+    for block_type, data in type_groups.items():
+        field_ids = data["field_ids"]
+        checkbox_ids = data["checkbox_ids"]
+        labeled_ids = data["labeled_ids"]
+
+        if not (field_ids or checkbox_ids or labeled_ids):
+            continue
+
+        blocks.append({
+            "block_id": f"block_{block_idx:03d}",
+            "block_name": data["block_name"],
+            "block_type": block_type,
+            "purpose": f"填写{data['block_name']}相关信息",
+            "field_ids": field_ids,
+            "checkbox_ids": checkbox_ids,
+            "labeled_ids": labeled_ids,
+            "example_ids": [],
+        })
+        block_idx += 1
+
+    return blocks
+
+
+# ============================================================
+# 2.7 Generation-time constraints (改造四: 生成时约束)
+# ============================================================
+
+# 字段验证规则定义
+FIELD_VALIDATION_RULES = {
+    # 金额字段
+    "amount": {
+        "pattern": r"^[\d,.\-]+(?:万?元|亿?元)?$",
+        "invalid_patterns": [
+            r"XX+万?元",
+            r"\d+\.\d+亿",  # 亿级数据需警惕
+            r"[\d,.\-]+\s*-\s*[\d,.\-]+",  # 区间数字
+        ],
+        "error_msg": "金额格式错误或包含模板区间",
+    },
+    # 百分比字段
+    "percent": {
+        "pattern": r"^[\d.]+%?$",
+        "invalid_patterns": [
+            r"XX+%",
+            r"\d{2,3}\s*-\s*\d{2,3}%",
+            r"\d+-\d+%之间",
+        ],
+        "error_msg": "百分比格式错误或包含模板区间",
+    },
+    # 日期字段
+    "date": {
+        "pattern": r"^\d{4}年\d{1,2}月(?:\d{1,2}日)?$|^\d{4}[\/\-]\d{1,2}(?:[\/\-]\d{1,2})?$",
+        "invalid_patterns": [
+            r"XX年",
+            r"XX月",
+            r"XX日",
+        ],
+        "error_msg": "日期格式错误或包含占位符",
+    },
+    # 人名字段
+    "name": {
+        "pattern": r"^[\u4e00-\u9fff]{2,4}$",
+        "invalid_patterns": [
+            r"[张李王陈刘]XX",
+            r"XX$",
+        ],
+        "error_msg": "姓名格式错误或包含占位符",
+    },
+    # 公司名称
+    "company": {
+        "pattern": r"^[\u4e00-\u9fff\w（）()]+(?:有限公司|股份有限公司|集团)$",
+        "invalid_patterns": [
+            r"XX公司",
+            r"XX有限",
+            r"XX集团",
+        ],
+        "error_msg": "公司名称包含占位符",
+    },
+}
+
+# 模板泄漏检测模式
+TEMPLATE_LEAKAGE_PATTERNS = [
+    (r"(?:张|李|王|陈|刘)XX", "虚假姓名占位符"),
+    (r"\d{2,3}\s*-\s*\d{2,3}%\s*之间", "模板区间百分比"),
+    (r"(?<!\d)\d{1,3}(?:\.\d+)?\s*-\s*\d{1,3}(?:\.\d+)?(?!\d)", "模板区间数字"),
+    (r"\d+\.\d+亿(?:元|营收)", "模板示例亿级数据"),
+    (r"主要生产模具|主要从事模具|模具生产|模具加工", "模板示例行业错配"),
+    (r"塑胶|注塑", "模板示例行业残留"),
+    (r"(?:请简述|请描述|请列明|描述实地走访)", "模板指导性文字残留"),
+    (r"XX公司|XX有限|XX集团|XX银行", "公司名称占位符"),
+    (r"XX年|XX月|XX日", "日期占位符"),
+    (r"XX万元|XX万|XX元", "金额占位符"),
+]
+
+
+def detect_field_type(context: str) -> str:
+    """Detect field type from context for validation.
+
+    ★ 改造四: 根据字段上下文推断字段类型，用于选择验证规则。
+    """
+    context_lower = context.lower()
+
+    # 金额相关
+    if any(kw in context_lower for kw in ["万元", "元", "金额", "额度", "资本", "资产", "负债", "收入", "利润"]):
+        return "amount"
+
+    # 百分比相关
+    if any(kw in context_lower for kw in ["比例", "占比", "%", "比率", "率"]):
+        return "percent"
+
+    # 日期相关
+    if any(kw in context_lower for kw in ["日期", "时间", "成立", "批复", "截止"]):
+        return "date"
+
+    # 人名相关
+    if any(kw in context_lower for kw in ["代表", "经理", "人", "实控人", "股东", "配偶", "审批人"]):
+        return "name"
+
+    # 公司相关
+    if any(kw in context_lower for kw in ["公司", "企业", "客户", "供应商", "银行"]):
+        return "company"
+
+    return "default"
+
+
+def validate_field_value(field_id: str, value: str, context: str = "") -> tuple[bool, str]:
+    """Validate a field value against type-specific rules.
+
+    ★ 改造四: 生成时验证，而非后处理修补。
+
+    Returns:
+        (is_valid, error_message)
+    """
+    if not value or value == "待补充":
+        return True, ""
+
+    # 检查模板泄漏
+    for pattern, desc in TEMPLATE_LEAKAGE_PATTERNS:
+        if re.search(pattern, value):
+            return False, f"模板泄漏: {desc}"
+
+    # 根据上下文推断字段类型
+    field_type = detect_field_type(context or field_id)
+
+    if field_type == "default":
+        return True, ""
+
+    rules = FIELD_VALIDATION_RULES.get(field_type, {})
+
+    # 检查无效模式
+    for invalid_pat in rules.get("invalid_patterns", []):
+        if re.search(invalid_pat, value):
+            return False, rules.get("error_msg", "格式错误")
+
+    return True, ""
+
+
+def validate_batch_values(values: dict[str, str], fields: list) -> dict[str, tuple[str, bool, str]]:
+    """Validate a batch of field values.
+
+    ★ 改造四: 批量验证，返回验证结果。
+
+    Returns:
+        Dict of {field_id: (value, is_valid, error_message)}
+    """
+    results = {}
+
+    # 构建字段上下文映射
+    field_contexts = {}
+    for f in fields:
+        if hasattr(f, 'field_id'):
+            ctx = f"{getattr(f, 'context_before', '')} {getattr(f, 'context_after', '')}"
+            field_contexts[f.field_id] = ctx
+
+    for fid, value in values.items():
+        if not value or value == "待补充":
+            results[fid] = (value, True, "")
+            continue
+
+        context = field_contexts.get(fid, "")
+        is_valid, error = validate_field_value(fid, value, context)
+        results[fid] = (value, is_valid, error)
+
+    return results
+
+
+def build_constrained_prompt(base_system: str, base_user: str, field_types: dict = None) -> tuple[str, str]:
+    """Add generation-time constraints to prompts.
+
+    ★ 改造四: 在生成时注入约束，而非后处理修补。
+
+    Args:
+        base_system: 原始 system prompt
+        base_user: 原始 user prompt
+        field_types: 可选的字段类型映射
+
+    Returns:
+        (enhanced_system, enhanced_user)
+    """
+    constraints = """
+【生成约束·必须遵守】
+1. 禁止使用模板示例值：
+   - 金额区间如"1.4-1.5亿"、"65-70%之间"
+   - 假姓名如"张XX"、"李XX"
+   - 示例行业如"塑胶"、"注塑"、"模具"
+2. 禁止保留占位符：
+   - XX万元、XX年、XX公司等必须替换为真实数据
+   - 如果材料中没有数据，填"待补充"，不要保留XX
+3. 数值格式规范：
+   - 金额：纯数字+单位（如"5000万元"）
+   - 百分比：纯数字+%（如"65%"）
+   - 日期：YYYY年MM月DD日格式
+4. 一致性约束：
+   - 同一企业的名称在全报告中保持一致
+   - 金额单位与上下文匹配（万元/亿元/元）
+"""
+
+    enhanced_system = base_system + constraints
+
+    # 添加字段类型提示
+    if field_types:
+        type_hints = []
+        for fid, ftype in field_types.items():
+            if ftype in FIELD_VALIDATION_RULES:
+                type_hints.append(f"  {fid}: {ftype}类型")
+        if type_hints:
+            enhanced_user = base_user + "\n\n【字段类型提示】\n" + "\n".join(type_hints)
+        else:
+            enhanced_user = base_user
+    else:
+        enhanced_user = base_user
+
+    return enhanced_system, enhanced_user
+
+
+def filter_invalid_values(values: dict[str, str], fields: list) -> dict[str, str]:
+    """Filter out invalid values and mark for re-fill.
+
+    ★ 改造四: 过滤无效值，返回需要重新填写的字段。
+
+    Returns:
+        Filtered values dict with invalid values replaced by "待补充"
+    """
+    validated = validate_batch_values(values, fields)
+    filtered = {}
+
+    for fid, (value, is_valid, error) in validated.items():
+        if is_valid:
+            filtered[fid] = value
+        else:
+            # 无效值替换为待补充
+            filtered[fid] = "待补充"
+
+    return filtered
+
+    # 根据字段语义类型分组
+    for f in fields:
+        sem = field_semantics.get(f.field_id, {})
+        sem_type = sem.get("semantic_type", "fact")
+        # 映射语义类型到块类型
+        if sem_type in ["fact"]:
+            block_type = "basic_info"
+        elif sem_type in ["calculate", "computed"]:
+            block_type = "financial"
+        elif sem_type in ["judgment", "option"]:
+            block_type = "risk"
+        else:
+            block_type = "other"
+
+        # 根据字段上下文细化
+        ctx = f"{f.context_before} {f.context_after}"
+        if any(kw in ctx for kw in ["股东", "持股", "出资"]):
+            block_type = "shareholder"
+        elif any(kw in ctx for kw in ["业务", "经营", "主营", "上游", "下游"]):
+            block_type = "business"
+        elif any(kw in ctx for kw in ["财务", "资产", "负债", "收入", "利润"]):
+            block_type = "financial"
+        elif any(kw in ctx for kw in ["风险", "ESG", "诉讼", "负面"]):
+            block_type = "risk"
+
+        type_groups[block_type]["field_ids"].append(f.field_id)
+
+    # 标签字段分组
+    for lf in labeled_fields:
+        label = lf.label
+        if any(kw in label for kw in ["股东", "持股"]):
+            type_groups["shareholder"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["业务", "经营"]):
+            type_groups["business"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["财务", "资产", "负债"]):
+            type_groups["financial"]["labeled_ids"].append(lf.lf_id)
+        elif any(kw in label for kw in ["风险", "ESG"]):
+            type_groups["risk"]["labeled_ids"].append(lf.lf_id)
+        else:
+            type_groups["basic_info"]["labeled_ids"].append(lf.lf_id)
+
+    # 复选框分组
+    for cb in checkboxes:
+        ctx = cb.group_context or cb.option_text
+        if any(kw in ctx for kw in ["ESG", "风险", "评级"]):
+            type_groups["risk"]["checkbox_ids"].append(cb.cb_id)
+        else:
+            type_groups["other"]["checkbox_ids"].append(cb.cb_id)
+
+    # 构建语义块列表
+    blocks = []
+    block_idx = 1
+    for block_type, data in type_groups.items():
+        field_ids = data["field_ids"]
+        checkbox_ids = data["checkbox_ids"]
+        labeled_ids = data["labeled_ids"]
+
+        if not (field_ids or checkbox_ids or labeled_ids):
+            continue
+
+        blocks.append({
+            "block_id": f"block_{block_idx:03d}",
+            "block_name": data["block_name"],
+            "block_type": block_type,
+            "purpose": f"填写{data['block_name']}相关信息",
+            "field_ids": field_ids,
+            "checkbox_ids": checkbox_ids,
+            "labeled_ids": labeled_ids,
+            "example_ids": [],
+        })
+        block_idx += 1
+
+    return blocks
+
+
+# ============================================================
+# 3. LLM prompt builders
+# ============================================================
+
+def build_field_extraction_prompt(fields: list[FieldSlot], materials: str,
+                                  batch_start: int = 0, batch_size: int = 40,
+                                  company_profile: str = "",
+                                  kb: dict = None,
+                                  template_semantics: dict = None):
+    """
+    Build a prompt asking LLM to extract values for a batch of XX fields.
+    Returns (system_prompt, user_prompt, batch_fields).
+
+    ★ 改造二: 支持 KB 维度检索。如果传入 kb，则根据字段上下文推断相关维度，
+    只检索相关的 KB 内容，而非全量截断材料。
+
+    ★ 改造一: 支持模板语义分析。如果传入 template_semantics，则注入语义指导。
+    """
+    batch = fields[batch_start:batch_start + batch_size]
+    if not batch:
+        return None, None, []
+
+    field_list_lines = []
+    for f in batch:
+        ctx = f'"{f.context_before}" [__XX__({f.xx_text})] "{f.context_after}"'
+        field_list_lines.append(f'  "{f.field_id}": {ctx}')
+
+    field_list = "\n".join(field_list_lines)
+
+    profile_prefix = f"{company_profile}\n\n" if company_profile else ""
+
+    system_prompt = (
+        f"{profile_prefix}"
+        "你是银行授信调查报告填写专家。根据提供的企业材料，提取每个字段的真实值。\n"
+        "【规则】\n"
+        "1. 严格基于材料填写，不编造数据\n"
+        "2. 金额单位与上下文保持一致（看前后文是万元还是亿元）\n"
+        "3. 日期格式：YYYY年MM月DD日 或 YYYY年MM月\n"
+        "4. 【重要】尽力从材料中寻找数据！材料中有相关信息就填入，哪怕格式略有不同。\n"
+        "   只有材料中完全没有该信息时，才填 \"待补充\"\n"
+        "5. 返回纯JSON，不要任何其他文字\n"
+        "6. 所有内容纯中文\n"
+        "7. XX的个数暗示了答案的大致长度：XX≈2-4字，XXX≈3-8字，XXXX≈4-10字，XXXXX≈5-20字\n"
+        "8. 人名、公司名、银行名等请从材料中精确提取，不要用代称\n"
+        "9. 【重要】如果XX前后文包含□复选框选项（如□A □B □C、□低 □一般 □较高、□支持类 □审慎类），"
+        "说明该值应通过勾选复选框来表达，不要在XX位置填写选项值（如不要填\"B\"\"一般\"等）。"
+        "这类字段请填\"待补充\"，由复选框流程处理。"
+    )
+
+    # ★ 改造一: 注入字段语义指导
+    if template_semantics and template_semantics.get("field_semantics"):
+        batch_ids = [f.field_id for f in batch]
+        field_sems = template_semantics.get("field_semantics", {})
+        hints = []
+        for fid in batch_ids:
+            sem = field_sems.get(fid, {})
+            if sem:
+                sem_type = sem.get("semantic_type", "")
+                data_source = sem.get("data_source", "")
+                validation = sem.get("validation_hints", [])
+                hint_parts = []
+                if sem_type:
+                    hint_parts.append(f"类型:{sem_type}")
+                if data_source:
+                    hint_parts.append(f"来源:{data_source}")
+                if validation:
+                    hint_parts.append(f"提示:{validation[0]}")
+                if hint_parts:
+                    hints.append(f"  {fid}: {', '.join(hint_parts)}")
+        if hints:
+            system_prompt += f"\n\n【字段语义指导】\n" + "\n".join(hints)
+
+    # ★ 改造二: 使用 KB 维度检索替代全量截断
+    if kb:
+        dimensions = infer_dimensions_for_batch(batch)
+        kb_materials = build_dimension_text(kb, dimensions, max_chars=8000)
+        # 如果 KB 内容不足，补充部分原始材料
+        if len(kb_materials) < 2000 and materials:
+            supplement = materials[:4000]
+            materials_text = f"{kb_materials}\n\n===== 补充材料 =====\n{supplement}"
+        else:
+            materials_text = kb_materials
+    else:
+        # 兼容旧调用方式
+        materials_text = materials if materials else ""
+
+    # ★ 改造四: 添加生成时约束
+    constraints = """
+
+【生成约束·必须遵守】
+1. 禁止使用模板示例值：
+   - 金额区间如"1.4-1.5亿"、"65-70%之间"
+   - 假姓名如"张XX"、"李XX"
+   - 示例行业如"塑胶"、"注塑"、"模具"
+2. 禁止保留占位符：
+   - XX万元、XX年、XX公司等必须替换为真实数据
+   - 如果材料中没有数据，填"待补充"，不要保留XX
+3. 数值格式规范：
+   - 金额：纯数字+单位（如"5000万元"）
+   - 百分比：纯数字+%（如"65%"）
+   - 日期：YYYY年MM月DD日格式"""
+
+    system_prompt += constraints
+
+    user_prompt = (
+        f"请从以下企业材料中提取数据，填写这些字段。\n\n"
+        f"===== 需要填写的字段 =====\n"
+        f"格式: \"字段ID\": \"前文\" [__XX__(原始占位符)] \"后文\"\n"
+        f"[__XX__]是需要你填入真实数据的位置，前文和后文帮助你理解语境。\n\n"
+        f"{field_list}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials_text}\n\n"
+        f"请返回JSON，格式: {{\"f001\": \"提取的值\", \"f002\": \"提取的值\", ...}}\n"
+        f"注意：每个值应该是替换XX后能让整个句子通顺的内容。只返回JSON。"
+    )
+
+    return system_prompt, user_prompt, batch
+
+
+def build_checkbox_prompt(checkboxes: list[CheckboxSlot], materials: str,
+                          company_profile: str = ""):
+    """Build a prompt asking LLM which checkboxes should be ticked."""
+    if not checkboxes:
+        return None, None
+
+    cb_lines = []
+    for cb in checkboxes:
+        cb_lines.append(f'  "{cb.cb_id}": "{cb.option_text}" (上下文: {cb.group_context})')
+    cb_list = "\n".join(cb_lines)
+
+    # Build explicit mutual exclusion groups with semantic awareness
+    # Known mutually exclusive patterns in credit report forms
+    # Known mutually exclusive groups, matched by group_context keyword
+    KNOWN_EXCLUSIVE_GROUPS = [
+        # (group_name, context_keyword, option_keywords)
+        ("客户类型", "授信方案", ["新客户", "存量客户"]),
+        ("授信调整", "授信方案", ["维持", "增加", "减少", "授信方案调整"]),
+        ("规模划型", "规模划型", ["微型", "小型", "中型"]),
+        ("客群分类", "客群", ["支持类", "审慎类", "禁止类"]),
+        ("ESG评价", "ESG", ["A", "B", "C"]),
+        ("反洗钱", "反洗钱", ["低", "一般", "较高", "高（不得"]),
+        ("股权激励", "股权激励", ["是", "否"]),
+    ]
+
+    group_info = []
+    assigned = set()
+    for gname, ctx_kw, keywords in KNOWN_EXCLUSIVE_GROUPS:
+        matched = []
+        for cb in checkboxes:
+            if cb.cb_id in assigned:
+                continue
+            # Must match context keyword first
+            if ctx_kw not in cb.group_context:
+                continue
+            opt = cb.option_text
+            for kw in keywords:
+                if opt.startswith(kw) or kw in opt:
+                    matched.append(cb)
+                    break
+        if len(matched) >= 2:
+            ids = [cb.cb_id for cb in matched]
+            labels = [f"{cb.cb_id}={cb.option_text[:10]}" for cb in matched]
+            assigned.update(ids)
+            group_info.append(f"  互斥组「{gname}」: [{', '.join(labels)}] → 只选1个！")
+
+    # Also detect remaining same-line groups not covered by known patterns
+    line_groups = {}
+    for cb in checkboxes:
+        if cb.cb_id not in assigned:
+            key = cb.group_context
+            if key not in line_groups:
+                line_groups[key] = []
+            line_groups[key].append(cb)
+    for ctx, cbs in line_groups.items():
+        if len(cbs) >= 2:
+            ids = [cb.cb_id for cb in cbs]
+            labels = [f"{cb.cb_id}={cb.option_text[:10]}" for cb in cbs]
+            group_info.append(f"  互斥组: [{', '.join(labels)}] (同行: \"{ctx[:30]}\")")
+
+    group_text = ""
+    if group_info:
+        group_text = (
+            "\n\n【互斥规则 - 极其重要！违反此规则=严重错误】\n"
+            "以下每组中最多只能勾选1个：\n"
+            + "\n".join(group_info)
+            + "\n\n再次强调：每个互斥组只选1个最匹配的！"
+        )
+
+    profile_prefix = f"{company_profile}\n\n" if company_profile else ""
+
+    system_prompt = (
+        f"{profile_prefix}"
+        "你是银行授信调查报告填写专家。根据企业材料，判断哪些复选框应该被勾选。\n"
+        "【规则】\n"
+        "1. 只勾选材料明确支持的选项\n"
+        "2. 不确定的不要勾选\n"
+        "3. 同一行的互斥选项（如：新客户/存量客户、微型/小型/中型）只能选1个！\n"
+        "4. 返回纯JSON"
+    )
+
+    user_prompt = (
+        f"以下是表格中的复选框选项，请判断哪些应该被勾选。\n\n"
+        f"===== 复选框列表 =====\n"
+        f"{cb_list}\n"
+        f"{group_text}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials}\n\n"
+        f'请返回JSON: {{"checked": ["cb001", "cb003", ...]}}\n'
+        f"注意互斥组每组最多勾1个！只返回应该勾选的ID列表。只返回JSON。"
+    )
+
+    return system_prompt, user_prompt
+
+
+def build_table_fill_prompt(tables: list, materials: str,
+                            available_periods: dict = None):
+    """
+    Build a prompt asking LLM to fill in empty cells of nested tables.
+    Returns (system_prompt, user_prompt).
+    """
+    if not tables:
+        return None, None
+
+    system_prompt = (
+        "你是银行授信调查报告填写专家。根据企业材料，填写表格中的空单元格。\n"
+        "【规则】\n"
+        "1. 严格基于材料提取数据，不编造\n"
+        "2. 【单位转换·极其重要】\n"
+        "   - 审计报告/财务报表中的数字通常是「元」\n"
+        "   - 银行表格通常要求「万元」（看表头或列头单位）\n"
+        "   - 如果表头写了「万元」或「单位：万元」，必须将元÷10000，四舍五入取整数（不保留小数）\n"
+        "   - 例：材料中 185,754,300.00元 → 填入 18575\n"
+        "   - 例：材料中 74,296,800.00元 → 填入 7430\n"
+        "   - 如果表头无单位说明，使用材料原始数值\n"
+        "3. 百分比格式：如 65.32%\n"
+        "4. 材料中确实找不到的数据，不要填（不要返回该key）\n"
+        "5. 返回纯JSON，不要任何其他文字\n"
+        "6. 【极其重要】每个单元格的key是 \"行号_列号\"，行号和列号严格按照下方表格描述中的数字\n"
+        "7. 【极其重要】仔细核对科目名称与行号的对应关系！例如：\n"
+        "   - \"货币资金\"对应的数据必须填在\"货币资金\"那一行，不能错位\n"
+        "   - \"主营业务收入\"对应的数据必须填在\"主营业务收入\"那一行\n"
+        "   - 不要把利润表数据填到资产负债表的行里！\n"
+        "8. 【极其重要】不同列代表不同时间点。如果材料中没有某个时间点的数据，该列留空！\n"
+        "   - 例如列头是'2024.9'表示2024年9月数据，如果材料只有2024年全年数据，不能复制到2024.9列\n"
+        "   - '2025.9'表示2025年9月数据，不等于2025年12月数据\n"
+        "   - 宁可留空也不要把其他时间的数据填错列"
+    )
+
+    table_descriptions = []
+    for ts in tables:
+        desc_lines = [f"\n### 表格 {ts.table_id}"]
+        if ts.context:
+            desc_lines.append(f"所在位置: {ts.context}")
+
+        # Show complete table structure as a clear grid
+        desc_lines.append(f"列头: {ts.header_row}")
+
+        # ★ v7.19: Column semantic annotations (year-end vs interim)
+        col_semantics = []
+        for ci, h in enumerate(ts.header_row):
+            h_stripped = h.strip()
+            if ci == 0:
+                col_semantics.append(f"  列{ci}: {h_stripped} (标签列)")
+                continue
+            m_interim = re.search(r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])', h_stripped)
+            m_year_month = re.search(r'(20\d{2})\s*年\s*(0?[1-9]|1[0-2])\s*月', h_stripped)
+            m_year = re.search(r'(20\d{2})', h_stripped)
+            if m_interim:
+                col_semantics.append(
+                    f"  列{ci}: {h_stripped} → 截止{m_interim.group(1)}年"
+                    f"{m_interim.group(2)}月底的期末数据（中期报表）")
+            elif m_year_month:
+                col_semantics.append(
+                    f"  列{ci}: {h_stripped} → 截止{m_year_month.group(1)}年"
+                    f"{m_year_month.group(2)}月底的期末数据（中期报表）")
+            elif m_year:
+                col_semantics.append(
+                    f"  列{ci}: {h_stripped} → {m_year.group(1)}年全年/年末数据（年报）")
+            else:
+                col_semantics.append(f"  列{ci}: {h_stripped}")
+        if any('→' in s for s in col_semantics):
+            desc_lines.append("列含义说明:")
+            desc_lines.extend(col_semantics)
+
+        data_start = ts.num_rows - len(ts.row_labels)
+
+        desc_lines.append(f"\n完整行结构 (行号从{data_start}开始为数据行):")
+        for i, label in enumerate(ts.row_labels):
+            ri = i + data_start
+            # Show which columns are empty for this row
+            empty_cols = [ci for (r, ci) in ts.empty_cells if r == ri]
+            if empty_cols and label:
+                col_names = []
+                for ci in empty_cols:
+                    cn = ts.header_row[ci] if ci < len(ts.header_row) else f"col{ci}"
+                    col_names.append(f"[{ri}_{ci}]{cn}")
+                desc_lines.append(f"  行{ri} \"{label}\": 需填 {', '.join(col_names)}")
+            elif label:
+                desc_lines.append(f"  行{ri} \"{label}\": (已有数据)")
+
+        # Show existing data for reference (show more for better context)
+        if ts.existing_data:
+            sample = sorted(ts.existing_data.items())[:30]
+            desc_lines.append("\n已有数据(参考):")
+            for (ri, ci), val in sample:
+                col_name = ts.header_row[ci] if ci < len(ts.header_row) else f"col{ci}"
+                data_ri = ri - data_start
+                rl = ts.row_labels[data_ri] if 0 <= data_ri < len(ts.row_labels) else ""
+                desc_lines.append(f"  [{ri}_{ci}] {rl}/{col_name} = \"{val[:40]}\"")
+
+        table_descriptions.append("\n".join(desc_lines))
+
+    user_prompt = (
+        f"根据企业材料，填写以下表格中的空单元格。\n\n"
+        f"===== 表格结构 =====\n"
+        f"{''.join(table_descriptions)}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials}\n\n"
+        f"返回JSON格式:\n"
+        f'{{"表格ID": {{"行号_列号": "值"}}}}\n'
+        f'例如: {{"nt015": {{"3_1": "11038985.44", "3_2": "15215612.97", "25_1": "211976666.64"}}}}\n'
+        f"key格式: \"行号_列号\"，严格对应上面每行标注的[行号_列号]。\n"
+        f"【再次强调】确保每个值填在正确的科目行！只返回JSON。"
+    )
+
+    # ★ Anti-hallucination: append material time period constraints
+    if available_periods:
+        years = available_periods.get("available_years", [])
+        interim = available_periods.get("available_interim", [])
+        all_available = years + interim
+
+        forbidden_info = []
+        for ts in tables:
+            forbidden_cols = []
+            for ci, col_header in enumerate(ts.header_row):
+                if ci == 0:
+                    continue  # skip label column
+                col_text = col_header.strip()
+                matched = False
+                for period in all_available:
+                    if period in col_text:
+                        matched = True
+                        break
+                    if period + "\u5e74" in col_text:
+                        matched = True
+                        break
+                if not matched and re.search(r'20\d{2}', col_text):
+                    forbidden_cols.append((ci, col_text))
+            if forbidden_cols:
+                cols_str = ", ".join(
+                    f"\u5217{ci}({name})" for ci, name in forbidden_cols)
+                forbidden_info.append(
+                    f"\u8868\u683c{ts.table_id}: \u7981\u6b62\u586b\u5199 {cols_str}")
+
+        period_text = "\u3001".join(all_available)
+        user_prompt += (
+            f"\n\n\u26a0\ufe0f \u3010\u6750\u6599\u65f6\u95f4\u70b9\u7ea6\u675f"
+            f" \u2014 \u5fc5\u987b\u9075\u5b88\u3011\n"
+            f"\u672c\u6b21\u6750\u6599\u4ec5\u5305\u542b\u4ee5\u4e0b"
+            f"\u65f6\u95f4\u70b9\u7684\u6570\u636e\uff1a{period_text}\n"
+        )
+        if forbidden_info:
+            user_prompt += ("\u4ee5\u4e0b\u5217\u5728\u6750\u6599\u4e2d"
+                            "\u5b8c\u5168\u65e0\u6570\u636e\uff0c"
+                            "\u4e25\u7981\u586b\u5199\uff08\u4e0d\u8fd4\u56de"
+                            "\u5bf9\u5e94key\uff09\uff1a\n")
+            for fi in forbidden_info:
+                user_prompt += f"  {fi}\n"
+        user_prompt += ("\u8fdd\u53cd\u6b64\u7ea6\u675f = \u6570\u636e"
+                        "\u9020\u5047\uff0c\u7edd\u5bf9\u7981\u6b62\u3002\n")
+
+    return system_prompt, user_prompt
+
+
+def _round_financial_values(table_values: dict) -> dict:
+    """Round numeric values to integers (万元 should have no decimals)."""
+    for table_id, cell_values in table_values.items():
+        if not isinstance(cell_values, dict):
+            continue
+        for key, val in cell_values.items():
+            if val is None or isinstance(val, (bool, list, dict)):
+                continue
+            val_str = str(val).strip()
+            # Check if this looks like a number (possibly with commas)
+            cleaned = val_str.replace(',', '').replace('，', '')
+            try:
+                num = float(cleaned)
+                # Only round if it has decimals and looks like a financial figure
+                if '.' in cleaned and abs(num) >= 1:
+                    cell_values[key] = str(int(round(num)))
+            except (ValueError, OverflowError):
+                pass  # Not a number, keep as-is
+    return table_values
+
+
+def _filter_hallucinated_values(table_values: dict, tables: list,
+                                 available_periods: dict) -> dict:
+    """Remove values for columns whose time period is not in available materials."""
+    if not available_periods:
+        return table_values
+
+    all_available = (available_periods.get("available_years", []) +
+                     available_periods.get("available_interim", []))
+
+    filtered = {}
+    removed_count = 0
+
+    for table_id, cell_values in table_values.items():
+        if not isinstance(cell_values, dict):
+            filtered[table_id] = cell_values
+            continue
+
+        # Find the table's header
+        ts = None
+        for t in tables:
+            if t.table_id == table_id:
+                ts = t
+                break
+
+        if ts is None:
+            filtered[table_id] = cell_values
+            continue
+
+        filtered_cells = {}
+        for key, val in cell_values.items():
+            parts = re.split(r'[_,]', str(key))
+            if len(parts) != 2:
+                filtered_cells[key] = val
+                continue
+            try:
+                ri, ci = int(parts[0]), int(parts[1])
+            except ValueError:
+                filtered_cells[key] = val
+                continue
+
+            if ci == 0:
+                # Label column, always keep
+                filtered_cells[key] = val
+                continue
+
+            # Check if this column's header matches any available period
+            col_header = ts.header_row[ci] if ci < len(ts.header_row) else ""
+            has_year = re.search(r'20\d{2}', col_header)
+            if has_year:
+                # ★ v7.19: Stricter check — interim columns (e.g. 2025.9)
+                # must match an available interim period specifically
+                m_interim = re.search(
+                    r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])', col_header)
+                if m_interim:
+                    interim_key = f"{m_interim.group(1)}.{m_interim.group(2)}"
+                    interim_list = available_periods.get(
+                        "available_interim", [])
+                    if interim_key not in interim_list:
+                        removed_count += 1
+                        continue  # No interim data for this period
+                else:
+                    # Annual column — check against available years
+                    matched = any(
+                        p in col_header or p + "\u5e74" in col_header
+                        for p in all_available)
+                    if not matched:
+                        removed_count += 1
+                        continue  # Skip this value - hallucinated
+
+            filtered_cells[key] = val
+
+        filtered[table_id] = filtered_cells
+
+    if removed_count:
+        print(f"[FormFill] \u26a0\ufe0f \u540e\u5904\u7406\u8fc7\u6ee4: "
+              f"\u79fb\u9664\u4e86 {removed_count} \u4e2a\u5e7b\u89c9"
+              f"\u6570\u636e\uff08\u65f6\u95f4\u70b9\u4e0d\u5339\u914d\uff09")
+
+    return filtered
+
+
+def _extract_period_tokens(text: str) -> set[str]:
+    """Extract time period tokens (years and interim periods) from text."""
+    tokens = set()
+    if not text:
+        return tokens
+    for m in re.finditer(r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])(?!\d)', text):
+        tokens.add(f"{m.group(1)}.{m.group(2)}")
+    for m in re.finditer(r'(20\d{2})\s*年\s*(0?[1-9]|1[0-2])\s*月', text):
+        tokens.add(f"{m.group(1)}.{m.group(2)}")
+    for m in re.finditer(r'(20\d{2})\s*年(?:1\s*[-至到]\s*)?(3|6|9)\s*月?', text):
+        tokens.add(f"{m.group(1)}.{m.group(2)}")
+    for m in re.finditer(r'(20\d{2})', text):
+        tokens.add(m.group(1))
+    return tokens
+
+
+def _sanitize_generated_text_by_periods(text: str,
+                                         available_periods: dict | None) -> str:
+    """Remove sentences referencing time periods not in available materials.
+
+    Splits text by sentence boundaries, checks each sentence for year/interim
+    tokens, and drops sentences that reference unavailable periods.
+    """
+    if not text or not available_periods:
+        return text
+
+    allowed_years = set(available_periods.get("available_years", []))
+    allowed_interim = set(available_periods.get("available_interim", []))
+    if not allowed_years and not allowed_interim:
+        return text
+
+    sentences = re.split(r'(?<=[。；;.!?\n])', text)
+    kept = []
+    for sent in sentences:
+        stripped = sent.strip()
+        if not stripped:
+            continue
+        tokens = _extract_period_tokens(stripped)
+        if not tokens:
+            kept.append(stripped)
+            continue
+
+        invalid = False
+        for token in tokens:
+            if '.' in token:
+                if token not in allowed_interim:
+                    invalid = True
+                    break
+            else:
+                if (token not in allowed_years
+                        and not any(p.startswith(token + '.')
+                                    for p in allowed_interim)):
+                    invalid = True
+                    break
+        if not invalid:
+            kept.append(stripped)
+
+    return ''.join(kept) if kept else ''
+
+
+def apply_table_values(doc: Document, tables: list, values: dict):
+    """Apply LLM-extracted values to nested table cells."""
+    filled = 0
+    for ts in tables:
+        tv = values.get(ts.table_id, {})
+        if not tv or not isinstance(tv, dict):
+            continue
+
+        # Get the parent cell
+        cell = _get_cell(doc, ts.cell_path)
+        if cell is None:
+            continue
+
+        # Get the nested table
+        if ts.nested_table_idx >= len(cell.tables):
+            continue
+        nt = cell.tables[ts.nested_table_idx]
+
+        # Truth gate: only fill cells that were scanned as empty/fillable
+        allowed_positions = set(ts.empty_cells or [])
+
+        for key, val in tv.items():
+            if val is None or isinstance(val, (bool, list, dict)):
+                continue
+            val = str(val).strip()
+            if not val or val in ("None", "待补充"):
+                continue
+
+            # Parse key "row_col" (support both "3_1" and "3,1" formats)
+            parts = re.split(r'[_,]', str(key))
+            if len(parts) != 2:
+                continue
+            try:
+                ri, ci = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+            if (ri, ci) not in allowed_positions:
+                continue
+
+            if ri >= len(nt.rows) or ci >= len(nt.rows[ri].cells):
+                continue
+
+            target_cell = nt.rows[ri].cells[ci]
+            # Only fill if currently empty (don't overwrite existing data)
+            if target_cell.text.strip():
+                continue
+
+            # Write value - use run if available to preserve cell formatting
+            if target_cell.paragraphs:
+                p = target_cell.paragraphs[0]
+                if p.runs:
+                    p.runs[0].text = val
+                else:
+                    # No runs exist - add text directly
+                    # (this creates a new run inheriting paragraph style)
+                    run = p.add_run(val)
+            filled += 1
+
+    return filled
+
+
+def build_labeled_field_prompt(labeled_fields: list, materials: str,
+                               batch_start: int = 0, batch_size: int = 20,
+                               company_profile: str = "",
+                               kb: dict = None):
+    """Build a prompt to fill a BATCH of labeled blank fields.
+
+    ★ v7.14: 支持分批处理。之前 76 个字段 + 120K 材料 = 129K 字符一次性发送，
+    超出大多数 API 上下文窗口导致调用失败。现在每次最多 batch_size 个字段。
+
+    ★ 改造二: 支持 KB 维度检索。如果传入 kb，则根据标签推断相关维度。
+    """
+    batch = labeled_fields[batch_start:batch_start + batch_size]
+    if not batch:
+        return None, None, []
+
+    field_lines = []
+    for lf in batch:
+        unit_hint = f" (单位: {lf.unit})" if lf.unit else ""
+        field_lines.append(
+            f'  "{lf.lf_id}": 标签="{lf.label}"{unit_hint} '
+            f'(所在行: "{lf.context_line}")'
+        )
+    field_list = "\n".join(field_lines)
+
+    profile_prefix = f"{company_profile}\n\n" if company_profile else ""
+
+    # ★ 改造二: 使用 KB 维度检索替代全量截断
+    if kb:
+        # 收集本批次所有标签的相关维度
+        dimensions = set()
+        for lf in batch:
+            dims = infer_dimensions_for_label(lf.label, lf.context_line)
+            dimensions.update(dims)
+        dimensions = list(dimensions)
+        kb_materials = build_dimension_text(kb, dimensions, max_chars=6000)
+        # 如果 KB 内容不足，补充部分原始材料
+        if len(kb_materials) < 1500 and materials:
+            supplement = materials[:3000]
+            materials_text = f"{kb_materials}\n\n===== 补充材料 =====\n{supplement}"
+        else:
+            materials_text = kb_materials
+    else:
+        # 兼容旧调用方式：截断到 50K 字符
+        materials_text = materials[:50000] if len(materials) > 50000 else materials
+
+    system_prompt = (
+        f"{profile_prefix}"
+        "你是银行授信调查报告填写专家。根据企业材料，填写表格中的空白字段。\n"
+        "【规则】\n"
+        "1. 严格基于材料提取数据，不编造\n"
+        "2. 【单位转换·重要】如果字段标注了(单位: 万元)，必须将材料中的元÷10000，四舍五入取整数（不保留小数）。"
+        "例：材料185754300.00元→填18575。材料本身就是万元则直接取整。\n"
+        "3. 【重要】尽力从材料中寻找数据！材料中有相关信息就填入，哪怕格式略有不同。"
+        "只有材料中完全没有该信息时，才不填（不返回该key）。\n"
+        "4. 返回纯JSON\n"
+        "5. 【重要】如果字段所在行包含□复选框选项（如ESG评价□A□B□C、反洗钱风险等级□低□一般□较高、"
+        "所属客群□支持类□审慎类□禁止类），则该字段的值应通过勾选复选框来表达，"
+        "不要在空白处填写选项值（如不要填\"B\"\"一般\"\"支持类\"等）。这类字段请跳过不填。\n"
+        "6. 所有内容用中文，日期格式：YYYY年MM月DD日 或 YYYY年MM月\n"
+        "7. 人名、公司名、银行名等请从材料中精确提取，不要用代称"
+    )
+
+    user_prompt = (
+        f"以下是表格中的空白字段，请根据企业材料填写。\n\n"
+        f"===== 空白字段列表 =====\n"
+        f"{field_list}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials_text}\n\n"
+        f'返回JSON: {{"{batch[0].lf_id}": "填入值", ...}}\n'
+        f"只返回有数据的字段。只返回JSON。"
+    )
+
+    return system_prompt, user_prompt, batch
+
+
+def apply_labeled_field_values(doc: Document, labeled_fields: list,
+                               values: dict):
+    """Apply values to labeled blank fields by replacing whitespace runs."""
+    filled = 0
+    for lf in labeled_fields:
+        raw_val = values.get(lf.lf_id, "")
+        if raw_val is None or isinstance(raw_val, (bool, list, dict)):
+            continue
+        val = str(raw_val).strip()
+        if not val or val in ("None", "待补充"):
+            continue
+
+        cell = _get_cell(doc, lf.cell_path)
+        if cell is None or lf.para_idx >= len(cell.paragraphs):
+            continue
+
+        para = cell.paragraphs[lf.para_idx]
+        if lf.run_idx >= len(para.runs):
+            continue
+
+        run = para.runs[lf.run_idx]
+        # ★ v7.14: Handle both space-blank runs and underscore-blank runs
+        if re.match(r'^_{3,}$', run.text):
+            # Underscore run: replace with value directly (no padding needed,
+            # underscores typically have underline formatting already)
+            run.text = val
+        else:
+            # Space run: replace with padded value
+            run.text = f" {val} "
+        filled += 1
+
+    return filled
+
+
+def build_example_rewrite_prompt(example: ExampleParagraph, materials: str,
+                                 anchors: dict | None = None,
+                                 company_profile: str = "",
+                                 kb: dict = None):
+    """Build a prompt to rewrite an example paragraph with real data.
+
+    ★ 改造二: 支持 KB 维度检索。如果传入 kb，则根据段落内容推断相关维度。
+    """
+    system_prompt = (
+        "你是银行授信报告写作专家。任务不是机械填空，而是基于模板意图与材料证据完成专业改写。\n"
+        "请按「读懂→分析→撰写」执行：\n"
+        "1. 读懂：先判断该段在审批中的作用、要回答的问题、需要的证据类型。\n"
+        "2. 分析：仅使用材料中的事实与数据形成判断，不照抄模板示例值，不复用模板区间数字。\n"
+        "3. 撰写：输出可直接用于授信审查的专业段落，保留原段落的核心结构与逻辑。\n"
+        "【硬性规则】\n"
+        "1. 零容错：严禁编造公司、人名、金额、比例、时间。\n"
+        "2. 可追溯：关键事实必须能在材料中定位来源。\n"
+        "3. 有判断：不能只做信息罗列，需给出风险/偿债相关分析结论。\n"
+        "4. 缺失处理：材料缺失时用自然语言说明\"材料未提供相关信息及其影响\"，不要写\"待补充\"、不要用____。\n"
+        "5. 清理模板痕迹：删除指导性提示语、示例性措辞和占位符（如XX、XXX）。\n"
+        "6. 表达规范：中文专业表述，不用Markdown符号。\n"
+        "7. 只输出最终改写段落，不输出过程说明或额外前缀。"
+    )
+
+    # ★ 改造二: 使用 KB 维度检索替代全量截断
+    if kb:
+        dimensions = infer_dimensions_for_example(example.original_text)
+        # 示例段落通常需要更详细的材料，增加 max_chars
+        kb_materials = build_dimension_text(kb, dimensions, max_chars=10000)
+        # 如果 KB 内容不足，补充部分原始材料
+        if len(kb_materials) < 3000 and materials:
+            supplement = materials[:6000]
+            materials_text = f"{kb_materials}\n\n===== 补充材料 =====\n{supplement}"
+        else:
+            materials_text = kb_materials
+    else:
+        # 兼容旧调用方式：截断到 40K 字符
+        materials_text = materials[:40000] if len(materials) > 40000 else materials
+
+    profile_section = f"{company_profile}\n\n" if company_profile else ""
+
+    user_prompt = (
+        f"{profile_section}"
+        f"所属章节: {example.section_context}\n\n"
+        f"===== 模版原文（所有XX需替换为真实数据）=====\n"
+        f"{example.original_text}\n\n"
+        f"===== 企业材料 =====\n"
+        f"{materials_text}\n\n"
+        f"请按「读懂→分析→撰写」原则完成改写，输出可直接用于审批决策的最终段落："
+    )
+
+    if anchors is not None:
+        user_prompt += (
+            "\n\n【数据锚点 - 必须使用这些数字，不得引用模板示例值】\n"
+            + json.dumps(anchors, ensure_ascii=False)
+        )
+
+    return system_prompt, user_prompt
+
+
+# ============================================================
+# 4. Apply changes to document
+# ============================================================
+
+def _get_cell(doc, cell_path):
+    """Get a cell object from cell_path tuple.
+
+    Supports two formats:
+      3-tuple (t_idx, r_idx, c_idx)          — outer table cell
+      6-tuple (t_idx, r_idx, c_idx, nt_idx, nr_idx, nc_idx) — nested table cell
+    """
+    if cell_path is None:
+        return None
+    if len(cell_path) == 6:
+        t_idx, r_idx, c_idx, nt_idx, nr_idx, nc_idx = cell_path
+        try:
+            outer_cell = doc.tables[t_idx].rows[r_idx].cells[c_idx]
+            nt = outer_cell.tables[nt_idx]
+            return nt.rows[nr_idx].cells[nc_idx]
+        except (IndexError, AttributeError):
+            return None
+    t_idx, r_idx, c_idx = cell_path
+    try:
+        return doc.tables[t_idx].rows[r_idx].cells[c_idx]
+    except (IndexError, AttributeError):
+        return None
+
+
+def apply_field_values(doc: Document, fields: list[FieldSlot],
+                       values: dict[str, str]):
+    """
+    Replace XX placeholders with extracted values at run level.
+    Preserves formatting by only modifying run.text.
+    """
+    filled = 0
+    for f in fields:
+        raw_val = values.get(f.field_id, "")
+        if raw_val is None or isinstance(raw_val, (bool, list, dict)):
+            continue
+        val = str(raw_val).strip()
+        if not val or val in ("待补充", "None"):
+            val = "____"
+
+        # Get the paragraph
+        if f.cell_path is not None:
+            cell = _get_cell(doc, f.cell_path)
+            if cell is None or f.para_idx >= len(cell.paragraphs):
+                continue
+            para = cell.paragraphs[f.para_idx]
+        else:
+            if f.para_idx >= len(doc.paragraphs):
+                continue
+            para = doc.paragraphs[f.para_idx]
+
+        # Find the run and replace XX
+        if f.run_idx >= len(para.runs):
+            continue
+        run = para.runs[f.run_idx]
+        old = run.text
+
+        # Verify XX is still at expected position
+        xx_match = _XX_RE.search(old[f.char_offset:])
+        if xx_match and xx_match.start() == 0:
+            # Exact position match
+            start = f.char_offset
+            end = f.char_offset + len(xx_match.group())
+            run.text = old[:start] + val + old[end:]
+            filled += 1
+        else:
+            # Fallback: replace first XX in this run
+            m = _XX_RE.search(old)
+            if m:
+                run.text = old[:m.start()] + val + old[m.end():]
+                filled += 1
+
+    return filled
+
+
+def apply_checkbox_ticks(doc: Document, checkboxes: list[CheckboxSlot],
+                         checked_ids: list[str]):
+    """Replace unchecked boxes with checked boxes for selected IDs."""
+    ticked = 0
+    checked_set = set(str(x) for x in checked_ids if x is not None)
+
+    for cb in checkboxes:
+        if cb.cb_id not in checked_set:
+            continue
+
+        if cb.cell_path is not None:
+            cell = _get_cell(doc, cb.cell_path)
+            if cell is None or cb.para_idx >= len(cell.paragraphs):
+                continue
+            para = cell.paragraphs[cb.para_idx]
+        else:
+            if cb.para_idx >= len(doc.paragraphs):
+                continue
+            para = doc.paragraphs[cb.para_idx]
+
+        if cb.run_idx >= len(para.runs):
+            continue
+        run = para.runs[cb.run_idx]
+        old = run.text
+
+        if cb.char_offset < len(old) and old[cb.char_offset] in ('□', '☐'):
+            run.text = old[:cb.char_offset] + '☑' + old[cb.char_offset + 1:]
+            ticked += 1
+        else:
+            # Fallback: replace first unchecked box in this run
+            new_text = run.text.replace('□', '☑', 1)
+            if new_text == run.text:
+                new_text = run.text.replace('☐', '☑', 1)
+            if new_text != run.text:
+                run.text = new_text
+                ticked += 1
+
+    return ticked
+
+
+def postprocess_spurious_checkbox_text(doc: Document):
+    """
+    Post-processing: fix cases where the LLM wrote a checkbox option value
+    as plain text instead of ticking the checkbox.
+
+    Scans for patterns like: □A B □C  or  □低 一般 □较高
+    where "B" or "一般" matches an adjacent □-option label. In that case:
+      1. Tick the matching checkbox (□ → ☑)
+      2. Remove the spurious plain-text value
+
+    Returns: number of fixes applied.
+    """
+    fixes = 0
+
+    def _fix_paragraph(para):
+        nonlocal fixes
+        text = para.text
+        if not text:
+            return
+
+        # Find all checkbox positions in the full paragraph text
+        cb_positions = []  # (start_idx, option_text)
+        for m in _CB_RE.finditer(text):
+            cb_start = m.start()
+            # Extract option text after this checkbox
+            after = text[cb_start + 1:]
+            # Option ends at next checkbox or end of reasonable span
+            next_cb = _CB_RE.search(after)
+            if next_cb:
+                opt = after[:next_cb.start()].strip()
+            else:
+                opt = after[:30].strip()
+            opt = re.sub(r'\s+', '', opt)[:20]
+            if opt:
+                cb_positions.append((cb_start, opt))
+
+        if len(cb_positions) < 2:
+            return
+
+        # Collect all known option texts from this line's checkboxes
+        option_texts = set()
+        for _, opt in cb_positions:
+            option_texts.add(opt)
+            # Also add shorter prefixes for partial matches
+            # e.g. "高（不得准入）" should match "高"
+            for length in range(1, min(len(opt), 5)):
+                option_texts.add(opt[:length])
+
+        # Now look for spurious text between/around checkboxes
+        # Build a regex that finds text segments NOT preceded by □/☐/☑
+        # Pattern: after a □option, there might be spurious text before next □
+        # We work run-by-run to make replacements
+        full_text = para.text
+
+        # Strategy: rebuild full text, find spurious values, then apply
+        # to the actual runs
+        # Find segments between checkboxes
+        cb_indices = [m.start() for m in re.finditer(r'[□☐☑]', full_text)]
+        if not cb_indices:
+            return
+
+        for i in range(len(cb_indices)):
+            cb_char = full_text[cb_indices[i]]
+            # Get option text after this checkbox
+            opt_start = cb_indices[i] + 1
+            opt_end = cb_indices[i + 1] if i + 1 < len(cb_indices) else min(opt_start + 30, len(full_text))
+            segment = full_text[opt_start:opt_end].strip()
+
+            # Check if there's spurious text between this option and next checkbox
+            # e.g. "□A B □C" — between □A's zone and □C, there's "B" floating
+            # Look at the space between end-of-option and next checkbox
+            if i + 1 < len(cb_indices):
+                between_start = opt_start
+                between_end = cb_indices[i + 1]
+                between = full_text[between_start:between_end]
+
+                # Split into: option_part + possible_spurious
+                # e.g. "A B " -> option "A", spurious "B"
+                parts = between.split()
+                if len(parts) >= 2:
+                    # Check if any non-first part is actually another option text
+                    for pi, part in enumerate(parts[1:], 1):
+                        clean_part = re.sub(r'\s+', '', part)
+                        if not clean_part:
+                            continue
+                        # Check if this matches any checkbox option
+                        matched_opt = None
+                        matched_cb_idx = None
+                        for ci, (cb_pos, cb_opt) in enumerate(cb_positions):
+                            if cb_opt == clean_part or cb_opt.startswith(clean_part):
+                                matched_opt = cb_opt
+                                matched_cb_idx = ci
+                                break
+                            if clean_part.startswith(cb_opt):
+                                matched_opt = cb_opt
+                                matched_cb_idx = ci
+                                break
+                        if matched_opt and matched_cb_idx is not None:
+                            # Found a spurious text that matches a checkbox option
+                            # Now apply the fix at run level:
+                            # 1. Find and tick the matching checkbox
+                            # 2. Remove the spurious text
+                            target_cb_pos = cb_positions[matched_cb_idx][0]
+                            _apply_spurious_fix(para, target_cb_pos, part)
+                            fixes += 1
+
+    def _apply_spurious_fix(para, checkbox_char_pos, spurious_text):
+        """
+        1. Tick the checkbox at checkbox_char_pos (□ → ☑)
+        2. Remove the spurious_text from wherever it appears in runs
+        """
+        # Tick the checkbox
+        char_count = 0
+        for run in para.runs:
+            run_start = char_count
+            run_end = char_count + len(run.text)
+            if run_start <= checkbox_char_pos < run_end:
+                local_pos = checkbox_char_pos - run_start
+                if run.text[local_pos] in ('□', '☐'):
+                    run.text = (run.text[:local_pos] + '☑' +
+                                run.text[local_pos + 1:])
+            char_count = run_end
+
+        # Remove spurious text from runs
+        spurious_stripped = spurious_text.strip()
+        if not spurious_stripped:
+            return
+        for run in para.runs:
+            if spurious_stripped in run.text:
+                # Only remove if this text is NOT right after a checkbox
+                # (i.e., it's floating text, not the option label)
+                idx = run.text.find(spurious_stripped)
+                if idx > 0 and run.text[idx - 1] in ('□', '☐', '☑'):
+                    continue  # This is the actual label, don't remove
+                # Check if preceded by checkbox in previous run
+                run_idx = list(para.runs).index(run)
+                if run_idx > 0:
+                    prev_text = para.runs[run_idx - 1].text
+                    if prev_text and prev_text[-1] in ('□', '☐', '☑'):
+                        continue
+                # Safe to remove: replace with empty string
+                run.text = run.text[:idx] + run.text[idx + len(spurious_stripped):]
+                # Clean up extra spaces left behind
+                run.text = re.sub(r'  +', ' ', run.text)
+                break  # Only remove first occurrence
+
+    # Process all paragraphs in table cells
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    _fix_paragraph(para)
+
+    return fixes
+
+
+def apply_example_rewrites(doc: Document, examples: list[ExampleParagraph],
+                           rewrites: dict[str, str]):
+    """Replace example paragraphs with LLM-rewritten text.
+
+    Strategy: distribute new text across existing runs proportionally
+    to preserve formatting (bold, font size, etc.) as much as possible.
+    """
+    rewritten = 0
+    for ex in examples:
+        new_text = rewrites.get(ex.ex_id, "").strip()
+        if not new_text:
+            continue
+
+        if ex.cell_path is not None:
+            cell = _get_cell(doc, ex.cell_path)
+            if cell is None or ex.para_idx >= len(cell.paragraphs):
+                continue
+            para = cell.paragraphs[ex.para_idx]
+        else:
+            if ex.para_idx >= len(doc.paragraphs):
+                continue
+            para = doc.paragraphs[ex.para_idx]
+
+        if not para.runs:
+            continue
+
+        # Strategy: distribute new text across runs proportionally
+        old_lengths = [len(r.text) for r in para.runs]
+        old_total = sum(old_lengths)
+        if old_total == 0:
+            para.runs[0].text = new_text
+        else:
+            remaining = new_text
+            for i, run in enumerate(para.runs):
+                if i == len(para.runs) - 1:
+                    # Last run gets all remaining text
+                    run.text = remaining
+                else:
+                    # Proportional allocation
+                    ratio = old_lengths[i] / old_total
+                    take = max(1, int(len(new_text) * ratio))
+                    # Try to break at a natural point (punctuation, space)
+                    end = min(take, len(remaining))
+                    # Look for a good break point nearby
+                    for offset in range(min(5, end), 0, -1):
+                        pos = end - offset
+                        if pos < len(remaining) and remaining[pos] in '，。、；：！？\n ':
+                            end = pos + 1
+                            break
+                    run.text = remaining[:end]
+                    remaining = remaining[end:]
+
+        rewritten += 1
+
+    return rewritten
+
+
+# ============================================================
+# 5. JSON parsing helper
+# ============================================================
+
+def parse_json_response(text: str) -> dict | list | None:
+    """
+    Tolerantly extract JSON from LLM response.
+    Handles markdown code blocks, leading/trailing text, etc.
+    """
+    # Strip markdown code blocks
+    text = re.sub(r'```(?:json)?\s*', '', text)
+    text = re.sub(r'```\s*$', '', text)
+    text = text.strip()
+
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find JSON object or array (greedy patterns first for nested JSON)
+    for pattern in [r'\{[\s\S]*\}', r'\[[\s\S]*\]']:
+        m = re.search(pattern, text)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                continue
+
+    # Last resort: try to fix common issues
+    # Remove trailing commas
+    cleaned = re.sub(r',\s*([}\]])', r'\1', text)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    return None
+
+
+# ============================================================
+# 6. FormFillAgent (main orchestrator)
+# ============================================================
+
+class FormFillAgent:
+    """
+    Plan B form-fill agent.
+    Interface matches what agent.py process_form_fill() expects:
+      - __init__(llm_caller, file_contents)
+      - run(template_path, output_path, progress_cb) -> output_path
+      - stats dict
+    """
+
+    def __init__(self, llm_caller: Callable, file_contents: dict[str, str], file_path_map: dict[str, str] | None = None):
+        self.llm = llm_caller
+        self.file_contents = file_contents
+        self.file_path_map = file_path_map or {}
+        self._truth_financial_data = {}  # period_key -> {subject -> 万元整数}
+        self._truth_financial_sources = {}  # period_key -> source file
+
+        self.stats = {"total_sections": 0, "filled": 0, "errors": []}
+        self.pending_tags = []  # ? v7.10: list of {"label", "context", "location"}
+        self.kb = {}          # truth-first KB extracted from materials
+        self._kb_text = ""    # compact KB text for prompts
+        self._extra_pending_tags = []
+        self._validation_blocked = False
+        self._validation_blockers = []
+        self._web_context_cache = ""
+        self._financial_cross_validated = False
+
+    SIX_FACTOR_ANCHOR_KEYWORDS = (
+        "六要素",
+        "综合评价",
+        "经营情况小结",
+        "总体财务情况小结",
+    )
+
+    @classmethod
+    def _need_six_factor_anchors(cls, text: str) -> bool:
+        raw = str(text or "")
+        return any(kw in raw for kw in cls.SIX_FACTOR_ANCHOR_KEYWORDS)
+
+    def _build_company_profile(self) -> str:
+        """Build a global company profile anchor block from KB and financial data.
+
+        This block is injected into all LLM calls to prevent hallucination and
+        template cross-contamination.
+        """
+        facts = (self.kb or {}).get("facts", {}) or {}
+
+        # Company name: try facts first, then scan materials text
+        company_name = (facts.get("company_name") or "").strip()
+        if not company_name:
+            mats = self._build_materials_text()
+            m = re.search(r"(?:企业名称|公司名称|借款人名称)[：:]\s*([\u4e00-\u9fff\w（）()]+)", mats)
+            if m:
+                company_name = m.group(1).strip()
+
+        # Business description: prefer water+edu combo, then any main_business field
+        bw = (facts.get("business_water") or "").strip()
+        be = (facts.get("business_education") or "").strip()
+        if bw or be:
+            biz_parts = []
+            if bw:
+                biz_parts.append("智慧水利：" + bw[:80])
+            if be:
+                biz_parts.append("智慧教育：" + be[:80])
+            business = "；".join(biz_parts)
+        else:
+            business = (
+                facts.get("main_business")
+                or facts.get("business")
+                or facts.get("revenue_split")
+                or ""
+            )
+            business = (business or "").strip()[:120]
+
+        # Industry
+        industry = (facts.get("industry") or "").strip()
+
+        # Registered capital
+        registered_capital = (facts.get("registered_capital") or "").strip()
+
+        # Controller
+        ctrl_name = (facts.get("controller_name") or "").strip()
+        ctrl_resume = (facts.get("controller_resume") or "").strip()
+        controller = ctrl_name or (ctrl_resume[:60] if ctrl_resume else "")
+
+        # Latest revenue and total assets from truth financial data
+        revenue_str = ""
+        total_assets_str = ""
+        truth_data_ref = getattr(self, "_truth_financial_data", None) or {}
+        if truth_data_ref:
+            annual_periods = [
+                str(k) for k in truth_data_ref.keys()
+                if re.fullmatch(r"20\d{2}", str(k or ""))
+            ]
+            if annual_periods:
+                latest_period = sorted(annual_periods, key=period_sort_key)[-1]
+                year_data = truth_data_ref.get(latest_period, {}) or {}
+
+                def _pick_profile(keys):
+                    for k in keys:
+                        v = year_data.get(k)
+                        if v is None:
+                            continue
+                        try:
+                            return float(v)
+                        except Exception:
+                            continue
+                    return None
+
+                rev = _pick_profile(["主营业务收入", "营业收入", "销售收入"])
+                if rev is not None:
+                    # truth_financial_data stores values in 万元 already (via to_wan_int)
+                    revenue_str = f"{latest_period}年 {int(round(rev)):,}万元"
+
+                assets = _pick_profile(["总资产", "资产合计", "资产总计"])
+                if assets is not None:
+                    # truth_financial_data stores values in 万元 already (via to_wan_int)
+                    total_assets_str = f"{latest_period}年 {int(round(assets)):,}万元"
+
+        profile_lines = [
+            "【当前企业画像 - 所有分析必须围绕该企业，不得引用模板中其他企业信息】",
+            f"企业名称：{company_name or '材料未提供'}",
+            f"主营业务：{business or '材料未提供'}",
+            f"所属行业：{industry or '材料未提供'}",
+            f"注册资本：{registered_capital or '材料未提供'}",
+            f"实际控制人：{controller or '材料未提供'}",
+            f"最近年度营收规模：{revenue_str or '材料未提供'}",
+        ]
+        if total_assets_str:
+            profile_lines.append(f"总资产规模：{total_assets_str}")
+
+        # Extended profile from new KB dimensions
+        est_date = (facts.get("establishment_date") or "").strip()
+        if est_date:
+            profile_lines.append(f"成立时间：{est_date}")
+
+        paid_in = (facts.get("paid_in_capital") or "").strip()
+        if paid_in:
+            profile_lines.append(f"实收资本：{paid_in}")
+
+        soc_ins = (facts.get("social_insurance_count") or "").strip()
+        emp_cnt = (facts.get("employee_count") or "").strip()
+        if soc_ins:
+            profile_lines.append(f"社保人数：{soc_ins}人")
+        elif emp_cnt:
+            profile_lines.append(f"员工人数：{emp_cnt}人")
+
+        addr = (facts.get("operating_address") or "").strip()
+        if addr:
+            profile_lines.append(f"经营地址：{addr[:80]}")
+
+        ctrl_pct = (facts.get("controller_share_pct") or "").strip()
+        if ctrl_pct:
+            profile_lines.append(f"实控人持股比例：{ctrl_pct}")
+
+        spouse = (facts.get("spouse_name") or "").strip()
+        if spouse:
+            profile_lines.append(f"实控人配偶：{spouse}")
+
+        # Credit history anchor
+        if facts.get("is_existing_customer") is True:
+            profile_lines.append("客户类型：存量客户（非新客户）")
+            prev_date = (facts.get("prev_approval_date") or "").strip()
+            if prev_date:
+                profile_lines.append(f"上期批复日期：{prev_date}")
+            prev_exp = (facts.get("prev_credit_exposure") or "").strip()
+            if prev_exp:
+                profile_lines.append(f"上期授信敞口：{prev_exp}")
+        elif facts.get("is_existing_customer") is False:
+            profile_lines.append("客户类型：新客户")
+
+        # Orders summary
+        orders_count = (facts.get("orders_count") or "").strip()
+        orders_amt = (facts.get("orders_total_amount") or "").strip()
+        if orders_count and orders_amt:
+            profile_lines.append(f"在手订单：{orders_count}笔，合同总金额{orders_amt}")
+
+        return "\n".join(profile_lines)
+
+    def _build_rewrite_anchors(self, truth_data: dict | None) -> dict:
+        """Build numeric anchors for key narrative rewrites from truth financial data."""
+        if not truth_data:
+            return {}
+
+        annual_periods = [
+            str(k) for k in truth_data.keys()
+            if re.fullmatch(r"20\d{2}", str(k or ""))
+        ]
+        if annual_periods:
+            latest_period = sorted(annual_periods, key=period_sort_key)[-1]
+        else:
+            all_periods = [str(k) for k in truth_data.keys()]
+            if not all_periods:
+                return {}
+            latest_period = sorted(all_periods, key=period_sort_key)[-1]
+
+        year_data = truth_data.get(latest_period, {}) or {}
+
+        def _pick(keys):
+            for k in keys:
+                v = year_data.get(k)
+                if v is None:
+                    continue
+                try:
+                    return float(v)
+                except Exception:
+                    continue
+            return None
+
+        total_assets = _pick(["总资产", "资产合计", "资产总计"])
+        total_liab = _pick(["负债合计", "负债总计", "总负债"])
+        current_assets = _pick(["流动资产", "流动资产合计"])
+        current_liab = _pick(["流动负债", "流动负债合计"])
+        revenue = _pick(["主营业务收入", "营业收入", "销售收入"])
+        net_profit = _pick(["净利润"])
+        short_loan = _pick(["短期借款"]) or 0.0
+        long_loan = _pick(["长期借款"]) or 0.0
+        due_within_year = _pick(["一年内到期的非流动负债"]) or 0.0
+        bank_loan = _pick(["银行借款"]) or 0.0
+
+        debt_ratio_latest = None
+        if total_assets not in (None, 0) and total_liab is not None:
+            debt_ratio_latest = round(total_liab / total_assets * 100, 2)
+
+        current_ratio_latest = None
+        if current_liab not in (None, 0) and current_assets is not None:
+            current_ratio_latest = round(current_assets / current_liab, 2)
+
+        bank_debt_latest = short_loan + long_loan + due_within_year + bank_loan
+        if bank_debt_latest == 0:
+            bank_debt_latest = None
+
+        anchors = {
+            "资产负债率": debt_ratio_latest,
+            "流动比率": current_ratio_latest,
+            "营业收入": None if revenue is None else int(round(revenue)),
+            "净利润": None if net_profit is None else int(round(net_profit)),
+            "银行融资余额": None if bank_debt_latest is None else int(round(bank_debt_latest)),
+        }
+        return {k: v for k, v in anchors.items() if v is not None}
+
+    def run(self, template_path: str, output_path: str,
+            progress_cb: Optional[Callable] = None) -> str:
+        """Full form-fill pipeline."""
+        self._financial_cross_validated = False
+        self._log(progress_cb,
+                  "FormFiller v4.0 启动 (v7.20: 指标表回填+明细分析+新增列+XXX清理)")
+
+        # 1. Ensure .docx
+        docx_path = self._ensure_docx(template_path)
+        self._log(progress_cb, "模版加载成功")
+
+        doc = Document(docx_path)
+
+        # Phase 0: Build template fingerprints for Phase C comparison
+        self._template_fingerprints = self._build_template_fingerprints(doc)
+
+        materials = self._build_materials_text()
+        self._log(progress_cb, f"材料加载完成 ({len(materials)}字)")
+        # Build truth-first KB from materials (deterministic extraction)
+        try:
+            self.kb = build_material_kb(self.file_contents)
+            self._kb_text = kb_to_prompt_text(self.kb, max_chars=4000)
+            fact_n = len((self.kb or {}).get("facts", {}) or {})
+            src = (self.kb or {}).get("source_file", "")
+            self._log(progress_cb, f"材料KB构建完成: {fact_n}个字段" + (f" (src={src})" if src else ""))
+        except Exception as e:
+            self.kb = {}
+            self._kb_text = ""
+            self._log(progress_cb, f"材料KB构建失败: {e}")
+
+        # Truth-first: parse financial statements from source files (Excel/PDF)
+        try:
+            self._truth_financial_data, self._truth_financial_sources = self._truth_build_financial_data(progress_cb)
+            if self._truth_financial_data:
+                self._log(progress_cb, f"财务事实库构建完成: {len(self._truth_financial_data)}个期间")
+        except Exception as e:
+            self._truth_financial_data = {}
+            self._truth_financial_sources = {}
+            self._log(progress_cb, f"财务事实库构建失败: {e}")
+
+        # Build global company profile anchor (injected into all LLM calls)
+        try:
+            self._company_profile_block = self._build_company_profile()
+            self._log(progress_cb, "企业画像锚点构建完成")
+        except Exception as e:
+            self._company_profile_block = ""
+            self._log(progress_cb, f"企业画像锚点构建失败: {e}")
+
+        # Detect available time periods from materials
+        self._available_periods = self._detect_material_periods(self.file_contents)
+        self._log(progress_cb,
+                  f"材料时间点检测: {self._available_periods.get('available_years', [])} "
+                  f"期中: {self._available_periods.get('available_interim', [])}")
+
+        # Truth gate: override available periods with those present in parsed financial statements
+        if getattr(self, "_truth_financial_data", None):
+            truth_years = set()
+            truth_interim = set()
+            for k in self._truth_financial_data.keys():
+                if isinstance(k, str) and "." in k:
+                    truth_interim.add(k)
+                elif isinstance(k, str) and re.fullmatch(r"20\d{2}", k):
+                    truth_years.add(k)
+            if truth_years or truth_interim:
+                self._available_periods["available_years"] = sorted(truth_years)
+                self._available_periods["available_interim"] = sorted(truth_interim)
+                self._log(progress_cb,
+                          f"Truth gate: 期间以财务报表为准 -> 年度{self._available_periods.get('available_years', [])} "
+                          f"期中{self._available_periods.get('available_interim', [])}")
+
+
+        # 2. Scan template
+        self._log(progress_cb, "扫描模版中的填空位、复选框和嵌套表格...")
+        fields, checkboxes, examples, nested_tables, labeled_fields = \
+            scan_document(doc)
+        total_empty_cells = sum(len(t.empty_cells) for t in nested_tables)
+        self._log(progress_cb,
+                  f"发现 {len(fields)} 个XX填空位, "
+                  f"{len(checkboxes)} 个复选框, "
+                  f"{len(examples)} 个示例段落, "
+                  f"{len(nested_tables)} 个嵌套表格({total_empty_cells}个空单元格), "
+                  f"{len(labeled_fields)} 个标签空白字段")
+
+        # ★ 改造一: Template semantic analysis (Phase 0.5)
+        # 让LLM理解模板语义规范，指导后续填写
+        self._template_semantics = {}
+        if fields or checkboxes or examples or labeled_fields:
+            try:
+                self._log(progress_cb, "正在分析模板语义规范...")
+                sys_p, usr_p = build_template_semantic_analysis_prompt(
+                    fields, checkboxes, examples, labeled_fields, nested_tables
+                )
+                resp = self.llm(sys_p, usr_p)
+                self._template_semantics = parse_template_semantic_analysis(resp)
+                if self._template_semantics:
+                    sections = len(self._template_semantics.get("sections", []))
+                    field_sems = len(self._template_semantics.get("field_semantics", {}))
+                    self._log(progress_cb,
+                              f"模板语义分析完成: {sections}个章节, {field_sems}个字段语义")
+            except Exception as e:
+                self._log(progress_cb, f"模板语义分析失败: {e}")
+                self._template_semantics = {}
+
+        # Truth-first: prefill 上下游 Top5 tables from KB (avoid hallucination)
+        try:
+            sc_filled = prefill_supply_chain_tables(
+                doc, nested_tables, self.kb,
+                log=lambda m: self._log(progress_cb, m)
+            )
+            if sc_filled:
+                self.stats["filled"] += sc_filled
+                self._log(progress_cb, f"KB预填上下游表格: {sc_filled} 个单元格")
+        except Exception as e:
+            self._log(progress_cb, f"KB预填上下游表格失败: {e}")
+
+        try:
+            structured_filled = prefill_kb_structured_tables(
+                doc, nested_tables, self.kb,
+                log=lambda m: self._log(progress_cb, m)
+            )
+            if structured_filled:
+                self.stats["filled"] += structured_filled
+                self._log(progress_cb, f"KB预填结构化表格: {structured_filled} 个单元格")
+        except Exception as e:
+            self._log(progress_cb, f"KB预填结构化表格失败: {e}")
+
+        # Truth-first: prefill shareholder table from KB (prevents sub/affiliate confusion)
+        try:
+            sh_filled = prefill_shareholder_table(
+                doc, nested_tables, self.kb,
+                log=lambda m: self._log(progress_cb, m)
+            )
+            if sh_filled:
+                self.stats["filled"] += sh_filled
+                self._log(progress_cb, f"KB预填股东表格: {sh_filled} 个单元格")
+        except Exception as e:
+            self._log(progress_cb, f"KB预填股东表格失败: {e}")
+
+        # Truth-first: prefill asset tables from KB
+        try:
+            asset_filled = prefill_asset_table(
+                doc, nested_tables, self.kb,
+                log=lambda m: self._log(progress_cb, m)
+            )
+            if asset_filled:
+                self.stats["filled"] += asset_filled
+                self._log(progress_cb, f"KB预填资产表格: {asset_filled} 个单元格")
+        except Exception as e:
+            self._log(progress_cb, f"KB预填资产表格失败: {e}")
+
+        # Truth-first: prefill bank flow verification table from KB
+        try:
+            flow_filled = prefill_bank_flow_table(
+                doc, nested_tables, self.kb,
+                log=lambda m: self._log(progress_cb, m)
+            )
+            if flow_filled:
+                self.stats["filled"] += flow_filled
+                self._log(progress_cb, f"KB预填银行流水表格: {flow_filled} 个单元格")
+        except Exception as e:
+            self._log(progress_cb, f"KB预填银行流水表格失败: {e}")
+
+        self.stats["total_sections"] = (len(fields) + len(checkboxes) +
+                                         len(examples) + len(nested_tables) +
+                                         len(labeled_fields))
+
+        # ★ v7.20: Add missing period columns to financial tables
+        self._augment_tables_with_missing_periods(
+            doc, nested_tables, progress_cb)
+
+        # Truth-first: clear template sample values for unavailable periods
+        self._truth_clear_unavailable_period_cells(doc, nested_tables, progress_cb)
+
+        # ★ 改造三: 语义块驱动填写 (可选，根据配置决定是否启用)
+        # 将相关字段组织成语义块，一起填写保证一致性
+        use_semantic_blocks = True  # 可配置开关
+        semantic_blocks = []
+
+        if use_semantic_blocks and self._template_semantics:
+            try:
+                semantic_blocks = organize_fields_by_semantic_blocks(
+                    fields, checkboxes, examples, labeled_fields,
+                    self._template_semantics
+                )
+                if semantic_blocks:
+                    self._log(progress_cb, f"语义块组织完成: {len(semantic_blocks)} 个块")
+            except Exception as e:
+                self._log(progress_cb, f"语义块组织失败: {e}")
+                semantic_blocks = []
+
+        # 如果成功组织了语义块，使用语义块驱动流程
+        if semantic_blocks and len(semantic_blocks) > 1:
+            self._log(progress_cb, "★ 使用语义块驱动填写模式")
+            all_field_values = {}
+            all_checkbox_values = []
+            all_lf_values = {}
+
+            # KB预填标签字段（不变）
+            kb_prefilled = prefill_labeled_fields_from_kb(labeled_fields, self.kb)
+            if kb_prefilled:
+                all_lf_values.update(kb_prefilled)
+                self._log(progress_cb, f"  KB预填标签字段: {len(kb_prefilled)} 个")
+
+            for block in semantic_blocks:
+                block_name = block.get("block_name", "未知块")
+                field_count = len(block.get("field_ids", []))
+                checkbox_count = len(block.get("checkbox_ids", []))
+                labeled_count = len(block.get("labeled_ids", []))
+
+                if not (field_count or checkbox_count or labeled_count):
+                    continue
+
+                self._log(progress_cb,
+                          f"  处理语义块【{block_name}】: {field_count}字段, {checkbox_count}复选框, {labeled_count}标签")
+
+                try:
+                    sys_p, usr_p = build_semantic_block_prompt(
+                        block, fields, checkboxes, examples, labeled_fields,
+                        materials,
+                        company_profile=getattr(self, "_company_profile_block", ""),
+                        kb=getattr(self, "kb", None),
+                    )
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+
+                    if isinstance(parsed, dict):
+                        # 收集字段值
+                        block_fields = parsed.get("fields", {})
+                        all_field_values.update(block_fields)
+
+                        # 收集复选框
+                        block_checked = parsed.get("checked", [])
+                        all_checkbox_values.extend(block_checked)
+
+                        # 收集标签字段
+                        for k, v in parsed.items():
+                            if k.startswith("lf") and v:
+                                all_lf_values[k] = v
+
+                        filled_count = len([v for v in block_fields.values() if v and v != "待补充"])
+                        self._log(progress_cb, f"    -> 填入 {filled_count} 个值")
+
+                except Exception as e:
+                    self._log(progress_cb, f"    语义块处理出错: {e}")
+
+            # 应用所有收集的值
+            filled = apply_field_values(doc, fields, all_field_values)
+            self.stats["filled"] += filled
+
+            if all_checkbox_values:
+                ticked = apply_checkbox_ticks(doc, checkboxes, list(set(all_checkbox_values)))
+                self.stats["filled"] += ticked
+                self._log(progress_cb, f"已勾选 {ticked} 个复选框")
+
+            filled_lf = apply_labeled_field_values(doc, labeled_fields, all_lf_values)
+            self.stats["filled"] += filled_lf
+
+            self._log(progress_cb,
+                      f"语义块填写完成: {filled} 字段, {filled_lf} 标签")
+
+        # 传统批处理流程（在语义块流程之后处理剩余字段，或作为回退）
+        # 3. Process XX fields (batched)
+        if fields and not (semantic_blocks and len(semantic_blocks) > 1):
+            self._log(progress_cb, f"正在提取 {len(fields)} 个字段的值...")
+            all_values = {}
+            batch_size = 40
+            for i in range(0, len(fields), batch_size):
+                batch_num = i // batch_size + 1
+                total_batches = (len(fields) + batch_size - 1) // batch_size
+                self._log(progress_cb,
+                          f"  字段提取 批次 {batch_num}/{total_batches}")
+
+                sys_p, usr_p, batch = build_field_extraction_prompt(
+                    fields, materials, i, batch_size,
+                    company_profile=getattr(self, "_company_profile_block", ""),
+                    kb=getattr(self, "kb", None),
+                    template_semantics=getattr(self, "_template_semantics", None))
+                if not sys_p:
+                    break
+
+                try:
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+                    if isinstance(parsed, dict):
+                        all_values.update(parsed)
+                        real_vals = sum(1 for v in parsed.values()
+                                        if v and v != "待补充")
+                        pending_vals = len(parsed) - real_vals
+                        self._log(progress_cb,
+                                  f"  -> 提取到 {real_vals} 个值"
+                                  + (f"，{pending_vals} 个待补充" if pending_vals else ""))
+                    else:
+                        self._log(progress_cb, "  -> JSON解析失败，跳过此批次")
+                        self.stats["errors"].append(
+                            f"字段批次{batch_num}: JSON解析失败")
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"字段批次{batch_num}: {str(e)[:60]}")
+                    self._log(progress_cb, f"  -> 出错: {e}")
+
+            # ★ 改造四: 验证字段值，过滤模板泄漏
+            try:
+                validated_values = filter_invalid_values(all_values, fields)
+                invalid_count = sum(1 for k, v in all_values.items()
+                                   if v != "待补充" and validated_values.get(k) == "待补充")
+                if invalid_count:
+                    self._log(progress_cb, f"  验证过滤: {invalid_count} 个模板泄漏值已标记待补充")
+                all_values = validated_values
+            except Exception as e:
+                self._log(progress_cb, f"  字段验证失败: {e}")
+
+            # Apply values
+            filled = apply_field_values(doc, fields, all_values)
+            total_pending = sum(1 for v in all_values.values() if v == "待补充")
+            self.stats["filled"] += filled
+            self._log(progress_cb,
+                      f"已填入 {filled}/{len(fields)} 个字段"
+                      + (f"（{total_pending} 个需人工补充）" if total_pending else ""))
+
+        # 4. Process checkboxes
+        if checkboxes:
+            self._log(progress_cb, f"正在判断 {len(checkboxes)} 个复选框...")
+            sys_p, usr_p = build_checkbox_prompt(
+                checkboxes, materials,
+                company_profile=getattr(self, "_company_profile_block", ""))
+            try:
+                resp = self.llm(sys_p, usr_p)
+                parsed = parse_json_response(resp)
+                checked_ids = []
+                if isinstance(parsed, dict) and "checked" in parsed:
+                    checked_ids = parsed["checked"]
+                elif isinstance(parsed, list):
+                    checked_ids = parsed
+
+                ticked = apply_checkbox_ticks(doc, checkboxes, checked_ids)
+                self.stats["filled"] += ticked
+                self._log(progress_cb,
+                          f"已勾选 {ticked}/{len(checkboxes)} 个复选框")
+            except Exception as e:
+                self.stats["errors"].append(f"复选框: {str(e)[:60]}")
+                self._log(progress_cb, f"复选框处理出错: {e}")
+
+        # 4b. Process labeled blank fields — ★ v7.14: BATCHED (was 129K single call!)
+        if labeled_fields:
+            self._log(progress_cb,
+                      f"正在填写 {len(labeled_fields)} 个标签字段（分批处理）...")
+            all_lf_values = {}
+
+            # Truth-first: prefill all deterministic fields from KB
+            # (replaces the old hard-coded 2-field logic)
+            kb_prefilled = prefill_labeled_fields_from_kb(labeled_fields, self.kb)
+            if kb_prefilled:
+                all_lf_values.update(kb_prefilled)
+                self._log(progress_cb,
+                          f"  KB预填标签字段: {len(kb_prefilled)} 个")
+            prefilled_ids = set(kb_prefilled.keys())
+
+            # Bank-internal fields: only skip those that are truly
+            # unknowable from materials (审查岗意见, 审批意见, etc.)
+            # Fields like PD评级, 申报额度, 担保方式 CAN be in materials.
+            def _is_bank_internal_lf(_lf) -> bool:
+                key = (getattr(_lf, 'label', '') or '') + ' ' + (getattr(_lf, 'context_line', '') or '')
+                # Hard-skip: fields that are always bank-internal decisions
+                hard_skip_kw = [
+                    '审查员', '审批人', '分管行长', '行长',
+                    '日期：', '共同调查人',
+                ]
+                return any(k in key for k in hard_skip_kw)
+
+            lf_to_fill = [
+                lf for lf in labeled_fields
+                if (lf.lf_id not in prefilled_ids and not _is_bank_internal_lf(lf))
+            ]
+            skipped_internal = sum(
+                1 for lf in labeled_fields
+                if (lf.lf_id not in prefilled_ids and _is_bank_internal_lf(lf))
+            )
+            if skipped_internal:
+                self._log(progress_cb, f"  Truth gate: 跳过 {skipped_internal} 个银行内部字段（避免误填/幻觉）")
+
+            lf_batch_size = 20
+            for i in range(0, len(lf_to_fill), lf_batch_size):
+                batch_num = i // lf_batch_size + 1
+                total_batches = (len(lf_to_fill) + lf_batch_size - 1) // lf_batch_size
+                self._log(progress_cb,
+                          f"  标签字段批次 {batch_num}/{total_batches}")
+                sys_p, usr_p, batch = build_labeled_field_prompt(
+                    lf_to_fill, materials, i, lf_batch_size,
+                    company_profile=getattr(self, "_company_profile_block", ""),
+                    kb=getattr(self, "kb", None))
+                if not sys_p:
+                    break
+                try:
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+                    if isinstance(parsed, dict):
+                        all_lf_values.update(parsed)
+                        real_vals = sum(1 for v in parsed.values() if v)
+                        self._log(progress_cb,
+                                  f"  -> 提取到 {real_vals} 个值")
+                    else:
+                        self._log(progress_cb,
+                                  f"  -> JSON解析失败，跳过此批次")
+                        self.stats["errors"].append(
+                            f"标签字段批次{batch_num}: JSON解析失败")
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"标签字段批次{batch_num}: {str(e)[:60]}")
+                    self._log(progress_cb, f"  -> 出错: {e}")
+
+            # Apply all collected values at once
+            filled_lf = apply_labeled_field_values(
+                doc, labeled_fields, all_lf_values)
+            self.stats["filled"] += filled_lf
+            total_pending = sum(1 for v in all_lf_values.values() if not v)
+            self._log(progress_cb,
+                      f"已填写 {filled_lf}/{len(labeled_fields)} 个标签字段"
+                      + (f"（{total_pending} 个无数据跳过）" if total_pending else ""))
+
+        # 5. Process example paragraphs
+        if examples:
+            self._log(progress_cb, f"正在改写 {len(examples)} 个示例段落...")
+            rewrites = {}
+            rewrite_anchors = self._build_rewrite_anchors(getattr(self, "_truth_financial_data", None) or {})
+            for ex in examples:
+                try:
+                    # KB优先改写：对关键段落用材料KB直接替换，避免示例/幻觉
+                    kb_facts = (self.kb or {}).get("facts", {}) or {}
+                    orig = ex.original_text or ""
+                    kb_rewrite = ""
+
+                    try:
+                        if (
+                            "主营业务" in orig
+                            or "主要业务" in orig
+                            or "经营范围" in orig
+                        ):
+                            bw = (kb_facts.get("business_water") or "").strip()
+                            be = (kb_facts.get("business_education") or "").strip()
+                            if bw or be:
+                                parts = []
+                                if bw:
+                                    parts.append("主营业务——智慧水利：" + bw)
+                                if be:
+                                    parts.append("主营业务——智慧教育：" + be)
+                                kb_rewrite = "\n".join(parts)
+
+                        elif (
+                            "产品优势" in orig
+                            or "核心竞争力" in orig
+                            or "竞争优势" in orig
+                        ):
+                            kb_rewrite = (kb_facts.get("core_competence") or "").strip()
+
+                        elif ("销售收入" in orig and "结构占比" in orig) or ("结构占比" in orig):
+                            kb_rewrite = (kb_facts.get("revenue_split") or "").strip()
+
+                        elif "经营账期" in orig:
+                            kb_rewrite = (kb_facts.get("account_period") or "").strip()
+
+                        elif (
+                            ("上游" in orig or "供应商" in orig)
+                            or ("下游" in orig or "客户" in orig)
+                        ):
+                            up = kb_facts.get("upstream_top5") or []
+                            dn = kb_facts.get("downstream_top5") or []
+                            up_names = []
+                            dn_names = []
+                            if isinstance(up, list):
+                                for it in up:
+                                    if isinstance(it, dict):
+                                        n = (it.get("主要上游供应商") or "").strip()
+                                        if n:
+                                            up_names.append(n)
+                            if isinstance(dn, list):
+                                for it in dn:
+                                    if isinstance(it, dict):
+                                        n = (it.get("主要下游销售客户") or "").strip()
+                                        if n:
+                                            dn_names.append(n)
+                            if up_names or dn_names:
+                                parts = []
+                                if up_names:
+                                    parts.append("上游供应商主要包括：" + "、".join(up_names[:5]) + "等。")
+                                if dn_names:
+                                    parts.append("下游客户主要包括：" + "、".join(dn_names[:5]) + "等。")
+                                kb_rewrite = "".join(parts)
+
+                        elif (
+                            "实际控制人" in orig
+                            or "实控人" in orig
+                            or "控股股东" in orig
+                        ):
+                            kb_rewrite = (kb_facts.get("controller_resume") or "").strip()
+
+                    except Exception:
+                        kb_rewrite = ""
+
+                    if kb_rewrite and len(kb_rewrite.strip()) > 20:
+                        rewrites[ex.ex_id] = kb_rewrite.strip()
+                        continue
+
+                    # Default: use LLM, but prepend KB summary to reduce hallucination
+                    mat2 = materials
+                    if getattr(self, "_kb_text", ""):
+                        mat2 = f"【知识库摘要】\n{self._kb_text}\n\n【企业材料】\n{materials}"
+                    prompt_anchors = rewrite_anchors if rewrite_anchors else None
+                    sys_p, usr_p = build_example_rewrite_prompt(
+                        ex, mat2, anchors=prompt_anchors,
+                        company_profile=getattr(self, "_company_profile_block", ""),
+                        kb=getattr(self, "kb", None))
+                    resp = self.llm(sys_p, usr_p)
+                    # Clean response + anti-hallucination filter
+                    resp = re.sub(r'```\w*\n?', '', resp).strip()
+                    resp = _sanitize_generated_text_by_periods(
+                        resp, getattr(self, "_available_periods", None))
+                    if resp and len(resp) > 20:
+                        rewrites[ex.ex_id] = resp
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"示例{ex.ex_id}: {str(e)[:60]}")
+
+            rewritten = apply_example_rewrites(doc, examples, rewrites)
+            self.stats["filled"] += rewritten
+            self._log(progress_cb,
+                      f"已改写 {rewritten}/{len(examples)} 个示例段落")
+
+        # 6. Process nested tables (financial data, suppliers, etc.)
+        if nested_tables:
+            self._log(progress_cb,
+                      f"正在填写 {len(nested_tables)} 个嵌套表格...")
+
+            # ★ v7.19: Split into 3 categories:
+            #   1. Financial large tables (>40 empty, headers contain 科目/资产/负债/年份)
+            #   2. Non-financial large tables (>40 empty, headers contain 供应商/客户/采购/销售)
+            #   3. Small tables (≤40 empty cells) → batched with full materials
+            _FIN_HEADER_KW = ['科目', '资产', '负债', '年份', '利润', '现金',
+                              '余额', '期初', '期末']
+            _NONFIN_HEADER_KW = ['供应商', '客户', '采购', '销售', '上游',
+                                  '下游', '名称', '商品', '产品']
+
+            def _is_financial_table(t):
+                header_text = " ".join(t.header_row)
+                return any(kw in header_text for kw in _FIN_HEADER_KW)
+
+            def _is_objective_kb_table(t):
+                header_text = " ".join(t.header_row or [])
+                objective_markers = [
+                    "\u4e3b\u8981\u4e0a\u6e38\u4f9b\u5e94\u5546", "\u4e3b\u8981\u4e0b\u6e38\u9500\u552e\u5ba2\u6237", "\u7814\u53d1\u8d39\u7528", "\u878d\u8d44\u673a\u6784",
+                    "\u4f01\u4e1a\u540d\u79f0", "\u80a1\u6743\u7ed3\u6784", "\u4e1a\u52a1\u8d77\u59cb\u65e5", "\u4e1a\u52a1\u5230\u671f\u65e5",
+                    "\u4e0e\u501f\u6b3e\u4f01\u4e1a\u5173\u8054\u4ea4\u6613",
+                ]
+                return any(marker in header_text for marker in objective_markers)
+
+            # Truth-first: deterministic fill for financial tables (avoid hallucination)
+            fin_tables = [t for t in nested_tables if _is_financial_table(t)]
+            objective_kb_tables = [t for t in nested_tables if _is_objective_kb_table(t)]
+            nested_tables_to_llm = [
+                t for t in nested_tables
+                if not _is_financial_table(t) and not _is_objective_kb_table(t)
+            ]
+            if objective_kb_tables:
+                self._log(progress_cb, f"  Truth gate: {len(objective_kb_tables)}\u4e2a\u5ba2\u89c2\u8868\u4ec5\u5141\u8bb8\u786e\u5b9a\u6027/KB\u586b\u5145\uff0c\u8df3\u8fc7LLM")
+            if fin_tables and getattr(self, "_truth_financial_data", None):
+                self._log(progress_cb, f"  Truth gate: {len(fin_tables)}??????????????LLM")
+                try:
+                    fin_prefilled = self._truth_prefill_financial_tables(
+                        doc, fin_tables, self._truth_financial_data, progress_cb
+                    )
+                    if fin_prefilled:
+                        self.stats["filled"] += fin_prefilled
+                except Exception as e:
+                    self._log(progress_cb, f"  Truth prefill ??????: {e}")
+
+            fin_large = []
+            nonfin_large = []
+            small_tables = []
+            for t in nested_tables_to_llm:
+                if len(t.empty_cells) > 40:
+                    if _is_financial_table(t):
+                        fin_large.append(t)
+                    else:
+                        nonfin_large.append(t)
+                else:
+                    small_tables.append(t)
+
+            self._log(progress_cb,
+                      f"  分类: {len(fin_large)}个财务大表, "
+                      f"{len(nonfin_large)}个非财务大表, "
+                      f"{len(small_tables)}个小表")
+
+            all_table_values = {}
+
+            # Process financial large tables with focused financial materials
+            for lt in fin_large:
+                self._log(progress_cb,
+                          f"  财务大表 {lt.table_id} ({len(lt.empty_cells)}个空格)...")
+                fin_materials = self._build_materials_text(
+                    max_chars=80000, categories="financial")
+                if len(fin_materials) < 500:
+                    fin_materials = materials
+                sys_p, usr_p = build_table_fill_prompt([lt], fin_materials,
+                                                        available_periods=self._available_periods)
+                if not sys_p:
+                    continue
+                try:
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+                    if isinstance(parsed, dict):
+                        all_table_values.update(parsed)
+                        filled_count = sum(
+                            len(v) for v in parsed.values()
+                            if isinstance(v, dict))
+                        self._log(progress_cb,
+                                  f"  -> 提取到 {filled_count} 个值")
+                    else:
+                        self.stats["errors"].append(
+                            f"财务大表{lt.table_id}: JSON解析失败")
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"财务大表{lt.table_id}: {str(e)[:60]}")
+
+            # ★ v7.19: Non-financial large tables use FULL materials
+            for lt in nonfin_large:
+                self._log(progress_cb,
+                          f"  非财务大表 {lt.table_id} ({len(lt.empty_cells)}个空格)...")
+                sys_p, usr_p = build_table_fill_prompt([lt], materials,
+                                                        available_periods=self._available_periods)
+                if not sys_p:
+                    continue
+                try:
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+                    if isinstance(parsed, dict):
+                        all_table_values.update(parsed)
+                        filled_count = sum(
+                            len(v) for v in parsed.values()
+                            if isinstance(v, dict))
+                        self._log(progress_cb,
+                                  f"  -> 提取到 {filled_count} 个值")
+                    else:
+                        self.stats["errors"].append(
+                            f"非财务大表{lt.table_id}: JSON解析失败")
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"非财务大表{lt.table_id}: {str(e)[:60]}")
+
+            # Process small tables in batches
+            batch_size = 3
+            for i in range(0, len(small_tables), batch_size):
+                batch = small_tables[i:i + batch_size]
+                batch_num = i // batch_size + 1
+                total_batches = (len(small_tables) + batch_size - 1) // batch_size
+                table_names = [t.table_id for t in batch]
+                self._log(progress_cb,
+                          f"  表格批次 {batch_num}/{total_batches}: {table_names}")
+
+                sys_p, usr_p = build_table_fill_prompt(batch, materials,
+                                                        available_periods=self._available_periods)
+                if not sys_p:
+                    continue
+
+                try:
+                    resp = self.llm(sys_p, usr_p)
+                    parsed = parse_json_response(resp)
+                    if isinstance(parsed, dict):
+                        all_table_values.update(parsed)
+                        filled_count = sum(
+                            len(v) for v in parsed.values()
+                            if isinstance(v, dict))
+                        self._log(progress_cb,
+                                  f"  -> 提取到 {filled_count} 个单元格值")
+                    else:
+                        self._log(progress_cb, "  -> JSON解析失败")
+                        self.stats["errors"].append(
+                            f"表格批次{batch_num}: JSON解析失败")
+                except Exception as e:
+                    self.stats["errors"].append(
+                        f"表格批次{batch_num}: {str(e)[:60]}")
+                    self._log(progress_cb, f"  -> 出错: {e}")
+
+            # Round financial values to integers before applying
+            all_table_values = _round_financial_values(all_table_values)
+
+            # Apply table values
+            self._log(progress_cb,
+                      f"  [DEBUG] all_table_values keys: "
+                      f"{list(all_table_values.keys())}, "
+                      f"共{sum(len(v) for v in all_table_values.values() if isinstance(v, dict))}个值")
+            all_table_values = _filter_hallucinated_values(
+                all_table_values, nested_tables, self._available_periods)
+            table_filled = apply_table_values(doc, nested_tables, all_table_values)
+            self.stats["filled"] += table_filled
+            self._log(progress_cb,
+                      f"已填入 {table_filled}/{total_empty_cells} 个表格单元格")
+
+            # Retry-on-zero: tables that got 0 values with ≥5 empty cells
+            zero_tables = []
+            for ts in nested_tables_to_llm:
+                tv = all_table_values.get(ts.table_id, {})
+                if (not tv or not isinstance(tv, dict) or len(tv) == 0) and len(ts.empty_cells) >= 5:
+                    zero_tables.append(ts)
+
+            if zero_tables:
+                self._log(progress_cb, f"  {len(zero_tables)} 个表格零结果，用全量材料重试...")
+                retry_values = {}
+                for zt in zero_tables:
+                    self._log(progress_cb, f"  重试 {zt.table_id} ({len(zt.empty_cells)}个空格)...")
+                    sys_p, usr_p = build_table_fill_prompt([zt], materials,
+                                                            available_periods=self._available_periods)  # FULL materials
+                    if not sys_p:
+                        continue
+                    try:
+                        resp = self.llm(sys_p, usr_p)
+                        parsed = parse_json_response(resp)
+                        if isinstance(parsed, dict):
+                            retry_values.update(parsed)
+                            filled_count = sum(len(v) for v in parsed.values() if isinstance(v, dict))
+                            self._log(progress_cb, f"  -> 重试提取到 {filled_count} 个值")
+                    except Exception as e:
+                        self._log(progress_cb, f"  -> 重试出错: {e}")
+
+                if retry_values:
+                    retry_values = _round_financial_values(retry_values)
+                    retry_filled = apply_table_values(doc, nested_tables, retry_values)
+                    table_filled += retry_filled
+                    self.stats["filled"] += retry_filled
+                    self._log(progress_cb, f"  重试共补充填入 {retry_filled} 个单元格")
+
+        # 6b. Post-process: fix spurious checkbox text
+        #     If the LLM wrote a checkbox option value as plain text instead
+        #     of ticking the checkbox, detect and fix it.
+        self._log(progress_cb, "后处理：检查复选框文本错误...")
+        spurious_fixes = postprocess_spurious_checkbox_text(doc)
+        if spurious_fixes:
+            self.stats["filled"] += spurious_fixes
+            self._log(progress_cb,
+                      f"  已修复 {spurious_fixes} 个复选框文本错误（文本→勾选）")
+
+        # 6c. Generate financial analysis + fill ratio table + detail analysis
+        self._log(progress_cb, "正在生成财务分析...")
+        try:
+            self._generate_financial_analysis(
+                doc, materials, progress_cb, nested_tables)
+        except Exception as e:
+            self._log(progress_cb, f"财务分析生成出错: {e}")
+            self.stats["errors"].append(f"财务分析: {str(e)[:60]}")
+
+        # 6d. Fill financial detail analysis items
+        self._log(progress_cb, "\u6b63\u5728\u8865\u5145\u8d22\u52a1\u660e\u7ec6\u5206\u6790...")
+        try:
+            # Extract financial data again (table may have been updated)
+            fin_data = getattr(self, "_truth_financial_data", None) or self._extract_financial_data_from_doc(doc)
+            if fin_data:
+                detail_filled = self._fill_financial_detail_analysis(
+                    doc, fin_data, materials, progress_cb)
+                self.stats["filled"] += detail_filled
+        except Exception as e:
+            self._log(progress_cb, f"\u8d22\u52a1\u660e\u7ec6\u5206\u6790\u51fa\u9519: {e}")
+            self.stats["errors"].append(f"\u8d22\u52a1\u660e\u7ec6: {str(e)[:60]}")
+
+        self._log(progress_cb, "\u6b63\u5728\u8865\u5145\u7ecf\u8425\u8d26\u671f/\u4e0a\u4e0b\u6e38/\u8fd8\u6b3e\u6765\u6e90\u7b49\u6bb5\u843d...")
+        try:
+            narrative_filled = self._fill_targeted_narrative_sections(doc, materials, progress_cb)
+            self.stats["filled"] += narrative_filled
+        except Exception as e:
+            self._log(progress_cb, f"\u5b9a\u5411\u6bb5\u843d\u8865\u5145\u51fa\u9519: {e}")
+            self.stats["errors"].append(f"\u5b9a\u5411\u6bb5\u843d: {str(e)[:60]}")
+
+        # Phase C: Section-level content audit — catch template residuals
+        try:
+            self._phase_c_content_audit(doc, materials, progress_cb)
+        except Exception as e:
+            self._log(progress_cb, f"Phase C 内容审查出错: {e}")
+            self.stats["errors"].append(f"Phase C: {str(e)[:60]}")
+
+# 7. Clean up red marker text → remove color (inherit from style)
+        #    Template uses red (FF0000) to mark example/placeholder text.
+        #    After filling, remove explicit color so it inherits from style.
+        #    Setting RGBColor(0,0,0) adds <w:color val="000000"/> which can
+        #    differ from the inherited/automatic color in WPS rendering.
+        self._log(progress_cb, "清理格式（红色标记→继承样式颜色）...")
+        from docx.oxml.ns import qn
+        red_cleaned = 0
+
+        def _clear_red_color(run):
+            """Remove explicit red color from a run, letting it inherit."""
+            nonlocal red_cleaned
+            try:
+                if (run.font.color and run.font.color.rgb
+                        and str(run.font.color.rgb) == 'FF0000'):
+                    # Remove the <w:color> element entirely from <w:rPr>
+                    rPr = run._element.find(qn('w:rPr'))
+                    if rPr is not None:
+                        color_elem = rPr.find(qn('w:color'))
+                        if color_elem is not None:
+                            rPr.remove(color_elem)
+                            red_cleaned += 1
+            except Exception:
+                pass
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            _clear_red_color(run)
+                    # Also clean nested table cells
+                    for nt in cell.tables:
+                        for nr in nt.rows:
+                            for nc in nr.cells:
+                                for np_ in nc.paragraphs:
+                                    for run in np_.runs:
+                                        _clear_red_color(run)
+        if red_cleaned:
+            self._log(progress_cb, f"  已清理 {red_cleaned} 个红色标记")
+
+        # 7b. Lock table layout to "fixed" to prevent auto-resize on fill
+        #     All nested tables use "autofit" by default — WPS desktop
+        #     recalculates column widths based on content, breaking layout.
+        #     Setting layout to "fixed" preserves original column widths.
+        fixed_count = 0
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for nt in cell.tables:
+                        tblPr = nt._tbl.find(qn('w:tblPr'))
+                        if tblPr is not None:
+                            layout = tblPr.find(qn('w:tblLayout'))
+                            if layout is None:
+                                layout = etree.SubElement(
+                                    tblPr, qn('w:tblLayout'))
+                            layout.set(qn('w:type'), 'fixed')
+                            fixed_count += 1
+            # Also fix the outer table itself
+            tblPr = table._tbl.find(qn('w:tblPr'))
+            if tblPr is not None:
+                layout = tblPr.find(qn('w:tblLayout'))
+                if layout is None:
+                    layout = etree.SubElement(tblPr, qn('w:tblLayout'))
+                layout.set(qn('w:type'), 'fixed')
+                fixed_count += 1
+        if fixed_count:
+            self._log(progress_cb,
+                      f"  已锁定 {fixed_count} 个表格为固定列宽")
+
+        def _round_money_mentions_in_paragraph(para):
+            text = para.text or ""
+            if not text:
+                return 0
+            changed = 0
+            def _repl(m):
+                nonlocal changed
+                changed += 1
+                return f"{int(round(float(m.group(1))))}\u4e07\u5143"
+            new_text = re.sub(r"(-?\d+(?:\.\d+)?)\s*\u4e07\u5143", _repl, text)
+            if changed and new_text != text:
+                if para.runs:
+                    para.runs[0].text = new_text
+                    for run in para.runs[1:]:
+                        run.text = ""
+                else:
+                    para.add_run(new_text)
+            return changed
+
+        rounded_money_mentions = 0
+        for para in doc.paragraphs:
+            rounded_money_mentions += _round_money_mentions_in_paragraph(para)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        rounded_money_mentions += _round_money_mentions_in_paragraph(para)
+                    for nt in cell.tables:
+                        for nr in nt.rows:
+                            for nc in nr.cells:
+                                for para in nc.paragraphs:
+                                    rounded_money_mentions += _round_money_mentions_in_paragraph(para)
+        if rounded_money_mentions:
+            self._log(progress_cb, f"  已四舍五入 {rounded_money_mentions} 处金额为整数万元")
+
+        # 7d. Fix malformed number commas (e.g. "10,10" → "1010") and
+        #     clean Markdown syntax residuals from LLM output.
+        def _fix_number_and_markdown_in_para(para):
+            text = para.text or ""
+            if not text:
+                return 0
+            original = text
+
+            # Fix malformed comma numbers: "10,10" → "1010"
+            # In Chinese万元 context, commas in numbers are almost always wrong.
+            # Remove ALL commas from digit sequences (e.g. "10,10" or "10,010")
+            text = re.sub(r'(\d),(\d)', r'\1\2', text)
+            # Repeat to handle consecutive: "1,0,10" → "1010"
+            text = re.sub(r'(\d),(\d)', r'\1\2', text)
+
+            # Clean Markdown table syntax: "| :--- |" etc.
+            text = re.sub(r'\|[\s:]*-+[\s:]*(\|[\s:]*-+[\s:]*)*\|?', '', text)
+            # Clean leading/trailing pipes on lines
+            text = re.sub(r'^\|\s*', '', text)
+            text = re.sub(r'\s*\|$', '', text)
+            # Clean bold/italic markers
+            text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
+            # Clean heading markers
+            text = re.sub(r'^#{1,4}\s+', '', text)
+
+            if text != original:
+                if para.runs:
+                    para.runs[0].text = text
+                    for run in para.runs[1:]:
+                        run.text = ""
+                else:
+                    para.add_run(text)
+                return 1
+            return 0
+
+        format_fixes = 0
+        for para in doc.paragraphs:
+            format_fixes += _fix_number_and_markdown_in_para(para)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        format_fixes += _fix_number_and_markdown_in_para(para)
+                    for nt in cell.tables:
+                        for nr in nt.rows:
+                            for nc in nr.cells:
+                                for para in nc.paragraphs:
+                                    format_fixes += _fix_number_and_markdown_in_para(para)
+        if format_fixes:
+            self._log(progress_cb, f"  已修正 {format_fixes} 处数字格式/Markdown残留")
+
+        # 8. Insert Word comments and merge extra pending tags
+        self._log(progress_cb, "插入侧栏批注标签...")
+        comments_xml, comment_tags = self._insert_word_comments(doc)
+        merged_tags = list(comment_tags or []) + list(getattr(self, '_extra_pending_tags', []) or [])
+        seen_tags = set()
+        dedup_tags = []
+        for tg in merged_tags:
+            key = (tg.get('label', ''), tg.get('category', ''), tg.get('context', ''))
+            if key in seen_tags:
+                continue
+            seen_tags.add(key)
+            dedup_tags.append(tg)
+        self.pending_tags = dedup_tags
+        if self.pending_tags:
+            self._log(progress_cb, f"共标记 {len(self.pending_tags)} 处待补充/待确认")
+        # Clean up ____ placeholder blanks before quality check and save
+        try:
+            placeholder_count = self._clean_placeholders(doc)
+            if placeholder_count:
+                self._log(progress_cb,
+                          f"  已清理 {placeholder_count} 个____占位符 → （材料未提供）")
+        except Exception as e:
+            self._log(progress_cb, f"占位符清理出错: {e}")
+
+        self._validation_blocked = False
+        self._validation_blockers = []
+        # 方案二：输出后置校验层（最终写盘前）
+        try:
+            qc = QualityChecker()
+            doc_text = _collect_document_text(doc)
+            kb_facts = (self.kb or {}).get("facts", {}) or {}
+            try:
+                qc_issues = qc.check(doc_text, kb_facts)
+            except TypeError:
+                qc_issues = qc.check(doc_text)
+            if qc_issues:
+                _append_fill_run_output("\n[质量检查]\n" + qc.format_report(qc_issues))
+                self._log(progress_cb, f"后置质量校验命中 {len(qc_issues)} 项")
+                qc_error_blockers = []
+                for issue in qc_issues:
+                    if getattr(issue, "severity", "") != "error":
+                        continue
+                    context = (getattr(issue, "evidence", "") or getattr(issue, "snippet", "") or "").strip()
+                    qc_error_blockers.append({
+                        "code": getattr(issue, "code", "quality_check_error"),
+                        "severity": "blocker",
+                        "message": getattr(issue, "message", "后置质量校验命中 error 级问题"),
+                        "context": context,
+                        "table_index": None,
+                    })
+                if qc_error_blockers:
+                    self._validation_blockers.extend(qc_error_blockers)
+                    self._validation_blocked = True
+                    self._log(progress_cb, f"后置质量校验触发阻断 {len(qc_error_blockers)} 项")
+            else:
+                _append_fill_run_output("\n[质量检查]\n未发现命中规则的问题。")
+        except Exception as e:
+            self._log(progress_cb, f"后置质量校验异常: {e}")
+
+        # 9. Save and validate
+        self._save_preserving_zip(doc, docx_path, output_path,
+                                  comments_xml=comments_xml)
+        self._log(progress_cb, f"\u8f93\u51fa\u6587\u4ef6\u5df2\u4fdd\u5b58: {output_path}")
+
+        qc_blockers = list(self._validation_blockers or [])
+        blockers = self._validate_output_docx(output_path)
+        if qc_blockers:
+            merged_blockers = []
+            seen_blockers = set()
+            for item in qc_blockers + list(blockers or []):
+                key = (
+                    item.get("code", ""),
+                    item.get("message", ""),
+                    item.get("context", ""),
+                )
+                if key in seen_blockers:
+                    continue
+                seen_blockers.add(key)
+                merged_blockers.append(item)
+            blockers = merged_blockers
+            self._validation_blockers = merged_blockers
+            self._validation_blocked = bool(merged_blockers)
+        if blockers:
+            blocker_tags = self._validation_blockers_to_tags(blockers)
+            for tg in blocker_tags:
+                key = (tg.get('label', ''), tg.get('category', ''), tg.get('context', ''))
+                if key not in seen_tags:
+                    seen_tags.add(key)
+                    self.pending_tags.append(tg)
+            self._log(progress_cb, f"\u8f93\u51fa\u5df2\u88ab\u6821\u9a8c\u963b\u65ad: {len(blockers)} \u9879")
+
+        # 10. Summary
+        summary = self._build_summary()
+        if self._validation_blocked:
+            summary += f"\n[BLOCKED] \u6821\u9a8c\u963b\u65ad\u9879: {len(self._validation_blockers)}"
+        self._log(progress_cb, summary)
+
+
+        return output_path
+
+    def _augment_tables_with_missing_periods(self, doc, nested_tables,
+                                               progress_cb):
+        """Add missing material period columns to column-oriented financial tables."""
+        from docx.oxml.ns import qn
+
+        if not self._available_periods:
+            return
+
+        available_years = set(self._available_periods.get("available_years", []))
+        available_interim = set(self._available_periods.get("available_interim", []))
+        if not available_years and not available_interim:
+            return
+
+        def _collect_header_period_columns(headers):
+            period_cols = []
+            year_like_cols = 0
+            for offset, h in enumerate(headers, start=1):
+                hs = (h or "").strip()
+                if not hs:
+                    continue
+                normalized = normalize_period(hs)
+                if re.fullmatch(r'20\d{2}\.\d{1,2}', normalized):
+                    period_cols.append((offset, normalized))
+                    year_like_cols += 1
+                elif re.fullmatch(r'20\d{2}', normalized):
+                    period_cols.append((offset, normalized))
+                    year_like_cols += 1
+            return period_cols, year_like_cols
+
+        def _is_column_financial_table(ts):
+            headers = [str(h or '').strip() for h in (ts.header_row or [])]
+            if len(headers) < 3:
+                return False
+            if '年份' in headers[0]:
+                return False
+            header_text = ' '.join(headers)
+            fin_kw = ['科目', '项目', '资产', '负债', '利润', '现金', '财务']
+            _, year_like_cols = _collect_header_period_columns(headers[1:])
+            return year_like_cols >= 2 and any(k in header_text for k in fin_kw)
+
+        added_cols = 0
+        for ts in nested_tables:
+            if not _is_column_financial_table(ts):
+                continue
+
+            headers = [str(h or '').strip() for h in ts.header_row]
+            header_period_cols, _ = _collect_header_period_columns(headers[1:])
+            template_periods = [period for _, period in header_period_cols]
+            all_available_periods = sorted({
+                p for p in available_years | available_interim
+                if re.fullmatch(r'20\d{2}(?:\.\d{1,2})?', str(p).strip())
+            }, key=period_sort_key)
+            plan = build_alignment_plan(template_periods, all_available_periods)
+            if not plan.to_insert:
+                continue
+
+            try:
+                parent_cell = doc.tables[ts.cell_path[0]].rows[ts.cell_path[1]].cells[ts.cell_path[2]]
+                nt = parent_cell.tables[ts.nested_table_idx]
+            except (IndexError, AttributeError):
+                continue
+
+            from copy import deepcopy
+            first_row = nt.rows[0] if nt.rows else None
+            original_total_width = 0
+            if first_row is not None:
+                for cell in first_row.cells:
+                    tc_pr = cell._tc.tcPr
+                    tc_w = tc_pr.find(qn('w:tcW')) if tc_pr is not None else None
+                    if tc_w is None:
+                        continue
+                    try:
+                        original_total_width += int(tc_w.get(qn('w:w')) or 0)
+                    except (TypeError, ValueError):
+                        continue
+
+            current_template_order = list(template_periods)
+
+            for anchor_idx, period, insert_side in plan.to_insert:
+                new_header = period
+                if any(new_header == normalize_period(str(h or '').strip()) for h in ts.header_row):
+                    current_template_order = [
+                        p for _, p in _collect_header_period_columns(
+                            [str(h or '').strip() for h in ts.header_row[1:]]
+                        )[0]
+                    ]
+                    continue
+
+                current_period_cols, _ = _collect_header_period_columns(
+                    [str(h or '').strip() for h in ts.header_row[1:]]
+                )
+                current_period_map = {existing_period: ci for ci, existing_period in current_period_cols}
+                anchor_period = (
+                    current_template_order[anchor_idx]
+                    if 0 <= anchor_idx < len(current_template_order)
+                    else None
+                )
+
+                if anchor_period and anchor_period in current_period_map:
+                    insert_ci = current_period_map[anchor_period]
+                    if insert_side == 'right':
+                        insert_ci += 1
+                elif current_period_cols:
+                    if insert_side == 'left':
+                        insert_ci = current_period_cols[0][0]
+                    else:
+                        insert_ci = current_period_cols[-1][0] + 1
+                else:
+                    insert_ci = 1
+                if insert_ci > len(ts.header_row):
+                    insert_ci = len(ts.header_row)
+
+                for row in nt.rows:
+                    if not row.cells:
+                        continue
+                    source_ci = insert_ci if insert_ci < len(row.cells) else len(row.cells) - 1
+                    source_cell_elem = row.cells[source_ci]._element
+                    new_cell = deepcopy(source_cell_elem)
+                    for p in new_cell.findall(qn('w:p')):
+                        for r in list(p.findall(qn('w:r'))):
+                            p.remove(r)
+                    if insert_ci < len(row.cells):
+                        source_cell_elem.addprevious(new_cell)
+                    else:
+                        source_cell_elem.addnext(new_cell)
+
+                header_cell = nt.rows[0].cells[insert_ci]
+                if header_cell.paragraphs:
+                    first_para = header_cell.paragraphs[0]
+                    if first_para.runs:
+                        first_para.runs[0].text = new_header
+                        for r in first_para.runs[1:]:
+                            r.text = ''
+                    else:
+                        first_para.add_run(new_header)
+                    for extra_para in header_cell.paragraphs[1:]:
+                        for r in extra_para.runs:
+                            r.text = ''
+                else:
+                    header_cell.text = new_header
+
+                ts.header_row.insert(insert_ci, new_header)
+                ts.num_cols += 1
+                ts.empty_cells = [
+                    (ri, ci + 1 if ci >= insert_ci else ci)
+                    for (ri, ci) in ts.empty_cells
+                ]
+                ts.existing_data = {
+                    (ri, ci + 1 if ci >= insert_ci else ci): v
+                    for (ri, ci), v in ts.existing_data.items()
+                }
+                data_start = ts.num_rows - len(ts.row_labels)
+                for ri in range(data_start, ts.num_rows):
+                    ts.empty_cells.append((ri, insert_ci))
+                added_cols += 1
+                current_template_order = [
+                    p for _, p in _collect_header_period_columns(
+                        [str(h or '').strip() for h in ts.header_row[1:]]
+                    )[0]
+                ]
+                self._log(progress_cb, f"  table {ts.table_id}: add {new_header}")
+
+            new_col_count = len(nt.rows[0].cells) if nt.rows else 0
+            if original_total_width > 0 and new_col_count > 0:
+                uniform_width = int(original_total_width / new_col_count)
+                for row in nt.rows:
+                    for cell in row.cells[:new_col_count]:
+                        tc_pr = cell._tc.get_or_add_tcPr()
+                        tc_w = tc_pr.find(qn('w:tcW'))
+                        if tc_w is None:
+                            tc_w = etree.SubElement(tc_pr, qn('w:tcW'))
+                        tc_w.set(qn('w:w'), str(uniform_width))
+                        tc_w.set(qn('w:type'), tc_w.get(qn('w:type')) or 'dxa')
+
+                tbl_grid = nt._tbl.find(qn('w:tblGrid'))
+                if tbl_grid is not None:
+                    grid_cols = list(tbl_grid.findall(qn('w:gridCol')))
+                    while len(grid_cols) < new_col_count:
+                        grid_cols.append(etree.SubElement(tbl_grid, qn('w:gridCol')))
+                    for extra in grid_cols[new_col_count:]:
+                        tbl_grid.remove(extra)
+                    for grid_col in tbl_grid.findall(qn('w:gridCol')):
+                        grid_col.set(qn('w:w'), str(uniform_width))
+
+        if added_cols:
+            self._log(progress_cb, f"  added {added_cols} missing period columns")
+
+
+    def _truth_clear_unavailable_period_cells(self, doc, nested_tables, progress_cb):
+        """Clear template sample values for periods absent from materials."""
+        if not getattr(self, '_available_periods', None):
+            return
+
+        allowed_years = set(self._available_periods.get('available_years', []))
+        allowed_interim = set(self._available_periods.get('available_interim', []))
+        if not allowed_years and not allowed_interim:
+            return
+
+        def _parse_header_period(header: str):
+            hs = (header or '').strip()
+            m = re.search(r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])', hs)
+            if m:
+                return 'interim', f"{m.group(1)}.{int(m.group(2))}"
+            m = re.search(r'(20\d{2})', hs)
+            if m:
+                return 'year', m.group(1)
+            return None, None
+
+        def _is_column_fin_table(ts):
+            headers = [str(h or '').strip() for h in (ts.header_row or [])]
+            if len(headers) < 3 or '年份' in headers[0]:
+                return False
+            year_like = sum(1 for h in headers[1:] if _parse_header_period(h)[0])
+            header_text = ' '.join(headers)
+            return year_like >= 2 and any(k in header_text for k in ['科目', '项目', '资产', '负债', '利润', '现金'])
+
+        def _clear_cell(cell):
+            try:
+                for para in cell.paragraphs:
+                    for r in para.runs:
+                        r.text = ''
+            except Exception:
+                pass
+
+        def _add_pending_tag(label: str, context: str, category: str = '客观数据缺失-已留空'):
+            tag = {'label': label[:80], 'context': context[:160], 'category': category}
+            if tag not in self._extra_pending_tags:
+                self._extra_pending_tags.append(tag)
+
+        cleared_cols = 0
+        tagged = 0
+
+        for ts in nested_tables:
+            if not _is_column_fin_table(ts):
+                continue
+
+            try:
+                parent_cell = doc.tables[ts.cell_path[0]].rows[ts.cell_path[1]].cells[ts.cell_path[2]]
+                nt = parent_cell.tables[ts.nested_table_idx]
+            except (IndexError, AttributeError):
+                continue
+
+            unavailable_cols = []
+            for ci, h in enumerate(ts.header_row):
+                if ci == 0:
+                    continue
+                kind, period_key = _parse_header_period(str(h or ''))
+                if kind == 'interim' and period_key not in allowed_interim:
+                    unavailable_cols.append((ci, kind, period_key, str(h or '').strip()))
+                elif kind == 'year' and period_key not in allowed_years:
+                    unavailable_cols.append((ci, kind, period_key, str(h or '').strip()))
+
+            if not unavailable_cols:
+                continue
+
+            # Only clear data rows, never touch header rows (some templates have 2-row headers).
+            data_start = ts.num_rows - len(ts.row_labels)
+            if data_start < 1:
+                data_start = 1
+
+            unavailable_ci = {ci for ci, *_ in unavailable_cols}
+            for ci, kind, period_key, header_text in unavailable_cols:
+                had_value = False
+                for ri in range(data_start, len(nt.rows)):
+                    if ci >= len(nt.rows[ri].cells):
+                        continue
+                    cell = nt.rows[ri].cells[ci]
+                    if cell.text and cell.text.strip():
+                        had_value = True
+                        _clear_cell(cell)
+                msg = f"列“{header_text}”无对应材料数据，已按要求留空。"
+                if kind == 'interim':
+                    msg += '如材料仅提供年末数，应改填右侧新增的年末列。'
+                _add_pending_tag(f"{ts.table_id}-{header_text}", msg)
+                tagged += 1
+                if had_value:
+                    cleared_cols += 1
+
+            ts.empty_cells = [(ri, ci) for (ri, ci) in ts.empty_cells if ci not in unavailable_ci]
+            ts.existing_data = {(ri, ci): v for (ri, ci), v in ts.existing_data.items() if ci not in unavailable_ci}
+
+        if cleared_cols:
+            self._log(progress_cb, f"  cleared {cleared_cols} unavailable-period columns")
+        if tagged:
+            self._log(progress_cb, f"  tagged {tagged} unavailable-period columns")
+
+
+    def _truth_build_financial_data(self, progress_cb=None) -> tuple[dict[str, dict[str, int]], dict[str, str]]:
+        """Build truth-first financial data from source Excel/PDF files.
+
+        Returns:
+          financial_data: {period_key: {subject: 万元整数}}
+          sources: {period_key: source_file_display_name}
+        """
+        data: dict[str, dict[str, int]] = {}
+        sources: dict[str, str] = {}
+
+        path_map = self.file_path_map or {}
+        if not path_map:
+            return data, sources
+
+        def pick(pred):
+            for name, fp in path_map.items():
+                if not fp:
+                    continue
+                try:
+                    if pred(name, fp):
+                        return name, fp
+                except Exception:
+                    continue
+            return None, None
+
+        xlsx_name, xlsx_fp = pick(
+            lambda n, fp: fp.lower().endswith((".xlsx", ".xls"))
+            and ("财务报表" in n or "资产负债表" in n or "利润表" in n)
+            and ("2025" in n or "2025" in fp)
+        )
+        audit24_name, audit24_fp = pick(
+            lambda n, fp: fp.lower().endswith(".pdf")
+            and ("审计报告" in n)
+            and ("2024" in n)
+        )
+        audit23_name, audit23_fp = pick(
+            lambda n, fp: fp.lower().endswith(".pdf")
+            and ("审计报告" in n)
+            and ("2023" in n)
+        )
+
+        def _merge(parsed_data, parsed_sources, src_label: str):
+            for period, items in (parsed_data or {}).items():
+                if not isinstance(items, dict):
+                    continue
+                normalized_period = normalize_period(str(period))
+                if not re.fullmatch(r'20\d{2}(?:\.\d{1,2})?', normalized_period):
+                    continue
+                data.setdefault(normalized_period, {})
+                for k, v in items.items():
+                    if v is None:
+                        continue
+                    # Never override existing numeric facts.
+                    if k not in data[normalized_period]:
+                        data[normalized_period][k] = v
+                if normalized_period not in sources:
+                    parsed_source = (
+                        (parsed_sources or {}).get(period)
+                        or (parsed_sources or {}).get(normalized_period)
+                    )
+                    sources[normalized_period] = parsed_source or src_label
+
+        # Parse Excel first (structured, most reliable), then use audits only
+        # to fill missing years/subjects. This avoids OCR parsing errors from
+        # overriding structured spreadsheet facts.
+        if xlsx_fp:
+            try:
+                parsed_data, parsed_sources = self._truth_parse_excel_financials(
+                    xlsx_fp, source_label=(xlsx_name or xlsx_fp)
+                )
+                _merge(parsed_data, parsed_sources, (xlsx_name or xlsx_fp))
+            except Exception as e:
+                self._log(progress_cb, f"  财务解析失败(财务报表Excel): {e}")
+
+        if audit23_fp:
+            try:
+                parsed_data, parsed_sources = self._truth_parse_audit_pdf_financials(
+                    audit23_fp, source_label=(audit23_name or audit23_fp)
+                )
+                _merge(parsed_data, parsed_sources, (audit23_name or audit23_fp))
+            except Exception as e:
+                self._log(progress_cb, f"  财务解析失败(审计报告2023): {e}")
+
+        cashflow_subjects = {
+            "经营性现金流净额",
+            "投资性现金流净额",
+            "筹资性现金流净额",
+            "现金及现金等价物净增加额",
+        }
+
+        # Use 2024 audit as a targeted backfill for missing cash-flow items,
+        # while still keeping structured Excel facts as the primary source.
+        if audit24_fp:
+            try:
+                parsed_data, parsed_sources = self._truth_parse_audit_pdf_financials(
+                    audit24_fp, source_label=(audit24_name or audit24_fp)
+                )
+                parsed_periods = sorted(
+                    {
+                        normalize_period(str(period))
+                        for period in (parsed_data or {}).keys()
+                        if re.fullmatch(r'20\d{2}', normalize_period(str(period)))
+                    },
+                    key=period_sort_key,
+                )
+                latest_annual = parsed_periods[-1] if parsed_periods else None
+                need_latest_annual = (
+                    latest_annual is None
+                    or latest_annual not in data
+                    or not data.get(latest_annual)
+                )
+                if need_latest_annual:
+                    _merge(parsed_data, parsed_sources, (audit24_name or audit24_fp))
+                else:
+                    for period in parsed_periods:
+                        items = (
+                            (parsed_data or {}).get(period, {})
+                            or (parsed_data or {}).get(str(period), {})
+                            or {}
+                        )
+                        if not isinstance(items, dict):
+                            continue
+                        data.setdefault(period, {})
+                        for k, v in items.items():
+                            if v is None or k not in cashflow_subjects:
+                                continue
+                            if k not in data[period]:
+                                data[period][k] = v
+                        if any(k in data.get(period, {}) for k in cashflow_subjects):
+                            sources.setdefault(
+                                period,
+                                (parsed_sources or {}).get(period) or (audit24_name or audit24_fp)
+                            )
+            except Exception as e:
+                self._log(progress_cb, f"  财务解析失败(审计报告2024): {e}")
+        if data:
+            try:
+                periods = sorted(data.keys(), key=period_sort_key)
+                self._log(progress_cb, f"  Truth财务期间: {periods}")
+            except Exception:
+                pass
+
+        return data, sources
+
+    @staticmethod
+    def _truth_canonical_subject_name(value) -> str:
+        s = "" if value is None else str(value)
+        s = s.strip()
+        s = s.replace("　", "").replace(" ", "")
+        s = s.replace("/", "")
+        s = s.replace("（", "(").replace("）", ")")
+        s = re.sub(r"^[一-鿿]{1,3}、", "", s)
+        s = re.sub(r"^（[一-鿿]{1,3}）", "", s)
+        s = re.sub(r"^[（(]\d+[）)]", "", s)
+        s = re.sub(r"^(?:\u5176\u4e2d[:\uff1a]|[\u52a0\u51cf][:\uff1a]|[\u3001:\uff1a\u00b7\u2022]+)", "", s)
+        s = re.sub(r"\(.*?填列\)", "", s)
+        s = re.sub(r"[:：]$", "", s)
+        alias_map = {
+            '资产总计': '总资产',
+            '资产合计': '总资产',
+            '负债总计': '负债合计',
+            '流动资产合计': '流动资产',
+            '流动负债合计': '流动负债',
+            '所有者权益(或股东权益)合计': '净资产',
+            '所有者权益合计': '净资产',
+            '股东权益合计': '净资产',
+            '预付款项': '预付账款',
+            '其它应收款': '其他应收款',
+            '应收帐款': '应收账款',
+            '应付帐款': '应付账款',
+            '应付帐款周转天数': '应付账款周转天数',
+            '应收票据及应收账款': '应收账款',
+            '营业收入': '主营业务收入',
+            '销售收入': '主营业务收入',
+            '归属于母公司所有者的净利润': '净利润',
+            '经营性现金流': '经营性现金流净额',
+            '投资性现金流': '投资性现金流净额',
+            '筹资性现金流': '筹资性现金流净额',
+            '经营活动产生的现金流量净额': '经营性现金流净额',
+            '投资活动产生的现金流量净额': '投资性现金流净额',
+            '筹资活动产生的现金流量净额': '筹资性现金流净额',
+            '现金及现金等价物净增加额': '现金及现金等价物净增加额',
+        }
+        return alias_map.get(s, s)
+
+    def _truth_parse_excel_financials(self, xlsx_path: str, source_label: str = "") -> tuple[dict[str, dict[str, int]], dict[str, str]]:
+        """Parse structured财务报表Excel into {period_key: {subject: 万元整数}}."""
+        data: dict[str, dict[str, int]] = {}
+        sources: dict[str, str] = {}
+
+        def norm_item(x) -> str:
+            return FormFillAgent._truth_canonical_subject_name(x)
+
+        try:
+            import pandas as pd
+            import numpy as np
+        except Exception as e:
+            raise RuntimeError(f"pandas未安装或不可用: {e}")
+
+        # ---- 资产负债表 (期末=当年, 年初=上年年末) ----
+        try:
+            df = pd.read_excel(xlsx_path, sheet_name="资产负债表", header=None)
+            for _, row in df.iterrows():
+                # left: 资产
+                a_item = norm_item(row.iloc[0] if len(row) > 0 else None)
+                a_end = row.iloc[2] if len(row) > 2 else None
+                a_begin = row.iloc[3] if len(row) > 3 else None
+                # right: 负债和所有者权益
+                l_item = norm_item(row.iloc[4] if len(row) > 4 else None)
+                l_end = row.iloc[6] if len(row) > 6 else None
+                l_begin = row.iloc[7] if len(row) > 7 else None
+
+                if a_item and a_item not in ("资产", "资产"):
+                    v1 = to_wan_int(a_end)
+                    v0 = to_wan_int(a_begin)
+                    if v1 is not None:
+                        data.setdefault("2025", {})[a_item] = v1
+                    if v0 is not None:
+                        data.setdefault("2024", {})[a_item] = v0
+
+                if l_item and l_item not in ("负债和所有者权益(或股东权益)", "负债和所有者权益(或股东权益)"):
+                    v1 = to_wan_int(l_end)
+                    v0 = to_wan_int(l_begin)
+                    if v1 is not None:
+                        data.setdefault("2025", {})[l_item] = v1
+                    if v0 is not None:
+                        data.setdefault("2024", {})[l_item] = v0
+        except Exception:
+            pass
+
+        # ---- 利润表 (2025/2024) ----
+        try:
+            df = pd.read_excel(xlsx_path, sheet_name="利润表", header=None)
+            year_cols = {}
+            hdr_i = None
+            for i in range(min(len(df), 20)):
+                row = df.iloc[i].tolist()
+                for ci, v in enumerate(row):
+                    sv = str(v).strip() if v is not None and not (isinstance(v, float) and np.isnan(v)) else ""
+                    if sv in ("2025", "2024"):
+                        year_cols[sv] = ci
+                if "2025" in year_cols and "2024" in year_cols:
+                    hdr_i = i
+                    break
+
+            if hdr_i is not None:
+                c25 = year_cols["2025"]
+                c24 = year_cols["2024"]
+                for i in range(hdr_i + 1, len(df)):
+                    item = norm_item(df.iat[i, 0] if df.shape[1] > 0 else None)
+                    if not item or item in ("项目", "项     目"):
+                        continue
+                    v25 = to_wan_int(df.iat[i, c25] if c25 < df.shape[1] else None)
+                    v24 = to_wan_int(df.iat[i, c24] if c24 < df.shape[1] else None)
+                    if v25 is not None:
+                        data.setdefault("2025", {})[item] = v25
+                    if v24 is not None:
+                        data.setdefault("2024", {})[item] = v24
+        except Exception:
+            pass
+
+        # ---- 现金流量表 (2025) ----
+        try:
+            df = pd.read_excel(xlsx_path, sheet_name="现金流量表", header=None)
+            amt_col = None
+            hdr_i = None
+            for i in range(min(len(df), 20)):
+                row = df.iloc[i].tolist()
+                for ci, v in enumerate(row):
+                    sv = str(v).strip() if v is not None and not (isinstance(v, float) and np.isnan(v)) else ""
+                    if "累计金额" in sv:
+                        amt_col = ci
+                        hdr_i = i
+                        break
+                if amt_col is not None:
+                    break
+
+            if amt_col is not None and hdr_i is not None:
+                for i in range(hdr_i + 1, len(df)):
+                    item = norm_item(df.iat[i, 0] if df.shape[1] > 0 else None)
+                    if not item or item in ("项目", "项      目"):
+                        continue
+                    v = to_wan_int(df.iat[i, amt_col] if amt_col < df.shape[1] else None)
+                    if v is not None:
+                        data.setdefault("2025", {})[item] = v
+        except Exception:
+            pass
+
+        if data:
+            for period in data.keys():
+                sources[period] = source_label or os.path.basename(xlsx_path)
+
+        return data, sources
+
+    def _truth_parse_audit_pdf_financials(self, pdf_path: str, source_label: str = "", max_ocr_pages: int = 12) -> tuple[dict[str, dict[str, int]], dict[str, str]]:
+        """Parse scanned audit-report PDF (OCR text) into {period_key: {subject: 万元整数}}."""
+        from tools import _read_pdf_with_ocr_fallback
+
+        text = _read_pdf_with_ocr_fallback(pdf_path, max_ocr_pages=max_ocr_pages)
+        lines = [ln.strip() for ln in (text or "").splitlines() if ln and ln.strip()]
+
+        data: dict[str, dict[str, int]] = {}
+        sources: dict[str, str] = {}
+
+        def norm_item(s: str) -> str:
+            return FormFillAgent._truth_canonical_subject_name(s)
+
+        def parse_amount(s: str):
+            raw = (s or "").strip()
+            if not raw:
+                return None
+            # common OCR noise
+            raw = raw.replace("，", ",").replace("；", ",").replace(";", ",")
+            raw = re.sub(r"[^0-9,\.\-]", "", raw)
+            if not raw or raw in ("-", "--"):
+                return None
+
+            orig = raw
+
+            # 179.402.122.41 style (dot as thousand separators)
+            if re.fullmatch(r"\d{1,3}(?:\.\d{3}){2,}(?:\.\d+)?", raw):
+                parts = raw.split(".")
+                if len(parts) >= 3:
+                    raw = "".join(parts[:-1]) + "." + parts[-1]
+
+            # filter likely line numbers (small, no separators)
+            no_sep = ("," not in orig) and (orig.count(".") <= 1)
+            try:
+                val = float(raw.replace(",", ""))
+            except Exception:
+                return None
+            if no_sep and abs(val) < 10000:
+                return None
+            return val
+
+        def extract_year_pair(start_i: int, pat: str) -> tuple[str | None, str | None]:
+            ys = []
+            for j in range(start_i, min(start_i + 50, len(lines))):
+                for m in re.finditer(pat, lines[j]):
+                    y = m.group(1)
+                    if y not in ys:
+                        ys.append(y)
+            if len(ys) >= 2:
+                # current year is usually the max
+                ycur = max(ys)
+                yprev = min(ys)
+                return ycur, yprev
+            return None, None
+
+        section = None
+        ycur = None
+        yprev = None
+        current_item = None
+        nums: list[float] = []
+
+        for i, ln in enumerate(lines):
+            # detect section begins
+            if "资产负债表" in ln:
+                a, b = extract_year_pair(i, r"(20\d{2})年12月31日")
+                if a and b:
+                    section = "bs"
+                    ycur, yprev = a, b
+                    current_item = None
+                    nums = []
+                    sources.setdefault(a, source_label or os.path.basename(pdf_path))
+                    sources.setdefault(b, source_label or os.path.basename(pdf_path))
+                continue
+            if ln.startswith("利润表") or ln == "利润表":
+                a, b = extract_year_pair(i, r"(20\d{2})年度")
+                if a and b:
+                    section = "is"
+                    ycur, yprev = a, b
+                    current_item = None
+                    nums = []
+                    sources.setdefault(a, source_label or os.path.basename(pdf_path))
+                    sources.setdefault(b, source_label or os.path.basename(pdf_path))
+                continue
+            if ln.startswith("现金流量表") or ln == "现金流量表":
+                a, b = extract_year_pair(i, r"(20\d{2})年度")
+                if a and b:
+                    section = "cf"
+                    ycur, yprev = a, b
+                    current_item = None
+                    nums = []
+                    sources.setdefault(a, source_label or os.path.basename(pdf_path))
+                    sources.setdefault(b, source_label or os.path.basename(pdf_path))
+                continue
+
+            if section is None or not ycur or not yprev:
+                continue
+
+            # skip boilerplate
+            if any(k in ln for k in ["编制单位", "金额单位", "法定代表人", "主管会计", "会计机构负责人", "地址", "邮编", "电话", "审计报告", "目录"]):
+                continue
+            if ln.startswith("--- Page") or ln.startswith("[OCR"):
+                continue
+            if re.search(r"20\d{2}年", ln) or re.search(r"20\d{2}年度", ln):
+                continue
+            if re.match(r"^五、\d+", ln):
+                continue
+
+            amt = parse_amount(ln)
+            if amt is not None:
+                if current_item:
+                    nums.append(amt)
+                    if len(nums) >= 2:
+                        vcur = to_wan_int(nums[0])
+                        vprev = to_wan_int(nums[1])
+                        if vcur is not None:
+                            data.setdefault(ycur, {}).setdefault(current_item, vcur)
+                        if vprev is not None:
+                            data.setdefault(yprev, {}).setdefault(current_item, vprev)
+                        current_item = None
+                        nums = []
+                continue
+
+            cand = norm_item(ln)
+            if not cand or len(cand) < 2:
+                continue
+            if not re.search(r"[\u4e00-\u9fff]", cand):
+                continue
+
+            current_item = cand
+            nums = []
+
+        return data, sources
+
+    def _truth_prefill_financial_tables(self, doc: Document, tables: list, financial_data: dict[str, dict[str, int]], progress_cb=None) -> int:
+        """Fill financial nested tables deterministically using parsed statements."""
+        if not tables or not financial_data:
+            return 0
+
+        def norm(s) -> str:
+            return FormFillAgent._truth_canonical_subject_name(s)
+
+        def parse_period_key(text: str) -> str | None:
+            period = normalize_period(str(text or ""))
+            if re.fullmatch(r'20\d{2}(?:\.\d{1,2})?', period):
+                return period
+            return None
+
+        def money_or_ratio_to_text(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                sv = value.strip()
+                if not sv:
+                    return None
+                if "%" in sv or "天" in sv or re.fullmatch(r"-?\d+\.\d+", sv):
+                    return sv
+            if isinstance(value, float) and abs(value - round(value)) > 1e-6:
+                return str(value)
+            try:
+                return str(int(round(float(value))))
+            except Exception:
+                return str(value)
+            try:
+                return str(int(round(float(value))))
+            except Exception:
+                return str(value)
+
+        idx_map: dict[str, dict[str, int]] = {}
+        for period, items in financial_data.items():
+            if not isinstance(items, dict):
+                continue
+            normalized_period = parse_period_key(period)
+            if not normalized_period:
+                continue
+            normalized = {}
+            for k, v in items.items():
+                nk = norm(k)
+                if nk and v is not None and nk not in normalized:
+                    normalized[nk] = v
+            if normalized:
+                idx_map[normalized_period] = normalized
+
+        ratios = self._calc_financial_ratios(financial_data)
+        filled = 0
+
+        alias_map = {
+            '主营业务收入': ['主营业务收入', '营业收入', '销售收入'],
+            '主营业务成本': ['主营业务成本', '营业成本'],
+            '净利润': ['净利润'],
+            '总资产': ['总资产', '资产总计', '资产合计'],
+            '净资产': ['净资产', '所有者权益合计', '股东权益合计'],
+            '负债合计': ['负债合计', '负债总计', '总负债'],
+            '流动资产': ['流动资产', '流动资产合计'],
+            '流动负债': ['流动负债', '流动负债合计'],
+            '应收账款': ['应收账款', '应收帐款'],
+            '其他应收款': ['其他应收款', '其它应收款'],
+            '预付账款': ['预付账款', '预付款项'],
+            '应付账款': ['应付账款', '应付帐款'],
+            '其他应付款': ['其他应付款', '其它应付款'],
+            '经营性现金流净额': ['经营性现金流净额', '经营活动产生的现金流量净额'],
+            '投资性现金流净额': ['投资性现金流净额', '投资活动产生的现金流量净额'],
+            '筹资性现金流净额': ['筹资性现金流净额', '筹资活动产生的现金流量净额'],
+            '现金及现金等价物净增加额': ['现金及现金等价物净增加额'],
+        }
+
+        row_table_ratio_map = {
+            "负债率": "资产负债率",
+            "资产负债率": "资产负债率",
+            "流动比": "流动比率",
+            "流动比率": "流动比率",
+            "速动比": "速动比率",
+            "速动比率": "速动比率",
+            "毛利率": "毛利率",
+            "毛利润率": "毛利率",
+            "净利率": "净利率",
+            "净利润率": "净利率",
+            "应收账款周转天数": "应收账款周转天数",
+            "应收账款周转": "应收账款周转天数",
+            "存货周转天数": "存货周转天数",
+            "存货周转": "存货周转天数",
+            "预付账款周转天数": "预付账款周转天数",
+            "预付账款周转": "预付账款周转天数",
+            "应付账款周转天数": "应付账款周转天数",
+            "应付帐款周转天数": "应付账款周转天数",
+            "应付账款周转": "应付账款周转天数",
+            "应付帐款周转": "应付账款周转天数",
+        }
+        col_table_ratio_map = dict(row_table_ratio_map)
+
+        for ts in tables:
+            cell = _get_cell(doc, ts.cell_path)
+            if cell is None or ts.nested_table_idx >= len(cell.tables):
+                continue
+            nt = cell.tables[ts.nested_table_idx]
+            headers = [str(h or '').strip() for h in (ts.header_row or [])]
+            if not headers:
+                continue
+
+            if '年份' in headers[0]:
+                data_start = ts.num_rows - len(ts.row_labels)
+                table_values = {}
+                col_mapping = {}
+                for ci, header in enumerate(headers):
+                    if ci == 0:
+                        continue
+                    nheader = norm(header)
+                    ratio_key = row_table_ratio_map.get(nheader)
+                    if ratio_key:
+                        col_mapping[ci] = ('ratio', ratio_key)
+                    else:
+                        col_mapping[ci] = ('data', alias_map.get(nheader, [nheader]))
+
+                for ri in range(data_start, len(nt.rows)):
+                    row = nt.rows[ri]
+                    if not row.cells:
+                        continue
+                    raw_row_label = str(row.cells[0].text or "").strip()
+                    relabel_to = None
+                    period = parse_period_key(raw_row_label)
+                    interim_placeholder = re.fullmatch(r"(20\d{2})\.(?:4|9|X|x)", raw_row_label)
+                    if interim_placeholder:
+                        year = interim_placeholder.group(1)
+                        has_exact_year_row = any(
+                            re.fullmatch(rf"{year}(?:\u5e74)?", str(rr.cells[0].text or "").strip())
+                            for rr in nt.rows[data_start:] if rr.cells
+                        )
+                        if has_exact_year_row:
+                            continue
+                        if year in idx_map:
+                            period = year
+                            relabel_to = f"{year}\u5e74\u672b(\u65b0\u589e)"
+                    if not period:
+                        continue
+                    ymap = idx_map.get(period, {})
+                    yratios = ratios.get(period, {})
+                    if relabel_to and nt.rows[ri].cells:
+                        nt.rows[ri].cells[0].text = relabel_to
+                    for ci, mapping in col_mapping.items():
+                        if (ri, ci) in ts.existing_data:
+                            continue
+                        if ci >= len(nt.rows[ri].cells):
+                            continue
+                        tc = nt.rows[ri].cells[ci]
+                        if tc.text and tc.text.strip():
+                            continue
+                        kind, key_info = mapping
+                        val = None
+                        if kind == 'ratio':
+                            val = yratios.get(key_info)
+                        else:
+                            for alias in key_info:
+                                na = norm(alias)
+                                if na in ymap:
+                                    val = ymap[na]
+                                    break
+                            if val is None and norm(headers[ci]) == '\u94f6\u884c\u501f\u6b3e':
+                                loan_keys = [norm(k) for k in ['\u77ed\u671f\u501f\u6b3e', '\u957f\u671f\u501f\u6b3e', '\u4e00\u5e74\u5185\u5230\u671f\u7684\u975e\u6d41\u52a8\u8d1f\u503a', '\u94f6\u884c\u501f\u6b3e']]
+                                loan_vals = [ymap.get(k) for k in loan_keys if ymap.get(k) is not None]
+                                if loan_vals:
+                                    val = sum(int(v) for v in loan_vals)
+                        if val is None:
+                            continue
+                        table_values[f"{ri}_{ci}"] = money_or_ratio_to_text(val)
+
+                if table_values:
+                    tv = {ts.table_id: table_values}
+                    t_filled = apply_table_values(doc, [ts], tv)
+                    filled += t_filled
+                    self._log(progress_cb, f"  Truth prefill row-table {ts.table_id}: {t_filled} cells")
+                continue
+
+            col_period = {}
+            for ci, h in enumerate(headers):
+                if ci == 0:
+                    continue
+                period = parse_period_key(h)
+                if period:
+                    col_period[ci] = period
+
+            if not col_period:
+                continue
+
+            data_start = ts.num_rows - len(ts.row_labels)
+            new_empty = []
+
+            for (ri, ci) in list(ts.empty_cells):
+                period = col_period.get(ci)
+                if not period:
+                    new_empty.append((ri, ci))
+                    continue
+                ymap = idx_map.get(period)
+                yratios = ratios.get(period, {})
+                if not ymap:
+                    new_empty.append((ri, ci))
+                    continue
+
+                li = ri - data_start
+                if li < 0 or li >= len(ts.row_labels):
+                    new_empty.append((ri, ci))
+                    continue
+
+                label = ts.row_labels[li]
+                nlabel = norm(label)
+                raw_label_key = re.sub(r"\s+", "", str(label or "")).replace("?", "(").replace("?", ")")
+                if not nlabel:
+                    new_empty.append((ri, ci))
+                    continue
+
+                ratio_key = col_table_ratio_map.get(raw_label_key) or col_table_ratio_map.get(nlabel)
+                val = None
+                if ratio_key:
+                    val = yratios.get(ratio_key)
+                    if val is None:
+                        new_empty.append((ri, ci))
+                        continue
+                else:
+                    aliases = alias_map.get(nlabel, [nlabel])
+                    for alias in aliases:
+                        na = norm(alias)
+                        if na in ymap:
+                            val = ymap[na]
+                            break
+
+                if val is None:
+                    best_score = -1.0
+                    best_val = None
+                    for nk, vv in ymap.items():
+                        if not nk:
+                            continue
+                        if ('其中' in nk) and ('其中' not in nlabel):
+                            continue
+                        if nlabel in nk or nk in nlabel:
+                            overlap = min(len(nk), len(nlabel))
+                            score = float(overlap) - abs(len(nk) - len(nlabel)) * 0.2
+                            if score > best_score:
+                                best_score = score
+                                best_val = vv
+                    val = best_val
+
+                if val is None:
+                    new_empty.append((ri, ci))
+                    continue
+
+                try:
+                    if ri >= len(nt.rows) or ci >= len(nt.rows[ri].cells):
+                        new_empty.append((ri, ci))
+                        continue
+                    tc = nt.rows[ri].cells[ci]
+                    if tc.text and tc.text.strip():
+                        continue
+                    sval = money_or_ratio_to_text(val)
+                    if tc.paragraphs:
+                        p = tc.paragraphs[0]
+                        if p.runs:
+                            p.runs[0].text = sval
+                            for r in p.runs[1:]:
+                                r.text = ''
+                        else:
+                            p.text = sval
+                    else:
+                        tc.text = sval
+                    ts.existing_data[(ri, ci)] = sval
+                    filled += 1
+                except Exception:
+                    new_empty.append((ri, ci))
+
+            ts.empty_cells = new_empty
+
+        if filled:
+            self._log(progress_cb, f"  Truth prefill financial tables: {filled} cells")
+        return filled
+    @staticmethod
+    def _detect_material_periods(file_contents: dict) -> dict:
+        """Detect available time periods from uploaded materials.
+
+        Truth-first (v13): only derive periods from *financial* materials
+        (audit reports / financial statements). This avoids false positives
+        like business licenses or patents contributing random years.
+
+        Returns:
+          available_years: ["2023", "2024", ...]
+          available_interim: ["2024.9", ...]
+          details: per-file period evidence
+        """
+        details = []
+        all_years: set[str] = set()
+        all_interim: set[str] = set()
+
+        FIN_NAME_KW = [
+            "\u5ba1\u8ba1",  # ??
+            "\u8d22\u52a1",  # ??
+            "\u62a5\u8868",  # ??
+            "\u8d44\u4ea7\u8d1f\u503a\u8868",
+            "\u5229\u6da6\u8868",
+            "\u73b0\u91d1\u6d41\u91cf\u8868",
+        ]
+
+        def _is_financial(fname: str, content: str) -> bool:
+            low = (fname or '').lower()
+            if any(kw in (fname or '') for kw in FIN_NAME_KW):
+                return True
+            if any(kw in low for kw in ['audit', 'financial', 'balance', 'income', 'cashflow']):
+                return True
+            snippet = (content or '')[:5000]
+            return any(kw in snippet for kw in FIN_NAME_KW)
+
+        def _add_year(y: str):
+            if y and re.fullmatch(r'20\d{2}', y):
+                all_years.add(y)
+
+        def _add_interim(y: str, m: int):
+            if y and re.fullmatch(r'20\d{2}', y) and 1 <= int(m) <= 12:
+                all_interim.add(f"{y}.{int(m)}")
+
+        for fname, content in (file_contents or {}).items():
+            if not content or not str(content).strip():
+                continue
+            if not _is_financial(fname, content):
+                continue
+
+            years = set()
+            interims = set()
+
+            # Filename: 2025?12? / 2024.9 / 2024-09
+            for m in re.finditer(r'(20\d{2})', fname):
+                years.add(m.group(1))
+
+            for m in re.finditer(r'(20\d{2})\s*[./-]\s*(\d{1,2})', fname):
+                y = m.group(1)
+                mo = int(m.group(2))
+                if 1 <= mo <= 12:
+                    if mo == 12:
+                        years.add(y)
+                    else:
+                        interims.add(f"{y}.{mo}")
+
+            for m in re.finditer(r'(20\d{2})\s*\u5e74\s*(\d{1,2})\s*\u6708', fname):
+                y = m.group(1)
+                mo = int(m.group(2))
+                if 1 <= mo <= 12:
+                    if mo == 12:
+                        years.add(y)
+                    else:
+                        interims.add(f"{y}.{mo}")
+
+            # Content: only accept dates whose year is already in the filename
+            snippet = str(content)[:8000]
+            for m in re.finditer(r'(20\d{2})\s*\u5e74\s*(\d{1,2})\s*\u6708\s*(\d{1,2})\s*\u65e5', snippet):
+                y = m.group(1)
+                if y not in years:
+                    continue
+                mo = int(m.group(2))
+                d = int(m.group(3))
+                if mo == 12 and d == 31:
+                    years.add(y)
+                elif 1 <= mo <= 12 and d in (28, 29, 30, 31):
+                    interims.add(f"{y}.{mo}")
+
+            # Detect data type
+            data_type = "\u672a\u77e5"
+            if "\u5ba1\u8ba1" in fname and "\u672a\u5ba1\u8ba1" not in fname:
+                data_type = "\u5ba1\u8ba1"
+            elif "\u672a\u5ba1\u8ba1" in fname:
+                data_type = "\u672a\u5ba1\u8ba1"
+
+            for y in years:
+                _add_year(y)
+            for p in interims:
+                try:
+                    y, mo = p.split('.', 1)
+                    _add_interim(y, int(mo))
+                except Exception:
+                    pass
+
+            details.append({
+                'file': fname,
+                'years': sorted(years),
+                'interim': sorted(interims),
+                'type': data_type,
+            })
+
+        return {
+            'available_years': sorted(all_years),
+            'available_interim': sorted(all_interim),
+            'details': details,
+        }
+
+    def _build_materials_text(self, max_chars: int = 120000,
+                               categories: str = "all") -> str:
+        """Build combined materials text, prioritizing financial data.
+
+        categories: "all" (default) includes everything;
+                    "financial" includes only financial/business files.
+        """
+        # Separate financial files from others for prioritized inclusion
+        financial_keywords = ['财务', '资产', '负债', '利润', '现金流', '审计',
+                              '报表', 'finance', 'balance', 'income', 'audit',
+                              '征信', '信用', '业务', '经营', '收入', '税']
+        financial_parts = []
+        other_parts = []
+
+        for fname, content in self.file_contents.items():
+            if not content or not content.strip():
+                continue
+            entry = f"===== {fname} =====\n{content}"
+            is_financial = any(kw in fname.lower() for kw in financial_keywords)
+            if is_financial:
+                financial_parts.append(entry)
+            else:
+                other_parts.append(entry)
+
+        # ★ v7.12: When categories="financial", only include financial/business files
+        if categories == "financial":
+            full = "\n\n".join(financial_parts)
+        else:
+            # Financial data first, then other materials
+            full = "\n\n".join(financial_parts + other_parts)
+        if len(full) > max_chars:
+            keep_front = int(max_chars * 0.75)
+            keep_end = max_chars - keep_front - 100
+            full = (full[:keep_front] +
+                    f"\n\n... (省略约{len(full) - max_chars}字) ...\n\n" +
+                    full[-keep_end:])
+        return full
+
+    def _ensure_docx(self, path: str) -> str:
+        """Ensure .docx format (convert .doc if needed)."""
+        if path.lower().endswith('.docx'):
+            return path
+
+        import subprocess
+        tmpdir = tempfile.mkdtemp()
+        try:
+            result = subprocess.run(
+                ["soffice", "--headless", "--convert-to", "docx",
+                 "--outdir", tmpdir, path],
+                capture_output=True, timeout=60
+            )
+            converted = [f for f in os.listdir(tmpdir) if f.endswith('.docx')]
+            if converted:
+                return os.path.join(tmpdir, converted[0])
+        except Exception:
+            pass
+
+        raise ValueError(
+            "无法转换 .doc 文件。请先用 WPS/Word 另存为 .docx 格式后上传。")
+
+    @staticmethod
+    def _save_preserving_zip(doc: Document, original_path: str,
+                             output_path: str, comments_xml: bytes = None):
+        """Save modified doc preserving original ZIP structure byte-for-byte.
+
+        NEVER calls doc.save() — that re-serializes ALL XML files (styles,
+        settings, footer, etc.), changing quotes and line endings which breaks
+        WPS desktop rendering.
+
+        Instead:
+        1. Serializes ONLY document.xml from doc.element (the in-memory tree).
+        2. Copies every other ZIP entry as raw compressed bytes (no
+           decompress/recompress) from the original template.
+        3. Matches the original XML declaration format for document.xml.
+        4. ★ v7.15: If comments_xml provided, adds word/comments.xml and
+           updates [Content_Types].xml + word/_rels/document.xml.rels.
+        """
+        # --- 1. Serialize document.xml from the in-memory lxml tree ---
+        # doc.element is the <w:document> root; etree.tostring preserves
+        # all namespaces that python-docx kept on the element.
+        doc_element = doc.element
+        modified_doc_xml = etree.tostring(
+            doc_element, xml_declaration=True, encoding='UTF-8',
+            standalone=True)
+
+        # --- 2. XML-level cleanup: remove remaining FF0000 color elements ---
+        doc_tree = etree.fromstring(modified_doc_xml)
+        ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+        for color_elem in doc_tree.findall('.//w:color', ns):
+            val = color_elem.get(
+                '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val', '')
+            if val.upper() == 'FF0000':
+                color_elem.getparent().remove(color_elem)
+        modified_doc_xml = etree.tostring(
+            doc_tree, xml_declaration=True, encoding='UTF-8',
+            standalone=True)
+
+        # --- 3. Match original XML declaration style ---
+        with zipfile.ZipFile(original_path, 'r') as orig_zip:
+            orig_doc_xml = orig_zip.read('word/document.xml')
+
+        # lxml uses single quotes; original template likely uses double quotes
+        if orig_doc_xml.startswith(b'<?xml version="1.0"'):
+            modified_doc_xml = modified_doc_xml.replace(
+                b"<?xml version='1.0' encoding='UTF-8' standalone='yes'?>",
+                b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+                1)
+        # Restore \r\n after declaration if original had it
+        if b'?>\r\n<' in orig_doc_xml[:200] and b'?>\r\n<' not in modified_doc_xml[:200]:
+            modified_doc_xml = modified_doc_xml.replace(
+                b'?>\n<', b'?>\r\n<', 1)
+
+        # --- 4. Rebuild ZIP: raw-copy all entries, replace document.xml ---
+        # ★ v7.15: If comments_xml provided, also patch Content_Types + rels
+        need_comments = comments_xml is not None
+
+        # Pre-parse [Content_Types].xml and rels if needed
+        patched_content_types = None
+        patched_rels = None
+        if need_comments:
+            with zipfile.ZipFile(original_path, 'r') as z_pre:
+                # Patch [Content_Types].xml to add comments content type
+                ct_xml = z_pre.read('[Content_Types].xml')
+                ct_tree = etree.fromstring(ct_xml)
+                ct_ns = 'http://schemas.openxmlformats.org/package/2006/content-types'
+                # Check if override already exists
+                existing = ct_tree.findall(
+                    f'{{{ct_ns}}}Override[@PartName="/word/comments.xml"]')
+                if not existing:
+                    override = etree.SubElement(ct_tree, f'{{{ct_ns}}}Override')
+                    override.set('PartName', '/word/comments.xml')
+                    override.set('ContentType',
+                                 'application/vnd.openxmlformats-officedocument'
+                                 '.wordprocessingml.comments+xml')
+                patched_content_types = etree.tostring(
+                    ct_tree, xml_declaration=True, encoding='UTF-8',
+                    standalone=True)
+
+                # Patch word/_rels/document.xml.rels
+                rels_path = 'word/_rels/document.xml.rels'
+                if rels_path in z_pre.namelist():
+                    rels_xml = z_pre.read(rels_path)
+                    rels_tree = etree.fromstring(rels_xml)
+                    rels_ns = ('http://schemas.openxmlformats.org/'
+                               'package/2006/relationships')
+                    comment_type = ('http://schemas.openxmlformats.org/'
+                                    'officeDocument/2006/relationships/comments')
+                    existing_rel = [r for r in rels_tree
+                                    if r.get('Type') == comment_type]
+                    if not existing_rel:
+                        # Generate unique rId
+                        existing_ids = [r.get('Id', '') for r in rels_tree]
+                        rid_num = 1
+                        while f'rIdComments{rid_num}' in existing_ids:
+                            rid_num += 1
+                        rel = etree.SubElement(rels_tree,
+                                               f'{{{rels_ns}}}Relationship')
+                        rel.set('Id', f'rIdComments{rid_num}')
+                        rel.set('Type', comment_type)
+                        rel.set('Target', 'comments.xml')
+                    patched_rels = etree.tostring(
+                        rels_tree, xml_declaration=True, encoding='UTF-8',
+                        standalone=True)
+
+        tmp_path = output_path + '.tmp'
+        with zipfile.ZipFile(original_path, 'r') as zin:
+            with zipfile.ZipFile(tmp_path, 'w') as zout:
+                for item in zin.infolist():
+                    if item.filename == 'word/document.xml':
+                        info = zipfile.ZipInfo(
+                            item.filename, date_time=item.date_time)
+                        info.compress_type = item.compress_type
+                        info.external_attr = item.external_attr
+                        zout.writestr(info, modified_doc_xml)
+                    elif (need_comments
+                          and item.filename == '[Content_Types].xml'
+                          and patched_content_types):
+                        info = zipfile.ZipInfo(
+                            item.filename, date_time=item.date_time)
+                        info.compress_type = item.compress_type
+                        info.external_attr = item.external_attr
+                        zout.writestr(info, patched_content_types)
+                    elif (need_comments
+                          and item.filename == 'word/_rels/document.xml.rels'
+                          and patched_rels):
+                        info = zipfile.ZipInfo(
+                            item.filename, date_time=item.date_time)
+                        info.compress_type = item.compress_type
+                        info.external_attr = item.external_attr
+                        zout.writestr(info, patched_rels)
+                    else:
+                        raw = zin.read(item.filename)
+                        info = zipfile.ZipInfo(
+                            item.filename, date_time=item.date_time)
+                        info.compress_type = item.compress_type
+                        info.external_attr = item.external_attr
+                        zout.writestr(info, raw)
+
+                # Add word/comments.xml if needed
+                if need_comments:
+                    info = zipfile.ZipInfo('word/comments.xml')
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    zout.writestr(info, comments_xml)
+
+        # Replace output with rebuilt file
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        os.rename(tmp_path, output_path)
+
+    def _validation_blockers_to_tags(self, blockers: list[dict]) -> list[dict]:
+        tags = []
+        for item in blockers or []:
+            message = item.get('message', '')
+            context = item.get('context', '')
+            label = f"[??]{item.get('code', 'validator')}"
+            full_context = message if not context else f"{message}?{context}"
+            tags.append({
+                'label': label[:80],
+                'context': full_context[:160],
+                'category': '?????',
+            })
+        return tags
+
+    def _validate_output_docx(self, output_path: str) -> list[dict]:
+        try:
+            from quick_validate_docx import validate_docx
+        except Exception as e:
+            self._validation_blocked = False
+            self._validation_blockers = []
+            self.stats['errors'].append(f"quick_validate????: {str(e)[:60]}")
+            return []
+
+        try:
+            result = validate_docx(output_path)
+        except Exception as e:
+            self._validation_blocked = False
+            self._validation_blockers = []
+            self.stats['errors'].append(f"quick_validate????: {str(e)[:60]}")
+            return []
+
+        blockers = list(result.get('blockers', []) or [])
+        self._validation_blocked = bool(blockers)
+        self._validation_blockers = blockers
+        return blockers
+
+    def _log(self, cb, msg):
+        # Avoid UnicodeEncodeError on Windows consoles (e.g. emoji).
+        safe_msg = msg
+        try:
+            print(f"[FormFill] {msg}")
+        except UnicodeEncodeError:
+            safe_msg = str(msg).encode('gbk', errors='replace').decode('gbk', errors='replace')
+            print(f"[FormFill] {safe_msg}")
+        if cb:
+            try:
+                cb(safe_msg)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _insert_word_comments(doc) -> tuple:
+        """Insert Word comments for remaining placeholders/blanks.
+
+        ★ v7.19: Rewritten to scan every paragraph independently (not
+        per-cell merging) so comments appear throughout the document,
+        not just in the first section.  Capped at MAX_COMMENTS to
+        prevent overflow.
+        """
+        from docx.oxml.ns import qn
+        from datetime import datetime
+
+        MAX_COMMENTS = 200
+        AUTHOR = "信贷报告 Agent"
+        DATE = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        INITIALS = "Agent"
+
+        BANK_INTERNAL_KEYWORDS = [
+            '日均存款', '有效户', '结算量', '代发工资', '发薪量', '综合效益',
+            '综合营销', '签约代发', '折对公', '年化收益',
+        ]
+        OPERATIONAL_KEYWORDS = [
+            '产能', '产销率', '用电量', '用电', '排污', '排放',
+            '场地面积', '建筑面积', '占地', '土地证',
+        ]
+
+        def _classify(label: str) -> str:
+            if any(kw in label for kw in BANK_INTERNAL_KEYWORDS):
+                return "需人工填写（银行内部数据）"
+            if any(kw in label for kw in OPERATIONAL_KEYWORDS):
+                return "需人工填写（经营细项缺失）"
+            return "材料未提供明确依据"
+
+        def _build_reason(kind: str, label: str) -> str:
+            if kind == "pending":
+                return f"该处\u201c{label}\u201d仍为待补充，请人工补充。"
+            if kind == "placeholder":
+                return f"该处\u201c{label}\u201d仍为模板占位符，请人工核实。"
+            return f"该处\u201c{label}\u201d仍为空白，请人工确认。"
+
+        _xx_re = re.compile(r'X{2,}')
+        comments_data = []   # [(id, text)]
+        tags = []
+        comment_id = [0]
+
+        def _add_comment(para, comment_text, tag_label, tag_category):
+            if comment_id[0] >= MAX_COMMENTS:
+                return
+            cid = comment_id[0]
+            comment_id[0] += 1
+            pe = para._element
+            cs = etree.Element(qn('w:commentRangeStart'))
+            cs.set(qn('w:id'), str(cid))
+            pe.insert(0, cs)
+            ce = etree.Element(qn('w:commentRangeEnd'))
+            ce.set(qn('w:id'), str(cid))
+            pe.append(ce)
+            ref_r = etree.SubElement(pe, qn('w:r'))
+            ref_rpr = etree.SubElement(ref_r, qn('w:rPr'))
+            ref_style = etree.SubElement(ref_rpr, qn('w:rStyle'))
+            ref_style.set(qn('w:val'), 'CommentReference')
+            ref_cr = etree.SubElement(ref_r, qn('w:commentReference'))
+            ref_cr.set(qn('w:id'), str(cid))
+            comments_data.append((cid, comment_text))
+            tags.append({
+                "label": tag_label,
+                "context": comment_text[:120],
+                "category": tag_category,
+            })
+
+        def _check_para(para):
+            """Check one paragraph for issues, add comment if found."""
+            if comment_id[0] >= MAX_COMMENTS:
+                return
+            raw_text = para.text
+            text = (raw_text or "").strip()
+            if not text:
+                return
+            issues = []
+            # 1. 待补充
+            if "待补充" in text:
+                before = text[:30]
+                issues.append(_build_reason("pending", before))
+            # 2. Unfilled XX
+            if _xx_re.search(text):
+                m = _xx_re.search(text)
+                ctx = text[max(0, m.start()-15):m.start()].strip()
+                issues.append(_build_reason("placeholder", ctx or text[:20]))
+            # 3. Blank underscore
+            if re.search(r'_{3,}', text):
+                label_m = re.search(
+                    r'([\u4e00-\u9fff\uff08\uff09]{2,12})[：:]?\s*_{3,}', text)
+                lbl = label_m.group(1) if label_m else text[:20]
+                issues.append(_build_reason("blank", lbl))
+            # 4. Blank spaces after colon
+            if re.search(r'[：:]\s{4,}', raw_text or ""):
+                label_m = re.search(
+                    r'([\u4e00-\u9fffA-Za-z0-9\uff08\uff09()]{2,20})[：:]', text)
+                lbl = label_m.group(1) if label_m else text[:20]
+                issues.append(_build_reason("blank", lbl))
+
+            if issues:
+                unique = list(dict.fromkeys(issues))
+                combined = "\uff1b".join(unique[:3])
+                _add_comment(para, combined, text[:40], _classify(text))
+
+        def _iter_row_paragraphs(row):
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    yield para
+                for table in cell.tables:
+                    for nested_row in table.rows:
+                        yield from _iter_row_paragraphs(nested_row)
+
+        # ---- Main scan: iterate ALL paragraphs with dedup ----
+        seen = set()
+
+        for para in FormFillAgent._iter_all_doc_paragraphs(doc):
+            pid = id(para._element)
+            if pid in seen:
+                continue
+            seen.add(pid)
+            _check_para(para)
+
+        for table in doc.tables:
+            for row in table.rows:
+                # Row-level check: if >50% cells empty, add row comment
+                empty_count = sum(1 for c in row.cells if not c.text.strip())
+                row_needs_comment = (empty_count >= max(2, len(row.cells) // 2))
+                row_anchor = None
+
+                for para in _iter_row_paragraphs(row):
+                    if row_anchor is None and para.text.strip():
+                        row_anchor = para
+
+                # Add row-level comment for mostly-empty rows
+                if (row_needs_comment and row_anchor is not None
+                        and comment_id[0] < MAX_COMMENTS):
+                    row_text = " ".join(
+                        c.text.strip() for c in row.cells if c.text.strip())
+                    if row_text:
+                        _add_comment(
+                            row_anchor,
+                            f"该行数据大部分为空，请人工补充。",
+                            row_text[:40],
+                            "材料未提供明确依据",
+                        )
+
+        # ---- Build comments.xml ----
+        if not comments_data:
+            return None, tags
+
+        W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        comments_root = etree.Element(qn('w:comments'), nsmap={'w': W_NS})
+
+        for cid, text in comments_data:
+            comment_el = etree.SubElement(comments_root, qn('w:comment'))
+            comment_el.set(qn('w:id'), str(cid))
+            comment_el.set(qn('w:author'), AUTHOR)
+            comment_el.set(qn('w:date'), DATE)
+            comment_el.set(qn('w:initials'), INITIALS)
+            cp = etree.SubElement(comment_el, qn('w:p'))
+            cr1 = etree.SubElement(cp, qn('w:r'))
+            cr1_rpr = etree.SubElement(cr1, qn('w:rPr'))
+            cr1_style = etree.SubElement(cr1_rpr, qn('w:rStyle'))
+            cr1_style.set(qn('w:val'), 'CommentReference')
+            etree.SubElement(cr1, qn('w:annotationRef'))
+            cr2 = etree.SubElement(cp, qn('w:r'))
+            ct = etree.SubElement(cr2, qn('w:t'))
+            ct.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+            ct.text = text
+
+        comments_xml = etree.tostring(
+            comments_root, xml_declaration=True,
+            encoding='UTF-8', standalone=True)
+
+        return comments_xml, tags
+
+    @staticmethod
+    def _iter_all_doc_paragraphs(doc):
+        def _iter_cell_paragraphs(cell):
+            for para in cell.paragraphs:
+                yield para
+            for table in cell.tables:
+                for row in table.rows:
+                    for nested_cell in row.cells:
+                        yield from _iter_cell_paragraphs(nested_cell)
+
+        for para in doc.paragraphs:
+            yield para
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    yield from _iter_cell_paragraphs(cell)
+
+    @staticmethod
+    def _scan_pending_tags(doc) -> list[dict]:
+        """Scan filled document for remaining '待补充', unfilled XX, empty table cells.
+
+        Returns a list of dicts: {"label": str, "context": str, "location": str, "category": str}
+        suitable for sidebar display.
+        """
+        # Fields that require bank internal data (can never be auto-filled)
+        BANK_INTERNAL_KEYWORDS = [
+            '日均存款', '有效户', '结算量', '代发工资', '发薪量', '综合效益',
+            '综合营销', '签约代发', '折对公', '年化收益',
+        ]
+        # Fields that are operational details (may not be in standard docs)
+        OPERATIONAL_KEYWORDS = [
+            '产能', '产销率', '用电量', '用电', '排污', '排放',
+            '场地面积', '建筑面积', '占地', '土地证',
+        ]
+
+        def _classify(label: str) -> str:
+            if any(kw in label for kw in BANK_INTERNAL_KEYWORDS):
+                return "🔴 需人工填写（银行内部数据）"
+            if any(kw in label for kw in OPERATIONAL_KEYWORDS):
+                return "🟡 需人工填写（运营细节）"
+            if label.startswith("表格数据缺失"):
+                return "🟡 可能在材料中"
+            return "🟡 可能在材料中"
+
+        tags = []
+        _xx_re = re.compile(r'X{2,}')
+
+        def _scan_cell(cell, loc_prefix):
+            for p_idx, para in enumerate(cell.paragraphs):
+                raw_text = para.text          # ★ v7.14: keep raw (un-stripped) for blank detection
+                text = raw_text.strip()
+                if not text:
+                    continue
+
+                # 待补充
+                for m in re.finditer(r'（待补充）|待补充', text):
+                    before = text[max(0, m.start()-20):m.start()].strip()
+                    _lbl = f"待补充: {before or text[:20]}"
+                    tags.append({
+                        "label": _lbl,
+                        "context": text[:60],
+                        "location": f"{loc_prefix} P{p_idx}",
+                        "category": _classify(_lbl),
+                    })
+
+                # Unfilled XX
+                for m in _xx_re.finditer(text):
+                    before = text[max(0, m.start()-20):m.start()].strip()
+                    _lbl = f"未填: {before}{m.group()}"
+                    tags.append({
+                        "label": _lbl,
+                        "context": text[:60],
+                        "location": f"{loc_prefix} P{p_idx}",
+                        "category": _classify(_lbl),
+                    })
+
+                # ★ v7.14: Empty blank fields
+                # 使用 raw_text（未strip）检测，避免行尾空格被吃掉导致检测失败
+                # Pattern A: label：     (行尾空格 or 空格后接标点)
+                _blank_space = (re.search(r'[：:]\s{4,}$', raw_text)
+                                or re.search(r'[：:]\s{4,}[；;，,。]', raw_text)
+                                or re.search(r'[：:]\s{4,}[\u4e00-\u9fff]', raw_text))
+                # Pattern B: label___万元 or label：___ (underscore blanks)
+                _blank_underscore = re.search(r'_{4,}', text)
+                # Pattern C: 中文字 + 4+空格 + 中文字/单位 (如 应收账款     万元)
+                _blank_embedded = re.search(
+                    r'[\u4e00-\u9fff]\s{4,}(?:万元|元|人民币|%|个|户)', raw_text)
+
+                if _blank_space:
+                    label_m = re.search(r'([\u4e00-\u9fff]{2,12})[：:]', text)
+                    if label_m:
+                        _lbl = f"空白字段: {label_m.group(1)}"
+                        tags.append({
+                            "label": _lbl,
+                            "context": text[:60],
+                            "location": f"{loc_prefix} P{p_idx}",
+                            "category": _classify(_lbl),
+                        })
+                elif _blank_underscore:
+                    label_m = re.search(r'([\u4e00-\u9fff（）]{2,12})[：:]?\s*_{4,}', text)
+                    if label_m:
+                        _lbl = f"空白字段: {label_m.group(1)}"
+                        tags.append({
+                            "label": _lbl,
+                            "context": text[:60],
+                            "location": f"{loc_prefix} P{p_idx}",
+                            "category": _classify(_lbl),
+                        })
+                elif _blank_embedded:
+                    label_m = re.search(
+                        r'([\u4e00-\u9fff（）]{2,12})\s{4,}(?:万元|元|%)', raw_text)
+                    if label_m:
+                        _lbl = f"空白字段: {label_m.group(1)}"
+                        tags.append({
+                            "label": _lbl,
+                            "context": text[:60],
+                            "location": f"{loc_prefix} P{p_idx}",
+                            "category": _classify(_lbl),
+                        })
+
+        def _scan_nested_table_empty(nt, nt_label):
+            """Detect empty data rows in a nested table and emit one tag per table."""
+            empty_rows = []
+            for r_idx, row in enumerate(nt.rows):
+                row_texts = [c.text.strip() for c in row.cells]
+                # Skip header rows (all cells have content, all short)
+                if all(t and len(t) < 25 for t in row_texts):
+                    continue
+                # Count empty data cells
+                empty_count = sum(1 for t in row_texts if not t)
+                if empty_count > 0 and empty_count >= len(row_texts) // 2:
+                    # Row has mostly empty cells → collect row label for context
+                    label_cell = next((t for t in row_texts if t), None)
+                    if label_cell:
+                        empty_rows.append(label_cell[:20])
+            if empty_rows:
+                # Emit a single summary tag per table (not per row — avoids flooding)
+                sample = "、".join(empty_rows[:3])
+                if len(empty_rows) > 3:
+                    sample += f"等{len(empty_rows)}行"
+                _lbl = f"表格数据缺失: {sample}"
+                tags.append({
+                    "label": _lbl,
+                    "context": f"嵌套表格 {nt_label}，{len(empty_rows)}行数据为空",
+                    "location": nt_label,
+                    "category": _classify(_lbl),
+                })
+
+        for t_idx, table in enumerate(doc.tables):
+            for r_idx, row in enumerate(table.rows):
+                for c_idx, cell in enumerate(row.cells):
+                    loc = f"R{r_idx}"
+                    _scan_cell(cell, loc)
+                    # Nested tables: scan paragraphs AND check for empty data rows
+                    for nt_idx, nt in enumerate(cell.tables):
+                        nt_label = f"NT{nt_idx}"
+                        _scan_nested_table_empty(nt, nt_label)
+                        for nr_idx, nr in enumerate(nt.rows):
+                            for nc_idx, nc in enumerate(nr.cells):
+                                nloc = f"{nt_label}_R{nr_idx}C{nc_idx}"
+                                _scan_cell(nc, nloc)
+
+        return tags
+
+    # ============================================================
+    # Financial Analysis Generation (v7.16)
+    # ============================================================
+
+    INDUSTRY_BENCHMARKS = """
+银行授信审查常用基准（仅供参考）：
+- 资产负债率：制造业<65%正常, 软件/科技<50%正常, >70%偏高
+- 流动比率：>2.0优秀, 1.5-2.0良好, 1.0-1.5一般, <1.0偏低
+- 速动比率：>1.0良好, <0.5风险
+- 应收账款周转天数：<90天正常, 90-180天偏慢, >180天风险
+- 毛利率：软件/科技30-60%, 制造业15-30%, 贸易5-15%
+- 净利率：>10%良好, 5-10%一般, <5%偏低
+"""
+
+    def _extract_financial_data_from_doc(self, doc) -> dict:
+        """Extract financial numbers from the large financial table in the document.
+
+        Returns: {year_label: {item_name: value_string}}
+        """
+        financial_data = {}
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for nt in cell.tables:
+                        # Find the financial table (has 科目 column + year columns)
+                        if len(nt.rows) < 10:
+                            continue
+                        header = [c.text.strip() for c in nt.rows[0].cells]
+                        if not any('科目' in h for h in header):
+                            continue
+
+                        # Extract year columns
+                        year_cols = {}  # col_idx -> year_label
+                        for ci, h in enumerate(header):
+                            m = re.search(r'(20\d{2})', h)
+                            if m:
+                                year_cols[ci] = h.strip()
+
+                        if not year_cols:
+                            continue
+
+                        # Extract data rows
+                        for ri in range(1, len(nt.rows)):
+                            cells_in_row = nt.rows[ri].cells
+                            item_name = (cells_in_row[0].text.strip()
+                                         if cells_in_row else "")
+                            if not item_name:
+                                continue
+                            for ci, year_label in year_cols.items():
+                                if ci < len(cells_in_row):
+                                    val = cells_in_row[ci].text.strip()
+                                    if val:
+                                        if year_label not in financial_data:
+                                            financial_data[year_label] = {}
+                                        financial_data[year_label][item_name] = val
+
+        return financial_data
+
+    def _calc_financial_ratios(self, financial_data: dict) -> dict:
+        """Calculate financial ratios from extracted data.
+
+        financial_data format: {year_label: {item: value_string}}
+        Returns: {year_label: {ratio_name: formatted_value},
+                  year_label_同比增长: {...}}
+        """
+        ratios = {}
+        years = sorted(financial_data.keys())
+
+        for year in years:
+            d = financial_data[year]
+            r = {}
+
+            def safe_div(a, b):
+                try:
+                    va, vb = float(a or 0), float(b or 0)
+                    return round(va / vb * 100, 2) if vb != 0 else None
+                except (ValueError, TypeError):
+                    return None
+
+            def safe_get(key):
+                v = d.get(key)
+                if v is None:
+                    return None
+                try:
+                    cleaned = str(v).replace(',', '').replace(
+                        '，', '').strip()
+                    return float(cleaned) if cleaned else None
+                except (ValueError, TypeError):
+                    return None
+
+            total_assets = (safe_get("总资产")
+                            or safe_get("资产合计")
+                            or safe_get("资产总计"))
+            total_liab = (safe_get("负债合计")
+                          or safe_get("负债总计"))
+            current_assets = safe_get("流动资产")
+            current_liab = safe_get("流动负债")
+            inventory = safe_get("存货")
+            prepayments = (safe_get("预付账款")
+                           or safe_get("预付款项"))
+            equity = (safe_get("股东权益合计")
+                      or safe_get("所有者权益合计"))
+            revenue = (safe_get("主营业务收入")
+                       or safe_get("营业收入"))
+            cost = (safe_get("减：主营业务成本")
+                    or safe_get("主营业务成本")
+                    or safe_get("营业成本"))
+            net_profit = safe_get("净利润")
+            receivables = (safe_get("应收账款")
+                           or safe_get("应收帐款"))
+            payables = (safe_get("应付账款")
+                        or safe_get("应付帐款"))
+
+            if total_assets and total_liab:
+                r["资产负债率"] = f"{safe_div(total_liab, total_assets)}%"
+            if current_assets and current_liab:
+                cr = round(float(current_assets) / float(current_liab), 2)
+                r["流动比率"] = f"{cr}"
+            if current_assets and inventory is not None and current_liab:
+                qr = round(
+                    (float(current_assets) - float(inventory))
+                    / float(current_liab), 2)
+                r["速动比率"] = f"{qr}"
+            if revenue and cost:
+                r["毛利率"] = f"{safe_div(float(revenue) - float(cost), revenue)}%"
+            if revenue and net_profit:
+                r["净利率"] = f"{safe_div(net_profit, revenue)}%"
+            if receivables and revenue and float(revenue) != 0:
+                days = round(float(receivables) / float(revenue) * 365, 0)
+                r["应收账款周转天数"] = f"{days}天"
+            if prepayments and cost and float(cost) != 0:
+                days = round(float(prepayments) / float(cost) * 365, 0)
+                r["预付账款周转天数"] = f"{days}天"
+            if payables and cost and float(cost) != 0:
+                days = round(float(payables) / float(cost) * 365, 0)
+                r["应付账款周转天数"] = f"{days}天"
+            if inventory and cost and float(cost) != 0:
+                days = round(float(inventory) / float(cost) * 365, 0)
+                r["存货周转天数"] = f"{days}天"
+
+            ratios[year] = r
+
+        # YoY growth rates
+        for i in range(1, len(years)):
+            prev_year = years[i - 1]
+            curr_year = years[i]
+            growth = {}
+            for key in ["资产合计", "主营业务收入", "营业收入", "净利润",
+                         "流动资产", "负债合计"]:
+                prev_val = financial_data[prev_year].get(key)
+                curr_val = financial_data[curr_year].get(key)
+                try:
+                    pv = float(str(prev_val).replace(',', '').replace(
+                        '，', '').strip()) if prev_val else 0
+                    cv = float(str(curr_val).replace(',', '').replace(
+                        '，', '').strip()) if curr_val else 0
+                    if pv != 0:
+                        pct = round((cv - pv) / abs(pv) * 100, 2)
+                        growth[key] = f"{pct}%"
+                except (ValueError, TypeError):
+                    pass
+            if growth:
+                ratios[f"{curr_year}_同比增长"] = growth
+
+        return ratios
+
+    def _get_financial_analysis_web_context(self, materials: str) -> str:
+        """Search authoritative public sources to enrich financial analysis.
+
+        Dynamically builds queries from:
+        1. Company name — for recent operational news
+        2. Industry keywords — for policy/market context
+        3. Generic financial benchmarks for the sector
+        """
+        if getattr(self, "_web_context_cache", ""):
+            return self._web_context_cache
+        try:
+            from tools import tool_search_web
+        except ImportError:
+            return ""
+
+        material_head = (materials or "")[:10000]
+        queries = []
+
+        # --- 1. Extract company name ---
+        company_match = re.search(
+            r"(?:企业名称|公司名称|借款人|客户名称)[:\uff1a\s]*([\u4e00-\u9fff\w（）]{4,30}(?:有限公司|股份公司|集团|企业|合作社)?)",
+            material_head,
+        )
+        company_name = company_match.group(1).strip() if company_match else ""
+        if company_name:
+            queries.append(f"{company_name} 经营状况 财务")
+
+        # --- 2. Extract industry keywords (dynamic, not hardcoded) ---
+        industry_match = re.search(
+            r"(?:主营业务|所属行业|行业|主要产品|经营范围)[:\uff1a\s]*([\u4e00-\u9fff]{2,15})",
+            material_head,
+        )
+        industry = industry_match.group(1).strip() if industry_match else ""
+        if industry:
+            queries.append(f"site:gov.cn {industry} 行业政策 发展趋势")
+            queries.append(f"{industry} 行业 财务指标 均值 基准")
+
+        # --- 3. Sector-specific policy sources ---
+        sector_map = [
+            (r"教育|院校|职教|培训", ["site:moe.gov.cn 教育政策 发展"]),
+            (r"水利|水库|流域|灌溉", ["site:mwr.gov.cn 水利建设 投资"]),
+            (r"制造|工厂|生产|加工", ["site:miit.gov.cn 制造业 政策 中小企业"]),
+            (r"农业|种植|养殖|农产品", ["site:moa.gov.cn 农业 支持政策"]),
+            (r"建筑|施工|房地产|工程", ["site:mohurd.gov.cn 建筑业 政策"]),
+            (r"医疗|医院|药品|卫生", ["site:nhc.gov.cn 医疗 政策"]),
+            (r"物流|运输|快递|仓储", [f"{industry} 物流行业 经营指标 均值"]),
+        ]
+        for pattern, extra_queries in sector_map:
+            if re.search(pattern, material_head):
+                queries.extend(extra_queries)
+                break
+
+        snippets = []
+        seen = set()
+        for query in queries[:5]:
+            if query in seen:
+                continue
+            seen.add(query)
+            try:
+                result = tool_search_web(query, 3)
+            except Exception:
+                continue
+            if not result or result.startswith("[搜索失败]"):
+                continue
+            snippets.append(f"[外部权威检索] {query}\n{result[:1200]}")
+
+        self._web_context_cache = "\n\n".join(snippets)
+        return self._web_context_cache
+
+
+    def _fill_ratio_table(self, doc, financial_data: dict,
+                           ratios: dict, nested_tables: list,
+                           progress_cb):
+        """Fill ratio indicator table (nt021) with Python-calculated values.
+
+        Finds the nested table whose row labels contain ratio keywords
+        (资产负债率/流动比率/速动比率/毛利率/净利率/周转天数), maps
+        calculated ratios to cell positions, and writes them.
+        """
+        # Identify ratio table by row labels
+        RATIO_KEYWORDS = ['资产负债率', '流动比率', '速动比率', '毛利率',
+                          '净利率', '应收账款周转', '存货周转', '应付帐款周转',
+                          '应付账款周转', '预付账款周转']
+        ratio_table = None
+        for ts in nested_tables:
+            label_text = ' '.join(ts.row_labels)
+            match_count = sum(1 for kw in RATIO_KEYWORDS if kw in label_text)
+            if match_count >= 3:
+                ratio_table = ts
+                break
+        if ratio_table is None:
+            self._log(progress_cb, "  未找到财务指标表，跳过")
+            return 0
+
+        self._log(progress_cb,
+                  f"  找到财务指标表 {ratio_table.table_id}, "
+                  f"{len(ratio_table.empty_cells)} 个空格")
+
+        # Map column headers to year keys
+        header = ratio_table.header_row
+        data_start = ratio_table.num_rows - len(ratio_table.row_labels)
+        col_year_map = {}  # col_idx -> year_key in ratios
+        for ci, h in enumerate(header):
+            if ci == 0:
+                continue
+            h_stripped = h.strip()
+            # Try interim match first
+            m = re.search(r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])', h_stripped)
+            if m:
+                col_year_map[ci] = f"{m.group(1)}.{m.group(2)}"
+                continue
+            m = re.search(r'(20\d{2})', h_stripped)
+            if m:
+                col_year_map[ci] = m.group(1)
+
+        # Build ratio name -> row index mapping
+        row_ratio_map = {}  # row_label_keyword -> row_index
+        RATIO_ROW_MAP = {
+            '资产负债率': '资产负债率',
+            '流动比率': '流动比率',
+            '速动比率': '速动比率',
+            '毛利率': '毛利率',
+            '净利率': '净利率',
+            '应收账款周转天数': '应收账款周转天数',
+            '应收账款周转': '应收账款周转天数',
+            '存货周转天数': '存货周转天数',
+            '存货周转': '存货周转天数',
+            '预付账款周转天数': '预付账款周转天数',
+            '预付账款周转': '预付账款周转天数',
+            '应付帐款周转天数': '应付账款周转天数',
+            '应付账款周转天数': '应付账款周转天数',
+            '应付帐款周转': '应付账款周转天数',
+            '应付账款周转': '应付账款周转天数',
+        }
+        for i, label in enumerate(ratio_table.row_labels):
+            ri = i + data_start
+            for kw, ratio_key in RATIO_ROW_MAP.items():
+                if kw in label:
+                    row_ratio_map[ri] = ratio_key
+                    break
+
+        # Build cell values from ratios
+        cell_values = {}
+        for ri, ratio_key in row_ratio_map.items():
+            for ci, year_key in col_year_map.items():
+                # Look up in ratios dict
+                year_ratios = ratios.get(year_key, {})
+                if ratio_key in year_ratios:
+                    val = year_ratios[ratio_key]
+                    cell_values[f"{ri}_{ci}"] = str(val)
+                    continue
+                # Try YoY growth key format: "2024_同比增长"
+                # (growth rates are separate, skip for ratio table)
+
+        if not cell_values:
+            self._log(progress_cb, "  未计算出可填入指标表的比率值")
+            return 0
+
+        # Also fill basic financial data rows if they exist
+        # (总资产, 净资产, 销售收入 etc. from financial_data)
+        BASIC_DATA_MAP = {
+            '总资产': ['资产合计', '资产总额', '总资产'],
+            '净资产': ['股东权益合计', '所有者权益合计', '净资产'],
+            '销售收入': ['营业收入', '主营业务收入', '销售收入'],
+            '净利润': ['净利润'],
+            '总负债': ['负债合计', '负债总额'],
+        }
+        for i, label in enumerate(ratio_table.row_labels):
+            ri = i + data_start
+            if ri in row_ratio_map:
+                continue  # Already handled as ratio
+            for table_kw, data_keys in BASIC_DATA_MAP.items():
+                if table_kw in label:
+                    for ci, year_key in col_year_map.items():
+                        if f"{ri}_{ci}" in cell_values:
+                            continue  # Already has value
+                        year_data = financial_data.get(year_key, {})
+                        for dk in data_keys:
+                            if dk in year_data:
+                                cell_values[f"{ri}_{ci}"] = str(year_data[dk])
+                                break
+                    break
+
+        table_values = {ratio_table.table_id: cell_values}
+        filled = apply_table_values(doc, nested_tables, table_values)
+        self._log(progress_cb,
+                  f"  已填入 {filled} 个财务指标值 (Python精确计算)")
+
+        # ★ v7.20: Also fill transposed summary tables (nt021 style)
+        # These have rows=years, columns=indicator names
+        TRANSPOSED_COL_KW = ['毛利率', '净利率', '资产负债率']
+        for ts in nested_tables:
+            if ts.table_id == ratio_table.table_id:
+                continue  # Already handled
+            header_text = ' '.join(ts.header_row)
+            col_match = sum(1 for kw in TRANSPOSED_COL_KW
+                           if kw in header_text)
+            if col_match < 2:
+                continue
+
+            self._log(progress_cb,
+                      f"  找到汇总指标表 {ts.table_id} (转置格式)")
+            t_data_start = ts.num_rows - len(ts.row_labels)
+            t_cell_values = {}
+
+            # Map row labels to year keys
+            row_year_map = {}
+            for i, label in enumerate(ts.row_labels):
+                ri = i + t_data_start
+                m = re.search(r'(20\d{2})\s*[./-]\s*(3|6|9|12|X)',
+                              label)
+                if m:
+                    if m.group(2) == 'X':
+                        row_year_map[ri] = None  # Placeholder row
+                    else:
+                        row_year_map[ri] = f"{m.group(1)}.{m.group(2)}"
+                    continue
+                m = re.search(r'(20\d{2})', label)
+                if m:
+                    row_year_map[ri] = m.group(1)
+
+            # Map column headers to ratio/data keys
+            COL_RATIO_MAP = {
+                '总资产': (['资产合计', '资产总额', '总资产'], None),
+                '净资产': (['股东权益合计', '所有者权益合计', '净资产'], None),
+                '销售收入': (['营业收入', '主营业务收入', '销售收入'], None),
+                '净利润': (['净利润'], None),
+                '毛利率': (None, '毛利率'),
+                '净利率': (None, '净利率'),
+                '资产负债率': (None, '资产负债率'),
+                '流动比率': (None, '流动比率'),
+                '速动比率': (None, '速动比率'),
+            }
+            col_mapping = {}  # ci -> (data_keys, ratio_key)
+            for ci, h in enumerate(ts.header_row):
+                if ci == 0:
+                    continue
+                for kw, mapping in COL_RATIO_MAP.items():
+                    if kw in h:
+                        col_mapping[ci] = mapping
+                        break
+
+            for ri, year_key in row_year_map.items():
+                if year_key is None:
+                    continue
+                for ci, (data_keys, ratio_key) in col_mapping.items():
+                    if f"{ri}_{ci}" in ts.existing_data:
+                        continue
+                    if ratio_key:
+                        yr = ratios.get(year_key, {})
+                        if ratio_key in yr:
+                            t_cell_values[f"{ri}_{ci}"] = str(yr[ratio_key])
+                    elif data_keys:
+                        yd = financial_data.get(year_key, {})
+                        for dk in data_keys:
+                            if dk in yd:
+                                t_cell_values[f"{ri}_{ci}"] = str(yd[dk])
+                                break
+
+            if t_cell_values:
+                tv = {ts.table_id: t_cell_values}
+                t_filled = apply_table_values(doc, nested_tables, tv)
+                filled += t_filled
+                self._log(progress_cb,
+                          f"  汇总指标表 {ts.table_id}: "
+                          f"填入 {t_filled} 个值")
+
+        return filled
+
+    def _generate_financial_analysis(self, doc, materials, progress_cb,
+                                      nested_tables=None):
+        """Generate financial analysis with five professional modules."""
+        self._log(progress_cb, "  提取财务数据...")
+        financial_data = self._extract_financial_data_from_doc(doc)
+        if not financial_data:
+            self._log(progress_cb, "  未找到已填充的财务数据表，跳过财务分析生成")
+            return
+
+        years_found = sorted(financial_data.keys(), key=period_sort_key)
+        self._log(
+            progress_cb,
+            f"  提取到 {len(years_found)} 个期间数据，共 {sum(len(v) for v in financial_data.values())} 项",
+        )
+
+        self._log(progress_cb, "  计算财务指标...")
+        ratios = self._calc_financial_ratios(financial_data)
+
+        if nested_tables:
+            try:
+                ratio_filled = self._fill_ratio_table(
+                    doc, financial_data, ratios, nested_tables, progress_cb
+                )
+                self.stats["filled"] += ratio_filled
+            except Exception as e:
+                self._log(progress_cb, f"  指标表填充出错: {e}")
+
+        # 方案三：财务数据交叉验证（>5%偏差写入 fill_run_output.txt）
+        try:
+            validation_lines = cross_validate_financials(
+                getattr(self, "_truth_financial_data", {}) or {},
+                financial_data,
+            )
+            for line in validation_lines:
+                _append_fill_run_output(line)
+            if validation_lines:
+                self._log(progress_cb, f"  财务交叉校验发现 {len(validation_lines)} 条差异")
+            self._financial_cross_validated = True
+        except Exception as e:
+            self._log(progress_cb, f"  财务交叉校验异常: {e}")
+
+        # Build annual view from extracted periods (prefer year-end / annual labels)
+        def _period_rank(label: str) -> float:
+            s = str(label or "")
+            m = re.search(r"(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])", s)
+            if m:
+                return float(int(m.group(2)))
+            if re.search(r"20\d{2}", s):
+                return 12.5
+            return -1
+
+        year_pick: dict[str, tuple[float, dict]] = {}
+        for period, row in (financial_data or {}).items():
+            year = _normalize_fin_year(period)
+            if not year or not isinstance(row, dict):
+                continue
+            rank = _period_rank(str(period))
+            old = year_pick.get(year)
+            if old is None or rank >= old[0]:
+                year_pick[year] = (rank, row)
+        annual_years = sorted(year_pick.keys())
+        year_rows = {y: year_pick[y][1] for y in annual_years}
+
+        def _series(aliases: list[str]) -> dict[str, float]:
+            out = {}
+            for y in annual_years:
+                val = _pick_amount_by_alias(year_rows.get(y, {}), aliases)
+                if val is not None:
+                    out[y] = val
+            return out
+
+        # 方案五：核心计算指标
+        revenue_series = _series(["营业收入", "主营业务收入", "销售收入"])
+        net_profit_series = _series(["净利润"])
+        assets_series = _series(["总资产", "资产合计", "资产总计", "资产总额"])
+        liab_series = _series(["负债合计", "负债总计", "总负债"])
+        receivable_series = _series(["应收账款", "应收帐款"])
+        inventory_series = _series(["存货"])
+        cash_series = _series(["货币资金", "现金及现金等价物"])
+        short_debt_series = _series(["短期借款", "短期借款合计", "一年内到期的非流动负债"])
+        current_asset_series = _series(["流动资产", "流动资产合计"])
+        current_liab_series = _series(["流动负债", "流动负债合计"])
+        cost_series = _series(["营业成本", "主营业务成本", "减：主营业务成本"])
+        ocf_series = _series(["经营活动产生的现金流量净额", "经营性现金流净额", "经营活动现金流量净额"])
+        icf_series = _series(["投资活动产生的现金流量净额", "投资性现金流净额"])
+        fcf_series = _series(["筹资活动产生的现金流量净额", "筹资性现金流净额"])
+
+        ar_days = {}
+        for y in annual_years:
+            rev = revenue_series.get(y)
+            rec = receivable_series.get(y)
+            if rev not in (None, 0) and rec is not None:
+                ar_days[y] = round(rec / rev * 365, 1)
+
+        revenue_yoy = {}
+        for i in range(1, len(annual_years)):
+            prev_y, curr_y = annual_years[i - 1], annual_years[i]
+            prev_v = revenue_series.get(prev_y)
+            curr_v = revenue_series.get(curr_y)
+            if prev_v not in (None, 0) and curr_v is not None:
+                revenue_yoy[curr_y] = round((curr_v - prev_v) / abs(prev_v) * 100, 2)
+        inventory_yoy = {}
+        for i in range(1, len(annual_years)):
+            prev_y, curr_y = annual_years[i - 1], annual_years[i]
+            prev_v = inventory_series.get(prev_y)
+            curr_v = inventory_series.get(curr_y)
+            if prev_v not in (None, 0) and curr_v is not None:
+                inventory_yoy[curr_y] = round((curr_v - prev_v) / abs(prev_v) * 100, 2)
+
+        current_ratio = {}
+        for y in annual_years:
+            ca = current_asset_series.get(y)
+            cl = current_liab_series.get(y)
+            if ca is not None and cl not in (None, 0):
+                current_ratio[y] = round(ca / cl, 2)
+
+        ar_trend = "样本不足"
+        if len(ar_days) >= 2:
+            vals = [ar_days[y] for y in annual_years if y in ar_days]
+            if len(vals) >= 2:
+                if all(vals[i] >= vals[i - 1] for i in range(1, len(vals))) and any(vals[i] > vals[i - 1] for i in range(1, len(vals))):
+                    ar_trend = "持续恶化"
+                elif all(vals[i] <= vals[i - 1] for i in range(1, len(vals))) and any(vals[i] < vals[i - 1] for i in range(1, len(vals))):
+                    ar_trend = "持续改善"
+                else:
+                    ar_trend = "波动"
+
+        cash_cover = {}
+        for y in annual_years:
+            cash_v = cash_series.get(y)
+            short_v = short_debt_series.get(y)
+            if cash_v is not None and short_v not in (None, 0):
+                cash_cover[y] = round(cash_v / short_v * 100, 2)
+
+        gross_margin = {}
+        for y in annual_years:
+            rev = revenue_series.get(y)
+            cost = cost_series.get(y)
+            if rev not in (None, 0) and cost is not None:
+                gross_margin[y] = round((rev - cost) / rev * 100, 2)
+        gross_margin_std = (
+            round(statistics.pstdev(list(gross_margin.values())), 2)
+            if len(gross_margin) >= 2
+            else 0.0
+        )
+
+        debt_ratio = {}
+        for y in annual_years:
+            asset = assets_series.get(y)
+            liab = liab_series.get(y)
+            if asset not in (None, 0) and liab is not None:
+                debt_ratio[y] = round(liab / asset * 100, 2)
+
+        ocf_sign_seq = []
+        for y in annual_years:
+            v = ocf_series.get(y)
+            if v is None:
+                continue
+            if v > 0:
+                sign = "正"
+            elif v < 0:
+                sign = "负"
+            else:
+                sign = "零"
+            ocf_sign_seq.append((y, sign))
+
+        ocf_consecutive_text = "无法判断"
+        if ocf_sign_seq:
+            last_sign = ocf_sign_seq[-1][1]
+            cnt = 0
+            for _, s in reversed(ocf_sign_seq):
+                if s == last_sign:
+                    cnt += 1
+                else:
+                    break
+            if last_sign in ("正", "负"):
+                ocf_consecutive_text = f"最近连续{cnt}年为{last_sign}"
+            else:
+                ocf_consecutive_text = "最近一年经营现金流为零"
+
+        # 方案五：风险阈值
+        risk_hits = []
+        max_ar_days = max(ar_days.values()) if ar_days else None
+        min_cash_cover = min(cash_cover.values()) if cash_cover else None
+        max_debt_ratio = max(debt_ratio.values()) if debt_ratio else None
+        if max_ar_days is not None and max_ar_days > 180:
+            risk_hits.append("应收账款周转天数超过180天，回款风险偏高。")
+        if min_cash_cover is not None and min_cash_cover < 20:
+            risk_hits.append("货币资金对短期借款覆盖率低于20%，短期流动性承压。")
+        if max_debt_ratio is not None and max_debt_ratio > 70:
+            risk_hits.append("资产负债率高于70%，杠杆水平偏高。")
+
+        module_data = [
+            (
+                "盈利质量",
+                {
+                    "收入同比增速(%)": revenue_yoy,
+                    "毛利率(%)": gross_margin,
+                    "毛利率标准差(%)": gross_margin_std,
+                },
+            ),
+            (
+                "偿债能力",
+                {
+                    "货币资金/短期借款覆盖率(%)": cash_cover,
+                    "流动比率": current_ratio,
+                    "资产负债率(%)": debt_ratio,
+                },
+            ),
+            (
+                "运营效率",
+                {
+                    "应收账款周转天数": ar_days,
+                    "应收周转趋势": ar_trend,
+                    "存货同比增速(%)": inventory_yoy,
+                },
+            ),
+            (
+                "现金流质量",
+                {
+                    "经营现金流净额(万元)": ocf_series,
+                    "投资现金流净额(万元)": icf_series,
+                    "筹资现金流净额(万元)": fcf_series,
+                    "经营现金流连续性": ocf_consecutive_text,
+                },
+            ),
+            (
+                "风险预警",
+                {
+                    "应收账款周转天数": ar_days,
+                    "货币资金/短期借款覆盖率(%)": cash_cover,
+                    "资产负债率(%)": debt_ratio,
+                    "阈值触发": risk_hits or ["未触发硬阈值"],
+                },
+            ),
+        ]
+
+        def _dict_text(d: dict, suffix: str = "") -> str:
+            if not d:
+                return "无可用数据"
+            return "；".join(f"{k}:{v}{suffix}" for k, v in d.items())
+
+        def _module_payload(data_obj: dict) -> str:
+            parts = []
+            for k, v in data_obj.items():
+                if isinstance(v, dict):
+                    if k.endswith("(%)"):
+                        parts.append(f"{k}: {_dict_text(v, '%')}")
+                    else:
+                        parts.append(f"{k}: {_dict_text(v)}")
+                elif isinstance(v, list):
+                    parts.append(f"{k}: {'；'.join(str(x) for x in v)}")
+                else:
+                    parts.append(f"{k}: {v}")
+            return "\n".join(parts)
+
+        base_prompt = (
+            "你是银行信贷分析师，根据以下精确计算数据写2-3句专业分析结论，只写结论不重复数字，不使用模板套话：\n[计算数据]"
+        )
+
+        def _split_sentences(text: str) -> list[str]:
+            return [
+                seg.strip()
+                for seg in re.split(r'(?<=[。！？!?])\s*', (text or "").strip())
+                if seg and seg.strip()
+            ]
+
+        def _fallback_module_text(module_name: str) -> str:
+            if module_name == "盈利质量":
+                return (
+                    "收入、毛利与净利润需联动分析，重点关注利润兑现与毛利波动是否匹配。"
+                    "若收入扩张快于利润兑现，应审慎评估盈利质量的可持续性。"
+                )
+            if module_name == "偿债能力":
+                return (
+                    "偿债能力由杠杆水平与流动性共同决定，需同步观察资产负债率和短债覆盖能力。"
+                    "若短债覆盖走弱，应将债务期限结构与再融资安排列为重点核查项。"
+                )
+            if module_name == "运营效率":
+                return (
+                    "运营效率需重点跟踪应收账款周转与收入扩张的匹配程度。"
+                    "若应收周转放缓且收入增速回落，需警惕回款质量下行对现金流的传导。"
+                )
+            if module_name == "现金流质量":
+                return (
+                    f"经营现金流当前表现为{ocf_consecutive_text}，需关注现金回笼与利润质量是否一致。"
+                    "若经营现金流波动较大，应强化订单回款、存货占用与资金调度管理。"
+                )
+            if risk_hits:
+                return (
+                    f"当前已触发硬阈值预警：{'、'.join(risk_hits)}。"
+                    "建议将回款效率、短债覆盖和杠杆水平纳入高频监控，并设置贷后预警处置动作。"
+                )
+            return (
+                "当前未触发应收周转、货币资金覆盖、资产负债率三项硬阈值。"
+                "建议持续跟踪经营波动对现金回笼和杠杆水平的传导影响。"
+            )
+
+        def _ensure_two_to_three_sentences(text: str, fallback_text: str) -> str:
+            base_sents = _split_sentences(text)
+            fallback_sents = _split_sentences(fallback_text)
+            merged = []
+            for sent in (base_sents + fallback_sents):
+                if sent and sent not in merged:
+                    merged.append(sent)
+                if len(merged) >= 3:
+                    break
+            if len(merged) < 2:
+                merged.append("建议持续跟踪关键财务指标变化并动态调整授信管理策略。")
+            return "".join(merged[:3])
+
+        analysis_paragraphs = []
+        for module_name, module_metrics in module_data:
+            module_payload = _module_payload(module_metrics)
+            sys_p = base_prompt + "\n仅输出结论句，不要编号、标题、解释。"
+            if module_name == "风险预警":
+                sys_p += (
+                    "\n若触发阈值（应收周转>180天/货币资金覆盖<20%/负债率>70%），"
+                    "必须逐条写出触发项并给出明确风险提示。"
+                )
+            usr_p = f"模块：{module_name}\n[计算数据]\n{module_payload}"
+
+            text = ""
+            try:
+                resp = self.llm(sys_p, usr_p)
+                text = re.sub(r"```\w*\n?", "", (resp or "")).strip()
+                text = _sanitize_generated_text_by_periods(
+                    text, getattr(self, "_available_periods", None)
+                )
+            except Exception:
+                text = ""
+
+            fallback_text = _fallback_module_text(module_name)
+            text = _ensure_two_to_three_sentences(text, fallback_text)
+
+            if module_name == "风险预警" and risk_hits:
+                missing_hits = [h for h in risk_hits if h not in text]
+                if missing_hits:
+                    text = (
+                        text.rstrip("。；; ")
+                        + "。已触发阈值项："
+                        + "、".join(missing_hits)
+                        + "。"
+                    )
+                    text = _ensure_two_to_three_sentences(text, fallback_text)
+
+            analysis_paragraphs.append(text.strip())
+
+        analysis_paragraphs = [p for p in analysis_paragraphs if p and len(p) >= 12]
+        if not analysis_paragraphs:
+            self._log(progress_cb, "  未能生成有效财务分析段落")
+            return
+
+        self._log(progress_cb, f"  生成了 {len(analysis_paragraphs)} 个分析模块段落，正在插入文档...")
+        inserted = self._insert_financial_analysis(doc, analysis_paragraphs)
+        self.stats["filled"] += inserted
+        self._log(progress_cb, f"  已插入 {inserted} 个财务分析段落")
+
+    @staticmethod
+    def _replace_after_colon_for_targeted(para, colon_end: int, new_text: str) -> bool:
+        if not para.runs:
+            para.add_run(' ' + new_text)
+            return True
+        runs = list(para.runs)
+        char_pos = 0
+        target_idx = None
+        target_offset = 0
+        for idx, run in enumerate(runs):
+            rt = run.text or ''
+            run_end = char_pos + len(rt)
+            if char_pos <= colon_end <= run_end:
+                target_idx = idx
+                target_offset = colon_end - char_pos
+                break
+            char_pos = run_end
+        if target_idx is None:
+            runs[-1].text = (runs[-1].text or '') + ' ' + new_text
+            return True
+        target_run = runs[target_idx]
+        target_run.text = (target_run.text or '')[:target_offset] + ' ' + new_text
+        for j in range(target_idx + 1, len(runs)):
+            runs[j].text = ''
+        return True
+
+    def _build_account_period_overview_text(self) -> str:
+        facts = (self.kb or {}).get('facts', {}) or {}
+        raw = (facts.get('account_period') or '').strip()
+        return re.sub(r'[\r\n]+', '', raw) if raw else ''
+
+
+    def _build_supply_chain_overview_text(self) -> str:
+        facts = (self.kb or {}).get('facts', {}) or {}
+        upstream = facts.get('upstream_top5') or []
+        downstream = facts.get('downstream_top5') or []
+
+        def _pick(item, needles):
+            for k, v in (item or {}).items():
+                if v is None:
+                    continue
+                if any(nd in str(k) for nd in needles):
+                    s = str(v).strip()
+                    if s:
+                        return s
+            return ''
+
+        def _pct_sum(items, needles):
+            total = 0.0
+            hit = False
+            for item in items:
+                raw = _pick(item, needles)
+                if not raw:
+                    continue
+                m = re.search(r'-?\d+(?:\.\d+)?', raw.replace(',', ''))
+                if not m:
+                    continue
+                total += float(m.group(0))
+                hit = True
+            return f"{round(total, 1)}%" if hit else ''
+
+        up_names = [_pick(it, ['上游供应商', '供应商']) for it in upstream if isinstance(it, dict)]
+        dn_names = [_pick(it, ['下游销售客户', '客户']) for it in downstream if isinstance(it, dict)]
+        up_names = [x for x in up_names if x]
+        dn_names = [x for x in dn_names if x]
+        up_pct = _pct_sum(upstream, ['采购额占比', '采购占比'])
+        dn_pct = _pct_sum(downstream, ['销售额占比', '销售占比'])
+        parts = []
+        if up_names:
+            sentence = f"上游供应商主要包括{'、'.join(up_names[:5])}"
+            if up_pct:
+                sentence += f"，前五采购集中度约为{up_pct}"
+            parts.append(sentence + '。')
+        if dn_names:
+            sentence = f"下游客户主要包括{'、'.join(dn_names[:5])}"
+            if dn_pct:
+                sentence += f"，前五销售集中度约为{dn_pct}"
+            parts.append(sentence + '。')
+        return ''.join(parts)
+
+    def _build_first_repayment_source_text(self, financial_data: dict | None = None) -> str:
+        facts = (self.kb or {}).get('facts', {}) or {}
+        fin = financial_data or getattr(self, '_truth_financial_data', {}) or {}
+        periods = sorted([k for k in fin.keys() if re.fullmatch(r'20\d{2}', str(k))])
+        latest = periods[-1] if periods else ''
+        latest_data = fin.get(latest, {}) if latest else {}
+        revenue = latest_data.get('主营业务收入')
+        profit = latest_data.get('净利润')
+        ocf = latest_data.get('经营性现金流净额')
+        revenue_split = (facts.get('revenue_split') or '').strip()
+        parts = ['第一还款来源主要为企业主营业务形成的销售回款及经营现金回笼。']
+        if revenue_split:
+            parts.append(f"材料显示{revenue_split}。")
+        if latest:
+            metrics = []
+            if revenue is not None:
+                metrics.append(f"{latest}年主营业务收入{int(revenue)}万元")
+            if profit is not None:
+                metrics.append(f"净利润{int(profit)}万元")
+            if ocf is not None:
+                metrics.append(f"经营性现金流净额{int(ocf)}万元")
+            if metrics:
+                parts.append('；'.join(metrics) + '。')
+        if len(parts) == 1:
+            parts.append('当前材料未提供可量化经营回款或现金流数据，对第一还款来源的判断仅能基于主营业务持续经营，属于【通用假设】。')
+        return ''.join(parts)
+
+    def _build_second_repayment_source_text(self, financial_data: dict | None = None) -> str:
+        fin = financial_data or getattr(self, '_truth_financial_data', {}) or {}
+        periods = sorted([k for k in fin.keys() if re.fullmatch(r'20\d{2}', str(k))])
+        latest = periods[-1] if periods else ''
+        latest_data = fin.get(latest, {}) if latest else {}
+        money = latest_data.get('货币资金')
+        ar = latest_data.get('应收账款')
+        inventory = latest_data.get('存货')
+        metrics = []
+        if money is not None:
+            metrics.append(f"货币资金{int(money)}万元")
+        if ar is not None:
+            metrics.append(f"应收账款{int(ar)}万元")
+        if inventory is not None:
+            metrics.append(f"存货{int(inventory)}万元")
+        if metrics:
+            return '第二还款来源可关注企业现有可变现资产与营运资金缓冲，' + '、'.join(metrics) + '可在主业回款波动时形成补充保障。'
+        return '材料未提供可量化的可变现资产、担保补充或实控人家庭资产信息，第二还款来源仅能按【通用假设】理解为实控人协调能力、存量资产处置及续作融资能力，需人工核实。'
+
+    def _build_negative_info_explanation_text(self) -> str:
+        return '基于已读取材料，未见企业主动披露的诉讼、行政处罚、失信等重大负面事项；但ESG评价、反洗钱等级及司法监管外部检索结果不以当前材料为穷尽，仍需以行内系统和权威公开查询结果补充核验。'
+
+    def _fill_targeted_narrative_sections(self, doc, materials: str, progress_cb=None) -> int:
+        financial_data = getattr(self, '_truth_financial_data', {}) or self._extract_financial_data_from_doc(doc)
+        builders = [
+            (re.compile(r'经营账期[^：:]{0,20}[：:]'), self._build_account_period_overview_text),
+            (re.compile(r'(?:上下游情况|上游供应(?:分析|情况)|下游销售(?:分析|情况))[^：:]{0,20}[：:]'), self._build_supply_chain_overview_text),
+            (re.compile(r'第一还款来源[^：:]{0,20}[：:]'), lambda: self._build_first_repayment_source_text(financial_data)),
+            (re.compile(r'第二还款来源[^：:]{0,20}[：:]'), lambda: self._build_second_repayment_source_text(financial_data)),
+            (re.compile(r'其他负面信息解释[^：:]{0,40}[：:]'), self._build_negative_info_explanation_text),
+        ]
+
+        filled = 0
+        for para in self._iter_all_doc_paragraphs(doc):
+            txt = (para.text or '').strip()
+            if not txt:
+                continue
+            for pattern, builder in builders:
+                m = pattern.search(txt)
+                if not m:
+                    continue
+                tail = txt[m.end():].strip()
+                placeholder = (
+                    not tail
+                    or any(mark in tail for mark in ['待补充', 'XXX', '___', '请如实反馈', '请填写'])
+                    or len(re.sub(r'[_\s/]+', '', tail)) < 8
+                )
+                if not placeholder:
+                    break
+                new_text = (builder() or '').strip()
+                if not new_text:
+                    break
+                if self._replace_after_colon_for_targeted(para, m.end(), new_text):
+                    filled += 1
+                break
+
+        if filled:
+            self._log(progress_cb, f"  targeted narrative fills: {filled}")
+        return filled
+
+    def _fill_financial_detail_analysis_truth(self, doc, financial_data: dict,
+                                              materials: str, progress_cb,
+                                              enable_llm: bool = False,
+                                              web_context: str = ""):
+        """Truth-first filler for financial detail items (1)-(10).
+
+        - Never invent numbers or reasons
+        - If evidence is missing, state what is missing and what to补充
+        - Optional LLM enhancement writes concise 2-3 sentence narrative
+        """
+        if not financial_data:
+            return 0
+
+        _DETAIL_AMT_RE = re.compile(
+            r'[\(\uFF08]\s*(\d{1,2})\s*[\)\uFF09]\s*'
+            r'([^\d\uff08\uff09\n]{2,20}?)([\d,.\s_Xx]*)\u4e07\u5143[,\uFF0C]?\s*'
+            r'[^:\uFF1A]{0,40}[:\uFF1A]'
+        )
+        _DETAIL_NOAMT_RE = re.compile(
+            r'[\(\uFF08]\s*(\d{1,2})\s*[\)\uFF09]\s*'
+            r'(\u56fa\u5b9a\u8d44\u4ea7\u6295\u8d44\u53d8\u52a8\u60c5\u51b5|\u5176\u4ed6\u53d8\u52a8\u8f83\u5927\u7684\u8d22\u52a1\u6307\u6807|\u4e3b\u8425\u4e1a\u52a1\u6536\u5165\u53d8\u52a8\u539f\u56e0|\u76c8\u5229\u80fd\u529b\u53d8\u52a8\u539f\u56e0)[^:\uFF1A]{0,80}[:\uFF1A]'
+        )
+
+        items = []  # (para, idx, subject, colon_end, amount_slot)
+        for para in self._iter_all_doc_paragraphs(doc):
+            raw = para.text or ""
+            txt = raw.strip()
+            if not txt:
+                continue
+
+            m = _DETAIL_AMT_RE.search(raw)
+            if m:
+                after = raw[m.end():]
+                cleaned = after.replace('_', '').strip()
+                if len(cleaned) <= 80 or '待补充' in after:
+                    items.append((
+                        para,
+                        int(m.group(1)),
+                        (m.group(2) or '').strip(),
+                        m.end(),
+                        (m.start(3), m.end(3), m.group(3) or ''),
+                    ))
+                continue
+
+            m = _DETAIL_NOAMT_RE.search(raw)
+            if m:
+                after = raw[m.end():]
+                cleaned = after.replace('_', '').strip()
+                if len(cleaned) <= 80 or '待补充' in after:
+                    items.append((para, int(m.group(1)), (m.group(2) or '').strip(), m.end(), None))
+
+        if not items:
+            self._log(progress_cb, "  未发现需补充分析的财务明细项")
+            return 0
+
+        items.sort(key=lambda x: x[1])
+        self._log(progress_cb, f"  Truth prefill: 发现 {len(items)} 个财务明细项需补充分析")
+
+        def _parse_period_key(k: str):
+            m = re.search(r'(20\d{2})\s*[./-]\s*(0?[1-9]|1[0-2])', k)
+            if m:
+                return (int(m.group(1)), int(m.group(2)), 0)
+            m = re.search(r'(20\d{2})', k)
+            if m:
+                return (int(m.group(1)), 12, 1)
+            return (0, 0, 9)
+
+        def _as_int(v):
+            if v is None:
+                return None
+            s = str(v).replace(',', '').replace('?', '').strip()
+            if not s:
+                return None
+            s = re.sub(r'[^0-9.\-]', '', s)
+            if not s:
+                return None
+            try:
+                return int(round(float(s)))
+            except Exception:
+                return None
+
+        def _replace_after_colon(para, colon_end: int, new_text: str) -> bool:
+            # NOTE: python-docx may return new Run proxy objects on each access.
+            # Use run indices (not object identity) to reliably clear content.
+            if not para.runs:
+                para.add_run(' ' + new_text)
+                return True
+
+            runs = list(para.runs)
+            char_pos = 0
+            target_idx = None
+            target_offset = 0
+            for idx, run in enumerate(runs):
+                rt = run.text or ''
+                run_end = char_pos + len(rt)
+                if char_pos <= colon_end <= run_end:
+                    target_idx = idx
+                    target_offset = colon_end - char_pos
+                    break
+                char_pos = run_end
+
+            if target_idx is None:
+                runs[-1].text = (runs[-1].text or '') + ' ' + new_text
+                return True
+
+            target_run = runs[target_idx]
+            before = (target_run.text or '')[:target_offset]
+            target_run.text = before + ' ' + new_text
+            for j in range(target_idx + 1, len(runs)):
+                runs[j].text = ''
+            return True
+
+        def _replace_char_span(para, start_char: int, end_char: int, new_text: str) -> bool:
+            """Replace [start_char, end_char) in paragraph text using run-aware offsets."""
+            if start_char is None or end_char is None or start_char > end_char:
+                return False
+            if not para.runs:
+                para.add_run(new_text)
+                return True
+
+            runs = list(para.runs)
+            char_pos = 0
+            start_idx = None
+            end_idx = None
+            start_offset = 0
+            end_offset = 0
+
+            for idx, run in enumerate(runs):
+                rt = run.text or ''
+                run_end = char_pos + len(rt)
+                if start_idx is None and char_pos <= start_char <= run_end:
+                    start_idx = idx
+                    start_offset = start_char - char_pos
+                if start_idx is not None and char_pos <= end_char <= run_end:
+                    end_idx = idx
+                    end_offset = end_char - char_pos
+                    break
+                char_pos = run_end
+
+            if start_idx is None:
+                return False
+            if end_idx is None:
+                end_idx = len(runs) - 1
+                end_offset = len(runs[end_idx].text or '')
+
+            start_run = runs[start_idx]
+            end_run = runs[end_idx]
+            before = (start_run.text or '')[:start_offset]
+            after = (end_run.text or '')[end_offset:]
+            start_run.text = before + new_text + after
+            for j in range(start_idx + 1, end_idx + 1):
+                runs[j].text = ''
+            return True
+
+        def _disp_period(k: str) -> str:
+            ks = str(k)
+            if re.fullmatch(r"20\d{2}", ks):
+                return ks + "年"
+            return ks
+
+        def _norm_key(x) -> str:
+            s = "" if x is None else str(x)
+            s = s.strip()
+            s = s.replace("（", "(").replace("）", ")")
+            s = re.sub(r"\(.*?\)", "", s)
+            s = re.sub(r"\s+", "", s)
+            s = re.sub(r"^[一二三四五六七八九十]+、", "", s)
+            s = re.sub(r"^（[一二三四五六七八九十]+）", "", s)
+            s = re.sub(r"^[、·•]+", "", s)
+            s = re.sub(r"[:：]$", "", s)
+            return s
+
+        periods = sorted(financial_data.keys(), key=_parse_period_key)
+        annual_periods = [p for p in periods if re.fullmatch(r'20\d{2}', str(p))]
+        latest_annual = annual_periods[-1] if annual_periods else None
+        SUBJECT_ALIASES = {
+            '应收账款': ['应收账款', '应收帐款'],
+            '其他应收款': ['其他应收款', '其它应收款'],
+            '存货': ['存货'],
+            '长期投资': ['长期投资', '长期股权投资'],
+            '应付账款': ['应付账款', '应付帐款'],
+            '其他应付款': ['其他应付款', '其它应付款'],
+            '主营业务收入': ['主营业务收入', '营业收入', '主营收入'],
+            '净利润': ['净利润'],
+        }
+        AMOUNT_FIELD_MAP = {
+            '应收账款': '应收账款',
+            '其他应收款': '其他应收款',
+            '存货': '存货',
+            '应付账款': '应付账款',
+            '其他应付款': '其他应付款',
+        }
+
+        def _series_for(subject: str) -> dict:
+            aliases = SUBJECT_ALIASES.get(subject, [subject])
+            alias_norm = [_norm_key(a) for a in aliases]
+            out = {}
+            for p in periods:
+                yd = financial_data.get(p, {}) or {}
+                # Normalize keys once per period for robust matching.
+                yd_norm = {}
+                for k, v in (yd or {}).items():
+                    nk = _norm_key(k)
+                    if not nk or v in (None, ''):
+                        continue
+                    if nk not in yd_norm:
+                        yd_norm[nk] = v
+                for an in alias_norm:
+                    if an in yd_norm and yd_norm[an] not in (None, ''):
+                        out[p] = yd_norm[an]
+                        break
+            return out
+        def _hint_for(subj: str) -> str:
+            s = subj or ''
+            if '应收账款' in s:
+                return '材料未提供应收账款明细、账龄分析、前五大客户及期后回款情况，建议补充上述材料以核实构成及变动原因。'
+            if '其他应收' in s or '其它应收' in s:
+                return '材料未提供其他应收款明细（往来单位/性质/账龄）及期后回收情况，建议补充明细后核实变动原因。'
+            if '存货' in s:
+                return '材料未提供存货明细、库龄及跌价准备信息，建议补充存货构成与库龄资料后核实变动原因。'
+            if '长期' in s and ('投资' in s or '股权' in s):
+                return '材料未提供长期投资明细、被投单位情况及投资协议/出资证明等，建议补充后核实变动原因。'
+            if '应付账款' in s:
+                return '材料未提供应付账款明细、账龄及期后付款情况，建议补充供应商明细与付款记录后核实变动原因。'
+            if '其他应付' in s or '其它应付' in s:
+                return '材料未提供其他应付款明细（往来单位/性质）及期后偿付情况，建议补充明细后核实变动原因。'
+            if '收入' in s:
+                return '材料未提供收入结构（按产品/项目/客户）、主要合同/订单及结算回款明细，建议补充后核实变动原因。'
+            if '盈利' in s or '利润' in s:
+                return '材料未提供成本费用明细、收入结构及非经常性损益说明，建议补充后核实盈利能力变动原因。'
+            return '材料未提供该项构成/明细/原因依据，建议补充相关明细后再分析。'
+
+        def _latest_amount_for_subject(subject: str):
+            field_key = AMOUNT_FIELD_MAP.get(subject)
+            if not field_key or not latest_annual:
+                return None
+            yearly_data = financial_data.get(latest_annual, {}) or {}
+            value = yearly_data.get(field_key)
+            if value in (None, ''):
+                norm_target = _norm_key(field_key)
+                for k, v in yearly_data.items():
+                    if _norm_key(k) == norm_target and v not in (None, ''):
+                        value = v
+                        break
+            return _as_int(value)
+
+        material_snippet = (materials or '')[:2500]
+        web_snippet = (web_context or '')[:1500]
+        allowed_period_text = '、'.join(periods)
+
+        def _format_series_summary(series: dict) -> str:
+            return ', '.join(
+                f"{k}={_as_int(v)}"
+                for k, v in sorted(series.items(), key=lambda kv: _parse_period_key(kv[0]))
+                if _as_int(v) is not None
+            )
+
+        def _llm_detail_text(subject: str, years_summary: str,
+                             basic_text: str, fallback_text: str) -> str:
+            if not enable_llm:
+                return fallback_text
+            try:
+                llm_sys = (
+                    "你是银行授信调查报告的财务分析专家。\n"
+                    "规则：1.严格基于给定数据和材料，不得编造企业事实、原因或数字。\n"
+                    "2.必须引用具体数字，优先写同比/趋势；若依据不足，明确说明缺失材料。\n"
+                    "3.输出2-3句，语气简洁专业，符合银行信贷报告表达。\n"
+                    "4.仅输出分析正文，不输出标题、编号或解释。"
+                )
+                llm_user = (
+                    f"明细科目: {subject}\n"
+                    f"允许使用期间: {allowed_period_text or '未限定'}\n"
+                    f"各期数据(万元整数): {years_summary or '无'}\n"
+                    f"基础测算: {basic_text or '无'}\n"
+                    f"材料片段:\n{material_snippet or '无'}\n\n"
+                    f"外部行业信息(仅作行业背景，不可替代企业事实):\n{web_snippet or '无'}\n\n"
+                    f"请输出该科目的分析文字（2-3句）："
+                )
+                resp = self.llm(llm_sys, llm_user)
+                llm_text = re.sub(r'```\w*\n?', '', (resp or '')).strip()
+                llm_text = _sanitize_generated_text_by_periods(
+                    llm_text, getattr(self, '_available_periods', None)
+                )
+                if llm_text and len(llm_text) >= 20:
+                    return llm_text
+            except Exception:
+                pass
+            return fallback_text
+
+        filled = 0
+        for para, idx, subject, colon_end, amount_slot in items:
+            subject = (subject or '').strip()
+            years_summary = ''
+            basic = ''
+            amount_value = _latest_amount_for_subject(subject)
+
+            if subject == '固定资产投资变动情况':
+                fallback_text = (
+                    '材料未提供后续大额固定资产投入计划及资金安排信息，建议补充投资预算、采购/建设进度、'
+                    '资金来源（自有/贷款/补贴等）及预计形成资产情况。'
+                )
+            elif subject == '其他变动较大的财务指标':
+                fallback_text = (
+                    '材料未提供可用于识别其他大额波动科目的完整明细（如预付账款、预收账款等）及变动原因说明，'
+                    '建议补充相关科目明细与原因说明后核实。'
+                )
+            elif subject == '主营业务收入变动原因':
+                s = _series_for('主营业务收入')
+                years_summary = _format_series_summary(s) if s else ''
+                if s:
+                    ks = sorted(s.keys(), key=_parse_period_key)
+                    lk = ks[-1]
+                    pk = ks[-2] if len(ks) >= 2 else None
+                    lv = _as_int(s.get(lk))
+                    pv = _as_int(s.get(pk)) if pk else None
+                    if lv is not None and pv is not None and pv != 0:
+                        pct = round((lv - pv) / abs(pv) * 100, 1)
+                        basic = f"{lk}营业收入为{lv}万元，较{pk}{pv}万元变动{lv-pv}万元（{pct}%）。"
+                    elif lv is not None:
+                        basic = f"{lk}营业收入为{lv}万元。"
+                    fallback_text = (basic + _hint_for('收入')).strip() if basic else _hint_for('收入')
+                else:
+                    basic = "未能在已解析的财务报表中匹配到收入数据口径。"
+                    fallback_text = basic + _hint_for('收入')
+            elif subject == '盈利能力变动原因':
+                s_rev = _series_for('主营业务收入')
+                s_np = _series_for('净利润')
+                years_summary = (
+                    f"收入: {_format_series_summary(s_rev)}; 净利润: {_format_series_summary(s_np)}"
+                    if (s_rev or s_np) else ''
+                )
+                if s_rev and s_np:
+                    ks = sorted(set(s_rev.keys()) & set(s_np.keys()), key=_parse_period_key)
+                    if ks:
+                        lk = ks[-1]
+                        pk = ks[-2] if len(ks) >= 2 else None
+                        rev_l = _as_int(s_rev.get(lk))
+                        np_l = _as_int(s_np.get(lk))
+                        rev_p = _as_int(s_rev.get(pk)) if pk else None
+                        np_p = _as_int(s_np.get(pk)) if pk else None
+                        parts = []
+                        if rev_l is not None:
+                            parts.append(f"{lk}营业收入{rev_l}万元")
+                        if np_l is not None:
+                            parts.append(f"净利润{np_l}万元")
+                        if rev_l not in (None, 0) and np_l is not None:
+                            parts.append(f"净利率{round(np_l / rev_l * 100, 1)}%")
+                        if pk and rev_p not in (None, 0) and np_p is not None:
+                            parts.append(f"较{pk}净利率{round(np_p / rev_p * 100, 1)}%")
+                        basic = '，'.join(parts) + '。' if parts else ''
+                    fallback_text = (basic + _hint_for('盈利')).strip() if basic else _hint_for('盈利')
+                else:
+                    basic = "未能在已解析的财务报表中匹配到净利润/收入数据口径。"
+                    fallback_text = basic + _hint_for('盈利')
+            else:
+                series = _series_for(subject)
+                years_summary = _format_series_summary(series) if series else ''
+                if not series:
+                    basic = f"未能在已解析的财务报表中匹配到“{subject}”对应数据口径。"
+                    fallback_text = (
+                        f"{basic}且材料未提供构成/明细/原因说明。{_hint_for(subject)}"
+                    )
+                else:
+                    ks = sorted(series.keys(), key=_parse_period_key)
+                    latest_k = ks[-1]
+                    prev_k = ks[-2] if len(ks) >= 2 else None
+                    latest_v = _as_int(series.get(latest_k))
+                    prev_v = _as_int(series.get(prev_k)) if prev_k else None
+                    if latest_v is not None and prev_v is not None and prev_v != 0:
+                        pct = round((latest_v - prev_v) / abs(prev_v) * 100, 1)
+                        basic = (
+                            f"{latest_k}{subject}为{latest_v}万元，较{prev_k}{prev_v}万元"
+                            f"变动{latest_v-prev_v}万元（{pct}%）。"
+                        )
+                    elif latest_v is not None:
+                        basic = f"{latest_k}{subject}为{latest_v}万元。"
+                    fallback_text = (basic + _hint_for(subject)).strip() if basic else _hint_for(subject)
+
+            analysis_text = _llm_detail_text(subject, years_summary, basic, fallback_text)
+            analysis_text = _sanitize_generated_text_by_periods(
+                analysis_text, getattr(self, '_available_periods', None)
+            )
+            if amount_slot and amount_value is not None:
+                slot_start, slot_end, slot_text = amount_slot
+                if re.fullmatch(r'[\s_Xx]*', slot_text or ''):
+                    _replace_char_span(para, slot_start, slot_end, str(amount_value))
+            _replace_after_colon(para, colon_end, analysis_text)
+            filled += 1
+
+        return filled
+    def _fill_financial_detail_analysis(self, doc, financial_data: dict,
+                                         materials: str, progress_cb):
+        """Fill analysis text for financial detail items (1)-(10).
+
+        Truth-first rules:
+        - Scan the whole document (body + all table cells, including nested tables)
+        - If data is missing: say what is missing; do not guess
+        - Money uses 万元 integers (no decimals)
+        """
+
+        if not financial_data:
+            return 0
+
+        web_context = ""
+        try:
+            web_context = self._get_financial_analysis_web_context(materials)
+        except Exception:
+            web_context = ""
+
+        return self._fill_financial_detail_analysis_truth(
+            doc,
+            financial_data,
+            materials,
+            progress_cb,
+            enable_llm=True,
+            web_context=web_context,
+        )
+
+
+    def _build_fallback_analysis(self, financial_data: dict,
+                                  ratios: dict, years: list) -> str:
+        """Build basic financial analysis from computed ratios when LLM fails."""
+        paragraphs = []
+
+        # Asset/liability analysis
+        latest = years[-1] if years else None
+        if latest and latest in financial_data:
+            d = financial_data[latest]
+            lines = []
+            total_asset = d.get("资产合计") or d.get("资产总额")
+            total_debt = d.get("负债合计") or d.get("负债总额")
+            if total_asset:
+                lines.append(f"截至{latest}，借款人资产总额为{total_asset}万元")
+            if total_debt and total_asset:
+                try:
+                    ratio = float(str(total_debt).replace(',', '')) / float(str(total_asset).replace(',', '')) * 100
+                    lines.append(f"负债合计{total_debt}万元，资产负债率为{ratio:.1f}%")
+                except (ValueError, ZeroDivisionError):
+                    pass
+            if lines:
+                paragraphs.append("。".join(lines) + "。")
+
+        return chr(10).join(paragraphs)
+
+    def _insert_financial_analysis(self, doc,
+                                    analysis_paragraphs: list) -> int:
+        """Insert generated financial analysis into the template-aware anchor."""
+        if not analysis_paragraphs:
+            return 0
+        try:
+            main_cell = doc.tables[0].rows[3].cells[0]
+        except (IndexError, AttributeError):
+            return 0
+
+        paragraphs = main_cell.paragraphs
+
+        def _append_after_paragraph(ref_para, text: str):
+            """Insert a new paragraph after ref_para and return it."""
+            from docx.oxml.ns import qn as _qn
+            from docx.text.paragraph import Paragraph as _Paragraph
+            from copy import deepcopy
+            new_p = deepcopy(ref_para._element)
+            for r in list(new_p.findall(_qn('w:r'))):
+                new_p.remove(r)
+            new_r = etree.SubElement(new_p, _qn('w:r'))
+            new_t = etree.SubElement(new_r, _qn('w:t'))
+            new_t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+            new_t.text = text
+            ref_para._element.addnext(new_p)
+            return _Paragraph(new_p, ref_para._element.getparent())
+
+        anchor_patterns = [
+            re.compile(r'总体财务情况小结[^：:]{0,10}[：:]'),
+            re.compile(r'6\.借款人主要财务指标情况[^：:]{0,10}[：:]?'),
+            re.compile(r'③近三年及最近一期财务数据'),
+            re.compile(r'财务(?:风险)?分析|财务状况'),
+        ]
+
+        for para in paragraphs:
+            text = (para.text or "").strip()
+            if not text:
+                continue
+            m = anchor_patterns[0].search(text)
+            if not m:
+                continue
+            inserted = 0
+            if self._replace_after_colon_for_targeted(para, m.end(), analysis_paragraphs[0]):
+                inserted = 1
+            else:
+                para.add_run(" " + analysis_paragraphs[0])
+                inserted = 1
+            ref_para = para
+            for extra in analysis_paragraphs[1:]:
+                ref_para = _append_after_paragraph(ref_para, extra)
+                inserted += 1
+            return inserted
+
+        in_financial_section = False
+        financial_section_start = -1
+        financial_section_end = len(paragraphs)
+        blank_para_indices = []
+
+        for i, para in enumerate(paragraphs):
+            text = (para.text or "").strip()
+            if any(p.search(text) for p in anchor_patterns):
+                in_financial_section = True
+                financial_section_start = i
+                continue
+            if in_financial_section and re.match(r'^[\(（][一二三四五六七八九十]+[\)）]', text):
+                financial_section_end = i
+                break
+            if in_financial_section and (not text or len(text) < 5 or any(mark in text for mark in ['XXX', '____', '待补充'])):
+                blank_para_indices.append(i)
+
+        if not blank_para_indices and in_financial_section and financial_section_start >= 0:
+            insert_after = paragraphs[financial_section_start]
+            for extra in analysis_paragraphs:
+                insert_after = _append_after_paragraph(insert_after, extra)
+            return len(analysis_paragraphs)
+
+        if not blank_para_indices:
+            return 0
+
+        inserted = 0
+        for idx, para_idx in enumerate(blank_para_indices):
+            if idx >= len(analysis_paragraphs):
+                break
+            para = paragraphs[para_idx]
+            new_text = analysis_paragraphs[idx]
+            if para.runs:
+                para.runs[0].text = new_text
+                for run in para.runs[1:]:
+                    run.text = ""
+            else:
+                para.add_run(new_text)
+            inserted += 1
+
+        if len(analysis_paragraphs) > inserted and inserted > 0:
+            last_para = paragraphs[blank_para_indices[inserted - 1]]
+            for extra in analysis_paragraphs[inserted:]:
+                last_para = _append_after_paragraph(last_para, extra)
+                inserted += 1
+        return inserted
+        inserted = 0
+        for idx, para_idx in enumerate(blank_para_indices):
+            if idx >= len(analysis_paragraphs):
+                break
+            para = paragraphs[para_idx]
+            new_text = analysis_paragraphs[idx]
+
+            if para.runs:
+                # Distribute text across existing runs to keep formatting
+                old_lengths = [len(r.text) for r in para.runs]
+                old_total = sum(old_lengths)
+                if old_total == 0:
+                    para.runs[0].text = new_text
+                else:
+                    remaining = new_text
+                    for ri, run in enumerate(para.runs):
+                        if ri == len(para.runs) - 1:
+                            run.text = remaining
+                        else:
+                            ratio = (old_lengths[ri] / old_total
+                                     if old_total else 1)
+                            take = max(1, int(len(new_text) * ratio))
+                            end = min(take, len(remaining))
+                            run.text = remaining[:end]
+                            remaining = remaining[end:]
+            else:
+                # No runs: add text directly
+                para.add_run(new_text)
+            inserted += 1
+
+        # If more analysis paragraphs than blank slots, append remaining
+        # to the last used paragraph
+        if (len(analysis_paragraphs) > len(blank_para_indices)
+                and inserted > 0):
+            last_para = paragraphs[blank_para_indices[inserted - 1]]
+            extra = analysis_paragraphs[len(blank_para_indices):]
+            extra_text = "\n".join(extra)
+            if last_para.runs:
+                last_para.runs[-1].text += "\n" + extra_text
+            else:
+                last_para.add_run("\n" + extra_text)
+
+        return inserted
+
+    # ============================================================
+    # Phase C: Template residual audit
+    # ============================================================
+
+    def _build_template_fingerprints(self, doc) -> dict:
+        """Build a fingerprint dict from the template document BEFORE any fills.
+
+        Returns:
+            dict mapping (table_idx, row_idx, cell_idx, para_idx) ->
+                {"text": str, "is_structural": bool}
+        """
+        fingerprints = {}
+        # Only pure section headings are structural — NOT numbered content paragraphs
+        pure_heading_re = re.compile(
+            r'^[\(（][一二三四五六七八九十]+[\)）]'  # （一）xxx
+            r'|^[①②③④⑤⑥⑦⑧⑨⑩]'                  # ①xxx
+            r'|^※'                                    # ※xxx
+        )
+        # Numbered items like "1.xxx" are structural ONLY if they are short labels
+        numbered_re = re.compile(r'^\d+\.')
+        for t_idx, table in enumerate(doc.tables):
+            for r_idx, row in enumerate(table.rows):
+                for c_idx, cell in enumerate(row.cells):
+                    for p_idx, para in enumerate(cell.paragraphs):
+                        text = (para.text or "").strip()
+                        if len(text) <= 15:
+                            continue
+                        is_structural = False
+                        # Pure heading pattern (always structural)
+                        if pure_heading_re.match(text):
+                            is_structural = True
+                        # Numbered item: structural only if short (pure label/title)
+                        elif numbered_re.match(text) and len(text) < 30:
+                            is_structural = True
+                        # Mostly checkboxes
+                        elif sum(1 for ch in text if ch in '□☐☑') >= 2:
+                            is_structural = True
+                        # Table header indicator
+                        elif '单位：万元' in text or '单位（万元）' in text:
+                            is_structural = True
+                        # Short label ending with colon
+                        elif len(text) < 20 and text[-1] in ('：', ':'):
+                            is_structural = True
+                        fingerprints[(t_idx, r_idx, c_idx, p_idx)] = {
+                            "text": text,
+                            "is_structural": is_structural,
+                        }
+        return fingerprints
+
+    def _mark_template_examples(self, text: str) -> str:
+        """Wrap numeric patterns in template text with [模板示例:xxx] markers.
+
+        This helps the LLM distinguish template example values (which must NOT
+        appear in the output) from real data anchors.
+        """
+        if not text:
+            return text
+
+        # Patterns ordered from most specific to least specific to avoid
+        # double-wrapping. We collect all match spans and wrap them in one pass.
+        patterns = [
+            # Percentage ranges: 65-70%
+            r'\d+[\.\d]*-\d+[\.\d]*%',
+            # Decimal number ranges: 1.4-1.5
+            r'\d+\.\d+-\d+[\.\d]*',
+            # Standalone percentages: 65% or 65.5%
+            r'\d+[\.\d]*%',
+            # Numbers with Chinese units (with optional 多/余): 240名, 100万元, 50余人
+            r'\d+[多余]?[名个万亿元人天]',
+            # Decimal numbers: 1.4 or 1.45
+            r'\d+\.\d+',
+            # Integer ranges: 10-20
+            r'\d+-\d+',
+        ]
+
+        combined = re.compile('|'.join(f'(?:{p})' for p in patterns))
+
+        # Find all non-overlapping matches and their spans
+        matches = []
+        for m in combined.finditer(text):
+            matches.append((m.start(), m.end(), m.group()))
+
+        if not matches:
+            return text
+
+        # Build result string by inserting markers around each match
+        result = []
+        prev_end = 0
+        for start, end, matched in matches:
+            result.append(text[prev_end:start])
+            result.append(f'[模板示例:{matched}]')
+            prev_end = end
+        result.append(text[prev_end:])
+        return ''.join(result)
+
+    def _clean_placeholders(self, doc) -> int:
+        """Replace ____ placeholder blanks with natural language in all table cells.
+
+        Returns the count of replacements made.
+        """
+        blank_re = re.compile(r'_{4,}')
+        count = 0
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        text = para.text or ""
+                        if not blank_re.search(text):
+                            continue
+                        new_text = blank_re.sub('（材料未提供）', text)
+                        if new_text != text and para.runs:
+                            para.runs[0].text = new_text
+                            for run in para.runs[1:]:
+                                run.text = ""
+                            count += 1
+                        elif new_text != text:
+                            para.add_run(new_text)
+                            count += 1
+        return count
+
+    def _apply_paragraph_rewrite(self, cell, para_idx: int, new_text: str):
+        """Rewrite a paragraph's text while preserving first-run formatting."""
+        if para_idx >= len(cell.paragraphs):
+            return
+        para = cell.paragraphs[para_idx]
+        if not para.runs:
+            para.add_run(new_text)
+            return
+        # Preserve formatting of first run; put all text there; clear others
+        para.runs[0].text = new_text
+        for run in para.runs[1:]:
+            run.text = ""
+
+    def _phase_c_scan_residuals(self, doc):
+        """Phase C Step 1: Scan document for template residual paragraphs.
+
+        Returns a list of residual dicts with keys: key, template_text,
+        current_text, section, similarity, t_idx, r_idx, c_idx, p_idx.
+        """
+        fingerprints = self._template_fingerprints
+
+        # Structural heading pattern for section tracking
+        major_heading_re = re.compile(r'^[\(（][一二三四五六七八九十]+[\)）]')
+
+        # Build a content-based lookup: template text -> fingerprint info
+        # This avoids position-index mismatch when phases insert/delete paragraphs
+        content_fps = {}  # text -> {"is_structural": bool, "text": str}
+        for _key, fp in fingerprints.items():
+            if not fp["is_structural"]:
+                content_fps[fp["text"]] = fp
+
+        residuals = []
+        current_heading = ""
+
+        for t_idx, table in enumerate(doc.tables):
+            for r_idx, row in enumerate(table.rows):
+                for c_idx, cell in enumerate(row.cells):
+                    for p_idx, para in enumerate(cell.paragraphs):
+                        text = (para.text or "").strip()
+                        # Track heading context
+                        if major_heading_re.match(text):
+                            current_heading = text[:60]
+                        if len(text) <= 15:
+                            continue
+                        # Try exact position match first
+                        key = (t_idx, r_idx, c_idx, p_idx)
+                        fp = fingerprints.get(key)
+                        template_text = None
+                        ratio = 0.0
+                        if fp and not fp["is_structural"]:
+                            template_text = fp["text"]
+                            ratio = difflib.SequenceMatcher(
+                                None, template_text, text).ratio()
+                        # If position match missed (wrong paragraph at this index due
+                        # to insertion/deletion), fall back to content-based search.
+                        # Only use fallback with HIGH threshold (0.85) to avoid
+                        # matching paragraphs that were legitimately rewritten.
+                        if ratio <= 0.6:
+                            best_ratio = 0
+                            best_tpl = None
+                            for tpl_text in content_fps:
+                                r2 = difflib.SequenceMatcher(
+                                    None, tpl_text, text).ratio()
+                                if r2 > best_ratio:
+                                    best_ratio = r2
+                                    best_tpl = tpl_text
+                            if best_ratio > 0.85:
+                                template_text = best_tpl
+                                ratio = best_ratio
+
+                        if template_text is None or ratio <= 0.6:
+                            residuals.append({
+                                "key": key,
+                                "template_text": template_text,
+                                "current_text": text,
+                                "section": current_heading,
+                                "similarity": ratio,
+                                "t_idx": t_idx,
+                                "r_idx": r_idx,
+                                "c_idx": c_idx,
+                                "p_idx": p_idx,
+                            })
+
+        return residuals
+
+    def _phase_c_rewrite_residuals(self, doc, residuals, materials, progress_cb):
+        """Phase C Step 2-3: Group residuals by section and rewrite via LLM.
+
+        Returns the number of paragraphs successfully rewritten.
+        """
+        # --- Group by major section ---
+        from collections import defaultdict
+        section_groups = defaultdict(list)
+        for r in residuals:
+            section_groups[r["section"]].append(r)
+
+        # --- LLM rewrite per section group ---
+        system_prompt = (
+            "你是银行授信报告写作专家。任务不是机械填空，而是基于模板意图与材料证据完成专业改写。\n"
+            "请按「读懂→分析→撰写」执行：\n"
+            "1. 读懂：先判断该段在审批中的作用、要回答的问题、需要的证据类型。\n"
+            "2. 分析：仅使用材料中的事实与数据形成判断，不照抄模板示例值，不复用模板区间数字。\n"
+            "3. 撰写：输出可直接用于授信审查的专业段落，保留原段落的核心结构与逻辑。\n"
+            "【硬性规则】\n"
+            "1. 零容错：严禁编造公司、人名、金额、比例、时间。\n"
+            "2. 可追溯：关键事实必须能在材料中定位来源。\n"
+            "3. 有判断：不能只做信息罗列，需给出风险/偿债相关分析结论。\n"
+            "4. 缺失处理：材料缺失时用自然语言说明\"材料未提供相关信息及其影响\"，不要写\"待补充\"、不要用____。\n"
+            "5. 清理模板痕迹：删除指导性提示语、示例性措辞和占位符（如XX、XXX）。\n"
+            "6. 表达规范：中文专业表述，不用Markdown符号。\n"
+            "7. 仅输出JSON，key为段落编号(如\"段落1\")，value为改写后的文本。"
+        )
+
+        company_profile = getattr(self, "_company_profile_block", "") or ""
+        trimmed_materials = materials[:40000] if len(materials) > 40000 else materials
+        rewrite_anchors = self._build_rewrite_anchors(
+            getattr(self, "_truth_financial_data", None) or {})
+
+        m_total = 0  # total paragraphs successfully rewritten
+
+        for section_name, group in section_groups.items():
+            # Build numbered list of paragraphs for the LLM
+            para_lines = []
+            for idx, r in enumerate(group, start=1):
+                marked = self._mark_template_examples(r['template_text'])
+                para_lines.append(
+                    f"段落{idx} [所属章节: {r['section'] or '未知'}]\n"
+                    f"模板原文：{marked}"
+                )
+            para_block = "\n\n".join(para_lines)
+
+            anchor_block = ""
+            if rewrite_anchors:
+                anchor_block = (
+                    "\n\n【数据锚点 - 必须使用这些数字，不得引用模板示例值】\n"
+                    + json.dumps(rewrite_anchors, ensure_ascii=False)
+                )
+
+            profile_section = f"{company_profile}\n\n" if company_profile else ""
+            user_prompt = (
+                f"{profile_section}"
+                f"以下段落仍保留了模板示例内容，需要根据企业实际情况改写。\n"
+                f"每个段落的模板原文仅供理解意图，请基于材料事实撰写替换内容。\n\n"
+                "⚠️ 模板原文中标记为[模板示例:xxx]的内容是示例值，严禁出现在输出中。必须替换为材料中的真实数据，若材料未提供则写\u201c材料未提供相关数据\u201d。\n\n"
+                f"=== 需改写段落 ===\n"
+                f"{para_block}\n\n"
+                f"=== 企业材料 ===\n"
+                f"{trimmed_materials}"
+                f"{anchor_block}\n\n"
+                f"请按JSON格式输出，key为段落编号(如\"段落1\")，value为改写后的文本。\n"
+                f"仅输出JSON，不要输出其他内容。"
+            )
+
+            try:
+                resp = self.llm(system_prompt, user_prompt)
+                # Clean markdown
+                resp = re.sub(r'```\w*\n?', '', resp).strip()
+                parsed = parse_json_response(resp)
+                if not isinstance(parsed, dict):
+                    self._log(progress_cb,
+                              f"  Phase C 章节「{section_name[:30]}」JSON解析失败，跳过")
+                    continue
+
+                # Apply rewrites
+                for idx, r in enumerate(group, start=1):
+                    key_str = f"段落{idx}"
+                    new_text = (parsed.get(key_str) or "").strip()
+                    if not new_text or len(new_text) < 10:
+                        continue
+                    # Anti-hallucination filter
+                    new_text = _sanitize_generated_text_by_periods(
+                        new_text, getattr(self, "_available_periods", None))
+                    # Find the cell and apply rewrite
+                    try:
+                        cell = doc.tables[r["t_idx"]].rows[r["r_idx"]].cells[r["c_idx"]]
+                        self._apply_paragraph_rewrite(cell, r["p_idx"], new_text)
+                        m_total += 1
+                    except (IndexError, AttributeError) as e:
+                        self._log(progress_cb,
+                                  f"  Phase C 应用改写失败 (key={r['key']}): {e}")
+
+            except Exception as e:
+                self._log(progress_cb,
+                          f"  Phase C 章节「{section_name[:30]}」LLM调用出错: {e}")
+                self.stats["errors"].append(f"Phase C 章节: {str(e)[:60]}")
+
+        return m_total
+
+    def _phase_c_content_audit(self, doc, materials: str, progress_cb):
+        """Phase C: Iteratively detect and rewrite template residual paragraphs.
+
+        Runs up to MAX_ROUNDS scan-rewrite cycles. Stops early when no residuals
+        are found or when the residual count stops decreasing (convergence).
+        """
+        if not getattr(self, '_template_fingerprints', None):
+            self._log(progress_cb, "Phase C: 无模板指纹，跳过")
+            return
+
+        MAX_ROUNDS = 3
+        prev_count = float('inf')
+        total_rewritten = 0
+
+        for round_num in range(1, MAX_ROUNDS + 1):
+            residuals = self._phase_c_scan_residuals(doc)
+            n_found = len(residuals)
+
+            if n_found == 0:
+                self._log(progress_cb, f"Phase C 第{round_num}轮: 无残留，审查通过 ✓")
+                break
+
+            # 收敛检测：如果残留数没有减少，说明LLM改不动了
+            if n_found >= prev_count:
+                self._log(progress_cb, f"Phase C 第{round_num}轮: 残留数未减少({n_found}个)，停止迭代")
+                break
+
+            self._log(progress_cb, f"Phase C 第{round_num}轮: 发现{n_found}个残留，改写中...")
+            m = self._phase_c_rewrite_residuals(doc, residuals, materials, progress_cb)
+            total_rewritten += m
+            prev_count = n_found
+
+        self._log(progress_cb, f"Phase C 模板残留审查完成: 共改写 {total_rewritten} 个段落")
+        self.stats["filled"] += total_rewritten
+
+    def _build_summary(self) -> str:
+        total = self.stats["total_sections"]
+        filled = self.stats["filled"]
+        errors = self.stats["errors"]
+
+        lines = [
+            f"\n{'=' * 40}",
+            f"填写完成: {filled}/{total} 个项目",
+        ]
+        if errors:
+            lines.append(f"问题: {len(errors)} 个")
+            for e in errors[:10]:
+                lines.append(f"  - {e}")
+        return "\n".join(lines)
+
+
+# ============================================================
+# 7. Convenience entry point
+# ============================================================
+
+def fill_form(template_path: str,
+              file_contents: dict[str, str],
+              llm_caller: Callable,
+              output_path: str = None,
+              progress_cb: Callable = None) -> str:
+    """
+    One-call form fill.
+    Interface preserved from v2 for backward compatibility.
+    """
+    if output_path is None:
+        base = os.path.splitext(os.path.basename(template_path))[0]
+        output_path = os.path.join(
+            os.path.dirname(template_path) or ".",
+            f"{base}_filled.docx")
+
+    agent = FormFillAgent(llm_caller, file_contents)
+    return agent.run(template_path, output_path, progress_cb)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude-mem__search",
+      "WebFetch(domain:www.gradio.app)",
+      "mcp__claude-mem__smart_outline",
+      "mcp__claude-mem__smart_search"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "claude-mem"
+  ]
+}

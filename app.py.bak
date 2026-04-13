@@ -1,0 +1,532 @@
+# -*- coding: utf-8 -*-
+"""
+Gradio Chat 鐣岄潰 v7.22
+
+v7.22 鍙樻洿锛?1. 鈽?_insert_word_comments 閲嶅啓涓洪€愭鎵弿锛坧er-paragraph锛夛紝涓嶅啀鎸夊崟鍏冩牸鍚堝苟锛?   鎵规敞鍙鐩栨枃妗ｅ叏閮ㄥ尯鍩燂紱鏂板 MAX_COMMENTS=30 涓婇檺闃叉孩鍑?
+v7.17 鍙樻洿锛?1. 鈽?璐㈠姟鍒嗘瀽鑷姩鐢熸垚锛氫粠宸插～鍏呯殑璐㈠姟鏁版嵁琛ㄦ彁鍙栨暟鎹紝Python绮剧‘璁＄畻鍏抽敭姣旂巼
+   锛堣祫浜ц礋鍊虹巼銆佹祦鍔?閫熷姩姣旂巼銆佹瘺鍒╃巼銆佸噣鍒╃巼銆佸懆杞ぉ鏁般€佸悓姣斿闀匡級锛?   缁撳悎琛屼笟鍩哄噯璋冪敤LLM鐢熸垚2-3娈典笓涓氬垎鏋愭枃瀛楋紝鑷姩鎻掑叆鏂囨。銆岃储鍔″垎鏋愩€嶇珷鑺?
+v7.22 鍙樻洿锛?1. 鈽?鍏ㄩ潰绫诲瀷瀹夊叏锛氭墍鏈?apply 鍑芥暟杩囨护 bool/list/dict 绛夋棤鏁?LLM 杩斿洖鍊?2. 鈽?澶嶉€夋绫诲瀷淇锛歝hecked_ids 鍐呭寮哄埗杞?str锛岄槻姝?LLM 杩斿洖 int/bool
+3. 鈽?鏍囩瀛楁澧炲姞"寰呰ˉ鍏?璺宠繃锛歛pply_labeled_field_values 涓?XX 瀛楁淇濇寔涓€鑷?4. 鈽?JSON瑙ｆ瀽澧炲己锛歱arse_json_response 浼樺厛浣跨敤璐┆鍖归厤锛屾敮鎸佸祵濂?JSON
+5. 鈽?绾跨▼瀹夊叏锛歳esult_holder 浣跨敤 .get() 闃叉 KeyError锛屽鍔犲紓甯哥粨鏉熷厹搴?6. 鈽?宓屽鍗曞厓鏍兼爣绛炬壂鎻忎慨澶嶏細nested cell 涓嶅啀琚?Row 2 杩囨护鍣ㄨ璺宠繃
+
+v7.14 鍙樻洿锛?1. 鈽?淇渚ц竟鏍忔爣绛句笉鏄剧ず锛氫粠 send_outputs 涓Щ闄?pending_accordion锛孏radio 6.x 鍦ㄦ祦寮?   妯″紡涓嬫洿鏂?Accordion visible 灞炴€т細瑙﹀彂 DOM 閲嶇粯娓呯┖鍐呴儴 Markdown锛岀Щ闄ゅ悗鍙洿鏂?   pending_tags_display 鍗冲彲姝ｇ‘鏄剧ず鍐呭
+2. 鈽?浼樺寲鏍囩瀛楁濉啓锛歜uild_labeled_field_prompt 琛ュ厖"灏藉姏浠庢潗鏂欎腑瀵绘壘鏁版嵁"瑙勫垯锛?   涓?XX 瀛楁鎻愬彇淇濇寔涓€鑷达紝闄嶄綆婕忓～鐜?3. 鈽?杩涘害瀹炴椂娴佸紡杈撳嚭锛歠orm_fill 杩涘害閫氳繃 queue 瀹炴椂鎺ㄩ€侊紝涓嶅啀绛夊畬鎴愬悗鎵嶆樉绀?4. 鈽?渚ц竟鏍忓唴瀹瑰悓姝ュ埌 chat锛氬～鍐欏畬鎴愬悗鍦ㄨ亰澶╂秷鎭腑涔熷睍绀哄緟琛ュ厖娓呭崟锛堝弻閲嶄繚闄╋級
+
+v7.13 鍙樻洿锛?1. 鈽?淇宓屽琛ㄦ牸XX瀛楁璺緞閿欒锛氫娇鐢?鍏冪粍cell_path姝ｇ‘瀹氫綅宓屽鍗曞厓鏍硷紙v7.12 bug fix锛?2. 鈽?淇渚ц竟鏍忛粯璁ゆ姌鍙狅細寰呰ˉ鍏呴潰鏉挎敼涓洪粯璁ゅ睍寮€锛坥pen=True锛?3. 鈽?浼樺寲鎻愬彇鎻愮ず璇嶏細闄嶄綆"寰呰ˉ鍏?璇姤鐜囷紝鏇寸Н鏋佸湴浠庢潗鏂欎腑瀵绘壘鏁版嵁
+4. 鈽?瀛楁鎻愬彇璇婃柇锛氭樉绀哄疄闄呮彁鍙栨暟閲忓拰寰呰ˉ鍏呮暟閲?
+v7.12 鍙樻洿锛?1. 鈽?宓屽琛ㄦ牸鍗曞厓鏍兼壂鎻廥X瀛楁鍜岀ず渚嬫钀斤紙璺緞閫昏緫宸插湪v7.13淇锛?2. 鈽?寰呰ˉ鍏呭瓧娈靛垎绫伙細鍖哄垎馃敶閾惰鍐呴儴鏁版嵁/馃煛鍙兘鍦ㄦ潗鏂欎腑涓ょ被
+3. 鈽?渚ц竟鏍忓缁堝彲瑙侊紙visible=True锛夛紝閬垮厤Gradio鍔ㄦ€佹樉闅恇ug
+4. 鈽?渚ц竟鏍忔寜鍒嗙被鍒嗙粍灞曠ず
+
+v7.11 鍙樻洿锛?1. 鈽?淇澶嶉€夋bug锛欵SG"B"銆佸弽娲楅挶"涓€鑸?绛夊啓鎴愭枃鏈€岄潪鍕鹃€夆槕锛岀幇鍦ㄦ纭鐞?2. 鈽?瀛愭枃浠跺す閫掑綊鎵弿锛氳嚜鍔ㄨ瘑鍒秷鎭腑鐨勬湰鍦拌矾寰勶紝閫掑綊璇诲彇閾惰娴佹按绛夊瓙鐩綍
+3. 鈽?寰呰ˉ鍏呬晶杈规爮锛氬～鍐欏畬鎴愬悗锛屽乏渚ч潰鏉挎樉绀烘墍鏈夊緟琛ュ厖/鏈～瀛楁鍒楄〃
+4. 鈽?Prompt浼樺寲锛氬噺灏戞棤鎰忎箟"寰呰ˉ鍏?杈撳嚭锛岄摱琛屽唴閮ㄤ俊鎭敤____浠ｆ浛
+5. 鍙嶆礂閽变簰鏂ョ粍澧炲姞缂哄け鐨?涓€鑸?閫夐」
+6. 鏂板鍚庡鐞嗘楠わ細鑷姩妫€娴嬪苟淇璇啓涓烘枃鏈殑澶嶉€夋鍊?
+v7.8 鍙樻洿锛?1. 淇WPS妗岄潰绔〃鏍兼孩鍑猴細鎵€鏈夊祵濂楄〃鏍煎竷灞€浠巃utofit鏀逛负fixed锛岄攣瀹氬師濮嬪垪瀹?
+v7.7 鍙樻洿锛?1. 鏂板 Kimi K2.5 妯″瀷锛圢VIDIA API锛屽厤璐癸級
+
+v7.6 鍙樻洿锛?1. 淇杈撳嚭docx鏍煎紡闂锛氫笉鍐嶈皟鐢╬ython-docx save()锛屾敼涓虹函XML搴忓垪鍖?ZIP鍘熷鎷疯礉
+2. 闈瀌ocument.xml鏂囦欢浠庡師濮嬫ā鏉垮瓧鑺傜骇鎷疯礉锛屼繚鐣橶PS鍏煎鎬?
+v7.5 鍙樻洿锛?1. 鏂板妯″紡閫夋嫨鍣紙鍙欒堪鎶ュ憡 / 濉┖鐢虫姤琛級
+2. 濉┖妯″紡涓撶敤娆㈣繋璇€佹ā鐗堜笂浼犻€昏緫銆佽繘搴︽樉绀?3. TOOL_NAMES 澧炲姞 form_fill 鏄剧ず
+"""
+
+import os
+import gradio as gr
+import time
+from agent import CreditReportAgent
+
+
+agents: dict[str, CreditReportAgent] = {}
+_pending_templates: dict[str, str] = {}
+_pending_form_templates: dict[str, str] = {}  # 鈽?v7.13: 濉┖妯＄増鏆傚瓨
+
+
+def get_agent(session_id: str, api_key: str, provider: str) -> CreditReportAgent:
+    if session_id not in agents or not api_key:
+        agent = CreditReportAgent(api_key=api_key, provider=provider)
+        agent.session_id = session_id
+        agents[session_id] = agent
+        if session_id in _pending_templates:
+            tpl_path = _pending_templates.pop(session_id)
+            if os.path.exists(tpl_path):
+                agent.set_template(tpl_path)
+        # 鈽?v7.13: 鍔犺浇寰呭鐞嗙殑濉┖妯＄増
+        if session_id in _pending_form_templates:
+            form_path = _pending_form_templates.pop(session_id)
+            if os.path.exists(form_path):
+                agent.form_template_path = form_path
+    return agents[session_id]
+
+
+WELCOME_NARRATIVE = """馃憢 浣犲ソ锛佹垜鏄俊璐锋姤鍛夾gent锛坴7.21锛夈€?
+馃搫 涓婁紶浼佷笟鏉愭枡 鈫?鑷姩鐢熸垚鎺堜俊璋冩煡鎶ュ憡锛垀15000瀛楋級
+鈿?鍐欏畬鑷姩瀵煎嚭 Word 鈫?*椤堕儴缁胯壊鍖哄煙* 鐩存帴涓嬭浇
+馃搵 宸︿晶鍙笂浼犳ā鐗堟枃浠讹紙鏀寔鐑浛鎹級
+馃攳 缃戠粶鎼滅储 路 鑷渷淇 路 妯＄増娣卞害鍙傝€?路 渚ф爮鎵规敞
+
+**寮€濮嬶細** 涓婁紶鏉愭枡鏂囦欢锛屽憡璇夋垜瀹㈡埛淇℃伅鍗冲彲銆?"""
+
+WELCOME_FORM_FILL = """馃憢 浣犲ソ锛佹垜鏄俊璐锋姤鍛夾gent锛坴7.21锛夆€?*濉┖妯″紡*銆?
+馃摑 鏈ā寮忎笓涓?*鏅儬鎺堜俊鐢虫姤琛? 绛夌粨鏋勫寲琛ㄦ牸璁捐锛?  鈥?鑷姩鏇挎崲鎵€鏈?XX 鍗犱綅绗︿负鐪熷疄鏁版嵁
+  鈥?鑷姩鍕鹃€夋纭殑澶嶉€夋锛堚枴鈫掆槕锛?  鈥?閫愭钀芥櫤鑳藉～鍐欙紙12涓€昏緫娈佃惤锛?
+馃搵 **鎿嶄綔姝ラ锛?*
+1锔忊儯 宸︿晶涓婁紶 *濉┖妯＄増*锛?docx 鏍煎紡锛?2锔忊儯 鍦ㄥ彸渚т笂浼犱紒涓?*鏉愭枡鏂囦欢*锛圥DF/Word/Excel锛?3锔忊儯 鍙戦€?寮€濮嬪～鍐?鍗冲彲
+
+鈿狅笍 妯＄増蹇呴』鏄?.docx 鏍煎紡锛堝鏈?.doc 璇峰厛鐢?WPS 鍙﹀瓨涓?.docx锛?"""
+
+
+CSS = """
+.chatbot-container { overflow: hidden !important; }
+.gradio-container { max-width: 1200px !important; margin: auto; }
+#header { text-align: center; margin-bottom: 8px; }
+footer { display: none !important; }
+.download-banner {
+    background: #e8f5e9 !important;
+    border: 2px solid #4caf50 !important;
+    border-radius: 10px !important;
+    padding: 8px 16px !important;
+    font-size: 18px !important;
+    text-align: center;
+}
+"""
+
+DL_HIDDEN = ""
+DL_BANNER = "### 馃帀 鎶ュ憡宸茬敓鎴愶紒璇风偣鍑讳笅鏂规枃浠朵笅杞?鈫撯啌鈫?"
+
+
+# 鈽?v7: 宸ュ叿鍚嶆槧灏勶紙v7.13 澧炲姞 form_fill锛?
+TOOL_NAMES = {
+    "read_files": "馃搨 璇诲彇鏂囦欢",
+    "classify_documents": "馃彿锔?鍒嗙被鏂囦欢",
+    "extract_financial_data": "馃搳 鎻愬彇璐㈠姟",
+    "audit_materials": "馃搵 鐩樼偣鏉愭枡",
+    "search_web": "馃攳 缃戠粶鎼滅储",
+    "write_chapter": "鉁嶏笍 鎾板啓绔犺妭",
+    "write_all_chapters": "鉁嶏笍 鎾板啓鍏ㄩ儴绔犺妭",
+    "self_reflect": "馃 鑷渷瀹¤",
+    "review_report": "馃攳 瀹℃煡鎶ュ憡",
+    "revise_chapter": "馃敡 淇敼绔犺妭",
+    "export_to_word": "馃搫 瀵煎嚭 Word",
+    "ask_user": "馃挰 璇锋眰纭",
+    "form_fill": "馃摑 濉啓鐢虫姤琛?",  # 鈽?v7.13
+}
+
+
+def stream_chat(text, files, chatbot, api_key, provider, session_state, mode_state):
+    """娴佸紡鑱婂ぉ澶勭悊"""
+    chatbot = chatbot or []
+    _pending_md = gr.update()   # default: no change to pending panel
+
+    def out(cb, txt="", banner=None, dl=None, exp=None, status="",
+            ptags_md=None):
+        return (
+            cb,
+            txt,
+            gr.update(),          # file_upload: 涓嶆竻绌猴紝閬垮厤鐢ㄦ埛閲嶆柊涓婁紶
+            gr.update(value=banner) if banner is not None else gr.update(),
+            gr.update(value=dl, visible=True) if dl else gr.update(),
+            gr.update(visible=True) if exp else (gr.update(visible=False) if exp is False else gr.update()),
+            status,
+            gr.update(value=ptags_md) if ptags_md is not None else gr.update(),
+        )
+
+    if not api_key or not api_key.strip():
+        chatbot.append({"role": "assistant", "content": "鈿狅笍 璇峰厛鍦ㄥ乏渚у～鍐?API 瀵嗛挜銆?})
+        yield out(chatbot, status="鈿狅笍 璇峰～鍐?API 瀵嗛挜")
+        return
+
+    user_text = text or ""
+    file_paths = []
+    if files:
+        for f in files:
+            if isinstance(f, str):
+                file_paths.append(f)
+            elif hasattr(f, "name"):
+                file_paths.append(f.name)
+
+    if not user_text and not file_paths:
+        chatbot.append({"role": "assistant", "content": "璇疯緭鍏ユ秷鎭垨涓婁紶鏂囦欢 馃槉"})
+        yield out(chatbot, status="绛夊緟杈撳叆")
+        return
+
+    user_display = user_text
+    if file_paths:
+        fnames = [p.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] for p in file_paths]
+        user_display += f"\n馃搸 闄勪欢: {', '.join(fnames)}"
+
+    chatbot.append({"role": "user", "content": user_display})
+    yield out(chatbot, status="馃攧 Agent 鍚姩涓?..")
+
+    sid = session_state or "default"
+    agent = get_agent(sid, api_key, provider)
+
+    # 鈽?v7.13: 鍚屾妯″紡鍒?Agent
+    current_mode = mode_state or "鍙欒堪鎶ュ憡"
+    agent.mode = "form_fill" if "濉┖" in current_mode else "narrative"
+
+    start_time = time.time()
+    thinking_parts = []
+    full_response = ""
+    pending_file = None
+
+    for event in agent.process_message(user_text, file_paths or None):
+        elapsed = time.time() - start_time
+        evt_type = event.get("type", "")
+
+        if evt_type == "thinking":
+            thinking_parts.append(f"馃攧 {event['content']}")
+            msg = "\n".join(thinking_parts)
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, status=f"馃攧 {event['content']} ({elapsed:.0f}绉?")
+
+        elif evt_type == "tool_call":
+            name = event["name"]
+            dn = TOOL_NAMES.get(name, f"馃敡 {name}")
+            if event.get("status") == "skipped":
+                thinking_parts.append(f"鈴笍 {dn}锛堝凡缂撳瓨锛?)
+            else:
+                thinking_parts.append(f"鈴?{dn}...")
+            msg = "\n".join(thinking_parts)
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, status=f"{dn} ({elapsed:.0f}绉?")
+
+        elif evt_type == "tool_result":
+            name = event["name"]
+            dn = TOOL_NAMES.get(name, f"馃敡 {name}")
+            thinking_parts.append(f"鉁?{dn}")
+            msg = "\n".join(thinking_parts)
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, status=f"鉁?{dn} ({elapsed:.0f}绉?")
+
+        elif evt_type == "message":
+            full_response = event["content"]
+            msg = "\n".join(thinking_parts)
+            if msg:
+                msg += "\n\n---\n\n"
+            msg += full_response
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, status=f"馃挰 鍥炲涓?.. ({elapsed:.0f}绉?")
+
+        elif evt_type == "file":
+            pending_file = event["path"]
+            fname = os.path.basename(pending_file)
+            thinking_parts.append(f"\n馃帀馃帀馃帀 *鎶ュ憡宸茬敓鎴? {fname}*\n馃摜 璇峰湪鑱婂ぉ鍖轰笂鏂逛笅杞?)
+            msg = "\n".join(thinking_parts)
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, banner=DL_BANNER, dl=pending_file, exp=False,
+                      status=f"馃帀 鎶ュ憡灏辩华锛?{elapsed:.0f}绉?")
+
+        elif evt_type == "export_error":
+            err = event.get("content", "鏈煡閿欒")
+            thinking_parts.append(f"鈿狅笍 鑷姩瀵煎嚭澶辫触: {err}\n馃憠 鍙偣鍑汇€屾墜鍔ㄥ鍑恒€嶆寜閽?)
+            msg = "\n".join(thinking_parts)
+            temp = chatbot + [{"role": "assistant", "content": msg}]
+            yield out(temp, exp=True, status=f"鈿狅笍 瀵煎嚭澶辫触 ({elapsed:.0f}绉?")
+
+        elif evt_type == "pending_tags":
+            tags = event.get("tags", [])
+            if tags:
+                # Group by category
+                by_cat = {}
+                for t in tags:
+                    cat = t.get("category", "馃煛 鍙兘鍦ㄦ潗鏂欎腑")
+                    by_cat.setdefault(cat, []).append(t)
+
+                lines = [f"**鍏?{len(tags)} 澶勫緟瀹屽杽**\n"]
+                for cat, cat_tags in sorted(by_cat.items()):
+                    lines.append(f"\n**{cat}**")
+                    for t in cat_tags[:20]:
+                        lines.append(f"- {t['label'][:45]}")
+                    if len(cat_tags) > 20:
+                        lines.append(f"- *...杩樻湁{len(cat_tags)-20}椤?")
+                _pending_md = "\n".join(lines)
+                # 鈽?v7.14: 鍙洿鏂?pending_tags_display Markdown锛屼笉鏇存柊 accordion
+                msg = "\n".join(thinking_parts)
+                temp = chatbot + [{"role": "assistant", "content": msg}]
+                yield out(temp, status=f"馃搵 寰呰ˉ鍏呮竻鍗曞凡鏇存柊",
+                          ptags_md=_pending_md)
+
+        elif evt_type == "done":
+            pass
+
+    # 鏈€缁堣緭鍑?    elapsed = time.time() - start_time
+    if full_response:
+        final = ("\n".join(thinking_parts) + "\n\n---\n\n" + full_response) if thinking_parts else full_response
+    elif thinking_parts:
+        final = "\n".join(thinking_parts)
+    else:
+        final = "锛堝鐞嗗畬鎴愶級"
+
+    chatbot.append({"role": "assistant", "content": final})
+
+    if pending_file:
+        yield out(chatbot, banner=DL_BANNER, dl=pending_file, exp=False,
+                  status=f"鉁?瀹屾垚锛佽鍦ㄤ笂鏂逛笅杞?({elapsed:.0f}绉?",
+                  ptags_md=_pending_md if isinstance(_pending_md, str) else None)
+    else:
+        show_export = False
+        if sid in agents:
+            ag = agents[sid]
+            has = any(ag.chapters.get(f"ch{i}") for i in range(1, 5))
+            if has and not ag.report_exported:
+                show_export = True
+        yield out(chatbot, exp=show_export if show_export else False,
+                  status=f"鉁?瀹屾垚 ({elapsed:.0f}绉?",
+                  ptags_md=_pending_md if isinstance(_pending_md, str) else None)
+
+
+def on_manual_export(session_state):
+    """鎵嬪姩瀵煎嚭鎸夐挳"""
+    sid = session_state or "default"
+    if sid not in agents:
+        return gr.update(), gr.update(), gr.update(), "鈿狅笍 娌℃湁娲昏穬鐨?Agent"
+
+    agent = agents[sid]
+    if not any(agent.chapters.get(f"ch{i}") for i in range(1, 5)):
+        return gr.update(), gr.update(), gr.update(), "鈿狅笍 杩樻病鏈夊啓濂界殑绔犺妭"
+
+    try:
+        if agent.template_path:
+            from word_export import make_word_from_template
+            path = make_word_from_template(
+                agent.template_path, agent.chapters,
+                client_name=agent._guess_client_name(),
+            )
+        else:
+            from word_export import make_word_report
+            path = make_word_report(
+                agent._guess_client_name(), "", "", "", "", "",
+                agent.chapters,
+            )
+        agent.report_exported = True
+        return (gr.update(value=DL_BANNER),
+                gr.update(value=path, visible=True),
+                gr.update(visible=False),
+                "鉁?瀵煎嚭鎴愬姛锛佽涓嬭浇")
+    except Exception as e:
+        return (gr.update(),
+                gr.update(),
+                gr.update(visible=True),
+                f"鉂?瀵煎嚭澶辫触: {e}")
+
+
+def on_template_upload(template_file, session_state, mode_state):
+    """妯＄増涓婁紶澶勭悊 鈥?鏍规嵁妯″紡鍐冲畾鐢ㄩ€?""
+    if template_file is None:
+        return "鏈娴嬪埌妯＄増鏂囦欢"
+    sid = session_state or "default"
+    path = template_file.name if hasattr(template_file, "name") else str(template_file)
+
+    # 鎸佷箙鍖栨ā鐗?    import shutil
+    persist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates_cache")
+    os.makedirs(persist_dir, exist_ok=True)
+    basename = os.path.basename(path)
+    persist_path = os.path.join(persist_dir, basename)
+    try:
+        shutil.copy2(path, persist_path)
+        path = persist_path
+    except Exception:
+        pass
+
+    current_mode = mode_state or "鍙欒堪鎶ュ憡"
+    is_form_fill = "濉┖" in current_mode
+
+    if sid not in agents:
+        if is_form_fill:
+            _pending_form_templates[sid] = path
+        else:
+            _pending_templates[sid] = path
+        return f"鉁?宸叉殏瀛樻ā鐗堬紙鍙戦€佹秷鎭悗鑷姩鍔犺浇锛? {basename}"
+
+    agent = agents[sid]
+
+    if is_form_fill:
+        # 鈽?v7.13: 濉┖妯″紡 鈥?璁剧疆 form_template_path
+        agent.form_template_path = path
+        agent.form_fill_done = False
+        agent.form_fill_output = ""
+        return f"鉁?濉┖妯＄増宸插姞杞? {basename}\n馃摑 璇蜂笂浼犳潗鏂欐枃浠跺悗鍙戦€併€屽紑濮嬪～鍐欍€?
+    else:
+        # 鍙欒堪妯″紡 鈥?鍘熼€昏緫
+        old_template = agent.template_path
+        agent.set_template(path)
+        has_old_chapters = any(agent.chapters.get(f"ch{i}") for i in range(1, 5))
+        if has_old_chapters:
+            agent.chapters.clear()
+            agent.report_exported = False
+            agent.report_reviewed = False
+            agent.self_reflected = False
+            return f"鉁?妯＄増宸叉洿鎹? {basename}\n馃摑 宸叉竻闄ゆ棫鎶ュ憡缂撳瓨锛屼笅娆＄敓鎴愬皢浣跨敤鏂版ā鐗?
+        return f"鉁?宸插姞杞芥ā鐗? {basename}"
+
+
+def on_mode_change(mode_choice):
+    """鈽?v7.13: 妯″紡鍒囨崲 鈥?鏇存柊娆㈣繋璇拰妯＄増鎻愮ず"""
+    if "濉┖" in mode_choice:
+        welcome = WELCOME_FORM_FILL
+        tpl_label = "涓婁紶濉┖妯＄増锛?docx锛屽繀濉級"
+    else:
+        welcome = WELCOME_NARRATIVE
+        tpl_label = "涓婁紶 Word 妯＄増锛堝彲閫夛級"
+    return (
+        [{"role": "assistant", "content": welcome}],  # chatbot
+        gr.update(label=tpl_label),                    # template_upload label
+        mode_choice,                                   # mode_state
+    )
+
+
+def on_feedback(feedback_text, session_state):
+    if not feedback_text or not feedback_text.strip():
+        return ""
+    sid = session_state or "default"
+    if sid in agents:
+        agents[sid].memory.knowledge.add_preference("user_feedback", feedback_text.strip())
+        return "鉁?鍙嶉宸茶褰?
+    return "鈿狅笍 璇峰厛鍚姩 Agent"
+
+
+def build_app():
+    with gr.Blocks(title="淇¤捶鎶ュ憡Agent v7.22", css=CSS, theme=gr.themes.Soft()) as app:
+        session_state = gr.State("default")
+        mode_state = gr.State("鍙欒堪鎶ュ憡")  # 鈽?v7.13
+
+        gr.Markdown(
+            "# 馃搳 淇¤捶鎶ュ憡Agent v7.22\n"
+            "> 鍙欒堪鎶ュ憡 路 濉┖鐢虫姤琛?路 妯＄増娣卞害鍙傝€?路 璐ㄩ噺闂ㄦ帶 路 .doc/.pdf鏀寔",
+            elem_id="header",
+        )
+
+        with gr.Row():
+            # ===== 宸︿晶閰嶇疆闈㈡澘 =====
+            with gr.Column(scale=1, min_width=280):
+                with gr.Accordion("鈿欙笍 閰嶇疆", open=True):
+                    api_key_input = gr.Textbox(
+                        label="API 瀵嗛挜",
+                        placeholder="sk-xxx",
+                        type="password",
+                    )
+                    provider_select = gr.Dropdown(
+                        label="妯″瀷",
+                        choices=["deepseek", "kimi-k2.5", "openai", "claude"],
+                        value="deepseek",
+                    )
+                    # 鈽?v7.13: 妯″紡閫夋嫨鍣?                    mode_select = gr.Radio(
+                        label="馃搶 宸ヤ綔妯″紡",
+                        choices=["鍙欒堪鎶ュ憡", "濉┖鐢虫姤琛?],
+                        value="鍙欒堪鎶ュ憡",
+                    )
+
+                with gr.Accordion("馃搵 妯＄増", open=True):
+                    template_upload = gr.File(
+                        label="涓婁紶 Word 妯＄増锛堝彲閫夛級",
+                        file_types=[".docx", ".doc"],
+                    )
+                    template_status = gr.Markdown("")
+
+                # 鈽?v7.13: 寰呰ˉ鍏呮爣绛鹃潰鏉匡紙濮嬬粓鍙涓旈粯璁ゅ睍寮€锛岀‘淇濆唴瀹规洿鏂版椂绔嬪嵆鍙锛?                with gr.Accordion("馃搵 寰呰ˉ鍏呭瓧娈?, open=True, visible=True) as pending_accordion:
+                    pending_tags_display = gr.Markdown(
+                        value="*濉啓瀹屾垚鍚庯紝寰呰ˉ鍏呭瓧娈靛垪琛ㄥ皢鏄剧ず鍦ㄦ澶?",
+                        elem_id="pending-tags",
+                    )
+
+                with gr.Accordion("馃挕 鍙嶉", open=False):
+                    feedback_input = gr.Textbox(
+                        label="鏀硅繘寤鸿",
+                        placeholder="鍛婅瘔鎴戝摢閲岄渶瑕佹敼杩?..",
+                        lines=2,
+                    )
+                    feedback_btn = gr.Button("鎻愪氦", variant="secondary", size="sm")
+                    feedback_result = gr.Markdown("")
+
+                status_display = gr.Textbox(
+                    label="馃搳 鐘舵€?,
+                    value="绛夊緟杈撳叆",
+                    interactive=False,
+                    max_lines=2,
+                )
+
+            # ===== 鍙充晶鑱婂ぉ鍖?=====
+            with gr.Column(scale=3):
+                dl_banner = gr.Markdown(
+                    value="",
+                    elem_classes=["download-banner"],
+                )
+                dl_file = gr.File(
+                    label="馃摜 鐐瑰嚮涓嬭浇鎶ュ憡",
+                    visible=False,
+                )
+                manual_export_btn = gr.Button(
+                    "馃搫 鎵嬪姩瀵煎嚭 Word 鎶ュ憡",
+                    variant="primary",
+                    visible=False,
+                )
+
+                chatbot = gr.Chatbot(
+                    value=[{"role": "assistant", "content": WELCOME_NARRATIVE}],
+                    height=480,
+                    elem_classes=["chatbot-container"],
+                )
+
+                with gr.Row():
+                    chat_input = gr.Textbox(
+                        placeholder="杈撳叆娑堟伅锛屾寜鍥炶溅鍙戦€?..",
+                        show_label=False,
+                        scale=3,
+                        container=False,
+                    )
+                    file_upload = gr.File(
+                        label="馃搸 涓婁紶鏉愭枡鏂囦欢",
+                        file_types=[".txt", ".docx", ".doc", ".pdf", ".xlsx", ".xls"],
+                        file_count="multiple",
+                        scale=2,
+                        min_width=200,
+                    )
+                    send_btn = gr.Button("鍙戦€?, variant="primary", scale=0, min_width=80)
+
+        # ===== 浜嬩欢缁戝畾 =====
+        # 鈽?v7.13: stream_chat 澧炲姞 mode_state 杈撳叆
+        send_inputs = [chat_input, file_upload, chatbot, api_key_input,
+                       provider_select, session_state, mode_state]
+        # 鈽?v7.14: 鍘绘帀 pending_accordion锛屽彧鏇存柊鍐呴儴 Markdown 鍐呭
+        # 锛圓ccordion 宸查潤鎬?visible=True锛屾棤闇€鍔ㄦ€佹帶鍒讹紝閬垮厤 Gradio 6.x 閲嶇粯 bug锛?        send_outputs = [chatbot, chat_input, file_upload,
+                        dl_banner, dl_file, manual_export_btn, status_display,
+                        pending_tags_display]
+
+        send_btn.click(fn=stream_chat, inputs=send_inputs, outputs=send_outputs)
+        chat_input.submit(fn=stream_chat, inputs=send_inputs, outputs=send_outputs)
+
+        manual_export_btn.click(
+            fn=on_manual_export,
+            inputs=[session_state],
+            outputs=[dl_banner, dl_file, manual_export_btn, status_display],
+        )
+
+        # 鈽?v7.13: 妯＄増涓婁紶涔熶紶鍏?mode_state
+        template_upload.change(
+            fn=on_template_upload,
+            inputs=[template_upload, session_state, mode_state],
+            outputs=[template_status],
+        )
+
+        # 鈽?v7.13: 妯″紡鍒囨崲浜嬩欢
+        mode_select.change(
+            fn=on_mode_change,
+            inputs=[mode_select],
+            outputs=[chatbot, template_upload, mode_state],
+        )
+
+        feedback_btn.click(
+            fn=on_feedback,
+            inputs=[feedback_input, session_state],
+            outputs=[feedback_result],
+        )
+
+    return app
+
+
+if __name__ == "__main__":
+    app = build_app()
+    app.launch(share=True, server_name="0.0.0.0", server_port=7860)
+

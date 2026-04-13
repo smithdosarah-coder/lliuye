@@ -1,0 +1,80 @@
+L5 [euro,pua]: v7.22 鍙樻洿锛?1. 鈽?_insert_word_comments 閲嶅啓涓洪€愭鎵弿锛坧er-paragraph锛夛紝涓嶅啀鎸
+L6 [pua]: v7.17 鍙樻洿锛?1. 鈽?璐㈠姟鍒嗘瀽鑷姩鐢熸垚锛氫粠宸插～鍏呯殑璐㈠姟鏁版嵁琛ㄦ彁鍙栨暟鎹紝Python绮剧‘璁＄畻鍏抽敭姣旂巼
+L7 [euro,pua]:    锛堣祫浜ц礋鍊虹巼銆佹祦鍔?閫熷姩姣旂巼銆佹瘺鍒╃巼銆佸噣鍒╃巼銆佸懆杞ぉ鏁般€佸悓姣斿闀匡級锛?   缁撳悎琛屼笟鍩哄噯璋冪敤L
+L8 [euro,pua]: v7.22 鍙樻洿锛?1. 鈽?鍏ㄩ潰绫诲瀷瀹夊叏锛氭墍鏈?apply 鍑芥暟杩囨护 bool/list/dict 绛夋棤鏁?LLM 杩斿洖
+L9 [euro,pua]: 3. 鈽?鏍囩瀛楁澧炲姞"寰呰ˉ鍏?璺宠繃锛歛pply_labeled_field_values 涓?XX 瀛楁淇濇寔涓€鑷?4. 鈽
+L10 [pua]: 5. 鈽?绾跨▼瀹夊叏锛歳esult_holder 浣跨敤 .get() 闃叉 KeyError锛屽鍔犲紓甯哥粨鏉熷厹搴?6. 鈽?宓屽
+L12 [euro,pua]: v7.14 鍙樻洿锛?1. 鈽?淇渚ц竟鏍忔爣绛句笉鏄剧ず锛氫粠 send_outputs 涓Щ闄?pending_accordion
+L13 [euro,pua]: 2. 鈽?浼樺寲鏍囩瀛楁濉啓锛歜uild_labeled_field_prompt 琛ュ厖"灏藉姏浠庢潗鏂欎腑瀵绘壘鏁版嵁"瑙勫垯锛?
+L15 [euro,pua]: v7.13 鍙樻洿锛?1. 鈽?淇宓屽琛ㄦ牸XX瀛楁璺緞閿欒锛氫娇鐢?鍏冪粍cell_path姝ｇ‘瀹氫綅宓屽鍗曞厓鏍硷紙v7
+L16 [pua]: 4. 鈽?瀛楁鎻愬彇璇婃柇锛氭樉绀哄疄闄呮彁鍙栨暟閲忓拰寰呰ˉ鍏呮暟閲?
+L17 [pua]: v7.12 鍙樻洿锛?1. 鈽?宓屽琛ㄦ牸鍗曞厓鏍兼壂鎻廥X瀛楁鍜岀ず渚嬫钀斤紙璺緞閫昏緫宸插湪v7.13淇锛?2. 鈽?寰呰ˉ
+L18 [euro,pua]: 3. 鈽?渚ц竟鏍忓缁堝彲瑙侊紙visible=True锛夛紝閬垮厤Gradio鍔ㄦ€佹樉闅恇ug
+L21 [euro,pua]: v7.11 鍙樻洿锛?1. 鈽?淇澶嶉€夋bug锛欵SG"B"銆佸弽娲楅挶"涓€鑸?绛夊啓鎴愭枃鏈€岄潪鍕鹃€夆槕锛岀幇鍦ㄦ纭
+L22 [pua]: 3. 鈽?寰呰ˉ鍏呬晶杈规爮锛氬～鍐欏畬鎴愬悗锛屽乏渚ч潰鏉挎樉绀烘墍鏈夊緟琛ュ厖/鏈～瀛楁鍒楄〃
+L23 [pua]: 4. 鈽?Prompt浼樺寲锛氬噺灏戞棤鎰忎箟"寰呰ˉ鍏?杈撳嚭锛岄摱琛屽唴閮ㄤ俊鎭敤____浠ｆ浛
+L24 [euro]: 5. 鍙嶆礂閽变簰鏂ョ粍澧炲姞缂哄け鐨?涓€鑸?閫夐」
+L25 [euro,pua]: 6. 鏂板鍚庡鐞嗘楠わ細鑷姩妫€娴嬪苟淇璇啓涓烘枃鏈殑澶嶉€夋鍊?
+L26 [euro,pua]: v7.8 鍙樻洿锛?1. 淇WPS妗岄潰绔〃鏍兼孩鍑猴細鎵€鏈夊祵濂楄〃鏍煎竷灞€浠巃utofit鏀逛负fixed锛岄攣瀹氬師濮嬪垪瀹
+L27 [pua]: v7.7 鍙樻洿锛?1. 鏂板 Kimi K2.5 妯″瀷锛圢VIDIA API锛屽厤璐癸級
+L29 [pua]: v7.6 鍙樻洿锛?1. 淇杈撳嚭docx鏍煎紡闂锛氫笉鍐嶈皟鐢╬ython-docx save()锛屾敼涓虹函XML搴忓垪鍖?ZI
+L30 [pua]: 2. 闈瀌ocument.xml鏂囦欢浠庡師濮嬫ā鏉垮瓧鑺傜骇鎷疯礉锛屼繚鐣橶PS鍏煎鎬?
+L31 [pua]: v7.5 鍙樻洿锛?1. 鏂板妯″紡閫夋嫨鍣紙鍙欒堪鎶ュ憡 / 濉┖鐢虫姤琛級
+L32 [euro,pua]: 2. 濉┖妯″紡涓撶敤娆㈣繋璇€佹ā鐗堜笂浼犻€昏緫銆佽繘搴︽樉绀?3. TOOL_NAMES 澧炲姞 form_fill 鏄剧ず
+L43 [pua]: _pending_form_templates: dict[str, str] = {}  # 鈽?v7.13: 濉┖妯＄増鏆傚瓨
+L55 [pua]:         # 鈽?v7.13: 鍔犺浇寰呭鐞嗙殑濉┖妯＄増
+L63 [euro,pua]: WELCOME_NARRATIVE = """馃憢 浣犲ソ锛佹垜鏄俊璐锋姤鍛夾gent锛坴7.21锛夈€?
+L64 [pua]: 馃搫 涓婁紶浼佷笟鏉愭枡 鈫?鑷姩鐢熸垚鎺堜俊璋冩煡鎶ュ憡锛垀15000瀛楋級
+L65 [pua]: 鈿?鍐欏畬鑷姩瀵煎嚭 Word 鈫?*椤堕儴缁胯壊鍖哄煙* 鐩存帴涓嬭浇
+L66 [pua]: 馃搵 宸︿晶鍙笂浼犳ā鐗堟枃浠讹紙鏀寔鐑浛鎹級
+L67 [euro,pua]: 馃攳 缃戠粶鎼滅储 路 鑷渷淇 路 妯＄増娣卞害鍙傝€?路 渚ф爮鎵规敞
+L69 [euro]: **寮€濮嬶細** 涓婁紶鏉愭枡鏂囦欢锛屽憡璇夋垜瀹㈡埛淇℃伅鍗冲彲銆?"""
+L71 [euro,pua]: WELCOME_FORM_FILL = """馃憢 浣犲ソ锛佹垜鏄俊璐锋姤鍛夾gent锛坴7.21锛夆€?*濉┖妯″紡*銆?
+L72 [euro,pua]: 馃摑 鏈ā寮忎笓涓?*鏅儬鎺堜俊鐢虫姤琛? 绛夌粨鏋勫寲琛ㄦ牸璁捐锛?  鈥?鑷姩鏇挎崲鎵€鏈?XX 鍗犱綅绗︿负鐪熷疄鏁版嵁
+L73 [euro,pua]:   鈥?鑷姩鍕鹃€夋纭殑澶嶉€夋锛堚枴鈫掆槕锛?  鈥?閫愭钀芥櫤鑳藉～鍐欙紙12涓€昏緫娈佃惤锛?
+L74 [pua]: 馃搵 **鎿嶄綔姝ラ锛?*
+L75 [euro,pua]: 1锔忊儯 宸︿晶涓婁紶 *濉┖妯＄増*锛?docx 鏍煎紡锛?2锔忊儯 鍦ㄥ彸渚т笂浼犱紒涓?*鏉愭枡鏂囦欢*锛圥DF/Word/Exce
+L77 [pua]: 鈿狅笍 妯＄増蹇呴』鏄?.docx 鏍煎紡锛堝鏈?.doc 璇峰厛鐢?WPS 鍙﹀瓨涓?.docx锛?"""
+L108 [pua]:     "self_reflect": "馃 鑷渷瀹¤",
+L110 [pua]:     "revise_chapter": "馃敡 淇敼绔犺妭",
+L112 [pua]:     "ask_user": "馃挰 璇锋眰纭",
+L113 [pua]:     "form_fill": "馃摑 濉啓鐢虫姤琛?",  # 鈽?v7.13
+L136 [q_close]:         chatbot.append({"role": "assistant", "content": "鈿狅笍 璇峰厛鍦ㄥ乏渚у～
+L150 [pua]:         chatbot.append({"role": "assistant", "content": "璇疯緭鍏ユ秷鎭垨涓婁紶鏂
+L160 [pua]:     yield out(chatbot, status="馃攧 Agent 鍚姩涓?..")
+L165 [pua]:     # 鈽?v7.13: 鍚屾妯″紡鍒?Agent
+L167 [pua]:     agent.mode = "form_fill" if "濉┖" in current_mode else "narrative"
+L188 [pua,q_close]:                 thinking_parts.append(f"鈴笍 {dn}锛堝凡缂撳瓨锛?)
+L210 [pua]:             yield out(temp, status=f"馃挰 鍥炲涓?.. ({elapsed:.0f}绉?")
+L215 [q_close]:             thinking_parts.append(f"\n馃帀馃帀馃帀 *鎶ュ憡宸茬敓鎴? {fname}*\n馃摜 璇峰
+L222 [pua]:             err = event.get("content", "鏈煡閿欒")
+L223 [euro,pua,q_close]:             thinking_parts.append(f"鈿狅笍 鑷姩瀵煎嚭澶辫触: {err}\n馃憠 鍙偣鍑汇€屾墜鍔
+L234 [pua]:                     cat = t.get("category", "馃煛 鍙兘鍦ㄦ潗鏂欎腑")
+L245 [pua]:                 # 鈽?v7.14: 鍙洿鏂?pending_tags_display Markdown锛屼笉鏇存柊 ac
+L254 [euro]:     # 鏈€缁堣緭鍑?    elapsed = time.time() - start_time
+L260 [pua]:         final = "锛堝鐞嗗畬鎴愶級"
+L266 [pua]:                   status=f"鉁?瀹屾垚锛佽鍦ㄤ笂鏂逛笅杞?({elapsed:.0f}绉?",
+L307 [pua]:                 "鉁?瀵煎嚭鎴愬姛锛佽涓嬭浇")
+L316 [euro]:     """妯＄増涓婁紶澶勭悊 鈥?鏍规嵁妯″紡鍐冲畾鐢ㄩ€?""
+L318 [pua]:         return "鏈娴嬪埌妯＄増鏂囦欢"
+L334 [pua]:     is_form_fill = "濉┖" in current_mode
+L341 [euro,pua]:         return f"鉁?宸叉殏瀛樻ā鐗堬紙鍙戦€佹秷鎭悗鑷姩鍔犺浇锛? {basename}"
+L346 [pua]:         # 鈽?v7.13: 濉┖妯″紡 鈥?璁剧疆 form_template_path
+L350 [euro,pua]:         return f"鉁?濉┖妯＄増宸插姞杞? {basename}\n馃摑 璇蜂笂浼犳潗鏂欐枃浠跺悗鍙戦€併€屽紑濮嬪～鍐欍
+L352 [euro]:         # 鍙欒堪妯″紡 鈥?鍘熼€昏緫
+L366 [pua]:     """鈽?v7.13: 妯″紡鍒囨崲 鈥?鏇存柊娆㈣繋璇拰妯＄増鎻愮ず"""
+L367 [pua]:     if "濉┖" in mode_choice:
+L369 [pua]:         tpl_label = "涓婁紶濉┖妯＄増锛?docx锛屽繀濉級"
+L386 [pua]:         return "鉁?鍙嶉宸茶褰?
+L387 [pua]:     return "鈿狅笍 璇峰厛鍚姩 Agent"
+L397 [euro,pua]:             "> 鍙欒堪鎶ュ憡 路 濉┖鐢虫姤琛?路 妯＄増娣卞害鍙傝€?路 璐ㄩ噺闂ㄦ帶 路 .doc/.pdf鏀寔",
+L417 [pua]:                         choices=["鍙欒堪鎶ュ憡", "濉┖鐢虫姤琛?],
+L428 [euro,pua]:                 # 鈽?v7.13: 寰呰ˉ鍏呮爣绛鹃潰鏉匡紙濮嬬粓鍙涓旈粯璁ゅ睍寮€锛岀‘淇濆唴瀹规洿鏂版椂绔嬪嵆鍙
+L430 [pua]:                         value="*濉啓瀹屾垚鍚庯紝寰呰ˉ鍏呭瓧娈靛垪琛ㄥ皢鏄剧ず鍦ㄦ澶?",
+L434 [pua]:                 with gr.Accordion("馃挕 鍙嶉", open=False):
+L436 [pua]:                         label="鏀硅繘寤鸿",
+L444 [euro]:                     label="馃搳 鐘舵€?,
+L474 [euro]:                         placeholder="杈撳叆娑堟伅锛屾寜鍥炶溅鍙戦€?..",
+L486 [euro]:                     send_btn = gr.Button("鍙戦€?, variant="primary", sca
+L492 [pua]:         # 鈽?v7.14: 鍘绘帀 pending_accordion锛屽彧鏇存柊鍐呴儴 Markdown 鍐呭
+L493 [euro]:         # 锛圓ccordion 宸查潤鎬?visible=True锛屾棤闇€鍔ㄦ€佹帶鍒讹紝閬垮厤 Gradio 6.x 閲嶇粯 
