@@ -3068,6 +3068,18 @@ class FormFillAgent:
                             self._log(progress_cb, "  ✓ 输出验证通过，无模板泄漏")
 
                         _section_gen_success = True
+
+                        # Step 5: 残留XX/待补充 定向补填
+                        if getattr(self, "material_index", None):
+                            residual_xx = self._scan_residual_placeholders(doc)
+                            if residual_xx:
+                                self._log(progress_cb,
+                                          f"  发现 {len(residual_xx)} 个残留占位符，定向补填...")
+                                fixed = self._fix_residual_placeholders(
+                                    doc, residual_xx, progress_cb)
+                                self.stats["filled"] += fixed
+                                self._log(progress_cb,
+                                          f"  定向补填 {fixed} 个残留字段")
                     else:
                         self._log(progress_cb, "  逐节生成返回空结果，降级到传统模式")
 
@@ -3232,8 +3244,27 @@ class FormFillAgent:
         # 4. Process checkboxes
         if checkboxes:
             self._log(progress_cb, f"正在判断 {len(checkboxes)} 个复选框...")
+            # ★ MaterialIndex: targeted retrieval for checkbox context
+            if getattr(self, "material_index", None):
+                cb_hints = []
+                for cb in checkboxes:
+                    if hasattr(cb, 'label') and cb.label:
+                        cb_hints.append(cb.label)
+                    if hasattr(cb, 'context_line') and cb.context_line:
+                        cb_hints.append(cb.context_line)
+                if cb_hints:
+                    targeted_materials = self.material_index.search_for_section(
+                        "复选框判断", cb_hints[:20], top_k=10)
+                    if targeted_materials and len(targeted_materials) > 100:
+                        materials_for_cb = targeted_materials
+                    else:
+                        materials_for_cb = materials
+                else:
+                    materials_for_cb = materials
+            else:
+                materials_for_cb = materials
             sys_p, usr_p = build_checkbox_prompt(
-                checkboxes, materials,
+                checkboxes, materials_for_cb,
                 company_profile=getattr(self, "_company_profile_block", ""))
             try:
                 resp = self.llm(sys_p, usr_p)
@@ -3253,6 +3284,18 @@ class FormFillAgent:
                 self._log(progress_cb, f"复选框处理出错: {e}")
 
         # 4b. Process labeled blank fields — ★ v7.14: BATCHED (was 129K single call!)
+        # Bank-internal fields: only skip those that are truly
+        # unknowable from materials (审查岗意见, 审批意见, etc.)
+        # Fields like PD评级, 申报额度, 担保方式 CAN be in materials.
+        def _is_bank_internal_lf(_lf) -> bool:
+            key = (getattr(_lf, 'label', '') or '') + ' ' + (getattr(_lf, 'context_line', '') or '')
+            # Hard-skip: fields that are always bank-internal decisions
+            hard_skip_kw = [
+                '审查员', '审批人', '分管行长', '行长',
+                '日期：', '共同调查人',
+            ]
+            return any(k in key for k in hard_skip_kw)
+
         # ★ 如果逐节生成成功，仅做 KB 预填标签字段（确定性部分），跳过 LLM 批量
         if labeled_fields and _section_gen_success:
             self._log(progress_cb,
@@ -3269,6 +3312,54 @@ class FormFillAgent:
             self._log(progress_cb,
                       f"已填写 {filled_lf} 个标签字段（KB确定性）")
 
+            # Phase 3: MaterialIndex-powered fill for remaining labeled fields
+            remaining_lf = [
+                lf for lf in labeled_fields
+                if lf.lf_id not in set(all_lf_values.keys())
+                and not _is_bank_internal_lf(lf)
+            ]
+            if remaining_lf and getattr(self, "material_index", None):
+                self._log(progress_cb,
+                          f"  MaterialIndex定向检索 {len(remaining_lf)} 个剩余标签字段...")
+                lf_batch_size = 20
+                for i in range(0, len(remaining_lf), lf_batch_size):
+                    batch = remaining_lf[i:i + lf_batch_size]
+                    # Build targeted materials from MaterialIndex
+                    lf_hints = []
+                    for lf in batch:
+                        if hasattr(lf, 'label') and lf.label:
+                            lf_hints.append(lf.label)
+                        if hasattr(lf, 'context_line') and lf.context_line:
+                            lf_hints.append(lf.context_line)
+                    targeted_mat = self.material_index.search_for_section(
+                        "标签字段", lf_hints[:20], top_k=8)
+                    if not targeted_mat or len(targeted_mat) < 100:
+                        targeted_mat = materials
+                    sys_p, usr_p, _ = build_labeled_field_prompt(
+                        remaining_lf, targeted_mat, i, lf_batch_size,
+                        company_profile=getattr(self, "_company_profile_block", ""),
+                        kb=getattr(self, "kb", None))
+                    if not sys_p:
+                        break
+                    try:
+                        resp = self.llm(sys_p, usr_p)
+                        parsed = parse_json_response(resp)
+                        if isinstance(parsed, dict):
+                            all_lf_values.update(parsed)
+                            real_vals = sum(1 for v in parsed.values() if v)
+                            self._log(progress_cb,
+                                      f"    -> 定向检索提取 {real_vals} 个值")
+                    except Exception as e:
+                        self._log(progress_cb, f"    -> 定向检索出错: {e}")
+                # Re-apply with updated values
+                filled_lf2 = apply_labeled_field_values(
+                    doc, labeled_fields, all_lf_values)
+                additional = filled_lf2 - filled_lf
+                if additional > 0:
+                    self.stats["filled"] += additional
+                    self._log(progress_cb,
+                              f"  MaterialIndex补充填写 {additional} 个标签字段")
+
         elif labeled_fields:
             self._log(progress_cb,
                       f"正在填写 {len(labeled_fields)} 个标签字段（分批处理）...")
@@ -3282,18 +3373,6 @@ class FormFillAgent:
                 self._log(progress_cb,
                           f"  KB预填标签字段: {len(kb_prefilled)} 个")
             prefilled_ids = set(kb_prefilled.keys())
-
-            # Bank-internal fields: only skip those that are truly
-            # unknowable from materials (审查岗意见, 审批意见, etc.)
-            # Fields like PD评级, 申报额度, 担保方式 CAN be in materials.
-            def _is_bank_internal_lf(_lf) -> bool:
-                key = (getattr(_lf, 'label', '') or '') + ' ' + (getattr(_lf, 'context_line', '') or '')
-                # Hard-skip: fields that are always bank-internal decisions
-                hard_skip_kw = [
-                    '审查员', '审批人', '分管行长', '行长',
-                    '日期：', '共同调查人',
-                ]
-                return any(k in key for k in hard_skip_kw)
 
             lf_to_fill = [
                 lf for lf in labeled_fields
@@ -3552,11 +3631,22 @@ class FormFillAgent:
                     self.stats["errors"].append(
                         f"财务大表{lt.table_id}: {str(e)[:60]}")
 
-            # ★ v7.19: Non-financial large tables use FULL materials
+            # ★ v7.19: Non-financial large tables — MaterialIndex targeted retrieval
             for lt in nonfin_large:
                 self._log(progress_cb,
                           f"  非财务大表 {lt.table_id} ({len(lt.empty_cells)}个空格)...")
-                sys_p, usr_p = build_table_fill_prompt([lt], materials,
+                # Use MaterialIndex for targeted retrieval
+                if getattr(self, "material_index", None):
+                    table_hints = list(lt.header_row or [])
+                    targeted_mat = self.material_index.search_for_section(
+                        f"表格_{lt.table_id}", table_hints, top_k=10)
+                    if targeted_mat and len(targeted_mat) > 200:
+                        table_materials = targeted_mat
+                    else:
+                        table_materials = materials
+                else:
+                    table_materials = materials
+                sys_p, usr_p = build_table_fill_prompt([lt], table_materials,
                                                         available_periods=self._available_periods)
                 if not sys_p:
                     continue
@@ -3577,7 +3667,7 @@ class FormFillAgent:
                     self.stats["errors"].append(
                         f"非财务大表{lt.table_id}: {str(e)[:60]}")
 
-            # Process small tables in batches
+            # Process small tables in batches — MaterialIndex targeted retrieval
             batch_size = 3
             for i in range(0, len(small_tables), batch_size):
                 batch = small_tables[i:i + batch_size]
@@ -3587,7 +3677,20 @@ class FormFillAgent:
                 self._log(progress_cb,
                           f"  表格批次 {batch_num}/{total_batches}: {table_names}")
 
-                sys_p, usr_p = build_table_fill_prompt(batch, materials,
+                # Use MaterialIndex for targeted retrieval
+                if getattr(self, "material_index", None):
+                    batch_hints = []
+                    for t in batch:
+                        batch_hints.extend(list(t.header_row or []))
+                    targeted_mat = self.material_index.search_for_section(
+                        "表格批次", batch_hints[:20], top_k=10)
+                    if targeted_mat and len(targeted_mat) > 200:
+                        batch_materials = targeted_mat
+                    else:
+                        batch_materials = materials
+                else:
+                    batch_materials = materials
+                sys_p, usr_p = build_table_fill_prompt(batch, batch_materials,
                                                         available_periods=self._available_periods)
                 if not sys_p:
                     continue
@@ -5409,6 +5512,62 @@ class FormFillAgent:
         self._validation_blocked = bool(blockers)
         self._validation_blockers = blockers
         return blockers
+
+    def _scan_residual_placeholders(self, doc) -> list[dict]:
+        """Scan document for remaining XX/待补充 placeholders after section generation."""
+        import re
+        residuals = []
+        for i, para in enumerate(doc.paragraphs):
+            text = para.text.strip()
+            if not text:
+                continue
+            # Find XX patterns (but not in headings/titles)
+            xx_matches = list(re.finditer(r'[Xx\u00d7]{2,}|XX\w*|待补充|___+', text))
+            if xx_matches:
+                residuals.append({
+                    'para_idx': i,
+                    'text': text,
+                    'placeholders': [m.group() for m in xx_matches],
+                    'context': text[:100],
+                })
+        return residuals
+
+    def _fix_residual_placeholders(self, doc, residuals: list[dict], progress_cb=None) -> int:
+        """Use MaterialIndex + LLM to fill residual placeholders."""
+        fixed = 0
+        max_fixes = 15  # cap to avoid runaway
+        for r in residuals[:max_fixes]:
+            try:
+                # Search for relevant material
+                hints = [r['context'][:50]]
+                targeted = self.material_index.search_for_section(
+                    "残留字段", hints, top_k=5)
+                if not targeted or len(targeted) < 50:
+                    continue
+
+                sys_prompt = (
+                    "你是银行信贷报告填写助手。以下文本中有占位符（XX、待补充等），"
+                    "请根据提供的材料，用准确的信息替换占位符。"
+                    "仅输出替换后的完整文本，不要添加任何解释。"
+                    "如果材料中找不到对应信息，保持原文不变。"
+                )
+                usr_prompt = (
+                    f"原文：{r['text']}\n\n"
+                    f"参考材料：\n{targeted}\n\n"
+                    f"请替换占位符后输出完整文本。"
+                )
+                resp = self.llm(sys_prompt, usr_prompt)
+                resp = resp.strip()
+                # Only apply if it actually changed and didn't introduce new issues
+                if (resp and len(resp) > 10
+                        and resp != r['text']
+                        and 'XX' not in resp
+                        and '待补充' not in resp):
+                    doc.paragraphs[r['para_idx']].text = resp
+                    fixed += 1
+            except Exception:
+                continue
+        return fixed
 
     def _log(self, cb, msg):
         # Avoid UnicodeEncodeError on Windows consoles (e.g. emoji).
