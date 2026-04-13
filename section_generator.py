@@ -68,6 +68,7 @@ def build_section_prompt(
     company_profile="",
     build_dimension_text_fn=None,
     truth_financial_data=None,
+    material_index=None,
 ):
     """Build LLM prompt for generating a complete section.
 
@@ -145,12 +146,40 @@ def build_section_prompt(
             "\u8bf7\u5728\u5404\u5b50\u9879\u6807\u6ce8\u201c\u6750\u6599\u672a\u63d0\u4f9b\u201d"
             "\u5e76\u8bf4\u660e\u5f71\u54cd\uff09")
 
+    # 材料全文检索：从客户原始材料中补充相关段落
+    material_supplement = ""
+    if material_index is not None:
+        # 从 section 的 title、instructions、content_lines 提取检索提示
+        hints = list(instructions) if instructions else []
+        if content_lines:
+            for cl in content_lines[:5]:
+                if len(cl) < 200:
+                    hints.append(cl)
+        material_supplement = material_index.search_for_section(
+            section.title, hints
+        )
+
+    if material_supplement:
+        user_parts.append(
+            "\n\u3010\u8865\u5145\u6750\u6599\u539f\u6587\uff08\u4ece\u5ba2\u6237"
+            "\u63d0\u4f9b\u6750\u6599\u4e2d\u68c0\u7d22\uff09\u3011\n"
+            + material_supplement)
+
     user_parts.append(
         "\n\u8bf7\u73b0\u5728\u64b0\u5199\u672c\u8282\u5185\u5bb9\u3002"
         "\u76f4\u63a5\u8f93\u51fa\u6b63\u6587\uff0c"
         "\u4e0d\u8981\u8f93\u51fa\u6807\u9898\u884c\uff08\u6807\u9898\u5df2\u7531\u6a21\u677f\u4fdd\u7559\uff09\u3002")
 
-    return _SECTION_SYSTEM_PROMPT, "\n".join(user_parts)
+    system_prompt = _SECTION_SYSTEM_PROMPT
+    if material_supplement:
+        system_prompt += (
+            "\n\u5982\u679c\u3010\u8865\u5145\u6750\u6599\u539f\u6587\u3011"
+            "\u4e2d\u5305\u542b\u4e0e\u672c\u8282\u76f8\u5173\u7684\u6570\u636e"
+            "\u6216\u4e8b\u5b9e\uff0c\u52a1\u5fc5\u4f18\u5148\u4f7f\u7528\uff0c"
+            "\u4e0d\u8981\u9057\u6f0f\u3002"
+        )
+
+    return system_prompt, "\n".join(user_parts)
 
 
 def _build_financial_anchor(truth_data):
@@ -207,6 +236,7 @@ def generate_all_sections(
     template_paragraphs=None,
     progress_cb=None,
     max_retries=1,
+    material_index=None,
 ):
     """Generate content for all sections that need rewriting.
 
@@ -233,6 +263,7 @@ def generate_all_sections(
             company_profile=company_profile,
             build_dimension_text_fn=build_dimension_text_fn,
             truth_financial_data=truth_financial_data,
+            material_index=material_index,
         )
 
         response = llm_fn(sys_p, usr_p)

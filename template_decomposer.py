@@ -25,6 +25,11 @@ from typing import Any
 class TemplateRole(Enum):
     SKELETON = "skeleton"   # 标题、标签、结构 → 保留
     CONTENT = "content"     # 范例、指导 → 重写
+    # 细粒度角色（向下兼容：PRESERVE/DATA_SLOT 等同于 SKELETON，EXAMPLE/INSTRUCTION 等同于 CONTENT）
+    PRESERVE = "preserve"       # 保留原样的结构标题、编号、表头
+    EXAMPLE = "example"         # 需要完全替换的示例文本
+    DATA_SLOT = "data_slot"     # 仅包含 XX/下划线 的占位行
+    INSTRUCTION = "instruction" # 模板中的指导说明文字（请、简述、列明等）
 
 
 @dataclass
@@ -51,14 +56,16 @@ class SectionInfo:
     @property
     def skeleton_lines(self) -> list[str]:
         """本节的结构性文本（标题+标签行）"""
+        _skeleton_roles = {TemplateRole.SKELETON, TemplateRole.PRESERVE, TemplateRole.DATA_SLOT}
         return [p.text for p in self.paragraphs
-                if p.role == TemplateRole.SKELETON and p.text.strip()]
+                if p.role in _skeleton_roles and p.text.strip()]
 
     @property
     def content_lines(self) -> list[str]:
         """本节的范例文本（将被重写）"""
+        _content_roles = {TemplateRole.CONTENT, TemplateRole.EXAMPLE, TemplateRole.INSTRUCTION}
         return [p.text for p in self.paragraphs
-                if p.role == TemplateRole.CONTENT and p.text.strip()]
+                if p.role in _content_roles and p.text.strip()]
 
     @property
     def all_instructions(self) -> list[str]:
@@ -71,8 +78,9 @@ class SectionInfo:
     @property
     def content_para_indices(self) -> list[int]:
         """需要重写的段落索引"""
+        _content_roles = {TemplateRole.CONTENT, TemplateRole.EXAMPLE, TemplateRole.INSTRUCTION}
         return [p.para_idx for p in self.paragraphs
-                if p.role == TemplateRole.CONTENT and p.text.strip()]
+                if p.role in _content_roles and p.text.strip()]
 
     @property
     def has_content_to_rewrite(self) -> bool:
@@ -214,6 +222,197 @@ def _classify_paragraph(text: str) -> tuple[TemplateRole, bool, int]:
 
     # 8. 兜底 → CONTENT
     return TemplateRole.CONTENT, False, 0
+
+
+# ═══════════════════════════════════════════
+# 细粒度段落角色分类
+# ═══════════════════════════════════════════
+
+# 模板示例行业关键词（宁多勿漏）
+_TEMPLATE_SAMPLE_KEYWORDS = [
+    "注塑", "模具", "塑胶", "某某", "XX公司", "XX有限", "XX集团",
+    "XX银行", "XX事务所", "张XX", "李XX", "王XX", "陈XX", "刘XX",
+]
+
+# 指导性动词短语（必须是明确的指导结构，避免单字误匹配）
+_INSTRUCTION_PHRASES = [
+    "简述", "列明", "填写", "阐述", "标注",
+]
+
+# XX 占位符模式（宽松匹配）
+_XX_PLACEHOLDER_RE = re.compile(r'X{2,}')
+
+# 纯占位符行模式：仅包含 XX、下划线、空格、冒号、标签文字（<30字非占位内容）
+_PURE_SLOT_RE = re.compile(r'^[\s_X：:．.、\u3000]*$')
+
+
+def classify_paragraph_role(
+    text: str,
+    context_before: str = "",
+    context_after: str = "",
+) -> TemplateRole:
+    """
+    细粒度判断段落角色。
+
+    分类优先级：
+    1. PRESERVE — 编号格式开头的短标题；表头行；固定标题；签名行
+    2. DATA_SLOT — 仅包含 XX 或下划线，无其他叙述内容
+    3. INSTRUCTION — 包含指导性动词
+    4. EXAMPLE — 包含 XX 占位符 + 叙述性文本；包含模板样例关键词
+    5. 兜底 → EXAMPLE（宁可多标记也不要漏标记）
+
+    Args:
+        text: 段落文本
+        context_before: 前一个段落的文本（可选，用于上下文辅助判断）
+        context_after: 后一个段落的文本（可选）
+
+    Returns:
+        TemplateRole 枚举值
+    """
+    stripped = text.strip()
+
+    # 空行 → PRESERVE
+    if not stripped:
+        return TemplateRole.PRESERVE
+
+    is_h, level = _detect_heading(stripped)
+
+    # ---- PRESERVE 判断 ----
+    # 签名行
+    for kw in _SIGNATURE_KEYWORDS:
+        if kw in stripped:
+            return TemplateRole.PRESERVE
+
+    # 日期行
+    if re.match(r'^日期[：:]\s', stripped):
+        return TemplateRole.PRESERVE
+
+    # 编号格式开头的短标题（无 XX，较短）
+    if is_h and len(stripped) < 80:
+        has_xx = bool(_XX_PLACEHOLDER_RE.search(stripped))
+        if not has_xx:
+            return TemplateRole.PRESERVE
+
+    # 表头行
+    if re.match(r'^单位[：:]|^备注[：:]', stripped) and len(stripped) < 60:
+        return TemplateRole.PRESERVE
+
+    # 复选框密集行
+    cb_count = len(re.findall(r'[□☐☑✓]', stripped))
+    if cb_count >= 2 and len(stripped) < 200:
+        return TemplateRole.PRESERVE
+    if cb_count >= 1 and len(stripped) < 60:
+        return TemplateRole.PRESERVE
+
+    # 短标签行（以冒号结尾，且没有大段描述文字）
+    if len(stripped) < 80 and re.search(r'[：:]\s*$', stripped):
+        return TemplateRole.PRESERVE
+
+    # 审查意见等固定标题
+    _fixed_titles = ["审查意见", "审批意见", "尽职调查", "意见表"]
+    if any(kw in stripped for kw in _fixed_titles) and len(stripped) < 60:
+        return TemplateRole.PRESERVE
+
+    # ---- DATA_SLOT 判断 ----
+    # 纯占位符行：仅包含 XX 或下划线
+    has_xx = bool(_XX_PLACEHOLDER_RE.search(stripped))
+    # 去掉 XX 和下划线后剩余的纯文字
+    cleaned = re.sub(r'X{2,}|_{2,}|[\s：:．.、\u3000]', '', stripped)
+    if has_xx and len(cleaned) < 15:
+        return TemplateRole.DATA_SLOT
+
+    # 纯占位符/标签行（大片空白或下划线）
+    blank_ratio = (stripped.count(' ') + stripped.count('\u3000') +
+                   stripped.count('_') + stripped.count('\t'))
+    if len(stripped) < 120 and blank_ratio > len(stripped) * 0.3:
+        return TemplateRole.DATA_SLOT
+
+    # ---- INSTRUCTION 判断 ----
+    # 包含指导性短语且较短（指导说明通常不长）
+    if len(stripped) < 200:
+        # "请+动词" 组合（明确的指导结构）
+        if re.search(r'请(?:简述|描述|列明|填写|说明|分析|阐述|注明|标注|勿)', stripped):
+            return TemplateRole.INSTRUCTION
+        # 独立的指导性短语（不容易误匹配的多字词）
+        for phrase in _INSTRUCTION_PHRASES:
+            if phrase in stripped:
+                return TemplateRole.INSTRUCTION
+
+    # ---- EXAMPLE 判断（宽松，宁可多标记也不要漏标记） ----
+    # 包含模板样例关键词
+    for kw in _TEMPLATE_SAMPLE_KEYWORDS:
+        if kw in stripped:
+            return TemplateRole.EXAMPLE
+
+    # 包含 XX 占位符 + 叙述性文本（不管数量多少）
+    if has_xx and len(stripped) > 20:
+        return TemplateRole.EXAMPLE
+
+    # 包含常见模板示例模式
+    if re.search(r'XX万元|XX年|XX%|XX人|XX公司|XX银行', stripped):
+        return TemplateRole.EXAMPLE
+
+    # 含有范例特征的较长段落
+    if len(stripped) > 60:
+        has_example_markers = bool(re.search(
+            r'[\u2026\u00b7]|\.{2,}|/{1}[\u4e00-\u9fff]|'
+            r'\u5982[\uff1a:]|'
+            r'\d{3,}[\u4e07\u5143\u540d\u4eba]',
+            stripped))
+        if has_example_markers:
+            return TemplateRole.EXAMPLE
+
+    # 兜底：长段落都当作 EXAMPLE（宁多勿漏）
+    if len(stripped) > 60:
+        return TemplateRole.EXAMPLE
+
+    # 短且不含任何标记的段落 → PRESERVE
+    return TemplateRole.PRESERVE
+
+
+def extract_template_fingerprints(doc_path: str) -> dict[str, str]:
+    """
+    提取模板中所有 EXAMPLE 段落的文本指纹。
+
+    遍历模板文档中的所有表格单元格段落，对标记为 EXAMPLE 的段落：
+    去掉 XX 标记后作为"指纹"文本，用于后续相似度比对。
+
+    Args:
+        doc_path: 模板 .docx 文件路径
+
+    Returns:
+        dict[paragraph_location → cleaned_text]
+        其中 paragraph_location 格式为 "t{table_idx}_r{row_idx}_c{cell_idx}_p{para_idx}"
+    """
+    from docx import Document as _Document
+
+    doc = _Document(doc_path)
+    fingerprints: dict[str, str] = {}
+
+    for t_idx, table in enumerate(doc.tables):
+        for r_idx, row in enumerate(table.rows):
+            for c_idx, cell in enumerate(row.cells):
+                paras = cell.paragraphs
+                for p_idx, para in enumerate(paras):
+                    text = (para.text or "").strip()
+                    if not text or len(text) < 15:
+                        continue
+
+                    # 获取上下文
+                    ctx_before = paras[p_idx - 1].text.strip() if p_idx > 0 else ""
+                    ctx_after = paras[p_idx + 1].text.strip() if p_idx < len(paras) - 1 else ""
+
+                    role = classify_paragraph_role(text, ctx_before, ctx_after)
+                    if role == TemplateRole.EXAMPLE:
+                        # 去掉 XX 标记，生成指纹
+                        cleaned = re.sub(r'X{2,}', '', text)
+                        cleaned = re.sub(r'_{2,}', '', cleaned)
+                        cleaned = re.sub(r'\s+', '', cleaned)
+                        if len(cleaned) >= 10:
+                            loc = f"t{t_idx}_r{r_idx}_c{c_idx}_p{p_idx}"
+                            fingerprints[loc] = cleaned
+
+    return fingerprints
 
 
 # ═══════════════════════════════════════════
@@ -364,7 +563,11 @@ def detect_leakage(
 
     for idx, gen_text in generated_paragraphs.items():
         tpl_para = tpl_map.get(idx)
-        if not tpl_para or tpl_para.role != TemplateRole.CONTENT:
+        if not tpl_para:
+            continue
+        # 检查所有内容角色（CONTENT/EXAMPLE/INSTRUCTION）
+        _content_roles = {TemplateRole.CONTENT, TemplateRole.EXAMPLE, TemplateRole.INSTRUCTION}
+        if tpl_para.role not in _content_roles:
             continue
 
         tpl_text = tpl_para.text

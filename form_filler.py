@@ -48,11 +48,16 @@ from truth_fill import (
     prefill_labeled_fields_from_kb,
 )
 from quality_check import QualityChecker
-from template_decomposer import decompose_template, TemplateRole, detect_leakage
+from template_decomposer import (
+    decompose_template, TemplateRole, detect_leakage,
+    classify_paragraph_role, extract_template_fingerprints,
+)
+from output_validator import OutputValidator
 from section_generator import (
     generate_all_sections, apply_section_results, validate_output,
     build_section_prompt,
 )
+from material_index import MaterialIndex
 # ============================================================
 # 1. Data structures
 # ============================================================
@@ -348,40 +353,31 @@ def scan_cell_fields(cell, table_idx: int, row_idx: int, cell_idx: int):
                 ))
             char_offset_global += len(run_text)
 
-        # --- Example paragraphs (text with many XX => full rewrite) ---
-        xx_count = len(_XX_RE.findall(text))
-        single_x_count = len(_SINGLE_X_RE.findall(text))
-        total_x = xx_count + single_x_count
-        # A paragraph is "example" if it has enough placeholders to warrant
-        # a full rewrite rather than individual field extraction:
-        #   - 4+ XX groups (regardless of markers), OR
-        #   - 3+ XX groups AND has a marker keyword, OR
-        #   - 2+ XX groups AND text > 100 chars AND has marker
-        is_example = False
-        if total_x >= 4 and len(text) > 60:
-            is_example = True
-        elif xx_count >= 3 and len(text) > 60:
-            is_example = True
-        elif xx_count >= 2 and len(text) > 100:
-            has_marker = any(mk in text for mk in _EXAMPLE_MARKERS)
-            if has_marker:
-                is_example = True
+        # --- Example paragraphs: 使用 classify_paragraph_role 进行细粒度分类 ---
+        # 获取上下文
+        paras_list = cell.paragraphs
+        ctx_before = paras_list[p_idx - 1].text.strip() if p_idx > 0 else ""
+        ctx_after = paras_list[p_idx + 1].text.strip() if p_idx < len(paras_list) - 1 else ""
+        para_role = classify_paragraph_role(text, ctx_before, ctx_after)
 
-        # Additional pattern-based detection: template guidance phrases and
-        # known sample-industry words also indicate example/template content
-        if not is_example and len(text) > 20:
-            # "描述" followed by "情况" within 20 chars
-            m_desc = re.search(r"描述", text)
-            if m_desc:
-                after = text[m_desc.start():m_desc.start() + 20]
-                if "情况" in after:
+        # PRESERVE / DATA_SLOT → 不放入待填写列表，不标记为示例
+        # EXAMPLE / INSTRUCTION / CONTENT → 标记为示例段落（需要完整重写）
+        is_preserve = para_role in (TemplateRole.PRESERVE, TemplateRole.DATA_SLOT)
+        is_example = para_role in (TemplateRole.EXAMPLE, TemplateRole.INSTRUCTION, TemplateRole.CONTENT)
+
+        # 兼容旧逻辑：保留原有硬编码规则作为补充检测（捕获 classify 可能遗漏的边界情况）
+        if not is_example and not is_preserve:
+            xx_count = len(_XX_RE.findall(text))
+            single_x_count = len(_SINGLE_X_RE.findall(text))
+            total_x = xx_count + single_x_count
+            if total_x >= 4 and len(text) > 60:
+                is_example = True
+            elif xx_count >= 3 and len(text) > 60:
+                is_example = True
+            elif xx_count >= 2 and len(text) > 100:
+                has_marker = any(mk in text for mk in _EXAMPLE_MARKERS)
+                if has_marker:
                     is_example = True
-            # Template guidance keywords
-            if not is_example and any(kw in text for kw in ("简述", "列明", "例如", "请勿")):
-                is_example = True
-            # Known template sample-industry words
-            if not is_example and any(kw in text for kw in ("模具", "塑胶", "注塑")):
-                is_example = True
 
         if is_example:
             ex_counter += 1
@@ -396,6 +392,23 @@ def scan_cell_fields(cell, table_idx: int, row_idx: int, cell_idx: int):
     # Remove fields that belong to example paragraphs (will be rewritten wholly)
     example_para_idxs = {ex.para_idx for ex in examples}
     fields = [f for f in fields if f.para_idx not in example_para_idxs]
+
+    # 移除属于 PRESERVE 段落的字段（结构性内容不需要填写）
+    # 注意：PRESERVE 段落中的 XX 字段通常是 DATA_SLOT 型的纯占位，
+    # 但在上面的循环中 DATA_SLOT 不会被标记为 is_preserve（它们保留在 fields 中）。
+    # 这里只移除真正的 PRESERVE 标题段落中的字段。
+    preserve_para_idxs: set[int] = set()
+    for p_idx, para in enumerate(cell.paragraphs):
+        txt = para.text.strip()
+        if not txt:
+            continue
+        ctx_b = cell.paragraphs[p_idx - 1].text.strip() if p_idx > 0 else ""
+        ctx_a = cell.paragraphs[p_idx + 1].text.strip() if p_idx < len(cell.paragraphs) - 1 else ""
+        role = classify_paragraph_role(txt, ctx_b, ctx_a)
+        if role == TemplateRole.PRESERVE:
+            preserve_para_idxs.add(p_idx)
+    # 不移除 DATA_SLOT 的字段（它们需要被填写），只移除 PRESERVE 的
+    fields = [f for f in fields if f.para_idx not in preserve_para_idxs]
 
     return fields, checkboxes, examples
 
@@ -2846,6 +2859,14 @@ class FormFillAgent:
             self._kb_text = ""
             self._log(progress_cb, f"材料KB构建失败: {e}")
 
+        # 构建材料全文检索索引（供逐节生成时按需检索原文）
+        try:
+            self.material_index = MaterialIndex(self.file_contents)
+            self._log(progress_cb, f"材料全文索引构建完成: {len(self.material_index.chunks)}个段落")
+        except Exception as e:
+            self.material_index = None
+            self._log(progress_cb, f"材料全文索引构建失败: {e}")
+
         # Truth-first: parse financial statements from source files (Excel/PDF)
         try:
             self._truth_financial_data, self._truth_financial_sources = self._truth_build_financial_data(progress_cb)
@@ -3027,6 +3048,7 @@ class FormFillAgent:
                         template_paragraphs=body_paragraphs,
                         progress_cb=lambda msg: self._log(progress_cb, msg),
                         max_retries=1,
+                        material_index=getattr(self, "material_index", None),
                     )
 
                     if section_results:
@@ -3871,6 +3893,96 @@ class FormFillAgent:
 
         self._validation_blocked = False
         self._validation_blockers = []
+
+        # ★ OutputValidator 输出验证门：检测模板示例残留 + 结构完整性
+        try:
+            doc_text_for_ov = _collect_document_text(doc)
+            # 获取模板指纹
+            ov_fingerprints = getattr(self, '_template_fingerprints', {})
+            # 构建 OutputValidator 可用的指纹格式
+            ov_fp_cleaned = {}
+            for k, v in (ov_fingerprints or {}).items():
+                fp_text = v.get("text", "") if isinstance(v, dict) else str(v)
+                if fp_text and not (isinstance(v, dict) and v.get("is_structural", False)):
+                    # 去掉 XX 标记生成指纹
+                    cleaned = re.sub(r'X{2,}', '', fp_text)
+                    cleaned = re.sub(r'_{2,}', '', cleaned)
+                    cleaned = re.sub(r'\s+', '', cleaned)
+                    if len(cleaned) >= 10:
+                        ov_fp_cleaned[str(k)] = cleaned
+
+            ov = OutputValidator(template_fingerprints=ov_fp_cleaned)
+
+            # 收集 PRESERVE 标题（用于结构完整性检测）
+            ov_headings = []
+            try:
+                _decomp = decompose_template(doc)
+                for p in _decomp.get("body_paragraphs", []):
+                    if p.role in (TemplateRole.SKELETON, TemplateRole.PRESERVE) and p.is_heading:
+                        ov_headings.append(p.text.strip())
+            except Exception:
+                pass
+
+            ov_result = ov.validate(doc_text_for_ov, ov_headings)
+            ov_score = ov_result.get("score", 100)
+            ov_issues = ov_result.get("issues", [])
+
+            if ov_issues:
+                self._log(progress_cb,
+                          f"[OutputValidator] 检测到 {len(ov_issues)} 个问题，质量评分: {ov_score}")
+
+                # 尝试自动修复 example_leakage（每段最多1次，防止无限循环）
+                leakage_issues = [i for i in ov_issues if i.get("type") == "example_leakage"]
+                if leakage_issues and hasattr(self, 'llm'):
+                    fix_count = 0
+                    # 按问题文本定位到文档段落并尝试修复
+                    for issue in leakage_issues[:10]:  # 最多修复10处
+                        issue_text = issue.get("text", "")
+                        if not issue_text or len(issue_text) < 10:
+                            continue
+                        # 在文档中查找包含该问题文本的段落
+                        fixed = False
+                        for table in doc.tables:
+                            if fixed:
+                                break
+                            for row in table.rows:
+                                if fixed:
+                                    break
+                                for cell in row.cells:
+                                    if fixed:
+                                        break
+                                    for para in cell.paragraphs:
+                                        if issue_text in para.text and not fixed:
+                                            try:
+                                                fix_prompt_sys = "你是信贷报告填写助手。下面的句子包含模板示例残留，请重写该句子，去掉所有模板示例内容（如XX、注塑、模具、塑胶等），用[待补充]替代无法确定的信息。只返回重写后的句子，不要任何解释。"
+                                                fix_prompt_usr = f"原文：{para.text}\n问题：{issue.get('reason', '')}"
+                                                rewritten = self.llm(fix_prompt_sys, fix_prompt_usr)
+                                                if rewritten and rewritten.strip() and len(rewritten.strip()) > 5:
+                                                    # 用重写结果替换
+                                                    rewritten = rewritten.strip()
+                                                    if para.runs:
+                                                        para.runs[0].text = rewritten
+                                                        for run in para.runs[1:]:
+                                                            run.text = ""
+                                                    fix_count += 1
+                                                    fixed = True
+                                            except Exception:
+                                                pass
+                    if fix_count:
+                        self._log(progress_cb,
+                                  f"[OutputValidator] 自动修复 {fix_count} 处示例残留")
+
+                # 结构丢失问题记录到 pending_tags
+                struct_issues = [i for i in ov_issues if i.get("type") == "structure_loss"]
+                for si in struct_issues:
+                    self._log(progress_cb,
+                              f"[OutputValidator] 结构丢失: {si.get('heading', '?')}")
+            else:
+                self._log(progress_cb,
+                          f"[OutputValidator] ✓ 输出验证通过，质量评分: {ov_score}")
+        except Exception as e:
+            self._log(progress_cb, f"[OutputValidator] 验证出错: {e}")
+
         # 方案二：输出后置校验层（最终写盘前）
         try:
             qc = QualityChecker()
