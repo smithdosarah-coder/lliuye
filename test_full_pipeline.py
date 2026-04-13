@@ -22,9 +22,12 @@ OUTPUT_DIR = r"outputs"
 
 
 def load_materials(directory):
-    """Load all supported files from directory (recursive)."""
+    """Load all supported files from directory (recursive).
+    Returns (file_contents, file_path_map).
+    """
     exts = {'.txt', '.docx', '.doc', '.pdf', '.xlsx', '.xls'}
     result = {}
+    path_map = {}
     for root, dirs, files in os.walk(directory):
         for fname in files:
             ext = os.path.splitext(fname)[1].lower()
@@ -33,10 +36,12 @@ def load_materials(directory):
                 try:
                     content = _read_single_file(fp)
                     if content:
-                        result[os.path.basename(fp)] = content
+                        key = os.path.basename(fp)
+                        result[key] = content
+                        path_map[key] = fp
                 except Exception as e:
                     print(f"  Skip {fname}: {e}")
-    return result
+    return result, path_map
 
 
 def make_llm_caller():
@@ -82,7 +87,7 @@ def main():
 
     # 1. Load materials
     print("\n[1] Loading materials...")
-    file_contents = load_materials(MATERIAL_DIR)
+    file_contents, file_path_map = load_materials(MATERIAL_DIR)
     print(f"    Loaded {len(file_contents)} files:")
     for fname in sorted(file_contents.keys()):
         print(f"      {fname} ({len(file_contents[fname])} chars)")
@@ -93,7 +98,7 @@ def main():
 
     # 3. Create FormFillAgent
     print("\n[3] Creating FormFillAgent...")
-    agent = FormFillAgent(llm_caller, file_contents)
+    agent = FormFillAgent(llm_caller, file_contents, file_path_map=file_path_map)
 
     # 4. Run pipeline
     os.makedirs(OUTPUT_DIR, exist_ok=True)

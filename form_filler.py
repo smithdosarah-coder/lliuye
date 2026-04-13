@@ -7848,7 +7848,8 @@ def fill_form(template_path: str,
               file_contents: dict[str, str],
               llm_caller: Callable,
               output_path: str = None,
-              progress_cb: Callable = None) -> str:
+              progress_cb: Callable = None,
+              file_path_map: dict[str, str] | None = None) -> str:
     """
     One-call form fill.
     Interface preserved from v2 for backward compatibility.
@@ -7859,7 +7860,7 @@ def fill_form(template_path: str,
             os.path.dirname(template_path) or ".",
             f"{base}_filled.docx")
 
-    agent = FormFillAgent(llm_caller, file_contents)
+    agent = FormFillAgent(llm_caller, file_contents, file_path_map=file_path_map)
     return agent.run(template_path, output_path, progress_cb)
 
 
