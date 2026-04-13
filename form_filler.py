@@ -4903,10 +4903,6 @@ class FormFillAgent:
                 return str(int(round(float(value))))
             except Exception:
                 return str(value)
-            try:
-                return str(int(round(float(value))))
-            except Exception:
-                return str(value)
 
         idx_map: dict[str, dict[str, int]] = {}
         for period, items in financial_data.items():
@@ -6365,7 +6361,19 @@ class FormFillAgent:
                                       nested_tables=None):
         """Generate financial analysis with five professional modules."""
         self._log(progress_cb, "  提取财务数据...")
-        financial_data = self._extract_financial_data_from_doc(doc)
+        # Prefer truth-first parsed data (always available after _truth_build_financial_data);
+        # fall back to reading filled cells from doc only if truth data is missing.
+        truth_data = getattr(self, "_truth_financial_data", None)
+        if truth_data:
+            # Convert {period: {subject: int}} to {period_label: {subject: str}} for compatibility
+            financial_data = {}
+            for period, items in truth_data.items():
+                if not isinstance(items, dict):
+                    continue
+                financial_data[period] = {k: str(v) for k, v in items.items()}
+            self._log(progress_cb, f"  使用Truth财务事实库: {len(financial_data)}个期间")
+        else:
+            financial_data = self._extract_financial_data_from_doc(doc)
         if not financial_data:
             self._log(progress_cb, "  未找到已填充的财务数据表，跳过财务分析生成")
             return

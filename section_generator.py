@@ -44,8 +44,11 @@ _SECTION_SYSTEM_PROMPT = (
     "- \u7b2c\u4e09\u5c42 \u5206\u6790\u63a8\u65ad\uff1a"
     "\u6240\u6709\u7ed3\u8bba\u5fc5\u987b\u53ef\u8ffd\u6eaf\u5230\u8bc1\u636e\u3002\n\n"
     "\u3010\u7f3a\u5931\u6570\u636e\u5904\u7406\u3011\n"
-    "- \u6750\u6599\u672a\u63d0\u4f9b\u7684\u4fe1\u606f\uff1a\u76f4\u63a5\u5199"
-    "\u201c\u6750\u6599\u672a\u63d0\u4f9bXX\u4fe1\u606f\u201d\uff0c"
+    "- \u5728\u5224\u5b9a\u6570\u636e\u7f3a\u5931\u524d\uff0c\u52a1\u5fc5\u4ed4\u7ec6\u68c0\u67e5\u6240\u6709\u6750\u6599\u6765\u6e90\uff1a"
+    "\u3010\u5ba2\u6237\u6750\u6599\u6458\u8981\u3011\u3001\u3010\u8865\u5145\u6750\u6599\u539f\u6587\u3011\u3001"
+    "\u3010\u8d22\u52a1\u6570\u636e\u951a\u70b9\u3011\u3001\u3010\u4f01\u4e1a\u753b\u50cf\u951a\u70b9\u3011\u3002\n"
+    "- \u4ec5\u5f53\u6240\u6709\u63d0\u4f9b\u7684\u6750\u6599\u4e2d\u786e\u5b9e\u627e\u4e0d\u5230\u76f8\u5173\u4fe1\u606f\u65f6\uff0c"
+    "\u624d\u5199\u201c\u6750\u6599\u672a\u63d0\u4f9bXX\u4fe1\u606f\u201d\uff0c"
     "\u5e76\u8bf4\u660e\u5176\u5bf9\u5ba1\u6279\u5224\u65ad\u7684\u5f71\u54cd\u3002\n"
     "- \u4e0d\u8981\u7528\u201c\u5f85\u8865\u5145\u201d\u3001\u201c____\u201d\u3001"
     "\u201cXX\u201d\u7b49\u5360\u4f4d\u7b26\u3002\n"
@@ -82,7 +85,7 @@ def build_section_prompt(
     structure_lines.append(
         "\u6309\u4ee5\u4e0b\u7ed3\u6784\u64b0\u5199\uff08\u6709\u6570\u636e\u5199\uff0c"
         "\u65e0\u6570\u636e\u8bf4\u660e\u201c\u6750\u6599\u672a\u63d0\u4f9bXX\u201d"
-        "\u5e76\u5206\u6790\u5f71\u54cd\uff09\uff1a")
+        "\u5e76\u5206\u6790\u5f71\u54cd\uff0c\u4f46\u8bf7\u5148\u68c0\u67e5\u5168\u90e8\u6750\u6599\u6765\u6e90\uff09\uff1a")
     structure_lines.append("")
 
     for p in section.paragraphs:
@@ -131,22 +134,7 @@ def build_section_prompt(
     if truth_financial_data:
         financial_block = _build_financial_anchor(truth_financial_data)
 
-    user_parts = [structure_block]
-    if profile_block:
-        user_parts.append(profile_block)
-    if financial_block:
-        user_parts.append(financial_block)
-    if materials_block:
-        user_parts.append(
-            "\n\u3010\u5ba2\u6237\u6750\u6599\u6458\u8981\u3011\n" + materials_block)
-    else:
-        user_parts.append(
-            "\n\u3010\u5ba2\u6237\u6750\u6599\u3011\n"
-            "\uff08\u672c\u8282\u65e0\u53ef\u7528\u6750\u6599\uff0c"
-            "\u8bf7\u5728\u5404\u5b50\u9879\u6807\u6ce8\u201c\u6750\u6599\u672a\u63d0\u4f9b\u201d"
-            "\u5e76\u8bf4\u660e\u5f71\u54cd\uff09")
-
-    # 材料全文检索：从客户原始材料中补充相关段落
+    # 材料全文检索：从客户原始材料中补充相关段落（在组装 user_parts 前完成）
     material_supplement = ""
     if material_index is not None:
         # 从 section 的 title、instructions、content_lines 提取检索提示
@@ -159,25 +147,46 @@ def build_section_prompt(
             section.title, hints
         )
 
+    user_parts = [structure_block]
+    if profile_block:
+        user_parts.append(profile_block)
+    if financial_block:
+        user_parts.append(financial_block)
+    if materials_block:
+        user_parts.append(
+            "\n\u3010\u5ba2\u6237\u6750\u6599\u6458\u8981\u3011\n" + materials_block)
+
+    # 补充材料原文紧跟 KB 材料之后，确保 LLM 先看到证据
     if material_supplement:
         user_parts.append(
             "\n\u3010\u8865\u5145\u6750\u6599\u539f\u6587\uff08\u4ece\u5ba2\u6237"
             "\u63d0\u4f9b\u6750\u6599\u4e2d\u68c0\u7d22\uff09\u3011\n"
             + material_supplement)
 
+    # 仅当 KB 和全文检索都无结果时才提示（且措辞中性）
+    if not materials_block and not material_supplement:
+        user_parts.append(
+            "\n\u3010\u5ba2\u6237\u6750\u6599\u6458\u8981\u3011\n"
+            "\uff08\u672a\u68c0\u7d22\u5230\u4e0e\u672c\u8282\u76f4\u63a5\u5339\u914d\u7684\u6750\u6599\u6bb5\u843d\uff0c"
+            "\u8bf7\u7ed3\u5408\u3010\u4f01\u4e1a\u753b\u50cf\u951a\u70b9\u3011\u3001"
+            "\u3010\u8d22\u52a1\u6570\u636e\u951a\u70b9\u3011\u7b49\u5df2\u63d0\u4f9b\u4fe1\u606f\u64b0\u5199\uff09")
+
     user_parts.append(
         "\n\u8bf7\u73b0\u5728\u64b0\u5199\u672c\u8282\u5185\u5bb9\u3002"
         "\u76f4\u63a5\u8f93\u51fa\u6b63\u6587\uff0c"
         "\u4e0d\u8981\u8f93\u51fa\u6807\u9898\u884c\uff08\u6807\u9898\u5df2\u7531\u6a21\u677f\u4fdd\u7559\uff09\u3002")
 
+    # Fix 4: 补充材料原文指令始终注入系统提示（不仅限于有补充材料时）
     system_prompt = _SECTION_SYSTEM_PROMPT
-    if material_supplement:
-        system_prompt += (
-            "\n\u5982\u679c\u3010\u8865\u5145\u6750\u6599\u539f\u6587\u3011"
-            "\u4e2d\u5305\u542b\u4e0e\u672c\u8282\u76f8\u5173\u7684\u6570\u636e"
-            "\u6216\u4e8b\u5b9e\uff0c\u52a1\u5fc5\u4f18\u5148\u4f7f\u7528\uff0c"
-            "\u4e0d\u8981\u9057\u6f0f\u3002"
-        )
+    system_prompt += (
+        "\n\n\u3010\u6750\u6599\u4f7f\u7528\u4f18\u5148\u7ea7\u3011\n"
+        "\u64b0\u5199\u65f6\u8bf7\u4f9d\u6b21\u68c0\u67e5\u4ee5\u4e0b\u6240\u6709\u6750\u6599\u6765\u6e90\uff1a"
+        "\u3010\u8d22\u52a1\u6570\u636e\u951a\u70b9\u3011\u3001\u3010\u4f01\u4e1a\u753b\u50cf\u951a\u70b9\u3011\u3001"
+        "\u3010\u5ba2\u6237\u6750\u6599\u6458\u8981\u3011\u3001\u3010\u8865\u5145\u6750\u6599\u539f\u6587\u3011\u3002"
+        "\u4efb\u4f55\u6750\u6599\u6765\u6e90\u4e2d\u5305\u542b\u7684\u76f8\u5173\u6570\u636e\u548c\u4e8b\u5b9e\u90fd\u5fc5\u987b\u4f18\u5148\u4f7f\u7528\uff0c"
+        "\u4e0d\u5f97\u9057\u6f0f\u3002\u53ea\u6709\u786e\u8ba4\u6240\u6709\u6750\u6599\u6765\u6e90\u5747\u4e0d\u542b\u76f8\u5173\u4fe1\u606f\u65f6\uff0c"
+        "\u624d\u80fd\u5224\u5b9a\u4e3a\u201c\u6750\u6599\u672a\u63d0\u4f9b\u201d\u3002"
+    )
 
     return system_prompt, "\n".join(user_parts)
 

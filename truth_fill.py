@@ -162,13 +162,19 @@ def prefill_supply_chain_tables(
         period_cols: dict[tuple[str, str], int] = {}
         for ci, header in enumerate(headers):
             hs = str(header or "").strip()
-            period = normalize_period(hs)
-            if not re.fullmatch(r"20\d{2}(?:\.\d{1,2})?", period):
-                continue
             if metric_keyword not in hs:
                 continue
             metric = "pct" if "占比" in hs else "amt"
-            period_cols[(metric, period)] = ci
+            # Try canonical YYYY / YYYY.M period first
+            period = normalize_period(hs)
+            if re.fullmatch(r"20\d{2}(?:\.\d{1,2})?", period):
+                period_cols[(metric, period)] = ci
+                continue
+            # Fallback: relative period headers without a 4-digit year
+            if re.search(r"上年|去年", hs):
+                period_cols[(metric, "annual")] = ci
+            elif re.search(r"今年|本年|当年", hs):
+                period_cols[(metric, "interim")] = ci
         return period_cols
 
     def _resolve_relative_periods(periods: list[str]) -> tuple[str | None, str | None]:
@@ -226,13 +232,13 @@ def prefill_supply_chain_tables(
             col_product = _find_col(headers, ["\u9500\u552e\u4ea7\u54c1", "\u9500\u552e\u5546\u54c1", "\u9500\u552e\u5185\u5bb9", "\u5546\u54c1"])
             period_cols = _extract_header_period_columns(headers, "\u9500\u552e")
 
-        annual_period, interim_period = _resolve_relative_periods(
-            [period for _, period in period_cols.keys()]
-        )
-        col_amt = period_cols.get(("amt", annual_period)) if annual_period else None
-        col_pct = period_cols.get(("pct", annual_period)) if annual_period else None
-        col_amt_ytd = period_cols.get(("amt", interim_period)) if interim_period else None
-        col_pct_ytd = period_cols.get(("pct", interim_period)) if interim_period else None
+        all_periods = [period for _, period in period_cols.keys()]
+        annual_period, interim_period = _resolve_relative_periods(all_periods)
+        # Resolve amt/pct columns: try canonical YYYY period, then fallback "annual"/"interim"
+        col_amt = (period_cols.get(("amt", annual_period)) if annual_period else None) or period_cols.get(("amt", "annual"))
+        col_pct = (period_cols.get(("pct", annual_period)) if annual_period else None) or period_cols.get(("pct", "annual"))
+        col_amt_ytd = (period_cols.get(("amt", interim_period)) if interim_period else None) or period_cols.get(("amt", "interim"))
+        col_pct_ytd = (period_cols.get(("pct", interim_period)) if interim_period else None) or period_cols.get(("pct", "interim"))
 
         col_settle = _find_col(headers, ["\u7ed3\u7b97\u65b9\u5f0f"])
         col_term = _find_col(headers, ["\u8d26\u671f"])
