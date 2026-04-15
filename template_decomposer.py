@@ -43,6 +43,9 @@ class ParaInfo:
     section_id: str = ""
     # 从段落中提取的写作指令（括号内的"请..."等）
     embedded_instructions: list = dc_field(default_factory=list)
+    # 该段落是否紧跟一个嵌套表格（composite 结构判定用）
+    # 由 annotate_composite_structure() 在 decompose_template 中填充
+    followed_by_table: bool = False
 
 
 @dataclass
@@ -52,6 +55,22 @@ class SectionInfo:
     title: str
     level: int
     paragraphs: list[ParaInfo] = dc_field(default_factory=list)
+    # composite 段落索引集合（para_idx）：
+    # 这些 SKELETON 段后面紧跟一个嵌套表格（Word XML 中 w:p 之后直接是 w:tbl），
+    # 且段落本身是"XX:______"形式的占位骨架（title/data-slot 标签行）。
+    # section_generator 据此让 LLM 对该骨架只写 1-2 句总括，不重复列表格数据。
+    composite_paragraph_indices: list = dc_field(default_factory=list)
+    # V14-v3 循环表 schema：识别"顶部综述 cell + 下方循环子表(列头+示例row)"结构
+    #   {
+    #     "overview_para_idx": int,              # 综述段 para_idx
+    #     "header_cols": list[str],              # 列头文本
+    #     "sample_row_indices": list[int],       # 示例/占位 row 的索引
+    #     "data_row_template": list[str],        # 空模板 row 的列单元占位
+    #   }
+    # 未命中则为 None。section_generator / form_filler 据此:
+    #   - 综述 cell 只写 1-2 句说明,禁止塞流水明细(Prompt 铁律 + 代码后置长度检测)
+    #   - 示例 row 的占位字面 (如 "如未落实请说明原因"/列头复读) 清除
+    loop_table_schema: dict = dc_field(default_factory=dict)
 
     @property
     def skeleton_lines(self) -> list[str]:
@@ -480,6 +499,257 @@ def group_into_sections(paragraphs: list[ParaInfo]) -> list[SectionInfo]:
     return sections
 
 
+def _scan_para_followed_by_table(body_cell, body_paras: list[ParaInfo]) -> None:
+    """
+    遍历 body_cell 的 XML children(w:p / w:tbl),按序标记
+    "该段落是否紧跟一个嵌套表格"。
+
+    实现方式(结构特征,不依赖任何关键词):
+      - body_cell._element 的 child elements 中 w:p 与 w:tbl 以正文顺序交替出现
+      - 对每个 w:p,若其 next sibling 是 w:tbl(跨过空行可能的 w:p 会被视作 skeleton
+        段的一部分,但通常 skeleton 段紧贴表格,无空行),则该段 followed_by_table=True
+      - 段落与 body_paras 的对应:cell.paragraphs 与 body_cell._element 中 w:p
+        顺序严格一致(python-docx 契约),按枚举同步即可
+
+    向后兼容:没有嵌套表格的模板,全部 followed_by_table 保持 False,不影响主流程。
+    """
+    try:
+        from docx.oxml.ns import qn
+    except Exception:
+        return
+
+    p_tag = qn('w:p')
+    tbl_tag = qn('w:tbl')
+
+    # 收集 body_cell XML 顺序的 (kind, element) 列表
+    ordered = []
+    # cell._element 对应 w:tc; 其中直接 children 含 w:p / w:tbl / w:tcPr
+    tc = body_cell._element
+    for child in list(tc):
+        if child.tag == p_tag:
+            ordered.append(('p', child))
+        elif child.tag == tbl_tag:
+            ordered.append(('tbl', child))
+
+    # 把 XML 顺序的 'p' 依次映射到 body_paras（同序）
+    p_cursor = 0
+    for i, (kind, elem) in enumerate(ordered):
+        if kind != 'p':
+            continue
+        if p_cursor >= len(body_paras):
+            break
+        # 查找下一个非空 sibling:跨过同级空段、pPr 等不算
+        is_followed = False
+        for j in range(i + 1, len(ordered)):
+            nxt_kind, _ = ordered[j]
+            if nxt_kind == 'tbl':
+                is_followed = True
+                break
+            if nxt_kind == 'p':
+                # 下一个是段落且非空 → 不构成 composite
+                # 若下一个段落是空(text 全空),允许再往后看一层
+                pass
+                break
+        body_paras[p_cursor].followed_by_table = is_followed
+        p_cursor += 1
+
+
+# 匹配"title:______"/"title: 空白"骨架行——composite 判定辅助
+#   特征:含冒号,冒号后主要是下划线/全角空格/单位标注("单位:万元"),
+#   长度 <= 120 且非 CONTENT。不依赖任何业务关键词。
+_COMPOSITE_SKELETON_RE = re.compile(
+    r'[：:][ \u3000_]{2,}'                # 冒号后大段空白/下划线
+    r'|^[①②③④⑤⑥⑦⑧⑨⑩].{0,40}[：:]'    # ①...:  level-4 带冒号
+    r'|单位[：:]\s*(?:万元|元|%)'         # "单位:万元" 强特征
+)
+
+
+def _annotate_composite_sections(sections: list[SectionInfo]) -> int:
+    """
+    对每个 SectionInfo,识别其内部的 composite 段落:
+      段落 followed_by_table + (占位骨架特征 or 长段落兜底)
+
+    V14-v3 扩展:
+      任意段落(无论长短、无论 role),只要其"在 cell XML 中紧邻下一个元素为表格"
+      (followed_by_table=True),即视为 composite 绑定——下方表格会独立填充,
+      段落只写总括/趋势/异常。这样可以覆盖:
+        - 短骨架 "①主要上游:单位:万元" + 前五大采购表
+        - 长财务段落 + 现金流量表
+        - 上游/下游段 + 明细表
+        - 关联企业段 + 关联企业表
+        - 资产段 + 资产清单
+        - 融资段 + 融资清单
+
+    不限制段落 role:分类规则可能把"①主要上游(前五大):"这种后跟表格的 heading
+    误分为 CONTENT,也可能把长段落分为 CONTENT。composite 标记与 role 正交,
+    role 决定是否重写, composite 决定该段落对应的真实数据由表格填充路径处理。
+
+    返回: 命中的 composite 段落总数
+    """
+    total = 0
+    for sec in sections:
+        hits = []
+        for p in sec.paragraphs:
+            if not p.followed_by_table:
+                continue
+            txt = (p.text or "").strip()
+            if not txt:
+                continue
+            # V14-v3 放宽判定:只要 followed_by_table,统一绑 composite,
+            # 原有短骨架特征保留(用于判定优先级/日志),长段落兜底命中。
+            # 上限放宽到 2000 字(避免把整节 body 错绑)。
+            if len(txt) > 2000:
+                continue
+            hits.append(p.para_idx)
+        if hits:
+            sec.composite_paragraph_indices = hits
+            total += len(hits)
+    return total
+
+
+def _detect_loop_table_schemas(
+    body_cell,
+    body_paras: list[ParaInfo],
+    sections: list[SectionInfo],
+) -> int:
+    """
+    V14-v3: 识别"综述段 + 循环子表(列头+示例 row + 空模板 row)"结构。
+
+    识别特征(纯结构,不依赖关键词黑名单):
+      - 表格 >= 3 row
+      - 第 1 row 是明确列头: 所有 cell 都有文本,每 cell 长度 <= 30 字
+        且列头数 >= 2(典型: 序号 / XX / XX)
+      - 第 2+ row 至少有 1 row 满足"示例 row"特征:
+          a) 与列头存在文本重复(列头复读)
+          b) 或含 placeholder 句式(短句、含"如...,请...说明"等通用模板提示,
+             单行 <= 50 字)
+          c) 或半数以上 cell 空白但不是全空
+      - 可用 cell 数量长度弹性(非全填满),说明可循环
+
+    命中的 section 会挂:
+        sec.loop_table_schema = {
+            "overview_para_idx": <前导综述段 para_idx>,
+            "header_cols": [...],
+            "sample_row_indices": [...],
+            "data_row_template": [...],  # 空模板 row
+            "table_cell_key": (row_idx, col_idx, nt_idx),  # 定位嵌套表格
+        }
+    返回: 命中数
+    """
+    try:
+        from docx.oxml.ns import qn
+    except Exception:
+        return 0
+
+    # body_cell.tables 仅给出直系嵌套表,按出现顺序与段落在 XML 中交错
+    tbl_tag = qn('w:tbl')
+    p_tag = qn('w:p')
+
+    # 构建 body_cell 顺序: [(kind, idx-in-its-list)]
+    # 同时需要知道每个 tbl 紧邻的"前面最近非空段落"
+    # (作为综述段候选)
+    order = []
+    p_cursor = 0
+    tbl_cursor = 0
+    for child in list(body_cell._element):
+        if child.tag == p_tag:
+            order.append(('p', p_cursor))
+            p_cursor += 1
+        elif child.tag == tbl_tag:
+            order.append(('tbl', tbl_cursor))
+            tbl_cursor += 1
+
+    # para_idx -> section
+    pidx_to_section = {}
+    for sec in sections:
+        for p in sec.paragraphs:
+            pidx_to_section[p.para_idx] = sec
+
+    nested_tables = list(body_cell.tables)
+    hits = 0
+
+    for i, (kind, idx) in enumerate(order):
+        if kind != 'tbl':
+            continue
+        if idx >= len(nested_tables):
+            continue
+        tbl = nested_tables[idx]
+        rows = tbl.rows
+        if len(rows) < 3:
+            continue
+
+        header_cells = [c.text.strip() for c in rows[0].cells]
+        if len(header_cells) < 2:
+            continue
+        if not all(h and len(h) <= 30 for h in header_cells):
+            continue
+
+        # 扫描 row 2+: 找示例 row / 模板 row
+        sample_indices = []
+        template_row = None
+        header_set = set(h for h in header_cells if h)
+        for r_idx in range(1, len(rows)):
+            row_texts = [c.text.strip() for c in rows[r_idx].cells]
+            non_empty = [t for t in row_texts if t]
+            if not non_empty:
+                # 全空 row: 候选 data_row_template
+                if template_row is None:
+                    template_row = row_texts
+                continue
+
+            # a) 列头复读
+            overlap = sum(1 for t in row_texts if t in header_set)
+            is_header_repeat = overlap >= max(1, len(header_cells) // 2)
+
+            # b) placeholder 句式: 短句 + 含 "如...请...说明"/"需要时"
+            placeholder_text = any(
+                bool(
+                    t and (
+                        re.search(r"如[^,。]{0,20}(?:请|需|应)[^,。]{0,30}说明", t)
+                        or re.search(r"(?:如未|如有|若.{0,6})(?:请|需|应)", t)
+                    )
+                )
+                for t in row_texts
+            )
+
+            # c) 半数 cell 空白但非全空
+            empty_ratio = sum(1 for t in row_texts if not t) / max(1, len(row_texts))
+            is_half_empty = 0 < empty_ratio < 1 and empty_ratio >= 0.4
+
+            if is_header_repeat or placeholder_text or is_half_empty:
+                sample_indices.append(r_idx)
+
+        if not sample_indices:
+            continue
+
+        # 找综述段: i 之前最近的 p-kind 段落 (在同 section)
+        overview_pidx = None
+        for j in range(i - 1, -1, -1):
+            k2, idx2 = order[j]
+            if k2 == 'p' and idx2 < len(body_paras):
+                p = body_paras[idx2]
+                if p.text and p.text.strip():
+                    overview_pidx = p.para_idx
+                    break
+        if overview_pidx is None:
+            continue
+
+        sec = pidx_to_section.get(overview_pidx)
+        if sec is None:
+            continue
+
+        sec.loop_table_schema = {
+            "overview_para_idx": overview_pidx,
+            "header_cols": header_cells,
+            "sample_row_indices": sample_indices,
+            "data_row_template": template_row or [""] * len(header_cells),
+            "nested_table_index": idx,
+        }
+        hits += 1
+
+    return hits
+
+
 def decompose_template(doc) -> dict[str, Any]:
     """
     主入口：拆解整个模板文档。
@@ -494,6 +764,7 @@ def decompose_template(doc) -> dict[str, Any]:
                 "skeleton_count": int,
                 "content_count": int,
                 "section_count": int,
+                "composite_paragraphs": int,  # 命中"段落+紧邻表格"的骨架段数
             }
         }
     """
@@ -502,7 +773,22 @@ def decompose_template(doc) -> dict[str, Any]:
     # R3 = 主体
     body_cell = main_table.rows[3].cells[0]
     body_paras = classify_cell_paragraphs(body_cell)
+
+    # 标记"段落后紧跟嵌套表格"——composite 结构的底层事实
+    _scan_para_followed_by_table(body_cell, body_paras)
+
     body_sections = group_into_sections(body_paras)
+
+    # 基于上述事实,把 composite 段落挂到所属 section
+    composite_count = _annotate_composite_sections(body_sections)
+
+    # V14-v3: 识别循环表 schema (综述段 + 循环子表)
+    try:
+        loop_table_count = _detect_loop_table_schemas(
+            body_cell, body_paras, body_sections
+        )
+    except Exception:
+        loop_table_count = 0
 
     # R1 = 头部（包含客户名称、授信方案等标签字段和复选框）
     header_paras = []
@@ -522,6 +808,8 @@ def decompose_template(doc) -> dict[str, Any]:
             "skeleton_count": skel_count,
             "content_count": cont_count,
             "section_count": len(body_sections),
+            "composite_paragraphs": composite_count,
+            "loop_table_sections": loop_table_count,
         },
     }
 

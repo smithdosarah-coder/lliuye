@@ -46,6 +46,7 @@ from truth_fill import (
     prefill_asset_table,
     prefill_bank_flow_table,
     prefill_labeled_fields_from_kb,
+    prefill_checkboxes_from_kb,
 )
 from quality_check import QualityChecker
 from template_decomposer import (
@@ -481,11 +482,16 @@ def scan_labeled_fields(cell, table_idx: int, row_idx: int, cell_idx: int,
                 ))
 
     # Filter out signature/approval/irrelevant fields
+    # Note: 客户经理 NOT in skip list — it's a real header field.
+    # Signature-area fields (日期/签名/盖章) are skipped because they
+    # rarely have 3+ space blank runs in the template.
     SKIP_LABELS = [
-        '日期', '客户经理', '共同调查人', '管理经理', '二级支行行长',
-        '分管行长', '行长', '审查员', '审批人', '签名', '盖章',
+        '共同调查人', '管理经理', '二级支行行长',
+        '分管行长', '审查员', '审批人', '签名', '盖章',
         '最新股权结构表',  # table header, not a field
     ]
+    # Labels that should only be skipped in bottom signature rows (high row index)
+    SIGNATURE_LABELS = ['日期', '行长']
     # Also skip fields in Row 2 (pre-filled row with loan terms)
     filtered = []
     seen_contexts = set()
@@ -494,6 +500,13 @@ def scan_labeled_fields(cell, table_idx: int, row_idx: int, cell_idx: int,
         skip = False
         for sl in SKIP_LABELS:
             if sl in lf.label and len(lf.label) < 25:
+                skip = True
+                break
+        if skip:
+            continue
+        # Skip signature-area labels only when in bottom half of table
+        for sl in SIGNATURE_LABELS:
+            if sl in lf.label and len(lf.label) < 15 and lf.cell_path[1] > 10:
                 skip = True
                 break
         if skip:
@@ -1005,7 +1018,7 @@ def build_semantic_block_prompt(
         "2. 同一语义块内的字段应该保持逻辑一致性\n"
         "3. 金额单位与上下文保持一致（看前后文是万元还是亿元）\n"
         "4. 日期格式：YYYY年MM月DD日 或 YYYY年MM月\n"
-        "5. 只有材料中完全没有该信息时，才填 \"待补充\"\n"
+        "5. 只有材料中完全没有该信息时，才填 \"待补充\"(不要加方括号,不要写 \"[待补充]\")\n"
         "6. 复选框：返回需要勾选的ID列表\n"
         "7. 返回纯JSON格式\n\n"
         "【输出格式】\n"
@@ -1487,7 +1500,7 @@ def build_field_extraction_prompt(fields: list[FieldSlot], materials: str,
         "2. 金额单位与上下文保持一致（看前后文是万元还是亿元）\n"
         "3. 日期格式：YYYY年MM月DD日 或 YYYY年MM月\n"
         "4. 【重要】尽力从材料中寻找数据！材料中有相关信息就填入，哪怕格式略有不同。\n"
-        "   只有材料中完全没有该信息时，才填 \"待补充\"\n"
+        "   只有材料中完全没有该信息时，才填 \"待补充\"(不要加方括号,不要写 \"[待补充]\")\n"
         "5. 返回纯JSON，不要任何其他文字\n"
         "6. 所有内容纯中文\n"
         "7. XX的个数暗示了答案的大致长度：XX≈2-4字，XXX≈3-8字，XXXX≈4-10字，XXXXX≈5-20字\n"
@@ -2129,7 +2142,9 @@ def apply_labeled_field_values(doc: Document, labeled_fields: list,
         if raw_val is None or isinstance(raw_val, (bool, list, dict)):
             continue
         val = str(raw_val).strip()
-        if not val or val in ("None", "待补充"):
+        if not val or val in ("None", "待补充", "[待补充]", "【待补充】",
+                              "（待补充）", "(待补充)", "待确认", "待核实",
+                              "TBD", "TODO"):
             continue
 
         cell = _get_cell(doc, lf.cell_path)
@@ -2254,7 +2269,9 @@ def apply_field_values(doc: Document, fields: list[FieldSlot],
         if raw_val is None or isinstance(raw_val, (bool, list, dict)):
             continue
         val = str(raw_val).strip()
-        if not val or val in ("待补充", "None"):
+        if not val or val in ("None", "待补充", "[待补充]", "【待补充】",
+                              "（待补充）", "(待补充)", "待确认", "待核实",
+                              "TBD", "TODO"):
             val = "____"
 
         # Get the paragraph
@@ -2765,7 +2782,20 @@ class FormFillAgent:
         if orders_count and orders_amt:
             profile_lines.append(f"在手订单：{orders_count}笔，合同总金额{orders_amt}")
 
-        return "\n".join(profile_lines)
+        profile_text = "\n".join(profile_lines)
+
+        # 结构化材料锚点(融资清单/上下游/关联企业/资产/研发)
+        try:
+            from material_anchor import build_material_anchor
+            ma = build_material_anchor(self.file_path_map or {})
+            self._material_anchor = ma
+            ma_text = ma.format_for_prompt()
+            if ma_text:
+                profile_text += "\n\n" + ma_text
+        except Exception:
+            self._material_anchor = None
+
+        return profile_text
 
     def _build_rewrite_anchors(self, truth_data: dict | None) -> dict:
         """Build numeric anchors for key narrative rewrites from truth financial data."""
@@ -2854,6 +2884,8 @@ class FormFillAgent:
             fact_n = len((self.kb or {}).get("facts", {}) or {})
             src = (self.kb or {}).get("source_file", "")
             self._log(progress_cb, f"材料KB构建完成: {fact_n}个字段" + (f" (src={src})" if src else ""))
+            fact_keys = list((self.kb or {}).get("facts", {}).keys())
+            self._log(progress_cb, f"[DEBUG] KB fact keys: {fact_keys}")
         except Exception as e:
             self.kb = {}
             self._kb_text = ""
@@ -3011,6 +3043,46 @@ class FormFillAgent:
         self._truth_clear_unavailable_period_cells(doc, nested_tables, progress_cb)
 
         # ═══════════════════════════════════════════════════════════
+        # F4: KB预填标签字段和复选框（在section generation之前执行）
+        #   这些是确定性填充，不依赖LLM，必须在任何模式下都执行
+        # ═══════════════════════════════════════════════════════════
+        self._log(progress_cb,
+                  f"[DEBUG] F4预填: {len(labeled_fields)}个标签字段, "
+                  f"{len(checkboxes)}个复选框, "
+                  f"KB facts={len((self.kb or {}).get('facts', {}))}个")
+        if labeled_fields:
+            sample_labels = [getattr(lf, 'label', '?') for lf in labeled_fields[:10]]
+            self._log(progress_cb, f"[DEBUG] 标签字段样本: {sample_labels}")
+        try:
+            kb_lf_prefilled = prefill_labeled_fields_from_kb(
+                labeled_fields, self.kb,
+                financial_data=getattr(self, "_truth_financial_data", None),
+            )
+            self._log(progress_cb,
+                      f"[DEBUG] KB标签预填结果: {len(kb_lf_prefilled)}个匹配 "
+                      f"({list(kb_lf_prefilled.keys())[:8]})")
+            if kb_lf_prefilled:
+                # Apply KB values directly to document
+                lf_applied = self._apply_labeled_field_values(doc, labeled_fields, kb_lf_prefilled)
+                self.stats["filled"] += lf_applied
+                self._log(progress_cb, f"F4-KB预填标签字段: {lf_applied} 个")
+        except Exception as e:
+            self._log(progress_cb, f"F4-KB预填标签字段失败: {e}")
+            import traceback; traceback.print_exc()
+
+        try:
+            kb_cb_prefilled = prefill_checkboxes_from_kb(checkboxes, self.kb)
+            self._log(progress_cb,
+                      f"[DEBUG] KB复选框预填结果: {len(kb_cb_prefilled)}个匹配 "
+                      f"({list(kb_cb_prefilled.items())[:5]})")
+            if kb_cb_prefilled:
+                cb_applied = self._apply_checkbox_values_from_kb(doc, checkboxes, kb_cb_prefilled)
+                self.stats["filled"] += cb_applied
+                self._log(progress_cb, f"F4-KB预填复选框: {cb_applied} 个")
+        except Exception as e:
+            self._log(progress_cb, f"F4-KB预填复选框失败: {e}")
+
+        # ═══════════════════════════════════════════════════════════
         # ★ 新架构：逐节生成模式 (Section Generation Mode)
         #   替代旧的"逐字段填写"，从根本上消除模板泄漏
         #   原理：把模板当写作指南，按章节重写，而非找标记替换
@@ -3037,7 +3109,27 @@ class FormFillAgent:
                 if not sections_to_rewrite:
                     self._log(progress_cb, "  无需重写的内容段落，跳过逐节生成")
                 else:
-                    # Step 2: 逐节生成
+                    # Build FinancialIndicators from xlsx materials (deterministic layer)
+                    financial_indicators = None
+                    try:
+                        from financial_analyzer import FinancialAnalyzer
+                        fin_xlsx = None
+                        for fname, fpath in (self.file_path_map or {}).items():
+                            if not fpath.lower().endswith((".xlsx", ".xls")):
+                                continue
+                            if re.search(r"会企|财务报表|资产负债|利润表|现金流", fname):
+                                fin_xlsx = fpath
+                                break
+                        if fin_xlsx:
+                            self._log(progress_cb,
+                                      f"  发现财务xlsx: {os.path.basename(fin_xlsx)},"
+                                      f" 构建财务指标...")
+                            financial_indicators = FinancialAnalyzer().analyze(fin_xlsx)
+                            self._log(progress_cb, "  ✓ 财务指标构建完成")
+                    except Exception as e:
+                        self._log(progress_cb, f"  财务指标构建失败: {e}")
+
+                    # Step 2: 逐节生成（三阶段协议：证据组装→锚定撰写→自审门控）
                     section_results = generate_all_sections(
                         sections=sections_to_rewrite,
                         kb=getattr(self, "kb", None),
@@ -3049,6 +3141,10 @@ class FormFillAgent:
                         progress_cb=lambda msg: self._log(progress_cb, msg),
                         max_retries=1,
                         material_index=getattr(self, "material_index", None),
+                        use_evidence_protocol=True,
+                        use_audit=True,
+                        financial_indicators=financial_indicators,
+                        material_anchor=getattr(self, "_material_anchor", None),
                     )
 
                     if section_results:
@@ -3118,11 +3214,32 @@ class FormFillAgent:
             all_checkbox_values = []
             all_lf_values = {}
 
-            # KB预填标签字段（不变）
-            kb_prefilled = prefill_labeled_fields_from_kb(labeled_fields, self.kb)
+            # KB预填标签字段（F4扩展：传入财务数据）
+            kb_prefilled = prefill_labeled_fields_from_kb(
+                labeled_fields, self.kb,
+                financial_data=getattr(self, "_truth_financial_data", None),
+            )
             if kb_prefilled:
                 all_lf_values.update(kb_prefilled)
                 self._log(progress_cb, f"  KB预填标签字段: {len(kb_prefilled)} 个")
+
+            # KB预填复选框（F4：确定性推断，不依赖LLM）
+            kb_cb_values = prefill_checkboxes_from_kb(checkboxes, self.kb)
+            if kb_cb_values:
+                all_checkbox_values_dict = {cb.cb_id if hasattr(cb, 'cb_id') else cb.field_id: cb
+                                            for cb in checkboxes
+                                            if hasattr(cb, 'cb_id') or hasattr(cb, 'field_id')}
+                kb_cb_applied = 0
+                for cb_id, should_check in kb_cb_values.items():
+                    # Will be applied later; store in a list format expected by downstream
+                    all_checkbox_values.append({
+                        "id": cb_id,
+                        "checked": should_check,
+                        "source": "kb_inference",
+                    })
+                    kb_cb_applied += 1
+                if kb_cb_applied:
+                    self._log(progress_cb, f"  KB预填复选框: {kb_cb_applied} 个")
 
             for block in semantic_blocks:
                 block_name = block.get("block_name", "未知块")
@@ -3301,7 +3418,10 @@ class FormFillAgent:
             self._log(progress_cb,
                       f"[逐节模式] 仅预填 KB 确定性标签字段...")
             all_lf_values = {}
-            kb_prefilled = prefill_labeled_fields_from_kb(labeled_fields, self.kb)
+            kb_prefilled = prefill_labeled_fields_from_kb(
+                labeled_fields, self.kb,
+                financial_data=getattr(self, "_truth_financial_data", None),
+            )
             if kb_prefilled:
                 all_lf_values.update(kb_prefilled)
                 self._log(progress_cb,
@@ -3367,7 +3487,10 @@ class FormFillAgent:
 
             # Truth-first: prefill all deterministic fields from KB
             # (replaces the old hard-coded 2-field logic)
-            kb_prefilled = prefill_labeled_fields_from_kb(labeled_fields, self.kb)
+            kb_prefilled = prefill_labeled_fields_from_kb(
+                labeled_fields, self.kb,
+                financial_data=getattr(self, "_truth_financial_data", None),
+            )
             if kb_prefilled:
                 all_lf_values.update(kb_prefilled)
                 self._log(progress_cb,
@@ -3971,8 +4094,43 @@ class FormFillAgent:
             self._log(progress_cb, f"  已修正 {format_fixes} 处数字格式/Markdown残留")
 
         # 8. Insert Word comments and merge extra pending tags
+        # V14-v3: 先收集 composite-bound paragraph id 以豁免误判
+        try:
+            composite_para_ids = FormFillAgent._collect_composite_para_element_ids(doc)
+            if composite_para_ids:
+                self._log(progress_cb,
+                          f"[composite 豁免] 识别到 {len(composite_para_ids)} 个 composite 段,pending_tag 扫描将跳过")
+        except Exception as _e:
+            composite_para_ids = set()
+            self._log(progress_cb, f"[composite 豁免] 收集失败: {_e}")
+
+        # V14-v3: loop_table 样本 row 清理
+        try:
+            _decomp_for_loop = decompose_template(doc)
+            loop_cleared = FormFillAgent._clean_loop_table_samples(
+                doc, _decomp_for_loop.get("body_sections", [])
+            )
+            if loop_cleared:
+                self._log(progress_cb,
+                          f"[loop_table] 清除 {loop_cleared} 处样本/占位行")
+        except Exception as _e:
+            self._log(progress_cb, f"[loop_table] 清理异常: {_e}")
+
+        # V14-v5: 通用"模板示例 row 被复制"清理 (不依赖 loop_table_schema 识别)
+        # 结构特征:任意嵌套表里,两个相邻数据 row 去除序号列后内容完全相同
+        # → 判为模板示例多份复制,清空"实质内容"列
+        try:
+            dup_cleared = FormFillAgent._clean_duplicate_sample_rows(doc)
+            if dup_cleared:
+                self._log(progress_cb,
+                          f"[dup-sample] 清除 {dup_cleared} 处示例复制 row")
+        except Exception as _e:
+            self._log(progress_cb, f"[dup-sample] 清理异常: {_e}")
+
         self._log(progress_cb, "插入侧栏批注标签...")
-        comments_xml, comment_tags = self._insert_word_comments(doc)
+        comments_xml, comment_tags = self._insert_word_comments(
+            doc, composite_para_ids=composite_para_ids
+        )
         merged_tags = list(comment_tags or []) + list(getattr(self, '_extra_pending_tags', []) or [])
         seen_tags = set()
         dedup_tags = []
@@ -4057,7 +4215,7 @@ class FormFillAgent:
                                     for para in cell.paragraphs:
                                         if issue_text in para.text and not fixed:
                                             try:
-                                                fix_prompt_sys = "你是信贷报告填写助手。下面的句子包含模板示例残留，请重写该句子，去掉所有模板示例内容（如XX、注塑、模具、塑胶等），用[待补充]替代无法确定的信息。只返回重写后的句子，不要任何解释。"
+                                                fix_prompt_sys = "你是信贷报告填写助手。下面的句子包含模板示例残留，请重写该句子，去掉所有模板示例内容（如XX、注塑、模具、塑胶等）。若信息无法确定，用自然中文短语（例如'材料未提供XX'）替代，不要输出字面量 '[待补充]'/'XX'/'____'。只返回重写后的句子，不要任何解释。"
                                                 fix_prompt_usr = f"原文：{para.text}\n问题：{issue.get('reason', '')}"
                                                 rewritten = self.llm(fix_prompt_sys, fix_prompt_usr)
                                                 if rewritten and rewritten.strip() and len(rewritten.strip()) > 5:
@@ -4118,6 +4276,26 @@ class FormFillAgent:
                 _append_fill_run_output("\n[质量检查]\n未发现命中规则的问题。")
         except Exception as e:
             self._log(progress_cb, f"后置质量校验异常: {e}")
+
+        # 8.5 表格残影清理:删除"裸数字+中文姓名"格式的孤立段落
+        #     这类段落通常是股权表列值被误写入段落 run 的残留,
+        #     在正文中毫无语义,必须整行清除。
+        try:
+            residue_cleared = self._clear_table_residue_paragraphs(doc)
+            if residue_cleared:
+                self._log(progress_cb,
+                          f"表格残影清理: {residue_cleared} 段被清空")
+        except Exception as e:
+            self._log(progress_cb, f"表格残影清理异常: {e}")
+
+        # 8.6 V14-v3: docx run 层 sanitize — 清非标题 paragraph 的加黑 run
+        try:
+            bold_reset = FormFillAgent._sanitize_docx_runs(doc)
+            if bold_reset:
+                self._log(progress_cb,
+                          f"[docx-run] 清除 {bold_reset} 处非标题段落 bold run")
+        except Exception as _e:
+            self._log(progress_cb, f"[docx-run] sanitize 异常: {_e}")
 
         # 9. Save and validate
         self._save_preserving_zip(doc, docx_path, output_path,
@@ -4966,6 +5144,13 @@ class FormFillAgent:
         }
         col_table_ratio_map = dict(row_table_ratio_map)
 
+        # G1+G2 联合:集团合并/若有类表 gating。缺失合并报表时留空+pending,
+        # 严禁用借款人单体数据冒充合并数据。
+        try:
+            from truth_fill import should_skip_consolidated_financial_table
+        except Exception:
+            should_skip_consolidated_financial_table = None
+
         for ts in tables:
             cell = _get_cell(doc, ts.cell_path)
             if cell is None or ts.nested_table_idx >= len(cell.tables):
@@ -4974,6 +5159,36 @@ class FormFillAgent:
             headers = [str(h or '').strip() for h in (ts.header_row or [])]
             if not headers:
                 continue
+
+            # Gating: 用 cell 内段落文本 + header_row 作为识别文本
+            if should_skip_consolidated_financial_table is not None:
+                try:
+                    caption_parts = []
+                    for p in cell.paragraphs:
+                        t = (p.text or "").strip()
+                        if t:
+                            caption_parts.append(t)
+                    caption_parts.extend(headers)
+                    probe_text = " ".join(caption_parts)
+                    skip, tag = should_skip_consolidated_financial_table(
+                        probe_text,
+                        getattr(self, "file_path_map", None) or {},
+                        getattr(self, "_material_anchor", None),
+                    )
+                    if skip:
+                        try:
+                            self._extra_pending_tags.append({
+                                "label": tag,
+                                "context": probe_text[:80],
+                                "location": f"table@{ts.cell_path}",
+                            })
+                        except Exception:
+                            pass
+                        if progress_cb:
+                            progress_cb(f"  [溯源 gating] 跳过合并类表 ({tag})")
+                        continue
+                except Exception:
+                    pass
 
             if '年份' in headers[0]:
                 data_start = ts.num_rows - len(ts.row_labels)
@@ -5509,6 +5724,36 @@ class FormFillAgent:
         self._validation_blockers = blockers
         return blockers
 
+    # Regex: 一行内 >=2 个裸数字(可带小数/千分符) + 2-5 字中文姓名, 首尾仅空白
+    #         例如 "39  4100  4100  黄祖海" / " 4100  4100  4100  黄祖海 "
+    #         正常 prose 中数字必带单位/标点,绝不会裸出现这种组合。
+    _TABLE_RESIDUE_PARA_RE = re.compile(
+        r'^\s*(?:-?\d[\d,]*(?:\.\d+)?[\s\u3000]+){2,}'
+        r'[\u4e00-\u9fa5]{2,5}\s*$'
+    )
+
+    def _clear_table_residue_paragraphs(self, doc) -> int:
+        """扫描所有 table cell 段落,清除"裸数字+中文姓名"格式残影行。
+
+        只清段落 runs 文本,不删除段落结构(保留格式占位)。
+        """
+        cleared = 0
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if self._TABLE_RESIDUE_PARA_RE.match(para.text or ""):
+                            for r in para.runs:
+                                r.text = ""
+                            cleared += 1
+        # 也扫顶层段落(非表格内)
+        for para in doc.paragraphs:
+            if self._TABLE_RESIDUE_PARA_RE.match(para.text or ""):
+                for r in para.runs:
+                    r.text = ""
+                cleared += 1
+        return cleared
+
     def _scan_residual_placeholders(self, doc) -> list[dict]:
         """Scan document for remaining XX/待补充 placeholders after section generation."""
         import re
@@ -5565,6 +5810,20 @@ class FormFillAgent:
                 continue
         return fixed
 
+    def _apply_labeled_field_values(self, doc, labeled_fields, values):
+        """Wrapper: apply KB-derived values to labeled blank fields."""
+        return apply_labeled_field_values(doc, labeled_fields, values)
+
+    def _apply_checkbox_values_from_kb(self, doc, checkboxes, kb_cb_values):
+        """Wrapper: apply KB-derived checkbox ticks.
+        kb_cb_values is a dict {cb_id: True/False}.
+        We collect the IDs marked True and delegate to apply_checkbox_ticks.
+        """
+        checked_ids = [cid for cid, val in kb_cb_values.items() if val]
+        if not checked_ids:
+            return 0
+        return apply_checkbox_ticks(doc, checkboxes, checked_ids)
+
     def _log(self, cb, msg):
         # Avoid UnicodeEncodeError on Windows consoles (e.g. emoji).
         safe_msg = msg
@@ -5579,8 +5838,309 @@ class FormFillAgent:
             except Exception:
                 pass
 
+    # ============================================================
+    # V14-v3: composite-bound paragraph detection (pending_tag 豁免)
+    # ============================================================
     @staticmethod
-    def _insert_word_comments(doc) -> tuple:
+    def _collect_composite_para_element_ids(doc) -> set:
+        """Collect id(para._element) for paragraphs that are immediately
+        followed by a nested table in the SAME cell XML (composite binding).
+
+        Rationale:
+          - pending_tag 扫描器按『骨架空白/下划线/冒号后空格』命中下划线模板,
+            但若该段是 composite 骨架(下面紧跟嵌套表格,且表格已独立填充),
+            该段的 pending 提示是误判。统一豁免。
+          - 通用(不限上下游):所有 composite 化的 section 都自动豁免。
+        """
+        try:
+            from docx.oxml.ns import qn
+        except Exception:
+            return set()
+
+        p_tag = qn('w:p')
+        tbl_tag = qn('w:tbl')
+        composite_ids = set()
+
+        def _scan_cell(cell):
+            # 先递归:嵌套 cell 里也可能有 composite
+            for t in cell.tables:
+                for r in t.rows:
+                    for c in r.cells:
+                        _scan_cell(c)
+
+            children = list(cell._element)
+            for i, child in enumerate(children):
+                if child.tag != p_tag:
+                    continue
+                # 找 i 之后第一个非 p_tag 元素
+                for j in range(i + 1, len(children)):
+                    nxt = children[j]
+                    if nxt.tag == tbl_tag:
+                        composite_ids.add(id(child))
+                        break
+                    if nxt.tag == p_tag:
+                        # 若下一个 w:p 是空段,可以跨过再往后看一层
+                        # (Word 里段落+表格之间有时有空 w:p)
+                        txt = "".join(
+                            t.text or "" for t in nxt.iter(qn('w:t'))
+                        ).strip()
+                        if txt:
+                            break
+                        # 空段继续看下一个
+                        continue
+                    # 其他标签(pPr/tcPr 等)忽略
+                    continue
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    _scan_cell(cell)
+
+        return composite_ids
+
+    # ============================================================
+    # V14-v3: loop_table 样本 row 清理
+    # ============================================================
+    @staticmethod
+    def _clean_loop_table_samples(doc, sections) -> int:
+        """
+        对识别为 loop_table 的 section,执行:
+          - 清除"列头复读"row(数据 row 里完全抄了列头字)
+          - 清除 placeholder 字面"如未落实请说明原因"/"请说明"等通用模板提示
+          - 综述 cell 过长(> 200 字)告警(不强删,记日志)
+        返回: 清理 cell 次数
+        """
+        import re as _re
+        cleared = 0
+
+        PLACEHOLDER_PATTERNS = [
+            _re.compile(r"如未落实.*?请说明原因"),
+            _re.compile(r"如[^,。]{0,20}(?:请|需|应)[^,。]{0,30}说明"),
+            _re.compile(r"(?:如未|如有|若.{0,6})(?:请|需|应)[^,。]*"),
+        ]
+
+        # 收集所有嵌套表格引用与其"在 body cell 中的 index"
+        # sections 是 decompose_template 给出的 body_sections
+        # 我们需要把 loop_table_schema.nested_table_index 映射到真实表格对象
+        # — 通过 body_cell(table 0, row 3, col 0)获取嵌套表列表
+        try:
+            body_cell = doc.tables[0].rows[3].cells[0]
+        except Exception:
+            return 0
+        nested_tables = list(body_cell.tables)
+
+        for sec in sections or []:
+            schema = getattr(sec, "loop_table_schema", None) or {}
+            if not schema:
+                continue
+            nti = schema.get("nested_table_index")
+            if nti is None or nti >= len(nested_tables):
+                continue
+            tbl = nested_tables[nti]
+            header_cells = set(
+                h for h in schema.get("header_cols", []) if h
+            )
+
+            # Precompute row texts to detect "模板示例 row 被复制 N 遍" pattern
+            all_row_texts = [
+                tuple(c.text.strip() for c in r.cells) for r in tbl.rows
+            ]
+
+            for r_idx in range(1, len(tbl.rows)):
+                row = tbl.rows[r_idx]
+                row_texts = [c.text.strip() for c in row.cells]
+
+                # 1. 列头复读行: 整体清空
+                overlap = sum(1 for t in row_texts if t and t in header_cells)
+                if overlap >= max(1, len(row_texts) // 2):
+                    for c in row.cells:
+                        for p in c.paragraphs:
+                            for r in p.runs:
+                                r.text = ""
+                    cleared += 1
+                    continue
+
+                # 1b. 模板示例 row 复制检测:同列/序号 row 内容与前一或后一个数据 row
+                #     完全相同 → 判为模板示例复制(真客户数据不会出现两条完全一样的条目)
+                #     触发条件:非全空 row,且相邻 row 存在 row_texts 去掉序号列后完全相同
+                def _strip_seq_col(tp):
+                    # 去除"序号"列(纯数字)和常见分类标签列,只对比"实质内容"列
+                    return tuple(t for t in tp if not (t.isdigit() or t in header_cells))
+                current_sig = _strip_seq_col(row_texts)
+                if any(t for t in current_sig):
+                    is_duplicate_example = False
+                    for other_idx in (r_idx - 1, r_idx + 1):
+                        if other_idx < 1 or other_idx >= len(all_row_texts):
+                            continue
+                        if other_idx == r_idx:
+                            continue
+                        other_sig = _strip_seq_col(all_row_texts[other_idx])
+                        if current_sig and other_sig and current_sig == other_sig:
+                            is_duplicate_example = True
+                            break
+                    if is_duplicate_example:
+                        # 清空"实质内容"列(保留序号列结构供人工填写)
+                        for ci, c in enumerate(row.cells):
+                            if row_texts[ci].isdigit():
+                                continue  # 保留序号
+                            if row_texts[ci] in header_cells:
+                                continue  # 保留一级分类标签
+                            for p in c.paragraphs:
+                                for r in p.runs:
+                                    r.text = ""
+                        cleared += 1
+                        continue
+
+                # 2. placeholder 字面清除(按 cell)
+                for c in row.cells:
+                    for p in c.paragraphs:
+                        orig = p.text or ""
+                        new = orig
+                        for pat in PLACEHOLDER_PATTERNS:
+                            new = pat.sub("", new)
+                        if new != orig:
+                            if p.runs:
+                                p.runs[0].text = new.strip()
+                                for r in p.runs[1:]:
+                                    r.text = ""
+                            cleared += 1
+
+        return cleared
+
+    # ============================================================
+    # V14-v5: 通用"相邻 row 内容相同即模板示例被复制"清理
+    # 独立于 loop_table_schema 识别,覆盖未被识别为 loop_table 的嵌套表
+    # ============================================================
+    @staticmethod
+    def _clean_duplicate_sample_rows(doc) -> int:
+        """遍历文档所有嵌套表,对"连续 2+ 数据 row 内容完全相同"模式做清理。
+
+        真实客户数据不会出现两行完全相同的条目;若出现,必然是模板示例行被
+        复制多遍。清"实质内容"列(保留纯数字序号 + 纯标签 cell 结构)。
+
+        触发条件:
+          - row_idx >= 1 (跳过列头)
+          - 与 row_idx±1 的"去序号/标签"签名完全一致且非空
+          - cell 内容不是纯数字且长度 >= 5 (排除真小标签)
+        """
+        cleared = 0
+
+        def _iter_nested_tables(doc):
+            for tbl in doc.tables:
+                for row in tbl.rows:
+                    for cell in row.cells:
+                        for sub in cell.tables:
+                            yield sub
+                            # 递归嵌套再嵌套(保险)
+                            for sr in sub.rows:
+                                for sc in sr.cells:
+                                    for ssub in sc.tables:
+                                        yield ssub
+
+        for tbl in _iter_nested_tables(doc):
+            all_texts = [
+                tuple(c.text.strip() for c in r.cells)
+                for r in tbl.rows
+            ]
+            if len(all_texts) < 3:
+                continue
+
+            def _sig(tp):
+                # 去掉纯数字(序号)+ 单字符/过短 label
+                return tuple(
+                    t for t in tp
+                    if len(t) >= 5 and not t.isdigit()
+                )
+
+            for r_idx in range(1, len(tbl.rows)):
+                row = tbl.rows[r_idx]
+                sig = _sig(all_texts[r_idx])
+                if not sig:
+                    continue
+                is_dup = False
+                for other in (r_idx - 1, r_idx + 1):
+                    if other < 1 or other >= len(all_texts):
+                        continue
+                    if _sig(all_texts[other]) == sig:
+                        is_dup = True
+                        break
+                if not is_dup:
+                    continue
+
+                # 清空"实质内容"列
+                for ci, cell in enumerate(row.cells):
+                    ct = all_texts[r_idx][ci]
+                    if ct.isdigit():
+                        continue  # 序号保留
+                    if len(ct) < 5:
+                        continue  # 短标签保留(如 "其他:")
+                    for p in cell.paragraphs:
+                        for r in p.runs:
+                            r.text = ""
+                cleared += 1
+
+        return cleared
+
+    # ============================================================
+    # V14-v3: docx run 层 sanitize — 去除非标题 paragraph 内的加黑 run
+    # ============================================================
+    @staticmethod
+    def _sanitize_docx_runs(doc) -> int:
+        """Clear run.bold on runs that sit inside non-heading paragraphs.
+
+        样式白名单(保留 bold):
+          - Heading 1 / Heading 2 / Heading 3 / Heading 4
+          - Title
+          - 含 'Heading'/'Title' 字样的样式名
+          - 表格列头(由 paragraph 长度 <= 20 字 + 所在 cell 是 table 第 1 row
+            启发判断, 这里简化:只放过样式名白名单)
+
+        返回: 被重置的 run 数
+        """
+        BOLD_STYLE_WHITELIST = (
+            "Heading", "Title", "标题", "题名",
+        )
+
+        def _is_heading_style(para):
+            try:
+                sn = (para.style.name or "") if para.style else ""
+            except Exception:
+                sn = ""
+            return any(k in sn for k in BOLD_STYLE_WHITELIST)
+
+        reset_count = 0
+
+        def _sanitize_para(para):
+            nonlocal reset_count
+            if _is_heading_style(para):
+                return
+            for run in para.runs:
+                if run.bold:
+                    run.bold = None
+                    reset_count += 1
+
+        # 顶层段落
+        for para in doc.paragraphs:
+            _sanitize_para(para)
+
+        # 表格(含嵌套)段落
+        def _scan_cell(cell):
+            for para in cell.paragraphs:
+                _sanitize_para(para)
+            for t in cell.tables:
+                for r in t.rows:
+                    for c in r.cells:
+                        _scan_cell(c)
+
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    _scan_cell(cell)
+
+        return reset_count
+
+    @staticmethod
+    def _insert_word_comments(doc, composite_para_ids: set = None) -> tuple:
         """Insert Word comments for remaining placeholders/blanks.
 
         ★ v7.19: Rewritten to scan every paragraph independently (not
@@ -5649,9 +6209,15 @@ class FormFillAgent:
                 "category": tag_category,
             })
 
+        composite_ids = composite_para_ids or set()
+
         def _check_para(para):
             """Check one paragraph for issues, add comment if found."""
             if comment_id[0] >= MAX_COMMENTS:
+                return
+            # V14-v3: composite-bound paragraph(下方紧跟嵌套表格)统一豁免
+            #   该段的空白/下划线是骨架占位,真实数据由表格填充路径处理
+            if id(para._element) in composite_ids:
                 return
             raw_text = para.text
             text = (raw_text or "").strip()
