@@ -375,6 +375,16 @@ def _build_enterprise_profile_from_run(agent, output_path: str,
         source_materials=source_files,
         generated_at=datetime.now().isoformat(timespec="seconds"),
     )
+    # 增强：补企业基础信息（仅填空字段，失败不影响主流程）
+    try:
+        from .material_enhancer import enhance_material_with_enterprise_info
+        if profile.company_name and profile.company_name != "未知企业":
+            extra = enhance_material_with_enterprise_info(profile.company_name)
+            for k, v in extra.items():
+                if not k.startswith("_") and v and not getattr(profile, k, None):
+                    setattr(profile, k, v)
+    except Exception:
+        pass
     return profile
 
 
