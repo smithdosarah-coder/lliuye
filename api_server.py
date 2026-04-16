@@ -4,6 +4,9 @@
 Endpoints:
   GET  /api/presets/{segment}            — list preset profiles
   POST /api/credit/decision (SSE)        — run Agent3 pipeline, stream events
+  POST /api/channel/run (SSE)            — run Agent1 look-alike search stream
+  POST /api/feedback                     — 数据飞轮第 3 环：审贷员修改反馈沉淀
+  GET  /api/feedback/stats               — 反馈统计（按 Agent / 按日）
   GET  /health                           — liveness probe
 
 Run:
@@ -24,6 +27,7 @@ import os
 import sys
 import traceback
 from dataclasses import asdict, is_dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,12 +39,20 @@ from pydantic import BaseModel
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Tiered data sources (feat/tiered-search) — fail-safe; missing deps just skipped.
+try:
+    from shared.sources import bootstrap as _sources_bootstrap; _sources_bootstrap()
+except Exception:
+    pass
+
 app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.0")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001",
                    "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
+    # 允许 cloudflared / ngrok 演示隧道（正则匹配）
+    allow_origin_regex=r"https://.*\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.io)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -201,6 +213,9 @@ class ChannelRunRequest(BaseModel):
     provider: str = "deepseek"
     api_key: str = ""
     top_n: int = 8
+    # True → 前端显式切 DEMO MODE，后端跳过 Tavily，直接走 mock 池，
+    # 并在 data_source 字段标记 "mock_forced"（区别于 key 缺失时的 mock_fallback）
+    mock: bool = False
 
 
 @app.post("/api/channel/run")
@@ -225,6 +240,7 @@ async def channel_run(req: ChannelRunRequest):
                 provider=req.provider,
                 api_key=req.api_key,
                 top_n=req.top_n,
+                force_mock=req.mock,
             ):
                 safe = {k: _to_jsonable(v) for k, v in evt.items()}
                 yield _sse(safe)
@@ -245,6 +261,84 @@ async def channel_run(req: ChannelRunRequest):
             "Connection": "keep-alive",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Data Flywheel — feedback ingestion (第 3 环：动态经验)
+# ---------------------------------------------------------------------------
+
+class FeedbackRequest(BaseModel):
+    agent: str                    # "channel" / "credit" / "alert" / "compliance" / "report" / "riskctrl"
+    session_id: str
+    original_output: dict         # Agent 原始输出
+    user_correction: dict         # 审贷员修改后的结果
+    correction_reason: str = ""   # 可选：修改原因，便于后续提取 few-shot 时加权
+    user_id: str | None = None    # 可选：哪位审贷员
+
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest):
+    """接收审贷员对 Agent 输出的修改反馈，按日 JSONL 沉淀。
+
+    写入路径：data/feedback/YYYY-MM-DD.jsonl
+    后续由离线脚本消费：提取 few-shot 示例注入 prompts.py（数据飞轮第 4 环）。
+    """
+    allowed = {"channel", "credit", "alert", "compliance", "report", "riskctrl"}
+    if req.agent not in allowed:
+        raise HTTPException(400, f"agent must be one of {sorted(allowed)}")
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    path = PROJECT_ROOT / "data" / "feedback" / f"{date}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    record = {
+        "timestamp": datetime.now().isoformat(),
+        "agent": req.agent,
+        "session_id": req.session_id,
+        "user_id": req.user_id,
+        "original_output": req.original_output,
+        "user_correction": req.user_correction,
+        "correction_reason": req.correction_reason,
+    }
+    try:
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:
+        raise HTTPException(500, f"write feedback failed: {e}")
+
+    return {"status": "ok", "path": str(path.relative_to(PROJECT_ROOT))}
+
+
+@app.get("/api/feedback/stats")
+async def feedback_stats():
+    """反馈沉淀统计 — 每个 Agent 累计条数，用于判断何时 refresh few-shot。"""
+    feedback_dir = PROJECT_ROOT / "data" / "feedback"
+    if not feedback_dir.exists():
+        return {"total": 0, "by_agent": {}, "by_date": {}}
+
+    by_agent: dict[str, int] = {}
+    by_date: dict[str, int] = {}
+    total = 0
+    for jsonl in feedback_dir.glob("*.jsonl"):
+        date = jsonl.stem
+        by_date.setdefault(date, 0)
+        try:
+            with jsonl.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                        agent = rec.get("agent", "unknown")
+                        by_agent[agent] = by_agent.get(agent, 0) + 1
+                        by_date[date] += 1
+                        total += 1
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+    return {"total": total, "by_agent": by_agent, "by_date": by_date}
 
 
 # ---------------------------------------------------------------------------

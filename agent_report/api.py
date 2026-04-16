@@ -43,6 +43,12 @@ from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  
 from agent_report.session_store import store  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
 
+# Tiered data sources bootstrap (feat/tiered-search); fail-safe on missing deps
+try:
+    from shared.sources import bootstrap as _sources_bootstrap; _sources_bootstrap()  # noqa: E402
+except Exception:
+    pass
+
 
 # ---------------------------------------------------------------------------
 # FastAPI 初始化
@@ -408,6 +414,8 @@ def _run_real_pipeline(upload_paths: list[Path],
 
     llm_caller = _build_llm_caller()
     agent = FormFillAgent(llm_caller, file_contents, file_path_map=file_path_map)
+    # V15: 业务线分流依据 (corporate → narrative 管线, inclusive → V14 骨架管线)
+    agent._business_line = business_line
 
     output_path = str(session_dir / f"report_{int(time.time())}.docx")
 
