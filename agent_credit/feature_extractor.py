@@ -50,8 +50,20 @@ class FeatureExtractor:
 
     def extract(self, profile: dict, segment: str) -> dict:
         if segment == "corporate":
-            return self._extract_corporate(profile or {})
-        return self._extract_retail(profile or {})
+            features = self._extract_corporate(profile or {})
+        else:
+            features = self._extract_retail(profile or {})
+        # 增强（可选；失败优雅降级，不影响主流程）— wire enterprise_info + akshare
+        try:
+            from .profile_enhancer import enhance_enterprise_profile
+            enriched, evidence = enhance_enterprise_profile(profile or {})
+            for k, v in enriched.items():
+                features[f"enriched.{k}"] = v
+            if evidence:
+                features["enriched._evidence"] = evidence  # 供 QC / UI 审计
+        except Exception:
+            pass
+        return features
 
     # ------------------------------------------------------------------
     # 对公
