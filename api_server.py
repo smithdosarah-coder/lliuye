@@ -50,9 +50,10 @@ app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001",
-                   "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
-    # 允许 cloudflared / ngrok 演示隧道（正则匹配）
-    allow_origin_regex=r"https://.*\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.io)",
+                   "http://127.0.0.1:3000", "http://127.0.0.1:3001",
+                   "https://demo.liuye.me", "https://api.liuye.me"],
+    # 允许 cloudflared / ngrok 演示隧道（正则匹配）+ liuye.me 任意子域
+    allow_origin_regex=r"https://.*\.(trycloudflare\.com|ngrok-free\.app|ngrok\.app|ngrok\.io|liuye\.me)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -339,6 +340,27 @@ async def feedback_stats():
         except Exception:
             continue
     return {"total": total, "by_agent": by_agent, "by_date": by_date}
+
+
+# ---------------------------------------------------------------------------
+# Agent5 — Compliance Radar 主动政策扫描（事件驱动入口）
+# ---------------------------------------------------------------------------
+
+@app.get("/api/compliance/policy_scan")
+async def compliance_policy_scan(query: str = "", limit: int = 10):
+    """主动从 gov.cn / pbc / flk_npc 拉最新政策候选清单。
+
+    与 ComplianceRadarAgent.process_message 的「上传文件触发」并行：
+    本端点是事件驱动入口，前端可定期轮询新政策、按需触发巡检。
+    所有候选自带 source_url + fetched_at（Evidence-First）。
+    """
+    try:
+        from agent_compliance.agent import ComplianceRadarAgent
+        agent = ComplianceRadarAgent()
+        return {"policies": agent.scan_external_policies(query, limit)}
+    except Exception as e:
+        # 主动失败优雅降级：返回空 list + error，前端不崩
+        return {"policies": [], "error": f"{type(e).__name__}: {e}"}
 
 
 # ---------------------------------------------------------------------------

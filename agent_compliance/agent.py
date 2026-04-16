@@ -249,6 +249,11 @@ class ComplianceRadarAgent(BaseAgent):
     # 工具方法
     # ==================================================================
 
+    def scan_external_policies(self, query: str = "", limit: int = 10) -> list[dict]:
+        """主动扫描外部政策源（事件驱动入口；与 process_message 解耦）。"""
+        from .policy_scanner import scan_latest_policies
+        return scan_latest_policies(query, limit, llm_fn=self.llm)
+
     def _parse_scenario_id(self, msg: str) -> str | None:
         if not msg:
             return None
