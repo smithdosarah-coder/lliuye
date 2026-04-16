@@ -38,6 +38,7 @@ def bootstrap() -> dict[str, bool]:
         ("gov_cn", "GovCnSource"),
         ("pbc_gov", "PbcGovSource"),
         ("flk_npc", "FlkNpcSource"),
+        ("enterprise_info", "EnterpriseInfoSource"),
     ]:
         try:
             module = __import__(
@@ -52,7 +53,7 @@ def bootstrap() -> dict[str, bool]:
             status[f"source.{mod_name}.err"] = f"{type(e).__name__}: {e}"  # type: ignore[assignment]
 
     # --- 调用各 agent 的偏好注册 ---
-    for agent_mod in ["agent_compliance", "agent_credit", "agent_report"]:
+    for agent_mod in ["agent_compliance", "agent_credit", "agent_report", "agent_channel"]:
         try:
             module = __import__(
                 f"{agent_mod}.sources_config", fromlist=["init"]
