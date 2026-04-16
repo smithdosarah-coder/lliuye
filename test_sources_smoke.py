@@ -213,6 +213,61 @@ def test_evidence_completeness() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Live: enterprise_info via Router (Agent1 升级源)
+# ---------------------------------------------------------------------------
+
+EXPECTED_ENTERPRISE_FIELDS = (
+    "registered_capital",
+    "legal_representative",
+    "establishment_date",
+    "industry",
+    "business_scope",
+    "registered_address",
+)
+
+
+def _count_filled(item: dict) -> int:
+    return sum(1 for f in EXPECTED_ENTERPRISE_FIELDS if str(item.get(f, "")).strip())
+
+
+def test_enterprise_info_listed() -> None:
+    """上市公司路径：贵州茅台。akshare 没装时 Router 会降级到 tavily，也算 ok。"""
+    print("\n== test_enterprise_info_listed ==")
+    bootstrap()  # 幂等
+    r = Router().query(
+        "agent_channel.enterprise_info",
+        QueryRequest(query="贵州茅台", query_type="company_info", limit=1),
+    )
+    item = r.items[0] if r.items else {}
+    filled = _count_filled(item) if item else 0
+    print(f"  贵州茅台: ok={r.ok} source={r.source_name} degraded={r.degraded} "
+          f"filled={filled}/6 evidence={len(r.evidence)} err={r.error[:80]}")
+    if r.ok and item:
+        print(f"  sample fields: industry={item.get('industry','')[:30]!r} "
+              f"address={item.get('registered_address','')[:30]!r}")
+        # 至少应该有 evidence
+        assert len(r.evidence) >= 1, "ok=True 必须带 evidence"
+
+
+def test_enterprise_info_unlisted() -> None:
+    """非上市公司路径（走 Tavily + LLM 抽取）：北京字节跳动科技有限公司。"""
+    print("\n== test_enterprise_info_unlisted ==")
+    bootstrap()
+    r = Router().query(
+        "agent_channel.enterprise_info",
+        QueryRequest(query="北京字节跳动科技有限公司", query_type="company_info", limit=1),
+    )
+    item = r.items[0] if r.items else {}
+    filled = _count_filled(item) if item else 0
+    print(f"  字节跳动: ok={r.ok} source={r.source_name} degraded={r.degraded} "
+          f"filled={filled}/6 evidence={len(r.evidence)} err={r.error[:80]}")
+    if r.ok and item:
+        print(f"  sample fields: legal_rep={item.get('legal_representative','')!r} "
+              f"capital={item.get('registered_capital','')!r}")
+        assert len(r.evidence) >= 1, "ok=True 必须带 evidence"
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -225,6 +280,8 @@ if __name__ == "__main__":
         test_gov_cn_live,
         test_akshare_live,
         test_evidence_completeness,
+        test_enterprise_info_listed,
+        test_enterprise_info_unlisted,
     ]
     failed = 0
     for t in tests:
