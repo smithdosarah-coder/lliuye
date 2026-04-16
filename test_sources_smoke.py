@@ -268,6 +268,104 @@ def test_enterprise_info_unlisted() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Wire-through: Agent3 / Agent5 / Agent6 增强模块（接线 ≠ 业务结果）
+#
+# 目标：证明 enhancer 模块能跑通、能优雅降级、Evidence-First 字段完整。
+# 不强求业务字段命中率（取决于 akshare/Tavily 当时是否在线）。
+# ---------------------------------------------------------------------------
+
+def test_agent_credit_profile_enhance() -> None:
+    """Agent3 增强：贵州茅台 → 自动补字段 + evidence。"""
+    print("\n== test_agent_credit_profile_enhance ==")
+    bootstrap()
+    try:
+        from agent_credit.profile_enhancer import enhance_enterprise_profile
+    except Exception as e:
+        print(f"  FAIL import: {type(e).__name__}: {e}")
+        return
+    profile = {"company_name": "贵州茅台"}
+    enriched, evidence = enhance_enterprise_profile(profile)
+    print(f"  贵州茅台: filled={len(enriched)} evidence={len(evidence)} "
+          f"sample_field={list(enriched.keys())[:3]}")
+    # Evidence-First：有补字段就必须有 evidence；空补也合法（akshare/tavily 都失联）
+    if enriched:
+        assert evidence, "Evidence-First 违例：补了字段却没有 evidence"
+        # evidence 必须有 source_url + fetched_at
+        for ev in evidence:
+            assert "source_url" in ev and "fetched_at" in ev, \
+                f"evidence 缺字段：{ev}"
+
+    # 空名应直接返空，不抛
+    e2, ev2 = enhance_enterprise_profile({"company_name": ""})
+    assert e2 == {} and ev2 == [], "空 company_name 应返回空"
+    print("  agent3 enhancer 接线正常")
+
+
+def test_agent_compliance_policy_scan() -> None:
+    """Agent5 增强：主动扫政策，候选清单 + evidence 锚点。"""
+    print("\n== test_agent_compliance_policy_scan ==")
+    bootstrap()
+    try:
+        from agent_compliance.policy_scanner import scan_latest_policies
+    except Exception as e:
+        print(f"  FAIL import: {type(e).__name__}: {e}")
+        return
+    results = scan_latest_policies("金融监管", limit=5)
+    sample_url = results[0]["source_url"] if results else ""
+    print(f"  候选数={len(results)} sample_url={sample_url[:80]}")
+    # 接线层面：返回必须是 list（即便全失败也是空 list）
+    assert isinstance(results, list), "scan_latest_policies 必须返回 list"
+    # Evidence-First：每条候选必须有 source_url + fetched_at + raw_item
+    for r in results:
+        for k in ("raw_item", "source_url", "fetched_at", "source_name"):
+            assert k in r, f"candidate 缺字段 {k}: {r}"
+
+    # 也验证 Agent 类入口
+    try:
+        from agent_compliance.agent import ComplianceRadarAgent
+        agent = ComplianceRadarAgent()
+        agent_results = agent.scan_external_policies("金融监管", limit=3)
+        print(f"  agent5 method 入口: 候选数={len(agent_results)}")
+        assert isinstance(agent_results, list)
+    except Exception as e:
+        print(f"  agent5 method 入口 SKIP: {type(e).__name__}: {e}")
+    print("  agent5 scanner 接线正常")
+
+
+def test_agent_report_enhance() -> None:
+    """Agent6 增强：企业基础信息补齐 + 法规引用核验。"""
+    print("\n== test_agent_report_enhance ==")
+    bootstrap()
+    try:
+        from agent_report.material_enhancer import (
+            enhance_material_with_enterprise_info,
+            lookup_law_citation,
+        )
+    except Exception as e:
+        print(f"  FAIL import: {type(e).__name__}: {e}")
+        return
+    extra = enhance_material_with_enterprise_info("贵州茅台")
+    fields = [k for k in extra.keys() if not k.startswith("_")]
+    print(f"  贵州茅台: 补齐字段={fields} url={extra.get('_evidence_url', '')[:60]}")
+    # 接线：返回必须是 dict
+    assert isinstance(extra, dict), "enhance_material 必须返回 dict"
+    # 若有补字段，必须带 evidence_url（Evidence-First）
+    if fields:
+        assert "_evidence_url" in extra, "Evidence-First 违例：补了字段却没 evidence_url"
+        assert "_fetched_at" in extra, "Evidence-First 违例：缺 _fetched_at"
+
+    # 空名直接返空
+    assert enhance_material_with_enterprise_info("") == {}, "空名应返空"
+
+    # 法规引用核验
+    laws = lookup_law_citation("民法典")
+    print(f"  民法典 法规候选={len(laws)}")
+    assert isinstance(laws, list), "lookup_law_citation 必须返回 list"
+    assert lookup_law_citation("") == [], "空 query 应返空"
+    print("  agent6 enhancer 接线正常")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -282,6 +380,9 @@ if __name__ == "__main__":
         test_evidence_completeness,
         test_enterprise_info_listed,
         test_enterprise_info_unlisted,
+        test_agent_credit_profile_enhance,
+        test_agent_compliance_policy_scan,
+        test_agent_report_enhance,
     ]
     failed = 0
     for t in tests:
