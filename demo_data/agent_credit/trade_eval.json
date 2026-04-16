@@ -1,0 +1,15 @@
+{
+  "scenario_id": "trade_eval",
+  "title": "贸易公司授信评估",
+  "description": "某进出口贸易有限公司，轻资产高周转，申请 1500 万贸易融资授信 —— 典型贸易行业风险评估",
+  "input_message": "对本次上传的企业材料做完整授信决策分析：重点关注贸易行业特有风险（应收账款集中度、汇率风险、上下游依赖），给出 5 维评分、评级和审批建议。企业申请贸易融资综合授信 1500 万。",
+  "files": [],
+  "preset_data": {
+    "company_name": "某进出口贸易有限公司",
+    "loan_amount": "1500 万",
+    "loan_term": "1 年",
+    "loan_purpose": "贸易融资综合授信",
+    "expected_rating": "B-C",
+    "focus_points": "应收账款集中度、汇率风险、上下游依赖"
+  }
+}

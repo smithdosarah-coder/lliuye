@@ -1,0 +1,14 @@
+{
+  "scenario_id": "tech_hunt",
+  "title": "科技企业获客匹配",
+  "description": "深圳 SaaS 创业公司，A 轮融资后扩张期，匹配科技贷/投贷联动等渠道",
+  "input_message": "深圳市南山区，SaaS 软件企业，主做企业知识管理 SaaS，刚完成 A 轮融资 3000 万人民币，团队 40 人，年 ARR 约 1200 万，高新技术企业资质，研发人员占比 60%，想了解适合的科技贷款或投贷联动产品。",
+  "files": [],
+  "preset_data": {
+    "industry": "软件",
+    "region": "深圳市南山区",
+    "company_name": "",
+    "keywords": "SaaS 高新技术 专精特新 投贷联动 科技贷",
+    "scale": "年ARR1200万"
+  }
+}

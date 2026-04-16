@@ -1,0 +1,72 @@
+{
+  "segment": "retail",
+  "category_weights": {
+    "repayment_capacity": 0.30,
+    "repayment_willingness": 0.25,
+    "stability": 0.25,
+    "collateral": 0.20
+  },
+  "sub_variable_weights": {
+    "repayment_capacity": {
+      "monthly_income_stability": 0.25,
+      "dti_ratio": 0.25,
+      "avg_balance_6m": 0.15,
+      "monthly_income_level": 0.15,
+      "monthly_repay_capacity": 0.10,
+      "cash_surplus": 0.10
+    },
+    "repayment_willingness": {
+      "query_count_24m": 0.20,
+      "overdue_history": 0.35,
+      "cc_utilization": 0.15,
+      "credit_history_length": 0.15,
+      "social_security_months": 0.15
+    },
+    "stability": {
+      "years_in_job": 0.25,
+      "years_at_address": 0.20,
+      "marital_status": 0.15,
+      "education": 0.15,
+      "housing_type": 0.10,
+      "age": 0.15
+    },
+    "collateral": {
+      "collateral_type": 0.30,
+      "ltv": 0.30,
+      "title_verified": 0.15,
+      "mortgage_count": 0.15,
+      "valuation_source": 0.10
+    }
+  },
+  "score_maps": {
+    "monthly_income_stability": {"stable": 820, "fluctuating": 680, "seasonal": 600, "": 650},
+    "dti_ratio": [[0.0, 850], [0.30, 800], [0.45, 750], [0.60, 680], [0.75, 600], [1.0, 400]],
+    "avg_balance_6m": [[0, 500], [10000, 650], [30000, 740], [80000, 800], [200000, 850]],
+    "monthly_income_level": [[0, 500], [5000, 640], [15000, 720], [40000, 800], [100000, 850]],
+    "monthly_repay_capacity": [[0, 400], [0.3, 650], [0.6, 740], [0.9, 800], [1.2, 850]],
+    "cash_surplus": [[-10000, 400], [0, 620], [5000, 720], [20000, 800], [80000, 850]],
+    "query_count_24m": [[0, 850], [2, 800], [5, 700], [10, 580], [20, 400]],
+    "overdue_history": {"无": 850, "M1_once": 720, "M2_once": 600, "M3_once": 480, "M6+": 350, "": 780},
+    "cc_utilization": [[0.0, 820], [0.30, 800], [0.50, 720], [0.70, 640], [0.90, 520], [1.0, 400]],
+    "credit_history_length": [[0, 500], [1, 620], [3, 720], [5, 780], [10, 840]],
+    "social_security_months": [[0, 500], [6, 640], [12, 720], [24, 780], [60, 840]],
+    "years_in_job": [[0, 500], [1, 640], [2, 720], [5, 790], [10, 840]],
+    "years_at_address": [[0, 540], [1, 640], [3, 720], [5, 780], [10, 830]],
+    "marital_status": {"已婚": 780, "未婚": 700, "离异": 640, "": 700},
+    "education": {"硕士": 820, "本科": 780, "大专": 720, "高中": 660, "初中": 600, "小学": 520, "": 680},
+    "housing_type": {"self_owned": 800, "rented": 650, "": 680},
+    "age": [[18, 500], [22, 680], [30, 780], [45, 820], [55, 760], [65, 620], [70, 400]],
+    "collateral_type": {"住宅": 820, "商铺": 780, "厂房": 750, "设备": 620, "无": 500, "": 500},
+    "ltv": [[0.0, 850], [0.30, 800], [0.50, 740], [0.70, 680], [0.85, 580], [1.0, 420]],
+    "title_verified": {"True": 820, "true": 820, "False": 480, "false": 480, "": 600},
+    "mortgage_count": [[0, 820], [1, 720], [2, 580], [3, 420]],
+    "valuation_source": {"第三方估值": 800, "自评估": 650, "": 700}
+  },
+  "grade_thresholds": [
+    [800, "优", "LPR-10BP", 500],
+    [760, "中优", "LPR", 300],
+    [700, "良好", "LPR+20BP", 100],
+    [680, "边界（人工复核）", "LPR+50BP", 50],
+    [0, "拒绝", null, 0]
+  ]
+}

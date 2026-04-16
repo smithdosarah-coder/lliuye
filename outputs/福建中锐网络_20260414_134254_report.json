@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "client_name": "福建中锐网络",
+  "generated_at": "2026-04-14T13:42:54.355567",
+  "source_docx": "outputs/test.docx",
+  "source_template": "template.docx",
+  "sections": {
+    "ch1": "借款人是\"福建中锐网络科技有限公司\"，行业：互联网软件。注册资本：500万元。法定代表人：张某。",
+    "ch2": "营业收入：8600万元。净利润：420万元。",
+    "ch3": "申请授信额度：300万元。期限：3年。",
+    "ch4": "（审批意见章节留空，待 Agent3 回填）"
+  },
+  "facts": {
+    "industry": "互联网软件",
+    "registered_capital": "500万元",
+    "legal_representative": "张某",
+    "credit_amount_requested": "300万元",
+    "term_requested": "3年",
+    "revenue_latest": "8600万元",
+    "profit_latest": "420万元"
+  },
+  "extras": {}
+}

@@ -1,0 +1,10 @@
+{
+  "scenario_id": "shenzhen_tech",
+  "title": "深圳/长三角 科创 look-alike",
+  "description": "某股份制银行科技金融部已有 25 家深沪苏杭科创客户，结合科技型中小企业金融支持方案拓展相似客户",
+  "files": [
+    "customers.csv",
+    "policy.txt",
+    "industry_guide.txt"
+  ]
+}

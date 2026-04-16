@@ -1,0 +1,47 @@
+- generic [ref=e5]:
+  - main [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e11]:
+        - heading "众安信科 · 信贷 AI 智能体矩阵" [level=1] [ref=e12]
+        - generic [ref=e13]: 获客 · 授信 · 风控 · 贷中 · 合规 — 6 大智能体覆盖信贷业务全流程
+      - button "⚙️ 全局配置（API Key + 模型厂商） ▼" [ref=e15] [cursor=pointer]:
+        - generic [ref=e16]: ⚙️ 全局配置（API Key + 模型厂商）
+        - generic [ref=e17]: ▼
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - button [ref=e21] [cursor=pointer]: 📄 报告生成
+            - button [ref=e22] [cursor=pointer]: 🎯 全渠道流量匹配
+            - button [ref=e23] [cursor=pointer]: 💼 授信决策辅助
+            - button [ref=e24] [cursor=pointer]: ⚙️ 风控策略运营
+            - button [ref=e25] [cursor=pointer]: 🚨 贷中风险预警
+            - button [ref=e26] [cursor=pointer]: ✅ 合规巡检
+          - tablist [ref=e27]:
+            - tab "📄 报告生成" [selected] [ref=e28] [cursor=pointer]
+            - tab "🎯 全渠道流量匹配" [ref=e29] [cursor=pointer]
+            - tab "💼 授信决策辅助" [ref=e30] [cursor=pointer]
+            - tab "⚙️ 风控策略运营" [ref=e31] [cursor=pointer]
+            - tab "🚨 贷中风险预警" [ref=e32] [cursor=pointer]
+            - tab "✅ 合规巡检" [ref=e33] [cursor=pointer]
+        - tabpanel [ref=e34]:
+          - generic [ref=e39]:
+            - heading "📄 授信调查报告生成助手" [level=2] [ref=e40]
+            - paragraph [ref=e41]:
+              - text: 上传企业材料（财务报表 / 工商资料 / 征信报告等），AI 自动生成约 15000 字的授信调查报告。
+              - text: 此功能已作为独立产品上线，启动方式：
+            - generic [ref=e42]: "python app.py # 独立启动，端口 7860"
+            - paragraph [ref=e43]: 后续版本将把报告生成流程嵌入到 Portal，并与其他 5 个 Agent 共享企业画像。
+      - generic [ref=e47]: 众安信科 · 乾策平台 X-Nexus / Credit Intelligence Matrix v1.0 · Demo
+  - contentinfo "Gradio footer navigation" [ref=e48]:
+    - button "通过 API 使用 标志" [ref=e49] [cursor=pointer]:
+      - text: 通过 API 使用
+      - img "标志" [ref=e50]
+    - generic [ref=e51]: ·
+    - link "使用 Gradio 构建 标志" [ref=e52] [cursor=pointer]:
+      - /url: https://gradio.app
+      - text: 使用 Gradio 构建
+      - img "标志" [ref=e53]
+    - generic [ref=e54]: ·
+    - button "设置 设置" [ref=e55] [cursor=pointer]:
+      - text: 设置
+      - img "设置" [ref=e56]

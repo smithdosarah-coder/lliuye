@@ -1,0 +1,12 @@
+{
+  "scenario_id": "huaLian_red",
+  "title": "🔴 华联精密机械 · 红灯预警",
+  "description": "制造企业，营收下滑 42% + 利润转负 + 涉诉 1200 万 + 关联方重整 + 负面舆情（高风险叠加）",
+  "input_message": "请对华联精密机械有限公司进行贷中风险预警分析",
+  "files": ["demo_data/agent_alert/mock_huaLian_dynamic.txt"],
+  "preset_data": {
+    "company_name": "华联精密机械有限公司",
+    "expected_level": "red",
+    "expected_signal_count": 6
+  }
+}

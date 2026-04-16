@@ -1,0 +1,52 @@
+{
+  "profile_id": "retail_lisi_002",
+  "name": "李四",
+  "id_card_tail": "8876",
+  "age": 35,
+  "gender": "男",
+  "marital_status": "已婚",
+  "education": "本科",
+  "occupation": "个体工商户",
+  "business_type": "教育培训",
+  "years_in_current_job": 3,
+  "monthly_income": 32000,
+  "monthly_income_stability": "fluctuating",
+  "credit_report": {
+    "current_loans_count": 3,
+    "current_credit_cards": 4,
+    "credit_card_utilization": 0.72,
+    "query_count_24m": 8,
+    "overdue_history": "M1_once",
+    "guarantee_count": 0,
+    "account_age_years": 5.2
+  },
+  "bank_statement": {
+    "avg_balance_6m": 18000,
+    "monthly_inflow_avg": 32000,
+    "monthly_outflow_avg": 30500,
+    "large_amount_events": ["2025-11 入账 15 万", "2026-01 出账 12 万"]
+  },
+  "social_security": {
+    "months_paid": 12,
+    "monthly_contribution": 600
+  },
+  "collateral": {
+    "type": "无",
+    "area_sqm": 0,
+    "location": "",
+    "appraised_value": 0,
+    "ltv": 0,
+    "mortgage_count": 0,
+    "title_verified": false,
+    "valuation_source": ""
+  },
+  "residence": {
+    "years_at_address": 2,
+    "housing_type": "rented"
+  },
+  "request": {
+    "amount": 200000,
+    "term_months": 24,
+    "purpose": "教室租金及装修"
+  }
+}

@@ -1,0 +1,8 @@
+- generic [ref=e3]:
+  - generic [ref=e5]: 投胎 · 开蒙
+  - generic [ref=e7]:
+    - paragraph [ref=e8]:
+      - text: 大道无垠，一介凡胎投入此方灵气稀薄之世。
+      - text: 你的灵根、出身、机缘，皆由天意。
+    - button "先配置灵机（LLM）" [ref=e11] [cursor=pointer]
+    - paragraph [ref=e12]: 需要一把 API key（推荐 DeepSeek，便宜）才能生成叙事。

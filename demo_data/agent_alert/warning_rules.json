@@ -1,0 +1,224 @@
+{
+  "rules": [
+    {
+      "rule_id": "FIN-001",
+      "category": "财务恶化",
+      "title": "营收大幅下降",
+      "content": "企业营业收入同比下降超过阈值触发预警",
+      "trigger_condition": "营收同比下降>30%→红；>10%→黄",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["营收下降", "营业收入下降", "营收减少"]
+    },
+    {
+      "rule_id": "FIN-002",
+      "category": "财务恶化",
+      "title": "净利润转负",
+      "content": "企业当期净利润由正转负或连续亏损",
+      "trigger_condition": "净利润<0 或 连续2期亏损",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["净利润转负", "连续亏损", "亏损", "利润为负"]
+    },
+    {
+      "rule_id": "FIN-003",
+      "category": "财务恶化",
+      "title": "资产负债率过高",
+      "content": "资产负债率超过警戒线",
+      "trigger_condition": "资产负债率>80%→红；>70%→黄",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["资产负债率高", "负债率过高"]
+    },
+    {
+      "rule_id": "FIN-004",
+      "category": "财务恶化",
+      "title": "应收账款周转恶化",
+      "content": "应收账款周转天数大幅上升",
+      "trigger_condition": "周转天数同比上升>50%",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["应收账款周转恶化", "应收账款周转天数上升", "回款周期延长"]
+    },
+    {
+      "rule_id": "FIN-005",
+      "category": "财务恶化",
+      "title": "经营现金流为负",
+      "content": "连续两期经营性现金流净额为负",
+      "trigger_condition": "经营现金流<0 且连续>1期",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["经营现金流为负", "现金流紧张"]
+    },
+    {
+      "rule_id": "LAW-001",
+      "category": "法律诉讼",
+      "title": "涉诉风险",
+      "content": "企业作为被告涉诉且标的金额重大",
+      "trigger_condition": "标的>500万→红；<500万→黄",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["涉诉", "被告", "诉讼", "仲裁"]
+    },
+    {
+      "rule_id": "LAW-002",
+      "category": "法律诉讼",
+      "title": "失信被执行",
+      "content": "企业被列入失信被执行人名单",
+      "trigger_condition": "列入失信被执行人",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["失信被执行", "失信名单", "执行人"]
+    },
+    {
+      "rule_id": "LAW-003",
+      "category": "法律诉讼",
+      "title": "行政处罚",
+      "content": "企业受到重大行政处罚（罚款百万以上或吊销资质）",
+      "trigger_condition": "罚款>100万 或 吊销/暂停资质",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["行政处罚", "罚款", "吊销", "暂停资质"]
+    },
+    {
+      "rule_id": "BIZ-001",
+      "category": "经营异常",
+      "title": "工商信息变更",
+      "content": "企业近期发生重要工商信息变更",
+      "trigger_condition": "法人/股东/注册地/经营范围变更",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["工商变更", "法人变更", "经营范围变更", "注册地址变更"]
+    },
+    {
+      "rule_id": "BIZ-002",
+      "category": "经营异常",
+      "title": "实控人变更",
+      "content": "企业实际控制人发生变更",
+      "trigger_condition": "实控人/控股股东变更",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["实控人变更", "实际控制人变更", "股权转让", "控股权转移"]
+    },
+    {
+      "rule_id": "BIZ-003",
+      "category": "经营异常",
+      "title": "核心客户流失",
+      "content": "企业主要客户流失导致营收集中度风险暴露",
+      "trigger_condition": "单一大客户占营收>30%且流失",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["核心客户流失", "主要客户流失", "客户流失"]
+    },
+    {
+      "rule_id": "BIZ-004",
+      "category": "经营异常",
+      "title": "停产/停业",
+      "content": "企业出现阶段性停产或停业",
+      "trigger_condition": "停产>7天",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["停产", "停业", "工厂停工"]
+    },
+    {
+      "rule_id": "IND-001",
+      "category": "行业风险",
+      "title": "行业景气下行",
+      "content": "企业所在行业出现景气度下行或政策收紧",
+      "trigger_condition": "行业同比下降>20% 或 政策收紧",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["行业下行", "行业景气下降", "产能过剩", "政策收紧"]
+    },
+    {
+      "rule_id": "IND-002",
+      "category": "行业风险",
+      "title": "上下游集中度过高",
+      "content": "上游或下游集中度过高且核心方出险",
+      "trigger_condition": "单一上/下游占比>40%且核心方预警",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["上游集中", "下游集中", "单一客户"]
+    },
+    {
+      "rule_id": "REL-001",
+      "category": "关联风险",
+      "title": "关联方出险",
+      "content": "关联企业或担保圈出现风险事件",
+      "trigger_condition": "关联方涉诉/失信/停业",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["关联企业风险", "担保圈风险", "关联方出险"]
+    },
+    {
+      "rule_id": "REL-002",
+      "category": "关联风险",
+      "title": "股权质押冻结",
+      "content": "企业主要股东的股权被冻结或强制拍卖",
+      "trigger_condition": "股权冻结/拍卖",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["股权冻结", "股权拍卖", "股权质押冻结"]
+    },
+    {
+      "rule_id": "POL-001",
+      "category": "内部制度",
+      "title": "逾期超过阈值",
+      "content": "贷款逾期天数超过本行规定的关注/次级划分线",
+      "trigger_condition": "逾期>30天→黄；>90天→红",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["逾期"]
+    },
+    {
+      "rule_id": "POL-002",
+      "category": "内部制度",
+      "title": "抵押物价值下降",
+      "content": "抵押物评估价值较初评下降超过阈值",
+      "trigger_condition": "抵押物价值跌幅>20%",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["抵押物价值下降", "抵押物贬值"]
+    },
+    {
+      "rule_id": "POL-003",
+      "category": "内部制度",
+      "title": "关联方重整预警线",
+      "content": "主要客户/上下游进入重整或破产程序，触发本行强制预警线",
+      "trigger_condition": "核心关联方占营收>30% 且进入重整/破产",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["关联方重整", "主要客户重整", "破产重整"]
+    },
+    {
+      "rule_id": "POL-004",
+      "category": "内部制度",
+      "title": "授信集中度超限",
+      "content": "单一客户授信余额占资本比例超过监管/内控上限",
+      "trigger_condition": "单户授信余额/一级资本>10%",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["授信集中度", "单户集中"]
+    },
+    {
+      "rule_id": "POL-005",
+      "category": "内部制度",
+      "title": "用款用途偏离",
+      "content": "贷款资金用途与申报用途出现重大偏离",
+      "trigger_condition": "资金流向与合同用途不符",
+      "severity": "red",
+      "rule_type": "structured",
+      "keywords": ["用途偏离", "资金挪用"]
+    },
+    {
+      "rule_id": "POL-006",
+      "category": "内部制度",
+      "title": "贷后检查缺位",
+      "content": "超过规定周期未完成贷后现场检查",
+      "trigger_condition": "贷后检查逾期>30天",
+      "severity": "yellow",
+      "rule_type": "structured",
+      "keywords": ["贷后检查逾期", "贷后检查缺位"]
+    }
+  ]
+}

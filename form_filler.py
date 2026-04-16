@@ -4297,6 +4297,23 @@ class FormFillAgent:
         except Exception as _e:
             self._log(progress_cb, f"[docx-run] sanitize 异常: {_e}")
 
+        # 8.7 V14-v9 双护栏: 标题数字自一致性 + 率值荒谬"X% 同比 X 个百分点"
+        try:
+            title_fixed = FormFillAgent._fix_skeleton_title_numbers(doc)
+            if title_fixed:
+                self._log(progress_cb,
+                          f"[护栏1-标题一致] 修 {title_fixed} 处")
+        except Exception as _e:
+            self._log(progress_cb, f"[护栏1-标题一致] 异常: {_e}")
+
+        try:
+            pct_fixed = FormFillAgent._fix_same_value_pct_variation(doc)
+            if pct_fixed:
+                self._log(progress_cb,
+                          f"[护栏2-率值荒谬] 修 {pct_fixed} 处")
+        except Exception as _e:
+            self._log(progress_cb, f"[护栏2-率值荒谬] 异常: {_e}")
+
         # 9. Save and validate
         self._save_preserving_zip(doc, docx_path, output_path,
                                   comments_xml=comments_xml)
@@ -5144,12 +5161,36 @@ class FormFillAgent:
         }
         col_table_ratio_map = dict(row_table_ratio_map)
 
-        # G1+G2 联合:集团合并/若有类表 gating。缺失合并报表时留空+pending,
-        # 严禁用借款人单体数据冒充合并数据。
+        # V14-H2: 集团合并 gating 精准化:probe_text = 紧邻 nested table 之前的
+        # caption paragraph (XML 顺序) + header_row。
+        # 之前教训:(1) 取整个 cell.paragraphs 失之过宽(任一处"合并"即误杀);
+        #          (2) 只取 header_row 失之过窄(集团合并表 header 无"合并"字样,漏网)。
+        # 现方案:caption 是 docx 里 <w:tbl> 紧邻前置 <w:p>,通常就是表标题段,
+        # 例如 "2.集团合并财务数据(若有):" — 精准命中且不误杀单体财务表。
         try:
             from truth_fill import should_skip_consolidated_financial_table
         except Exception:
             should_skip_consolidated_financial_table = None
+
+        def _caption_for_nested(cell, nested_idx):
+            """按 XML 顺序查找 cell 内第 nested_idx 个 <w:tbl> 前面的 <w:p> 文本。"""
+            try:
+                from docx.oxml.ns import qn as _qn
+            except Exception:
+                return ""
+            last_p = ""
+            tbl_cnt = 0
+            for child in list(cell._element):
+                tag = child.tag.split("}")[-1]
+                if tag == "p":
+                    last_p = "".join(
+                        (t.text or "") for t in child.iter(_qn("w:t"))
+                    ).strip()
+                elif tag == "tbl":
+                    if tbl_cnt == nested_idx:
+                        return last_p
+                    tbl_cnt += 1
+            return ""
 
         for ts in tables:
             cell = _get_cell(doc, ts.cell_path)
@@ -5160,16 +5201,11 @@ class FormFillAgent:
             if not headers:
                 continue
 
-            # Gating: 用 cell 内段落文本 + header_row 作为识别文本
+            # Gating: caption + header_row 联合 probe
             if should_skip_consolidated_financial_table is not None:
                 try:
-                    caption_parts = []
-                    for p in cell.paragraphs:
-                        t = (p.text or "").strip()
-                        if t:
-                            caption_parts.append(t)
-                    caption_parts.extend(headers)
-                    probe_text = " ".join(caption_parts)
+                    caption = _caption_for_nested(cell, ts.nested_table_idx)
+                    probe_text = f"{caption} {' '.join(headers)}".strip()
                     skip, tag = should_skip_consolidated_financial_table(
                         probe_text,
                         getattr(self, "file_path_map", None) or {},
@@ -5179,13 +5215,13 @@ class FormFillAgent:
                         try:
                             self._extra_pending_tags.append({
                                 "label": tag,
-                                "context": probe_text[:80],
+                                "context": (caption or probe_text)[:80],
                                 "location": f"table@{ts.cell_path}",
                             })
                         except Exception:
                             pass
                         if progress_cb:
-                            progress_cb(f"  [溯源 gating] 跳过合并类表 ({tag})")
+                            progress_cb(f"  [溯源 gating] 跳过合并类表 ({tag}): {caption[:40]}")
                         continue
                 except Exception:
                     pass
@@ -6006,6 +6042,138 @@ class FormFillAgent:
                             cleared += 1
 
         return cleared
+
+    # ============================================================
+    # V14-v9 护栏 1: 标题数字自一致性 (docx 后置)
+    # 扫 "(N) YY 标题值 万元" 句式,对比正文"2025 年末/末值"真数,
+    # 差 >5% 用正文真值替换标题数字。自证自修,不依赖外部数据源。
+    # ============================================================
+    @staticmethod
+    def _fix_skeleton_title_numbers(doc) -> int:
+        TITLE_PAT = re.compile(
+            r'^(\s*[(（]\d+[)）]\s*)([\u4e00-\u9fa5]{2,8}?)(\s*)'
+            r'(\d[\d\.]*)(\s*万元)'
+        )
+        BODY_PATS = [
+            re.compile(r'2025\s*年末[^。]{0,30}?([\d\.]+)\s*万元'),
+            re.compile(r'2025\s*年末?\s*为\s*([\d\.]+)\s*万元'),
+            re.compile(r'期末[^。]{0,30}?余额[^。]{0,20}?([\d\.]+)\s*万元'),
+            re.compile(r'分别为[^。]{0,80}?[、,，]\s*([\d\.]+)\s*万元'
+                       r'[^。]{0,30}$'),
+        ]
+        fixes = 0
+
+        def _fix_para(p):
+            nonlocal fixes
+            if not p.runs:
+                return
+            text = p.text or ''
+            m = TITLE_PAT.match(text)
+            if not m:
+                return
+            try:
+                title_num = float(m.group(4))
+            except Exception:
+                return
+            rest = text[m.end():]
+            real = None
+            for bp in BODY_PATS:
+                bm = bp.search(rest)
+                if bm:
+                    try:
+                        v = float(bm.group(1))
+                        if abs(v - title_num) / max(title_num, 1) > 0.05:
+                            real = v
+                            break
+                    except Exception:
+                        pass
+            if real is None:
+                return
+            new_num = (f"{real:.0f}" if abs(real - round(real)) < 0.01
+                       else f"{real:.1f}")
+            new_text = (f"{m.group(1)}{m.group(2)}{m.group(3)}"
+                        f"{new_num}{m.group(5)}{rest}")
+            p.runs[0].text = new_text
+            for r in p.runs[1:]:
+                r.text = ''
+            fixes += 1
+
+        for p in doc.paragraphs:
+            _fix_para(p)
+        for t in doc.tables:
+            for row in t.rows:
+                for c in row.cells:
+                    for p in c.paragraphs:
+                        _fix_para(p)
+                    for sub in c.tables:
+                        for sr in sub.rows:
+                            for sc in sr.cells:
+                                for sp in sc.paragraphs:
+                                    _fix_para(sp)
+        return fixes
+
+    # ============================================================
+    # V14-v9 护栏 2: "X率为 N%,同比 M 个百分点" 当 N≈M 判为数学荒谬
+    # 两阶段:先收集段内 X率=N 字典,再扫同比 M 个百分点,同名且 N≈M 触发
+    # ============================================================
+    @staticmethod
+    def _fix_same_value_pct_variation(doc) -> int:
+        fixes = 0
+
+        def _fix_para(p):
+            nonlocal fixes
+            if not p.runs:
+                return
+            text = p.text or ''
+            if '个百分点' not in text:
+                return
+            ratios = {}
+            for mm in re.finditer(
+                    r'([\u4e00-\u9fa5]+率)\s*为?\s*([\d\.]+)\s*%', text):
+                try:
+                    ratios[mm.group(1)] = float(mm.group(2))
+                except Exception:
+                    pass
+            if not ratios:
+                return
+
+            def repl(m):
+                nonlocal fixes
+                name = m.group(1)
+                try:
+                    m_val = float(m.group(3))
+                except Exception:
+                    return m.group(0)
+                if name in ratios and abs(ratios[name] - m_val) < 0.3:
+                    fixes += 1
+                    return (f"{name}同比变动幅度需核实"
+                            f"(原报告数学异常)")
+                return m.group(0)
+
+            new = re.sub(
+                r'([\u4e00-\u9fa5]+率)\s*同比\s*'
+                r'(上升|下降|提升|微升|微降|增长|减少|下滑)\s*'
+                r'([\d\.]+)\s*个百分点',
+                repl, text
+            )
+            if new != text:
+                p.runs[0].text = new
+                for r in p.runs[1:]:
+                    r.text = ''
+
+        for p in doc.paragraphs:
+            _fix_para(p)
+        for t in doc.tables:
+            for row in t.rows:
+                for c in row.cells:
+                    for p in c.paragraphs:
+                        _fix_para(p)
+                    for sub in c.tables:
+                        for sr in sub.rows:
+                            for sc in sr.cells:
+                                for sp in sc.paragraphs:
+                                    _fix_para(sp)
+        return fixes
 
     # ============================================================
     # V14-v5: 通用"相邻 row 内容相同即模板示例被复制"清理

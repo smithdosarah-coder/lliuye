@@ -1,0 +1,6 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - heading "斩妄" [level=1] [ref=e6]
+    - paragraph [ref=e7]: 修仙 · 文字肉鸽 · dev v0.0.1
+  - button "入世" [ref=e8] [cursor=pointer]
+  - generic [ref=e9]: pivot 版 2026-04-14 · React + Vite

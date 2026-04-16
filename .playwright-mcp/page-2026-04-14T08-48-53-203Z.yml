@@ -1,0 +1,36 @@
+- generic [ref=e4]:
+  - button "× 退出 mock" [ref=e5] [cursor=pointer]
+  - generic [ref=e6]:
+    - img [ref=e7]
+    - generic [ref=e11]:
+      - generic [ref=e12]: HP 78/100
+      - generic [ref=e13]: 气 3/3 · 神识 5
+    - generic [ref=e14]:
+      - img [ref=e15]
+      - generic [ref=e37]: 剑修
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - img [ref=e41]
+        - generic [ref=e61]: 妖狐
+      - generic [ref=e62]:
+        - img [ref=e64]
+        - generic [ref=e79]: 邪修
+  - generic [ref=e80]:
+    - button "1 剑气 直线剑气，10 伤害 剑" [ref=e81] [cursor=pointer]:
+      - generic [ref=e82]: "1"
+      - generic [ref=e83]: 剑气
+      - generic [ref=e84]: 直线剑气，10 伤害
+      - generic [ref=e85]: 剑
+    - button "2 烈火 焚烧目标，14 伤害 火" [ref=e86] [cursor=pointer]:
+      - generic [ref=e87]: "2"
+      - generic [ref=e88]: 烈火
+      - generic [ref=e89]: 焚烧目标，14 伤害
+      - generic [ref=e90]: 火
+    - button "3 雷劫 暴击！25 伤害 雷" [ref=e91] [cursor=pointer]:
+      - generic [ref=e92]: "3"
+      - generic [ref=e93]: 雷劫
+      - generic [ref=e94]: 暴击！25 伤害
+      - generic [ref=e95]: 雷
+  - generic [ref=e96]:
+    - button "重置敌人" [ref=e97] [cursor=pointer]
+    - generic [ref=e98]: 点 3 张牌看不同打击反馈：剑气（普通）/ 烈火（中）/ 雷劫（暴击）

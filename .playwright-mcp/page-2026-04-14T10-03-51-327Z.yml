@@ -1,0 +1,44 @@
+- generic [ref=e3]:
+  - generic [ref=e5]: 出关
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]: 青鸾
+      - generic [ref=e10]: ·
+      - generic [ref=e11]: 练气三层
+    - generic [ref=e12]:
+      - generic [ref=e13]: ❤ 120/120
+      - generic [ref=e14]: ✦ 75/75
+      - generic [ref=e15]: 1年 1月 8日 丑时
+  - generic [ref=e16]:
+    - generic [ref=e18]: 练气三层 · 第 7 / 7 日
+    - generic [ref=e21]: 修为 15 / 120
+  - generic [ref=e22]:
+    - generic [ref=e23]: 每日异象
+    - generic [ref=e25]:
+      - generic [ref=e26]: 第 1 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e27]:
+      - generic [ref=e28]: 第 2 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e29]:
+      - generic [ref=e30]: 第 3 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e31]:
+      - generic [ref=e32]: 第 3 日
+      - text: （心神恍惚，似有异象，但未能分辨。）
+    - generic [ref=e33]:
+      - generic [ref=e34]: 第 4 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e35]:
+      - generic [ref=e36]: 第 5 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e37]:
+      - generic [ref=e38]: 第 6 日
+      - text: 吐纳清气，灵力微增。
+    - generic [ref=e39]:
+      - generic [ref=e40]: 第 6 日
+      - text: （心神恍惚，似有异象，但未能分辨。）
+    - generic [ref=e41]:
+      - generic [ref=e42]: 第 7 日
+      - text: 吐纳清气，灵力微增。
+  - button "出关" [ref=e43] [cursor=pointer]

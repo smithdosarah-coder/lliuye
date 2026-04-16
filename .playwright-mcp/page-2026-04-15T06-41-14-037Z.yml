@@ -1,0 +1,144 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "众安信科 · X-NEXUS 乾策 信贷 AI 智能体矩阵" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e5]: 众安信科 · X-NEXUS
+        - generic [ref=e6]: 乾策
+        - generic [ref=e7]: 信贷 AI 智能体矩阵
+      - navigation [ref=e8]:
+        - generic [ref=e9]: 智能体 · 6
+        - link "A06 信贷报告助手 材料 → 授信申报书" [ref=e10] [cursor=pointer]:
+          - /url: /report
+          - img [ref=e12]
+          - generic [ref=e15]:
+            - generic [ref=e16]:
+              - generic [ref=e17]: A06
+              - generic [ref=e18]: 信贷报告助手
+            - generic [ref=e19]: 材料 → 授信申报书
+        - link "A01 全渠道获客 画像 → Look-alike 候选池" [ref=e20] [cursor=pointer]:
+          - /url: /channel
+          - img [ref=e22]
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - generic [ref=e27]: A01
+              - generic [ref=e28]: 全渠道获客
+            - generic [ref=e29]: 画像 → Look-alike 候选池
+        - link "A03 授信决策辅助 报告 → 评分 → 额度建议" [ref=e30] [cursor=pointer]:
+          - /url: /credit
+          - img [ref=e32]
+          - generic [ref=e36]:
+            - generic [ref=e37]:
+              - generic [ref=e38]: A03
+              - generic [ref=e39]: 授信决策辅助
+            - generic [ref=e40]: 报告 → 评分 → 额度建议
+        - link "A02 风控策略运营 规则 · 回测 · 指标" [ref=e41] [cursor=pointer]:
+          - /url: /riskctrl
+          - img [ref=e43]
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: A02
+              - generic [ref=e47]: 风控策略运营
+            - generic [ref=e48]: 规则 · 回测 · 指标
+        - link "A04 贷中风险预警 客户 × 风险规则矩阵" [ref=e49] [cursor=pointer]:
+          - /url: /alert
+          - img [ref=e51]
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]: A04
+              - generic [ref=e56]: 贷中风险预警
+            - generic [ref=e57]: 客户 × 风险规则矩阵
+        - link "A05 合规巡检 新政策 × 存量制度" [ref=e58] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e60]
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: A05
+              - generic [ref=e66]: 合规巡检
+            - generic [ref=e67]: 新政策 × 存量制度
+      - generic [ref=e68]:
+        - generic [ref=e69]: SESSION
+        - generic [ref=e70]: Demo · 本地运行
+    - generic [ref=e71]:
+      - banner [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: / A03
+          - generic [ref=e75]: 授信决策辅助
+        - generic [ref=e76]:
+          - generic [ref=e77]: API · READY
+          - generic [ref=e79]: DEMO MODE
+      - main [ref=e80]:
+        - generic [ref=e429]:
+          - generic [ref=e430]:
+            - generic [ref=e431]:
+              - generic [ref=e432]: A03 · Credit Decision Assistant
+              - heading "授信决策辅助" [level=1] [ref=e433]
+              - paragraph [ref=e434]: 面向中大型企业：财务 / 行业 / 经营 / 担保四维评分 + 红线 + 同业案例。
+            - generic [ref=e436]:
+              - button "对公" [ref=e437]
+              - button "普惠" [ref=e438]
+              - button "对私" [ref=e439]
+          - generic [ref=e440]:
+            - complementary [ref=e441]:
+              - generic [ref=e442]:
+                - generic [ref=e443]:
+                  - generic [ref=e444]:
+                    - generic [ref=e445]: INPUT
+                    - heading "输入来源" [level=3] [ref=e446]
+                  - generic [ref=e447]:
+                    - button "已生成" [ref=e448]
+                    - button "上传" [ref=e449]
+                    - button "快速" [ref=e450]
+                - generic [ref=e451]:
+                  - generic [ref=e452]: 消费 Agent6（信贷报告助手）已产出的企业画像 / 客户画像。
+                  - generic [ref=e453]:
+                    - combobox [ref=e454]
+                    - img
+                  - button "运行决策" [disabled] [ref=e456]:
+                    - img [ref=e457]
+                    - text: 运行决策
+              - generic [ref=e459]:
+                - generic [ref=e461]:
+                  - generic [ref=e462]: PIPELINE
+                  - heading "流水线" [level=3] [ref=e463]
+                - list [ref=e465]:
+                  - listitem [ref=e467]:
+                    - generic [ref=e469]:
+                      - generic [ref=e470]: 特征抽取
+                      - generic [ref=e471]: "01"
+                  - listitem [ref=e472]:
+                    - generic [ref=e474]:
+                      - generic [ref=e475]: 四维评分
+                      - generic [ref=e476]: "02"
+                  - listitem [ref=e477]:
+                    - generic [ref=e479]:
+                      - generic [ref=e480]: 红线检查
+                      - generic [ref=e481]: "03"
+                  - listitem [ref=e482]:
+                    - generic [ref=e484]:
+                      - generic [ref=e485]: 案例搜索
+                      - generic [ref=e486]: "04"
+                  - listitem [ref=e487]:
+                    - generic [ref=e489]:
+                      - generic [ref=e490]: 决策整合
+                      - generic [ref=e491]: "05"
+            - generic [ref=e496]:
+              - generic [ref=e497]: AWAITING
+              - paragraph [ref=e498]: 待运行决策
+              - paragraph [ref=e499]: 选择场景后点击「运行决策」
+      - contentinfo [ref=e183]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: ZHONGAN CREDIT AI · X-NEXUS · v2.0 DEMO
+          - generic [ref=e186]: "2026"
+  - generic [ref=e191] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e192]:
+      - img [ref=e193]
+    - generic [ref=e500]:
+      - button "Open issues overlay" [ref=e501]:
+        - generic [ref=e502]:
+          - generic [ref=e503]: "0"
+          - generic [ref=e504]: "1"
+        - generic [ref=e505]: Issue
+      - button "Collapse issues badge" [ref=e506]:
+        - img [ref=e507]
+  - alert [ref=e196]

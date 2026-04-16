@@ -1,0 +1,33 @@
+[     306ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-PJEEZAML.js?v=2c381870:21550
+[     421ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/favicon.ico:0
+[   14967ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-PJEEZAML.js?v=2c381870:21550
+[   73436ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/App.js?t=1776156406841:0
+[   73442ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/BattleHUD.js?t=1776156406843:0
+[   73443ms] [ERROR] [hmr] Failed to reload /src/App.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73444ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/BattleLog.js?t=1776156406843:0
+[   73444ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/BattleResult.js?t=1776156406843:0
+[   73445ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/CardView.js?t=1776156406844:0
+[   73445ms] [ERROR] [hmr] Failed to reload /src/components/BattleHUD.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73446ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/CardHand.js?t=1776156406844:0
+[   73446ms] [ERROR] [hmr] Failed to reload /src/components/BattleLog.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73447ms] [ERROR] [hmr] Failed to reload /src/components/BattleResult.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73447ms] [ERROR] [hmr] Failed to reload /src/components/CardView.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73447ms] [ERROR] [hmr] Failed to reload /src/components/CardHand.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73448ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/BattleScreen.js?t=1776156406845:0
+[   73448ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/EnemyList.js?t=1776156406845:0
+[   73448ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/EventScreen.js?t=1776156406846:0
+[   73448ms] [ERROR] [hmr] Failed to reload /src/components/BattleScreen.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73448ms] [ERROR] [hmr] Failed to reload /src/components/EnemyList.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73449ms] [ERROR] [hmr] Failed to reload /src/components/EventScreen.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73450ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/Hub.js?t=1776156406846:0
+[   73450ms] [ERROR] [hmr] Failed to reload /src/components/Hub.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73451ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/MapScreen.js?t=1776156406846:0
+[   73451ms] [ERROR] [hmr] Failed to reload /src/components/MapScreen.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73454ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/RestScreen.js?t=1776156406847:0
+[   73455ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/RewardScreen.js?t=1776156406847:0
+[   73455ms] [ERROR] [hmr] Failed to reload /src/components/RestScreen.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73456ms] [ERROR] [hmr] Failed to reload /src/components/RewardScreen.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73456ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/components/Title.js?t=1776156406848:0
+[   73456ms] [ERROR] [hmr] Failed to reload /src/components/Title.js. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5173/@vite/client:175
+[   73573ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/stores/index.js?t=1776156406849:0
+[   73574ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/App.js?t=1776156406841:0

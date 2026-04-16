@@ -1,0 +1,59 @@
+{
+  "profile_id": "corp_zhongrui_001",
+  "company_name": "福建中锐网络科技有限公司",
+  "unified_credit_code": "91350000MA8EXAMPLE",
+  "industry": "I65-互联网与相关服务",
+  "establishment_date": "2020-05-18",
+  "registered_capital": "5000",
+  "employee_count": 87,
+  "region": "福建省福州市",
+  "main_business": "企业级 SaaS + 定制软件开发",
+  "controller_name": "张某某",
+  "controller_share_pct": "65%",
+  "financial_anchors": {
+    "revenue_latest": 28000,
+    "revenue_prev": 22950,
+    "net_profit_latest": 1960,
+    "net_profit_prev": 1380,
+    "total_assets": 18500,
+    "total_liabilities": 8325,
+    "net_assets": 10175,
+    "accounts_receivable": 10740,
+    "inventory": 0,
+    "operating_cash_flow": 1500,
+    "short_term_borrowing": 3500,
+    "ebitda": 2400,
+    "period": "2025年度"
+  },
+  "guarantee_info": {
+    "type": "抵押+保证",
+    "collateral": "商业办公楼一层（评估值 540 万）",
+    "collateral_value": 540,
+    "collateral_type": "房产土地",
+    "guarantor": "法人连带责任保证 + 母公司担保"
+  },
+  "related_party_info": {
+    "related_party_revenue_pct": 0.32,
+    "related_party_txn_desc": "与母公司中锐集团存在 SaaS 服务供应关系，年度交易额 8960 万"
+  },
+  "existing_credit": {
+    "total_approved": 500,
+    "total_used": 450,
+    "overdue_history": "无"
+  },
+  "tax_rating": "B",
+  "request": {
+    "amount": 300,
+    "purpose": "补充流动资金（扩展研发团队）",
+    "term_months": 36
+  },
+  "chapters": {
+    "chapter_1_background": "福建中锐网络科技有限公司成立于 2020 年 5 月，注册资本 5000 万元，主营业务为企业级 SaaS 产品及定制化软件开发。公司依托母公司中锐集团在福建本地的渠道资源，迅速在政企数字化转型领域站稳脚跟，至 2025 年末员工规模达 87 人。",
+    "chapter_2_operation": "公司产品线分为 SaaS 订阅与定制开发两大板块，2025 年营收 2.8 亿元，同比增长 22%。核心客户集中于政府 OA、国企供应链和金融机构报表系统，单大客户依赖度偏高；销售回款周期较长，应收账款 1.07 亿元，周转天数约 140 天。",
+    "chapter_3_finance": "资产负债率 45%，处于同行业中位；毛利率稳定在 42%，净利润 1960 万元，同比增长 42%；经营性现金流净额 1500 万元。关联交易主要为向母公司采购 SaaS 底座服务，年度金额 8960 万元，占总营收 32%，需提请风控关注。",
+    "chapter_4_conclusion": "（待 Agent3 回填审批意见）"
+  },
+  "agent_outputs": {
+    "agent6_report_json": null
+  }
+}

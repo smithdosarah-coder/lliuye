@@ -1,0 +1,35 @@
+[
+  {
+    "case_no": "(2025)沪0115民初12345号",
+    "company_name": "华联精密制造有限公司",
+    "role": "被告",
+    "case_type": "买卖合同纠纷",
+    "amount": 12000000,
+    "filed_at": "2025-11-18",
+    "status": "一审审理中",
+    "url": "https://wenshu.court.gov.cn/mock/2025_0115_12345",
+    "snippet": "原告诉请被告华联精密制造有限公司支付货款 1200 万元及违约金。"
+  },
+  {
+    "case_no": "(2025)苏0583执恢1289号",
+    "company_name": "德昌五金制品有限公司",
+    "role": "被执行人",
+    "case_type": "强制执行",
+    "amount": 3500000,
+    "filed_at": "2025-12-02",
+    "status": "已列入失信被执行人名单",
+    "url": "https://wenshu.court.gov.cn/mock/2025_0583_1289",
+    "snippet": "德昌五金制品有限公司因未履行生效判决被列入失信被执行人名单。"
+  },
+  {
+    "case_no": "(2025)苏01民初8891号",
+    "company_name": "永盛包装材料有限公司",
+    "role": "被告",
+    "case_type": "一般合同纠纷",
+    "amount": 1800000,
+    "filed_at": "2025-10-09",
+    "status": "一审审理中",
+    "url": "https://wenshu.court.gov.cn/mock/2025_0100_8891",
+    "snippet": "涉及货款纠纷 180 万元，已开庭审理。"
+  }
+]

@@ -1,0 +1,44 @@
+{
+  "scenario_id": "micro_credit_100",
+  "title": "小微信贷 100 家扫描",
+  "description": "某城商行小微信贷事业部 100 家在贷客户池全量体检（预期 3 红 / 7 黄 / 90 绿）。",
+  "expected": {
+    "red": 3,
+    "yellow": 7,
+    "green": 90
+  },
+  "kb_files": {
+    "customers": "demo_data/agent_alert/loan_customers.xlsx",
+    "rules": "demo_data/agent_alert/warning_rules.json",
+    "policy": "demo_data/agent_alert/internal_policy.md"
+  },
+  "highlighted_cases": [
+    {
+      "company_name": "华联精密制造有限公司",
+      "level": "red",
+      "rule_ids": [
+        "FIN-002",
+        "LAW-001",
+        "POL-003"
+      ]
+    },
+    {
+      "company_name": "兴业通达贸易有限公司",
+      "level": "red",
+      "rule_ids": [
+        "BIZ-002",
+        "REL-002",
+        "FIN-003"
+      ]
+    },
+    {
+      "company_name": "德昌五金制品有限公司",
+      "level": "red",
+      "rule_ids": [
+        "LAW-002",
+        "BIZ-004",
+        "POL-006"
+      ]
+    }
+  ]
+}

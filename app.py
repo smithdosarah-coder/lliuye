@@ -698,23 +698,40 @@ def on_manual_export(session_state):
         return gr.update(), gr.update(), gr.update(), "还没有写好的章节"
 
     try:
+        client_name = agent._guess_client_name()
         if agent.template_path:
             from word_export import make_word_from_template
             path = make_word_from_template(
                 agent.template_path, agent.chapters,
-                client_name=agent._guess_client_name(),
+                client_name=client_name,
             )
         else:
             from word_export import make_word_report
             path = make_word_report(
-                agent._guess_client_name(), "", "", "", "", "",
+                client_name, "", "", "", "", "",
                 agent.chapters,
             )
         agent.report_exported = True
+
+        # 导出 ReportJSON 供 Agent3（授信决策辅助）消费
+        json_hint = ""
+        try:
+            from shared.report_handoff import dump_report_json
+            json_path = dump_report_json(
+                client_name=client_name,
+                sections=agent.chapters,
+                docx_path=path,
+                template_path=agent.template_path or "",
+            )
+            agent.report_json_path = json_path
+            json_hint = f"\n\n📤 ReportJSON 已生成：`{os.path.basename(json_path)}`\n→ 可切换到 Portal「授信决策辅助」Tab 加载做决策"
+        except Exception as _je:
+            json_hint = f"\n\n⚠️ ReportJSON 生成失败：{_je}"
+
         return (gr.update(value=DL_BANNER),
                 gr.update(value=path, visible=True),
                 gr.update(visible=False),
-                "导出成功，请下载")
+                "导出成功，请下载" + json_hint)
     except Exception as e:
         return (gr.update(),
                 gr.update(),

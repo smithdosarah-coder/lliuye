@@ -1,0 +1,12 @@
+{
+  "scenario_id": "normal_green",
+  "title": "🟢 顺通物流 · 绿灯正常",
+  "description": "物流企业，营收稳健、利润增长、无涉诉、按时还款（正常经营示范样本）",
+  "input_message": "请对顺通物流科技有限公司进行贷中风险预警分析",
+  "files": ["demo_data/agent_alert/mock_shunTong_dynamic.txt"],
+  "preset_data": {
+    "company_name": "顺通物流科技有限公司",
+    "expected_level": "green",
+    "expected_signal_count": 0
+  }
+}

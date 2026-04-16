@@ -6,6 +6,8 @@ import {
   Fraunces,
   Newsreader,
 } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -59,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${serif.variable} ${sans.variable} ${mono.variable} ${editorialDisplay.variable} ${editorialBody.variable} h-full`}
+      className={`${serif.variable} ${sans.variable} ${mono.variable} ${editorialDisplay.variable} ${editorialBody.variable} ${GeistSans.variable} ${GeistMono.variable} h-full`}
     >
       <body className="min-h-full">
         <AppShell>{children}</AppShell>

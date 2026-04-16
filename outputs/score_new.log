@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "<string>", line 27, in <module>
+    print(report.to_markdown())
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2611' in position 1185: illegal multibyte sequence
+text length: 12268 chars

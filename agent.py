@@ -67,6 +67,8 @@ class CreditReportAgent:
         self.report_reviewed: bool = False
         self.report_exported: bool = False
         self.last_export_error: str | None = None
+        # ReportJSON 路径（供 Agent3 串联消费）
+        self.report_json_path: str = ""
 
         # ★ v7.5: 填空模式
         self.mode: str = "narrative"  # "narrative" | "form_fill"
@@ -311,19 +313,31 @@ class CreditReportAgent:
         if not self._all_chapters_ready():
             return None
         try:
+            client_name = self._guess_client_name()
             if self.template_path:
                 from word_export import make_word_from_template
                 path = make_word_from_template(
                     self.template_path, self.chapters,
-                    client_name=self._guess_client_name(),
+                    client_name=client_name,
                 )
             else:
                 from word_export import make_word_report
                 path = make_word_report(
-                    self._guess_client_name(), "", "", "", "", "",
+                    client_name, "", "", "", "", "",
                     self.chapters,
                 )
             self.report_exported = True
+            # 同步产出 ReportJSON 供 Agent3 消费
+            try:
+                from shared.report_handoff import dump_report_json
+                self.report_json_path = dump_report_json(
+                    client_name=client_name,
+                    sections=self.chapters,
+                    docx_path=path,
+                    template_path=self.template_path or "",
+                )
+            except Exception:
+                self.report_json_path = ""
             return path
         except Exception as e:
             self.last_export_error = str(e)

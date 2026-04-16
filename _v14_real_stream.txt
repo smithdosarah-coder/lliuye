@@ -1,0 +1,102 @@
+event: stage
+data: {"stage": "ingest", "progress": 0.05, "message": "准备材料..."}
+
+event: stage
+data: {"stage": "audit", "progress": 0.2, "message": "FormFiller v4.0 启动 (v7.20: 指标表回填+明细分析+新增列+XXX清理)"}
+
+event: stage
+data: {"stage": "ingest", "progress": 0.4, "message": "材料加载完成 (12131字)"}
+
+event: stage
+data: {"stage": "ingest", "progress": 0.4, "message": "材料KB构建完成: 2个字段"}
+
+event: stage
+data: {"stage": "ingest", "progress": 0.4, "message": "材料全文索引构建完成: 32个段落"}
+
+event: stage
+data: {"stage": "extract", "progress": 0.6, "message": "财务事实库构建完成: 2个期间"}
+
+event: stage
+data: {"stage": "ingest", "progress": 0.6, "message": "企业画像锚点构建完成"}
+
+event: stage
+data: {"stage": "infer", "progress": 0.8, "message": "扫描模版中的填空位、复选框和嵌套表格..."}
+
+event: stage
+data: {"stage": "infer", "progress": 0.8, "message": "正在分析模板语义规范..."}
+
+event: stage
+data: {"stage": "infer", "progress": 0.8, "message": "模板语义分析完成: 4个章节, 19个字段语义"}
+
+event: stage
+data: {"stage": "extract", "progress": 0.8, "message": "F4-KB预填标签字段: 2 个"}
+
+event: stage
+data: {"stage": "infer", "progress": 0.8, "message": "★ 启动逐节生成模式（替代逐字段填写）..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (1/28) 1.借款人概况：..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 1.借款人概况："}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (2/28) 2.实控人面访评价（请明确面访时间、双方会面人员；如未面访实..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 2.实控人面访评价（请明确面访时间、双方"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (3/28) 3.实地走访情况：描述实地走访观察到的车间运作情况、存货情况..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 3.实地走访情况：描述实地走访观察到的车"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (4/28) 5.与我行历史授信合作（如为存量客户，请填写）：自2017年..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 5.与我行历史授信合作（如为存量客户，请"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (5/28) 7.授信及风险信号提示及反馈（531系统模块）：黄色预警提示..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 7.授信及风险信号提示及反馈（531系统"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (6/28) （二）法定代表人/实控人简介（如果为同一人，仅需填写一次情况..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] （二）法定代表人/实控人简介（如果为同一"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (7/28) 1.关联企业经营情况                    ..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 1.关联企业经营情况          "}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (8/28) 2.集团合并财务数据（若有）：..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 2.集团合并财务数据（若有）："}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (9/28) 1.产品（业务）及其市场应用：主营芯片设计，主要销售的芯片为..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 1.产品（业务）及其市场应用：主营芯片设"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "[逐节生成] (10/28) 2.产品优势、企业核心竞争力:企业产品准入门槛较高，技术……..."}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase1-证据组装] 2.产品优势、企业核心竞争力:企业产品准"}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase2-锚定撰写] 1.借款人概况："}
+
+event: stage
+data: {"stage": "write", "progress": 0.95, "message": "  [Phase2-锚定撰写] 7.授信及风险信号提示及反馈（531系统"}
+

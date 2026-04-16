@@ -4,7 +4,27 @@
       "mcp__claude-mem__search",
       "WebFetch(domain:www.gradio.app)",
       "mcp__claude-mem__smart_outline",
-      "mcp__claude-mem__smart_search"
+      "mcp__claude-mem__smart_search",
+      "Bash(exit 0)",
+      "WebSearch",
+      "WebFetch(domain:open.feishu.cn)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_wait_for",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_resize",
+      "WebFetch(domain:mp.weixin.qq.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:open.larksuite.com)",
+      "WebFetch(domain:www.pexels.com)",
+      "WebFetch(domain:community.spline.design)"
     ]
   },
   "enabledMcpjsonServers": [

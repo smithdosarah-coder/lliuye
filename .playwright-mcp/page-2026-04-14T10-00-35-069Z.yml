@@ -1,0 +1,45 @@
+- generic [ref=e13]:
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: 青鸾
+      - generic [ref=e17]: ·
+      - generic [ref=e18]: 凡俗
+    - generic [ref=e19]:
+      - generic [ref=e20]: ❤ 60/60
+      - generic [ref=e21]: ✦ 0/0
+      - generic [ref=e22]: 1年 1月 1日 子时
+  - generic [ref=e23]:
+    - generic [ref=e24]: 青鸾
+    - generic [ref=e25]: 16 岁 · 木灵根·中阶 · 清虚观外门弟子
+    - generic [ref=e27]: 修为
+    - generic [ref=e30]: 5 / 30
+  - generic [ref=e32]:
+    - button "⛰ 修行" [active] [ref=e33] [cursor=pointer]:
+      - generic [ref=e34]: ⛰
+      - generic [ref=e35]: 修行
+    - button "⟡ 外出 待续" [disabled] [ref=e36]:
+      - generic [ref=e37]: ⟡
+      - generic [ref=e38]: 外出
+      - generic [ref=e39]: 待续
+    - button "☷ 关系 待续" [disabled] [ref=e40]:
+      - generic [ref=e41]: ☷
+      - generic [ref=e42]: 关系
+      - generic [ref=e43]: 待续
+  - generic [ref=e54]:
+    - button "闭关 入定吐纳，时间流逝，可挂机" [ref=e55] [cursor=pointer]:
+      - generic [ref=e56]: 闭关
+      - generic [ref=e57]: 入定吐纳，时间流逝，可挂机
+    - button "打坐 短时修行（Build 2）" [disabled] [ref=e58]:
+      - generic [ref=e59]: 打坐
+      - generic [ref=e60]: 短时修行（Build 2）
+    - button "参悟 消耗心境换顿悟（Build 3）" [disabled] [ref=e61]:
+      - generic [ref=e62]: 参悟
+      - generic [ref=e63]: 消耗心境换顿悟（Build 3）
+  - generic [ref=e45]:
+    - generic [ref=e46]: 长生路
+    - generic [ref=e48]: 当前境界：凡俗
+    - generic [ref=e49]: 下个里程碑：练气一层
+    - generic [ref=e50]: 最终目标：飞升 ……（千里之路）
+  - generic [ref=e51]:
+    - button "灵机配置" [ref=e52] [cursor=pointer]
+    - button "重开" [ref=e53] [cursor=pointer]

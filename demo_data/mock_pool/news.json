@@ -1,0 +1,66 @@
+[
+  {
+    "title": "华联精密核心客户流失，财务承压",
+    "url": "https://news.mock/cj/20251115/hualian-lose-customer",
+    "snippet": "据财经媒体报道，华联精密核心客户占营收 35%进入重整程序，公司 2025Q4 亏损 680 万元。",
+    "published_at": "2025-11-15",
+    "company_name": "华联精密制造有限公司",
+    "sentiment": "负面"
+  },
+  {
+    "title": "兴业通达贸易实控人变更，大股东股权被司法冻结",
+    "url": "https://news.mock/cj/20260108/xingye-controller-change",
+    "snippet": "近日企查查显示，兴业通达贸易有限公司完成实控人变更，大股东 60% 股权被司法冻结。",
+    "published_at": "2026-01-08",
+    "company_name": "兴业通达贸易有限公司",
+    "sentiment": "负面"
+  },
+  {
+    "title": "德昌五金遭法院列入失信名单，工厂停产",
+    "url": "https://news.mock/cj/20260220/dechang-default",
+    "snippet": "德昌五金制品被列入失信被执行人名单，苏州厂区已停产超两周。",
+    "published_at": "2026-02-20",
+    "company_name": "德昌五金制品有限公司",
+    "sentiment": "负面"
+  },
+  {
+    "title": "汽车零部件行业景气下行，恒达汽配回款周期拉长",
+    "url": "https://news.mock/cj/20260115/hengda-accounts",
+    "snippet": "受主机厂销量下滑影响，恒达汽配 2025Q4 应收账款周转天数从 45 天升至 78 天。",
+    "published_at": "2026-01-15",
+    "company_name": "恒达汽配有限公司",
+    "sentiment": "负面"
+  },
+  {
+    "title": "消费电子景气度下行，金泰电子毛利率承压",
+    "url": "https://news.mock/cj/20260110/jintai-margin",
+    "snippet": "电子行业需求低迷，金泰电子毛利率同比下降 6 个百分点。",
+    "published_at": "2026-01-10",
+    "company_name": "金泰电子有限公司",
+    "sentiment": "中性"
+  },
+  {
+    "title": "永盛包装涉一般合同纠纷",
+    "url": "https://news.mock/cj/20251120/yongsheng-dispute",
+    "snippet": "永盛包装作为被告涉诉标的 180 万元的一般合同纠纷案件已开庭。",
+    "published_at": "2025-11-20",
+    "company_name": "永盛包装材料有限公司",
+    "sentiment": "负面"
+  },
+  {
+    "title": "鑫源纺织关联企业涉诉，行业整体承压",
+    "url": "https://news.mock/cj/20260205/xinyuan-related",
+    "snippet": "鑫源纺织关联企业因应收账款纠纷涉诉，纺织业景气度持续下行。",
+    "published_at": "2026-02-05",
+    "company_name": "鑫源纺织有限公司",
+    "sentiment": "中性"
+  },
+  {
+    "title": "大明机械主要客户终止合作",
+    "url": "https://news.mock/cj/20260128/daming-customer",
+    "snippet": "据业内消息，大明机械主要客户 A（占营收 34%）已终止采购合作。",
+    "published_at": "2026-01-28",
+    "company_name": "大明机械有限公司",
+    "sentiment": "负面"
+  }
+]

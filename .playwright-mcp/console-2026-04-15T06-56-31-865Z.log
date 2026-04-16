@@ -1,0 +1,8 @@
+[    1483ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[    1604ms] [LOG] [HMR] connected @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[    1784ms] [LOG] [report] fetching LLM health... @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[    1824ms] [LOG] [report] LLM health: {status: ok, llm_connected: true, version: 0.1.0} @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[   11693ms] [LOG] [Fast Refresh] rebuilding @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[   12119ms] [LOG] [Fast Refresh] done in 527ms @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[   42538ms] [LOG] [Fast Refresh] rebuilding @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[   42554ms] [LOG] [Fast Refresh] done in 117ms @ http://127.0.0.1:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431

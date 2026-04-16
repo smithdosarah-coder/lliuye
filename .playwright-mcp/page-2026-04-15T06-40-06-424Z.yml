@@ -1,0 +1,264 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "众安信科 · X-NEXUS 乾策 信贷 AI 智能体矩阵" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e5]: 众安信科 · X-NEXUS
+        - generic [ref=e6]: 乾策
+        - generic [ref=e7]: 信贷 AI 智能体矩阵
+      - navigation [ref=e8]:
+        - generic [ref=e9]: 智能体 · 6
+        - link "A06 信贷报告助手 材料 → 授信申报书" [ref=e10] [cursor=pointer]:
+          - /url: /report
+          - img [ref=e12]
+          - generic [ref=e15]:
+            - generic [ref=e16]:
+              - generic [ref=e17]: A06
+              - generic [ref=e18]: 信贷报告助手
+            - generic [ref=e19]: 材料 → 授信申报书
+        - link "A01 全渠道获客 画像 → Look-alike 候选池" [ref=e20] [cursor=pointer]:
+          - /url: /channel
+          - img [ref=e22]
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - generic [ref=e27]: A01
+              - generic [ref=e28]: 全渠道获客
+            - generic [ref=e29]: 画像 → Look-alike 候选池
+        - link "A03 授信决策辅助 报告 → 评分 → 额度建议" [ref=e30] [cursor=pointer]:
+          - /url: /credit
+          - img [ref=e32]
+          - generic [ref=e36]:
+            - generic [ref=e37]:
+              - generic [ref=e38]: A03
+              - generic [ref=e39]: 授信决策辅助
+            - generic [ref=e40]: 报告 → 评分 → 额度建议
+        - link "A02 风控策略运营 规则 · 回测 · 指标" [ref=e41] [cursor=pointer]:
+          - /url: /riskctrl
+          - img [ref=e43]
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: A02
+              - generic [ref=e47]: 风控策略运营
+            - generic [ref=e48]: 规则 · 回测 · 指标
+        - link "A04 贷中风险预警 客户 × 风险规则矩阵" [ref=e49] [cursor=pointer]:
+          - /url: /alert
+          - img [ref=e51]
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]: A04
+              - generic [ref=e56]: 贷中风险预警
+            - generic [ref=e57]: 客户 × 风险规则矩阵
+        - link "A05 合规巡检 新政策 × 存量制度" [ref=e58] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e60]
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: A05
+              - generic [ref=e66]: 合规巡检
+            - generic [ref=e67]: 新政策 × 存量制度
+      - generic [ref=e68]:
+        - generic [ref=e69]: SESSION
+        - generic [ref=e70]: Demo · 本地运行
+    - generic [ref=e71]:
+      - banner [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: / A06
+          - generic [ref=e75]: 信贷报告助手
+        - generic [ref=e76]:
+          - generic [ref=e77]: API · READY
+          - generic [ref=e79]: DEMO MODE
+      - main [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - generic [ref=e84]: A06 · Report Generation
+              - heading "信贷报告助手" [level=1] [ref=e85]
+              - paragraph [ref=e86]: 读入企业材料包,按「普惠授信申报及审查审批意见表」节段自动撰写,未能填写字段显式标注。
+            - generic [ref=e88] [cursor=pointer]:
+              - generic [ref=e89]: MOCK
+              - switch "MOCK ON" [checked] [ref=e90]
+              - generic [ref=e92]: "ON"
+          - generic [ref=e93]:
+            - complementary [ref=e94]:
+              - generic [ref=e95]:
+                - generic [ref=e97]:
+                  - generic [ref=e98]: UPLOAD
+                  - heading "上传材料" [level=3] [ref=e99]
+                - generic [ref=e100]:
+                  - generic [ref=e102] [cursor=pointer]:
+                    - img [ref=e103]
+                    - generic [ref=e106]: 拖入 或 点击上传
+                    - generic [ref=e107]: 支持 PDF · Word · 财报 · 征信
+                  - generic [ref=e108]: Mock 模式 · 上传仅记录元信息,走后端快速路径。
+              - generic [ref=e109]:
+                - generic [ref=e111]:
+                  - generic [ref=e112]: DEMO PRESETS
+                  - heading "预置场景" [level=3] [ref=e113]
+                - generic [ref=e114]:
+                  - generic [ref=e115]:
+                    - button "鼎盛商贸 对公示例 · 建材批发 · 流贷 500 万" [ref=e116]:
+                      - generic [ref=e117]: 鼎盛商贸
+                      - generic [ref=e118]: 对公示例 · 建材批发 · 流贷 500 万
+                    - button "张某餐饮 普惠示例 · 个体经营 · 50 万" [ref=e119]:
+                      - generic [ref=e120]: 张某餐饮
+                      - generic [ref=e121]: 普惠示例 · 个体经营 · 50 万
+                  - generic [ref=e122]:
+                    - button "开始生成" [ref=e223]:
+                      - img [ref=e124]
+                      - text: 开始生成
+                    - button [ref=e198]:
+                      - img [ref=e199]
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e129]:
+                  - generic [ref=e130]: PIPELINE
+                  - heading "生成流水线" [level=3] [ref=e131]
+                - list [ref=e133]:
+                  - listitem [ref=e135]:
+                    - img [ref=e203]
+                    - generic [ref=e137]:
+                      - generic [ref=e138]: 材料读取
+                      - generic [ref=e139]: "01"
+                  - listitem [ref=e140]:
+                    - img [ref=e206]
+                    - generic [ref=e142]:
+                      - generic [ref=e143]: 关键指标抽取
+                      - generic [ref=e144]: "02"
+                  - listitem [ref=e145]:
+                    - img [ref=e209]
+                    - generic [ref=e147]:
+                      - generic [ref=e148]: 补全与推理
+                      - generic [ref=e149]: "03"
+                  - listitem [ref=e150]:
+                    - img [ref=e225]
+                    - generic [ref=e152]:
+                      - generic [ref=e153]: 段落生成
+                      - generic [ref=e154]: "04"
+                  - listitem [ref=e155]:
+                    - img [ref=e228]
+                    - generic [ref=e157]:
+                      - generic [ref=e158]: 自证复核
+                      - generic [ref=e159]: "05"
+              - generic [ref=e160]:
+                - generic [ref=e161]:
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: REPORT
+                    - heading "鼎盛商贸有限公司" [level=3] [ref=e212]
+                  - generic [ref=e230]: 自动 460/492 · 未填 32
+                - generic [ref=e165]:
+                  - generic [ref=e166]:
+                    - article [ref=e231]:
+                      - heading "一、基本情况" [level=4] [ref=e232]
+                      - paragraph [ref=e233]: 鼎盛商贸有限公司成立于 2018 年 3 月,注册资本 1000 万元,位于广东省佛山市,主营建材批发与代理。现有员工 42 人,实际控制人王某持股 80%,经营权与所有权高度集中。
+                    - article [ref=e234]:
+                      - heading "二、经营与行业" [level=4] [ref=e235]
+                      - paragraph [ref=e236]: 受下游地产行业深度调整影响,2025 年度营收同比下滑 18% 至 1.80 亿元。主要客户为关联公司鼎盛地产,关联方销售占比约 45%,客户集中度偏高,回款周期由 90 天拉长至 150 天以上。
+                    - article [ref=e237]:
+                      - heading "三、财务状况" [level=4] [ref=e238]
+                      - paragraph [ref=e239]: 2025 年度资产负债率 80.0%,净利润亏损 420 万元(上年盈利 350 万元),经营性现金流为 -680 万元,短期借款 4200 万元,速动比率约 0.6,短期偿债压力突出。
+                    - article [ref=e240]:
+                      - heading "四、本次申请" [level=4] [ref=e241]
+                      - paragraph [ref=e242]: 申请流动资金贷款 500 万元,期限 12 个月,用途为补充流动资金。建议关注点:关联交易真实性、客户集中度、存货周转率、还款来源。
+                    - article [ref=e243]:
+                      - heading "五、初步结论" [level=4] [ref=e244]
+                      - paragraph [ref=e245]: (待 Agent3 下游授信决策模块回填审批意见)
+                  - generic [ref=e246]:
+                    - generic [ref=e247]:
+                      - generic [ref=e248]: 总字段
+                      - generic [ref=e250]: "492"
+                    - generic [ref=e251]:
+                      - generic [ref=e252]: 自动填写
+                      - generic [ref=e254]: "460"
+                    - generic [ref=e255]:
+                      - generic [ref=e256]: 未能填写
+                      - generic [ref=e258]: "32"
+                      - generic [ref=e259]: 已标注
+              - generic [ref=e170]:
+                - button "下载 docx" [ref=e171]:
+                  - img [ref=e172]
+                  - text: 下载 docx
+                - button "重新生成" [ref=e175]:
+                  - img [ref=e176]
+                  - text: 重新生成
+                - button "清空" [ref=e179]:
+                  - img [ref=e180]
+                  - text: 清空
+              - generic [ref=e260]:
+                - generic [ref=e262]:
+                  - generic [ref=e263]: HANDOFF
+                  - heading "继续下游流程" [level=3] [ref=e264]
+                - generic [ref=e265]:
+                  - generic [ref=e266]:
+                    - button "credit 进入授信决策 报告 → 评分 → 额度建议 带企业画像跳转" [ref=e267]:
+                      - generic [ref=e268]:
+                        - img [ref=e269]
+                        - generic [ref=e273]: credit
+                      - generic [ref=e274]: 进入授信决策
+                      - generic [ref=e275]: 报告 → 评分 → 额度建议
+                      - generic [ref=e276]:
+                        - text: 带企业画像跳转
+                        - img [ref=e277]
+                    - button "alert 进入贷中预警 客户 × 风险规则矩阵 带企业画像跳转" [ref=e279]:
+                      - generic [ref=e280]:
+                        - img [ref=e281]
+                        - generic [ref=e283]: alert
+                      - generic [ref=e284]: 进入贷中预警
+                      - generic [ref=e285]: 客户 × 风险规则矩阵
+                      - generic [ref=e286]:
+                        - text: 带企业画像跳转
+                        - img [ref=e287]
+                    - button "compliance 进入合规核验 新政策 × 存量制度 带企业画像跳转" [ref=e289]:
+                      - generic [ref=e290]:
+                        - img [ref=e291]
+                        - generic [ref=e294]: compliance
+                      - generic [ref=e295]: 进入合规核验
+                      - generic [ref=e296]: 新政策 × 存量制度
+                      - generic [ref=e297]:
+                        - text: 带企业画像跳转
+                        - img [ref=e298]
+                  - generic [ref=e300]: "* 通过 sessionStorage 携带 EnterpriseProfile,下游 Agent 无需重复解析。"
+            - complementary [ref=e301]:
+              - generic [ref=e302]:
+                - generic [ref=e304]:
+                  - generic [ref=e305]: PENDING
+                  - heading "补充问卷" [level=3] [ref=e306]
+                - generic [ref=e307]:
+                  - generic [ref=e308]: 系统识别出若干字段缺少证据支撑,请就下列问题补充,或直接跳过留待人工。
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: 共 3 项 · 已填 0 · 跳过 0
+                    - list [ref=e311]:
+                      - listitem [ref=e312]:
+                        - generic [ref=e313]:
+                          - generic [ref=e314]: 本次贷款是否提供抵押或第三方担保?
+                          - button "跳过" [ref=e315]
+                        - button "填写提示" [ref=e316]:
+                          - img [ref=e317]
+                          - img [ref=e319]
+                          - text: 填写提示
+                        - textbox "请在此作答…" [ref=e323]
+                      - listitem [ref=e324]:
+                        - generic [ref=e325]:
+                          - generic [ref=e326]: 关联方交易的真实性依据是什么?
+                          - button "跳过" [ref=e327]
+                        - button "填写提示" [ref=e328]:
+                          - img [ref=e329]
+                          - img [ref=e331]
+                          - text: 填写提示
+                        - textbox "请在此作答…" [ref=e335]
+                      - listitem [ref=e336]:
+                        - generic [ref=e337]:
+                          - generic [ref=e338]: 除经营回款外,是否存在其他还款来源?
+                          - button "跳过" [ref=e339]
+                        - button "填写提示" [ref=e340]:
+                          - img [ref=e341]
+                          - img [ref=e343]
+                          - text: 填写提示
+                        - textbox "请在此作答…" [ref=e347]
+                    - button "完善报告" [disabled] [ref=e349]
+      - contentinfo [ref=e183]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: ZHONGAN CREDIT AI · X-NEXUS · v2.0 DEMO
+          - generic [ref=e186]: "2026"
+  - button "Open Next.js Dev Tools" [ref=e192] [cursor=pointer]:
+    - img [ref=e193]
+  - alert [ref=e196]

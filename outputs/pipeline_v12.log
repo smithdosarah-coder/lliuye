@@ -1,0 +1,180 @@
+============================================================
+Full Pipeline Test: Section Generation Mode
+============================================================
+
+[1] Loading materials...
+[OCR] 1、中锐-开户许可证2016.4.11.pdf: 使用缓存结果 (168 chars)
+[OCR] 1、中锐网络章程调档25.6.1.pdf: 使用缓存结果 (5090 chars)
+[OCR] 1、中锐营业执照副本25.7.16.pdf: 使用缓存结果 (1198 chars)
+[OCR] 1、五楼房产租赁协议(1).pdf: 使用缓存结果 (1763 chars)
+[OCR] 1、黄祖海身份证2019.pdf: 使用缓存结果 (165 chars)
+[OCR] 2、审计报告2023年-德赢.pdf: 使用缓存结果 (5934 chars)
+[OCR] 2、审计报告2024年-德赢.pdf: 使用缓存结果 (6347 chars)
+    Loaded 34 files:
+      00、中锐网络专利证书明细.xlsx (6575 chars)
+      1、中锐-开户许可证2016.4.11.pdf (168 chars)
+      1、中锐网络专利证书明细.xlsx (5765 chars)
+      1、中锐网络章程调档25.6.1.pdf (5090 chars)
+      1、中锐网络资质表.xls (4619 chars)
+      1、中锐营业执照副本25.7.16.pdf (1198 chars)
+      1、五楼房产租赁协议(1).pdf (1763 chars)
+      1、对福建省认定机构2025年认定报备的第二批高新技术企业进行备案的公告_福建省_高新技术企业认定工作网.pdf (4706 chars)
+      1、黄祖海身份证2019.pdf (165 chars)
+      202501.xls (23147 chars)
+      202502.xls (13913 chars)
+      202503.xls (29467 chars)
+      202504.xls (16037 chars)
+      202505.xls (5836 chars)
+      202506.xls (9332 chars)
+      202507.xls (6605 chars)
+      202508.xls (6209 chars)
+      202509.xls (24329 chars)
+      202510.xls (10523 chars)
+      202511.xls (4280 chars)
+      202512.xls (8467 chars)
+      202601.xls (4419 chars)
+      202602.xls (5132 chars)
+      2、2025年12月财务报表-中锐20260212.xlsx (10854 chars)
+      2、审计报告2023年-德赢.pdf (5934 chars)
+      2、审计报告2024年-德赢.pdf (6347 chars)
+      3、2023年完税证明-按所属期.pdf (534 chars)
+      3、增值税及附加税申报表-202412.pdf (16451 chars)
+      3、增值税及附加税申报表-202512.pdf (16575 chars)
+      3、增值税申报表-202312月.pdf (15617 chars)
+      3、税收完税证明2024年度（按所属期）.pdf (613 chars)
+      3、税收完税证明202501-12所属期.pdf (665 chars)
+      交行-中锐网络授信补充问题及材料1.docx (3085 chars)
+      交通-在建项目清单.xlsx (8648 chars)
+
+[2] Creating LLM caller (DeepSeek)...
+
+[3] Creating FormFillAgent...
+
+[4] Running pipeline...
+    Template: templates_cache\福建普惠授信申报及审查审批意见表2025新版.docx
+    Output:   outputs\section_gen_test_1776225134.docx
+------------------------------------------------------------
+[FormFill] FormFiller v4.0 启动 (v7.20: 指标表回填+明细分析+新增列+XXX清理)
+  [11:52:14] FormFiller v4.0 启动 (v7.20: 指标表回填+明细分析+新增列+XXX清理)
+[FormFill] 模版加载成功
+  [11:52:14] 模版加载成功
+[FormFill] 材料加载完成 (119924字)
+  [11:52:15] 材料加载完成 (119924字)
+[FormFill] 材料KB构建完成: 28个字段 (src=交行-中锐网络授信补充问题及材料1.docx)
+  [11:52:15] 材料KB构建完成: 28个字段 (src=交行-中锐网络授信补充问题及材料1.docx)
+[FormFill] [DEBUG] KB fact keys: ['company_name', 'registered_capital', 'paid_in_capital', 'legal_representative', 'industry', 'operating_address', 'controller_name', 'controller_id', 'spouse_name', 'spouse_id', 'controller_resume', 'is_existing_customer', 'customer_manager_name', 'customer_manager_phone', 'tech_enterprise_types', 'stock_incentive', 'business_water', 'business_education', 'core_competence', 'revenue_split', 'account_period', 'upstream_top5', 'downstream_top5', 'financing', 'affiliates', 'r_and_d', 'orders', 'assets']
+  [11:52:15] [DEBUG] KB fact keys: ['company_name', 'registered_capital', 'paid_in_capital', 'legal_representative', 'industry', 'operating_address', 'controller_name', 'controller_id', 'spouse_name', 'spouse_id', 'controller_resume', 'is_existing_customer', 'customer_manager_name', 'customer_manager_phone', 'tech_enterprise_types', 'stock_incentive', 'business_water', 'business_education', 'core_competence', 'revenue_split', 'account_period', 'upstream_top5', 'downstream_top5', 'financing', 'affiliates', 'r_and_d', 'orders', 'assets']
+[FormFill] 材料全文索引构建完成: 708个段落
+  [11:52:15] 材料全文索引构建完成: 708个段落
+[OCR] 2、审计报告2023年-德赢.pdf: 使用缓存结果 (5934 chars)
+[OCR] 2、审计报告2024年-德赢.pdf: 使用缓存结果 (6347 chars)
+[FormFill]   Truth财务期间: ['2022', '2023', '2024', '2025']
+  [11:52:16]   Truth财务期间: ['2022', '2023', '2024', '2025']
+[FormFill] 财务事实库构建完成: 4个期间
+  [11:52:16] 财务事实库构建完成: 4个期间
+[FormFill] 企业画像锚点构建完成
+  [11:52:16] 企业画像锚点构建完成
+[FormFill] 材料时间点检测: ['2023', '2024', '2025', '2026'] 期中: []
+  [11:52:16] 材料时间点检测: ['2023', '2024', '2025', '2026'] 期中: []
+[FormFill] Truth gate: 期间以财务报表为准 -> 年度['2022', '2023', '2024', '2025'] 期中[]
+  [11:52:16] Truth gate: 期间以财务报表为准 -> 年度['2022', '2023', '2024', '2025'] 期中[]
+[FormFill] 扫描模版中的填空位、复选框和嵌套表格...
+  [11:52:16] 扫描模版中的填空位、复选框和嵌套表格...
+[FormFill] 发现 1 个XX填空位, 29 个复选框, 37 个示例段落, 20 个嵌套表格(672个空单元格), 83 个标签空白字段
+  [11:52:16] 发现 1 个XX填空位, 29 个复选框, 37 个示例段落, 20 个嵌套表格(672个空单元格), 83 个标签空白字段
+[FormFill] 正在分析模板语义规范...
+  [11:52:16] 正在分析模板语义规范...
+    [LLM call #1] sys=1589c usr=5797c
+[FormFill] KB prefill nt009: upstream 5 rows
+  [11:54:23] KB prefill nt009: upstream 5 rows
+[FormFill] KB prefill nt010: downstream 5 rows
+  [11:54:23] KB prefill nt010: downstream 5 rows
+[FormFill] KB预填上下游表格: 50 个单元格
+  [11:54:23] KB预填上下游表格: 50 个单元格
+[FormFill] KB prefill nt001: affiliates 5 rows
+  [11:54:23] KB prefill nt001: affiliates 5 rows
+[FormFill] KB prefill nt005: affiliates 3 rows
+  [11:54:23] KB prefill nt005: affiliates 3 rows
+[FormFill] KB prefill nt017: financing 4 rows
+  [11:54:23] KB prefill nt017: financing 4 rows
+[FormFill] KB prefill nt018: r_and_d
+  [11:54:23] KB prefill nt018: r_and_d
+[FormFill] KB预填结构化表格: 42 个单元格
+  [11:54:23] KB预填结构化表格: 42 个单元格
+[FormFill] KB prefill nt004: assets 1 rows
+  [11:54:23] KB prefill nt004: assets 1 rows
+[FormFill] KB预填资产表格: 5 个单元格
+  [11:54:23] KB预填资产表格: 5 个单元格
+[FormFill]   table nt015: add 2025
+  [11:54:23]   table nt015: add 2025
+[FormFill]   added 1 missing period columns
+  [11:54:23]   added 1 missing period columns
+[FormFill]   tagged 2 unavailable-period columns
+  [11:54:23]   tagged 2 unavailable-period columns
+[FormFill] [DEBUG] F4预填: 83个标签字段, 29个复选框, KB facts=28个
+  [11:54:23] [DEBUG] F4预填: 83个标签字段, 29个复选框, KB facts=28个
+[FormFill] [DEBUG] 标签字段样本: ['客户名称：', '划型要素：上年度资产总额', '划型要素：上年度资产总额万元；上年度销售额', '万元；上年度销售额万元；上年度末员工人数', '绿通标识：', '上年度末社保人数', '人；注册资本：', '万元、实收资本：', '法定代表人：', '两年企业股权变动情况及变动原因：']
+  [11:54:23] [DEBUG] 标签字段样本: ['客户名称：', '划型要素：上年度资产总额', '划型要素：上年度资产总额万元；上年度销售额', '万元；上年度销售额万元；上年度末员工人数', '绿通标识：', '上年度末社保人数', '人；注册资本：', '万元、实收资本：', '法定代表人：', '两年企业股权变动情况及变动原因：']
+[FormFill] [DEBUG] KB标签预填结果: 5个匹配 (['lf001', 'lf007', 'lf008', 'lf009', 'lf035'])
+  [11:54:23] [DEBUG] KB标签预填结果: 5个匹配 (['lf001', 'lf007', 'lf008', 'lf009', 'lf035'])
+[FormFill] F4-KB预填标签字段: 5 个
+  [11:54:23] F4-KB预填标签字段: 5 个
+[FormFill] [DEBUG] KB复选框预填结果: 6个匹配 ([('cb001', False), ('cb002', True), ('cb021', True), ('cb022', True), ('cb023', False)])
+  [11:54:23] [DEBUG] KB复选框预填结果: 6个匹配 ([('cb001', False), ('cb002', True), ('cb021', True), ('cb022', True), ('cb023', False)])
+[FormFill] F4-KB预填复选框: 3 个
+  [11:54:23] F4-KB预填复选框: 3 个
+[FormFill] ★ 启动逐节生成模式（替代逐字段填写）...
+  [11:54:23] ★ 启动逐节生成模式（替代逐字段填写）...
+[FormFill]   模板拆解完成: 46个章节, 86个骨架段, 48个待重写段
+  [11:54:23]   模板拆解完成: 46个章节, 86个骨架段, 48个待重写段
+[FormFill]   发现财务xlsx: 2、2025年12月财务报表-中锐20260212.xlsx, 构建财务指标...
+  [11:54:23]   发现财务xlsx: 2、2025年12月财务报表-中锐20260212.xlsx, 构建财务指标...
+[FormFill]   ✓ 财务指标构建完成
+  [11:54:27]   ✓ 财务指标构建完成
+[FormFill] [逐节生成] (1/28) 1.借款人概况：...
+  [11:54:27] [逐节生成] (1/28) 1.借款人概况：...
+[FormFill]   [Phase1-证据组装] 1.借款人概况：
+  [11:54:27]   [Phase1-证据组装] 1.借款人概况：
+    [LLM call #2] sys=444c usr=10257c
+[FormFill]   [证据] ✓3项 ✗2项
+  [11:54:32]   [证据] ✓3项 ✗2项
+[FormFill]   [Phase2-锚定撰写] 1.借款人概况：
+  [11:54:32]   [Phase2-锚定撰写] 1.借款人概况：
+    [LLM call #3] sys=1726c usr=4624c
+[FormFill] [逐节生成] (2/28) 2.实控人面访评价（请明确面访时间、双方会面人员；如未面访实...
+  [11:54:37] [逐节生成] (2/28) 2.实控人面访评价（请明确面访时间、双方会面人员；如未面访实...
+[FormFill]   [Phase1-证据组装] 2.实控人面访评价（请明确面访时间、双方
+  [11:54:37]   [Phase1-证据组装] 2.实控人面访评价（请明确面访时间、双方
+    [LLM call #4] sys=444c usr=12503c
+[FormFill]   [证据] ✓7项 ✗0项
+  [11:54:48]   [证据] ✓7项 ✗0项
+[FormFill]   [Phase2-锚定撰写] 2.实控人面访评价（请明确面访时间、双方
+  [11:54:48]   [Phase2-锚定撰写] 2.实控人面访评价（请明确面访时间、双方
+    [LLM call #5] sys=1726c usr=4326c
+[FormFill] [逐节生成] (3/28) 3.实地走访情况：描述实地走访观察到的车间运作情况、存货情况...
+  [11:54:51] [逐节生成] (3/28) 3.实地走访情况：描述实地走访观察到的车间运作情况、存货情况...
+[FormFill]   [Phase1-证据组装] 3.实地走访情况：描述实地走访观察到的车
+  [11:54:51]   [Phase1-证据组装] 3.实地走访情况：描述实地走访观察到的车
+    [LLM call #6] sys=444c usr=10988c
+[FormFill]   [证据] ✓0项 ✗8项
+  [11:54:56]   [证据] ✓0项 ✗8项
+[FormFill]   [Phase2-锚定撰写] 3.实地走访情况：描述实地走访观察到的车
+  [11:54:56]   [Phase2-锚定撰写] 3.实地走访情况：描述实地走访观察到的车
+    [LLM call #7] sys=1726c usr=3909c
+[FormFill] [逐节生成] (4/28) 5.与我行历史授信合作（如为存量客户，请填写）：自2017年...
+  [11:54:58] [逐节生成] (4/28) 5.与我行历史授信合作（如为存量客户，请填写）：自2017年...
+[FormFill]   [Phase1-证据组装] 5.与我行历史授信合作（如为存量客户，请
+  [11:54:58]   [Phase1-证据组装] 5.与我行历史授信合作（如为存量客户，请
+    [LLM call #8] sys=444c usr=9405c
+[FormFill]   [证据] ✓2项 ✗3项
+  [11:55:04]   [证据] ✓2项 ✗3项
+[FormFill]   [Phase2-锚定撰写] 5.与我行历史授信合作（如为存量客户，请
+  [11:55:04]   [Phase2-锚定撰写] 5.与我行历史授信合作（如为存量客户，请
+    [LLM call #9] sys=1726c usr=3849c
+Template leakage in sec_06: 1 paragraphs
+    [LLM call #10] sys=1726c usr=3900c
+[FormFill] [逐节生成] (5/28) 7.授信及风险信号提示及反馈（531系统模块）：黄色预警提示...
+  [11:55:09] [逐节生成] (5/28) 7.授信及风险信号提示及反馈（531系统模块）：黄色预警提示...
+[FormFill]   [Phase1-证据组装] 7.授信及风险信号提示及反馈（531系统
+  [11:55:09]   [Phase1-证据组装] 7.授信及风险信号提示及反馈（531系统
+    [LLM call #11] sys=444c usr=9728c

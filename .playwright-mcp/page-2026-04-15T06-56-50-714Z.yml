@@ -1,0 +1,181 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "众安信科 · X-NEXUS 乾策 信贷 AI 智能体矩阵" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e5]: 众安信科 · X-NEXUS
+        - generic [ref=e6]: 乾策
+        - generic [ref=e7]: 信贷 AI 智能体矩阵
+      - navigation [ref=e8]:
+        - generic [ref=e9]: 智能体 · 6
+        - link "A06 信贷报告助手 材料 → 授信申报书" [ref=e10] [cursor=pointer]:
+          - /url: /report
+          - img [ref=e12]
+          - generic [ref=e15]:
+            - generic [ref=e16]:
+              - generic [ref=e17]: A06
+              - generic [ref=e18]: 信贷报告助手
+            - generic [ref=e19]: 材料 → 授信申报书
+        - link "A01 全渠道获客 画像 → Look-alike 候选池" [ref=e20] [cursor=pointer]:
+          - /url: /channel
+          - img [ref=e22]
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - generic [ref=e27]: A01
+              - generic [ref=e28]: 全渠道获客
+            - generic [ref=e29]: 画像 → Look-alike 候选池
+        - link "A03 授信决策辅助 报告 → 评分 → 额度建议" [ref=e30] [cursor=pointer]:
+          - /url: /credit
+          - img [ref=e32]
+          - generic [ref=e36]:
+            - generic [ref=e37]:
+              - generic [ref=e38]: A03
+              - generic [ref=e39]: 授信决策辅助
+            - generic [ref=e40]: 报告 → 评分 → 额度建议
+        - link "A02 风控策略运营 规则 · 回测 · 指标" [ref=e41] [cursor=pointer]:
+          - /url: /riskctrl
+          - img [ref=e43]
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - generic [ref=e46]: A02
+              - generic [ref=e47]: 风控策略运营
+            - generic [ref=e48]: 规则 · 回测 · 指标
+        - link "A04 贷中风险预警 客户 × 风险规则矩阵" [ref=e49] [cursor=pointer]:
+          - /url: /alert
+          - img [ref=e51]
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - generic [ref=e55]: A04
+              - generic [ref=e56]: 贷中风险预警
+            - generic [ref=e57]: 客户 × 风险规则矩阵
+        - link "A05 合规巡检 新政策 × 存量制度" [ref=e58] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e60]
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: A05
+              - generic [ref=e66]: 合规巡检
+            - generic [ref=e67]: 新政策 × 存量制度
+      - generic [ref=e68]:
+        - generic [ref=e69]: SESSION
+        - generic [ref=e70]: Demo · 本地运行
+    - generic [ref=e71]:
+      - banner [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e74]: / A06
+          - generic [ref=e75]: 信贷报告助手
+        - generic [ref=e76]:
+          - generic [ref=e77]: API · READY
+          - generic [ref=e79]: DEMO MODE
+      - main [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - generic [ref=e84]: A06 · Report Generation
+              - heading "信贷报告助手" [level=1] [ref=e85]
+              - paragraph [ref=e86]: 读入企业材料包,按「普惠授信申报及审查审批意见表」节段自动撰写,未能填写字段显式标注。
+            - generic [ref=e87]:
+              - generic "LLM API 已通过环境变量配置" [ref=e216]:
+                - generic [ref=e90]: LLM 已连接
+              - generic [ref=e91] [cursor=pointer]:
+                - generic [ref=e92]: MOCK
+                - switch "MOCK ON" [checked] [ref=e93]
+                - generic [ref=e95]: "ON"
+          - generic [ref=e96]:
+            - complementary [ref=e97]:
+              - generic [ref=e98]:
+                - generic [ref=e100]:
+                  - generic [ref=e101]: BUSINESS LINE
+                  - heading "业务线" [level=3] [ref=e102]
+                - generic [ref=e103]:
+                  - generic [ref=e104]:
+                    - button "对公" [ref=e105]
+                    - button "普惠" [active] [ref=e106]
+                    - button "其他" [disabled] [ref=e107]
+                  - generic [ref=e108]: 银行按业务线匹配申报书模板与字段表。
+              - generic [ref=e109]:
+                - generic [ref=e111]:
+                  - generic [ref=e112]: TEMPLATE
+                  - heading "申报书模板" [level=3] [ref=e113]
+                - generic [ref=e114]:
+                  - generic [ref=e116] [cursor=pointer]:
+                    - img [ref=e117]
+                    - generic [ref=e120]: 拖入 或 点击上传模板
+                    - generic [ref=e121]: 不传则使用 普惠授信申报书-标准版.docx
+                  - generic [ref=e122]: 普惠授信申报书-标准版.docx(内置默认)
+              - generic [ref=e124]:
+                - generic [ref=e126]:
+                  - generic [ref=e127]: MATERIALS
+                  - heading "客户材料" [level=3] [ref=e128]
+                - generic [ref=e129]:
+                  - generic [ref=e131] [cursor=pointer]:
+                    - img [ref=e132]
+                    - generic [ref=e135]: 拖入 或 点击上传
+                    - generic [ref=e136]: 支持 PDF · Word · 财报 · 征信
+                  - generic [ref=e137]: Mock 模式 · 上传仅记录元信息,走后端快速路径。
+              - generic [ref=e138]:
+                - generic [ref=e140]:
+                  - generic [ref=e141]: DEMO PRESETS
+                  - heading "预置场景" [level=3] [ref=e142]
+                - generic [ref=e143]:
+                  - generic [ref=e144]:
+                    - button "鼎盛商贸 对公示例 · 建材批发 · 流贷 500 万" [ref=e145]:
+                      - generic [ref=e146]: 鼎盛商贸
+                      - generic [ref=e147]: 对公示例 · 建材批发 · 流贷 500 万
+                    - button "张某餐饮 普惠示例 · 个体经营 · 50 万" [ref=e148]:
+                      - generic [ref=e149]: 张某餐饮
+                      - generic [ref=e150]: 普惠示例 · 个体经营 · 50 万
+                  - button "开始生成" [ref=e152]:
+                    - img [ref=e153]
+                    - text: 开始生成
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - generic [ref=e158]:
+                  - generic [ref=e159]: PIPELINE
+                  - heading "生成流水线" [level=3] [ref=e160]
+                - list [ref=e162]:
+                  - listitem [ref=e164]:
+                    - generic [ref=e166]:
+                      - generic [ref=e167]: 材料读取
+                      - generic [ref=e168]: "01"
+                  - listitem [ref=e169]:
+                    - generic [ref=e171]:
+                      - generic [ref=e172]: 关键指标抽取
+                      - generic [ref=e173]: "02"
+                  - listitem [ref=e174]:
+                    - generic [ref=e176]:
+                      - generic [ref=e177]: 补全与推理
+                      - generic [ref=e178]: "03"
+                  - listitem [ref=e179]:
+                    - generic [ref=e181]:
+                      - generic [ref=e182]: 段落生成
+                      - generic [ref=e183]: "04"
+                  - listitem [ref=e184]:
+                    - generic [ref=e186]:
+                      - generic [ref=e187]: 自证复核
+                      - generic [ref=e188]: "05"
+              - generic [ref=e189]:
+                - generic [ref=e191]:
+                  - generic [ref=e192]: REPORT
+                  - heading "报告预览" [level=3] [ref=e193]
+                - generic [ref=e195]:
+                  - generic [ref=e196]: AWAITING
+                  - paragraph [ref=e197]: 待生成报告
+                  - paragraph [ref=e198]: 选择预置场景 或 上传材料包后点击「开始生成」
+              - generic [ref=e199]:
+                - button "下载 docx" [disabled] [ref=e200]:
+                  - img [ref=e201]
+                  - text: 下载 docx
+                - button "重新生成" [ref=e204]:
+                  - img [ref=e205]
+                  - text: 重新生成
+                - button "清空" [ref=e208]:
+                  - img [ref=e209]
+                  - text: 清空
+      - contentinfo [ref=e212]:
+        - generic [ref=e213]:
+          - generic [ref=e214]: ZHONGAN CREDIT AI · X-NEXUS · v2.0 DEMO
+          - generic [ref=e215]: "2026"
+  - button "Open Next.js Dev Tools" [ref=e222] [cursor=pointer]:
+    - img [ref=e223]
+  - alert [ref=e226]

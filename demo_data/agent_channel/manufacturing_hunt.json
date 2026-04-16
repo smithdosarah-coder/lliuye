@@ -1,0 +1,14 @@
+{
+  "scenario_id": "manufacturing_hunt",
+  "title": "制造业获客匹配",
+  "description": "福建省精密制造中小企业，扫描行业资讯匹配资金需求（设备升级融资典型场景）",
+  "input_message": "福建省泉州市，精密制造行业中小企业，主营汽车零部件冲压件，年营收约 3500 万，正在做设备升级改造（新购 CNC 加工中心），需要 500-800 万融资，查一下有哪些行业政策和适配的银行渠道。",
+  "files": [],
+  "preset_data": {
+    "industry": "机械设备",
+    "region": "福建省泉州市",
+    "company_name": "",
+    "keywords": "精密制造 设备升级 汽车零部件 CNC",
+    "scale": "年营收3500万"
+  }
+}

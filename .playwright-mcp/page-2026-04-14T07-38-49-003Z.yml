@@ -1,0 +1,67 @@
+- generic [ref=e38]:
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]: 青州 · 第 2 层
+      - generic [ref=e42]:
+        - button "1x" [ref=e43] [cursor=pointer]
+        - button "2x" [ref=e44] [cursor=pointer]
+        - button "4x" [ref=e45] [cursor=pointer]
+        - button "暂停" [ref=e46] [cursor=pointer]
+        - button "退出" [ref=e47] [cursor=pointer]
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]: 青衫剑客
+        - generic [ref=e51]: 练气一层
+      - generic [ref=e54]: HP 55 / 100
+  - generic [ref=e55]:
+    - generic [ref=e56]: 来敌
+    - generic [ref=e57]:
+      - generic [ref=e124]:
+        - generic [ref=e125]: 妖狐
+        - generic [ref=e126]: 41 / 41
+      - generic [ref=e130]:
+        - generic [ref=e131]: 妖狐
+        - generic [ref=e132]: 41 / 41
+      - generic [ref=e136]:
+        - generic [ref=e137]: 妖狐
+        - generic [ref=e138]: 41 / 41
+      - generic [ref=e142]:
+        - generic [ref=e143]: 妖狐
+        - generic [ref=e144]: 41 / 41
+      - generic [ref=e148]:
+        - generic [ref=e149]: 邪修
+        - generic [ref=e150]: 34 / 34
+      - generic [ref=e154]:
+        - generic [ref=e155]: 邪修
+        - generic [ref=e156]: 34 / 34
+  - generic [ref=e76]:
+    - generic [ref=e77]: 青州剑冢，煞气笼罩。持剑者步入第一层。
+    - generic [ref=e78]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e79]: 妖狐 击中你 -3
+    - generic [ref=e80]: 妖狐 击中你 -3
+    - generic [ref=e81]: 妖狐 击中你 -3
+    - generic [ref=e82]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e83]: 妖狐 击中你 -3
+    - generic [ref=e84]: 妖狐 击中你 -3
+    - generic [ref=e85]: 妖狐 击中你 -3
+    - generic [ref=e86]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e87]: 妖狐 化作灰烬。
+    - generic [ref=e88]: 妖狐 击中你 -3
+    - generic [ref=e89]: 妖狐 击中你 -3
+    - generic [ref=e90]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e91]: 妖狐 击中你 -3
+    - generic [ref=e92]: 妖狐 击中你 -3
+    - generic [ref=e93]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e94]: 妖狐 击中你 -3
+    - generic [ref=e95]: 妖狐 击中你 -3
+    - generic [ref=e96]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e97]: 妖狐 化作灰烬。
+    - generic [ref=e98]: 妖狐 击中你 -3
+    - generic [ref=e99]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e100]: 妖狐 击中你 -3
+    - generic [ref=e101]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e102]: 妖狐 击中你 -3
+    - generic [ref=e103]: 剑气斩出，妖狐 受创 -10
+    - generic [ref=e104]: 妖狐 化作灰烬。
+    - generic [ref=e159]: 悟：见血封喉
+    - generic [ref=e160]: 步入第 2 层，新敌来袭。

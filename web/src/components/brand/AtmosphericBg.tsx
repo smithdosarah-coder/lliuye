@@ -9,57 +9,48 @@ import { MeshGradient, Waves } from "@paper-design/shaders-react";
 export default function AtmosphericBg() {
   return (
     <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      {/* 基底：无色带 mesh gradient —— 有机流动的深海蓝 */}
+      {/* 基底 —— 深炭灰 monochrome，无蓝色饱和 */}
       <MeshGradient
         style={{ position: "absolute", inset: 0 }}
         colors={[
-          "#0a1220",
-          "#1a2e4a",
-          "#27415f",
-          "#0e1a2a",
-          "#142a44",
+          "#0a0b0d",
+          "#16181c",
+          "#1e2126",
+          "#0d0e11",
+          "#13161a",
         ]}
-        speed={0.15}
-        distortion={0.75}
-        swirl={0.35}
+        speed={0.1}
+        distortion={0.55}
+        swirl={0.2}
         offsetX={0}
         offsetY={0}
-        scale={1.1}
+        scale={1.3}
       />
 
-      {/* 水面波纹层 —— 下方 40% 画水感 */}
-      <div className="absolute inset-x-0 bottom-0 h-[55%] opacity-55">
-        <Waves
-          style={{ position: "absolute", inset: 0 }}
-          colorFront="#1a2e48"
-          colorBack="#0a1828"
-          spacing={0.085}
-          shape={1}
-          frequency={0.18}
-          amplitude={0.32}
-          rotation={0}
-          proportion={0.42}
-          softness={0.95}
-        />
-      </div>
-
-      {/* 顶部月光 —— 柔化过渡 */}
+      {/* 顶部月光 —— 冷白银，极淡 */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 120% 70% at 50% -15%, rgba(170, 200, 235, 0.22), transparent 70%)",
+            "radial-gradient(ellipse 110% 40% at 50% -12%, rgba(210, 220, 232, 0.12), transparent 60%)",
         }}
       />
 
-      {/* 底部深压 —— 让下方内容区过渡到深色 */}
-      <div
-        className="absolute inset-x-0 bottom-0 h-1/3"
-        style={{
-          background:
-            "linear-gradient(180deg, transparent 0%, rgba(5, 10, 18, 0.7) 70%, rgba(3, 6, 12, 0.95) 100%)",
-        }}
-      />
+      {/* 极淡水纹 —— 钢灰不是蓝 */}
+      <div className="absolute inset-0 opacity-[0.12] mix-blend-overlay">
+        <Waves
+          style={{ position: "absolute", inset: 0 }}
+          colorFront="#6a6e74"
+          colorBack="#14161a"
+          spacing={0.2}
+          shape={1.5}
+          frequency={0.08}
+          amplitude={0.18}
+          rotation={0}
+          proportion={0.5}
+          softness={1}
+        />
+      </div>
     </div>
   );
 }

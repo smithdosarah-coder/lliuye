@@ -1,0 +1,14 @@
+{
+  "scenario_id": "manufacturing_eval",
+  "title": "制造企业授信评估",
+  "description": "某精密机械制造有限公司，年营收 8000 万，申请流动资金贷款 800 万 —— 读材料给评级 + 审批建议",
+  "input_message": "对本次上传的企业材料做完整授信决策分析：构建企业画像、5 维风险评估、信用评级、审批建议。企业申请流动资金贷款 800 万，期限 1 年。",
+  "files": [],
+  "preset_data": {
+    "company_name": "某精密机械制造有限公司",
+    "loan_amount": "800 万",
+    "loan_term": "1 年",
+    "loan_purpose": "流动资金",
+    "expected_rating": "B-C"
+  }
+}

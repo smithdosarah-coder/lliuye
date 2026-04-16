@@ -8,17 +8,16 @@ import {
   Factory,
   RotateCcw,
   Download,
-  ArrowUpRight,
   ChevronDown,
-  Calendar,
   Link2,
-  AlertTriangle,
   CheckCircle2,
+  XCircle,
   Briefcase,
-  TrendingUp,
   Users,
   Building2,
-  FileSearch,
+  Phone,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -26,32 +25,21 @@ import { Card, Stat } from "@/components/viz/Card";
 import { PipelineRail } from "@/components/viz/PipelineRail";
 import { ChatTagInput, type Tag } from "@/components/ui/ChatTagInput";
 import { KBBadge } from "@/components/ui/FileDrop";
-import dynamic from "next/dynamic";
 import { streamChannelSearch } from "@/lib/api";
-
-// 3D hero — 仅在客户端渲染（WebGL 不在 SSR 跑）
-const Hero3D = dynamic(() => import("@/components/brand/Hero3D"), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 bg-[#0c141d]" />,
-});
-
-// 大气 shader 背景 —— 全页 fixed，无色带，有水纹
-const AtmosphericBg = dynamic(() => import("@/components/brand/AtmosphericBg"), {
-  ssr: false,
-  loading: () => <div className="fixed inset-0 bg-[#0a1220] pointer-events-none z-0" />,
-});
 import type {
   ChannelCandidate,
   ChannelMetrics,
-  ChannelReasonDim,
+  SignalItem,
+  MatchTag,
 } from "@/lib/channel-types";
 
 const STAGES = [
-  { key: "parse", label: "需求解析" },
-  { key: "external", label: "外网相似企业搜索" },
-  { key: "internal", label: "知识库候选召回" },
-  { key: "cross", label: "双路交叉打分" },
-  { key: "rank", label: "推荐排序与洞察" },
+  { key: "parse", label: "意图解析" },
+  { key: "signal_scan", label: "信号扫描（5路并行）" },
+  { key: "aggregate", label: "实体聚合去重" },
+  { key: "enrich", label: "工商补全 + 产品匹配" },
+  { key: "pitch", label: "切入话术生成" },
+  { key: "rank", label: "信号密度排序" },
 ];
 
 const PRESET_PROMPTS = [
@@ -60,48 +48,46 @@ const PRESET_PROMPTS = [
   "长三角建材批发年营收 5000 万到 1 亿，近两年回款稳定",
 ];
 
-/** 演示用：把自由文本拆成结构化标签。生产环境接 LLM，这里用正则粗粒度识别。 */
+const SIGNAL_EMOJI: Record<string, string> = {
+  bidding: "\uD83D\uDD25",   // fire
+  recognition: "\uD83C\uDFC6", // trophy
+  tech: "\uD83D\uDD27",      // wrench
+  growth: "\uD83D\uDCC8",    // chart up
+  award: "\u2B50",            // star
+};
+
+const SIGNAL_LABEL: Record<string, string> = {
+  bidding: "中标",
+  recognition: "认可",
+  tech: "技术",
+  growth: "扩产",
+  award: "获奖",
+};
+
+/** 演示用：把自由文本拆成结构化标签。 */
 async function mockParse(text: string): Promise<Tag[]> {
   await new Promise((r) => setTimeout(r, 600));
   const tags: Tag[] = [];
   const push = (c: string, v: string) => tags.push({ category: c, value: v });
 
-  // 区域
   const region = text.match(/(浙江|江苏|广东|上海|北京|深圳|杭州|苏州|宁波|长三角|珠三角)/);
   if (region) push("区域", region[1]);
-
-  // 行业
   const ind = text.match(/(新能源汽车|精密零部件|零部件|SaaS|工业软件|建材批发|批发|互联网|科技|AI|装备制造|机械)/);
   if (ind) push("行业", ind[1]);
-
-  // 规模
   const scale = text.match(/年营收\s*([\d\.]+\s*[-到至–]\s*[\d\.]+\s*[亿万]|[\d\.]+\s*[亿万])/);
   if (scale) push("规模", "营收 " + scale[1]);
-
-  // 资质
   if (/专精特新/.test(text)) push("资质", "专精特新");
   if (/小巨人/.test(text)) push("资质", "小巨人");
   if (/高新技术|高企/.test(text)) push("资质", "高新技术");
-
-  // 轮次
   const round = text.match(/([ABCD]\s*轮|Pre-[ABC]|种子轮|天使轮)/i);
   if (round) push("融资阶段", round[1].replace(/\s+/g, "").toUpperCase());
-
-  // 自由关键词兜底
   if (/回款稳定/.test(text)) push("经营特征", "回款稳定");
   if (/扩产|扩张/.test(text)) push("经营特征", "扩产期");
   if (/出口/.test(text)) push("经营特征", "出口导向");
   if (/融资/.test(text)) push("经营特征", "近期融资事件");
-
   if (tags.length === 0) push("关键词", text.slice(0, 20));
   return tags;
 }
-
-// 类型从 @/lib/channel-types 导入，保持前后端契约单一来源。
-// 兼容旧 UI 组件的命名别名：
-type Candidate = ChannelCandidate;
-type ReasonDim = ChannelReasonDim;
-
 
 type Phase = "idle" | "running" | "done";
 
@@ -111,7 +97,7 @@ export default function ChannelPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [active, setActive] = useState<string>();
   const [done, setDone] = useState<Set<string>>(new Set());
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidates, setCandidates] = useState<ChannelCandidate[]>([]);
   const [metrics, setMetrics] = useState<ChannelMetrics | null>(null);
   const [dataSource, setDataSource] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string>("");
@@ -157,36 +143,20 @@ export default function ChannelPage() {
   };
 
   return (
-    <div data-theme="ink" className="min-h-screen relative">
-      {/* 全页大气 shader 背景 —— 消色带 + 水纹 */}
-      <AtmosphericBg />
-
-      {/* CINEMATIC HERO —— 紧凑型 3D 场景，不霸屏 */}
-      <section className="relative h-[44vh] min-h-[380px] w-full overflow-hidden z-[1]">
-        {/* 3D 太阳系透明 Canvas 浮在 shader 底之上 */}
-        <div className="absolute inset-0">
-          <Hero3D />
-        </div>
-        {/* 底部柔光过渡 —— 与 shader 水面衔接，不需要硬色 */}
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#050a13]/60 to-transparent pointer-events-none" />
-
-        {/* hero 文字 overlay */}
-        <div className="relative z-10 h-full max-w-[1280px] mx-auto px-10 flex flex-col justify-center">
+    <div data-theme="ink" className="min-h-screen relative page-photo-bg-css">
+      <div className="relative z-[1] px-8 py-8 max-w-[1400px] mx-auto">
+      <header className="flex items-start justify-between mb-8 pb-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+        <div>
           <div className="text-[11px] font-tabular tracking-[0.3em] text-[var(--color-brass)] uppercase">
-            A01 · Look-alike Prospecting
+            A01 · Signal-Driven Prospecting
           </div>
-          <h1 className="mt-3 font-display text-[54px] leading-[1] text-[var(--color-ink)] max-w-[620px]">
+          <h1 className="mt-2 font-display text-[36px] leading-tight text-[var(--color-ink)]">
             全渠道获客
           </h1>
-          <p className="mt-4 text-[14px] text-[var(--color-ink-soft)] max-w-[520px] leading-[1.65]">
-            自然语言描述目标客户画像 · 外网真实搜索 × 内部库 look-alike 双路召回 · 全程证据链可追溯
+          <p className="mt-1 text-[13px] text-[var(--color-ink-muted)] max-w-[620px]">
+            从细微信号（中标/专利/扩产/获奖/认证）中挖出小而美的公司 — 5 路并行信号搜索 + 信号密度排序
           </p>
         </div>
-      </section>
-
-      <div className="relative z-[1] px-10 pt-4 pb-14 max-w-[1280px] mx-auto">
-      <header className="flex items-start justify-between mb-10 relative">
-        <div className="hidden">{/* hero 已迁到上方 3D 区，保留结构占位 */}</div>
         <div className="flex gap-2">
           {phase !== "idle" && (
             <Button variant="secondary" onClick={reset}>
@@ -200,14 +170,11 @@ export default function ChannelPage() {
           )}
         </div>
       </header>
-
-      <div className="ink-brush-hr mb-9" aria-hidden />
-
-      <div className="grid grid-cols-12 gap-8">
+      <div className="grid grid-cols-12 gap-6">
         <aside className="col-span-4 space-y-6">
           <Card eyebrow="TARGET PROFILE" title="目标客户画像">
             <ChatTagInput
-              placeholder="用一两句话描述你想找的客户画像…&#10;（行业、区域、规模、资质、阶段都可以）"
+              placeholder={"用一两句话描述你想找的客户画像...\n（行业、区域、规模、资质、阶段都可以）"}
               presetPrompts={PRESET_PROMPTS}
               parseFn={mockParse}
               onTagsChange={setTags}
@@ -220,18 +187,20 @@ export default function ChannelPage() {
               className="w-full mt-5"
             >
               <Play size={14} />
-              {phase === "running" ? "搜索中…" : "启动 Look-alike 搜索"}
+              {phase === "running" ? "信号扫描中..." : "启动信号搜索"}
             </Button>
           </Card>
 
-          <Card eyebrow="DATA SOURCES" title="数据源">
+          <Card eyebrow="SIGNAL SOURCES" title="信号数据源">
             <div className="space-y-2.5">
-              <KBBadge label="内部存量客户库" count={3218} />
-              <KBBadge label="历史营销案例" count={146} />
-              <KBBadge label="行业黄页" count={12860} />
+              <KBBadge label="招投标平台" count={0} />
+              <KBBadge label="政府公示（专精特新/高企）" count={0} />
+              <KBBadge label="专利数据库" count={0} />
+              <KBBadge label="财经媒体（扩产/投资）" count={0} />
+              <KBBadge label="评优公示" count={0} />
             </div>
             <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
-              外部数据源：天眼查 · 招投标 · 裁判文书 · 主流财经媒体
+              5 路并行搜索 · 企查查工商补全 · LLM 信号抽取
             </div>
           </Card>
 
@@ -260,7 +229,7 @@ export default function ChannelPage() {
                         EMPTY
                       </div>
                       <p className="mt-3 font-display text-[18px] text-[var(--color-ink)]">
-                        未召回有效候选
+                        未捕获有效信号
                       </p>
                       <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">
                         {errMsg
@@ -276,13 +245,13 @@ export default function ChannelPage() {
                 <Card className="min-h-[260px] flex items-center justify-center">
                   <div className="text-center py-16">
                     <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
-                      {phase === "running" ? "CRAWLING" : "AWAITING"}
+                      {phase === "running" ? "SCANNING SIGNALS" : "AWAITING"}
                     </div>
                     <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
-                      {phase === "running" ? "双路搜索中" : "待描述目标客户画像"}
+                      {phase === "running" ? "5 路信号搜索中" : "待描述目标客户画像"}
                     </p>
                     <p className="mt-2 text-[13px] text-[var(--color-ink-muted)]">
-                      输入自然语言 → 解析标签 → 外网 × 知识库双路召回
+                      描述行业+区域 → 5 路信号搜索 → 公司从信号中浮出
                     </p>
                   </div>
                 </Card>
@@ -315,10 +284,10 @@ function MetricsCard({
   metrics: ChannelMetrics | null;
   dataSource: string;
 }) {
-  const m = metrics ?? { external: 0, internal: 0, overlap: 0, final: 0 };
+  const m = metrics ?? { signalTotal: 0, companiesFound: 0, final: 0 };
   const sourceBadge =
     dataSource === "tavily"
-      ? { text: "TAVILY", tone: "text-[var(--color-sage)] border-[var(--color-sage)]" }
+      ? { text: "TAVILY LIVE", tone: "text-[var(--color-sage)] border-[var(--color-sage)]" }
       : dataSource === "mock_fallback"
       ? { text: "MOCK FALLBACK", tone: "text-[var(--color-brass)] border-[var(--color-brass)]" }
       : { text: "UNKNOWN", tone: "text-[var(--color-ink-muted)] border-[var(--color-line)]" };
@@ -327,38 +296,37 @@ function MetricsCard({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
-            搜索结果 · Search Metrics
+            信号搜索结果 · Signal Metrics
           </span>
         </div>
         <span className="ink-source-badge" title="本次搜索的数据源">
           {sourceBadge.text}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-6">
-      <Stat label="外网召回" value={m.external} hint="公开搜索" />
-      <Stat label="知识库命中" value={m.internal} hint="内部库相似画像" />
-      <Stat label="双路重合" value={m.overlap} hint="交叉验证通过" />
-      <Stat label="最终推荐" value={m.final} hint="分数≥70" />
+      <div className="grid grid-cols-3 gap-6">
+        <Stat label="信号总数" value={m.signalTotal} hint="5路搜索汇总" />
+        <Stat label="发现企业" value={m.companiesFound} hint="信号聚合去重" />
+        <Stat label="最终推荐" value={m.final} hint="信号密度排序" />
       </div>
     </section>
   );
 }
 
-function CandidateList({ cands }: { cands: Candidate[] }) {
-  const [expanded, setExpanded] = useState<number | null>(0); // 默认展开第一个
+function CandidateList({ cands }: { cands: ChannelCandidate[] }) {
+  const [expanded, setExpanded] = useState<number | null>(0);
   return (
     <Card
-      eyebrow="CANDIDATES"
-      title={`相似候选 · ${cands.length} 家`}
+      eyebrow="SIGNAL CANDIDATES"
+      title={`信号候选 · ${cands.length} 家`}
       action={
         <span className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
-          按匹配得分排序 · 点击卡片展开详情
+          按信号密度排序 · 点击展开详情
         </span>
       }
     >
       <div className="space-y-4">
         {cands.map((c, i) => (
-          <CandidateCard
+          <SignalCandidateCard
             key={i}
             c={c}
             rank={i + 1}
@@ -371,100 +339,102 @@ function CandidateList({ cands }: { cands: Candidate[] }) {
   );
 }
 
-function CandidateCard({
+function SignalCandidateCard({
   c,
   rank,
   isExpanded,
   onToggle,
 }: {
-  c: Candidate;
+  c: ChannelCandidate;
   rank: number;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const sourceBadge = {
-    both: { label: "双路", cls: "ink-seal-mini ink-seal-vermilion" },
-    external: { label: "外网", cls: "ink-seal-mini ink-seal-ink" },
-    internal: { label: "内部", cls: "ink-seal-mini ink-seal-sage" },
-  }[c.source];
-
   return (
     <div className="border-b border-[var(--color-line)] last:border-0 pb-4 last:pb-0">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left grid grid-cols-12 gap-5 group"
+        className="w-full text-left"
       >
-        <div className="col-span-1">
-          <div className="font-display text-[26px] leading-none text-[var(--color-brass)] font-tabular">
+        {/* Row 1: Rank + Name + Signal Count */}
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-[26px] leading-none text-[var(--color-brass)] font-tabular">
             {String(rank).padStart(2, "0")}
-          </div>
+          </span>
+          <h4 className="font-display text-[17px] text-[var(--color-ink)] leading-tight hover:text-[var(--color-brass)] transition-colors">
+            {c.name}
+          </h4>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-tabular border border-[var(--color-brass)] text-[var(--color-brass)]">
+            <Zap size={10} /> 信号 {c.signalCount} 条
+          </span>
+          <ChevronDown
+            size={14}
+            className={`ml-auto text-[var(--color-ink-muted)] transition-transform ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+          />
         </div>
-        <div className="col-span-8">
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <h4 className="font-display text-[17px] text-[var(--color-ink)] leading-tight group-hover:text-[var(--color-brass)] transition-colors">
-              {c.name}
-            </h4>
-            <span className={sourceBadge.cls}>
-              {sourceBadge.label}
-            </span>
-            <ChevronDown
-              size={14}
-              className={`text-[var(--color-ink-muted)] transition-transform ${
-                isExpanded ? "rotate-180" : ""
-              }`}
-            />
-          </div>
-          <div className="mt-1.5 flex items-center gap-4 text-[11px] font-tabular text-[var(--color-ink-muted)]">
-            <span className="inline-flex items-center gap-1">
-              <Factory size={11} /> {c.industry}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <MapPin size={11} /> {c.region}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Users size={11} /> {c.employees} 人
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <TrendingUp size={11} /> {c.revenueLatest}
-            </span>
-          </div>
-          <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
-            {c.reasons.map((r, i) => (
-              <li
-                key={i}
-                className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed flex gap-1.5 before:content-['·'] before:text-[var(--color-brass)]"
-              >
-                {r}
-              </li>
+
+        {/* Row 2: Basic info line */}
+        <div className="mt-1.5 ml-[38px] flex items-center gap-4 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+          {c.industry && c.industry !== "未获取" && (
+            <span className="inline-flex items-center gap-1"><Factory size={11} /> {c.industry}</span>
+          )}
+          {c.region && c.region !== "未获取" && (
+            <span className="inline-flex items-center gap-1"><MapPin size={11} /> {c.region}</span>
+          )}
+          {c.founded && c.founded !== "未获取" && (
+            <span>{c.founded}年</span>
+          )}
+          {c.employees > 0 && (
+            <span className="inline-flex items-center gap-1"><Users size={11} /> {c.employees}人</span>
+          )}
+        </div>
+
+        {/* Row 3: Match tags */}
+        {c.matchTags && c.matchTags.length > 0 && (
+          <div className="mt-2 ml-[38px] flex flex-wrap gap-1.5">
+            {c.matchTags.map((tag, i) => (
+              <MatchTagBadge key={i} tag={tag} />
             ))}
-          </ul>
-          <div className="mt-3 flex items-center gap-2 text-[12px]">
-            <ArrowUpRight size={12} className="text-[var(--color-brass)]" />
-            <span className="text-[var(--color-ink)]">{c.signal}</span>
           </div>
-          {c.contact && (
-            <div className="mt-1 text-[11px] text-[var(--color-ink-muted)] font-tabular">
-              跟进：{c.contact}
+        )}
+
+        {/* Row 4: Signal timeline (compact) */}
+        <div className="mt-3 ml-[38px] space-y-1.5">
+          {c.signals.slice(0, 4).map((sig, i) => (
+            <SignalRow key={i} signal={sig} />
+          ))}
+          {c.signals.length > 4 && (
+            <div className="text-[11px] text-[var(--color-ink-muted)] font-tabular">
+              +{c.signals.length - 4} 条更多信号
             </div>
           )}
         </div>
-        <div className="col-span-3 text-right">
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
-            match
+
+        {/* Row 5: Products + Pitch */}
+        {c.recommendedProducts && c.recommendedProducts.length > 0 && (
+          <div className="mt-3 ml-[38px] flex items-start gap-2">
+            <Briefcase size={12} className="text-[var(--color-brass)] mt-0.5 shrink-0" />
+            <span className="text-[12px] text-[var(--color-ink)] font-medium">
+              {c.recommendedProducts.join(" + ")}
+            </span>
           </div>
-          <div className="mt-1 font-display text-[38px] leading-none text-[var(--color-ink)]">
-            {c.score}
+        )}
+        {c.pitch && (
+          <div className="mt-1.5 ml-[38px] flex items-start gap-2">
+            <Phone size={12} className="text-[var(--color-sage)] mt-0.5 shrink-0" />
+            <span className="text-[12px] text-[var(--color-ink-soft)] italic leading-relaxed">
+              &ldquo;{c.pitch}&rdquo;
+            </span>
           </div>
-          <div className="mt-1 text-[10px] text-[var(--color-ink-muted)] font-tabular">
-            / 100
-          </div>
-          <div className="mt-3 w-full h-0.5 bg-[var(--color-line)]">
-            <div
-              className="h-full bg-[var(--color-brass)]"
-              style={{ width: `${c.score}%` }}
-            />
-          </div>
+        )}
+
+        {/* Row 6: Data sources count */}
+        <div className="mt-2 ml-[38px] flex items-center gap-1.5 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+          <Link2 size={10} />
+          <span>{c.dataSources?.length || 0} 个数据来源</span>
         </div>
       </button>
 
@@ -478,7 +448,7 @@ function CandidateCard({
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            <ExpandedDetail c={c} />
+            <ExpandedSignalDetail c={c} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -486,75 +456,98 @@ function CandidateCard({
   );
 }
 
-function ExpandedDetail({ c }: { c: Candidate }) {
+function MatchTagBadge({ tag }: { tag: MatchTag }) {
   return (
-    <div className="mt-5 ml-[calc(8.333%)] pl-5 border-l-2 border-[var(--color-brass)] space-y-6 pb-2">
-      {/* 基础信息 */}
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-[2px] text-[10px] font-tabular border ${
+        tag.matched
+          ? "border-[var(--color-sage)] text-[var(--color-sage)]"
+          : "border-[var(--color-line)] text-[var(--color-ink-muted)]"
+      }`}
+      title={tag.detail}
+    >
+      {tag.matched ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
+      {tag.label}
+    </span>
+  );
+}
+
+function SignalRow({ signal }: { signal: SignalItem }) {
+  const emoji = SIGNAL_EMOJI[signal.type] || "\u26A1";
+  const label = SIGNAL_LABEL[signal.type] || signal.type;
+  return (
+    <div className="flex items-baseline gap-2 text-[12px]">
+      <span className="shrink-0 w-[18px] text-center">{emoji}</span>
+      <span className="text-[var(--color-brass)] font-tabular shrink-0 w-[32px]">{label}</span>
+      <span className="text-[var(--color-ink)]">{signal.title}</span>
+      {signal.date && (
+        <span className="text-[var(--color-ink-muted)] font-tabular text-[10px] shrink-0">
+          ({signal.date})
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
+  return (
+    <div className="mt-5 ml-[38px] pl-5 border-l-2 border-[var(--color-brass)] space-y-6 pb-2">
+      {/* 基础工商信息 */}
       <div>
-        <SectionLabel icon={Building2} text="企业基础信息" />
+        <SectionLabel icon={Building2} text="企业基础信息（企查查补全）" />
         <div className="mt-2 grid grid-cols-3 gap-x-5 gap-y-2 text-[12px]">
           <Field label="统一社会信用代码" value={c.uscc} mono />
           <Field label="注册资本" value={c.registeredCapital} />
           <Field label="成立时间" value={c.founded} />
           <Field label="法定代表人" value={c.legalRep} />
-          <Field label="员工规模" value={`${c.employees} 人`} />
-          <Field label="纳税等级" value={c.taxRating ?? "—"} />
+          <Field label="员工规模" value={c.employees > 0 ? `${c.employees} 人` : "未获取"} />
+          <Field label="所属行业" value={c.industry} />
         </div>
-        <div className="mt-2 text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
-          <span className="text-[var(--color-ink-muted)]">主营：</span>
-          {c.mainBusiness}
-        </div>
-      </div>
-
-      {/* 财务与经营 */}
-      <div>
-        <SectionLabel icon={TrendingUp} text="财务与经营" />
-        <div className="mt-2 grid grid-cols-4 gap-x-5 gap-y-2 text-[12px]">
-          <Field label="最新营收" value={c.revenueLatest} />
-          <Field label="同比增长" value={c.revenueGrowth} />
-          <Field label="净利率" value={c.netMargin ?? "—"} />
-          <Field
-            label="主要客户"
-            value={c.mainCustomers.slice(0, 3).join(" / ")}
-          />
-        </div>
-        {c.certifications.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {c.certifications.map((cert) => (
-              <span
-                key={cert}
-                className="inline-flex items-center gap-1 px-1.5 py-[2px] text-[10px] font-tabular border border-[var(--color-sage)] text-[var(--color-sage)]"
-              >
-                <CheckCircle2 size={10} /> {cert}
-              </span>
-            ))}
+        {c.mainBusiness && c.mainBusiness !== "未获取" && (
+          <div className="mt-2 text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
+            <span className="text-[var(--color-ink-muted)]">主营：</span>
+            {c.mainBusiness}
           </div>
         )}
       </div>
 
-      {/* 推荐维度详解 */}
+      {/* 完整信号时间线 */}
       <div>
-        <SectionLabel icon={FileSearch} text="推荐维度详解 · 每项均有证据出处" />
+        <SectionLabel icon={Zap} text={`全部信号 · ${c.signals.length} 条`} />
         <div className="mt-2 space-y-3">
-          {c.reasonDims.map((dim) => (
-            <ReasonDimRow key={dim.dim} dim={dim} />
-          ))}
-        </div>
-      </div>
-
-      {/* 近期动态 */}
-      <div>
-        <SectionLabel icon={Calendar} text="近期动态（时间线）" />
-        <div className="mt-2 space-y-2">
-          {c.events.map((e, i) => (
+          {c.signals.map((sig, i) => (
             <div key={i} className="grid grid-cols-12 gap-3 text-[12px]">
-              <div className="col-span-2 font-tabular text-[var(--color-ink-muted)]">
-                {e.date}
+              <div className="col-span-1 text-center text-[16px]">
+                {SIGNAL_EMOJI[sig.type] || "\u26A1"}
               </div>
-              <div className="col-span-10">
-                <div className="text-[var(--color-ink)]">{e.event}</div>
-                <div className="mt-0.5 text-[10px] font-tabular text-[var(--color-ink-muted)] inline-flex items-center gap-1">
-                  <Link2 size={9} /> {e.source}
+              <div className="col-span-11">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[var(--color-brass)] font-tabular text-[10px] uppercase">
+                    {SIGNAL_LABEL[sig.type] || sig.type}
+                  </span>
+                  {sig.date && (
+                    <span className="text-[var(--color-ink-muted)] font-tabular text-[10px]">
+                      {sig.date}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[var(--color-ink)] font-medium leading-snug">{sig.title}</div>
+                {sig.detail && (
+                  <div className="mt-0.5 text-[var(--color-ink-soft)] leading-relaxed">{sig.detail}</div>
+                )}
+                <div className="mt-1 flex items-center gap-2 text-[10px] font-tabular text-[var(--color-ink-muted)]">
+                  <span>{sig.source}</span>
+                  {sig.url && (
+                    <a
+                      href={sig.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 hover:text-[var(--color-brass)] transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink size={9} /> 原文
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -562,42 +555,59 @@ function ExpandedDetail({ c }: { c: Candidate }) {
         </div>
       </div>
 
-      {/* 数据来源清单 */}
+      {/* 产品推荐 + 话术 */}
       <div>
-        <SectionLabel icon={Link2} text="数据来源清单 · 可追溯" />
-        <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-1.5">
-          {c.dataSources.map((ds, i) => (
-            <div key={i} className="text-[11px] font-tabular">
-              <span className="text-[var(--color-brass)]">{ds.label}</span>
-              <span className="mx-1.5 text-[var(--color-ink-muted)]">·</span>
-              <span className="text-[var(--color-ink-soft)]">{ds.hint}</span>
-            </div>
-          ))}
-        </div>
+        <SectionLabel icon={Briefcase} text="营销建议" />
+        {c.recommendedProducts && c.recommendedProducts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {c.recommendedProducts.map((prod, i) => (
+              <span
+                key={i}
+                className="px-2 py-1 text-[11px] font-tabular border border-[var(--color-brass)] text-[var(--color-brass)] bg-[var(--color-brass)]/5"
+              >
+                {prod}
+              </span>
+            ))}
+          </div>
+        )}
+        {c.pitch && (
+          <div className="mt-3 p-3 bg-[var(--color-paper)] border border-[var(--color-line)] text-[12px] text-[var(--color-ink)] leading-relaxed italic">
+            <Phone size={12} className="inline text-[var(--color-sage)] mr-1.5" />
+            {c.pitch}
+          </div>
+        )}
       </div>
 
-      {/* 风险提示 + 建议动作 */}
-      <div className="grid grid-cols-2 gap-6 pt-2 border-t border-[var(--color-line)]">
+      {/* 数据来源清单 */}
+      {c.dataSources && c.dataSources.length > 0 && (
         <div>
-          <SectionLabel icon={AlertTriangle} text="风险提示" tone="ember" />
-          <ul className="mt-2 space-y-1">
-            {c.risks.map((r, i) => (
-              <li
-                key={i}
-                className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed flex gap-1.5 before:content-['!'] before:text-[var(--color-ember)] before:font-tabular"
-              >
-                {r}
-              </li>
+          <SectionLabel icon={Link2} text="数据来源清单" />
+          <div className="mt-2 grid grid-cols-1 gap-y-1.5">
+            {c.dataSources.map((ds, i) => (
+              <div key={i} className="text-[11px] font-tabular flex items-center gap-1.5">
+                <span className="text-[var(--color-brass)]">{ds.label}</span>
+                {ds.hint && (
+                  <>
+                    <span className="text-[var(--color-ink-muted)]">·</span>
+                    {ds.hint.startsWith("http") ? (
+                      <a
+                        href={ds.hint}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--color-ink-soft)] hover:text-[var(--color-brass)] inline-flex items-center gap-0.5"
+                      >
+                        <ExternalLink size={9} /> 查看
+                      </a>
+                    ) : (
+                      <span className="text-[var(--color-ink-soft)]">{ds.hint}</span>
+                    )}
+                  </>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
-        <div>
-          <SectionLabel icon={Briefcase} text="建议下一步" />
-          <p className="mt-2 text-[12px] text-[var(--color-ink)] leading-relaxed">
-            {c.nextAction}
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -642,41 +652,6 @@ function Field({
         }`}
       >
         {value}
-      </div>
-    </div>
-  );
-}
-
-function ReasonDimRow({ dim }: { dim: ReasonDim }) {
-  const toneColor =
-    dim.score >= 85
-      ? "var(--color-sage)"
-      : dim.score >= 70
-      ? "var(--color-brass)"
-      : "var(--color-ember)";
-  return (
-    <div className="grid grid-cols-12 gap-3">
-      <div className="col-span-2">
-        <div className="text-[11px] font-tabular text-[var(--color-ink-muted)]">
-          {dim.dim}
-        </div>
-        <div className="mt-0.5 font-display text-[18px] leading-none" style={{ color: toneColor }}>
-          {dim.score}
-        </div>
-        <div className="mt-1 w-full h-0.5 bg-[var(--color-line)]">
-          <div className="h-full" style={{ width: `${dim.score}%`, background: toneColor }} />
-        </div>
-      </div>
-      <div className="col-span-10">
-        <div className="text-[12px] text-[var(--color-ink)] font-medium leading-snug">
-          {dim.verdict}
-        </div>
-        <div className="mt-1 text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
-          {dim.evidence}
-        </div>
-        <div className="mt-1 text-[10px] font-tabular text-[var(--color-ink-muted)] inline-flex items-center gap-1">
-          <Link2 size={9} /> 来源：{dim.source}
-        </div>
       </div>
     </div>
   );

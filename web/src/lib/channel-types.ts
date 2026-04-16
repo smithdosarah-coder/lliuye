@@ -1,23 +1,26 @@
-// 全渠道获客 (Agent1 Look-alike) 前端数据契约
-// 与后端 agent_channel/realtime_stream.py 的 _enrich_with_llm 输出字段对齐
+// 全渠道获客 (Agent1 信号驱动搜索) 前端数据契约
+// 与后端 agent_channel/realtime_stream.py 的输出字段对齐
 
 export interface ChannelTag {
   category: string;
   value: string;
 }
 
-export interface ChannelReasonDim {
-  dim: string;
-  score: number;
-  verdict: string;
-  evidence: string;
+export type SignalType = "bidding" | "recognition" | "tech" | "growth" | "award";
+
+export interface SignalItem {
+  type: SignalType;
+  title: string;
+  detail: string;
+  date: string;
   source: string;
+  url: string;
 }
 
-export interface ChannelTimelineEvent {
-  date: string;
-  event: string;
-  source: string;
+export interface MatchTag {
+  label: string;
+  matched: boolean;
+  detail: string;
 }
 
 export interface ChannelDataSource {
@@ -27,8 +30,11 @@ export interface ChannelDataSource {
 
 export interface ChannelCandidate {
   name: string;
-  score: number;
+  signalScore: number;
+  signalCount: number;
   source: "external" | "internal" | "both";
+  signals: SignalItem[];
+  // 基础信息（企查查补全）
   region: string;
   industry: string;
   uscc: string;
@@ -37,26 +43,17 @@ export interface ChannelCandidate {
   legalRep: string;
   employees: number;
   mainBusiness: string;
-  revenueLatest: string;
-  revenueGrowth: string;
-  netMargin?: string | null;
-  taxRating?: string | null;
-  certifications: string[];
-  mainCustomers: string[];
-  reasons: string[];
-  signal: string;
-  contact?: string | null;
-  reasonDims: ChannelReasonDim[];
-  events: ChannelTimelineEvent[];
+  // 匹配+营销
+  matchTags: MatchTag[];
+  recommendedProducts: string[];
+  pitch: string;
+  // 来源（收起显示）
   dataSources: ChannelDataSource[];
-  risks: string[];
-  nextAction: string;
 }
 
 export interface ChannelMetrics {
-  external: number;
-  internal: number;
-  overlap: number;
+  signalTotal: number;
+  companiesFound: number;
   final: number;
 }
 
@@ -69,7 +66,6 @@ export type ChannelSearchEvent =
       tags?: ChannelTag[];
       count?: number;
       total?: number;
-      overlap?: number;
       data_source?: string;
     }
   | {
@@ -85,9 +81,28 @@ export type ChannelSearchEvent =
     };
 
 export const CHANNEL_STAGES = [
-  { key: "parse", label: "需求解析" },
-  { key: "external", label: "外网搜索" },
-  { key: "internal", label: "内部库检索" },
-  { key: "cross", label: "双路交叉打分" },
-  { key: "rank", label: "推荐理由生成" },
+  { key: "parse", label: "意图解析" },
+  { key: "signal_scan", label: "信号扫描" },
+  { key: "aggregate", label: "实体聚合" },
+  { key: "enrich", label: "工商补全" },
+  { key: "pitch", label: "话术生成" },
+  { key: "rank", label: "信号排序" },
 ] as const;
+
+// ========== 兼容旧类型（逐步废弃） ==========
+
+/** @deprecated use ChannelCandidate.matchTags */
+export interface ChannelReasonDim {
+  dim: string;
+  score: number;
+  verdict: string;
+  evidence: string;
+  source: string;
+}
+
+/** @deprecated use ChannelCandidate.signals */
+export interface ChannelTimelineEvent {
+  date: string;
+  event: string;
+  source: string;
+}

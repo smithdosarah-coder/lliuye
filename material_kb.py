@@ -216,25 +216,34 @@ def _extract_basic_info(all_text: str, facts: dict):
             facts["establishment_date"] = m.group(1).strip()
             break
 
-    # Registered capital
+    # Registered capital — handle OCR errors (方→万) and Chinese numerals
     for pat in [
-        r"注册资本[：:]\s*([\d,.]+)\s*万",
-        r"注册资本金[：:]\s*([\d,.]+)\s*万",
+        r"注册资本[：:]\s*([\d,.]+)\s*[万方]",   # "方" is common OCR error for "万"
+        r"注册资本金[：:]\s*([\d,.]+)\s*[万方]",
     ]:
         m = re.search(pat, all_text)
         if m:
             facts["registered_capital"] = m.group(1).replace(",", "") + "万元"
             break
 
-    # Paid-in capital
+    # Paid-in capital — also check financial statement format ("实收资本（或股本）")
     for pat in [
-        r"实收资本[：:]\s*([\d,.]+)\s*万",
-        r"实缴资本[：:]\s*([\d,.]+)\s*万",
+        r"实收资本[：:]\s*([\d,.]+)\s*[万方]",
+        r"实缴资本[：:]\s*([\d,.]+)\s*[万方]",
     ]:
         m = re.search(pat, all_text)
         if m:
             facts["paid_in_capital"] = m.group(1).replace(",", "") + "万元"
             break
+    if "paid_in_capital" not in facts:
+        # Financial statement xlsx format: "实收资本（或股本）  <row>  <number>"
+        m = re.search(r"实收资本[（(]或股本[）)]\s+\d+\s+([\d,.]+)", all_text)
+        if m:
+            raw = float(m.group(1).replace(",", ""))
+            if raw >= 10000:
+                facts["paid_in_capital"] = f"{raw / 10000:.0f}万元"
+            else:
+                facts["paid_in_capital"] = f"{raw:.0f}元"
 
     # Social insurance count
     for pat in [
@@ -258,13 +267,18 @@ def _extract_basic_info(all_text: str, facts: dict):
             break
 
     # Legal representative
+    _TITLE_BLACKLIST = {'主管会计', '总经理', '董事长', '经理', '会计', '出纳',
+                        '财务', '审计', '监事', '秘书', '主任', '副总'}
     for pat in [
-        r"法定代表人[：:]\s*([\u4e00-\u9fff]{2,4})",
-        r"法人代表[：:]\s*([\u4e00-\u9fff]{2,4})",
+        r"法定代表人[：:\s]\s*([\u4e00-\u9fff]{2,4})",
+        r"法人代表[：:\s]\s*([\u4e00-\u9fff]{2,4})",
     ]:
-        m = re.search(pat, all_text)
-        if m:
-            facts["legal_representative"] = m.group(1).strip()
+        for m in re.finditer(pat, all_text):
+            candidate = m.group(1).strip()
+            if candidate not in _TITLE_BLACKLIST:
+                facts["legal_representative"] = candidate
+                break
+        if "legal_representative" in facts:
             break
 
     # Industry
@@ -354,7 +368,7 @@ def _extract_credit_history(all_text: str, facts: dict):
 
     # Check existing customer signal
     if not facts.get("is_existing_customer"):
-        if re.search(r"(?:存量客户|续授信|再融资|原有额度|上一期授信)", all_text):
+        if re.search(r"(?:存量客户|续授信|续贷|再融资|原有额度|上一期授信|授信补充)", all_text):
             facts["is_existing_customer"] = True
         elif re.search(r"新客户", all_text) and not re.search(r"存量客户", all_text):
             facts["is_existing_customer"] = False
@@ -428,6 +442,183 @@ def _extract_order_info(all_text: str, facts: dict):
             facts["orders_total_amount"] = m.group(2).replace(",", "") + "万元"
             if m.lastindex >= 3:
                 facts["orders_uncollected"] = m.group(3).replace(",", "") + "万元"
+            break
+
+
+def _extract_credit_application(all_text: str, facts: dict):
+    """Extract credit application details (申报额度/品种/期限/担保)."""
+
+    # 申报额度
+    m = re.search(r"申报额度[^：:]*[：:]*\s*([\d,.]+)\s*万", all_text)
+    if m:
+        facts["applied_credit_amount"] = m.group(1).replace(",", "") + "万元"
+
+    # 申报敞口
+    m = re.search(r"(?:申报敞口|敞口)[^：:]*[：:]*\s*([\d,.]+)\s*万", all_text)
+    if m:
+        facts["applied_exposure"] = m.group(1).replace(",", "") + "万元"
+
+    # 业务品种
+    m = re.search(r"业务品种[：:]\s*(.+?)(?:[；;。\n]|$)", all_text)
+    if m:
+        facts["business_product"] = _clean_ws(m.group(1))[:80]
+
+    # 业务期限
+    m = re.search(r"业务期限[：:]\s*(.+?)(?:[；;。\n]|$)", all_text)
+    if m:
+        facts["business_term"] = _clean_ws(m.group(1))[:40]
+
+    # 授信期限
+    m = re.search(r"授信期限[：:]\s*(.+?)(?:[；;。\n]|$)", all_text)
+    if m:
+        facts["credit_term"] = _clean_ws(m.group(1))[:40]
+
+    # 担保方式
+    m = re.search(r"(?:^|[；;])担保方式[：:]\s*(.+?)(?:[；;。\n]|$)", all_text)
+    if m:
+        facts["guarantee_method"] = _clean_ws(m.group(1))[:80]
+
+    # PD评级
+    m = re.search(r"PD评级[^：:]*[：:]*\s*(\d+)\s*级", all_text)
+    if m:
+        facts["pd_rating"] = m.group(1) + "级"
+
+    # 申报单位
+    m = re.search(r"申报单位[：:]\s*([\u4e00-\u9fff\w]+?)(?:\s|$)", all_text)
+    if m:
+        facts["reporting_unit"] = m.group(1).strip()
+
+    # 绿通标识
+    m = re.search(r"绿通标识[：:]\s*(.+?)(?:\s{2,}|\n|$)", all_text)
+    if m and m.group(1).strip():
+        facts["green_channel"] = _clean_ws(m.group(1))[:30]
+
+    # Credit change direction (增/减/维持)
+    if re.search(r"☑\s*减少", all_text):
+        facts["credit_change_direction"] = "decrease"
+    elif re.search(r"☑\s*增加", all_text):
+        facts["credit_change_direction"] = "increase"
+    elif re.search(r"☑\s*维持", all_text):
+        facts["credit_change_direction"] = "maintain"
+
+    # Guarantee changed (担保方式变更)
+    prev_guarantee = facts.get("prev_guarantee_method", "")
+    curr_guarantee = facts.get("guarantee_method", "")
+    if prev_guarantee and curr_guarantee and prev_guarantee != curr_guarantee:
+        facts["guarantee_changed"] = True
+
+
+def _extract_tech_info(all_text: str, facts: dict):
+    """Extract technology enterprise info (科技型企业类型/评分)."""
+
+    # Tech enterprise types — scan for checked items
+    tech_types = []
+    for ttype in ["科技型中小企业", "高新技术企业", "创新型中小企业",
+                   "专精特新", "小巨人", "制造业单项冠军", "国家技术创新示范企业"]:
+        if re.search(r"[☑■√✓]\s*" + re.escape(ttype), all_text):
+            tech_types.append(ttype)
+    # Also check from supplementary materials (e.g., 高新技术企业认定公告)
+    if not tech_types:
+        if re.search(r"高新技术企业(?:认定|证书|公告)", all_text):
+            tech_types.append("高新技术企业")
+        if re.search(r"专精特新.*(?:认定|证书|公告)", all_text):
+            tech_types.append("专精特新")
+        if re.search(r"科技型中小企业.*(?:认定|入库)", all_text):
+            tech_types.append("科技型中小企业")
+
+    if tech_types:
+        facts["tech_enterprise_types"] = "、".join(tech_types)
+
+    # Tech score
+    m = re.search(r"科技型企业评分[：:]*\s*(\d+)\s*分", all_text)
+    if m:
+        facts["tech_score"] = m.group(1) + "分"
+
+    # Enterprise scale classification
+    m = re.search(r"规模划型[^：:]*[：:]*\s*[□☐☑■]?\s*(微型|小型|中型)", all_text)
+    if m:
+        facts["enterprise_scale"] = m.group(1)
+    else:
+        if re.search(r"☑\s*小型", all_text):
+            facts["enterprise_scale"] = "小型"
+        elif re.search(r"☑\s*微型", all_text):
+            facts["enterprise_scale"] = "微型"
+        elif re.search(r"☑\s*中型", all_text):
+            facts["enterprise_scale"] = "中型"
+
+    # Customer group
+    if re.search(r"☑\s*支持类", all_text):
+        facts["customer_group"] = "支持类"
+    elif re.search(r"☑\s*审慎类", all_text):
+        facts["customer_group"] = "审慎类"
+
+    # Equity change
+    m = re.search(r"(?:股权变动|股权变更).*?[：:]\s*(.+?)(?:\n|$)", all_text)
+    if m:
+        val = _clean_ws(m.group(1))[:100]
+        if val:
+            facts["equity_change"] = val
+
+    # R&D personnel stock incentive
+    if re.search(r"[☑■√✓]\s*是.*股权激励", all_text) or re.search(r"股权激励.*[☑■√✓]\s*是", all_text):
+        facts["stock_incentive"] = "是"
+    elif re.search(r"[☑■√✓]\s*否.*股权激励", all_text) or re.search(r"股权激励.*[☑■√✓]\s*否", all_text):
+        facts["stock_incentive"] = "否"
+
+
+def _extract_comprehensive_benefit(all_text: str, facts: dict):
+    """Extract comprehensive benefit info (综合效益)."""
+    # 日均存款
+    m = re.search(r"日均存款\s*([\d,.]+)\s*万", all_text)
+    if m:
+        facts["avg_daily_deposit"] = m.group(1).replace(",", "") + "万元"
+
+    # 代发签约
+    m = re.search(r"(\d+)\s*(?:名|人)?员工.*签约代发", all_text)
+    if m:
+        facts["payroll_signup"] = m.group(1) + "人"
+
+    # 发薪量
+    m = re.search(r"发薪量\s*([\d,.]+)\s*万", all_text)
+    if m:
+        facts["payroll_amount"] = m.group(1).replace(",", "") + "万元"
+
+    # PD评级下滑原因
+    pd_block = _extract_block(
+        _split_lines(all_text),
+        r"PD评级较上期下滑",
+        r"(?:^（[二三]）|^\d+\.)"
+    )
+    if pd_block:
+        facts["pd_decline_reason"] = pd_block[:300]
+
+    # 面访记录
+    visit_block = _extract_block(
+        _split_lines(all_text),
+        r"实控人面访评价",
+        r"(?:^3\.\s*实地走访|^\d+\.)"
+    )
+    if visit_block:
+        facts["controller_interview"] = visit_block[:500]
+
+    # 实地走访
+    site_block = _extract_block(
+        _split_lines(all_text),
+        r"实地走访情况",
+        r"(?:^4\.\s*与我行|^\d+\.)"
+    )
+    if site_block:
+        facts["site_visit"] = site_block[:300]
+
+    # 经营地址（从租赁合同中优先提取，区分注册地址和实际经营地址）
+    for pat in [
+        r"租[赁用].*?(?:位于|地址[为是：:])\s*(.+?)(?:[，。,\n]|$)",
+        r"经营地.*?(?:位于)\s*(.+?)(?:[。\n]|$)",
+        r"办公.*?(?:位于|地址[为是：:])\s*(.+?)(?:[，。,\n]|$)",
+    ]:
+        m = re.search(pat, all_text)
+        if m and len(m.group(1).strip()) > 10:
+            facts["actual_operating_address"] = _clean_ws(m.group(1))[:150]
             break
 
 
@@ -519,6 +710,9 @@ def build_material_kb(file_contents: dict[str, str]) -> dict[str, Any]:
     _extract_risk_info(all_text, facts)
     _extract_order_info(all_text, facts)
     _extract_customer_manager(all_text, facts)
+    _extract_credit_application(all_text, facts)
+    _extract_tech_info(all_text, facts)
+    _extract_comprehensive_benefit(all_text, facts)
 
     # --- Per-file structured extraction ---
     for fname, content in file_contents.items():

@@ -1,0 +1,2 @@
+[      57ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/App.js?t=1776156406841:0
+[      65ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/src/stores/index.js?t=1776156406849:0

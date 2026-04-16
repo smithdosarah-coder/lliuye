@@ -1,0 +1,295 @@
+
+========== Slide 1 ==========
+[PICTURE:Image 0]
+[PICTURE:Image 1]
+ARTIFICIAL INTELLIGENCE
+分享 — 08 刘雨含
+
+========== Slide 2 ==========
+01 / 认识 Viktor
+[PICTURE:Image 0]
+Viktor 是什么？
+An AI Coworker that lives in your Slack workspace
+Viktor 是一个驻扎在 Slack 中的 AI 同事。它不只是一个简单的聊天机器人 — 它拥有自己的工作环境（沙盒），能够编写代码、调用工具、连接各种平台，像一个真正的团队成员一样自主完成复杂任务。
+[PICTURE:Image 1]
+7×24
+全天候在线
+[PICTURE:Image 2]
+50+
+内置工具
+[PICTURE:Image 3]
+10+
+平台集成
+[PICTURE:Image 4]
+∞
+自主学习能力
+"不是对话式 AI，而是行动式 AI — 你告诉它要做什么，它直接帮你完成。"
+
+========== Slide 3 ==========
+01 / 认识 Viktor
+[PICTURE:Image 0]
+工作流程
+[PICTURE:Image 1]
+在 Slack 中
+发送指令
+[PICTURE:Image 2]
+[PICTURE:Image 3]
+Viktor 理解
+任务需求
+[PICTURE:Image 4]
+[PICTURE:Image 5]
+编写脚本
+调用工具
+[PICTURE:Image 6]
+[PICTURE:Image 7]
+交付成果
+反馈到 Slack
+[PICTURE:Image 8]
+核心理念
+[PICTURE:Image 9]
+以编程为手段
+不依赖固定模板，通过编写 Python 脚本灵活完成各种任务
+[PICTURE:Image 10]
+持续学习记忆
+通过 Skills 系统积累经验，越用越懂你的需求和偏好
+[PICTURE:Image 11]
+主动性工作
+不只被动响应，还会主动发现问题、提出改进建议
+
+========== Slide 4 ==========
+02 / 核心能力
+[PICTURE:Image 0]
+核心能力一览
+Everything you need, in one AI coworker
+[PICTURE:Image 1]
+文档处理与格式转换
+创建/编辑 PDF、Word、Excel、PPT。支持格式互转，生成专业排版文档。
+[PICTURE:Image 2]
+AI 图片生成与编辑
+通过文字描述生成高质量插画、Logo、社交媒体素材、产品图等。
+[PICTURE:Image 3]
+视频创作
+支持 AI 文字生成视频（Sora / Veo），以及 Remotion 框架动态视频。
+[PICTURE:Image 4]
+联网搜索与信息采集
+实时联网搜索，支持网页浏览、数据抓取、表单填写等。
+[PICTURE:Image 5]
+软件开发与代码工程
+克隆仓库、创建分支、编写代码、提交 PR。支持 GitHub 集成。
+[PICTURE:Image 6]
+Viktor Spaces · 全栈应用构建
+从零搭建数据库、认证、前端的完整 Web 应用，自动部署。
+[PICTURE:Image 7]
+语音合成与转录
+文字转语音（TTS），语音转文字（STT），高精度音频转录。
+[PICTURE:Image 8]
+邮件发送
+自动发送带附件邮件，支持 CC/BCC、线程回复等。
+[PICTURE:Image 9]
+定时任务（Cron Jobs）
+设置周期性自动执行任务，如每日报告推送、定期数据检查。
+
+========== Slide 5 ==========
+03 / 集成生态
+[PICTURE:Image 0]
+强大的集成生态
+Connect your tools, amplify your workflow
+Viktor 可以与你日常使用的各种工具和平台无缝连接，打通数据壁垒，实现跨平台自动化工作流。
+[PICTURE:Image 1]
+Slack
+核心工作台 · 消息收发 · 频道管理 · 文件分享
+[PICTURE:Image 2]
+Google Drive
+文件同步 · 文档管理 · 自动归档 · 云端协作
+[PICTURE:Image 3]
+Notion
+知识库管理 · 页面创建 · 数据库操作 · 同步
+[PICTURE:Image 4]
+Google Calendar
+日程管理 · 会议安排 · 提醒通知 · 日历查询
+[PICTURE:Image 5]
+GitHub
+代码仓库 · Pull Request · Issue 管理 · CI/CD
+[PICTURE:Image 6]
+Granola
+会议笔记 · 自动总结 · 关键决策提取
+
+========== Slide 6 ==========
+03 / 集成生态
+[PICTURE:Image 0]
+Viktor 与传统 AI 工具对比
+Why Viktor stands out
+TABLE: 功能对比 | Viktor | 传统 AI 助手
+TABLE: 自主执行代码 | ✓ | ✗
+TABLE: 生成并交付文件（PDF / Excel / PPT） | ✓ | ✗
+TABLE: 实时联网搜索 | ✓ | 部分
+TABLE: 多平台集成（Slack / Notion / GitHub …） | ✓ | ✗
+TABLE: 构建并部署 Web 应用 | ✓ | ✗
+TABLE: 定时自动化任务 | ✓ | ✗
+TABLE: 记忆与学习（越用越懂你） | ✓ | ✗
+TABLE: 主动提建议 & 发现问题 | ✓ | ✗
+
+========== Slide 7 ==========
+04 / 使用场景
+[PICTURE:Image 0]
+典型使用场景
+Real scenarios where Viktor shines
+办公效率
+文档处理 & 格式转换
+直接发文件或描述需求，Viktor 自动完成转换和排版，输出专业文档。
+创意设计
+AI 生图 & 视觉设计
+支持参考图片风格迁移、信息可视化、品牌素材批量生成。
+研究分析
+信息调研 & 数据分析
+联网搜索 + 数据处理 + 可视化，一站式完成调研任务。
+软件开发
+代码开发 & 应用构建
+从零构建完整 Web 应用，或参与现有项目的代码审查和功能开发。
+工作自动化
+自动化工作流
+设置定时任务，让 Viktor 自动完成重复性工作。
+团队协作
+跨平台协作助手
+连接你的所有工具，消除信息孤岛。
+
+========== Slide 8 ==========
+05 / 定价方案
+[PICTURE:Image 0]
+定价方案
+Flexible plans for every team size
+免费试用
+$0
+10,000 积分
+免费体验全部功能
+无需信用卡
+入门方案
+$50
+/月
+20,000 积分/月
+适合个人用户
+年付享 85 折
+进阶方案
+$200
+/月
+80,000 积分/月
+适合小型团队
+更高性价比
+积分说明：所有操作消耗统一积分（对话、文件生成、搜索、图片生成等）。积分每月重置，统一费率 $2.50 / 1,000 积分。更高套餐可达 $5,000/月 · 2,000,000 积分。
+
+========== Slide 9 ==========
+[PICTURE:Image 0]
+如何开始使用呢？
+Get started in 3 minutes
+点击链接注册并开始使用：
+https://app.getviktor.com/signin?ref=gnmuRdVRQFXtBHczfxYPZt
+1
+注册登录Slack
+2
+添加Viktor
+3
+开始对话
+
+========== Slide 10 ==========
+[PICTURE:Picture 1]
+
+========== Slide 11 ==========
+[PICTURE:Picture 1]
+
+========== Slide 12 ==========
+[PICTURE:Picture 1]
+
+========== Slide 13 ==========
+[PICTURE:Picture 1]
+
+========== Slide 14 ==========
+[PICTURE:Picture 1]
+
+========== Slide 15 ==========
+[PICTURE:Picture 1]
+
+========== Slide 16 ==========
+[PICTURE:Picture 1]
+
+========== Slide 17 ==========
+[PICTURE:Picture 1]
+
+========== Slide 18 ==========
+[PICTURE:Picture 1]
+
+========== Slide 19 ==========
+[PICTURE:Picture 1]
+
+========== Slide 20 ==========
+[PICTURE:Picture 1]
+
+========== Slide 21 ==========
+[PICTURE:Picture 1]
+
+========== Slide 22 ==========
+[PICTURE:Picture 1]
+
+========== Slide 23 ==========
+[PICTURE:Picture 1]
+
+========== Slide 24 ==========
+[PICTURE:Picture 1]
+
+========== Slide 25 ==========
+[PICTURE:Picture 1]
+
+========== Slide 26 ==========
+[PICTURE:Picture 1]
+
+========== Slide 27 ==========
+[PICTURE:Picture 1]
+
+========== Slide 28 ==========
+[PICTURE:Picture 1]
+
+========== Slide 29 ==========
+[PICTURE:Picture 1]
+
+========== Slide 30 ==========
+[PICTURE:Picture 1]
+
+========== Slide 31 ==========
+[PICTURE:Picture 1]
+
+========== Slide 32 ==========
+[PICTURE:Picture 1]
+
+========== Slide 33 ==========
+[PICTURE:Picture 1]
+
+========== Slide 34 ==========
+[PICTURE:Picture 1]
+
+========== Slide 35 ==========
+[PICTURE:Picture 1]
+
+========== Slide 36 ==========
+[PICTURE:Picture 1]
+
+========== Slide 37 ==========
+[PICTURE:Picture 1]
+
+========== Slide 38 ==========
+[PICTURE:Picture 1]
+
+========== Slide 39 ==========
+[PICTURE:Picture 1]
+
+========== Slide 40 ==========
+[PICTURE:Picture 1]
+
+========== Slide 41 ==========
+[PICTURE:Picture 1]
+
+========== Slide 42 ==========
+[PICTURE:Picture 1]
+
+========== Slide 43 ==========
+感谢观看
+THANK YOU FOR WATCHING
+分享 — 08 刘雨含

@@ -1,0 +1,10 @@
+{
+  "scenario_id": "hangzhou_precision",
+  "title": "杭州精密制造 look-alike",
+  "description": "某城商行普惠部已有 30 家浙江精密制造小微客户，结合省专精特新小巨人政策拓展相似客户",
+  "files": [
+    "customers.csv",
+    "policy.txt",
+    "industry_guide.txt"
+  ]
+}

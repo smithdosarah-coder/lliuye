@@ -1,0 +1,52 @@
+{
+  "profile_id": "retail_zhangsan_001",
+  "name": "张三",
+  "id_card_tail": "3214",
+  "age": 42,
+  "gender": "男",
+  "marital_status": "已婚",
+  "education": "大专",
+  "occupation": "个体工商户",
+  "business_type": "餐饮业",
+  "years_in_current_job": 4,
+  "monthly_income": 65000,
+  "monthly_income_stability": "stable",
+  "credit_report": {
+    "current_loans_count": 2,
+    "current_credit_cards": 3,
+    "credit_card_utilization": 0.45,
+    "query_count_24m": 4,
+    "overdue_history": "无",
+    "guarantee_count": 1,
+    "account_age_years": 7.5
+  },
+  "bank_statement": {
+    "avg_balance_6m": 52000,
+    "monthly_inflow_avg": 65000,
+    "monthly_outflow_avg": 58000,
+    "large_amount_events": []
+  },
+  "social_security": {
+    "months_paid": 48,
+    "monthly_contribution": 1200
+  },
+  "collateral": {
+    "type": "住宅",
+    "area_sqm": 120,
+    "location": "中心区",
+    "appraised_value": 2000000,
+    "ltv": 0.25,
+    "mortgage_count": 0,
+    "title_verified": true,
+    "valuation_source": "第三方估值"
+  },
+  "residence": {
+    "years_at_address": 5,
+    "housing_type": "self_owned"
+  },
+  "request": {
+    "amount": 500000,
+    "term_months": 36,
+    "purpose": "扩大经营（装修 + 采购设备）"
+  }
+}

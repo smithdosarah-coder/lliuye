@@ -1,0 +1,12 @@
+{
+  "scenario_id": "shengDa_yellow",
+  "title": "🟡 盛达国际贸易 · 黄灯关注",
+  "description": "贸易企业，法人变更 + 经营范围跨界 + 杠杆上升 + 存货周转恶化（多项关注信号，暂无重大风险）",
+  "input_message": "请对盛达国际贸易有限公司进行贷中风险预警分析",
+  "files": ["demo_data/agent_alert/mock_shengDa_dynamic.txt"],
+  "preset_data": {
+    "company_name": "盛达国际贸易有限公司",
+    "expected_level": "yellow",
+    "expected_signal_count": 4
+  }
+}

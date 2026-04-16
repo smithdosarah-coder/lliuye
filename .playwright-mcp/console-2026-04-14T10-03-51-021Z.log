@@ -1,0 +1,101 @@
+[     180ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[  178676ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5175/:0
+[ 1443845ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 1557703ms] ReferenceError: NarrativeStream is not defined
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162588522:312:11)
+    at renderWithHooks (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:11548:26)
+    at updateFunctionComponent (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14582:28)
+    at beginWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3674:22)
+    at Object.invokeGuardedCallbackDev (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3699:24)
+    at invokeGuardedCallback (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3733:39)
+    at beginWork$1 (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19765:15)
+    at performUnitOfWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19198:20)
+    at workLoopSync (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19137:13)
+[ 1557707ms] ReferenceError: NarrativeStream is not defined
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162588522:312:11)
+    at renderWithHooks (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:11548:26)
+    at updateFunctionComponent (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14582:28)
+    at beginWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:15924:22)
+    at HTMLUnknownElement.callCallback2 (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3674:22)
+    at Object.invokeGuardedCallbackDev (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3699:24)
+    at invokeGuardedCallback (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:3733:39)
+    at beginWork$1 (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19765:15)
+    at performUnitOfWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19198:20)
+    at workLoopSync (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19137:13)
+[ 1557705ms] [ERROR] The above error occurred in the <RetreatScreen> component:
+
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162588522:35:21)
+    at App (http://127.0.0.1:5175/src/App.tsx?t=1776162335556:25:21)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14031
+[ 1557713ms] ReferenceError: NarrativeStream is not defined
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162588522:312:11)
+    at renderWithHooks (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:11548:26)
+    at updateFunctionComponent (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14582:28)
+    at beginWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:15924:22)
+    at beginWork$1 (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19753:22)
+    at performUnitOfWork (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19198:20)
+    at workLoopSync (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19137:13)
+    at renderRootSync (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19116:15)
+    at recoverFromConcurrentError (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18736:28)
+    at performSyncWorkOnRoot (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18879:28)
+[ 1562059ms] ReferenceError: omenStreamForDayRef is not defined
+    at http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162592832:128:5
+    at commitHookEffectListMount (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:16915:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18156:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18129:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18119:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18109:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19490:11)
+    at flushPassiveEffects (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19447:22)
+    at commitRootImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19416:13)
+    at commitRoot (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19277:13)
+[ 1562060ms] ReferenceError: omenStreamForDayRef is not defined
+    at http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162592832:128:5
+    at commitHookEffectListMount (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:16915:34)
+    at invokePassiveEffectMountInDEV (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18324:19)
+    at invokeEffectsInDev (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19701:19)
+    at commitDoubleInvokeEffectsInDEV (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19686:15)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19503:13)
+    at flushPassiveEffects (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19447:22)
+    at commitRootImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19416:13)
+    at commitRoot (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19277:13)
+    at performSyncWorkOnRoot (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18895:11)
+[ 1562059ms] [ERROR] The above error occurred in the <RetreatScreen> component:
+
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162592832:35:21)
+    at App (http://127.0.0.1:5175/src/App.tsx?t=1776162335556:25:21)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14031
+[ 1562059ms] [ERROR] The above error occurred in the <RetreatScreen> component:
+
+    at RetreatScreen (http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162592832:35:21)
+    at App (http://127.0.0.1:5175/src/App.tsx?t=1776162335556:25:21)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:14031
+[ 1562062ms] ReferenceError: omenStreamForDayRef is not defined
+    at http://127.0.0.1:5175/src/components/screens/RetreatScreen.tsx?t=1776162592832:128:5
+    at commitHookEffectListMount (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:16915:34)
+    at commitPassiveMountOnFiber (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18156:19)
+    at commitPassiveMountEffects_complete (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18129:17)
+    at commitPassiveMountEffects_begin (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18119:15)
+    at commitPassiveMountEffects (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:18109:11)
+    at flushPassiveEffectsImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19490:11)
+    at flushPassiveEffects (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19447:22)
+    at commitRootImpl (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19416:13)
+    at commitRoot (http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:19277:13)
+[ 1662741ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 1667878ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4182886ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4199901ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4209353ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4214354ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4219191ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4224379ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4253914ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4260866ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550
+[ 4266232ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=5f050f96:21550

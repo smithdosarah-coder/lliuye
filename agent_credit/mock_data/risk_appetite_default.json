@@ -1,0 +1,40 @@
+{
+  "version": "v2.0",
+  "corporate": {
+    "segment": "corporate",
+    "dimension_weights": {
+      "financial": 0.35,
+      "industry": 0.15,
+      "operational": 0.25,
+      "guarantee": 0.25
+    },
+    "grade_thresholds": [[80, "A"], [65, "B"], [50, "C"], [0, "D"]],
+    "rule_threshold_overrides": {},
+    "rate_tier_map": {
+      "A": "LPR-10BP",
+      "B": "LPR+85BP",
+      "C": "LPR+200BP",
+      "D": null
+    },
+    "lpr_base": 0.045
+  },
+  "retail": {
+    "segment": "retail",
+    "dimension_weights": {
+      "repayment_capacity": 0.30,
+      "repayment_willingness": 0.25,
+      "stability": 0.25,
+      "collateral": 0.20
+    },
+    "grade_thresholds": [[800, "优"], [760, "中优"], [700, "良好"], [680, "边界"], [0, "拒绝"]],
+    "rule_threshold_overrides": {},
+    "rate_tier_map": {
+      "优": "LPR-10BP",
+      "中优": "LPR",
+      "良好": "LPR+20BP",
+      "边界": "LPR+50BP",
+      "拒绝": null
+    },
+    "lpr_base": 0.045
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "profile_id": "retail_wangwu_003",
+  "name": "王五",
+  "id_card_tail": "1102",
+  "age": 38,
+  "gender": "男",
+  "marital_status": "离异",
+  "education": "初中",
+  "occupation": "自由职业",
+  "business_type": "家装包工",
+  "years_in_current_job": 1,
+  "monthly_income": 28000,
+  "monthly_income_stability": "seasonal",
+  "credit_report": {
+    "current_loans_count": 4,
+    "current_credit_cards": 6,
+    "credit_card_utilization": 0.92,
+    "query_count_24m": 14,
+    "overdue_history": "M2_once",
+    "guarantee_count": 2,
+    "account_age_years": 3.1
+  },
+  "bank_statement": {
+    "avg_balance_6m": 4200,
+    "monthly_inflow_avg": 28000,
+    "monthly_outflow_avg": 27500,
+    "large_amount_events": ["2025-09 出账 20 万", "2025-12 入账 18 万"]
+  },
+  "social_security": {
+    "months_paid": 0,
+    "monthly_contribution": 0
+  },
+  "collateral": {
+    "type": "无",
+    "area_sqm": 0,
+    "location": "",
+    "appraised_value": 0,
+    "ltv": 0,
+    "mortgage_count": 0,
+    "title_verified": false,
+    "valuation_source": ""
+  },
+  "residence": {
+    "years_at_address": 1,
+    "housing_type": "rented"
+  },
+  "request": {
+    "amount": 150000,
+    "term_months": 24,
+    "purpose": "材料周转"
+  }
+}

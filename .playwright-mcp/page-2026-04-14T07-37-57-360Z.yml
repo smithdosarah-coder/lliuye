@@ -1,0 +1,28 @@
+- generic [ref=e10]:
+  - heading "洞府" [level=2] [ref=e11]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]: 道号
+      - generic [ref=e15]: 青衫剑客
+    - generic [ref=e16]:
+      - generic [ref=e17]: 境界
+      - generic [ref=e18]: 练气一层
+    - generic [ref=e19]:
+      - generic [ref=e20]: 灵根
+      - generic [ref=e21]: 金灵根
+    - generic [ref=e22]:
+      - generic [ref=e23]: 道缘
+      - generic [ref=e24]: "5"
+    - generic [ref=e25]:
+      - generic [ref=e26]: 历程
+      - generic [ref=e27]: 1 次入秘境 / 1 次陨落
+  - generic [ref=e28]:
+    - generic [ref=e29]: 秘境选择
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]: 青州 · 剑冢秘境
+        - generic [ref=e33]: 1-5 层 · 关底镇山熊妖
+      - button "入秘境" [ref=e34] [cursor=pointer]
+  - generic [ref=e35]:
+    - generic [ref=e36]: 典藏阁
+    - generic [ref=e37]: （阶段 2 开放 · 残卷 / 传记 / 宗门）

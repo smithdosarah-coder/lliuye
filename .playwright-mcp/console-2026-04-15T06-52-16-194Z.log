@@ -1,0 +1,27 @@
+[     568ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[     711ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/0jqu_next_dist_0q._32g._.js:2431
+[     824ms] Error: Module [project]/node_modules/.pnpm/lucide-react@1.8.0_react@19.2.4/node_modules/lucide-react/dist/esm/icons/plus.js [app-client] (ecmascript) <export default as Plus> was instantiated because it was required from module [project]/src/components/ui/ChatTagInput.tsx [app-client] (ecmascript), but the module factory is not available.
+This is often caused by a stale browser cache, misconfigured Cache-Control headers, or a service worker serving outdated responses.
+To fix this, make sure your Cache-Control headers allow revalidation of chunks and review your service worker configuration. As an immediate workaround, try hard-reloading the page, clearing the browser cache, or unregistering any service workers.
+    at instantiateModuleShared (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1272:15)
+    at instantiateModule (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1621:12)
+    at getOrInstantiateModuleFromParent (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1604:12)
+    at DevContext.esmImport [as i] (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:278:20)
+    at module evaluation (http://localhost:3000/_next/static/chunks/src_0enupli._.js:381:309)
+    at http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1307:27
+    at runModuleExecutionHooks (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1636:13)
+    at instantiateModuleShared (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1305:9)
+    at instantiateModule (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1621:12)
+    at getOrInstantiateModuleFromParent (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1604:12)
+    at DevContext.esmImport [as i] (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:278:20)
+    at module evaluation (http://localhost:3000/_next/static/chunks/src_0enupli._.js:895:169)
+    at http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1307:27
+    at runModuleExecutionHooks (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1636:13)
+    at instantiateModuleShared (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1305:9)
+    at instantiateModule (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1621:12)
+    at getOrInstantiateModuleFromParent (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:1604:12)
+    at DevContext.commonJsRequire [as r] (http://localhost:3000/_next/static/chunks/turbopack-_0q~tyhi._.js:299:12)
+    at requireModule (http://localhost:3000/_next/static/chunks/0jqu_next_dist_compiled_react-server-dom-turbopack_07~8rbv._.js:95:84)
+    at initializeModuleChunk (http://localhost:3000/_next/static/chunks/0jqu_next_dist_compiled_react-server-dom-turbopack_07~8rbv._.js:1110:25)
+    at resolveModuleChunk (http://localhost:3000/_next/static/chunks/0jqu_next_dist_compiled_react-server-dom-turbopack_07~8rbv._.js:1030:43)
+    at http://localhost:3000/_next/static/chunks/0jqu_next_dist_compiled_react-server-dom-turbopack_07~8rbv._.js:1758:24

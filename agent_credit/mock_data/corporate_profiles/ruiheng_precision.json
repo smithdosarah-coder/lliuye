@@ -1,0 +1,59 @@
+{
+  "profile_id": "corp_ruiheng_001",
+  "company_name": "瑞恒精密制造有限公司",
+  "unified_credit_code": "91330000MABCDEXAMPLE",
+  "industry": "C34-通用设备制造业",
+  "establishment_date": "2015-08-12",
+  "registered_capital": "8000",
+  "employee_count": 236,
+  "region": "浙江省宁波市",
+  "main_business": "精密零部件加工（汽配 + 新能源）",
+  "controller_name": "李某",
+  "controller_share_pct": "55%",
+  "financial_anchors": {
+    "revenue_latest": 42000,
+    "revenue_prev": 36000,
+    "net_profit_latest": 3150,
+    "net_profit_prev": 2700,
+    "total_assets": 32000,
+    "total_liabilities": 14000,
+    "net_assets": 18000,
+    "accounts_receivable": 6800,
+    "inventory": 4200,
+    "operating_cash_flow": 3900,
+    "short_term_borrowing": 4000,
+    "ebitda": 5200,
+    "period": "2025年度"
+  },
+  "guarantee_info": {
+    "type": "抵押+保证",
+    "collateral": "厂房及附属设备（评估值 1200 万）",
+    "collateral_value": 1200,
+    "collateral_type": "厂房设备",
+    "guarantor": "法人连带保证"
+  },
+  "related_party_info": {
+    "related_party_revenue_pct": 0.08,
+    "related_party_txn_desc": "与关联公司瑞恒材料存在原材料采购关系，金额不大"
+  },
+  "existing_credit": {
+    "total_approved": 1500,
+    "total_used": 1200,
+    "overdue_history": "无"
+  },
+  "tax_rating": "A",
+  "request": {
+    "amount": 800,
+    "purpose": "购置新能源汽车零部件生产线",
+    "term_months": 60
+  },
+  "chapters": {
+    "chapter_1_background": "瑞恒精密制造有限公司成立于 2015 年，注册资本 8000 万元，是国家级高新技术企业，主营汽车零部件及新能源精密组件。2025 年营收 4.2 亿元。",
+    "chapter_2_operation": "公司为宁德时代、比亚迪等头部车企的 Tier2 供应商，客户分散度较好，产能利用率 88%。",
+    "chapter_3_finance": "资产负债率 43.75%，毛利率 28%，净利润率 7.5%。应收账款周转 58 天，经营性现金流充裕。",
+    "chapter_4_conclusion": "（待 Agent3 回填审批意见）"
+  },
+  "agent_outputs": {
+    "agent6_report_json": null
+  }
+}

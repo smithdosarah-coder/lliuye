@@ -1,0 +1,35 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 阿弥陀佛
+      - generic [ref=e7]: ·
+      - generic [ref=e8]: 凡俗
+    - generic [ref=e9]:
+      - generic [ref=e10]: ❤ 60/60
+      - generic [ref=e11]: ✦ 0/0
+      - generic [ref=e12]: 1年 1月 1日 子时
+  - generic [ref=e13]:
+    - generic [ref=e14]: 阿弥陀佛
+    - generic [ref=e15]: 16 岁 · 木灵根·下阶 · 散修
+    - generic [ref=e17]: 修为
+    - generic [ref=e19]: 0 / 30
+  - generic [ref=e21]:
+    - button "⛰ 修行" [ref=e22] [cursor=pointer]:
+      - generic [ref=e23]: ⛰
+      - generic [ref=e24]: 修行
+    - button "⟡ 外出 待续" [disabled] [ref=e25]:
+      - generic [ref=e26]: ⟡
+      - generic [ref=e27]: 外出
+      - generic [ref=e28]: 待续
+    - button "☷ 关系 待续" [disabled] [ref=e29]:
+      - generic [ref=e30]: ☷
+      - generic [ref=e31]: 关系
+      - generic [ref=e32]: 待续
+  - generic [ref=e34]:
+    - generic [ref=e35]: 长生路
+    - generic [ref=e37]: 当前境界：凡俗
+    - generic [ref=e38]: 下个里程碑：练气一层
+    - generic [ref=e39]: 最终目标：飞升 ……（千里之路）
+  - generic [ref=e40]:
+    - button "灵机配置" [ref=e41] [cursor=pointer]
+    - button "重开" [ref=e42] [cursor=pointer]

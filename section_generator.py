@@ -962,6 +962,17 @@ def generate_all_sections(
                 logger.warning("Variation phrase fix failed for %s: %s",
                                section.section_id, e)
 
+        # (c) V14-H 双写守卫:"分别为 A、A 同比 B%" 从同比反算上年真值
+        if response and len(response) > 80:
+            try:
+                fixed, n_dup = _fix_dup_year_phrases(response)
+                if n_dup > 0:
+                    response = fixed
+                    _log(f"  [双写守卫] 从同比反算上年值修复 {n_dup} 处")
+            except Exception as e:
+                logger.warning("Dup-year phrase fix failed for %s: %s",
+                               section.section_id, e)
+
         # ── Phase 3.6: 子标题去重 ──
         if response:
             before_len = len(response)
@@ -1391,6 +1402,100 @@ def _get_standard_variation_phrase(fi, metric_cn: str):
         verb = "缩短" if pv.yoy_abs < 0 else "延长"
         return f"{metric_cn}{cap}{verb}{abs(pv.yoy_abs):.0f}天至{cur:.0f}天"
     return None
+
+
+def _fix_dup_year_phrases(text: str) -> tuple[str, int]:
+    """V14-H 治本:LLM 写"近两年 X 分别为 A、A,同比 B%"这种双写自矛盾句式。
+
+    从**同比幅度反算**上年真值,不依赖任何数据源,100% 通用:
+      - 百分比(%)指标:pct 是百分点变动 → prev = curr ± pct
+      - 比率/金额:pct 是增减率 → prev = curr / (1 + pct) 或 curr / (1 - pct)
+
+    触发条件(严格):
+      - "分别为 X、X"(两值相同且 len ≥ 2)
+      - 紧邻后 "同比(增长|下降|提升|上升|减少|缩短|延长|增加|降低) Y%"
+      - Y > 0.1(排除无实际变动的情况)
+
+    返回 (fixed_text, n_fixes)
+    """
+    if not text:
+        return text, 0
+
+    # 捕获"分别为 A、A 万元/%/倍/天,同比 {动词} Y%/个百分点"
+    # 包容两值单位后缀可有可无,紧跟半角/全角逗号或分号后"同比"
+    pat = re.compile(
+        r"分别为\s*(\d[\d\.]*)\s*(万元|亿元|元|%|倍|天|个百分点)?\s*[、,，]\s*"
+        r"(\d[\d\.]*)\s*(万元|亿元|元|%|倍|天|个百分点)?"
+        r"\s*[,，;；]?\s*同比\s*"
+        r"(增长|下降|提升|上升|减少|缩短|延长|增加|降低|微升|微降)\s*"
+        r"([\d\.]+)\s*(%|个百分点)"
+    )
+
+    def _replace(m):
+        v1_s, u1 = m.group(1), m.group(2) or ""
+        v2_s, u2 = m.group(3), m.group(4) or ""
+        verb = m.group(5)
+        pct_s = m.group(6)
+        pct_unit = m.group(7)
+        try:
+            v1 = float(v1_s)
+            v2 = float(v2_s)
+            pct = float(pct_s)
+        except Exception:
+            return m.group(0)
+
+        # 必须:v1==v2 同值 且 pct > 0.1 才判为"双写自矛盾"
+        if abs(v1 - v2) > 0.5 or pct < 0.1:
+            return m.group(0)
+
+        unit = u2 or u1
+        curr = v2  # 当期值(第二个数)
+        # 方向:增长/提升/上升/增加 → prev < curr; 反之 prev > curr
+        is_up = verb in ("增长", "提升", "上升", "增加", "微升")
+
+        if pct_unit == "个百分点":
+            # 变动是百分点(适用 % 指标)
+            prev = curr - pct if is_up else curr + pct
+        elif unit == "%":
+            # 百分比指标但变动用 % 表示 → 仍按百分点处理(更通用)
+            prev = curr - pct if is_up else curr + pct
+        else:
+            # 增减率,非百分点
+            if is_up:
+                prev = curr / (1.0 + pct / 100.0)
+            else:
+                prev = curr / (1.0 - pct / 100.0)
+
+        # 格式化 prev(和 curr 相同精度)
+        if "." in v2_s:
+            dec = len(v2_s.split(".")[1])
+            prev_s = f"{prev:.{dec}f}"
+        else:
+            prev_s = f"{prev:.0f}"
+
+        # 重建短语:只替换"X、X" 为 "prev_s、curr" + 单位
+        # 保留原单位标法
+        new_pair = f"分别为{prev_s}{u1}、{v2_s}{u2}"
+        rest = m.group(0).split("、", 1)[1]
+        # 更稳:直接拼接
+        orig = m.group(0)
+        # 替换第一个数字+单位
+        orig_head = f"分别为{v1_s}{u1}"
+        fixed_head = f"分别为{prev_s}{u1}"
+        if orig.startswith(orig_head):
+            return fixed_head + orig[len(orig_head):]
+        return orig
+
+    n = 0
+    def _count_sub(m):
+        nonlocal n
+        new = _replace(m)
+        if new != m.group(0):
+            n += 1
+        return new
+
+    fixed = pat.sub(_count_sub, text)
+    return fixed, n
 
 
 def _fix_variation_phrases(text: str, financial_indicators) -> tuple[str, int]:
