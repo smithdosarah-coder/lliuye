@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import traceback
@@ -22,6 +23,11 @@ from typing import Iterator
 from llm import LLMClient
 from shared.kb_scan.search_provider import MockSearchProvider
 from shared.kb_scan.tavily_client import TavilyClient, TavilySearchError
+
+# 诊断 log：走 uvicorn stderr。
+# 关键事件（数据源决策、0 命中降级）用 WARNING，便于线上排查；
+# 细粒度（每路 result count、每条 extract 成败）用 DEBUG，默认静默。
+logger = logging.getLogger(__name__)
 
 # 6 阶段 key（与前端 channel-types.ts 的 CHANNEL_STAGES 对齐）
 STAGES = ["parse", "signal_scan", "aggregate", "enrich", "pitch", "rank"]
@@ -64,20 +70,36 @@ def run_channel_search_stream(
     provider: str = "deepseek",
     api_key: str = "",
     top_n: int = 8,
+    force_mock: bool = False,
 ) -> Iterator[dict]:
     """主编排：yield 事件流。
+
+    参数：
+      force_mock — 前端 DEMO 开关。True 时跳过 Tavily，直接走 mock 池，
+                   data_source 标记为 "mock_forced"，区别于 key 缺失 / 搜索 0 结果
+                   触发的 "mock_fallback"。
 
     事件结构：
       {"event":"stage","stage":"parse","status":"running","message":"..."}
       {"event":"stage","stage":"parse","status":"done","tags":[...]}
       ... (6 stage x running/done)
-      {"event":"done","candidates":[...], "metrics":{...}, "data_source":"tavily"|"mock_fallback"}
+      {"event":"done","candidates":[...], "metrics":{...},
+       "data_source":"tavily"|"mock_forced"|"mock_fallback"}
       错误：{"event":"error","message":"...","traceback":"..."}
     """
     try:
+        # api_key 优先级：调用方显式传入 > env DEEPSEEK_API_KEY > 空（退化到无 LLM 路径）
+        # 修根因：前端请求体默认 api_key="",此前直接送给 LLMClient → DeepSeek 401 →
+        #         _extract_signal 全失败 → all_signals=0 → mock_fallback。
+        effective_key = (api_key or os.environ.get("DEEPSEEK_API_KEY") or "").strip()
+        if not effective_key:
+            logger.warning(
+                "[channel] no LLM api_key (neither request nor env DEEPSEEK_API_KEY) → LLM disabled, signal extraction will use naive fallback"
+            )
         try:
-            llm = LLMClient(provider=provider or "deepseek", api_key=api_key or "")
-        except Exception:
+            llm = LLMClient(provider=provider or "deepseek", api_key=effective_key) if effective_key else None
+        except Exception as e:
+            logger.warning("[channel] LLMClient init failed: %s", e)
             llm = None
 
         # ===== Stage 1: parse =====
@@ -95,12 +117,25 @@ def run_channel_search_stream(
             elif t.get("category") == "区域":
                 region = t.get("value", "")
 
-        # ===== Stage 2: signal_scan — 5 路并行信号搜索 =====
+        # ===== Stage 2: signal_scan — 5 路并行信号搜索（流式，每路完成即通知）=====
         yield {"event": "stage", "stage": "signal_scan", "status": "running",
                "message": "5 路信号并行搜索（中标/认可/技术/增长/获奖）..."}
-        raw_signals, data_source = _parallel_signal_search(
-            llm, industry, region, query, tags
-        )
+        raw_signals: list[dict] = []
+        data_source = "tavily"
+        route_progress = 0
+        for item in _parallel_signal_search_iter(
+            llm, industry, region, query, tags, force_mock=force_mock,
+        ):
+            kind = item[0]
+            if kind == "progress":
+                _, route, count = item
+                route_progress += 1
+                # 每路完成即 yield 进度事件 —— 防止 tunnel/cloudflare 判断连接死掉
+                yield {"event": "progress", "stage": "signal_scan",
+                       "route": route, "signals": count,
+                       "routes_done": route_progress, "routes_total": 5}
+            elif kind == "final":
+                _, raw_signals, data_source = item
         yield {"event": "stage", "stage": "signal_scan", "status": "done",
                "count": len(raw_signals), "data_source": data_source}
 
@@ -214,13 +249,42 @@ def _regex_parse(text: str) -> list[dict]:
 
 # ========== Stage 2: 5 路并行信号搜索 ==========
 
-def _parallel_signal_search(
-    llm, industry: str, region: str, query: str, tags: list[dict]
-) -> tuple[list[dict], str]:
-    """5 路并行 Tavily 搜索 + LLM 信号抽取。降级到 mock 时返回合成信号。"""
+def _parallel_signal_search_iter(
+    llm, industry: str, region: str, query: str, tags: list[dict],
+    force_mock: bool = False,
+):
+    """流式版：每路完成 yield ("progress", stype, count)，最终 yield ("final", signals, data_source).
+
+    设计目的：SSE 下游每 3-10 秒收到一个 progress 事件，防止 Cloudflare 等中间代理
+    因为长时间静默而 buffer/断开。
+    """
+    for item in _parallel_signal_search_core(llm, industry, region, query, tags, force_mock):
+        yield item
+
+
+def _parallel_signal_search_core(
+    llm, industry: str, region: str, query: str, tags: list[dict],
+    force_mock: bool = False,
+):
+    """原 _parallel_signal_search 的 generator 版。"""
+    # === 诊断 log: 入口状态快照 ===
     tavily_key = os.environ.get("TAVILY_API_KEY")
+    key_preview = (tavily_key[:10] + "...") if tavily_key else None
+    logger.warning(
+        "[channel.signal_search] enter: force_mock=%s TAVILY_API_KEY=%s llm=%s industry=%r region=%r",
+        force_mock, key_preview, "yes" if llm else "no", industry, region,
+    )
+
+    # 前端显式切 DEMO → 跳过 Tavily
+    if force_mock:
+        logger.warning("[channel.signal_search] force_mock=True → skip Tavily, use mock pool")
+        yield ("final", _mock_signal_fallback(query, tags), "mock_forced")
+        return
+
     if not tavily_key:
-        return _mock_signal_fallback(query, tags), "mock_fallback"
+        logger.warning("[channel.signal_search] TAVILY_API_KEY missing → mock_fallback")
+        yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
+        return
 
     # 构建 5 路查询
     ind = industry or "企业"
@@ -230,50 +294,117 @@ def _parallel_signal_search(
         for tpl, stype in SIGNAL_QUERIES
     ]
 
-    client = TavilyClient(api_key=tavily_key)
+    try:
+        client = TavilyClient(api_key=tavily_key)
+    except TavilySearchError as e:
+        logger.warning("[channel.signal_search] TavilyClient init failed: %s → mock_fallback", e)
+        yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
+        return
+
     all_signals: list[dict] = []
+    # 统计每路情况：{stype: (raw_count, extracted_count, error)}
+    route_stats: dict[str, tuple[int, int, str]] = {}
 
     def _search_one(q: str, signal_type: str) -> list[dict]:
         """单路搜索 + LLM 信号抽取。"""
         try:
             raw = client.search(
-                q, max_results=8, search_depth="advanced",
+                q, max_results=2, search_depth="advanced",
                 include_domains=SIGNAL_INCLUDE_DOMAINS,
                 exclude_domains=SIGNAL_EXCLUDE_DOMAINS,
             )
-        except TavilySearchError:
+        except TavilySearchError as e:
+            logger.warning(
+                "[channel.signal_search] route=%s TavilySearchError: status=%s msg=%s preview=%.200s",
+                signal_type, getattr(e, "status", None), str(e), getattr(e, "body_preview", ""),
+            )
+            route_stats[signal_type] = (0, 0, f"tavily_err:{e}")
+            return []
+        except Exception as e:
+            logger.warning(
+                "[channel.signal_search] route=%s unexpected error: %s: %s",
+                signal_type, type(e).__name__, e,
+            )
+            route_stats[signal_type] = (0, 0, f"unexpected:{type(e).__name__}")
             return []
         results = raw.get("results") or []
+        logger.info(
+            "[channel.signal_search] route=%s query=%r raw_results=%d",
+            signal_type, q, len(results),
+        )
         signals = []
+        extract_success = 0
+        extract_fail = 0
         for r in results:
             title = r.get("title") or ""
             content = r.get("content") or ""
             url = r.get("url") or ""
             if not (title or content):
+                extract_fail += 1
                 continue
             extracted = _extract_signal(llm, title, content, url, signal_type)
             if extracted:
                 signals.extend(extracted)
+                extract_success += 1
+            else:
+                extract_fail += 1
+        logger.info(
+            "[channel.signal_search] route=%s extract: success=%d fail=%d signals=%d",
+            signal_type, extract_success, extract_fail, len(signals),
+        )
+        route_stats[signal_type] = (len(results), len(signals), "")
         return signals
 
-    # 并行执行 5 路搜索
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = {
-            pool.submit(_search_one, q, stype): stype
-            for q, stype in queries
-        }
-        for future in as_completed(futures):
-            try:
-                signals = future.result()
-                all_signals.extend(signals)
-            except Exception:
-                continue
+    # 并行执行 5 路搜索 —— 手动管理 pool 避免退出时等待 hang 的 future
+    pool = ThreadPoolExecutor(max_workers=5)
+    futures = {
+        pool.submit(_search_one, q, stype): stype
+        for q, stype in queries
+    }
+    try:
+        try:
+            for future in as_completed(futures, timeout=25):
+                stype = futures[future]
+                try:
+                    signals = future.result(timeout=15)
+                    all_signals.extend(signals)
+                    yield ("progress", stype, len(signals))
+                except TimeoutError:
+                    logger.warning("[channel.signal_search] route=%s TIMEOUT 15s, skipped", stype)
+                    route_stats[stype] = (0, 0, "timeout_15s")
+                    yield ("progress", stype, 0)
+                except Exception as e:
+                    logger.warning("[channel.signal_search] route=%s future failed: %s", stype, e)
+                    route_stats[stype] = (0, 0, f"exc:{type(e).__name__}")
+                    yield ("progress", stype, 0)
+                    continue
+        except TimeoutError:
+            logger.warning("[channel.signal_search] overall 25s TIMEOUT, cancelling remaining")
+            for f, s in futures.items():
+                if not f.done():
+                    f.cancel()
+                    route_stats[s] = (0, 0, "cancelled_overall_timeout")
+                    yield ("progress", s, 0)
+    finally:
+        # wait=False + cancel_futures=True：立刻退出，不等 hang 的任务
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    # 汇总 log
+    logger.warning(
+        "[channel.signal_search] DONE: all_signals=%d route_stats=%s",
+        len(all_signals), route_stats,
+    )
 
     if all_signals:
-        return all_signals, "tavily"
+        yield ("final", all_signals, "tavily")
+        return
 
     # Tavily 搜到 0 条信号 → 降级 mock
-    return _mock_signal_fallback(query, tags), "mock_fallback"
+    logger.warning(
+        "[channel.signal_search] all routes returned 0 signals → mock_fallback (route_stats=%s)",
+        route_stats,
+    )
+    yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
 
 
 def _extract_signal(
@@ -494,7 +625,53 @@ def _enrich_top_companies(top_companies: list[dict], tags: list[dict]) -> list[d
 
 
 def _fetch_qcc_info(company_name: str, tavily_key: str) -> dict:
-    """用 Tavily 搜 "公司全名 site:qcc.com" 抽取基础工商信息。"""
+    """工商基础信息查询。
+
+    新版优先走分层数据源 Router (agent_channel.enterprise_info)：
+        - 上市公司 → akshare（结构化）
+        - 非上市公司 → Tavily 定向搜 qcc/tianyancha + LLM 严抽 6 字段
+
+    Router 不可用 / 全链失败时降级到下方旧 Tavily snippet 抠字段逻辑——
+    确保零回归：分层架构挂了 Agent1 还能跑。
+
+    返回 dict 同时带 snake_case（新源 schema）和 camelCase（下游 candidates 兼容）
+    两套键名，下游 _enrich_top_companies / 渲染层零感知。
+    """
+    # --- 新路径：分层数据源 Router ---
+    try:
+        from shared.sources.router import Router
+        from shared.sources.base import QueryRequest
+        result = Router().query(
+            "agent_channel.enterprise_info",
+            QueryRequest(query=company_name, query_type="company_info", limit=1),
+        )
+        if result.ok and result.items:
+            info = result.items[0]
+            evidence_url = result.evidence[0].source_url if result.evidence else ""
+            # snake_case → camelCase 兼容映射；下游 candidates dict 沿用 camelCase
+            mapped: dict = {
+                # snake_case（新 schema）
+                "registered_capital": info.get("registered_capital", ""),
+                "legal_representative": info.get("legal_representative", ""),
+                "establishment_date": info.get("establishment_date", ""),
+                "industry": info.get("industry", ""),
+                "business_scope": info.get("business_scope", ""),
+                "registered_address": info.get("registered_address", ""),
+                # camelCase（保下游零感知，对应原朴素抽取的旧键名）
+                "registeredCapital": info.get("registered_capital", ""),
+                "legalRep": info.get("legal_representative", ""),
+                "founded": info.get("establishment_date", ""),
+                # 透传：来源/取证 URL，便于前端做"数据来自 xxx"角标
+                "_source": result.source_name,
+                "_evidence_url": evidence_url,
+                "_degraded": result.degraded,
+            }
+            return mapped
+    except Exception:
+        # 优雅降级到旧 Tavily 逻辑——分层架构挂了不影响 Agent1
+        pass
+
+    # --- Fallback：原 Tavily snippet 抠字段逻辑（一行不改地保留）---
     try:
         client = TavilyClient(api_key=tavily_key)
         raw = client.search(
