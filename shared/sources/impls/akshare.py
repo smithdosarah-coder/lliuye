@@ -54,6 +54,20 @@ class AkshareSource(BaseSource):
     # ------------------------------------------------------------------
     # financial — 个股财务分析指标
     # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize_stock_code(code: str) -> str:
+        s = str(code).strip().upper().replace("SH", "").replace("SZ", "").replace("BJ", "").replace(".", "")
+        if not s.isdigit() or len(s) != 6:
+            return str(code)
+        head = s[0]
+        if head == "6":
+            return f"{s}.SH"
+        if head in ("0", "3"):
+            return f"{s}.SZ"
+        if head in ("4", "8"):
+            return f"{s}.BJ"
+        return s
+
     def _query_financial(self, request: QueryRequest) -> QueryResult:
         stock_code = request.filters.get("stock_code") or request.query
         if not stock_code:
@@ -61,6 +75,7 @@ class AkshareSource(BaseSource):
                 ok=False, source_name=self.name,
                 error="financial query requires stock_code in filters or query",
             )
+        stock_code = self._normalize_stock_code(stock_code)
         df = ak.stock_financial_analysis_indicator_em(symbol=str(stock_code))
         if df is None or df.empty:
             return QueryResult(

@@ -85,13 +85,19 @@ def enhance_enterprise_profile(profile: Any, *, llm_fn=None) -> tuple[dict, list
         pass
 
     # ---- 2. 上市公司财务指标（akshare） ----
-    # 注意：industry_benchmark domain 偏好链是 [akshare, tavily]，但 financial query_type
-    # 仅 akshare 支持；tavily 不接 financial → degrader 自动跳过到下一个，全失败时返回 ok=False。
+    # akshare 要 stock_code（如 600519），不是公司名。优先用 profile.stock_code，
+    # 再退到 enriched.stock_code（enterprise_info 上市路径会填），都没有就跳过。
+    stock_code = (
+        _get_attr_or_key(profile, "stock_code")
+        or enriched.get("stock_code")
+    )
     try:
+        if not stock_code:
+            raise LookupError("no stock_code → skip akshare financial")
         r2 = router.query(
             "agent_credit.industry_benchmark",
             QueryRequest(
-                query=str(company_name),
+                query=str(stock_code),
                 query_type="financial",
                 limit=1,
             ),

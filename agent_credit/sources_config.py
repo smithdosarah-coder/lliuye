@@ -13,7 +13,7 @@ from shared.sources.router import register_preference
 def init() -> None:
     register_preference(
         "agent_credit.profile",
-        ["akshare", "tavily"],
+        ["enterprise_info", "akshare", "tavily"],
     )
     register_preference(
         "agent_credit.industry_benchmark",
