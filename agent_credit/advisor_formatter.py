@@ -21,6 +21,7 @@ from .prompts import (
     RETAIL_DECISION_SYSTEM,
     RETAIL_DECISION_USER,
 )
+from .reason_codes import derive_top_reason_codes
 from .risk_appetite_config import RiskAppetiteConfig
 
 
@@ -46,6 +47,8 @@ class DecisionAdvice:
 
     decision_reason: str = ""
     similar_cases_summary: str = ""
+
+    top_reason_codes: list = field(default_factory=list)  # list[dict]
 
     features_snapshot: dict = field(default_factory=dict)
     scoring_snapshot: dict = field(default_factory=dict)
@@ -260,6 +263,15 @@ class AdvisorFormatter:
                 "waiver_advice": "；".join(h.waiver_conditions) if h.waiver_conditions else "不可豁免",
             } for h in rule_hits]
 
+        features_snapshot = {k: v for k, v in features.items()
+                             if not k.startswith("chapters") and not k.startswith("_")}
+        top_reason_codes = derive_top_reason_codes(
+            segment="corporate",
+            decision=decision,
+            rule_hits=rule_hits,
+            features=features_snapshot,
+            top_n=5,
+        )
         advice = DecisionAdvice(
             advice_id=str(uuid.uuid4())[:12],
             segment="corporate",
@@ -277,8 +289,8 @@ class AdvisorFormatter:
             red_line_explanations=red_line_explanations,
             decision_reason=decision_reason,
             similar_cases_summary=cases_summary,
-            features_snapshot={k: v for k, v in features.items()
-                               if not k.startswith("chapters") and not k.startswith("_")},
+            top_reason_codes=top_reason_codes,
+            features_snapshot=features_snapshot,
             scoring_snapshot=scoring.to_dict(),
             amount_methods=scoring.amount_methods or {},
         )
@@ -339,6 +351,14 @@ class AdvisorFormatter:
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
                 pass
 
+        features_snapshot = dict(features)
+        top_reason_codes = derive_top_reason_codes(
+            segment="retail",
+            decision=decision,
+            rule_hits=rule_hits,
+            features=features_snapshot,
+            top_n=5,
+        )
         advice = DecisionAdvice(
             advice_id=str(uuid.uuid4())[:12],
             segment="retail",
@@ -362,7 +382,8 @@ class AdvisorFormatter:
             } for h in rule_hits],
             decision_reason=decision_reason,
             similar_cases_summary=cases_summary,
-            features_snapshot=dict(features),
+            top_reason_codes=top_reason_codes,
+            features_snapshot=features_snapshot,
             scoring_snapshot=scoring.to_dict(),
             amount_methods={},
         )

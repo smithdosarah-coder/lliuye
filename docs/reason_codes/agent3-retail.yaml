@@ -1,0 +1,120 @@
+schema_version: "1.0"
+segment: retail
+updated: "2026-04-18"
+description: |
+  Agent3 对私（含普惠小微）授信决策标准理由码字典。
+  severity 采用 field-naming v1.0：red / yellow / green。
+  evidence_path 指向 DecisionAdvice.features_snapshot 点路径，供前端「证据跳转」。
+
+codes:
+  # ---- 拒绝级（红灯硬红线） ----
+  - code: R_RET_OVERDUE_SEVERE
+    title: 重大逾期
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: credit.overdue_severity
+    threshold: 3
+    description: 征信出现 M3+ 逾期、代偿、呆账等重大瑕疵。
+  - code: R_RET_DTI_OVERLIMIT
+    title: 负债收入比超限
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: capacity.dti_ratio
+    threshold: 0.80
+    description: DTI ≥ 80%，偿债压力严重超配。
+  - code: R_RET_MULTI_LOAN
+    title: 多头借贷严重
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: credit.current_loans_count
+    threshold: 6
+    description: 在贷机构 ≥ 6 家，多头借贷风险突出。
+  - code: R_RET_BLACKLIST
+    title: 个人黑名单
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: compliance.fraud_flag
+    description: 失信被执行、反欺诈黑名单命中。
+  - code: R_RET_INCOME_UNVERIFIED
+    title: 收入无法核实
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: capacity.unstable_and_no_collateral
+    description: 银行流水无法核实月收入或与申报严重不符。
+
+  # ---- 条件批准级（黄灯软告警） ----
+  - code: R_RET_DTI_HIGH
+    title: 负债收入比偏高
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: capacity.dti_ratio
+    threshold: 0.55
+    description: DTI 55% - 80%，需压降额度或延长期限。
+  - code: R_RET_CC_UTIL_HIGH
+    title: 信用卡使用率偏高
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: credit.card_utilization
+    threshold: 0.70
+    description: 信用卡平均使用率 ≥ 70%，短期周转压力大。
+  - code: R_RET_MULTI_LOAN_WARN
+    title: 在贷户数偏多
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: credit.current_loans_count
+    threshold: 3
+    description: 在贷机构 ≥ 3 家（<6），多头借贷苗头。
+  - code: R_RET_CC_MANY
+    title: 信用卡张数偏多
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: credit.current_credit_cards
+    threshold: 5
+    description: 名下信用卡 ≥ 5 张，授信总额度风险集中。
+  - code: R_RET_GUARANTEE_LOAD
+    title: 对外担保偏多
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: credit.guarantee_count
+    threshold: 2
+    description: 对外担保户数 ≥ 2，存在或有负债敞口。
+  - code: R_RET_CASH_SURPLUS_LOW
+    title: 月现金结余紧
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: capacity.cash_surplus
+    description: 月收支净结余偏低，还款缓冲不足。
+
+  # ---- 批准利好（绿灯信息提示） ----
+  - code: R_RET_INCOME_STRONG
+    title: 收入稳定充足
+    severity: green
+    decision_hint: [批准]
+    evidence_path: capacity.monthly_repay_capacity
+    description: 月收入稳定且覆盖月供 ≥ 3 倍，偿付能力充足。
+  - code: R_RET_CREDIT_CLEAN
+    title: 征信清洁
+    severity: green
+    decision_hint: [批准]
+    evidence_path: credit.overdue_severity
+    description: 近 24 月无任何逾期记录。
+  - code: R_RET_ACCOUNT_AGED
+    title: 征信历史长
+    severity: green
+    decision_hint: [批准]
+    evidence_path: credit.account_age_years
+    threshold: 5
+    description: 征信账户年龄 ≥ 5 年，信用历史充足。
+  - code: R_RET_DTI_HEALTHY
+    title: 负债收入比健康
+    severity: green
+    decision_hint: [批准]
+    evidence_path: capacity.dti_ratio
+    description: DTI 低于 35%，偿债压力可控。
+  - code: R_RET_COLLATERAL_SUFFICIENT
+    title: 担保充足
+    severity: green
+    decision_hint: [批准]
+    evidence_path: collateral.ltv
+    threshold: 0.70
+    description: 抵押率 ≤ 70% 且权属明确，担保充足。
