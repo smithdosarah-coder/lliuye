@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AdvisorFormatter — 决策意见格式化器（调 LLM）
 
 对应 PRD 第 6.9 节。
@@ -11,14 +10,16 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any
 
 from .prompts import (
-    CORPORATE_DECISION_SYSTEM, CORPORATE_DECISION_USER,
-    CORPORATE_REDLINE_SYSTEM, CORPORATE_REDLINE_USER,
-    RETAIL_DECISION_SYSTEM, RETAIL_DECISION_USER,
+    CORPORATE_DECISION_SYSTEM,
+    CORPORATE_DECISION_USER,
+    CORPORATE_REDLINE_SYSTEM,
+    CORPORATE_REDLINE_USER,
+    RETAIL_DECISION_SYSTEM,
+    RETAIL_DECISION_USER,
 )
 from .risk_appetite_config import RiskAppetiteConfig
 
@@ -232,7 +233,7 @@ class AdvisorFormatter:
                 llm_out = self.llm_chat(CORPORATE_DECISION_SYSTEM, user_msg)
                 if llm_out and len(llm_out) > 40:
                     decision_reason = llm_out[:1500]
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
                 pass
 
         # LLM 2: 红线解释
@@ -248,7 +249,7 @@ class AdvisorFormatter:
                     red_line_explanations = raw
                 elif isinstance(raw, dict) and "rules" in raw:
                     red_line_explanations = raw.get("rules", [])
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, KeyError, AttributeError):
                 red_line_explanations = []
         if not red_line_explanations:
             red_line_explanations = [{
@@ -334,7 +335,7 @@ class AdvisorFormatter:
                 llm_out = self.llm_chat(RETAIL_DECISION_SYSTEM, user_msg)
                 if llm_out and len(llm_out) > 30:
                     decision_reason = llm_out[:800]
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
                 pass
 
         advice = DecisionAdvice(

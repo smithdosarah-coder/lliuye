@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """agent_credit.api — Agent3 授信决策 FastAPI 路由模块。
 
 端点：
@@ -14,7 +13,6 @@
 """
 from __future__ import annotations
 
-import json
 import sys
 import traceback
 from pathlib import Path
@@ -55,7 +53,7 @@ def _decision_event_stream(req: DecisionRequest):
     """生成器 — yield SSE-encoded lines."""
     try:
         from agent_credit.agent import CreditDecisionAgent
-    except Exception as e:
+    except ImportError as e:
         yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
         return
 
@@ -75,7 +73,7 @@ def _decision_event_stream(req: DecisionRequest):
             })
 
         yield sse_encode({"event": "done"})
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         traceback.print_exc()
         yield sse_encode({
             "event": "error",
