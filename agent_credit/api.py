@@ -30,6 +30,8 @@ from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 app = FastAPI(title="Agent3 Credit Decision API", version="3.1")
 
+_HANDOFF_DIR = PROJECT_ROOT / "demo_data" / "agent_credit"
+
 
 def _qc_scrub(payload):
     """递归把字符串字段里的占位符替换为"未能自动填写"; 返回 (清洗后, 命中类型列表)。"""
@@ -68,6 +70,47 @@ async def list_credit_presets(segment: str):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(500, f"load presets failed: {e}") from e
+
+
+@app.get("/api/credit/handoff/demo/{segment}")
+async def get_handoff_demo(segment: str):
+    """返回 demo_data/agent_credit/ 下 Agent6→Agent3 handoff 样本画像。
+
+    响应：{ segment, profile, preset_name }。前端 HandoffButton 消费后
+    写入 sessionStorage.enterprise_profile 触发现有 applyProfile 流程。
+    """
+    if segment not in ("corporate", "retail"):
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED",
+                      "message": "segment must be corporate or retail",
+                      "details": {"field": "segment", "got": segment}}
+        })
+    prefix = "corp_" if segment == "corporate" else "retail_"
+    if not _HANDOFF_DIR.exists():
+        raise HTTPException(404, detail={
+            "error": {"code": "NOT_FOUND",
+                      "message": f"handoff demo dir missing: {_HANDOFF_DIR}"}
+        })
+    candidates = sorted(_HANDOFF_DIR.glob(f"{prefix}*.json"))
+    if not candidates:
+        raise HTTPException(404, detail={
+            "error": {"code": "NOT_FOUND",
+                      "message": f"no handoff demo for segment={segment}"}
+        })
+    try:
+        profile = json.loads(candidates[0].read_text(encoding="utf-8"))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(500, detail={
+            "error": {"code": "INTERNAL_ERROR",
+                      "message": f"load handoff demo failed: {e}"}
+        }) from e
+    return {
+        "segment": segment,
+        "profile": profile,
+        "preset_name": profile.get("preset_name", ""),
+        "source_file": candidates[0].name,
+    }
 
 
 def _decision_event_stream(req: DecisionRequest):

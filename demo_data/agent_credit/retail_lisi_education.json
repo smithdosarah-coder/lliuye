@@ -1,0 +1,58 @@
+{
+  "profile_id": "retail_lisi_education",
+  "business_line": "retail",
+  "preset_name": "lisi_education",
+  "subject_name": "李四",
+  "name": "李四",
+  "company_name": "",
+  "industry": "教育培训",
+  "region": "上海市",
+  "id_card_tail": "8876",
+  "age": 35,
+  "gender": "男",
+  "marital_status": "已婚",
+  "education": "本科",
+  "occupation": "个体工商户",
+  "business_type": "教育培训",
+  "years_in_current_job": 3,
+  "monthly_income": 32000,
+  "monthly_income_stability": "fluctuating",
+  "credit_report": {
+    "current_loans_count": 3,
+    "current_credit_cards": 4,
+    "credit_card_utilization": 0.72,
+    "query_count_24m": 8,
+    "overdue_history": "M1_once",
+    "guarantee_count": 0,
+    "account_age_years": 5.2
+  },
+  "bank_statement": {
+    "avg_balance_6m": 18000,
+    "monthly_inflow_avg": 32000,
+    "monthly_outflow_avg": 30500
+  },
+  "social_security": {
+    "months_paid": 12,
+    "monthly_contribution": 600
+  },
+  "collateral": {
+    "type": "无",
+    "appraised_value": 0,
+    "ltv": 0,
+    "title_verified": false
+  },
+  "residence": {
+    "years_at_address": 2,
+    "housing_type": "rented"
+  },
+  "request": {
+    "amount": 200000,
+    "term_months": 24,
+    "purpose": "教室租金及装修"
+  },
+  "_handoff_meta": {
+    "source": "agent6_demo",
+    "generated_at": "2026-04-18T00:00:00Z",
+    "note": "Agent6 Demo 个人客户画像样本，供 Agent3 HandoffButton 载入"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "profile_id": "corp_dingsheng_trade",
+  "business_line": "corporate",
+  "preset_name": "dingsheng_trade",
+  "company_name": "鼎盛商贸有限公司",
+  "unified_credit_code": "91440000MAZZEXAMPLE",
+  "industry": "F51-批发业",
+  "establishment_date": "2018-03-15",
+  "registered_capital": "1000",
+  "employee_count": 42,
+  "region": "广东省佛山市",
+  "main_business": "建材批发与代理",
+  "controller_name": "王某",
+  "controller_share_pct": "80%",
+  "financial_anchors": {
+    "revenue_latest": 18000,
+    "revenue_prev": 22000,
+    "net_profit_latest": -420,
+    "net_profit_prev": 350,
+    "total_assets": 9600,
+    "total_liabilities": 7680,
+    "net_assets": 1920,
+    "accounts_receivable": 4500,
+    "operating_cash_flow": -680,
+    "period": "2025年度"
+  },
+  "guarantee_info": {
+    "type": "保证",
+    "collateral_type": "无",
+    "collateral_value": 0,
+    "guarantor": "法人连带保证"
+  },
+  "related_party_info": {
+    "related_party_revenue_pct": 0.45
+  },
+  "existing_credit": {
+    "total_approved": 800,
+    "total_used": 800,
+    "overdue_history": "2024 年 M1 逾期 1 次（已结清）"
+  },
+  "tax_rating": "C",
+  "request": {
+    "amount": 500,
+    "purpose": "补充流动资金",
+    "term_months": 12
+  },
+  "chapters": {
+    "chapter_1_background": "鼎盛商贸有限公司成立于 2018 年，注册资本 1000 万元，主营建材批发，近年受下游地产行业调整影响明显。",
+    "chapter_2_operation": "公司 2025 年营收同比下滑 18%，主要客户为关联公司鼎盛地产（地产开发商），客户依赖度严重，回款周期拉长。",
+    "chapter_3_finance": "资产负债率 80%，净利润亏损 420 万元，经营性现金流 -680 万元，速动比率仅 0.6，短期偿债压力突出。",
+    "chapter_4_conclusion": "（待 Agent3 回填审批意见）"
+  },
+  "_handoff_meta": {
+    "source": "agent6_demo",
+    "generated_at": "2026-04-18T00:00:00Z",
+    "note": "Agent6 Demo 报告助手产出的企业画像样本，供 Agent3 HandoffButton 载入"
+  }
+}
