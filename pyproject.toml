@@ -1,0 +1,157 @@
+[project]
+name = "credit-ai-agents"
+version = "0.1.0"
+description = "Zhongan Credit AI Agent Matrix (6 Agents: report/credit/channel/alert/compliance/riskctrl)"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# NOTE: 完整版本锁定（DoD L0-8 == 仅）由各 worktree 在 Phase 1 用 `uv pip compile` 或
+# `pip freeze > requirements.lock` 生成；本文件维持工程范围声明。
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "httpx>=0.27",
+    "openai>=1.50",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "lxml>=5.0",
+    "openpyxl>=3.1",
+    "xlsxwriter>=3.2",
+    "python-docx>=1.1",
+    "python-pptx>=1.0",
+    "akshare>=1.15",
+    "gradio>=4.44",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.24",
+]
+
+# ----------------------------------------------------------------------------
+# Ruff — lint + format
+# DoD L0-1 / L0-5：E722 (bare except)、BLE001 (blind except) 强制 0 命中
+# ----------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".cache",
+    ".next",
+    "node_modules",
+    "__pycache__",
+    "_chunks",
+    "out_*",
+    "data",
+    "demo_data",
+    "evaluation/results",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "BLE",    # flake8-blind-except (BLE001)
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # simplify
+    "ARG",    # unused arguments
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function calls in argument defaults (FastAPI Depends pattern)
+    "ARG001", # unused function argument (FastAPI request param)
+    "ARG002", # unused method argument
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ARG", "BLE001", "B011"]
+"agent_*/_smoke_test.py" = ["ARG", "BLE001"]
+
+# ----------------------------------------------------------------------------
+# Mypy — 渐进式类型检查
+# 初期宽松基线，Phase 1 各 Agent 自查时收紧
+# ----------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+no_implicit_optional = true
+strict_optional = false
+exclude = [
+    "^\\.cache/",
+    "^\\.next/",
+    "^node_modules/",
+    "^_chunks/",
+    "^data/",
+    "^demo_data/",
+    "^out_.*/",
+]
+
+# ----------------------------------------------------------------------------
+# Pytest + Coverage
+# DoD L0-2: 核心模块单测覆盖率 ≥ 70%
+# ----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests", "agent_channel/tests", "agent_credit/tests",
+             "agent_alert/tests", "agent_compliance/tests",
+             "agent_riskctrl/tests", "agent_report/tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "integration: integration tests (require live API keys)",
+    "e2e: end-to-end tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+    "agent_channel",
+    "agent_credit",
+    "agent_alert",
+    "agent_compliance",
+    "agent_riskctrl",
+    "agent_report",
+    "shared",
+]
+omit = [
+    "*/tests/*",
+    "*/_smoke_test.py",
+    "*/__init__.py",
+    "*/app.py",          # 旧版 Gradio UI，不纳入覆盖率
+    "*/app_demo.py",
+]
+
+[tool.coverage.report]
+fail_under = 70
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+show_missing = true
+skip_empty = true
