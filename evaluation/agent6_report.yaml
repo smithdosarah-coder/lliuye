@@ -1,0 +1,47 @@
+# Agent6 报告生成 评估配置
+agent: report
+version: v7.23
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: field_completeness
+      desc: 模板字段自动填写率（460 项基线）
+      target: ">= 0.93"
+    - name: evidence_rate
+      desc: 每段生成内容挂证据（段落 ID / 材料文件名）
+      target: ">= 0.95"
+    - name: hallucination_rate
+      desc: 生成内容中出现材料里不存在的数字或事实
+      target: "<= 0.01"
+    - name: tool_success_rate
+      desc: 材料解析 / 字段抽取 / 段落生成工具调用成功率
+      target: ">= 0.95"
+    - name: task_completion_rate
+      desc: 端到端跑通率（材料输入到 Word 输出）
+      target: ">= 0.98"
+
+  domain:
+    - name: financial_ratio_consistency
+      desc: 报告中财务比率与 financial_analyzer 计算一致率
+      target: ">= 0.99"
+    - name: template_leakage_rate
+      desc: 模板样例文本残留率（通过 SequenceMatcher 检测）
+      target: "<= 0.02"
+    - name: unfilled_marker_accuracy
+      desc: 「未能自动填写」标记的准确性（该标却没标 / 不该标却标了）
+      target: ">= 0.95"
+    - name: section_length_calibration
+      desc: 生成段落长度与真人范文的偏差中位数
+      target: "<= 0.30"
+    - name: quality_score_total
+      desc: quality_scorer.py 9 维度总分
+      target: ">= 65.0"
+
+baseline:
+  last_run: 2026-04-03
+  commit: null
+  result:
+    field_completeness: 0.935
+    unfilled_count: 32
+    total_filled: 460

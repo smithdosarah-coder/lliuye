@@ -1,0 +1,37 @@
+# Agent4 贷中预警 评估配置
+agent: alert
+version: v3.1
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: task_completion_rate
+      desc: 客户池扫描完成率（100 家客户全量跑通）
+      target: ">= 0.95"
+    - name: evidence_rate
+      desc: 每个红/黄灯客户附具体触发证据（外部事件 + 内部规则）
+      target: ">= 0.95"
+    - name: hallucination_rate
+      desc: 不存在的客户 / 虚构事件被列入榜单
+      target: "<= 0.01"
+    - name: tool_success_rate
+      desc: 外部扫描 + 内部交易查询的工具调用成功率
+      target: ">= 0.90"
+
+  domain:
+    - name: cross_hit_precision
+      desc: 双路命中（外部 + 内部）的红灯精准率
+      target: ">= 0.80"
+    - name: recall_on_known_bad
+      desc: 已知问题客户被 Agent 识别为红/黄灯的召回率
+      target: ">= 0.90"
+    - name: grade_distribution_sanity
+      desc: 红/黄/绿分级分布合理性（红灯 < 5%，绿灯 > 70%）
+      target: "pass"
+    - name: scan_latency_p95
+      desc: 100 家客户批量扫描 P95 耗时（分钟）
+      target: "<= 30"
+
+baseline:
+  last_run: null
+  commit: null

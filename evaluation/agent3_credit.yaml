@@ -1,0 +1,40 @@
+# Agent3 授信决策 评估配置
+agent: credit
+version: v3.1
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: task_completion_rate
+      desc: ReportJSON 输入能否产出四维评分 + 决策建议
+      target: ">= 0.98"
+    - name: evidence_rate
+      desc: 评分 / 建议每条回指证据（财务项 / 征信项 / 同业案例）
+      target: ">= 0.95"
+    - name: hallucination_rate
+      desc: 决策建议中出现原始材料不存在的数字或事实
+      target: "<= 0.01"
+    - name: tool_success_rate
+      desc: 评分 / 红线 / 案例召回工具调用正确率
+      target: ">= 0.95"
+
+  domain:
+    - name: ratio_calc_consistency
+      desc: 财务比率与 financial_analyzer Python 计算一致率
+      target: ">= 0.99"
+    - name: redline_detection_accuracy
+      desc: 红线触发识别准确率（对比人工标注）
+      target: ">= 0.95"
+    - name: score_human_agreement
+      desc: 四维评分与人工复核的一致率（差 ≤ 1 分）
+      target: ">= 0.85"
+    - name: credit_limit_deviation
+      desc: 额度建议与终审实际批复的偏差中位数
+      target: "<= 0.20"
+    - name: segment_coverage
+      desc: 对公 / 普惠 / 对私三板块评分模型覆盖测试通过率
+      target: ">= 0.95"
+
+baseline:
+  last_run: null
+  commit: null

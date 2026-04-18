@@ -1,0 +1,34 @@
+# Agent2 风控策略 评估配置
+agent: riskctrl
+version: v3.1
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: task_completion_rate
+      desc: 从策略诉求到 DSL 规则的生成成功率
+      target: ">= 0.95"
+    - name: evidence_rate
+      desc: 每条 DSL 规则附回测指标（KS / 通过率 / 坏账率）
+      target: ">= 0.98"
+    - name: hallucination_rate
+      desc: DSL 中出现样本里不存在的字段名
+      target: "<= 0.01"
+    - name: tool_success_rate
+      desc: 回测工具 / 指标计算工具调用成功率
+      target: ">= 0.95"
+
+  domain:
+    - name: ks_improvement
+      desc: 生成策略 KS 相对人工基线的提升
+      target: ">= 0.02"
+    - name: false_positive_rate
+      desc: 坏账识别误报率
+      target: "<= 0.15"
+    - name: rule_interpretability
+      desc: DSL 规则可读性评分（1-5 分）
+      target: ">= 4.0"
+
+baseline:
+  last_run: null
+  commit: null

@@ -1,0 +1,37 @@
+# Agent5 合规巡检 评估配置
+agent: compliance
+version: v3.1
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: task_completion_rate
+      desc: 新政策输入能否产出违规冲突点清单
+      target: ">= 0.95"
+    - name: evidence_rate
+      desc: 每条违规项附政策原文条款 + 业务制度段落
+      target: ">= 0.98"
+    - name: hallucination_rate
+      desc: 政策条款号 / 业务制度段落引用错误率
+      target: "<= 0.01"
+    - name: tool_success_rate
+      desc: 政策解析 + 矩阵匹配 + 判定工具调用成功率
+      target: ">= 0.95"
+
+  domain:
+    - name: policy_parse_accuracy
+      desc: 政策文件关键条款抽取准确率
+      target: ">= 0.90"
+    - name: conflict_precision
+      desc: 标注为冲突的明细项中真实冲突占比
+      target: ">= 0.85"
+    - name: conflict_recall
+      desc: 已知冲突点被识别的召回率
+      target: ">= 0.90"
+    - name: defect_classification_accuracy
+      desc: 缺陷分类（严重/重要/一般）与人工一致率
+      target: ">= 0.80"
+
+baseline:
+  last_run: null
+  commit: null

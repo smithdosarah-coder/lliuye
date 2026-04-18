@@ -1,0 +1,37 @@
+# Agent1 全渠道获客 评估配置
+agent: channel
+version: v4.0
+updated: 2026-04-15
+
+metrics:
+  common:
+    - name: task_completion_rate
+      desc: 给定画像能否产出 ≥ Top_N 候选清单
+      target: ">= 0.95"
+    - name: evidence_rate
+      desc: 候选企业的匹配理由是否带证据（URL / 原文片段）
+      target: ">= 0.95"
+    - name: hallucination_rate
+      desc: 候选清单中幻觉企业（搜不到实体）的占比
+      target: "<= 0.02"
+    - name: tool_success_rate
+      desc: Tavily 5 路搜索 + 企查查二次查询的工具调用成功率
+      target: ">= 0.90"
+
+  domain:
+    - name: signal_diversity
+      desc: 每候选至少 2 种不同信号类型（中标/专精特新/专利/扩产/获奖）
+      target: ">= 0.70"
+    - name: qcc_info_fill_rate
+      desc: 企查查二次查询补全的字段占比（法人/注册资本/成立年份等）
+      target: ">= 0.50"
+    - name: lookalike_precision
+      desc: 候选企业与种子画像的相似度人工评估均值（1-5 分）
+      target: ">= 4.0"
+    - name: product_match_relevance
+      desc: 推荐产品 Top3 与候选画像的匹配相关性
+      target: ">= 0.80"
+
+baseline:
+  last_run: null
+  commit: null
