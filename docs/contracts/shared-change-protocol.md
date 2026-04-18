@@ -1,9 +1,15 @@
-# 共享模块变更协议（Shared Change Protocol） v1.0
+# 共享模块变更协议（Shared Change Protocol） v1.1
 
-**版本**：v1.0
-**发布日期**：2026-04-18
+**版本**：v1.1（2026-04-18 修补，v1.0 同日发布）
 **作者**：主 CLI（Pre-Phase-0）
-**适用范围**：5 路并行的所有 worktree（`feat/agent{N}-productize`），主 CLI 自身不受限
+**适用范围**：所有活跃 CLI 的所有 worktree（主 CLI 自身在红区变更上也需 RFC，仅紧急修复可事后补）
+
+## v1.1 变更说明
+
+本次修补由 `rfc/20260418-v16-llm-abstraction-upgrade.md` 触发：
+1. **红区清单补入** `llm.py` + `config.py`（v1.0 漏列，被 5/5 子 Agent 调用，风险等级等同 `shared/base_agent.py`）
+2. **新增硬规则"一 CLI 一 worktree"**（见 §0.5）—— 根本性防止多 CLI 共享脏树事故
+3. **新增 commit signal 约定**（见 §八）—— 与 `decision-log-protocol.md` 配合
 
 ---
 
@@ -19,6 +25,29 @@
 - 根目录 `financial_analyzer.py` / `quality_check.py` / `quality_scorer.py` / `truth_fill.py` / `section_generator.py` / `material_kb.py` 被 Agent6 主用，但 Agent3 也消费（中-高风险）
 
 **任何子 CLI 单方面改这些文件**——即使代码本身正确——都视为违反本协议，主 CLI 拒绝合并。
+
+---
+
+## 0.5 物理隔离硬规则（v1.1 新增）
+
+**规则**：一个活跃 CLI 对应且仅对应一个 git worktree；**共享 worktree 视为红区违规**。
+
+**背景**：v1.0 按"文件红/黄/绿区"划分变更权限，但两个 CLI 物理上同时 checkout 同一 worktree 时，脏树无法归属、commit 可能覆盖对方未保存工作、协议自动失效。
+
+**执行**：
+
+| 角色 | worktree | 分支 |
+|---|---|---|
+| 主 CLI | `credit_report_agent_work/` | `chore/l0-infra` / `feat/tiered-search` |
+| Agent1 获客 CLI | `../demo-agent1/` | `feat/agent1-productize` |
+| Agent3 授信 CLI | `../demo-agent3/` | `feat/agent3-productize` |
+| Agent6 v16 CLI | `../demo-agent6/` | `feat/agent6-v16` |
+| 前端 Shell CLI | `../demo-frontend/` | `feat/frontend-shell` |
+| PPT CLI | `credit_report_agent_work/_screenshots/`（scope lock，只写不读外部） | 走主 branch |
+
+**违规处理**：
+- 发现两个 CLI 同时在同一 worktree 写 → 主 CLI 强制一方暂停，迁移到新 worktree
+- 脏树归属不明 → 触发 partition audit（按文件内容推断归属，必要时 stash park）
 
 ---
 
@@ -41,6 +70,8 @@
 | 根目录 `truth_fill.py` | Agent6 | 改字段映射 = 报告字段错位 |
 | 根目录 `section_generator.py` | Agent6 | Evidence-First 三阶段核心 |
 | 根目录 `material_kb.py` | Agent6 / Agent3 | 改解析 = 输入入参变 |
+| 根目录 `llm.py` **(v1.1 补入)** | 5/5 子 Agent + v16 classifier | 改签名 = 全员 LLM 调用 break；加 provider 也需 RFC 防止扩散性副作用 |
+| 根目录 `config.py` **(v1.1 补入)** | 5/5 子 Agent + 全局 MODEL_CONFIG | 改 provider 注册 / model 参数 = 跨 Agent 行为漂移 |
 
 ### 1.2 黄区（先扫描影响、再改）
 
@@ -158,18 +189,40 @@
     或 quality_check.py
     或 truth_fill.py
     或 section_generator.py
-    或 material_kb.py？            → 红区，先 RFC
+    或 material_kb.py
+    或 llm.py
+    或 config.py？                → 红区，先 RFC
   □ api_server.py？               → 红区，先 RFC
   □ agent_report/enterprise_profile.py？ → 红区，先 RFC
+  □ 我现在的 worktree 是不是别人也在写？ → 违反 §0.5，立即迁移到独立 worktree
 
 如果以上全部 NO → 自由 commit
-任意 YES → 停下，写 RFC
+任意 YES → 停下，写 RFC 或迁移 worktree
 ```
 
 ---
 
-## 七、版本演进
+## 八、Commit Signal 约定（v1.1 新增）
 
-- v1.0 (2026-04-18)：建立基线，划分红/黄/绿区，定 RFC 流程
+配合 `decision-log-protocol.md`，子 CLI 通过 commit message 尾巴与主 CLI 异步通信，减少人工 paste 转发：
+
+| Signal | 语义 | 主 CLI 动作 |
+|---|---|---|
+| `Signal: READY-FOR-REVIEW` | 阶段完成，请终审 | 主动拉取 diff 并 review |
+| `Signal: NEED-DECISION <描述>` | 要拍板，附 decisions-log.md 的 Q-NNN | 读对应 Q 条目 → append A-NNN + commit |
+| `Signal: RESCUE-COMMIT` | 救援性 commit（HEAD 自洽 / 紧急修复） | 审计后补事后 RFC，不阻断 |
+| `Signal: RED-LINE-TRIGGERED` | DoD 红线触发，自行停工 | 主 CLI 介入诊断 |
+
+**抓取方式**：`git log --all --grep="Signal:" --since="24h ago"` —— 主 CLI 日常巡检，无需子 CLI paste。
+
+---
+
+## 九、版本演进
+
+- **v1.0** (2026-04-18) 基线：划分红/黄/绿区，定 RFC 流程
+- **v1.1** (2026-04-18) 修补：
+  - 红区清单补入 `llm.py` + `config.py`（由 `rfc/20260418-v16-llm-abstraction-upgrade.md` 触发）
+  - 新增 §0.5 物理隔离硬规则"一 CLI 一 worktree"
+  - 新增 §八 Commit Signal 约定
 - 子 CLI 发现新共享文件未列入：发 RFC 申请加入红/黄区，主 CLI 评估后入库
 - Phase 1 结束后复盘：哪些红区文件 RFC 通过率高 → 考虑下放到黄区
