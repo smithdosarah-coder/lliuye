@@ -18,8 +18,9 @@ import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
+from urllib.parse import quote
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -148,6 +149,48 @@ def _decision_event_stream(req: DecisionRequest):
             "message": f"{type(e).__name__}: {e}",
             "traceback": traceback.format_exc()[-2000:],
         })
+
+
+class ExportDocxRequest(BaseModel):
+    advice: dict
+
+
+@app.post("/api/credit/export_docx")
+async def export_decision_docx(req: ExportDocxRequest):
+    """本地 python-docx 渲染决策意见书。
+
+    监管底线：禁用海外 API，全部本地计算；仅消费前端回传的 advice dict。
+    响应：application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    """
+    advice = req.advice or {}
+    if not advice.get("subject_name") and not advice.get("decision"):
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED",
+                      "message": "advice payload empty or missing subject_name/decision",
+                      "details": {"keys": list(advice.keys())}}
+        })
+    try:
+        from agent_credit.docx_export import build_filename, render_decision_letter
+        data = render_decision_letter(advice)
+        filename = build_filename(advice)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(500, detail={
+            "error": {"code": "INTERNAL_ERROR",
+                      "message": f"docx render failed: {e}"}
+        }) from e
+
+    # RFC 5987 中文文件名
+    encoded = quote(filename)
+    return Response(
+        content=data,
+        media_type=("application/vnd.openxmlformats-officedocument"
+                    ".wordprocessingml.document"),
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded}",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.post("/api/credit/decision")
