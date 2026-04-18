@@ -9,6 +9,16 @@
 
 ---
 
+## 〇、契约对象语义澄清（Q-004 A-004 补）
+
+**本契约对象**：Agent6 v16 产出的 **ReportJSON（Python dict / JSON payload）** —— 即 `agent_report/` 管线通过 `truth_fill.py` + `material_kb.py` + `section_generator.py` 汇总输出的 handoff 载荷。
+
+**本契约对象不等同于** `shared/enterprise_profile.py` 的 Pydantic 实例 —— 该 Pydantic 类是 Agent6 **内部扁平画像**（从 KB 层 `from_kb` 工厂产出），不参与跨 Agent handoff。历史上两者名字相同但结构不同是语义模糊的历史遗留，Phase 2 将由主 CLI 发 RFC 评估 `shared/enterprise_profile.py` 升级到嵌套结构或废弃 + 走 runtime schema 校验。
+
+**下游消费约束**：Agent1 / Agent3 / Agent5 只能按本契约的嵌套 JSON 结构消费，**禁止** `from shared.enterprise_profile import EnterpriseProfile` 当 handoff 载体反序列化。
+
+---
+
 ## 一、顶层结构概览
 
 **必填字段（2）**：
