@@ -1,0 +1,99 @@
+# ----------------------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+build/
+dist/
+wheels/
+.venv/
+venv/
+env/
+ENV/
+
+# ----------------------------------------------------------------------------
+# Secrets / env (CRITICAL — never commit)
+# ----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials.json
+
+# ----------------------------------------------------------------------------
+# Caches (Tavily / akshare / 自建 KB cache 不进 git)
+# ----------------------------------------------------------------------------
+.cache/
+*.cache
+*_cache/
+
+# ----------------------------------------------------------------------------
+# Outputs / generated artifacts
+# ----------------------------------------------------------------------------
+out_*/
+output/
+outputs/
+_chunks/
+_screenshots/
+*.docx.tmp
+~$*.docx
+~$*.xlsx
+*.log
+logs/
+data/audit/*.jsonl
+data/feedback/*.jsonl
+!data/feedback/.gitkeep
+!data/audit/.gitkeep
+evaluation/results/*.yaml
+
+# ----------------------------------------------------------------------------
+# IDE / OS
+# ----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----------------------------------------------------------------------------
+# Claude Code local artifacts
+# ----------------------------------------------------------------------------
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# ----------------------------------------------------------------------------
+# Frontend (web/ Next.js)
+# ----------------------------------------------------------------------------
+web/.next/
+web/node_modules/
+web/.env.local
+web/.env.*.local
+web/_screenshots/
+web/next_dev*.log
+web/*.log
+
+# ----------------------------------------------------------------------------
+# Customer / sensitive data (绝对禁止)
+# ----------------------------------------------------------------------------
+customer/*.docx
+customer/*.xlsx
+customer/*.pdf
+!customer/.gitkeep
+!customer/README.md
