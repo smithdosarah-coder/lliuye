@@ -7,11 +7,13 @@
       "category": "financial",
       "feature_expr": "external.related_party_pct",
       "operator": ">",
-      "default_threshold": 0.30,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.3,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供关联交易审计说明", "设置单一客户额度上限"],
+      "waiver_conditions": [
+        "提供关联交易审计说明",
+        "设置单一客户额度上限"
+      ],
       "description": "关联交易占总营收比例超过 30%，存在利益输送风险"
     },
     {
@@ -21,10 +23,12 @@
       "feature_expr": "financial.ar_turnover_days",
       "operator": ">",
       "default_threshold": 120,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["季度提交应收账款账龄表", "单笔应收账款超过 180 天触发预警"],
+      "waiver_conditions": [
+        "季度提交应收账款账龄表",
+        "单笔应收账款超过 180 天触发预警"
+      ],
       "description": "应收账款周转天数超过 120 天，资金占用严重"
     },
     {
@@ -34,8 +38,7 @@
       "feature_expr": "financial.debt_ratio",
       "operator": ">",
       "default_threshold": 0.75,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "资产负债率超过 75%，偿债能力严重不足"
@@ -47,8 +50,7 @@
       "feature_expr": "financial.consecutive_loss_years",
       "operator": ">=",
       "default_threshold": 2,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "连续两年净利润为负，持续经营能力存疑"
@@ -60,10 +62,12 @@
       "feature_expr": "financial.operating_cash_flow",
       "operator": "<",
       "default_threshold": 0,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供未来 12 个月现金流预测", "追加担保"],
+      "waiver_conditions": [
+        "提供未来 12 个月现金流预测",
+        "追加担保"
+      ],
       "description": "经营活动现金流净额为负，造血能力不足"
     },
     {
@@ -72,11 +76,12 @@
       "category": "financial",
       "feature_expr": "financial.request_to_netasset",
       "operator": ">",
-      "default_threshold": 0.50,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.5,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["追加抵押物或担保人"],
+      "waiver_conditions": [
+        "追加抵押物或担保人"
+      ],
       "description": "本次申请额度超过净资产 50%，杠杆风险偏高"
     },
     {
@@ -86,10 +91,12 @@
       "feature_expr": "financial.current_ratio",
       "operator": "<",
       "default_threshold": 1.0,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["说明短期流动性来源", "提供关联公司支持函"],
+      "waiver_conditions": [
+        "说明短期流动性来源",
+        "提供关联公司支持函"
+      ],
       "description": "流动比率低于 1.0，短期偿债缓冲不足"
     },
     {
@@ -99,8 +106,7 @@
       "feature_expr": "financial.quick_ratio",
       "operator": "<",
       "default_threshold": 0.5,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "速动比率低于 0.5，流动性风险显著"
@@ -111,11 +117,12 @@
       "category": "financial",
       "feature_expr": "financial.gross_margin_gap",
       "operator": "<",
-      "default_threshold": -0.10,
-      "severity": "low",
-      "is_hard": false,
+      "default_threshold": -0.1,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["说明毛利差异原因"],
+      "waiver_conditions": [
+        "说明毛利差异原因"
+      ],
       "description": "毛利率低于行业基准 10 个百分点以上"
     },
     {
@@ -124,11 +131,13 @@
       "category": "financial",
       "feature_expr": "financial.revenue_growth",
       "operator": "<",
-      "default_threshold": -0.20,
-      "severity": "high",
-      "is_hard": false,
+      "default_threshold": -0.2,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["说明下滑原因及复苏计划", "追加担保"],
+      "waiver_conditions": [
+        "说明下滑原因及复苏计划",
+        "追加担保"
+      ],
       "description": "营业收入同比下滑超过 20%"
     },
     {
@@ -137,11 +146,12 @@
       "category": "industry",
       "feature_expr": "industry.policy_sensitivity",
       "operator": ">=",
-      "default_threshold": 0.80,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.8,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供政策合规证明"],
+      "waiver_conditions": [
+        "提供政策合规证明"
+      ],
       "description": "所在行业受政策管控力度较强"
     },
     {
@@ -151,10 +161,11 @@
       "feature_expr": "industry.prosperity_index",
       "operator": "<",
       "default_threshold": 40,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供行业细分赛道分析"],
+      "waiver_conditions": [
+        "提供行业细分赛道分析"
+      ],
       "description": "行业景气指数持续低于 40"
     },
     {
@@ -164,8 +175,7 @@
       "feature_expr": "industry.in_blacklist",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "企业所属行业在总行风险黑名单内"
@@ -176,11 +186,12 @@
       "category": "industry",
       "feature_expr": "operational.customer_concentration",
       "operator": ">",
-      "default_threshold": 0.50,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.5,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供多客户拓展计划"],
+      "waiver_conditions": [
+        "提供多客户拓展计划"
+      ],
       "description": "前五大客户营收占比超过 50%"
     },
     {
@@ -189,11 +200,12 @@
       "category": "industry",
       "feature_expr": "operational.supplier_concentration",
       "operator": ">",
-      "default_threshold": 0.60,
-      "severity": "low",
-      "is_hard": false,
+      "default_threshold": 0.6,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["披露核心供应商合作协议"],
+      "waiver_conditions": [
+        "披露核心供应商合作协议"
+      ],
       "description": "前五大供应商占比超过 60%"
     },
     {
@@ -203,10 +215,11 @@
       "feature_expr": "operational.established_years",
       "operator": "<",
       "default_threshold": 2,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["核心团队行业经验证明"],
+      "waiver_conditions": [
+        "核心团队行业经验证明"
+      ],
       "description": "企业成立年限小于 2 年"
     },
     {
@@ -216,10 +229,11 @@
       "feature_expr": "operational.employee_count",
       "operator": "<",
       "default_threshold": 10,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["说明轻资产模式"],
+      "waiver_conditions": [
+        "说明轻资产模式"
+      ],
       "description": "员工人数低于 10 人"
     },
     {
@@ -229,10 +243,11 @@
       "feature_expr": "operational.cashflow_coverage",
       "operator": "<",
       "default_threshold": 1.0,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["追加还款来源证明"],
+      "waiver_conditions": [
+        "追加还款来源证明"
+      ],
       "description": "经营性现金流不足以覆盖新增授信年度还本付息"
     },
     {
@@ -242,8 +257,7 @@
       "feature_expr": "external.has_industrial_abnormal",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "企业存在工商登记异常"
@@ -255,10 +269,11 @@
       "feature_expr": "external.litigation_count",
       "operator": ">",
       "default_threshold": 3,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供诉讼进展说明"],
+      "waiver_conditions": [
+        "提供诉讼进展说明"
+      ],
       "description": "未结诉讼超过 3 起"
     },
     {
@@ -268,8 +283,7 @@
       "feature_expr": "external.tax_abnormal",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "企业存在税务异常记录"
@@ -281,10 +295,11 @@
       "feature_expr": "external.env_penalty_count",
       "operator": ">",
       "default_threshold": 0,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供整改证明"],
+      "waiver_conditions": [
+        "提供整改证明"
+      ],
       "description": "近 24 个月存在环保行政处罚"
     },
     {
@@ -294,10 +309,12 @@
       "feature_expr": "guarantee.coverage_ratio",
       "operator": "<",
       "default_threshold": 1.0,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["追加保证人", "引入反担保"],
+      "waiver_conditions": [
+        "追加保证人",
+        "引入反担保"
+      ],
       "description": "抵押物估值不足以覆盖申请授信额度"
     },
     {
@@ -307,8 +324,7 @@
       "feature_expr": "guarantee.has_any_collateral",
       "operator": "==",
       "default_threshold": 0,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "无任何抵押物或保证人"
@@ -320,10 +336,11 @@
       "feature_expr": "guarantee.collateral_is_volatile",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["提高抵押率要求"],
+      "waiver_conditions": [
+        "提高抵押率要求"
+      ],
       "description": "抵押物为股权、应收账款等估值波动较大的资产"
     },
     {
@@ -333,10 +350,11 @@
       "feature_expr": "guarantee.guarantor_strength_score",
       "operator": "<",
       "default_threshold": 50,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["引入第二保证人"],
+      "waiver_conditions": [
+        "引入第二保证人"
+      ],
       "description": "保证人还款能力评分低于 50"
     },
     {
@@ -345,11 +363,13 @@
       "category": "external",
       "feature_expr": "external.controller_pledge_ratio",
       "operator": ">",
-      "default_threshold": 0.70,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.7,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["解除部分股权质押", "实控人提供资产说明"],
+      "waiver_conditions": [
+        "解除部分股权质押",
+        "实控人提供资产说明"
+      ],
       "description": "实际控制人股权质押比例超过 70%"
     },
     {
@@ -359,8 +379,7 @@
       "feature_expr": "external.serious_overdue_count",
       "operator": ">",
       "default_threshold": 0,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "存在 M3 及以上逾期历史"
@@ -372,8 +391,7 @@
       "feature_expr": "external.in_dishonest_list",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "企业或其实控人列入失信被执行人名单"
@@ -385,8 +403,7 @@
       "feature_expr": "external.aml_flag",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "触发总行反洗钱黑名单或高风险国别交易"

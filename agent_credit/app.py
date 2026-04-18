@@ -98,7 +98,7 @@ def _render_decision_card(advice: DecisionAdvice | None) -> str:
         f"| 利率 | {advice.interest_rate*100:.2f}% ({advice.rate_benchmark}) |",
         f"| 评分 | {advice.composite_score} / {advice.risk_grade} 级 |",
         f"| 红线 | {len(advice.red_line_hits)} 条"
-        + ("（含硬红线）" if any(h.get("is_hard") for h in advice.red_line_hits) else "")
+        + ("（含红灯）" if any(h.get("severity") == "red" for h in advice.red_line_hits) else "")
         + " |",
         "",
     ]
@@ -111,12 +111,12 @@ def _render_decision_card(advice: DecisionAdvice | None) -> str:
 
     if advice.red_line_hits:
         lines.append("### 触发红线")
+        sev_mark = {"red": "🟥", "yellow": "🟧", "green": "🟩"}
         for h in advice.red_line_hits:
-            mark = "🟥" if h.get("is_hard") else "🟧"
+            mark = sev_mark.get(h.get("severity", "green"), "🟩")
             lines.append(
                 f"- {mark} **{h.get('rule_name')}**"
-                f"（实际 {h.get('actual_value')}，阈值 {h.get('threshold')}，"
-                f"{h.get('severity')}）"
+                f"（实际 {h.get('actual_value')}，阈值 {h.get('threshold')}）"
             )
         lines.append("")
 

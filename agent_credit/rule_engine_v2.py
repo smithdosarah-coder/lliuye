@@ -20,11 +20,15 @@ class RedLineHit:
     category: str = ""
     threshold: Any = None
     actual_value: Any = None
-    severity: str = "low"
-    is_hard: bool = False
+    severity: str = "green"  # red / yellow / green (field-naming v1.0 §3.3)
     can_waive: bool = True
     waiver_conditions: list = field(default_factory=list)
     description: str = ""
+
+    @property
+    def is_blocking(self) -> bool:
+        """硬红线 — 阻断决策。语义取代旧 `is_hard`。"""
+        return self.severity == "red"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -109,8 +113,7 @@ class RuleEngineV2:
                     category=rule.get("category", ""),
                     threshold=threshold,
                     actual_value=actual,
-                    severity=rule.get("severity", "low"),
-                    is_hard=bool(rule.get("is_hard", False)),
+                    severity=rule.get("severity", "green"),
                     can_waive=bool(rule.get("can_waive", True)),
                     waiver_conditions=list(rule.get("waiver_conditions") or []),
                     description=rule.get("description", ""),

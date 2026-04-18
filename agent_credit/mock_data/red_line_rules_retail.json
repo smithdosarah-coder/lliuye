@@ -8,8 +8,7 @@
       "feature_expr": "credit.overdue_severity",
       "operator": ">=",
       "default_threshold": 3,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "近 24 个月存在 M3 及以上逾期记录"
@@ -21,10 +20,11 @@
       "feature_expr": "credit.query_count_24m",
       "operator": ">",
       "default_threshold": 10,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["说明短期内多次查询原因"],
+      "waiver_conditions": [
+        "说明短期内多次查询原因"
+      ],
       "description": "近 24 个月征信查询次数超过 10 次"
     },
     {
@@ -33,11 +33,12 @@
       "category": "credit",
       "feature_expr": "credit.card_utilization",
       "operator": ">",
-      "default_threshold": 0.90,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.9,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["核实近月还款能力"],
+      "waiver_conditions": [
+        "核实近月还款能力"
+      ],
       "description": "信用卡综合利用率超过 90%"
     },
     {
@@ -47,10 +48,11 @@
       "feature_expr": "credit.current_loans_count",
       "operator": ">",
       "default_threshold": 5,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["核实还款能力"],
+      "waiver_conditions": [
+        "核实还款能力"
+      ],
       "description": "当前在贷笔数超过 5 笔"
     },
     {
@@ -60,10 +62,11 @@
       "feature_expr": "credit.guarantee_count",
       "operator": ">",
       "default_threshold": 2,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["披露被担保人资质"],
+      "waiver_conditions": [
+        "披露被担保人资质"
+      ],
       "description": "对外担保超过 2 笔"
     },
     {
@@ -73,10 +76,11 @@
       "feature_expr": "credit.account_age_years",
       "operator": "<",
       "default_threshold": 2,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["补充收入证明"],
+      "waiver_conditions": [
+        "补充收入证明"
+      ],
       "description": "征信账龄不足 2 年"
     },
     {
@@ -86,8 +90,7 @@
       "feature_expr": "capacity.monthly_income",
       "operator": "<",
       "default_threshold": 5000,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "月收入低于 5000 元"
@@ -98,9 +101,8 @@
       "category": "capacity",
       "feature_expr": "capacity.dti_ratio",
       "operator": ">",
-      "default_threshold": 0.70,
-      "severity": "high",
-      "is_hard": true,
+      "default_threshold": 0.7,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "预计债务收入比超过 70%"
@@ -112,10 +114,11 @@
       "feature_expr": "capacity.unstable_and_no_collateral",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["追加共同借款人"],
+      "waiver_conditions": [
+        "追加共同借款人"
+      ],
       "description": "收入波动或季节性且无抵押物"
     },
     {
@@ -125,10 +128,11 @@
       "feature_expr": "capacity.avg_balance_6m",
       "operator": "<",
       "default_threshold": 2000,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["补充其他资产证明"],
+      "waiver_conditions": [
+        "补充其他资产证明"
+      ],
       "description": "近 6 个月平均余额低于 2000 元"
     },
     {
@@ -138,10 +142,11 @@
       "feature_expr": "stability.social_security_months",
       "operator": "<",
       "default_threshold": 6,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["自雇人员可用纳税记录替代"],
+      "waiver_conditions": [
+        "自雇人员可用纳税记录替代"
+      ],
       "description": "社保公积金连续缴纳少于 6 个月"
     },
     {
@@ -151,10 +156,11 @@
       "feature_expr": "stability.years_in_job",
       "operator": "<",
       "default_threshold": 1,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["提供前一份工作证明"],
+      "waiver_conditions": [
+        "提供前一份工作证明"
+      ],
       "description": "当前岗位任职不足 1 年"
     },
     {
@@ -164,10 +170,11 @@
       "feature_expr": "stability.years_at_address",
       "operator": "<",
       "default_threshold": 1,
-      "severity": "low",
-      "is_hard": false,
+      "severity": "green",
       "can_waive": true,
-      "waiver_conditions": ["提供居住证明"],
+      "waiver_conditions": [
+        "提供居住证明"
+      ],
       "description": "当前居住地址年限不足 1 年"
     },
     {
@@ -177,8 +184,7 @@
       "feature_expr": "stability.age_out_of_range",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "年龄不在 22-65 岁放贷区间"
@@ -189,11 +195,12 @@
       "category": "collateral",
       "feature_expr": "collateral.ltv",
       "operator": ">",
-      "default_threshold": 0.70,
-      "severity": "medium",
-      "is_hard": false,
+      "default_threshold": 0.7,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["降低申请额度"],
+      "waiver_conditions": [
+        "降低申请额度"
+      ],
       "description": "抵押贷款价值比超过 70%"
     },
     {
@@ -203,10 +210,11 @@
       "feature_expr": "collateral.mortgage_count",
       "operator": ">=",
       "default_threshold": 2,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["确认顺位及他项权利"],
+      "waiver_conditions": [
+        "确认顺位及他项权利"
+      ],
       "description": "抵押物已存在 2 次以上抵押"
     },
     {
@@ -216,8 +224,7 @@
       "feature_expr": "collateral.title_verified",
       "operator": "==",
       "default_threshold": 0,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "抵押物产权证未核验"
@@ -229,8 +236,7 @@
       "feature_expr": "compliance.purpose_blacklist",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "贷款用途涉及证券、房地产炒作等禁止领域"
@@ -242,10 +248,11 @@
       "feature_expr": "compliance.amount_over_tier",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "medium",
-      "is_hard": false,
+      "severity": "yellow",
       "can_waive": true,
-      "waiver_conditions": ["降低申请额度至档位上限"],
+      "waiver_conditions": [
+        "降低申请额度至档位上限"
+      ],
       "description": "申请额度超过当前评分档位允许的上限"
     },
     {
@@ -255,8 +262,7 @@
       "feature_expr": "compliance.fraud_flag",
       "operator": "==",
       "default_threshold": 1,
-      "severity": "high",
-      "is_hard": true,
+      "severity": "red",
       "can_waive": false,
       "waiver_conditions": [],
       "description": "触发反欺诈规则（设备/身份/地址异常）"

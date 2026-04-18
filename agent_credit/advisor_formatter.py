@@ -87,8 +87,8 @@ class DecisionAdvice:
 
 def _decide_corporate(scoring, rule_hits, features, appetite: RiskAppetiteConfig):
     """返回 (decision, amount, term, rate, rate_benchmark, conditions)"""
-    hard_hit = any(h.is_hard for h in rule_hits)
-    soft_hits = [h for h in rule_hits if not h.is_hard]
+    hard_hit = any(h.severity == "red" for h in rule_hits)
+    soft_hits = [h for h in rule_hits if h.severity != "red"]
 
     requested = float(features.get("request.amount", 0) or 0)
     term = int(features.get("request.term_months", 12) or 12)
@@ -136,7 +136,7 @@ def _parse_rate_benchmark(bench: str, lpr: float) -> float:
 
 
 def _decide_retail(scoring, rule_hits, features, appetite: RiskAppetiteConfig):
-    hard_hit = any(h.is_hard for h in rule_hits)
+    hard_hit = any(h.severity == "red" for h in rule_hits)
     if hard_hit or scoring.grade == "拒绝":
         return ("拒绝", 0, 0, 0.0, "-", [])
 
@@ -440,10 +440,11 @@ def _format_redlines_for_prompt(rule_hits) -> str:
     if not rule_hits:
         return "无"
     lines = []
+    sev_label = {"red": "红灯-硬红线", "yellow": "黄灯-软告警", "green": "绿灯-信息提示"}
     for h in rule_hits:
         lines.append(
             f"- {h.rule_id} {h.rule_name}: 实际值 {h.actual_value}，阈值 {h.threshold}，"
-            f"严重度 {h.severity}，{'硬红线' if h.is_hard else '软红线'}。{h.description}"
+            f"严重度 {sev_label.get(h.severity, h.severity)}。{h.description}"
         )
     return "\n".join(lines)
 

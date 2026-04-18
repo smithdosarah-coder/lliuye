@@ -284,7 +284,7 @@ class CreditDecisionAgent(BaseAgent):
                 yield self._tool_result(
                     "rule_engine",
                     f"触发 {len(payload)} 条红线"
-                    + ("（含硬红线）" if any(h.is_hard for h in payload) else "")
+                    + ("（含红灯）" if any(h.severity == "red" for h in payload) else "")
                 )
             elif stage == "case_done":
                 yield self._tool_result(
@@ -431,11 +431,12 @@ class CreditDecisionAgent(BaseAgent):
         # 红线
         if advice.red_line_hits:
             lines.append(f"## 触发红线（{len(advice.red_line_hits)} 条）")
+            sev_mark = {"red": "🟥 红灯", "yellow": "🟧 黄灯", "green": "🟩 绿灯"}
             for h in advice.red_line_hits:
-                mark = "🟥 硬" if h.get("is_hard") else "🟧 软"
+                mark = sev_mark.get(h.get("severity", "green"), "🟩 绿灯")
                 lines.append(
                     f"- {mark} **{h.get('rule_name')}**"
-                    f"（实际 {h.get('actual_value')}，阈值 {h.get('threshold')}，严重度 {h.get('severity')}）"
+                    f"（实际 {h.get('actual_value')}，阈值 {h.get('threshold')}）"
                 )
             lines.append("")
             if advice.red_line_explanations:
