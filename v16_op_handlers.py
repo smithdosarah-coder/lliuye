@@ -96,6 +96,23 @@ def _lookup_in_kb(label: str, facts: dict) -> str | None:
 # ────────────────────────────────────────────────────────────
 
 def keep_as_is(elem, cls, mats) -> "GenResult":
+    # Step 5: body-gap 场景 — SCAFFOLD header 后无 body,追加补录提示
+    gap = getattr(mats, "body_gaps", {}).get(elem.location) if mats else None
+    if gap and cls.op == "PRESERVE" and cls.label == "SCAFFOLD":
+        original = (elem.text or "").rstrip()
+        annotated = f"{original} 【待根据客户材料补充】"
+        return GenResult(
+            location=elem.location,
+            action="fill",
+            new_text=annotated,
+            pending_tag={
+                "location": elem.location,
+                "reason": gap.get("reason", "SCAFFOLD body 缺失"),
+                "text": original[:80],
+                "suggested_action": "客户经理补写该小节正文",
+            },
+            debug=f"keep_as_is: body-gap annotated ({gap.get('next_loc')})",
+        )
     return GenResult(
         location=elem.location,
         action="keep",

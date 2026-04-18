@@ -53,12 +53,14 @@ class Materials:
     """材料层 facade — 给 handler 统一消费接口.
 
     Step 1 仅作为占位;KB / financial / anchors 的实际加载在 Step 2+ 接入.
+    body_gaps: Step 5 预处理,location → gap_info 映射,用于 SCAFFOLD 注入提示。
     """
     file_contents: dict[str, str] = field(default_factory=dict)
     kb: dict[str, Any] = field(default_factory=dict)
     financial: Any = None
     anchors: dict[str, Any] = field(default_factory=dict)
     index: Any = None
+    body_gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def facts(self) -> dict[str, Any]:
@@ -274,6 +276,96 @@ def _group_rewrite_by_section(
     return groups
 
 
+_HEADER_SCAFFOLD_RE = re.compile(r"[：:]\s*$")
+_SECTION_NUM_RE = re.compile(
+    r"^\s*(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十0-9]{1,2}[)）]|[0-9]{1,2}[．\.、](?!\d))"
+)
+
+
+def _is_header_scaffold(text: str) -> bool:
+    """判定文本是否为'章节/字段标题'型 SCAFFOLD.
+
+    硬约束:
+      - 总长度 < 40 字符(避免把长叙述句误判为 header)
+      - 以 : 或 ：结尾,或有小节编号前缀(1. / （1） / 一、)
+      - 不含句号、分号(避免多句混杂的描述段)
+    """
+    if not text:
+        return False
+    t = text.strip()
+    if len(t) >= 40:
+        return False
+    if "。" in t or "；" in t or ";" in t:
+        return False
+    if _HEADER_SCAFFOLD_RE.search(t):
+        return True
+    if _SECTION_NUM_RE.search(t):
+        return True
+    return False
+
+
+def _detect_body_gaps(
+    elements: list[Element],
+    classifications: dict[str, Classification],
+) -> dict[str, dict[str, Any]]:
+    """识别"只有 header、没有 body"的 SCAFFOLD 元素.
+
+    规则:
+      - 对每个 PRESERVE/SCAFFOLD 且 _is_header_scaffold 的元素
+      - 取同一 source 内下一个 classified 元素
+      - 若下一元素也是 PRESERVE/SCAFFOLD(header 型) → 当前元素无 body → 标 gap
+      - 若下一元素是 FILL/REWRITE 或非 header-SCAFFOLD → 认为有后续内容,不标 gap
+
+    Returns: {location: {"reason": ..., "header_text": ..., "next_loc": ...}}
+    """
+    gaps: dict[str, dict[str, Any]] = {}
+    # 按 source 分组保序
+    from collections import defaultdict
+    by_source: dict[str, list[Element]] = defaultdict(list)
+    for e in elements:
+        by_source[e.source].append(e)
+
+    # 检测窗口:当前 scaffold 后续 5 个同 source 元素
+    WINDOW = 5
+    BODY_MIN_CHARS = 30
+
+    for src_elems in by_source.values():
+        for i, e in enumerate(src_elems):
+            cls = classifications.get(e.location)
+            if not cls or cls.op != "PRESERVE" or cls.label != "SCAFFOLD":
+                continue
+            text = (e.text or "").strip()
+            if not _is_header_scaffold(text):
+                continue
+            # 扫描后续窗口:若有任一元素是"body-like"(非 header、非空、≥阈值)→ 非 gap
+            found_body = False
+            last_checked_loc = None
+            for j in range(i + 1, min(i + 1 + WINDOW, len(src_elems))):
+                nxt = src_elems[j]
+                last_checked_loc = nxt.location
+                nxt_text = (nxt.text or "").strip()
+                if not nxt_text:
+                    continue
+                if _is_header_scaffold(nxt_text):
+                    continue
+                # 长 body 或 非 SCAFFOLD 分类 → 认为后续有正文
+                nxt_cls = classifications.get(nxt.location)
+                is_non_scaffold = (
+                    nxt_cls is not None
+                    and not (nxt_cls.op == "PRESERVE" and nxt_cls.label == "SCAFFOLD")
+                )
+                if len(nxt_text) >= BODY_MIN_CHARS or is_non_scaffold:
+                    found_body = True
+                    break
+            if not found_body:
+                gaps[e.location] = {
+                    "reason": "SCAFFOLD 标题后窗口内无 body 内容",
+                    "header_text": text,
+                    "next_loc": last_checked_loc,
+                }
+    return gaps
+
+
 # ────────────────────────────────────────────────────────────
 # 核心:用 handler 跑完整流程
 # ────────────────────────────────────────────────────────────
@@ -326,6 +418,11 @@ def generate(
           f" / materials: {len(mats.file_contents)} files")
     if mats.kb:
         print(f"  KB facts: {len(mats.facts)}")
+
+    # Step 5: body-gap 预处理,结果挂到 mats 供 handler 读取
+    mats.body_gaps = _detect_body_gaps(elements, classifications)
+    if mats.body_gaps:
+        print(f"  body-gap 检测: {len(mats.body_gaps)} 个 SCAFFOLD 缺 body")
 
     # Step 4: 先对 REWRITE 按 section 合批,结果登记到 rewrite_results
     rewrite_groups = _group_rewrite_by_section(elements, classifications, section_by_loc)
