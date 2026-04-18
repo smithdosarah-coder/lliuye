@@ -519,6 +519,7 @@ def _inject_hard_facts(text: str, facts: dict) -> str:
 
     ctrl_name = facts.get("controller_name") or facts.get("legal_representative") or ""
     ctrl_id = facts.get("controller_id")
+    ctrl_home = facts.get("controller_home_address")
     if ctrl_id and ctrl_name:
         # 段内若已有 18 位身份证号,跳过
         if ("法定代表人" in out or "实际控制人" in out or "实控人" in out) \
@@ -530,11 +531,31 @@ def _inject_hard_facts(text: str, facts: dict) -> str:
             m = pat.search(out)
             if m:
                 out = out[:m.end(1)] + f"，身份证号{ctrl_id}" + out[m.end(1):]
+    if ctrl_home and ctrl_home not in out:
+        if ("实际控制人" in out or "实控人" in out or "法定代表人" in out) \
+                and ctrl_name and ctrl_name in out:
+            # 插在身份证号之后,否则插在姓名之后的第一个标点处
+            m = re.search(rf"身份证号{re.escape(ctrl_id)}" if ctrl_id else r"$^", out)
+            if m:
+                out = out[:m.end()] + f"，家庭住址{ctrl_home}" + out[m.end():]
+            else:
+                pat = re.compile(rf"({re.escape(ctrl_name)})(，|,|。|；|;)")
+                m2 = pat.search(out)
+                if m2:
+                    out = out[:m2.end(1)] + f"，家庭住址{ctrl_home}" + out[m2.end(1):]
 
     usc = facts.get("uscc")
     if usc and usc not in out:
-        if re.search(r"(企业|借款人|公司|成立于|申报企业|借款单位)", out) and len(out) > 30:
-            # 追加在段首第一句结尾处
+        # 优先插入公司名首次出现处后面,若无则沿用第一句结尾
+        company = facts.get("company_name") or facts.get("borrower_name") or ""
+        inserted = False
+        if company and company in out:
+            pat = re.compile(rf"({re.escape(company)})(，|,|。|；|;)?")
+            m = pat.search(out)
+            if m:
+                out = out[:m.end(1)] + f"(统一社会信用代码{usc})" + out[m.end(1):]
+                inserted = True
+        if not inserted and re.search(r"(企业|借款人|公司|成立于|申报企业|借款单位)", out) and len(out) > 30:
             m = re.search(r"([。；;])", out)
             if m:
                 out = out[:m.start()] + f"，统一社会信用代码{usc}" + out[m.start():]
@@ -560,15 +581,27 @@ def _inject_hard_facts(text: str, facts: dict) -> str:
 
     bank_account = facts.get("bank_account")
     if bank_account and bank_account not in out:
-        if "开户" in out or "基本账户" in out or "结算账户" in out:
+        # 优先:含 '开户许可证'/'基本户'/'基本账户'/'结算账户' 的正文语境
+        if re.search(r"(开户许可证|基本户|基本账户|结算账户)", out):
             if out.endswith("。"):
-                out = out[:-1] + f"，账号{bank_account}。"
+                out = out[:-1] + f"(基本账户:{bank_account})。"
             else:
-                out = out + f"，账号{bank_account}"
+                out = out + f"(基本账户:{bank_account})"
+        elif re.search(r"注册资本[:：]", out) and "法定代表人" in out:
+            # 退而求其次:有 '注册资本...法定代表人' 开篇的企业简介段
+            m = re.search(r"(法定代表人[:：][^。；;]+)([。；;])", out)
+            if m:
+                out = out[:m.end(1)] + f"，基本账户{bank_account}" + out[m.end(1):]
 
     auditor = facts.get("auditor")
     if auditor and auditor not in out:
-        if "审计" in out and ("事务所" in out or "审计机构" in out or "年报" in out):
+        # 首选:把 LLM 留下的 'XX事务所'/'XX会计师事务所' 占位符替换成真实审计机构
+        replaced = False
+        for pat in (r"XX会计师事务所", r"XX事务所"):
+            if re.search(pat, out):
+                out = re.sub(pat, f"{auditor}会计师事务所", out, count=2)
+                replaced = True
+        if not replaced and "审计" in out and ("事务所" in out or "审计机构" in out or "年报" in out):
             if out.endswith("。"):
                 out = out[:-1] + f"(审计机构:{auditor})。"
             else:

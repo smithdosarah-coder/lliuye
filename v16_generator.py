@@ -394,6 +394,57 @@ def _detect_body_gaps(
 # 核心:用 handler 跑完整流程
 # ────────────────────────────────────────────────────────────
 
+def _finalize_doc_hard_facts(doc, facts: dict) -> None:
+    """doc-level post-process: 替换 PRESERVE 文本里的占位符 & 补遗漏硬字段.
+
+    REWRITE 路径已在 section_batch_rewrite 里调用 _inject_hard_facts;
+    但对 PRESERVE/SCAFFOLD 保留的模板文本(如 `XX事务所`/`XX年报`),
+    需要在 doc 级别做一次确定性替换,否则审贷员收到的是未填占位符。
+    """
+    if not facts:
+        return
+    auditor = facts.get("auditor")
+    bank_account = facts.get("bank_account")
+
+    all_text = []
+    for p in doc.paragraphs:
+        if p.text.strip():
+            all_text.append(p.text)
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    if p.text.strip():
+                        all_text.append(p.text)
+    joined_text = "\n".join(all_text)
+
+    def _rewrite_para(para) -> None:
+        txt = para.text
+        if not txt:
+            return
+        new = txt
+        if auditor:
+            new = re.sub(r"XX会计师事务所", f"{auditor}会计师事务所", new)
+            new = re.sub(r"XX事务所", f"{auditor}会计师事务所", new)
+        if bank_account and bank_account not in joined_text:
+            # 仅在本 paragraph 含 '基本户'/'开户许可证'/'基本账户' 时追加一次
+            if re.search(r"(开户许可证|基本户|基本账户)", new) and bank_account not in new:
+                if new.endswith("。"):
+                    new = new[:-1] + f"(基本账户:{bank_account})。"
+                else:
+                    new = new + f"(基本账户:{bank_account})"
+        if new != txt:
+            _set_paragraph_text(para, new)
+
+    for p in doc.paragraphs:
+        _rewrite_para(p)
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    _rewrite_para(p)
+
+
 def apply_to_docx(doc, results: list["GenResult"]) -> dict[str, int]:
     """把 handler 产物写回 doc.
 
@@ -578,6 +629,7 @@ def generate(
         handler_stats[key] = handler_stats.get(key, 0) + 1
 
     apply_stats = apply_to_docx(doc, results)
+    _finalize_doc_hard_facts(doc, mats.facts if mats.kb else {})
     doc.save(str(output_docx))
 
     # 导出 pending tags
