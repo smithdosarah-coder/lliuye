@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """agent_credit.docx_export — 决策意见书本地 docx 导出（python-docx）。
 
 监管底线：按银行业私有化部署要求，禁止调用海外 API 渲染文档。全部渲染在本地

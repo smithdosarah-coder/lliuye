@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """agent_credit.reason_codes — 标准理由码字典加载 + Top-5 推导。
 
 字典位于 docs/reason_codes/agent3-{corporate,retail}.yaml。severity 严格遵守
@@ -15,10 +14,11 @@ field-naming v1.0：red / yellow / green。
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 
@@ -227,5 +227,5 @@ def _jsonable(v: Any) -> Any:
         return v
     try:
         return str(v)
-    except Exception:
+    except (TypeError, ValueError):
         return None
