@@ -2868,6 +2868,7 @@ class FormFillAgent:
 
         # 1. Ensure .docx
         docx_path = self._ensure_docx(template_path)
+        self._last_docx_path = docx_path  # V15: narrative 管线存盘要用
         self._log(progress_cb, "模版加载成功")
 
         doc = Document(docx_path)
@@ -2916,6 +2917,57 @@ class FormFillAgent:
         except Exception as e:
             self._company_profile_block = ""
             self._log(progress_cb, f"企业画像锚点构建失败: {e}")
+
+        # ═══════════════════════════════════════════════════════════
+        # V15: 业务线 / 模板形态分流 (narrative vs skeleton)
+        #   对公叙述型模板走专用管线,普惠骨架型继续走 V14 原路径。
+        #   分流决策:business_line 显式 corporate → narrative;否则结构判据。
+        # ═══════════════════════════════════════════════════════════
+        business_line = getattr(self, "_business_line", None)
+        try:
+            from narrative_pipeline import _detect_is_narrative
+            is_narrative_template = _detect_is_narrative(doc)
+        except Exception as e:
+            self._log(progress_cb, f"[V15] narrative 判据异常: {e}")
+            is_narrative_template = False
+
+        use_narrative = (
+            business_line == "corporate"
+            or (business_line is None and is_narrative_template)
+        )
+        self._log(
+            progress_cb,
+            f"[V15 分流] business_line={business_line}, "
+            f"is_narrative_template={is_narrative_template}, "
+            f"use_narrative={use_narrative}"
+        )
+
+        if use_narrative:
+            try:
+                from narrative_pipeline import run_narrative_pipeline
+                narrative_result = run_narrative_pipeline(
+                    self, doc, docx_path, output_path, progress_cb,
+                )
+                if narrative_result.get("fallback"):
+                    self._log(progress_cb, "[V15 分流] narrative 识别失败,降级 V14")
+                else:
+                    self.stats.update({
+                        "narrative_mode": True,
+                        "sections_rewritten": narrative_result.get("sections_rewritten", 0),
+                        "tables_filled_narrative": narrative_result.get("tables_filled", 0),
+                    })
+                    for tag in narrative_result.get("pending_tags", []) or []:
+                        self.pending_tags.append(tag)
+                    self._log(
+                        progress_cb,
+                        f"[V15 narrative] 完成: {narrative_result.get('sections_rewritten', 0)} 节,"
+                        f" {narrative_result.get('tables_filled', 0)} 单元格"
+                    )
+                    return output_path
+            except Exception as e:
+                self._log(progress_cb, f"[V15 narrative] 出错,降级到 V14: {e}")
+                import traceback
+                traceback.print_exc()
 
         # Detect available time periods from materials
         self._available_periods = self._detect_material_periods(self.file_contents)
