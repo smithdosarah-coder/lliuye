@@ -51,6 +51,9 @@ FIELD_TO_KB_KEY: dict[str, str] = {
     # 实际控制人
     "实际控制人": "controller_name",
     "实控人": "controller_name",
+    "持股比例": "controller_share_pct",
+    "实控人持股": "controller_share_pct",
+    "股权比例": "controller_share_pct",
     # 经营
     "所属行业": "industry",
     "主营业务": "business_description",
@@ -59,6 +62,11 @@ FIELD_TO_KB_KEY: dict[str, str] = {
     "注册地址": "registered_address",
     "经营地点": "operating_address",
     "坐落地点": "operating_address",
+    # 财务划型
+    "上年度资产总额": "total_assets_last_year",
+    "上年度销售额": "revenue_last_year",
+    "上年度末员工人数": "employee_count",
+    "上年度末社保": "social_insurance_count",
 }
 
 
@@ -240,6 +248,125 @@ def checkbox_tick(elem, cls, mats) -> "GenResult":
 
 
 # ────────────────────────────────────────────────────────────
+# Handler 5: multi_slot_decompose  (FILL/SLOT)
+#   - 识别空白占位(≥3 连续空格 / 全角空格)或 XXX 占位
+#   - 对每个占位:左侧最近 delimiter 后的词 = label,右侧紧跟的单位为 unit
+#   - KB 命中 → 填值;未命中 → 写【未能自动填写】+ pending
+# ────────────────────────────────────────────────────────────
+
+_PLACEHOLDER_RE = re.compile(r"([ \u3000]{3,}|[Xx]{2,})")
+_UNIT_RE = re.compile(r"^(万元|亿元|%|人|家|户|年|月|平方米|㎡|元)")
+_SEGMENT_DELIMS = "；、，。;,\n"
+
+
+def _extract_sub_label(left_ctx: str) -> str:
+    """抽占位符左侧最近的字段标签.
+
+    规则:
+    1. 先按"列表分隔符"(；、，。;,)切段,取最后一段
+    2. 段内若有「：/:」:
+         - 冒号后到占位符之间非空(有子标签)→ 取冒号后(形如 'main：sub<placeholder>')
+         - 冒号后到占位符之间为空 → 取冒号前(形如 'field：<placeholder>')
+    3. 段内无冒号 → 整段即 label
+    """
+    seg_start = -1
+    for c in _SEGMENT_DELIMS:
+        seg_start = max(seg_start, left_ctx.rfind(c))
+    segment = left_ctx[seg_start + 1:] if seg_start >= 0 else left_ctx
+
+    colon_pos = max(segment.rfind("："), segment.rfind(":"))
+    if colon_pos >= 0:
+        after_colon = segment[colon_pos + 1:].strip(" \u3000")
+        if after_colon:
+            return after_colon
+        return segment[:colon_pos].strip(" \u3000")
+    return segment.strip(" \u3000")
+
+
+def multi_slot_decompose(elem, cls, mats) -> "GenResult":
+    text = elem.text or ""
+    facts = mats.facts
+
+    matches = list(_PLACEHOLDER_RE.finditer(text))
+    if not matches:
+        return GenResult(
+            location=elem.location,
+            action="keep",
+            pending_tag={
+                "location": elem.location,
+                "reason": "SLOT 元素未识别到占位符模式",
+                "text": text[:80],
+                "suggested_action": "需客户经理检视",
+            },
+            debug="multi_slot_decompose: no placeholder",
+        )
+
+    new_text = text
+    offset = 0
+    filled_count = 0
+    miss_labels: list[str] = []
+
+    for m in matches:
+        start = m.start() + offset
+        end = m.end() + offset
+
+        left_ctx = new_text[:start]
+        label = _extract_sub_label(left_ctx)
+
+        right_ctx = new_text[end:]
+        unit_m = _UNIT_RE.match(right_ctx)
+        unit = unit_m.group(1) if unit_m else ""
+
+        value = _lookup_in_kb(label, facts) if label else None
+
+        if value:
+            # 值已含该单位且文本后紧跟相同单位 → 去掉值尾部单位避免重复
+            if unit and value.endswith(unit):
+                replacement = value[:-len(unit)].rstrip() or value
+            else:
+                replacement = value
+            new_text = new_text[:start] + replacement + new_text[end:]
+            offset += len(replacement) - (end - start)
+            filled_count += 1
+        else:
+            marker = "【未能自动填写】"
+            new_text = new_text[:start] + marker + new_text[end:]
+            offset += len(marker) - (end - start)
+            miss_labels.append(label or "(未识别字段)")
+
+    if filled_count == 0:
+        return GenResult(
+            location=elem.location,
+            action="fill",
+            new_text=new_text,
+            pending_tag={
+                "location": elem.location,
+                "reason": f"SLOT 全部子槽 KB 未命中: {', '.join(miss_labels[:6])}",
+                "text": text[:80],
+                "suggested_action": "请客户经理补录各子字段",
+            },
+            debug=f"multi_slot_decompose: {len(matches)} slots all miss",
+        )
+
+    pending_tag = None
+    if miss_labels:
+        pending_tag = {
+            "location": elem.location,
+            "reason": f"SLOT 部分子槽未命中: {', '.join(miss_labels[:6])}",
+            "text": text[:80],
+            "suggested_action": f"请客户经理补录 {len(miss_labels)} 个子字段",
+        }
+
+    return GenResult(
+        location=elem.location,
+        action="fill",
+        new_text=new_text,
+        pending_tag=pending_tag,
+        debug=f"multi_slot_decompose: {filled_count}/{len(matches)} filled",
+    )
+
+
+# ────────────────────────────────────────────────────────────
 # 路由表(唯一真源)
 # (op, label) → handler
 # Step 2 先覆盖确定性路径;REWRITE 和 SLOT 用 _not_impl 占位
@@ -261,7 +388,7 @@ OP_LABEL_HANDLERS: dict[tuple[str, str], Callable] = {
     ("FILL", "FILL"): kb_lookup_fill,
     ("FILL", "CLEAR"): clear_with_pending_marker,
     ("FILL", "CHECKBOX"): checkbox_tick,
-    ("FILL", "SLOT"): _not_impl,        # Step 3
+    ("FILL", "SLOT"): multi_slot_decompose,
     # REWRITE
     ("REWRITE", "REWRITE"): _not_impl,  # Step 4
 }
