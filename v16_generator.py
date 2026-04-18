@@ -147,6 +147,20 @@ def load_materials(material_dir: Path | None) -> Materials:
             print(f"  [skip] {os.path.basename(fp)}: {e}")
 
     kb = build_material_kb(file_contents) if file_contents else {}
+
+    # P1: 硬字段格式正则抽取 — 补 material_kb 关键词启发式的召回缺口
+    if file_contents:
+        from hard_fields import extract_hard_fields
+        hard = extract_hard_fields(file_contents)
+        facts = kb.setdefault("facts", {})
+        for k, v in hard.items():
+            if k.startswith("_"):
+                continue
+            # 只在 material_kb 未抽到时补入,已有值不覆盖(material_kb 带上下文更可信)
+            if facts.get(k) in (None, ""):
+                facts[k] = v
+        kb.setdefault("hard_fields_debug", hard.get("_source_counts", {}))
+
     return Materials(file_contents=file_contents, kb=kb)
 
 

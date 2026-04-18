@@ -67,6 +67,24 @@ FIELD_TO_KB_KEY: dict[str, str] = {
     "上年度销售额": "revenue_last_year",
     "上年度末员工人数": "employee_count",
     "上年度末社保": "social_insurance_count",
+    # P1 硬字段 — 来自 hard_fields.py 格式正则抽取
+    "身份证号码": "controller_id",
+    "身份证号": "controller_id",
+    "身份证": "controller_id",
+    "公民身份号码": "controller_id",
+    "出生日期": "controller_birth",
+    "出生年月": "controller_birth",
+    "电话": "phone",
+    "联系电话": "phone",
+    "手机": "phone",
+    "手机号": "phone",
+    "手机号码": "phone",
+    "邮编": "post_code",
+    "邮政编码": "post_code",
+    "银行账号": "bank_account",
+    "基本账户": "bank_account",
+    "结算账号": "bank_account",
+    "账号": "bank_account",
 }
 
 
