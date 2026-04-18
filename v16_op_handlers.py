@@ -367,6 +367,172 @@ def multi_slot_decompose(elem, cls, mats) -> "GenResult":
 
 
 # ────────────────────────────────────────────────────────────
+# Handler 6: section_batch_rewrite  (REWRITE/REWRITE)
+#   - 把同一 section 的 REWRITE element 合批送 LLM
+#   - 单阶段 evidence-grounded prompt:系统提示强约束证据优先
+#   - 证据不足的段落,要求 LLM 输出 "【未能自动填写:字段名】"
+# ────────────────────────────────────────────────────────────
+
+_REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷员重写报告段落。
+
+核心约束:
+1. 【证据优先】每个数字/结论都要来自客户材料,禁止凭空编造或估算
+2. 【无证据标注】材料无法支撑的段落,输出 "【未能自动填写:该段所需字段】"
+3. 【粒度守恒】新段落长度量级应与原段落相当,不要过度扩写/压缩
+4. 【口吻中立】使用第三人称正式书面语,不要评价、煽情、推销
+5. 【数字原样】数字引用材料原文表述,不要改写小数位数、不要换算货币单位
+6. 【禁止泄漏】不要输出 "证据清单" "审核意见" "✓" "✗" 等 prompt 术语"""
+
+
+def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
+    """给 REWRITE 用的材料摘要块 — facts + 原文片段."""
+    parts: list[str] = []
+    facts = mats.facts
+    if facts:
+        parts.append("【企业事实(来自 KB 解析)】")
+        for k, v in sorted(facts.items()):
+            s = str(v).strip() if v is not None else ""
+            if s and len(s) < 300:
+                parts.append(f"  - {k}: {s}")
+
+    raw = mats.kb.get("raw_statements", []) if mats.kb else []
+    if raw:
+        parts.append("")
+        parts.append("【材料原文片段】")
+        budget = max_chars - sum(len(p) for p in parts)
+        for stmt in raw:
+            if budget <= 200:
+                break
+            t = str(stmt).strip()
+            if len(t) < 20:
+                continue
+            chunk = t[:600]
+            parts.append(chunk)
+            budget -= len(chunk)
+    text = "\n".join(parts)
+    return text[:max_chars]
+
+
+def section_batch_rewrite(
+    section_elems,
+    section_heading: list,
+    mats,
+) -> dict:
+    """同一 section 的 REWRITE elements 合批调用 LLM.
+
+    返回: {location: GenResult}
+    异常时对所有 element 产出 pending(不抛错,不阻断 pipeline)。
+    """
+    if not section_elems:
+        return {}
+
+    heading_path = " > ".join(section_heading) if section_heading else "(根节)"
+    section_title = section_heading[-1] if section_heading else "(未命名)"
+
+    elem_lines = []
+    for e in section_elems:
+        t = (e.text or "").replace("\n", " ")
+        elem_lines.append(f'[{e.location}] {t[:400]}')
+    elem_block = "\n".join(elem_lines)
+
+    material_block = _build_material_summary_for_rewrite(mats, max_chars=6000)
+
+    schema_hint = (
+        '输出严格 JSON 对象,key = 段落 location 字符串,value = 重写后的段落正文。\n'
+        '示例: {"P26": "新正文...", "P43": "新正文..."}\n'
+        '务必只返回 JSON,不要 markdown 围栏,不要任何说明文字。\n'
+        f'必须包含全部 {len(section_elems)} 个 location 作为 key。'
+    )
+
+    user_content = (
+        f"【所在章节】\n{heading_path}\n\n"
+        f"【需要重写的段落】(共 {len(section_elems)} 条)\n{elem_block}\n\n"
+        f"【客户材料】\n{material_block}\n\n"
+        "请根据【客户材料】为每个段落重写正文,证据不足的段落写 "
+        '"【未能自动填写:<缺失字段>】"。输出 JSON 映射。'
+    )
+
+    try:
+        from llm import LLMClient
+        from config import GENERATOR_PROVIDER
+        provider = GENERATOR_PROVIDER if GENERATOR_PROVIDER else "deepseek"
+    except Exception:
+        provider = "deepseek"
+        from llm import LLMClient  # noqa
+
+    out: dict = {}
+    try:
+        client = LLMClient(provider=provider)
+        result = client.chat_json(
+            _REWRITE_SYSTEM_PROMPT,
+            user_content,
+            schema_hint=schema_hint,
+            temperature=0.2,
+        )
+    except Exception as exc:
+        for e in section_elems:
+            out[e.location] = GenResult(
+                location=e.location,
+                action="keep",
+                pending_tag={
+                    "location": e.location,
+                    "reason": f"LLM 重写失败: {type(exc).__name__}",
+                    "text": (e.text or "")[:80],
+                    "suggested_action": "人工撰写或重试",
+                },
+                debug=f"section_batch_rewrite: llm error {exc}",
+            )
+        return out
+
+    if not isinstance(result, dict):
+        for e in section_elems:
+            out[e.location] = GenResult(
+                location=e.location,
+                action="keep",
+                pending_tag={
+                    "location": e.location,
+                    "reason": "LLM 返回非 JSON 对象",
+                    "text": (e.text or "")[:80],
+                    "suggested_action": "人工撰写",
+                },
+                debug="section_batch_rewrite: result not dict",
+            )
+        return out
+
+    for e in section_elems:
+        new_text = result.get(e.location)
+        if isinstance(new_text, str) and new_text.strip():
+            pending = None
+            if "【未能自动填写" in new_text:
+                pending = {
+                    "location": e.location,
+                    "reason": "LLM 判定材料证据不足",
+                    "text": (e.text or "")[:80],
+                    "suggested_action": "客户经理补充材料后重写",
+                }
+            out[e.location] = GenResult(
+                location=e.location,
+                action="fill",
+                new_text=new_text.strip(),
+                pending_tag=pending,
+                debug=f"section_batch_rewrite: section={section_title[:20]}",
+            )
+        else:
+            out[e.location] = GenResult(
+                location=e.location,
+                action="keep",
+                pending_tag={
+                    "location": e.location,
+                    "reason": "LLM 未覆盖该 location",
+                    "text": (e.text or "")[:80],
+                    "suggested_action": "人工撰写",
+                },
+                debug="section_batch_rewrite: missing in response",
+            )
+    return out
+
+
+# ────────────────────────────────────────────────────────────
 # 路由表(唯一真源)
 # (op, label) → handler
 # Step 2 先覆盖确定性路径;REWRITE 和 SLOT 用 _not_impl 占位

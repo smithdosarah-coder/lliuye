@@ -316,7 +316,7 @@ def generate(
                  FILL/SLOT、REWRITE/REWRITE 暂走 _not_impl(保留原状).
     """
     # 延迟 import handler(它依赖 v16_generator 的 GenResult)
-    from v16_op_handlers import dispatch
+    from v16_op_handlers import dispatch, section_batch_rewrite
 
     print(f"[v16_generator.generate] {template_docx.name}")
     classifications = load_classifier_output(classified_json)
@@ -327,7 +327,18 @@ def generate(
     if mats.kb:
         print(f"  KB facts: {len(mats.facts)}")
 
-    # 对每个有分类的 element 调 dispatch
+    # Step 4: 先对 REWRITE 按 section 合批,结果登记到 rewrite_results
+    rewrite_groups = _group_rewrite_by_section(elements, classifications, section_by_loc)
+    rewrite_results: dict[str, GenResult] = {}
+    if rewrite_groups:
+        print(f"  REWRITE 合批: {len(rewrite_groups)} 个 section,"
+              f"{sum(len(v) for v in rewrite_groups.values())} 个段落")
+        for sec_key, sec_elems in rewrite_groups.items():
+            sec_heading = list(sec_key)
+            out = section_batch_rewrite(sec_elems, sec_heading, mats)
+            rewrite_results.update(out)
+
+    # 对每个有分类的 element 调 dispatch(REWRITE 走 rewrite_results)
     results: list[GenResult] = []
     pending_tags: list[dict[str, Any]] = []
     handler_stats: dict[str, int] = {}
@@ -336,7 +347,10 @@ def generate(
         cls = classifications.get(elem.location)
         if cls is None:
             continue
-        r = dispatch(elem, cls, mats)
+        if cls.op == "REWRITE" and elem.location in rewrite_results:
+            r = rewrite_results[elem.location]
+        else:
+            r = dispatch(elem, cls, mats)
         results.append(r)
         if r.pending_tag:
             pending_tags.append(r.pending_tag)
