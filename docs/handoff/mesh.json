@@ -1,0 +1,40 @@
+{
+  "project": "credit_report_agent_work",
+  "description": "信贷 AI 智能体矩阵 · 6 Agent + 主 CLI 编排",
+  "protocol_version": "1.1",
+  "worktrees": [
+    {
+      "name": "main",
+      "path": "D:/claude code/credit_report_agent_work",
+      "branch": "chore/l0-infra",
+      "role": "orchestrator",
+      "description": "主 CLI，负责批示/仲裁/基建"
+    },
+    {
+      "name": "agent1",
+      "path": "D:/claude code/demo-agent1",
+      "branch": "feat/agent1-productize",
+      "role": "worker",
+      "description": "获客 Agent 产品化"
+    },
+    {
+      "name": "agent3",
+      "path": "D:/claude code/demo-agent3",
+      "branch": "feat/agent3-productize",
+      "role": "worker",
+      "description": "授信决策 Agent 产品化"
+    },
+    {
+      "name": "agent6",
+      "path": "D:/claude code/demo-agent6",
+      "branch": "feat/agent6-v16",
+      "role": "worker",
+      "description": "报告助手 v16"
+    }
+  ],
+  "upstream_remote": "D:/claude code/credit_report_agent_work",
+  "decisions_log": "docs/handoff/decisions-log.md",
+  "onboarding_dir": "docs/onboarding/",
+  "contracts_dir": "docs/contracts/",
+  "last_updated": "2026-04-19"
+}
