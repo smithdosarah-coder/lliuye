@@ -416,7 +416,24 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
 3. 【粒度守恒】新段落长度量级应与原段落相当,不要过度扩写/压缩
 4. 【口吻中立】使用第三人称正式书面语,不要评价、煽情、推销
 5. 【数字原样】数字引用材料原文表述,不要改写小数位数、不要换算货币单位
-6. 【禁止泄漏】不要输出 "证据清单" "审核意见" "✓" "✗" 等 prompt 术语"""
+6. 【禁止泄漏】不要输出 "证据清单" "审核意见" "✓" "✗" 等 prompt 术语
+7. 【模板示例识别】"需要重写的段落"显示的是银行模板的示例/占位文本,仅用于
+   理解字段结构(要写什么类型信息、包含哪些要素),禁止套用其中的具体数值、
+   公司名、行业、地名、人名、日期等实质内容。示例中的"XX/XXX"、"张XX"、
+   "2010年5月"、"芯片设计"等都是模板虚构,不代表客户实际情况。
+8. 【事实强制引用】如果【企业事实】中列出了 company_name / uscc / controller_id /
+   phone / post_code / bank_account / registered_capital / legal_representative /
+   industry / business_description / operating_address 等字段,且正在写的段落
+   需要这些信息,必须原样引用事实值,不得改写或省略。
+9. 【履历严禁虚构】涉及法定代表人/实际控制人/实控人的简介段,如需写"行业工作经历
+   /从业经历/教育背景/学校/专业/职务/任职年份/曾任职公司"等,每一条必须能在
+   【客户材料】原文中找到对应文字。材料未提供教育/工作经历的,该子项直接写
+   "【未能自动填写:教育背景(材料未记载)】""【未能自动填写:行业工作经历(材料
+   未记载)】",严禁根据常识/行业推测/训练语料编造任何公司名、学校名、年份区间、
+   职务头衔。
+10. 【关联企业严禁虚构】涉及关联方/关联企业/集团的段落,企业名、持股比例、
+    经营业务必须逐字来自【客户材料】;材料未明确的,写"【未能自动填写:关联企业
+    详情(材料未记载)】",严禁编造关联企业名称或经营内容。"""
 
 
 def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
@@ -464,10 +481,19 @@ def section_batch_rewrite(
     heading_path = " > ".join(section_heading) if section_heading else "(根节)"
     section_title = section_heading[-1] if section_heading else "(未命名)"
 
+    _RISK_MARKERS = (
+        "法定代表人", "实际控制人", "实控人", "行业工作经历", "从业经历",
+        "教育背景", "任职情况", "关联企业", "关联方",
+    )
     elem_lines = []
     for e in section_elems:
         t = (e.text or "").replace("\n", " ")
-        elem_lines.append(f'[{e.location}] {t[:400]}')
+        tags = []
+        low = t[:200]
+        if any(kw in low for kw in _RISK_MARKERS):
+            tags.append("【高风险段·禁止虚构履历/关联方】")
+        prefix = f'[{e.location}] ' + "".join(tags)
+        elem_lines.append(prefix + t[:400])
     elem_block = "\n".join(elem_lines)
 
     material_block = _build_material_summary_for_rewrite(mats, max_chars=6000)
@@ -481,10 +507,15 @@ def section_batch_rewrite(
 
     user_content = (
         f"【所在章节】\n{heading_path}\n\n"
-        f"【需要重写的段落】(共 {len(section_elems)} 条)\n{elem_block}\n\n"
-        f"【客户材料】\n{material_block}\n\n"
-        "请根据【客户材料】为每个段落重写正文,证据不足的段落写 "
-        '"【未能自动填写:<缺失字段>】"。输出 JSON 映射。'
+        f"【模板示例段落】(共 {len(section_elems)} 条,下列文本是银行模板的占位/示例,\n"
+        f"仅用于理解字段结构和写作要点,禁止直接引用其中的公司名/行业/数字/日期等内容)\n"
+        f"{elem_block}\n\n"
+        f"【客户材料】(这里的企业事实和材料原文是唯一可引用的内容源)\n{material_block}\n\n"
+        "请根据【客户材料】为每个 location 重写正文:\n"
+        "- 参考【模板示例段落】理解每条要写什么字段,但内容全部来自【客户材料】\n"
+        "- 【企业事实】中已明确的值必须原样嵌入相关段落\n"
+        '- 若【客户材料】无法支撑该段所需信息,输出 "【未能自动填写:<缺失字段>】"\n'
+        "- 输出 JSON 映射 {location: 新正文}"
     )
 
     try:
@@ -534,21 +565,51 @@ def section_batch_rewrite(
             )
         return out
 
+    # 全材料文本串用于 proper-noun 归位校验(履历段/关联方段 幻觉拦截)
+    all_material_text = ""
+    if mats and getattr(mats, "file_contents", None):
+        all_material_text = " ".join(mats.file_contents.values())
+
     for e in section_elems:
         new_text = result.get(e.location)
         if isinstance(new_text, str) and new_text.strip():
+            new_text = new_text.strip()
             pending = None
-            if "【未能自动填写" in new_text:
+            elem_text_head = (e.text or "")[:200]
+            is_risk = any(kw in elem_text_head for kw in _RISK_MARKERS)
+            # 履历/关联方段的 proper-noun 归位:
+            # 校验文本中出现的 大学/学院/科技有限公司/网络有限公司/股份有限公司 等
+            # 专有名词是否能在 材料原文 中找到,找不到即判定幻觉,整段退回 pending。
+            if is_risk and all_material_text:
+                pat = re.compile(
+                    r"[\u4e00-\u9fffA-Za-z0-9]{2,12}"
+                    r"(?:大学|学院|科技有限公司|网络有限公司|股份有限公司|有限公司|集团)"
+                )
+                nouns = pat.findall(new_text)
+                fabricated = sorted({n for n in nouns if n not in all_material_text})
+                if fabricated:
+                    preview = "、".join(fabricated[:3])
+                    new_text = (
+                        f"【未能自动填写:本段涉及履历/关联方,材料未记载模型引用的主体 "
+                        f"({preview}),已拦截虚构内容,待客户经理补充原始信息】"
+                    )
+                    pending = {
+                        "location": e.location,
+                        "reason": f"履历/关联方幻觉拦截: {preview}",
+                        "text": elem_text_head[:80],
+                        "suggested_action": "客户经理补充履历/关联方原始文字后重写",
+                    }
+            if pending is None and "【未能自动填写" in new_text:
                 pending = {
                     "location": e.location,
                     "reason": "LLM 判定材料证据不足",
-                    "text": (e.text or "")[:80],
+                    "text": elem_text_head[:80],
                     "suggested_action": "客户经理补充材料后重写",
                 }
             out[e.location] = GenResult(
                 location=e.location,
                 action="fill",
-                new_text=new_text.strip(),
+                new_text=new_text,
                 pending_tag=pending,
                 debug=f"section_batch_rewrite: section={section_title[:20]}",
             )
