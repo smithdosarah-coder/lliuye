@@ -153,11 +153,19 @@ def load_materials(material_dir: Path | None) -> Materials:
         from hard_fields import extract_hard_fields
         hard = extract_hard_fields(file_contents)
         facts = kb.setdefault("facts", {})
+        # hard_fields 对以下字段拥有更强的抽取逻辑(格式正则 / 源优先),
+        # 应覆盖 material_kb 可能存在的脏值(如 operating_address 拼接错位)
+        _HARD_OVERRIDE = {
+            "uscc", "controller_id", "controller_birth",
+            "phone", "post_code", "bank_account",
+            "operating_address", "registered_address",
+        }
         for k, v in hard.items():
             if k.startswith("_"):
                 continue
-            # 只在 material_kb 未抽到时补入,已有值不覆盖(material_kb 带上下文更可信)
-            if facts.get(k) in (None, ""):
+            if k in _HARD_OVERRIDE and v:
+                facts[k] = v
+            elif facts.get(k) in (None, ""):
                 facts[k] = v
         kb.setdefault("hard_fields_debug", hard.get("_source_counts", {}))
 

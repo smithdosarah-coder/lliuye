@@ -99,6 +99,113 @@ def extract_postcodes(text: str) -> list[str]:
     return hits
 
 
+# 地址分类抽取 —— 源文件优先级为关键(审计报告里的经营地址 > 营业执照里的住所)
+# ────────────────────────────────────────────────────────────
+_ADDR_MIN_LEN = 12  # 福州市+区+街道+具体地址,少于 12 字大概率是片段
+
+# 源文件类别 → (是 operating_address 的权重, 是 registered_address 的权重)
+# 审计报告:最新,反映当前经营地址;营业执照/章程:反映法定注册地址;申报表:注册地址
+_SOURCE_WEIGHTS = {
+    "审计报告": (10, 2),   # operating 优先
+    "租赁协议": (8, 0),
+    "租赁合同": (8, 0),
+    "开户许可证": (0, 5),
+    "章程": (0, 9),         # 注册/法定
+    "营业执照": (0, 10),    # 法定
+    "申报表": (0, 6),
+    "补充": (6, 0),         # 银行补充材料
+}
+
+
+def _source_weight(filename: str, target: str) -> int:
+    """根据文件名关键字返回该源对应字段的权重."""
+    idx = 0 if target == "operating" else 1
+    for kw, weights in _SOURCE_WEIGHTS.items():
+        if kw in filename:
+            return weights[idx]
+    return 1  # 默认轻权重
+
+
+def _cleanup_addr(addr: str) -> str:
+    """裁剪地址尾部粘连的邮编/电话/联系人等内容,只保留纯地址部分."""
+    addr = addr.strip()
+    # 切掉 '邮编' '电话' '联系人' '法定代表人' 之后的内容
+    for stop in ["邮编", "电话", "联系人", "法定代表人", "身份证", "传真", "邮件"]:
+        idx = addr.find(stop)
+        if idx > 5:
+            addr = addr[:idx]
+    # 切掉全角/半角冒号后的残余标签值 (e.g. "...1310：邮编：350001" 先切 '：邮编')
+    for sep in ["：邮编", "：电话", ":邮编", ":电话"]:
+        idx = addr.find(sep)
+        if idx > 0:
+            addr = addr[:idx]
+    return addr.strip(" :：,，;；")
+
+
+def _source_year_hint(filename: str) -> int:
+    """源文件年份 → 越新权重越高(用于审计报告 2023 vs 2024 等同源择优)."""
+    m = re.search(r"(20\d{2})", filename)
+    return int(m.group(1)) if m else 0
+
+
+def extract_addresses_by_source(file_contents: dict[str, str]) -> dict[str, str]:
+    """按源文件优先级抽取 operating_address / registered_address.
+
+    operating_address: 审计报告 > 租赁协议 > 银行补充 > 其他里出现的 "经营地址:" 值
+    registered_address: 营业执照 > 章程 > 开户许可 > 申报表 里的 "住所:/注册地址:" 值
+    同权重时,按源文件年份取最新(审计报告 2024 > 2023)。
+    """
+    # (weight, year, address, source)
+    op_cands: list[tuple[int, int, str, str]] = []
+    reg_cands: list[tuple[int, int, str, str]] = []
+
+    # 提取目标模式:必须有明确字段标签才计入,去掉纯正文碰撞
+    op_label_pat = re.compile(
+        r"(?:经营地址|办公地址|实际经营地址|办公地|生产经营地|坐落地点)\s*[:：]\s*([^\n。；]{%d,100})" % _ADDR_MIN_LEN
+    )
+    reg_label_pat = re.compile(
+        r"(?:住\s*所|注册地址|法定地址|登记地址)\s*[:：]?\s*([^\n。；]{%d,100})" % _ADDR_MIN_LEN
+    )
+    # 审计报告里常以 "地址:" 打头的一行就是经营地址
+    audit_addr_pat = re.compile(
+        r"(?:地\s*址|地址)\s*[:：]\s*([^\n。；]{%d,100})" % _ADDR_MIN_LEN
+    )
+
+    for fname, content in file_contents.items():
+        if not content:
+            continue
+        year = _source_year_hint(fname)
+        # operating
+        op_w = _source_weight(fname, "operating")
+        for m in op_label_pat.finditer(content):
+            addr = _cleanup_addr(m.group(1))
+            if addr and len(addr) >= _ADDR_MIN_LEN:
+                op_cands.append((op_w, year, addr, fname))
+        # 审计报告特殊:"地址:XXX" 也算 operating
+        if "审计报告" in fname:
+            for m in audit_addr_pat.finditer(content):
+                addr = _cleanup_addr(m.group(1))
+                if addr and not addr.startswith("注册") and len(addr) >= _ADDR_MIN_LEN:
+                    op_cands.append((10, year, addr, fname))
+
+        # registered
+        reg_w = _source_weight(fname, "registered")
+        for m in reg_label_pat.finditer(content):
+            addr = _cleanup_addr(m.group(1))
+            if addr and len(addr) >= _ADDR_MIN_LEN:
+                reg_cands.append((reg_w, year, addr, fname))
+
+    out: dict[str, str] = {}
+    if op_cands:
+        # 按(权重 desc, 年份 desc, 长度 desc)排序;长度作为 tiebreaker 倾向完整地址
+        op_cands.sort(key=lambda x: (-x[0], -x[1], -len(x[2])))
+        out["operating_address"] = op_cands[0][2]
+    if reg_cands:
+        reg_cands.sort(key=lambda x: (-x[0], -x[1], -len(x[2])))
+        out["registered_address"] = reg_cands[0][2]
+    return out
+
+
 def extract_bank_accounts(text: str) -> list[str]:
     """银行账号 — 带上下文过滤.
 
@@ -196,6 +303,10 @@ def extract_hard_fields(file_contents: dict[str, str]) -> dict[str, Any]:
         out["bank_account"] = _pick_most_frequent(all_banks)
         out["bank_accounts_all"] = list(dict.fromkeys(all_banks))
 
+    # 地址 — 按源文件优先级分类抽取
+    addr = extract_addresses_by_source(file_contents)
+    out.update(addr)
+
     out["_source_counts"] = {
         "uscc": len(all_usc),
         "id": len(all_ids),
@@ -203,6 +314,8 @@ def extract_hard_fields(file_contents: dict[str, str]) -> dict[str, Any]:
         "postcode": len(all_postcodes),
         "bank": len(all_banks),
         "date": len(all_dates),
+        "operating_address": bool(addr.get("operating_address")),
+        "registered_address": bool(addr.get("registered_address")),
     }
 
     return out
