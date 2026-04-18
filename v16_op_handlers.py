@@ -85,6 +85,20 @@ FIELD_TO_KB_KEY: dict[str, str] = {
     "基本账户": "bank_account",
     "结算账号": "bank_account",
     "账号": "bank_account",
+    # 审计 / 租赁 / 住址
+    "审计机构": "auditor",
+    "会计师事务所": "auditor",
+    "审计师": "auditor",
+    "审计单位": "auditor",
+    "场地面积": "lease_area",
+    "租赁面积": "lease_area",
+    "房屋面积": "lease_area",
+    "经营场所": "lease_location",
+    "租赁地点": "lease_location",
+    "厂房地址": "lease_location",
+    "住址": "controller_home_address",
+    "户籍地址": "controller_home_address",
+    "家庭住址": "controller_home_address",
 }
 
 
@@ -581,12 +595,29 @@ def section_batch_rewrite(
             # 校验文本中出现的 大学/学院/科技有限公司/网络有限公司/股份有限公司 等
             # 专有名词是否能在 材料原文 中找到,找不到即判定幻觉,整段退回 pending。
             if is_risk and all_material_text:
+                _SUFFIXES = ("大学", "学院", "科技有限公司", "网络有限公司", "股份有限公司", "有限公司", "集团")
                 pat = re.compile(
                     r"[\u4e00-\u9fffA-Za-z0-9]{2,12}"
                     r"(?:大学|学院|科技有限公司|网络有限公司|股份有限公司|有限公司|集团)"
                 )
                 nouns = pat.findall(new_text)
-                fabricated = sorted({n for n in nouns if n not in all_material_text})
+                # 贪婪匹配易把普通动宾短语连到"大学/学院"后缀上造成假阳性
+                # (例: "租赁地址为福州大学" 被整体视为专名)
+                # 对每个 match, 尝试 3~12 字的"后缀切片"是否命中材料; 任一命中即视为已支撑。
+                def _supported(noun: str) -> bool:
+                    # 去掉前缀虚词后再判: 保留末尾带后缀的专名实体
+                    for suf in _SUFFIXES:
+                        if noun.endswith(suf):
+                            core_len = len(noun)
+                            # 从最长到最短的"后缀切片"滑窗 — 只要有一段出现在原文,就算未虚构
+                            for cut in range(0, core_len - len(suf)):
+                                cand = noun[cut:]
+                                if len(cand) >= 4 and cand in all_material_text:
+                                    return True
+                            # 后缀本身在原文独立出现且专名后缀的最短 "2字+后缀" 也找不到 → 判虚构
+                            return False
+                    return True
+                fabricated = sorted({n for n in nouns if not _supported(n)})
                 if fabricated:
                     preview = "、".join(fabricated[:3])
                     new_text = (

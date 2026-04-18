@@ -206,6 +206,55 @@ def extract_addresses_by_source(file_contents: dict[str, str]) -> dict[str, str]
     return out
 
 
+def extract_auditor(file_contents: dict[str, str]) -> str | None:
+    """从审计报告源文件抽取审计机构名(如'德赢')."""
+    # 只看审计报告类源文件避免误捕
+    pat_full = re.compile(r"([\u4e00-\u9fff]{2,8})（[^）]{2,6}）\s*会计师事务所")
+    pat_short = re.compile(r"([\u4e00-\u9fff]{2,8})会计师事务所")
+    for fname, content in file_contents.items():
+        if "审计" not in fname:
+            continue
+        m = pat_full.search(content) or pat_short.search(content)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def extract_lease(file_contents: dict[str, str]) -> dict[str, str]:
+    """从租赁协议源文件抽取 lease_area / lease_location."""
+    out: dict[str, str] = {}
+    for fname, content in file_contents.items():
+        if not any(k in fname for k in ("租赁", "租约", "租房")):
+            continue
+        if "lease_area" not in out:
+            m = re.search(r"(?:房屋面积|出租面积|建筑面积|租赁面积)[:：]\s*([\d.]+)\s*(?:平方米|㎡|平米|平)", content)
+            if m:
+                out["lease_area"] = m.group(1).rstrip(".")
+        if "lease_location" not in out:
+            m = re.search(r"(?:房屋位于|坐落于|坐落在|租赁地址|租用地址)[:：]\s*([^\n，。；]{5,60})", content)
+            if m:
+                out["lease_location"] = m.group(1).strip()
+    return out
+
+
+def extract_controller_home_address(file_contents: dict[str, str]) -> str | None:
+    """从身份证 OCR 抽取户籍住址(家庭地址)."""
+    id_pat = re.compile(r"(?:住\s*址|住所)\s*[:：]?\s*([\u4e00-\u9fff0-9#\-（）()]{10,80})")
+    for fname, content in file_contents.items():
+        if "身份证" not in fname:
+            continue
+        m = id_pat.search(content)
+        if m:
+            addr = m.group(1).strip()
+            # 去掉尾巴常见的"公民身份证号码/姓名/性别"等粘连
+            for stop in ["公民身份", "性别", "民族", "出生", "姓名", "身份证"]:
+                idx = addr.find(stop)
+                if idx > 10:
+                    addr = addr[:idx]
+            return addr.strip()
+    return None
+
+
 def extract_bank_accounts(text: str) -> list[str]:
     """银行账号 — 带上下文过滤.
 
@@ -256,16 +305,22 @@ def extract_hard_fields(file_contents: dict[str, str]) -> dict[str, Any]:
     all_ids: list[str] = []
     all_phones: list[str] = []
     all_postcodes: list[str] = []
+    # 带源标签的邮编,用于年份/权威度排序
+    postcodes_by_source: list[tuple[str, int, str]] = []  # (fname, year, postcode)
     all_banks: list[str] = []
     all_dates: list[tuple[str, str, str]] = []
 
-    for _fname, content in file_contents.items():
+    for fname, content in file_contents.items():
         if not content:
             continue
         all_usc.extend(extract_usc(content))
         all_ids.extend(extract_id_numbers(content))
         all_phones.extend(extract_phones(content))
-        all_postcodes.extend(extract_postcodes(content))
+        pc_hits = extract_postcodes(content)
+        all_postcodes.extend(pc_hits)
+        year = _source_year_hint(fname) or 0
+        for pc in pc_hits:
+            postcodes_by_source.append((fname, year, pc))
         all_banks.extend(extract_bank_accounts(content))
         for m in _DATE_RE.finditer(content):
             all_dates.append((m.group(1) + m.group(0)[2:], "", ""))
@@ -294,18 +349,67 @@ def extract_hard_fields(file_contents: dict[str, str]) -> dict[str, Any]:
         out["phone"] = _pick_most_frequent(all_phones)
         out["phones_all"] = list(dict.fromkeys(all_phones))
 
-    # 邮编
-    if all_postcodes:
-        out["post_code"] = _pick_most_frequent(all_postcodes)
-
     # 银行账号
     if all_banks:
         out["bank_account"] = _pick_most_frequent(all_banks)
         out["bank_accounts_all"] = list(dict.fromkeys(all_banks))
 
-    # 地址 — 按源文件优先级分类抽取
+    # 地址 — 按源文件优先级分类抽取(先跑,供 邮编 做 geo-prefix 过滤)
     addr = extract_addresses_by_source(file_contents)
     out.update(addr)
+
+    # 邮编 — 优先与 operating_address 同城市前缀(前 2 位邮编对应省份/直辖市大区)
+    # 例: 福州 地区邮编是 35xxxx,北京 是 100xxx;若 operating 在 福建,应选 35xxxx
+    if all_postcodes:
+        # 邮编前缀 — 省级精确到 2 位,常见地级市用 3-4 位(福州/厦门/广州/深圳等)
+        _PROV_PREFIX = {
+            # 福建各市
+            "福州": "350", "厦门": "361", "莆田": "351", "三明": "365",
+            "泉州": "362", "漳州": "363", "南平": "353", "龙岩": "364",
+            "宁德": "352", "福建": "35",
+            # 广东重点市
+            "广州": "510", "深圳": "518", "珠海": "519", "佛山": "528",
+            "东莞": "523", "中山": "528", "广东": "5",
+            # 省级粗粒度
+            "北京": "10", "天津": "30",
+            "上海": "20", "江苏": "2", "浙江": "3",
+            "山东": "2", "河南": "4", "湖北": "4", "湖南": "4",
+            "四川": "6", "重庆": "40",
+        }
+        op_addr = out.get("operating_address") or out.get("registered_address") or ""
+        target_prefix = None
+        for prov, pref in _PROV_PREFIX.items():
+            if prov in op_addr:
+                target_prefix = pref
+                break
+        if target_prefix:
+            geo_filtered = [(f, y, pc) for f, y, pc in postcodes_by_source if pc.startswith(target_prefix)]
+            if geo_filtered:
+                # 权威度(审计报告优先) + 年份新 + 频次
+                def _pc_score(item):
+                    f, y, _pc = item
+                    auth = 3 if "审计" in f else (2 if "章程" in f or "营业执照" in f else 1)
+                    return (auth, y)
+                geo_filtered.sort(key=_pc_score, reverse=True)
+                out["post_code"] = geo_filtered[0][2]
+            else:
+                out["post_code"] = _pick_most_frequent(all_postcodes)
+        else:
+            out["post_code"] = _pick_most_frequent(all_postcodes)
+
+    # 审计机构
+    auditor = extract_auditor(file_contents)
+    if auditor:
+        out["auditor"] = auditor
+
+    # 租赁信息
+    lease = extract_lease(file_contents)
+    out.update(lease)
+
+    # 实控人/法人户籍住址
+    home_addr = extract_controller_home_address(file_contents)
+    if home_addr:
+        out["controller_home_address"] = home_addr
 
     out["_source_counts"] = {
         "uscc": len(all_usc),
