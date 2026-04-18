@@ -238,18 +238,34 @@ def extract_lease(file_contents: dict[str, str]) -> dict[str, str]:
 
 
 def extract_controller_home_address(file_contents: dict[str, str]) -> str | None:
-    """从身份证 OCR 抽取户籍住址(家庭地址)."""
-    id_pat = re.compile(r"(?:住\s*址|住所)\s*[:：]?\s*([\u4e00-\u9fff0-9#\-（）()]{10,80})")
+    """从身份证 OCR 抽取户籍住址(家庭地址).
+
+    OCR 常把地址切成多行(住址\\n<省市区>\\n<路+楼号>),故在 regex 前先把
+    "住址" 后连续的中文/数字/楼号行粘回成一段再匹配,避免 12 字截断。
+    """
+    id_pat = re.compile(
+        r"(?:住\s*址|住所)\s*[:：]?\s*([\u4e00-\u9fff0-9#\-（）()]{4,120})",
+        re.MULTILINE,
+    )
     for fname, content in file_contents.items():
         if "身份证" not in fname:
             continue
-        m = id_pat.search(content)
+        # 预处理:把住址字段后的换行合并,直到遇到 公民身份/身份号码/性别/签发机关 等边界
+        normalized = re.sub(r"住址\s*\n+", "住址", content)
+        # 再把地址行之间的换行粘回(仅当两侧都是中文/数字地址字符)
+        normalized = re.sub(
+            r"([\u4e00-\u9fff0-9])\n+([\u4e00-\u9fff0-9])",
+            r"\1\2",
+            normalized,
+        )
+        m = id_pat.search(normalized)
         if m:
             addr = m.group(1).strip()
             # 去掉尾巴常见的"公民身份证号码/姓名/性别"等粘连
-            for stop in ["公民身份", "性别", "民族", "出生", "姓名", "身份证"]:
+            for stop in ["公民身份", "性别", "民族", "出生", "姓名", "身份证",
+                         "中华人民", "居民身份", "签发", "有效期"]:
                 idx = addr.find(stop)
-                if idx > 10:
+                if idx > 5:
                     addr = addr[:idx]
             return addr.strip()
     return None
