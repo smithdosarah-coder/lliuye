@@ -462,13 +462,36 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
    未记载)】",严禁根据常识/行业推测/训练语料编造任何公司名、学校名、年份区间、
    职务头衔。
 10. 【关联企业严禁虚构】涉及关联方/关联企业/集团的段落,企业名、持股比例、
-    经营业务必须逐字来自【客户材料】;材料未明确的,写"【未能自动填写:关联企业
-    详情(材料未记载)】",严禁编造关联企业名称或经营内容。"""
+    经营业务必须逐字来自【客户材料】;materials 未明确的,写"【未能自动填写:关联企业
+    详情(材料未记载)】",严禁编造关联企业名称或经营内容。
+11. 【财务段深度要求】若当前段落主题涉及财务(营业收入/净利润/资产负债/偿债能力/
+    现金流/财务分析/经营情况),且【已计算财务指标】块存在,必须:
+    a) 原样引用 ≥4 个带数字的同比/较年初表述,且数字紧跟"同比"/"较年初"字样
+       (例:"营业收入同比增长14.9%" 或 "资产负债率较年初下降7.7个百分点"),
+       不得省略百分比或绝对值;
+    b) 为至少 2 个关键变化给出归因表述,使用 "主要由于..."/"主要因为..."/
+       "原因是..."/"归因于..."/"受...影响" 句式,归因内容须基于【代码识别的异常项】
+       /【趋势定性】/【行业基准参照】,不得编造;
+    c) 必须同时提到"经营活动净现金流"、"投资活动净现金流"、"筹资活动净现金流"
+       三大活动现金流的数值;
+    d) 若有【行业基准参照】,须至少做一次"行业一般/行业水平/行业区间"的对比。
+12. 【征信段要素要求】若段落涉及对公/个人征信,必须明确覆盖:对公贷款(家数/余额)、
+    对公逾期(无/有 + 期数)、对公担保(无/有)、对公查询(近6个月次数),不得整体跳过
+    某个子项;材料未提供某子项时,写"【未能自动填写:对公贷款余额】"保留子项结构。"""
 
 
 def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
-    """给 REWRITE 用的材料摘要块 — facts + 原文片段."""
+    """给 REWRITE 用的材料摘要块 — 财务确定性指标 + facts + 原文片段."""
     parts: list[str] = []
+
+    # P2: 优先放 financial_analyzer 的确定性指标(同比/趋势/三大活动现金流),
+    # 供 LLM 做深度财务叙事。该块权威,禁止重新计算,LLM 必须原文引用数值。
+    if mats.financial and isinstance(mats.financial, dict):
+        fin_block = mats.financial.get("prompt_block", "")
+        if fin_block:
+            parts.append(fin_block[:3000])
+            parts.append("")
+
     facts = mats.facts
     if facts:
         parts.append("【企业事实(来自 KB 解析)】")
@@ -658,7 +681,7 @@ def _section_batch_rewrite_once(
         elem_lines.append(prefix + t[:400])
     elem_block = "\n".join(elem_lines)
 
-    material_block = _build_material_summary_for_rewrite(mats, max_chars=6000)
+    material_block = _build_material_summary_for_rewrite(mats, max_chars=9000)
 
     schema_hint = (
         '输出严格 JSON 对象,key = 段落 location 字符串,value = 重写后的段落正文。\n'

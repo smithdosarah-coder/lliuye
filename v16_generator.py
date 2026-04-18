@@ -148,6 +148,26 @@ def load_materials(material_dir: Path | None) -> Materials:
 
     kb = build_material_kb(file_contents) if file_contents else {}
 
+    # P2: 财务分析(deterministic) — 解析 xlsx 财务报表,供 REWRITE 做
+    # 同比/趋势/三大活动现金流等深度叙事。若无 xlsx 或解析失败,静默跳过。
+    financial_block = ""
+    try:
+        from financial_analyzer import FinancialAnalyzer
+        fa = FinancialAnalyzer()
+        xlsx_candidates = [
+            fp for fp in glob.glob(os.path.join(str(material_dir), "*"))
+            if os.path.splitext(fp)[1].lower() in (".xlsx", ".xls")
+            and any(kw in os.path.basename(fp) for kw in ("财务", "报表", "资产负债", "利润"))
+        ]
+        if xlsx_candidates:
+            xlsx_candidates.sort(reverse=True)  # 取最新(文件名含日期时倾向较新)
+            ind = fa.analyze(xlsx_candidates[0])
+            financial_block = fa.format_for_prompt(ind)
+            print(f"  financial: parsed {os.path.basename(xlsx_candidates[0])}"
+                  f" → {len(financial_block)} chars")
+    except Exception as exc:
+        print(f"  [skip financial] {type(exc).__name__}: {exc}")
+
     # P1: 硬字段格式正则抽取 — 补 material_kb 关键词启发式的召回缺口
     if file_contents:
         from hard_fields import extract_hard_fields
@@ -171,7 +191,10 @@ def load_materials(material_dir: Path | None) -> Materials:
                 facts[k] = v
         kb.setdefault("hard_fields_debug", hard.get("_source_counts", {}))
 
-    return Materials(file_contents=file_contents, kb=kb)
+    mats = Materials(file_contents=file_contents, kb=kb)
+    if financial_block:
+        mats.financial = {"prompt_block": financial_block}
+    return mats
 
 
 # ────────────────────────────────────────────────────────────
