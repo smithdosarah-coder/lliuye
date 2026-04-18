@@ -159,6 +159,8 @@ def load_materials(material_dir: Path | None) -> Materials:
             "uscc", "controller_id", "controller_birth",
             "phone", "post_code", "bank_account",
             "operating_address", "registered_address",
+            "auditor", "lease_area", "lease_location",
+            "controller_home_address",
         }
         for k, v in hard.items():
             if k.startswith("_"):
@@ -436,6 +438,105 @@ def generate(
     classifications = load_classifier_output(classified_json)
     doc, elements, section_by_loc = load_template(template_docx)
     mats = load_materials(material_dir)
+    # classifier 是按 sampled elements 产出的,面对新模板会有大批 element
+    # 没有分类落位(location 不匹配)。兜底策略:
+    #   - 超短(<4 ch) 或纯符号/分隔:PRESERVE/PRESERVE (原样保留)
+    #   - 其余含正文的 element: REWRITE/REWRITE (LLM + facts 重写)
+    # 目的:避免 stale classified.json 让主要正文 element 被整段跳过。
+    # stale classified.json 产物对新模板定位不命中,需要补齐未分类 element。
+    # 启发:
+    #   - 超短(<4 ch):PRESERVE
+    #   - 含大量 colon/占位结构 ("XX:"/"___"/"XX、XX、XX") 且整体较长:REWRITE 重写
+    #   - 其他(短标题/空白):PRESERVE,保底不改动原文
+    # 目的:保证 R1C0 这类"字段密集的大文本块"进入 REWRITE,同时不把所有
+    # 段落都扫进来(避免 REWRITE 批次过大导致 LLM JSON 截断)。
+    pre_count = len(classifications)
+    from v16_op_handlers import FIELD_TO_KB_KEY
+    import re as _re
+    # "XX:" 或 "XX：" 结尾的字段标签(单槽或多槽)
+    _label_pat = _re.compile(r"^([\u4e00-\u9fff（）()0-9A-Za-z、/ -]{2,40})\s*[:：]\s*$")
+    fb_stats = {"preserve": 0, "fill": 0, "slot": 0, "rewrite": 0, "upgrade": 0}
+
+    # Pre-pass: 现有 PRESERVE/SCAFFOLD 若文本是已知字段标签(如"客户名称：")且 KB
+    # 有对应值,上调为 FILL/FILL。分类器会把只写了标签的短段判为 SCAFFOLD,
+    # 错失填充机会;这里做事实驱动的补救。
+    for e in elements:
+        existing = classifications.get(e.location)
+        if existing is None:
+            continue
+        if existing.op != "PRESERVE" or existing.label != "SCAFFOLD":
+            continue
+        t = (e.text or "").strip()
+        m = _label_pat.match(t)
+        if not m:
+            continue
+        label_name = m.group(1).strip()
+        stripped_label = _re.sub(r"[（(][^）)]*[）)]", "", label_name).strip()
+        if label_name in FIELD_TO_KB_KEY or stripped_label in FIELD_TO_KB_KEY:
+            classifications[e.location] = Classification(
+                location=e.location, op="FILL", label="FILL",
+                confidence=0.0,
+                justification=f"upgrade: SCAFFOLD→FILL for known label {label_name}"
+            )
+            fb_stats["upgrade"] += 1
+
+    for e in elements:
+        if e.location in classifications:
+            continue
+        t = (e.text or "").strip()
+        if not t or len(t) < 2:
+            classifications[e.location] = Classification(
+                location=e.location, op="PRESERVE", label="PRESERVE",
+                confidence=0.0, justification="fallback: empty"
+            )
+            fb_stats["preserve"] += 1
+            continue
+        # 识别"字段密集型"大文本块:至少 3 个中文冒号/全角占位 + 长度 >= 80 字
+        has_dense_fields = (
+            (t.count("：") + t.count(":")) >= 3 or
+            "□" in t or "☑" in t
+        ) and len(t) >= 80
+        if has_dense_fields:
+            classifications[e.location] = Classification(
+                location=e.location, op="REWRITE", label="REWRITE",
+                confidence=0.0, justification="fallback: dense-field block"
+            )
+            fb_stats["rewrite"] += 1
+            continue
+        # "XX:" / "XX：" 结尾的短标签:优先按 FILL 路由(FIELD_TO_KB_KEY 决定是否命中)
+        m = _label_pat.match(t)
+        if m:
+            label_name = m.group(1).strip()
+            stripped_label = _re.sub(r"[（(][^）)]*[）)]", "", label_name).strip()
+            colon_count = t.count("：") + t.count(":")
+            if colon_count >= 2:
+                classifications[e.location] = Classification(
+                    location=e.location, op="FILL", label="SLOT",
+                    confidence=0.0, justification="fallback: multi-slot label"
+                )
+                fb_stats["slot"] += 1
+            elif label_name in FIELD_TO_KB_KEY or stripped_label in FIELD_TO_KB_KEY:
+                classifications[e.location] = Classification(
+                    location=e.location, op="FILL", label="FILL",
+                    confidence=0.0, justification=f"fallback: FILL label {label_name}"
+                )
+                fb_stats["fill"] += 1
+            else:
+                classifications[e.location] = Classification(
+                    location=e.location, op="PRESERVE", label="PRESERVE",
+                    confidence=0.0, justification=f"fallback: unknown label {label_name}"
+                )
+                fb_stats["preserve"] += 1
+            continue
+        # 其他短文本 / 标题 / 散文片段:PRESERVE 兜底
+        classifications[e.location] = Classification(
+            location=e.location, op="PRESERVE", label="PRESERVE",
+            confidence=0.0, justification="fallback: preserve default"
+        )
+        fb_stats["preserve"] += 1
+    if len(classifications) > pre_count:
+        print(f"  [fallback] 补齐 {len(classifications) - pre_count} 个未分类 element "
+              f"({pre_count} 已分类 → {len(classifications)}): {fb_stats}")
     print(f"  classifier: {len(classifications)} loc / template: {len(elements)} elems"
           f" / materials: {len(mats.file_contents)} files")
     if mats.kb:

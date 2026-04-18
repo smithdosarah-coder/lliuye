@@ -56,6 +56,9 @@ FIELD_TO_KB_KEY: dict[str, str] = {
     "股权比例": "controller_share_pct",
     # 经营
     "所属行业": "industry",
+    "国标行业": "industry",
+    "行业": "industry",
+    "行业分类": "industry",
     "主营业务": "business_description",
     "主营产品": "business_description",
     "经营地址": "operating_address",
@@ -113,8 +116,18 @@ def _parse_field_label(text: str) -> tuple[str, str] | None:
 
 
 def _lookup_in_kb(label: str, facts: dict) -> str | None:
-    """字段标签 → KB 值(未命中返回 None)."""
+    """字段标签 → KB 值(未命中返回 None).
+
+    label 去除括注 — "国标行业（门类-大类-中类-小类）" → "国标行业";
+    "身份证号码（18位）" → "身份证号码"。
+    """
+    label = label.strip()
     key = FIELD_TO_KB_KEY.get(label)
+    if not key:
+        # 去掉全角/半角括号及其内容后再试
+        stripped = re.sub(r"[（(][^）)]*[）)]", "", label).strip()
+        if stripped and stripped != label:
+            key = FIELD_TO_KB_KEY.get(stripped)
     if not key:
         return None
     v = facts.get(key)
@@ -183,11 +196,14 @@ def kb_lookup_fill(elem, cls, mats) -> "GenResult":
     new_value = _lookup_in_kb(label, facts)
 
     if new_value:
+        _kb_key = FIELD_TO_KB_KEY.get(label) or FIELD_TO_KB_KEY.get(
+            re.sub(r"[（(][^）)]*[）)]", "", label).strip()
+        ) or "?"
         return GenResult(
             location=elem.location,
             action="fill",
             new_text=f"{label}：{new_value}",
-            debug=f"kb_lookup_fill: {label} ← KB[{FIELD_TO_KB_KEY[label]}]",
+            debug=f"kb_lookup_fill: {label} ← KB[{_kb_key}]",
         )
 
     # KB 无值 / 字段不在映射表 → 清空现值 + pending
@@ -479,6 +495,88 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
     return text[:max_chars]
 
 
+_REWRITE_BATCH_MAX = 12  # 单次 LLM 调用最多处理 N 个 location,防止 JSON 截断
+
+
+def _inject_hard_facts(text: str, facts: dict) -> str:
+    """在 REWRITE 产出的段落里,按语义上下文补齐 LLM 漏掉的硬标识符.
+
+    不改主干叙事,只在对应主体首次出现 + 段内无相应标识符时追加一句。
+    保持保守(只加事实,不改事实/不删事实),避免破坏 LLM 产出的格式。
+
+    注入规则(每条互斥,命中一条即返回):
+      - 段落提到 '法定代表人' 或 '实际控制人'/实控人 + 姓名(facts.controller_name),
+        且段内无 18 位 id:追加 '身份证号 XXXXXXXX'
+      - 段落提到 '企业成立于' / '借款人' / '申报企业' 起始,且段内无 USC:
+        追加 '统一社会信用代码为 XXX'
+      - 段落提到 '经营地址' / '坐落地点' 且段内无 邮编/电话:追加 '邮编 XXX,联系电话 XXX'
+      - 段落提到 '开户银行' / '基本账户' 且段内无完整 bank_account:追加账号
+      - 段落提到 '审计' 且段内无 auditor:追加 '审计机构:XXX'
+    """
+    if not text or not facts:
+        return text
+    out = text
+
+    ctrl_name = facts.get("controller_name") or facts.get("legal_representative") or ""
+    ctrl_id = facts.get("controller_id")
+    if ctrl_id and ctrl_name:
+        # 段内若已有 18 位身份证号,跳过
+        if ("法定代表人" in out or "实际控制人" in out or "实控人" in out) \
+                and ctrl_name in out \
+                and not re.search(r"\b\d{17}[\dXx]\b", out) \
+                and not re.search(r"身份证号[\s:：码]*\d{17}", out):
+            # 插在 '姓名' 后第一个标点处
+            pat = re.compile(rf"({re.escape(ctrl_name)})(，|,|。|；|;)")
+            m = pat.search(out)
+            if m:
+                out = out[:m.end(1)] + f"，身份证号{ctrl_id}" + out[m.end(1):]
+
+    usc = facts.get("uscc")
+    if usc and usc not in out:
+        if re.search(r"(企业|借款人|公司|成立于|申报企业|借款单位)", out) and len(out) > 30:
+            # 追加在段首第一句结尾处
+            m = re.search(r"([。；;])", out)
+            if m:
+                out = out[:m.start()] + f"，统一社会信用代码{usc}" + out[m.start():]
+
+    post_code = facts.get("post_code")
+    phone = facts.get("phone")
+    if (post_code or phone) and ("经营地址" in out or "坐落地点" in out or "经营场所" in out):
+        has_post = post_code and post_code in out
+        has_phone = phone and phone in out
+        if not (has_post and has_phone):
+            extras = []
+            if post_code and not has_post:
+                extras.append(f"邮编{post_code}")
+            if phone and not has_phone:
+                extras.append(f"联系电话{phone}")
+            if extras:
+                # 追加到段末前的最后一个句号前
+                insertion = "，" + "，".join(extras)
+                if out.endswith("。"):
+                    out = out[:-1] + insertion + "。"
+                else:
+                    out = out + insertion
+
+    bank_account = facts.get("bank_account")
+    if bank_account and bank_account not in out:
+        if "开户" in out or "基本账户" in out or "结算账户" in out:
+            if out.endswith("。"):
+                out = out[:-1] + f"，账号{bank_account}。"
+            else:
+                out = out + f"，账号{bank_account}"
+
+    auditor = facts.get("auditor")
+    if auditor and auditor not in out:
+        if "审计" in out and ("事务所" in out or "审计机构" in out or "年报" in out):
+            if out.endswith("。"):
+                out = out[:-1] + f"(审计机构:{auditor})。"
+            else:
+                out = out + f"(审计机构:{auditor})"
+
+    return out
+
+
 def section_batch_rewrite(
     section_elems,
     section_heading: list,
@@ -488,10 +586,27 @@ def section_batch_rewrite(
 
     返回: {location: GenResult}
     异常时对所有 element 产出 pending(不抛错,不阻断 pipeline)。
+
+    若 section_elems 超过 _REWRITE_BATCH_MAX,分批调用,每批独立请求 LLM。
     """
     if not section_elems:
         return {}
 
+    if len(section_elems) > _REWRITE_BATCH_MAX:
+        out_all: dict = {}
+        for i in range(0, len(section_elems), _REWRITE_BATCH_MAX):
+            chunk = section_elems[i:i + _REWRITE_BATCH_MAX]
+            out_all.update(_section_batch_rewrite_once(chunk, section_heading, mats))
+        return out_all
+    return _section_batch_rewrite_once(section_elems, section_heading, mats)
+
+
+def _section_batch_rewrite_once(
+    section_elems,
+    section_heading: list,
+    mats,
+) -> dict:
+    """单次 LLM 调用的 REWRITE 实现(≤ _REWRITE_BATCH_MAX 个 location)."""
     heading_path = " > ".join(section_heading) if section_heading else "(根节)"
     section_title = section_heading[-1] if section_heading else "(未命名)"
 
@@ -630,6 +745,10 @@ def section_batch_rewrite(
                         "text": elem_text_head[:80],
                         "suggested_action": "客户经理补充履历/关联方原始文字后重写",
                     }
+            # 确定性硬字段注入: LLM 可能漏掉身份证号/USC/邮编/电话/银行账号,
+            # 这里按段落语义补齐(不改动 LLM 产出的叙事主干,仅在相关主体首次
+            # 出现且原文无对应标识符时追加)。
+            new_text = _inject_hard_facts(new_text, mats.facts if mats else {})
             if pending is None and "【未能自动填写" in new_text:
                 pending = {
                     "location": e.location,
