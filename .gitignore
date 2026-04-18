@@ -55,11 +55,18 @@ _screenshots/
 ~$*.xlsx
 *.log
 logs/
+fill_run_output.txt
 data/audit/*.jsonl
 data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep
 evaluation/results/*.yaml
+
+# ----------------------------------------------------------------------------
+# UI debug artifacts (playwright traces / 根目录 PNG 探索)
+# ----------------------------------------------------------------------------
+.playwright-mcp/
+/*.png
 
 # ----------------------------------------------------------------------------
 # IDE / OS
