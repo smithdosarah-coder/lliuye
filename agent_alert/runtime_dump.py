@@ -98,10 +98,12 @@ def _serialize_hit(hit, scan_time_ms: float) -> dict[str, Any]:
         }
         for ev in (hit.evidences or [])
     ]
+    trigger_reasons = (hit.extras or {}).get("trigger_reasons", [])
     return {
         "entity_id": hit.target.target_id,
         "name": hit.target.payload.get("company_name", ""),
         "grade": grade,
+        "trigger_reasons": trigger_reasons,
         "evidence": evidence,
         "scan_time_ms": round(scan_time_ms, 2),
         "status": "completed",

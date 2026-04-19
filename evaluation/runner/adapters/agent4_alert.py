@@ -116,8 +116,16 @@ class Agent4AlertEvaluator(BaseEvaluator):
         )
 
         # --- evidence_rate ---
+        # 顺带汇总 Phase 1 Task C 的 trigger_reasons 枚举分布（pass-through,
+        # 不改指标语义；枚举：external_signal / internal_rule / cross_hit，
+        # 定义见 docs/design/alert-trigger-reasons-taxonomy.md）
         red_yellow = [c for c in customers if c.get("grade") in ("red", "yellow")]
         with_evidence = sum(1 for c in red_yellow if c.get("evidence"))
+        reason_tally: dict[str, int] = {}
+        for c in red_yellow:
+            for r in c.get("trigger_reasons", []) or []:
+                reason_tally[r] = reason_tally.get(r, 0) + 1
+        reason_note = ", ".join(f"{k}={v}" for k, v in sorted(reason_tally.items())) or "none"
         if red_yellow:
             out.append(
                 self.mark(
@@ -125,7 +133,10 @@ class Agent4AlertEvaluator(BaseEvaluator):
                     with_evidence / len(red_yellow),
                     method="deterministic",
                     evidence=[art_path] if art_path else [],
-                    note=f"{with_evidence}/{len(red_yellow)} red|yellow customers have non-empty evidence",
+                    note=(
+                        f"{with_evidence}/{len(red_yellow)} red|yellow customers have "
+                        f"non-empty evidence · trigger_reasons[{reason_note}]"
+                    ),
                     kind="common",
                 )
             )
