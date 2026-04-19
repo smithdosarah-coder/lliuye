@@ -590,8 +590,28 @@ spec 完整形态 vs 当前 stub 差距：
 ### 推荐（主 CLI 视角）
 **A** —— user 明确感知 + CLAUDE.md §7 "体验 > 架构优雅度"；但工期膨胀需要 user 确认。
 
-### [A-017] PENDING —— 等用户拍板 A/B/C
+### [A-017] 2026-04-19 16:08 · 主 CLI（用户授权 "下一步任务" = 按主 CLI 推荐走）
 
-**本条需 user 决策**：是否把 Today sheet-card 实装纳入 Stage 3？选 A 加 Task F，选 B 推 Stage 4，选 C 默认不改。
+**Decision**: **A** · Stage 3 追加 Task F 实装 sheet-card 完整规格
+
+**Rationale**:
+- User 已直接观察到 regression 感知（O3 气泡框变早期版本），按 CLAUDE.md §7 "用户体验是所有产品的最高准则，优先级高于技术偏好、代码整洁度、架构优雅度" —— 不能让 user 带着这个观感走
+- Stage 3 的本意就是"workspace 业务组件抽离 + shell 级视觉合格"——把 Today 中间核心 card 留 stub 等于 Stage 3 APPROVED 后 shell 仍不合格
+- 工期影响可控（0.5-1 天），并入 Task D/E 同批派发给 frontend CLI，不额外开窗口
+- B/C 方案实质是"承认 Stage 3 不完整"，与本 Stage 的产品定位冲突
+
+**Follow-up**:
+1. 新建 `docs/onboarding/frontend-stage-3-extension.md` 打包 Task D/E/F 三 Task 派发给 frontend CLI
+2. Task F DoD：
+   - `.v-card` → `.card.warm.sheet-card` 容器升级（class + 色系）
+   - 每条 sheet 添加 tag pill + state + title + sub + **eta** + **sheet-bar 进度条** 结构
+   - idle 条独立灰态视觉区分（不能同 `<li>` 混排）
+   - 新增 `.pv-foot` 尾栏：`.badge "02."` + `.open "打开调度台 ↘"` link
+   - 字段保持 mock 驱动（`DESK_QUICK_CREATE` 风格），prop 类型与现有 `today/page.tsx` 的 mock 数据结构对齐
+   - 实装参照 `design_mockups/shell.html:1882-2240` Today 规格
+3. APPROVED 判定口径：Stage 3 = Task A/B/C（已合）+ D/E/F（本批）全绿
+4. Crimson 主题 playwright 1440 viewport 回归 playwright 截图 4 视图核对 ink-14/28 替代（A-014 Follow-up #3）随 Task F APPROVED 前同批跑
+
+**Signal**: 随 Stage 3 extension onboarding 落盘同 commit emit `A-017-SHEET-CARD-IN-STAGE-3`
 
 ---
