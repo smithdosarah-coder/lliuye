@@ -29,7 +29,7 @@
 | 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | APPROVED |
 | 1 获客 | **Phase 1 APPROVED 2026-04-19** | ✅ | ✅ handoff contract | 🟡 sampling CSV + 红区枚举补齐 | ✅ runner + yaml 单源 + feedback 飞轮 E2E | **86%** | APPROVED |
 | 2 风控 | **Phase 1 APPROVED 2026-04-19** | ✅ | 🟡 ReadOnly 规则展示+导出 JSON（完整编辑器 Phase 2） | 🟡 缺审计 | ✅ runner PASS + per_rule_fpr_spread σ²=0.0002 | **77%** | APPROVED |
-| 4 预警 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ✅ adapter+baseline PARTIAL PASS | **57%** | APPROVED（待 Phase 1） |
+| 4 预警 | **Phase 1 V2 APPROVED 2026-04-19** | ✅ | 🟡 dashboard stub + frontend handoff（实装 Stage 3+） | ✅ trigger_reasons 3 值封闭枚举（零黑名单） | ✅ runner PASS · A-013 白名单 · V1→V2 rewind 合规 | **72%** | APPROVED |
 | 5 合规 | 未启（defer） | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 等 kb_scan 底座稳定 |
 | 前端 Shell | **Stage 3 ext APPROVED 2026-04-19** | — | — | — | — | **—** | D usePathname 核验 + E A-015/016 description/eyebrow + F A-017 Today sheet-card 四主题 |
 
@@ -180,6 +180,7 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 日期 | agent | phase | verdict | reviewer |
 |---|---|---|---|---|
+| 2026-04-19 | 4 预警 | Phase 1 V2 | APPROVED（57→72%；V1 rebase REJECT 后 reset→merge→cherry-pick×4 合规 rewind；Task D 走设计稿 handoff 等 Stage 3+ 实装）| 主 CLI |
 | 2026-04-19 | 2 风控 | Phase 1 | APPROVED（62→77%；Task D ReadOnly 入口+mock，完整编辑器/LLM-judge/σ² 阈值 retune → Phase 2 Batch 2）| 主 CLI |
 | 2026-04-19 | 1 获客 | Phase 1 | APPROVED（82→86%；3 Gap 推 Phase 2 Batch 2）| 主 CLI |
 | 2026-04-19 | 1 获客 | Option 2 Rebase | APPROVED（含 2 Gap）| 主 CLI |
