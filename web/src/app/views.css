@@ -437,6 +437,135 @@
 }
 .v-today .card.feed-card .pv-foot.feed-foot .tail:hover { color: var(--accent); }
 
+/* ═══ Task F · TODAY .card.deep.board-card · mockup L383 + L1783-1902 1:1 ═══ */
+.v-today .card.deep {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--g1) 78%, transparent) 0%,
+    color-mix(in srgb, var(--g4) 84%, transparent) 50%,
+    color-mix(in srgb, var(--g6) 90%, transparent) 100%);
+  color: var(--chalk);
+}
+.v-today .card.deep .tag { color: var(--ch-70); }
+.v-today .card.deep .tag .sum { color: var(--ch-65); }
+.v-today .card.deep h3 { color: var(--chalk); }
+.v-today .card.deep h3 em { color: color-mix(in srgb, var(--accent) 68%, white); }
+
+.v-today .card.board-card { display: flex; flex-direction: column; }
+.v-today .card.board-card .pv-board {
+  flex: 1 1 0; min-height: 0;
+  max-height: 360px;
+  margin-top: 18px;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 10px 10px 12px 10px;
+  display: flex; flex-direction: column; gap: 16px;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+          mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--chalk) 22%, transparent) transparent;
+}
+.v-today .card.board-card .pv-board::-webkit-scrollbar { width: 4px; }
+.v-today .card.board-card .pv-board::-webkit-scrollbar-track { background: transparent; }
+.v-today .card.board-card .pv-board::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--chalk) 22%, transparent);
+  border-radius: 2px;
+}
+
+.v-today .pv-board .note {
+  position: relative;
+  padding: 11px 14px 12px;
+  background: color-mix(in srgb, #FAEDD6 96%, transparent);
+  color: var(--ink);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    0 8px 18px -10px rgba(0,0,0,.45),
+    0 2px 4px -2px rgba(0,0,0,.35);
+  font-family: var(--cjk);
+  cursor: pointer;
+  transition: transform .22s ease, box-shadow .22s ease;
+  will-change: transform;
+}
+.v-today .pv-board .note:nth-child(6n+1) { transform: rotate(-1.4deg); }
+.v-today .pv-board .note:nth-child(6n+2) { transform: rotate(1.1deg); }
+.v-today .pv-board .note:nth-child(6n+3) { transform: rotate(-.6deg); }
+.v-today .pv-board .note:nth-child(6n+4) { transform: rotate(1.6deg); }
+.v-today .pv-board .note:nth-child(6n+5) { transform: rotate(-1deg); }
+.v-today .pv-board .note:nth-child(6n+6) { transform: rotate(.8deg); }
+.v-today .pv-board .note:hover {
+  transform: rotate(0) translateY(-3px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.6) inset,
+    0 14px 26px -12px rgba(0,0,0,.5),
+    0 3px 6px -3px rgba(0,0,0,.4);
+  z-index: 2;
+}
+.v-today .pv-board .note::before {
+  content: "";
+  position: absolute; top: -5px; left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  width: 34px; height: 9px;
+  background: color-mix(in srgb, #FFDA9C 75%, transparent);
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  pointer-events: none;
+}
+.v-today .pv-board .note.p0 { background: color-mix(in srgb, #F3C7AE 96%, transparent); }
+.v-today .pv-board .note.p1 { background: color-mix(in srgb, #FAEDD6 96%, transparent); }
+.v-today .pv-board .note.p2 { background: color-mix(in srgb, #DDE5CC 96%, transparent); }
+.v-today .pv-board .note.done { background: color-mix(in srgb, var(--chalk) 62%, transparent); }
+.v-today .pv-board .note.done .note-title { color: var(--ink-48); text-decoration: line-through; }
+
+.v-today .pv-board .note-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 3px;
+}
+.v-today .pv-board .note-pri {
+  font-family: var(--mono); font-weight: 600;
+  font-size: 9.5px; letter-spacing: .1em;
+  color: var(--ink-65);
+}
+.v-today .pv-board .note.p0 .note-pri { color: #8A3B14; }
+.v-today .pv-board .note-due {
+  font-family: var(--mono); font-size: 9.5px;
+  color: var(--ink-48); letter-spacing: .04em;
+  white-space: nowrap;
+}
+.v-today .pv-board .note.p0 .note-due { color: #8A3B14; font-weight: 500; }
+.v-today .pv-board .note-title {
+  font-family: var(--cjkserif); font-weight: 600;
+  font-size: 13px; color: var(--ink);
+  letter-spacing: -.005em; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.v-today .pv-board .note-src {
+  font-family: var(--cjk); font-size: 10px;
+  color: var(--ink-65);
+  margin-top: 3px;
+  letter-spacing: .01em;
+}
+
+.v-today .card.board-card .pv-foot.board-foot {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--chalk) 18%, transparent);
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ch-65);
+}
+.v-today .card.board-card .pv-foot.board-foot b {
+  font-family: var(--mono); font-weight: 600;
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+}
+.v-today .card.board-card .pv-foot.board-foot .tail {
+  font-family: var(--mono); color: var(--ch-70);
+  letter-spacing: .04em;
+  text-decoration: none;
+}
+.v-today .card.board-card .pv-foot.board-foot .tail:hover {
+  color: color-mix(in srgb, var(--accent) 55%, white);
+}
+
 /* ═══ ARCHIVE view ═══ */
 .v-archive { padding-top: 6px; }
 .v-archive .archive-h {

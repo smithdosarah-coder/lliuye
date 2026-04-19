@@ -108,3 +108,28 @@ export const TODAY_IDLE_SHEETS: IdleSheet[] = [
   { id: "i2", tag: "获客助手 · Agent 1", title: "小微 · 广东建材画像未输入", sub: "需客户经理起草关键词" },
   { id: "i3", tag: "风控助手 · Agent 2", title: "小微 DSL · 待样本投入", sub: "CSV 格式待确认" },
 ];
+
+// Task F: board-card 任务·我的桌上 notes · mockup L3048-3103 1:1
+// - variant 4 态: p0 (加急桃红) / p1 (奶黄) / p2 (抹茶) / done (褪白带删除线)
+// - pri/due/title/src 全取 mockup 原文; 7 条顺序保留
+// - mockup h3 显示 "07 open" + "加急 03" 右上 summary, 对应此列表里 2 x p0 + 4 x (p1|p2) + 1 done = 6 open
+//   注: onboarding 草拟的 "peek-list / pk-bullet 6 变体" 不在 mockup 实际 board-card DOM 里,
+//   按 R-0 mockup 优先, 按 .pv-board .note 结构实作
+export type BoardNote = {
+  id: string;
+  variant: "p0" | "p1" | "p2" | "done";
+  pri: string;
+  due: string;
+  title: string;
+  src: string;
+};
+
+export const TODAY_BOARD_NOTES: BoardNote[] = [
+  { id: "nt-01", variant: "p0",   pri: "P0 · 加急", due: "今日 12:00", title: "宁海汇通 QC 终审签字",     src: "报告助手交付 · 审贷会前截点" },
+  { id: "nt-02", variant: "p0",   pri: "P0 · 加急", due: "今日 14:00", title: "§214 新政 · 合规意见",     src: "合规助手命中 4 户 · 待判" },
+  { id: "nt-03", variant: "p1",   pri: "P1",         due: "今日 17:00", title: "风险月会纪要 · 初稿",       src: "华东线分行 · 9 人参会" },
+  { id: "nt-04", variant: "p1",   pri: "P1",         due: "明日",       title: "星河医药 · 贷后复核",       src: "预警助手入榜 · 黄色观察" },
+  { id: "nt-05", variant: "p2",   pri: "P2",         due: "周五",       title: "小微样本筛选 · DSL 起草",   src: "风控助手输入待备齐" },
+  { id: "nt-06", variant: "p2",   pri: "P2",         due: "下周一",     title: "河东纺织访谈纪要",         src: "客户经理口述 · 需整理" },
+  { id: "nt-07", variant: "done", pri: "已完成",     due: "09:30",      title: "华东线晨会议程确认",       src: "5 位参会 · 已同步日历" },
+];

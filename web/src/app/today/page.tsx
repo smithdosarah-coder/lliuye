@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { BoardCard } from "@/components/today/BoardCard";
 import { FeedCard } from "@/components/today/FeedCard";
 import { Hero } from "@/components/today/Hero";
 import {
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
-  TODAY_TASKS,
 } from "@/lib/mock/today";
 
 export const metadata = {
@@ -77,29 +77,8 @@ export default function TodayPage() {
           <div className="badge">02.</div>
         </Link>
 
-        {/* 任务 */}
-        <Link href="/warroom" className="v-card">
-          <div className="v-card-tag">
-            <span className="dash" />
-            任务 · Warroom
-            <span className="sum">{TODAY_TASKS.length} TASKS</span>
-          </div>
-          <div className="v-card-h">
-            {TODAY_TASKS.length}
-            <em>queued</em>
-          </div>
-          <ul>
-            {TODAY_TASKS.map((t) => (
-              <li key={t.id}>
-                <span>
-                  <span className={`prio ${t.prio}`}>{t.prio}</span>
-                  {t.title}
-                </span>
-                <span className="ts">{t.due}</span>
-              </li>
-            ))}
-          </ul>
-        </Link>
+        {/* Task F · 任务 · 我的桌上 board-card (深色) */}
+        <BoardCard />
       </div>
     </div>
   );
