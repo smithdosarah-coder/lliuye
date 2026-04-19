@@ -651,3 +651,67 @@ Task C DoD 要求"每模板跑 runner → `evaluation/results/6_*.yaml` ≥ 5 �
 **Signal**: `A-018-PENDING-BUSINESS-DATA-RATIFIED`（主 CLI commit 同步 emit）
 
 ---
+
+### [A-012.E] 2026-04-19 17:00 · 主 CLI（主动 · agent4 rebase 触发）
+
+**Decision**: **Upstream catch-up 只许 `git merge --no-ff`，禁 `git rebase` / `git pull --rebase` / `cherry-pick` 作等价替代。**
+
+**触发事件**：agent4 worker 为吸收 A-013 α kernel 选择 `git rebase upstream/chore/l0-infra`，reflog 证据：
+```
+e3acbbb feat/agent4-productize@{1}: rebase (finish): onto 73d6732c41cf233fb035f85991b22467ab79dd1d
+a972e4c feat/agent4-productize@{2}: window-close: Phase 0 approved  ← 原 SHA（已被主 CLI review 引用）
+```
+rebase rewrite 了 `a972e4c` → `e3acbbb`，破 A-012.D。对比 agent2 同日同需求选 `git merge --no-ff`（`9b78130 Merge made by the 'ort' strategy`），SHA 全保留，合规示范。
+
+**Rationale**：
+- A-012.D 硬约束是"已引用 SHA 不可重写"。rebase 的本质就是 replay commits on new base → 所有 commit SHA 全部 rewrite。单个 rebase 动作就能把整条 Phase 0~N 的 review 证据链全部失效
+- Merge commit 虽多一条 graph line，但保原 SHA 可追溯；git history 复杂度是可接受的交换
+- `git pull --rebase` 是 rebase 的隐式形式，同禁；`git cherry-pick` 把别处 commit 拷贝到当前分支会生成新 SHA，但不重写已有 SHA，**允许但需自报为 cherry-pick 动作（commit msg 标明源 SHA）**
+- "linear history"美学不是 banking delivery 的硬需求；SHA 可审计性是
+
+**硬命令**（worker 照搬）：
+```bash
+# ✅ 正确：add-only merge
+git fetch upstream <branch>
+git merge upstream/<branch> --no-ff
+# 冲突解决后 git commit（不需 --amend）
+
+# ❌ 禁止
+git rebase upstream/<branch>
+git pull --rebase
+git rebase -i <any>  # 任何 interactive rebase
+git reset --hard <任何跨越 review 边界的 SHA>   # Phase 内部 reset 宽容
+git push --force / --force-with-lease
+git commit --amend <任何已 push / 已 signal 的 commit>
+```
+
+**纠正 playbook**（reset-hard 仅作 rebase 违规的 rollback，本身不违规）：
+```bash
+# 1. 恢复原 SHA（reflog 查原 SHA，objects 尚未 gc 可取）
+git reset --hard <pre-rebase-SHA>
+
+# 2. 改用合规 merge
+git fetch upstream <branch>
+git merge upstream/<branch> --no-ff
+
+# 3. 重出 ack commit 标明 "post-reject V2"
+git commit --allow-empty -m "ack(<agent>): <phase> onboarding absorbed (post-reject V2)" \
+  --trailer "Signal: <AGENT>-<PHASE>-ACK-V2"
+```
+
+**Enforcement**：
+- 每次 worker emit `*-ACK` / `READY-FOR-REVIEW` / `WINDOW-CLOSED-CLEAN`，主 CLI 对应 reviewer 必查：
+  ```bash
+  git reflog <branch> | grep -iE 'rebase|amend|force'  # 命中 0 才算合规
+  ```
+- 命中即 REJECT + reset-hard playbook 纠正（即使 rebase 结果 diff 等价）。**A-012.D/E 是形式正确 over 结果正确** — SHA 可审计性比整洁性重要
+- Cherry-pick 例外：允许但 worker 必须在 commit msg 显式 `Cherry-pick from <source-SHA>`；reviewer 校验源 SHA 存在且语义一致
+
+**Follow-up**：
+1. `docs/handoff/shared-change-protocol.md`（主 CLI 未起草稿）正式落 §merge-only 条款时引本 A-012.E
+2. 后续 Phase onboarding §硬规则节加"upstream catch-up = merge-only"一条，覆盖 agent2/4 Phase 1 + agent1/3/6 后续 Phase
+3. 本 A-012.E 追溯覆盖 agent2 `9b78130` merge（合规，记正面示范）+ agent4 `e3acbbb` rebase（违规，已 REJECT，待 reset-hard 纠正）
+
+**Signal**: `A-012.E-MERGE-ONLY-RULE`（主 CLI commit 同步 emit）
+
+---
