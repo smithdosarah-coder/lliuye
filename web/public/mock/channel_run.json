@@ -1,0 +1,216 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 对齐 agent_channel/realtime_stream.run_channel_search_stream() 6-stage SSE: parse → signal_scan → aggregate → enrich → pitch → rank → done{candidates, metrics, data_source}",
+  "_data_lineage": "scenario=hangzhou_precision · query='杭州精密制造'; 候选企业抽自 demo_data/agent_channel/scenarios/hangzhou_precision/customers.csv 真实名录（宁波华联轴承 / 苏州锐锋新材料 / 无锡晶华半导体装备 / 杭州钱塘精工 / 宁波北仑智造 / 嘉兴天工电子）",
+  "scenario": "hangzhou_precision",
+  "scenarios": [
+    {"key": "hangzhou_precision", "name": "杭州精密制造 look-alike", "desc": "某城商行普惠部已有 30 家浙江精密制造小微客户，结合省专精特新小巨人政策拓展相似客户"},
+    {"key": "shenzhen_tech", "name": "深圳科技企业 look-alike", "desc": "深圳科技企业，pre-A / A 轮"}
+  ],
+  "run_mock_events": [
+    {"event": "stage", "stage": "parse", "status": "running", "message": "解析用户意图..."},
+    {"event": "stage", "stage": "parse", "status": "done", "tags": [
+      {"category": "区域", "value": "杭州"},
+      {"category": "行业", "value": "精密制造"},
+      {"category": "规模", "value": "营收 5000万-2亿"},
+      {"category": "资质", "value": "专精特新"}
+    ]},
+    {"event": "stage", "stage": "signal_scan", "status": "running", "message": "5 路信号并行搜索（中标/认可/技术/增长/获奖）..."},
+    {"event": "progress", "stage": "signal_scan", "route": "bidding", "signals": 3, "routes_done": 1, "routes_total": 5},
+    {"event": "progress", "stage": "signal_scan", "route": "recognition", "signals": 4, "routes_done": 2, "routes_total": 5},
+    {"event": "progress", "stage": "signal_scan", "route": "tech", "signals": 5, "routes_done": 3, "routes_total": 5},
+    {"event": "progress", "stage": "signal_scan", "route": "growth", "signals": 2, "routes_done": 4, "routes_total": 5},
+    {"event": "progress", "stage": "signal_scan", "route": "award", "signals": 3, "routes_done": 5, "routes_total": 5},
+    {"event": "stage", "stage": "signal_scan", "status": "done", "count": 17, "data_source": "mock_forced"},
+    {"event": "stage", "stage": "aggregate", "status": "running", "message": "实体聚合去重..."},
+    {"event": "stage", "stage": "aggregate", "status": "done", "total": 6},
+    {"event": "stage", "stage": "enrich", "status": "running", "message": "企查查补全工商信息 + 产品匹配..."},
+    {"event": "stage", "stage": "enrich", "status": "done", "count": 6},
+    {"event": "stage", "stage": "pitch", "status": "running", "message": "生成个性化切入话术..."},
+    {"event": "stage", "stage": "pitch", "status": "done"},
+    {"event": "stage", "stage": "rank", "status": "running", "message": "信号密度排序..."},
+    {"event": "stage", "stage": "rank", "status": "done"}
+  ],
+  "done": {
+    "event": "done",
+    "data_source": "mock_forced",
+    "metrics": {"signalTotal": 17, "companiesFound": 6, "final": 6},
+    "candidates": [
+      {
+        "name": "苏州锐锋新材料有限公司",
+        "signalScore": 92,
+        "signalCount": 4,
+        "source": "external",
+        "region": "江苏省苏州市",
+        "industry": "制造业-新材料",
+        "uscc": "91320500MA2EXAMPLE1",
+        "registeredCapital": "5000万",
+        "founded": "2017-06",
+        "legalRep": "李某",
+        "employees": 86,
+        "mainBusiness": "复合材料研发与生产",
+        "signals": [
+          {"type": "recognition", "title": "国家专精特新小巨人企业公示", "detail": "工信部第六批专精特新小巨人名单发布，苏州锐锋新材料入选（新材料赛道）", "date": "2025-12-18", "source": "工信部公示", "url": "https://www.miit.gov.cn/mock/spxj-2025-6"},
+          {"type": "tech", "title": "发明专利 CN202511234567.8 授权", "detail": "高强度碳纤维复合材料制备方法", "date": "2025-11-22", "source": "国知局专利数据", "url": "https://www.cnipa.gov.cn/mock/patent/202511234567"},
+          {"type": "bidding", "title": "中标长三角 G60 科创走廊材料采购", "detail": "中标金额 2800 万元", "date": "2025-10-05", "source": "中国政府采购网", "url": "https://www.ccgp.gov.cn/mock/2025-10-05-rf"},
+          {"type": "growth", "title": "年度营收同比 +32%", "detail": "2025 年营收预计 6300 万（2024 年 4800 万）", "date": "2026-01-08", "source": "公司官方披露", "url": "https://rfcl.com.mock/news/20260108"}
+        ],
+        "matchTags": ["专精特新", "新材料", "发明专利", "高新技术"],
+        "recommendedProducts": [
+          {"name": "专精特新信用贷", "quota": "最高 1000 万", "rate": "年化 3.85%", "fit": 0.94},
+          {"name": "知识产权质押贷", "quota": "最高 800 万", "rate": "年化 4.2%", "fit": 0.88}
+        ],
+        "pitch": "贵司近期入选工信部第六批专精特新小巨人名单、获得碳纤维复合材料发明专利授权，我行专精特新信用贷可凭工信部名单 + 专利质押最高授信 1000 万，年化 3.85% 起。是否方便本周约个时间对接？",
+        "dataSources": [
+          {"label": "工信部公示", "hint": "https://www.miit.gov.cn/mock/spxj-2025-6"},
+          {"label": "国知局专利数据", "hint": "https://www.cnipa.gov.cn/mock/patent/"},
+          {"label": "中国政府采购网", "hint": "https://www.ccgp.gov.cn/mock/"}
+        ]
+      },
+      {
+        "name": "无锡晶华半导体装备有限公司",
+        "signalScore": 88,
+        "signalCount": 3,
+        "source": "external",
+        "region": "江苏省无锡市",
+        "industry": "制造业-半导体装备",
+        "uscc": "91320200MA2EXAMPLE2",
+        "registeredCapital": "8000万",
+        "founded": "2015-09",
+        "legalRep": "周某",
+        "employees": 142,
+        "mainBusiness": "半导体制造装备研发",
+        "signals": [
+          {"type": "recognition", "title": "国家专精特新小巨人企业", "detail": "工信部第五批专精特新小巨人名单", "date": "2024-07", "source": "工信部公示", "url": "https://www.miit.gov.cn/mock/spxj-2024-5"},
+          {"type": "tech", "title": "12 英寸硅片清洗设备产线通线", "detail": "自主研发 300mm 硅片清洗设备完成国产客户首台验证", "date": "2025-11-03", "source": "行业媒体 · 半导体技术评论", "url": "https://semi-tech.cn.mock/2025/1103/jinghua"},
+          {"type": "bidding", "title": "长江存储装备采购合同", "detail": "中标金额 1.2 亿元", "date": "2025-09-15", "source": "公司公告", "url": "https://jinghua-semi.com.mock/ir/20250915"}
+        ],
+        "matchTags": ["专精特新", "半导体", "高新技术", "国产替代"],
+        "recommendedProducts": [
+          {"name": "科创易贷", "quota": "最高 3000 万", "rate": "年化 3.95%", "fit": 0.91},
+          {"name": "订单融资贷", "quota": "按订单 70%", "rate": "年化 4.1%", "fit": 0.85}
+        ],
+        "pitch": "贵司是半导体装备国产替代的头部选手，近期拿下长江存储 1.2 亿订单。我行科创易贷可凭在手订单 + 专精特新资质授信最高 3000 万，订单融资贷还可按订单 70% 预支回款。",
+        "dataSources": [
+          {"label": "工信部公示", "hint": "https://www.miit.gov.cn/mock/"},
+          {"label": "半导体技术评论", "hint": "https://semi-tech.cn.mock/"},
+          {"label": "公司公告", "hint": "https://jinghua-semi.com.mock/"}
+        ]
+      },
+      {
+        "name": "杭州钱塘精工有限公司",
+        "signalScore": 85,
+        "signalCount": 3,
+        "source": "external",
+        "region": "浙江省杭州市",
+        "industry": "制造业-精密加工",
+        "uscc": "91330100MA2EXAMPLE3",
+        "registeredCapital": "3000万",
+        "founded": "2016-04",
+        "legalRep": "张某",
+        "employees": 64,
+        "mainBusiness": "五轴 CNC 精密加工",
+        "signals": [
+          {"type": "recognition", "title": "浙江省专精特新中小企业", "detail": "浙江省经信厅 2025 年专精特新公示", "date": "2025-12-01", "source": "浙江省经信厅", "url": "https://jxt.zj.gov.cn/mock/zjtx-2025"},
+          {"type": "tech", "title": "五轴高速铣削工艺发明专利 3 件", "detail": "2025 年新增 3 件发明专利授权", "date": "2025-10-28", "source": "国知局专利数据", "url": "https://www.cnipa.gov.cn/mock/qtjg"},
+          {"type": "award", "title": "中国机床协会 年度创新奖", "detail": "五轴联动精密加工技术银奖", "date": "2025-11-20", "source": "中国机床工具工业协会", "url": "https://www.cmtba.org.cn/mock/2025"}
+        ],
+        "matchTags": ["专精特新", "精密加工", "发明专利", "高新技术"],
+        "recommendedProducts": [
+          {"name": "专精特新信用贷", "quota": "最高 800 万", "rate": "年化 3.85%", "fit": 0.92},
+          {"name": "设备按揭贷", "quota": "按设备 70%", "rate": "年化 4.05%", "fit": 0.80}
+        ],
+        "pitch": "贵司五轴铣削工艺 3 件发明专利 + 省专精特新认定，我行专精特新信用贷最高 800 万，另可用五轴 CNC 设备抵押做按揭贷支持产能扩张。",
+        "dataSources": [
+          {"label": "浙江省经信厅", "hint": "https://jxt.zj.gov.cn/mock/"},
+          {"label": "国知局专利数据", "hint": "https://www.cnipa.gov.cn/mock/"},
+          {"label": "中国机床工具工业协会", "hint": "https://www.cmtba.org.cn/mock/"}
+        ]
+      },
+      {
+        "name": "宁波北仑智造有限公司",
+        "signalScore": 81,
+        "signalCount": 3,
+        "source": "external",
+        "region": "浙江省宁波市",
+        "industry": "制造业-智能装备",
+        "uscc": "91330200MA2EXAMPLE4",
+        "registeredCapital": "6000万",
+        "founded": "2014-11",
+        "legalRep": "陈某",
+        "employees": 98,
+        "mainBusiness": "工业机器人与自动化产线集成",
+        "signals": [
+          {"type": "recognition", "title": "国家专精特新小巨人企业", "detail": "工信部第六批", "date": "2025-12-18", "source": "工信部公示", "url": "https://www.miit.gov.cn/mock/spxj-2025-6"},
+          {"type": "growth", "title": "募投产线正式投产", "detail": "北仑智能工厂二期 2 亿元投资项目完成通线", "date": "2025-12-05", "source": "宁波日报", "url": "https://news.cnnb.com.cn/mock/20251205"},
+          {"type": "bidding", "title": "大型家电厂自动化产线中标", "detail": "中标金额 6500 万", "date": "2025-09-28", "source": "公司官方披露", "url": "https://bl-zz.com.mock/news/20250928"}
+        ],
+        "matchTags": ["专精特新", "智能制造", "高新技术"],
+        "recommendedProducts": [
+          {"name": "专精特新信用贷", "quota": "最高 1500 万", "rate": "年化 3.85%", "fit": 0.89},
+          {"name": "项目建设贷", "quota": "最高 3000 万", "rate": "年化 4.35%", "fit": 0.82}
+        ],
+        "pitch": "贵司北仑智能工厂二期刚通线、专精特新小巨人刚公示，我行专精特新信用贷 1500 万 + 项目建设贷 3000 万可做组合授信覆盖二期投产运营。",
+        "dataSources": [
+          {"label": "工信部公示", "hint": "https://www.miit.gov.cn/mock/"},
+          {"label": "宁波日报", "hint": "https://news.cnnb.com.cn/mock/"}
+        ]
+      },
+      {
+        "name": "嘉兴天工电子有限公司",
+        "signalScore": 76,
+        "signalCount": 2,
+        "source": "external",
+        "region": "浙江省嘉兴市",
+        "industry": "制造业-电子元器件",
+        "uscc": "91330400MA2EXAMPLE5",
+        "registeredCapital": "4000万",
+        "founded": "2016-08",
+        "legalRep": "钱某",
+        "employees": 72,
+        "mainBusiness": "高速连接器研发与制造",
+        "signals": [
+          {"type": "recognition", "title": "浙江省专精特新小巨人", "detail": "浙江省经信厅公示", "date": "2025-10-12", "source": "浙江省经信厅", "url": "https://jxt.zj.gov.cn/mock/zjxj-2025-spxj"},
+          {"type": "tech", "title": "新增发明专利 2 件", "detail": "高速差分连接器阻抗匹配方法", "date": "2025-09-15", "source": "国知局专利数据", "url": "https://www.cnipa.gov.cn/mock/tg-2509"}
+        ],
+        "matchTags": ["专精特新", "电子", "高新技术"],
+        "recommendedProducts": [
+          {"name": "专精特新信用贷", "quota": "最高 800 万", "rate": "年化 3.85%", "fit": 0.87},
+          {"name": "订单融资贷", "quota": "按订单 70%", "rate": "年化 4.1%", "fit": 0.75}
+        ],
+        "pitch": "贵司专精特新小巨人 + 发明专利新增，我行可提供 800 万专精特新信用贷，审批可在 10 个工作日内完成。",
+        "dataSources": [
+          {"label": "浙江省经信厅", "hint": "https://jxt.zj.gov.cn/mock/"},
+          {"label": "国知局专利数据", "hint": "https://www.cnipa.gov.cn/mock/"}
+        ]
+      },
+      {
+        "name": "宁波华联轴承有限公司",
+        "signalScore": 72,
+        "signalCount": 2,
+        "source": "external",
+        "region": "浙江省宁波市",
+        "industry": "制造业-轴承制造",
+        "uscc": "91330200MA2EXAMPLE6",
+        "registeredCapital": "3500万",
+        "founded": "2015-05",
+        "legalRep": "孙某",
+        "employees": 58,
+        "mainBusiness": "精密轴承制造",
+        "signals": [
+          {"type": "recognition", "title": "国家高新技术企业 + 专精特新小巨人", "detail": "双资质在列", "date": "2025-07-01", "source": "工信部公示", "url": "https://www.miit.gov.cn/mock/spxj-2024-5"},
+          {"type": "growth", "title": "2025 年营收 4800 万", "detail": "同比 +15%", "date": "2026-01-15", "source": "公司官方披露", "url": "https://hl-bearing.com.mock/news/20260115"}
+        ],
+        "matchTags": ["专精特新", "高新技术", "制造业"],
+        "recommendedProducts": [
+          {"name": "专精特新信用贷", "quota": "最高 600 万", "rate": "年化 3.85%", "fit": 0.84}
+        ],
+        "pitch": "贵司高新技术企业 + 专精特新双资质、营收 15% 稳步增长，我行专精特新信用贷 600 万可作流动资金补充，审批周期约 10 个工作日。",
+        "dataSources": [
+          {"label": "工信部公示", "hint": "https://www.miit.gov.cn/mock/"},
+          {"label": "公司官方披露", "hint": "https://hl-bearing.com.mock/"}
+        ]
+      }
+    ]
+  }
+}

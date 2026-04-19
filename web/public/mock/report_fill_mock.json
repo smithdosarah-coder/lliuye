@@ -1,0 +1,173 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 对齐 agent_report/api.py _mock_stream(): 5 stage + sections 流 + done 含 session_id / report_docx_url / enterprise_profile / pending_questions / downstream_handoff / payload",
+  "_data_lineage": "preset=dingsheng_trade / business_line=corporate; enterprise_profile 抽自 agent_report/mock_fixtures._EMBEDDED_STUBS['dingsheng_trade']，与 agent_credit/mock_data/corporate_profiles/dingsheng_trade.json 字段对齐；sections 取自 preset.chapters",
+  "preset": "dingsheng_trade",
+  "business_line": "corporate",
+  "stages": [
+    {"event": "stage", "stage": "ingest", "progress": 0.2, "message": "材料上传解析中..."},
+    {"event": "stage", "stage": "extract", "progress": 0.4, "message": "结构化数据抽取中..."},
+    {"event": "stage", "stage": "infer", "progress": 0.6, "message": "企业画像与财务指标推断中..."},
+    {"event": "stage", "stage": "write", "progress": 0.8, "message": "报告章节生成中..."},
+    {"event": "stage", "stage": "audit", "progress": 1.0, "message": "数值校验与合规复核中..."}
+  ],
+  "sections": [
+    {
+      "event": "section",
+      "section": {
+        "id": "chapter_1_background",
+        "title": "一、企业背景",
+        "content": "鼎盛商贸有限公司成立于 2018 年，注册资本 1000 万元，主营建材批发，近年受下游地产行业调整影响明显。"
+      }
+    },
+    {
+      "event": "section",
+      "section": {
+        "id": "chapter_2_operation",
+        "title": "二、经营情况",
+        "content": "公司 2025 年营收同比下滑 18%，主要客户为关联公司鼎盛地产（地产开发商），客户依赖度严重，回款周期拉长。"
+      }
+    },
+    {
+      "event": "section",
+      "section": {
+        "id": "chapter_3_finance",
+        "title": "三、财务分析",
+        "content": "资产负债率 80%，净利润亏损 420 万元，经营性现金流 -680 万元，速动比率仅 0.6，短期偿债压力突出。"
+      }
+    },
+    {
+      "event": "section",
+      "section": {
+        "id": "chapter_4_conclusion",
+        "title": "四、审批意见",
+        "content": "（待 Agent3 回填审批意见）"
+      }
+    }
+  ],
+  "done": {
+    "event": "done",
+    "session_id": "mock-dingsheng-0001",
+    "report_docx_url": "/api/report/downloads/legacy/demo-fallback-dingsheng_trade.docx",
+    "enterprise_profile": {
+      "profile_id": "corp_dingsheng_001",
+      "company_name": "鼎盛商贸有限公司",
+      "unified_credit_code": "91440000MAZZEXAMPLE",
+      "industry": "F51-批发业",
+      "establishment_date": "2018-03-15",
+      "registered_capital": "1000",
+      "employee_count": 42,
+      "region": "广东省佛山市",
+      "main_business": "建材批发与代理",
+      "controller_name": "王某",
+      "controller_share_pct": "80%",
+      "business_line": "corporate",
+      "financial_anchors": {
+        "revenue_latest": 18000,
+        "revenue_prev": 22000,
+        "net_profit_latest": -420,
+        "net_profit_prev": 350,
+        "total_assets": 9600,
+        "total_liabilities": 7680,
+        "net_assets": 1920,
+        "accounts_receivable": 4500,
+        "inventory": 2200,
+        "operating_cash_flow": -680,
+        "short_term_borrowing": 4200,
+        "ebitda": -180,
+        "period": "2025年度"
+      },
+      "guarantee_info": {
+        "type": "保证",
+        "collateral": "无抵押",
+        "collateral_value": 0,
+        "collateral_type": "无",
+        "guarantor": "法人连带保证（个人资产单一）"
+      },
+      "related_party_info": {
+        "related_party_revenue_pct": 0.45,
+        "related_party_txn_desc": "大量交易来自关联公司鼎盛地产，年度金额 8100 万，占营收 45%"
+      },
+      "existing_credit": {
+        "total_approved": 800,
+        "total_used": 800,
+        "overdue_history": "2024 年曾出现 M1 逾期 1 次（已结清）"
+      },
+      "tax_rating": "C",
+      "request": {
+        "amount": 500,
+        "purpose": "补充流动资金",
+        "term_months": 12
+      },
+      "chapters": {
+        "chapter_1_background": "鼎盛商贸有限公司成立于 2018 年，注册资本 1000 万元，主营建材批发，近年受下游地产行业调整影响明显。",
+        "chapter_2_operation": "公司 2025 年营收同比下滑 18%，主要客户为关联公司鼎盛地产，客户依赖度严重，回款周期拉长。",
+        "chapter_3_finance": "资产负债率 80%，净利润亏损 420 万元，经营性现金流 -680 万元，速动比率仅 0.6，短期偿债压力突出。",
+        "chapter_4_conclusion": "（待 Agent3 回填审批意见）"
+      },
+      "source_materials": [
+        "鼎盛商贸_工商档案.docx",
+        "鼎盛商贸_2025年度审计报告.pdf",
+        "鼎盛商贸_人行征信报告.pdf",
+        "鼎盛商贸_授信申请表.docx",
+        "鼎盛商贸_近12个月银行流水.xlsx"
+      ],
+      "generated_at": "2026-04-19T21:30:00"
+    },
+    "pending_questions": [
+      {
+        "id": "q_ext_001",
+        "section_id": "chapter_2_operation",
+        "question": "借款人下游地产行业调整的持续时间与应对措施？",
+        "hint": "请说明已签订未交付订单规模、是否已与客户协商延期或替换客户",
+        "input_type": "textarea"
+      },
+      {
+        "id": "q_ext_002",
+        "section_id": "chapter_3_finance",
+        "question": "近 6 个月应收账款回收情况评分（1-5，1=很差，5=很好）",
+        "hint": "请结合账龄结构给出判断",
+        "input_type": "scale"
+      }
+    ],
+    "downstream_handoff": {
+      "credit": "/credit?preset=dingsheng_trade",
+      "alert": "/alert?preset=dingsheng_trade",
+      "compliance": "/compliance?preset=dingsheng_trade"
+    },
+    "payload": {
+      "stats": {
+        "total_fields": 492,
+        "auto_filled": 460,
+        "unfilled": 32
+      },
+      "fields_filled": 460,
+      "fields_marked_unfilled": 32,
+      "coverage_rate": 0.935,
+      "financial_metrics": {
+        "debt_ratio": 0.80,
+        "current_ratio": 0.96,
+        "quick_ratio": 0.60,
+        "revenue_growth": -0.18,
+        "net_profit_margin": -0.023,
+        "operating_cash_flow_ratio": -0.038,
+        "related_party_concentration": 0.45,
+        "_calculation_source": "financial_analyzer.py (确定性计算，不经过 LLM)"
+      },
+      "evidence_links": [
+        {"claim": "资产负债率 80%", "source": "鼎盛商贸_2025年度审计报告.pdf", "page": 14, "calc": "总负债 7680 / 总资产 9600"},
+        {"claim": "营收同比下滑 18%", "source": "鼎盛商贸_2025年度审计报告.pdf", "page": 8, "calc": "(18000 - 22000) / 22000"},
+        {"claim": "关联方营收占比 45%", "source": "鼎盛商贸_关联交易审计说明.pdf", "page": 3, "calc": "鼎盛地产交易额 8100 / 总营收 18000"},
+        {"claim": "M1 逾期 1 次 (2024)", "source": "鼎盛商贸_人行征信报告.pdf", "page": 6, "calc": "征信报告逾期记录"}
+      ],
+      "qc_report": {
+        "placeholder_leak": 0,
+        "evidence_link_completeness": 0.98,
+        "financial_number_consistency": 1.0,
+        "compliance_terminology_rate": 0.94,
+        "passed": true,
+        "_blocker_thresholds": "placeholder=0 · evidence>=0.9 · consistency=1.0 · terminology>=0.9"
+      }
+    }
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 对齐 docs/contracts/shell-v1-agent-api-map.md §Agent4 第 8 条: {version, generated_at, source, summary, customers[{entity_id,name,grade,trigger_reasons[],evidence[],scan_time_ms,status}], tool_calls, whitelist_entity_ids}",
+  "_data_lineage": "从 evaluation/manual/4_20260419.yaml 真跑产物抽取子集 (git commit e18028f0d75eb2bfc1c57ffe9465fb01e3a591fb 快照); 全部 10 条 red + 7 条 yellow + 前 3 条 green = 20 条; LC10001 华联精密 cross_hit 三路命中完整保留; summary/tool_calls 照搬原始 yaml",
+  "version": "runtime-v1",
+  "generated_at": "2026-04-19T09:03:12Z",
+  "source": {
+    "agent": "alert",
+    "git_commit": "e18028f0d75eb2bfc1c57ffe9465fb01e3a591fb",
+    "kb_scenario": "demo_data/agent_alert",
+    "search_provider": "MockSearchProvider (demo_mode=True)"
+  },
+  "summary": {
+    "total_scanned": 100,
+    "red": 3,
+    "yellow": 7,
+    "green": 90,
+    "fixture_shown_count": 13,
+    "fixture_shown_note": "fixture 全量展示 red 3 + yellow 7 + green 前 3 = 13 条；完整 100 客户见 evaluation/manual/4_20260419.yaml"
+  },
+  "trigger_reason_distribution": {
+    "external_signal": 7,
+    "internal_rule": 1,
+    "cross_hit": 2,
+    "none": 90,
+    "_taxonomy_ref": "docs/design/alert-trigger-reasons-taxonomy.md (3 值闭包枚举)"
+  },
+  "tool_calls": {"total": 200, "success": 200},
+  "whitelist_entity_ids": [
+    "LC10001","LC10002","LC10003","LC10101","LC10102","LC10103","LC10104","LC10105","LC10106","LC10107",
+    "LC20001","LC20002","LC20003"
+  ],
+  "customers": [
+    {
+      "entity_id": "LC10001",
+      "name": "华联精密制造有限公司",
+      "grade": "red",
+      "trigger_reasons": ["cross_hit"],
+      "evidence": [
+        {"type": "external", "signal": "原告诉请被告华联精密制造有限公司支付货款 1200 万元及违约金。", "source": "裁判文书网 (2025)沪0115民初12345号", "url": "https://wenshu.court.gov.cn/mock/2025_0115_12345"},
+        {"type": "external", "signal": "2025Q4 净利润-680万；被列为被告涉诉标的1200万；核心客户（占营收35%）进入重整程序", "source": "客户风险标签", "url": ""},
+        {"type": "internal", "signal": "第十一条 核心关联方出险的强制预警线：关联方；重整；预警线；主要客户；破产", "source": "本行制度 internal_policy.md", "url": ""}
+      ],
+      "scan_time_ms": 0.42,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10002",
+      "name": "兴业通达贸易有限公司",
+      "grade": "red",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "实控人发生变更；大股东持有的60%股权被司法冻结；资产负债率攀升至83.2%", "source": "客户风险标签", "url": ""},
+        {"type": "external", "signal": "近日企查查显示，兴业通达贸易有限公司完成实控人变更，大股东 60% 股权被司法冻结。", "source": "舆情 · 2026-01-08 兴业通达贸易实控人变更，大股东股权被司法冻结", "url": "https://news.mock/cj/20260108/xingye-controller-change"}
+      ],
+      "scan_time_ms": 0.12,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10003",
+      "name": "德昌五金制品有限公司",
+      "grade": "red",
+      "trigger_reasons": ["cross_hit"],
+      "evidence": [
+        {"type": "external", "signal": "德昌五金制品有限公司因未履行生效判决被列入失信被执行人名单。", "source": "裁判文书网 (2025)苏0583执恢1289号", "url": "https://wenshu.court.gov.cn/mock/2025_0583_1289"},
+        {"type": "external", "signal": "被列入失信被执行人名单；工厂停产超过 15 天；贷后现场检查已逾期 42 天", "source": "客户风险标签", "url": ""},
+        {"type": "internal", "signal": "贷后检查缺位：贷后检查；缺位；逾期", "source": "本行制度 internal_policy.md", "url": ""}
+      ],
+      "scan_time_ms": 0.09,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10101",
+      "name": "恒达汽配有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "应收账款周转天数从 45 天升至 78 天；行业景气下行", "source": "客户风险标签", "url": ""}
+      ],
+      "scan_time_ms": 0.08,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10102",
+      "name": "瑞丰五金有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "资产负债率 72.1% 触及黄线；近期发生经营范围变更", "source": "客户风险标签", "url": ""}
+      ],
+      "scan_time_ms": 0.08,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10103",
+      "name": "金泰电子有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "消费电子行业景气下行；毛利率同比下降 6 个百分点", "source": "客户风险标签", "url": ""}
+      ],
+      "scan_time_ms": 0.08,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10104",
+      "name": "永盛包装材料有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "涉及货款纠纷 180 万元，已开庭审理。", "source": "裁判文书网 (2025)苏01民初8891号", "url": "https://wenshu.court.gov.cn/mock/2025_0100_8891"}
+      ],
+      "scan_time_ms": 0.07,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10105",
+      "name": "华丰物流有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["internal_rule"],
+      "evidence": [
+        {"type": "internal", "signal": "贷后检查缺位：贷后检查；缺位；逾期", "source": "本行制度 internal_policy.md", "url": ""}
+      ],
+      "scan_time_ms": 0.07,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10106",
+      "name": "大明机械有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "主要客户 A 占营收 34% 终止合作；2025Q4 营收环比下降 8%", "source": "客户风险标签", "url": ""}
+      ],
+      "scan_time_ms": 0.07,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC10107",
+      "name": "鑫源纺织有限公司",
+      "grade": "yellow",
+      "trigger_reasons": ["external_signal"],
+      "evidence": [
+        {"type": "external", "signal": "关联企业因应收账款纠纷涉诉；纺织行业景气度持续下行", "source": "客户风险标签", "url": ""}
+      ],
+      "scan_time_ms": 0.07,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC20001",
+      "name": "万邦智能有限公司",
+      "grade": "green",
+      "trigger_reasons": [],
+      "evidence": [],
+      "scan_time_ms": 0.06,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC20002",
+      "name": "华瑞建材有限公司",
+      "grade": "green",
+      "trigger_reasons": [],
+      "evidence": [],
+      "scan_time_ms": 0.06,
+      "status": "completed"
+    },
+    {
+      "entity_id": "LC20003",
+      "name": "锦泰机电有限公司",
+      "grade": "green",
+      "trigger_reasons": [],
+      "evidence": [],
+      "scan_time_ms": 0.05,
+      "status": "completed"
+    }
+  ]
+}

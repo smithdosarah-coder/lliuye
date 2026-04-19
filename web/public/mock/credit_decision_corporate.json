@@ -1,0 +1,271 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 对齐 agent_credit/api.py POST /api/credit/decision SSE: profile_loaded → feature_extracting/done → scoring/done → rule_checking/done → case_retrieving/done → advising/done → done",
+  "_data_lineage": "segment=corporate · preset=dingsheng_trade; profile 抽自 agent_credit/mock_data/corporate_profiles/dingsheng_trade.json 真实数据; rule_ids/thresholds 对齐 red_line_rules_corporate.json (corp_rl_001 关联交易 >0.30 / corp_rl_003 负债率 >0.75 硬规则); composite=47 D 级 对齐 docs/demo_script/platform-shell-v1-demo.md §Agent3",
+  "segment": "corporate",
+  "preset_name": "dingsheng_trade",
+  "run_mock_events": [
+    {
+      "event": "profile_loaded",
+      "profile": {
+        "profile_id": "corp_dingsheng_001",
+        "company_name": "鼎盛商贸有限公司",
+        "unified_credit_code": "91440000MAZZEXAMPLE",
+        "industry": "F51-批发业",
+        "establishment_date": "2018-03-15",
+        "registered_capital": "1000",
+        "employee_count": 42,
+        "region": "广东省佛山市",
+        "main_business": "建材批发与代理",
+        "controller_name": "王某",
+        "controller_share_pct": "80%",
+        "financial_anchors": {
+          "revenue_latest": 18000,
+          "revenue_prev": 22000,
+          "net_profit_latest": -420,
+          "net_profit_prev": 350,
+          "total_assets": 9600,
+          "total_liabilities": 7680,
+          "net_assets": 1920,
+          "accounts_receivable": 4500,
+          "inventory": 2200,
+          "operating_cash_flow": -680,
+          "short_term_borrowing": 4200,
+          "ebitda": -180,
+          "period": "2025年度"
+        },
+        "guarantee_info": {
+          "type": "保证",
+          "collateral": "无抵押",
+          "collateral_value": 0,
+          "collateral_type": "无",
+          "guarantor": "法人连带保证（个人资产单一）"
+        },
+        "related_party_info": {
+          "related_party_revenue_pct": 0.45,
+          "related_party_txn_desc": "大量交易来自关联公司鼎盛地产，年度金额 8100 万，占营收 45%"
+        },
+        "existing_credit": {
+          "total_approved": 800,
+          "total_used": 800,
+          "overdue_history": "2024 年曾出现 M1 逾期 1 次（已结清）"
+        },
+        "tax_rating": "C",
+        "request": {"amount": 500, "purpose": "补充流动资金", "term_months": 12}
+      }
+    },
+    {"event": "stage", "stage": "feature_extracting", "payload": {"status": "running", "message": "确定性特征抽取中..."}},
+    {
+      "event": "stage",
+      "stage": "feature_extracting",
+      "payload": {
+        "status": "done",
+        "features": {
+          "financial.debt_ratio": 0.80,
+          "financial.current_ratio": 0.96,
+          "financial.quick_ratio": 0.60,
+          "financial.revenue_growth": -0.18,
+          "financial.net_profit_margin": -0.023,
+          "financial.operating_cash_flow": -680,
+          "financial.consecutive_loss_years": 1,
+          "financial.ar_turnover_days": 91,
+          "financial.request_to_netasset": 0.26,
+          "external.related_party_pct": 0.45,
+          "external.serious_overdue_count": 0,
+          "external.in_dishonest_list": 0,
+          "external.has_industrial_abnormal": 0,
+          "external.litigation_count": 0,
+          "industry.prosperity_index": 38,
+          "industry.policy_sensitivity": 0.70,
+          "industry.in_blacklist": 0,
+          "operational.customer_concentration": 0.55,
+          "operational.established_years": 8,
+          "guarantee.has_any_collateral": 0,
+          "guarantee.coverage_ratio": 0.0
+        },
+        "_calculation_source": "financial_analyzer.py (确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "scoring", "payload": {"status": "running", "message": "四维对公评分..."}},
+    {
+      "event": "stage",
+      "stage": "scoring",
+      "payload": {
+        "status": "done",
+        "composite_score": 47,
+        "risk_grade": "D",
+        "sub_scores": {
+          "financial": {"score": 42, "weight": 0.35, "contribution": 14.7, "drivers": ["资产负债率 80% 超阈值", "净利润亏损 420 万", "经营现金流 -680 万"]},
+          "industry": {"score": 50, "weight": 0.20, "contribution": 10.0, "drivers": ["批发业景气指数 38（<40 临界）", "房地产下游调整持续影响"]},
+          "operational": {"score": 55, "weight": 0.25, "contribution": 13.75, "drivers": ["客户集中度 55%（前五大）", "关联方依赖 45%", "成立 8 年经营稳定性尚可"]},
+          "guarantee": {"score": 35, "weight": 0.20, "contribution": 7.0, "drivers": ["无抵押物", "仅法人连带保证", "保证人资产单薄"]}
+        },
+        "radar": {"financial": 42, "industry": 50, "operational": 55, "guarantee": 35},
+        "_calculation_source": "scoring_model_corporate.py (9 维度 · 确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "rule_checking", "payload": {"status": "running", "message": "红线规则引擎检查..."}},
+    {
+      "event": "stage",
+      "stage": "rule_checking",
+      "payload": {
+        "status": "done",
+        "hits": [
+          {
+            "rule_id": "corp_rl_001",
+            "name": "关联交易占比过高",
+            "category": "financial",
+            "feature_expr": "external.related_party_pct",
+            "actual_value": 0.45,
+            "threshold": 0.30,
+            "operator": ">",
+            "severity": "medium",
+            "is_hard": false,
+            "can_waive": true,
+            "waiver_conditions": ["提供关联交易审计说明", "设置单一客户额度上限"],
+            "description": "关联交易占总营收 45%，超过 30% 阈值，存在利益输送风险",
+            "evidence_refs": ["鼎盛商贸_关联交易审计说明.pdf p.3"]
+          },
+          {
+            "rule_id": "corp_rl_003",
+            "name": "资产负债率过高",
+            "category": "financial",
+            "feature_expr": "financial.debt_ratio",
+            "actual_value": 0.80,
+            "threshold": 0.75,
+            "operator": ">",
+            "severity": "high",
+            "is_hard": true,
+            "can_waive": false,
+            "waiver_conditions": [],
+            "description": "资产负债率 80%，超 75% 硬阈值，偿债能力严重不足",
+            "evidence_refs": ["鼎盛商贸_2025年度审计报告.pdf p.14"]
+          },
+          {
+            "rule_id": "corp_rl_010",
+            "name": "营收大幅下滑",
+            "category": "financial",
+            "feature_expr": "financial.revenue_growth",
+            "actual_value": -0.18,
+            "threshold": -0.20,
+            "operator": "<",
+            "severity": "high",
+            "is_hard": false,
+            "can_waive": true,
+            "waiver_conditions": ["说明下滑原因及复苏计划", "追加担保"],
+            "description": "营收同比 -18% 接近 -20% 阈值，属于预警级别",
+            "evidence_refs": ["鼎盛商贸_2025年度审计报告.pdf p.8"],
+            "_note": "阈值未严格触发但风险已显，列为预警"
+          },
+          {
+            "rule_id": "corp_rl_024",
+            "name": "无有效担保安排",
+            "category": "guarantee",
+            "feature_expr": "guarantee.has_any_collateral",
+            "actual_value": 0,
+            "threshold": 0,
+            "operator": "==",
+            "severity": "high",
+            "is_hard": true,
+            "can_waive": false,
+            "waiver_conditions": [],
+            "description": "无任何抵押物或保证人，仅法人个人连带保证",
+            "evidence_refs": ["鼎盛商贸_授信申请表.docx"]
+          }
+        ],
+        "hard_hit_count": 2,
+        "soft_hit_count": 2,
+        "_engine_source": "rule_engine_v2.py (确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "case_retrieving", "payload": {"status": "running", "message": "相似历史案例召回..."}},
+    {
+      "event": "stage",
+      "stage": "case_retrieving",
+      "payload": {
+        "status": "done",
+        "cases": [
+          {
+            "case_id": "case_corp_022",
+            "similarity": 0.88,
+            "company_name_masked": "某建材批发 *** 有限公司",
+            "industry": "F51-批发业",
+            "region": "珠三角",
+            "year": 2024,
+            "debt_ratio_at_decision": 0.78,
+            "revenue_growth_at_decision": -0.15,
+            "related_party_pct": 0.41,
+            "decision": "有条件批准",
+            "approved_amount": 200,
+            "term_months": 12,
+            "interest_rate": 0.082,
+            "conditions": ["关联交易审计说明每季度报送", "追加法人配偶连带保证", "贷款额度不得超过申请金额 40%"],
+            "post_lending_outcome": "按期还本付息，无逾期"
+          },
+          {
+            "case_id": "case_corp_031",
+            "similarity": 0.81,
+            "company_name_masked": "某建筑五金批发 *** 有限公司",
+            "industry": "F51-批发业",
+            "region": "长三角",
+            "year": 2024,
+            "debt_ratio_at_decision": 0.82,
+            "revenue_growth_at_decision": -0.22,
+            "related_party_pct": 0.38,
+            "decision": "拒绝",
+            "approved_amount": 0,
+            "term_months": 0,
+            "interest_rate": null,
+            "conditions": [],
+            "post_lending_outcome": "—"
+          },
+          {
+            "case_id": "case_corp_019",
+            "similarity": 0.76,
+            "company_name_masked": "某家居建材 *** 有限公司",
+            "industry": "F51-批发业",
+            "region": "华东",
+            "year": 2023,
+            "debt_ratio_at_decision": 0.73,
+            "revenue_growth_at_decision": -0.12,
+            "related_party_pct": 0.28,
+            "decision": "批准",
+            "approved_amount": 400,
+            "term_months": 12,
+            "interest_rate": 0.075,
+            "conditions": ["季度财报报送"],
+            "post_lending_outcome": "按期还本付息"
+          }
+        ],
+        "_retriever_source": "case_retriever.py (向量检索 + 确定性相似度 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "advising", "payload": {"status": "running", "message": "生成审批意见话术..."}},
+    {
+      "event": "stage",
+      "stage": "advising",
+      "payload": {
+        "status": "done",
+        "decision": "建议有条件批准",
+        "decision_code": "conditional_approve",
+        "suggested_amount": 200,
+        "suggested_term_months": 12,
+        "suggested_interest_rate": 0.082,
+        "reason": "综合评分 47（D 级），命中 corp_rl_003 负债率硬规则与 corp_rl_024 无抵押硬规则。但相似案例 case_corp_022（similarity 0.88）在同等负债率水平下曾有条件批准，后续无逾期。综合判断：不建议直接拒贷，但需以原始申请金额 40% 额度 + 额外担保条件放款。",
+        "conditions": [
+          "追加担保：法人配偶连带保证 + 关联公司鼎盛地产连带保证",
+          "关联交易审计说明每季度报送，设置单一关联方额度上限",
+          "季度财报报送，资产负债率连续 2 季度 > 82% 触发预警回收",
+          "贷款用途专项监管：仅可用于补充核心建材进货资金",
+          "授信额度不得超过申请金额 40%，即最高 200 万元"
+        ],
+        "watch_points": [
+          "房地产下游持续调整，关联方鼎盛地产回款能力需重点关注",
+          "经营现金流 -680 万，需关注是否进一步恶化"
+        ],
+        "_note": "本意见为 AI 辅助建议，copilot 定位；最终决策由审贷员签批"
+      }
+    },
+    {"event": "done"}
+  ]
+}
