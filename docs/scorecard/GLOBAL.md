@@ -27,7 +27,7 @@
 |---|---|---|---|---|---|---|---|
 | 6 报告 | **Phase 1 Finalize APPROVED 2026-04-19** | ✅ | ✅ | ✅ 审计+合作机构+分级 | ✅ 模型卡+演示+feedback E2E | **97%** | APPROVED |
 | 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | APPROVED |
-| 1 获客 | **Option 2 Rebase APPROVED 2026-04-19** | ✅ | ✅ handoff contract | 🟡 sampling CSV | ✅ runner adapter + baseline PASS | **82%** | APPROVED（待 Phase 1） |
+| 1 获客 | **Phase 1 APPROVED 2026-04-19** | ✅ | ✅ handoff contract | 🟡 sampling CSV + 红区枚举补齐 | ✅ runner + yaml 单源 + feedback 飞轮 E2E | **86%** | APPROVED |
 | 2 风控 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ✅ adapter+baseline 全绿 | **62%** | APPROVED（待 Phase 1） |
 | 4 预警 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ✅ adapter+baseline PARTIAL PASS | **57%** | APPROVED（待 Phase 1） |
 | 5 合规 | 未启（defer） | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 等 kb_scan 底座稳定 |
@@ -180,6 +180,7 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 日期 | agent | phase | verdict | reviewer |
 |---|---|---|---|---|
+| 2026-04-19 | 1 获客 | Phase 1 | APPROVED（82→86%；3 Gap 推 Phase 2 Batch 2）| 主 CLI |
 | 2026-04-19 | 1 获客 | Option 2 Rebase | APPROVED（含 2 Gap）| 主 CLI |
 | 2026-04-19 | 前端 Shell | Stage 2 | APPROVED（升级自 CONDITIONAL @ b2b48fe）| 主 CLI |
 | 2026-04-19 | 6 报告 | Phase 1 Finalize | APPROVED | 主 CLI |

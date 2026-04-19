@@ -92,13 +92,14 @@ class BaseEvaluator(ABC):
         self._persist(result)
         return result
 
-    @staticmethod
-    def _verdict(metrics: list[MetricOutcome]) -> Verdict:
-        resolved = [m for m in metrics if m.passed is not None]
+    def _verdict(self, metrics: list[MetricOutcome]) -> Verdict:
+        pending = set(self.config.get("baseline", {}).get("pending_metrics", []))
+        effective = [m for m in metrics if m.name not in pending]
+        resolved = [m for m in effective if m.passed is not None]
         if not resolved:
             return "PARTIAL"
         if all(m.passed for m in resolved):
-            return "PASS" if len(resolved) == len(metrics) else "PARTIAL"
+            return "PASS" if len(resolved) == len(effective) else "PARTIAL"
         if not any(m.passed for m in resolved):
             return "FAIL"
         return "FAIL" if any(not m.passed for m in resolved) else "PARTIAL"
