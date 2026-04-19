@@ -15,6 +15,7 @@ import { ChatTagInput, type Tag } from "@/components/ui/ChatTagInput";
 import { FileDrop } from "@/components/ui/FileDrop";
 
 import { fetchPresets, streamDecision } from "@/lib/api";
+import { useHeaderSlot } from "@/lib/header-slot";
 import {
   CORP_STAGES,
   SME_STAGES,
@@ -140,6 +141,13 @@ export function CreditWorkspaceClient() {
   const [mode, setMode] = useState<InputMode>("report");
   const [, setQuickTags] = useState<Tag[]>([]);
   const [state, setState] = useState<DecisionState>(INITIAL_STATE);
+  const headerSlot = useHeaderSlot();
+
+  // A-015: push SEGMENT_META description into /archive/credit lede on segment switch
+  useEffect(() => {
+    headerSlot?.setDescription(SEGMENT_META[segment].description);
+    return () => headerSlot?.setDescription(null);
+  }, [segment, headerSlot]);
   // 跨 Agent 预填来源标记(用于顶部「数据来自报告助手」小标签)
   const [handoffSource, setHandoffSource] = useState<null | {
     company: string;
