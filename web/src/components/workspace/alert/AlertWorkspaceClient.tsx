@@ -171,7 +171,7 @@ export function AlertWorkspaceClient() {
             accept=".yaml,.yml,.json"
             kind="kb"
           />
-          <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+          <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
             外部规则：裁判文书 · 失信 · 税务 · 舆情
             <br />
             内部规则：账户流水 · 还款行为 · 关联交易
@@ -189,7 +189,7 @@ export function AlertWorkspaceClient() {
             accept=".csv,.xlsx"
             kind="kb"
           />
-          <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+          <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
             本次扫描范围：在贷余额 3.82 亿，上次扫描 T-24h
           </div>
         </Card>
@@ -239,13 +239,13 @@ export function AlertWorkspaceClient() {
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Card className="min-h-[260px] flex items-center justify-center">
                 <div className="text-center py-16">
-                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                     {phase === "running" ? "SCANNING" : "AWAITING"}
                   </div>
-                  <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
+                  <p className="mt-4 font-display text-[22px] text-[var(--ink)]">
                     {phase === "running" ? "双路扫描中" : "待启动扫描"}
                   </p>
-                  <p className="mt-2 text-[13px] text-[var(--color-ink-muted)]">
+                  <p className="mt-2 text-[13px] text-[var(--ink-48)]">
                     外部信号 × 内部信号 → 交叉命中 → 分级建议
                   </p>
                 </div>
@@ -260,9 +260,9 @@ export function AlertWorkspaceClient() {
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-[var(--color-line)] py-1.5 last:border-0">
-      <span className="text-[var(--color-ink-muted)]">{k}</span>
-      <span className="font-tabular text-[var(--color-ink)]">{v}</span>
+    <div className="flex items-baseline justify-between border-b border-[var(--ink-14)] py-1.5 last:border-0">
+      <span className="text-[var(--ink-48)]">{k}</span>
+      <span className="font-tabular text-[var(--ink)]">{v}</span>
     </div>
   );
 }
@@ -277,7 +277,7 @@ function Dashboard({
   green: number;
 }) {
   return (
-    <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)] p-6 grid grid-cols-4 gap-6 items-end">
+    <section className="bg-[var(--g1)] border border-[var(--ink-14)] p-6 grid grid-cols-4 gap-6 items-end">
       <SignalLamp color="ember" count={red} label="红灯" hint="需立即干预" />
       <SignalLamp color="brass" count={yellow} label="黄灯" hint="关注观察" />
       <SignalLamp color="sage" count={green} label="绿灯" hint="健康" />
@@ -297,10 +297,11 @@ function SignalLamp({
   label: string;
   hint: string;
 }) {
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const tones = {
-    ember: "bg-[var(--color-ember)]",
-    brass: "bg-[var(--color-brass)]",
-    sage: "bg-[var(--color-sage)]",
+    ember: "bg-[#c8463a]",
+    brass: "bg-[var(--accent)]",
+    sage: "bg-[var(--safe)]",
   };
   return (
     <div className="flex items-center gap-4">
@@ -322,13 +323,13 @@ function SignalLamp({
         }}
       />
       <div>
-        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
           {label}
         </div>
-        <div className="mt-0.5 font-display font-tabular text-[30px] leading-none text-[var(--color-ink)]">
+        <div className="mt-0.5 font-display font-tabular text-[30px] leading-none text-[var(--ink)]">
           {count}
         </div>
-        <div className="mt-0.5 text-[11px] text-[var(--color-ink-muted)]">{hint}</div>
+        <div className="mt-0.5 text-[11px] text-[var(--ink-48)]">{hint}</div>
       </div>
     </div>
   );
@@ -350,28 +351,29 @@ function CustomerList({
           const isSel = selected?.id === c.id;
           const Icon =
             c.signal === "red" ? AlertOctagon : c.signal === "yellow" ? AlertTriangle : Circle;
+          // --color-ember → #c8463a (semantic danger; kept literal across themes)
           const tone = {
-            red: "text-[var(--color-ember)]",
-            yellow: "text-[var(--color-brass)]",
-            green: "text-[var(--color-sage)]",
+            red: "text-[#c8463a]",
+            yellow: "text-[var(--accent)]",
+            green: "text-[var(--safe)]",
           }[c.signal];
           return (
             <button
               key={c.id}
               onClick={() => onSelect(c)}
-              className={`w-full text-left px-3 py-3 border-b border-[var(--color-line)] last:border-0 transition-all ${
+              className={`w-full text-left px-3 py-3 border-b border-[var(--ink-14)] last:border-0 transition-all ${
                 isSel
-                  ? "bg-[var(--color-overlay)] border-l-2 border-l-[var(--color-ink)]"
-                  : "hover:bg-[var(--color-overlay)]"
+                  ? "bg-[var(--ink-04)] border-l-2 border-l-[var(--ink)]"
+                  : "hover:bg-[var(--ink-04)]"
               }`}
             >
               <div className="flex items-center gap-3">
                 <Icon size={16} className={tone} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-display text-[14px] text-[var(--color-ink)]">
+                  <div className="font-display text-[14px] text-[var(--ink)]">
                     {c.name}
                   </div>
-                  <div className="text-[10px] font-tabular text-[var(--color-ink-muted)]">
+                  <div className="text-[10px] font-tabular text-[var(--ink-48)]">
                     {c.id} · {c.industry} · {c.region}
                   </div>
                 </div>
@@ -390,10 +392,11 @@ function CustomerList({
 }
 
 function DetailPanel({ c }: { c: Customer }) {
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const tone = {
-    red: "var(--color-ember)",
-    yellow: "var(--color-brass)",
-    green: "var(--color-sage)",
+    red: "#c8463a",
+    yellow: "var(--accent)",
+    green: "var(--safe)",
   }[c.signal];
   return (
     <Card
@@ -409,33 +412,34 @@ function DetailPanel({ c }: { c: Customer }) {
         </span>
       }
     >
-      <div className="mb-4 text-[12px] text-[var(--color-ink-muted)] font-tabular">
+      <div className="mb-4 text-[12px] text-[var(--ink-48)] font-tabular">
         {c.exposure}
       </div>
 
-      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase mb-2 flex items-center gap-2">
+      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase mb-2 flex items-center gap-2">
         <ActivityIcon size={11} /> 信号时间线
       </div>
       <ol className="relative pl-5 space-y-3 mb-5">
-        <div className="absolute left-[6px] top-1 bottom-1 w-px bg-[var(--color-line)]" />
+        <div className="absolute left-[6px] top-1 bottom-1 w-px bg-[var(--ink-14)]" />
         {c.events.map((e, i) => {
+          // --color-ember → #c8463a (semantic danger; kept literal across themes)
           const dotTone =
             e.kind === "ember"
-              ? "bg-[var(--color-ember)]"
+              ? "bg-[#c8463a]"
               : e.kind === "brass"
-              ? "bg-[var(--color-brass)]"
-              : "bg-[var(--color-sage)]";
+              ? "bg-[var(--accent)]"
+              : "bg-[var(--safe)]";
           return (
             <li key={i} className="relative">
               <span
                 className={`absolute -left-5 top-1.5 w-[9px] h-[9px] rounded-full ${dotTone}`}
               />
-              <div className="flex items-baseline gap-2 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+              <div className="flex items-baseline gap-2 text-[11px] font-tabular text-[var(--ink-48)]">
                 <span>{e.time}</span>
                 <span className="opacity-50">·</span>
                 <span>{e.source}</span>
               </div>
-              <div className="text-[12px] text-[var(--color-ink)] leading-relaxed mt-0.5">
+              <div className="text-[12px] text-[var(--ink)] leading-relaxed mt-0.5">
                 {e.text}
               </div>
             </li>
@@ -443,19 +447,19 @@ function DetailPanel({ c }: { c: Customer }) {
         })}
       </ol>
 
-      <div className="pt-4 border-t border-[var(--color-line)]">
-        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-brass)] uppercase mb-2">
+      <div className="pt-4 border-t border-[var(--ink-14)]">
+        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--accent)] uppercase mb-2">
           处置建议
         </div>
         <ul className="space-y-1.5">
           {c.advice.map((a, i) => (
             <li
               key={i}
-              className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed flex gap-2"
+              className="text-[12px] text-[var(--ink-80)] leading-relaxed flex gap-2"
             >
               <ArrowRight
                 size={12}
-                className="mt-1 shrink-0 text-[var(--color-brass)]"
+                className="mt-1 shrink-0 text-[var(--accent)]"
               />
               {a}
             </li>

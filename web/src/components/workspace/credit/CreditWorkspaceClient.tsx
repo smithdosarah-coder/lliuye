@@ -325,7 +325,7 @@ export function CreditWorkspaceClient() {
         >
           {mode === "report" && (
             <>
-              <div className="text-[11px] text-[var(--color-ink-muted)] mb-2 leading-relaxed">
+              <div className="text-[11px] text-[var(--ink-48)] mb-2 leading-relaxed">
                 消费 Agent6（信贷报告助手）已产出的企业画像 / 客户画像。
               </div>
               <Select
@@ -370,7 +370,7 @@ export function CreditWorkspaceClient() {
               >
                 <Play size={14} /> 解析并运行
               </Button>
-              <div className="mt-2 text-[10px] text-[var(--color-ink-muted)] font-tabular">
+              <div className="mt-2 text-[10px] text-[var(--ink-48)] font-tabular">
                 DEMO 模式：上传后复用已解析样本走通决策流水线。
               </div>
             </>
@@ -397,7 +397,7 @@ export function CreditWorkspaceClient() {
               >
                 <Play size={14} /> 运行快速评估
               </Button>
-              <div className="mt-2 text-[10px] text-[var(--color-ink-muted)] font-tabular">
+              <div className="mt-2 text-[10px] text-[var(--ink-48)] font-tabular">
                 DEMO 模式：以对话画像模拟快速初筛，后端复用默认样本。
               </div>
             </>
@@ -416,7 +416,8 @@ export function CreditWorkspaceClient() {
             error={state.phase === "error"}
           />
           {state.phase === "error" && (
-            <div className="mt-4 text-[12px] text-[var(--color-ember)] font-tabular border-l-2 border-[var(--color-ember)] pl-3">
+            // --color-ember → #c8463a (semantic danger; kept literal across themes)
+            <div className="mt-4 text-[12px] text-[#c8463a] font-tabular border-l-2 border-[#c8463a] pl-3">
               {state.error}
             </div>
           )}
@@ -431,9 +432,9 @@ export function CreditWorkspaceClient() {
             <button
               onClick={() => setHandoffSource(null)}
               title="点击关闭此提示"
-              className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--color-brass)] bg-[rgba(167,120,47,0.06)] text-[11px] font-tabular tracking-wider text-[var(--color-ink-soft)] hover:bg-[rgba(167,120,47,0.12)] transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--accent)] bg-[rgba(167,120,47,0.06)] text-[11px] font-tabular tracking-wider text-[var(--ink-80)] hover:bg-[rgba(167,120,47,0.12)] transition-colors"
             >
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-brass)]" />
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
               <span>
                 数据来自
                 {handoffSource.source === "session" ? "报告助手" : "预置画像"} · {handoffSource.company}
@@ -521,10 +522,10 @@ function ProfileSummary({
         : req.amount / 10000
       : undefined;
   return (
-    <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
-      <div className="font-display text-[15px] text-[var(--color-ink)]">{name}</div>
+    <div className="mt-5 pt-4 border-t border-[var(--ink-14)]">
+      <div className="font-display text-[15px] text-[var(--ink)]">{name}</div>
       {profile.industry && (
-        <div className="mt-0.5 text-[11px] text-[var(--color-ink-muted)]">
+        <div className="mt-0.5 text-[11px] text-[var(--ink-48)]">
           {profile.industry}
           {profile.region && <span className="mx-1.5 opacity-50">·</span>}
           {profile.region}
@@ -532,22 +533,22 @@ function ProfileSummary({
       )}
       <div className="mt-3 grid grid-cols-3 gap-2 font-tabular text-[11px]">
         <div>
-          <div className="text-[var(--color-ink-muted)] mb-0.5">申请额度</div>
-          <div className="text-[var(--color-ink)] text-[13px]">
+          <div className="text-[var(--ink-48)] mb-0.5">申请额度</div>
+          <div className="text-[var(--ink)] text-[13px]">
             {amountWan !== undefined
               ? `${amountWan.toLocaleString("zh-CN", { maximumFractionDigits: 1 })} 万`
               : "—"}
           </div>
         </div>
         <div>
-          <div className="text-[var(--color-ink-muted)] mb-0.5">期限</div>
-          <div className="text-[var(--color-ink)] text-[13px]">
+          <div className="text-[var(--ink-48)] mb-0.5">期限</div>
+          <div className="text-[var(--ink)] text-[13px]">
             {req.term_months ? `${req.term_months} 月` : "—"}
           </div>
         </div>
         <div>
-          <div className="text-[var(--color-ink-muted)] mb-0.5">用途</div>
-          <div className="text-[var(--color-ink)] text-[13px] truncate">
+          <div className="text-[var(--ink-48)] mb-0.5">用途</div>
+          <div className="text-[var(--ink)] text-[13px] truncate">
             {req.purpose ?? "—"}
           </div>
         </div>
@@ -561,10 +562,10 @@ function PlaceholderHero({ phase }: { phase: DecisionState["phase"] }) {
     <Card className="min-h-[260px] flex items-center justify-center">
       <div className="text-center py-16">
         <VerdictRibbon label={phase === "running" ? "WORKING" : "AWAITING"} />
-        <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
+        <p className="mt-4 font-display text-[22px] text-[var(--ink)]">
           {phase === "running" ? "流水线运行中" : "待运行决策"}
         </p>
-        <p className="mt-2 text-[13px] text-[var(--color-ink-muted)]">
+        <p className="mt-2 text-[13px] text-[var(--ink-48)]">
           {phase === "running"
             ? "特征抽取 → 评分 → 红线 → 案例 → 决策整合"
             : "选择场景后点击「运行决策」"}
@@ -582,12 +583,13 @@ function VerdictHero({
   segment: Segment;
 }) {
   const amountMethods = advice.amount_methods ?? {};
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const decisionTone =
     advice.decision === "批准"
-      ? "text-[var(--color-sage)]"
+      ? "text-[var(--safe)]"
       : advice.decision === "有条件批准"
-      ? "text-[var(--color-brass)]"
-      : "text-[var(--color-ember)]";
+      ? "text-[var(--accent)]"
+      : "text-[#c8463a]";
 
   // 按业务口径截断额度（万元）
   const rawAmount = advice.approved_amount;
@@ -599,22 +601,22 @@ function VerdictHero({
     : CAP_NOTE[segment];
 
   return (
-    <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)] overflow-hidden">
+    <section className="bg-[var(--g1)] border border-[var(--ink-14)] overflow-hidden">
       {/* Top ribbon */}
-      <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--color-line)]">
+      <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--ink-14)]">
         <div>
-          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
             DECISION
           </div>
-          <div className="mt-1 font-display text-[18px] text-[var(--color-ink)]">
+          <div className="mt-1 font-display text-[18px] text-[var(--ink)]">
             {advice.subject_name}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
             decision id
           </div>
-          <div className="mt-0.5 font-tabular text-[12px] text-[var(--color-ink-soft)]">
+          <div className="mt-0.5 font-tabular text-[12px] text-[var(--ink-80)]">
             {advice.advice_id}
           </div>
         </div>
@@ -623,36 +625,36 @@ function VerdictHero({
       <div className="p-6 grid grid-cols-12 gap-6">
         <div className="col-span-5">
           <VerdictBadge decision={advice.decision} grade={advice.risk_grade} />
-          <div className="mt-5 text-[13px] leading-relaxed text-[var(--color-ink-soft)] max-w-[360px]">
+          <div className="mt-5 text-[13px] leading-relaxed text-[var(--ink-80)] max-w-[360px]">
             {advice.decision_reason || "—"}
           </div>
           <div className="mt-5 grid grid-cols-2 gap-4">
             <div>
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
                 综合评分
               </div>
               <div className={`mt-1 font-display text-[38px] leading-none ${decisionTone}`}>
                 {advice.composite_score}
               </div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-ink-muted)] font-tabular">
+              <div className="mt-0.5 text-[11px] text-[var(--ink-48)] font-tabular">
                 / 100
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
                 红线命中
               </div>
-              <div className="mt-1 font-display text-[38px] leading-none text-[var(--color-ink)]">
+              <div className="mt-1 font-display text-[38px] leading-none text-[var(--ink)]">
                 {advice.red_line_hits?.length ?? 0}
               </div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-ink-muted)] font-tabular">
+              <div className="mt-0.5 text-[11px] text-[var(--ink-48)] font-tabular">
                 条
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-span-7 border-l border-[var(--color-line)] pl-6">
+        <div className="col-span-7 border-l border-[var(--ink-14)] pl-6">
           <div className="grid grid-cols-3 gap-5">
             <Stat
               label="建议额度"
@@ -678,8 +680,8 @@ function VerdictHero({
           </div>
 
           {Object.keys(amountMethods).length > 0 && (
-            <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase mb-2">
+            <div className="mt-5 pt-4 border-t border-[var(--ink-14)]">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase mb-2">
                 额度三估算
               </div>
               <div className="space-y-2">
@@ -691,19 +693,19 @@ function VerdictHero({
           )}
 
           {advice.conditions?.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-[var(--color-line)]">
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-brass)] uppercase mb-2">
+            <div className="mt-5 pt-4 border-t border-[var(--ink-14)]">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--accent)] uppercase mb-2">
                 批准条件
               </div>
               <ul className="space-y-1.5">
                 {advice.conditions.map((c, i) => (
                   <li
                     key={i}
-                    className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed flex gap-2"
+                    className="text-[12px] text-[var(--ink-80)] leading-relaxed flex gap-2"
                   >
                     <ArrowRight
                       size={12}
-                      className="mt-1 shrink-0 text-[var(--color-brass)]"
+                      className="mt-1 shrink-0 text-[var(--accent)]"
                     />
                     {c}
                   </li>
@@ -728,8 +730,8 @@ function AmountMethodRow({ method, value }: { method: string; value: number }) {
   };
   return (
     <div className="flex items-center justify-between text-[12px]">
-      <span className="text-[var(--color-ink-muted)]">{label[method] ?? method}</span>
-      <span className="font-tabular text-[var(--color-ink)]">
+      <span className="text-[var(--ink-48)]">{label[method] ?? method}</span>
+      <span className="font-tabular text-[var(--ink)]">
         {value > 0 ? `${value.toFixed(0)} 万` : "—"}
       </span>
     </div>
@@ -758,7 +760,7 @@ function CorpScoringPanel({ scoring }: { scoring: ScoringPayload }) {
             ))}
           </div>
           <div className="hr-fine" />
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
             细分指标
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 max-h-[200px] overflow-y-auto pr-2">
@@ -839,10 +841,10 @@ function RetailScoringPanel({
       action={
         fico ? (
           <div className="text-right">
-            <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+            <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
               FICO
             </div>
-            <div className="font-display font-tabular text-[22px] text-[var(--color-brass)] leading-none">
+            <div className="font-display font-tabular text-[22px] text-[var(--accent)] leading-none">
               {fico}
             </div>
           </div>
@@ -860,7 +862,7 @@ function RetailScoringPanel({
           {Object.keys(subs).length > 0 && (
             <>
               <div className="hr-fine mt-3" />
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
                 细分指标 · FICO 300-850
               </div>
               <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
@@ -868,7 +870,7 @@ function RetailScoringPanel({
                   if (typeof items !== "object" || items === null) return null;
                   return (
                     <div key={dim}>
-                      <div className="text-[10px] font-tabular text-[var(--color-brass)] tracking-[0.18em] uppercase mb-1.5">
+                      <div className="text-[10px] font-tabular text-[var(--accent)] tracking-[0.18em] uppercase mb-1.5">
                         {RETAIL_CATEGORY_LABELS[dim] ?? dim}
                       </div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-2">
@@ -906,37 +908,39 @@ function RedLinePanel({ advice }: { advice: DecisionAdvice }) {
         {advice.red_line_hits.map((hit, i) => (
           <li
             key={i}
-            className="flex gap-3 pb-3 border-b border-[var(--color-line)] last:border-0 last:pb-0"
+            className="flex gap-3 pb-3 border-b border-[var(--ink-14)] last:border-0 last:pb-0"
           >
+            {/* --color-ember → #c8463a (semantic danger; kept literal across themes) */}
             <AlertTriangle
               size={16}
               className={
                 hit.is_hard
-                  ? "text-[var(--color-ember)] mt-0.5 shrink-0"
-                  : "text-[var(--color-brass)] mt-0.5 shrink-0"
+                  ? "text-[#c8463a] mt-0.5 shrink-0"
+                  : "text-[var(--accent)] mt-0.5 shrink-0"
               }
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-3">
-                <span className="font-display text-[14px] text-[var(--color-ink)]">
+                <span className="font-display text-[14px] text-[var(--ink)]">
                   {hit.rule_name}
                 </span>
-                <span className="font-tabular text-[10px] tracking-wider text-[var(--color-ink-muted)]">
+                <span className="font-tabular text-[10px] tracking-wider text-[var(--ink-48)]">
                   {hit.rule_id}
                 </span>
+                {/* --color-ember → #c8463a (semantic danger; kept literal across themes) */}
                 <span
                   className={`ml-auto text-[10px] font-tabular uppercase tracking-[0.2em] ${
-                    hit.is_hard ? "text-[var(--color-ember)]" : "text-[var(--color-brass)]"
+                    hit.is_hard ? "text-[#c8463a]" : "text-[var(--accent)]"
                   }`}
                 >
                   {hit.is_hard ? "HARD" : "SOFT"} · {hit.severity}
                 </span>
               </div>
-              <div className="mt-1 text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
+              <div className="mt-1 text-[12px] text-[var(--ink-80)] leading-relaxed">
                 {hit.description}
               </div>
               {hit.threshold !== undefined && hit.actual_value !== undefined && (
-                <div className="mt-1.5 flex items-center gap-4 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+                <div className="mt-1.5 flex items-center gap-4 text-[11px] font-tabular text-[var(--ink-48)]">
                   <span>阈值 {String(hit.threshold)}</span>
                   <span>·</span>
                   <span>实际 {String(hit.actual_value)}</span>
@@ -956,7 +960,7 @@ function CasesPanel({ cases }: { cases: CaseMatch[] }) {
       eyebrow="SIMILAR CASES"
       title="历史相似案例"
       action={
-        <span className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+        <span className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
           {cases.length} 条
         </span>
       }
@@ -965,14 +969,14 @@ function CasesPanel({ cases }: { cases: CaseMatch[] }) {
         {cases.slice(0, 5).map((c, i) => (
           <div
             key={i}
-            className="flex items-center gap-4 pb-3 border-b border-[var(--color-line)] last:border-0 last:pb-0"
+            className="flex items-center gap-4 pb-3 border-b border-[var(--ink-14)] last:border-0 last:pb-0"
           >
-            <FileText size={14} className="text-[var(--color-ink-muted)] shrink-0" />
+            <FileText size={14} className="text-[var(--ink-48)] shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] text-[var(--color-ink)] truncate">
+              <div className="text-[13px] text-[var(--ink)] truncate">
                 {c.subject_name ?? c.case_id ?? "案例"}
               </div>
-              <div className="text-[11px] text-[var(--color-ink-muted)] font-tabular">
+              <div className="text-[11px] text-[var(--ink-48)] font-tabular">
                 {c.year && <span>{c.year} · </span>}
                 {c.decision && <span>{c.decision}</span>}
                 {c.outcome && <span> · {c.outcome}</span>}
@@ -980,10 +984,10 @@ function CasesPanel({ cases }: { cases: CaseMatch[] }) {
             </div>
             {typeof c.similarity === "number" && (
               <div className="text-right">
-                <div className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+                <div className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
                   SIM
                 </div>
-                <div className="font-tabular text-[14px] text-[var(--color-brass)]">
+                <div className="font-tabular text-[14px] text-[var(--accent)]">
                   {(c.similarity * 100).toFixed(0)}
                 </div>
               </div>

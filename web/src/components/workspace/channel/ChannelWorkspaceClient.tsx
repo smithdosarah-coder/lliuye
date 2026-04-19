@@ -174,7 +174,7 @@ export function ChannelWorkspaceClient() {
                 <KBBadge label="财经媒体（扩产/投资）" count={0} />
                 <KBBadge label="评优公示" count={0} />
               </div>
-              <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+              <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
                 5 路并行搜索 · 企查查工商补全 · LLM 信号抽取
               </div>
             </Card>
@@ -212,13 +212,13 @@ export function ChannelWorkspaceClient() {
                   ) : (
                     <Card className="min-h-[160px] flex items-center justify-center">
                       <div className="text-center py-10">
-                        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+                        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                           EMPTY
                         </div>
-                        <p className="mt-3 font-display text-[18px] text-[var(--color-ink)]">
+                        <p className="mt-3 font-display text-[18px] text-[var(--ink)]">
                           未捕获有效信号
                         </p>
-                        <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">
+                        <p className="mt-2 text-[12px] text-[var(--ink-48)]">
                           {errMsg
                             ? `后端错误：${errMsg}`
                             : "调整一下描述（更具体的行业/规模/区域）再试一次。"}
@@ -231,13 +231,13 @@ export function ChannelWorkspaceClient() {
                 <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <Card className="min-h-[260px] flex items-center justify-center">
                     <div className="text-center py-16">
-                      <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+                      <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                         {phase === "running" ? "SCANNING SIGNALS" : "AWAITING"}
                       </div>
-                      <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
+                      <p className="mt-4 font-display text-[22px] text-[var(--ink)]">
                         {phase === "running" ? "5 路信号搜索中" : "待描述目标客户画像"}
                       </p>
-                      <p className="mt-2 text-[13px] text-[var(--color-ink-muted)]">
+                      <p className="mt-2 text-[13px] text-[var(--ink-48)]">
                         描述行业+区域 → 5 路信号搜索 → 公司从信号中浮出
                       </p>
                     </div>
@@ -254,7 +254,7 @@ export function ChannelWorkspaceClient() {
             <span className="ink-signature text-[12px]">
               乾策 · 众安信科 · 信贷 AI 智能体矩阵
             </span>
-            <span className="text-[10px] font-tabular text-[var(--color-ink-muted)] tracking-[0.2em] uppercase">
+            <span className="text-[10px] font-tabular text-[var(--ink-48)] tracking-[0.2em] uppercase">
               X-Nexus · 2026
             </span>
           </div>
@@ -274,15 +274,15 @@ function MetricsCard({
   const m = metrics ?? { signalTotal: 0, companiesFound: 0, final: 0 };
   const sourceBadge =
     dataSource === "tavily"
-      ? { text: "TAVILY LIVE", tone: "text-[var(--color-sage)] border-[var(--color-sage)]" }
+      ? { text: "TAVILY LIVE", tone: "text-[var(--safe)] border-[var(--safe)]" }
       : dataSource === "mock_fallback"
-      ? { text: "MOCK FALLBACK", tone: "text-[var(--color-brass)] border-[var(--color-brass)]" }
-      : { text: "UNKNOWN", tone: "text-[var(--color-ink-muted)] border-[var(--color-line)]" };
+      ? { text: "MOCK FALLBACK", tone: "text-[var(--accent)] border-[var(--accent)]" }
+      : { text: "UNKNOWN", tone: "text-[var(--ink-48)] border-[var(--ink-14)]" };
   return (
-    <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)] p-6">
+    <section className="bg-[var(--g1)] border border-[var(--ink-14)] p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+          <span className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
             信号搜索结果 · Signal Metrics
           </span>
         </div>
@@ -306,7 +306,7 @@ function CandidateList({ cands }: { cands: ChannelCandidate[] }) {
       eyebrow="SIGNAL CANDIDATES"
       title={`信号候选 · ${cands.length} 家`}
       action={
-        <span className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+        <span className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
           按信号密度排序 · 点击展开详情
         </span>
       }
@@ -338,7 +338,7 @@ function SignalCandidateCard({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-[var(--color-line)] last:border-0 pb-4 last:pb-0">
+    <div className="border-b border-[var(--ink-14)] last:border-0 pb-4 last:pb-0">
       <button
         type="button"
         onClick={onToggle}
@@ -346,25 +346,25 @@ function SignalCandidateCard({
       >
         {/* Row 1: Rank + Name + Signal Count */}
         <div className="flex items-baseline gap-3">
-          <span className="font-display text-[26px] leading-none text-[var(--color-brass)] font-tabular">
+          <span className="font-display text-[26px] leading-none text-[var(--accent)] font-tabular">
             {String(rank).padStart(2, "0")}
           </span>
-          <h4 className="font-display text-[17px] text-[var(--color-ink)] leading-tight hover:text-[var(--color-brass)] transition-colors">
+          <h4 className="font-display text-[17px] text-[var(--ink)] leading-tight hover:text-[var(--accent)] transition-colors">
             {c.name}
           </h4>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-tabular border border-[var(--color-brass)] text-[var(--color-brass)]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-tabular border border-[var(--accent)] text-[var(--accent)]">
             <Zap size={10} /> 信号 {c.signalCount} 条
           </span>
           <ChevronDown
             size={14}
-            className={`ml-auto text-[var(--color-ink-muted)] transition-transform ${
+            className={`ml-auto text-[var(--ink-48)] transition-transform ${
               isExpanded ? "rotate-180" : ""
             }`}
           />
         </div>
 
         {/* Row 2: Basic info line */}
-        <div className="mt-1.5 ml-[38px] flex items-center gap-4 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+        <div className="mt-1.5 ml-[38px] flex items-center gap-4 text-[11px] font-tabular text-[var(--ink-48)]">
           {c.industry && c.industry !== "未获取" && (
             <span className="inline-flex items-center gap-1"><Factory size={11} /> {c.industry}</span>
           )}
@@ -394,7 +394,7 @@ function SignalCandidateCard({
             <SignalRow key={i} signal={sig} />
           ))}
           {c.signals.length > 4 && (
-            <div className="text-[11px] text-[var(--color-ink-muted)] font-tabular">
+            <div className="text-[11px] text-[var(--ink-48)] font-tabular">
               +{c.signals.length - 4} 条更多信号
             </div>
           )}
@@ -403,23 +403,23 @@ function SignalCandidateCard({
         {/* Row 5: Products + Pitch */}
         {c.recommendedProducts && c.recommendedProducts.length > 0 && (
           <div className="mt-3 ml-[38px] flex items-start gap-2">
-            <Briefcase size={12} className="text-[var(--color-brass)] mt-0.5 shrink-0" />
-            <span className="text-[12px] text-[var(--color-ink)] font-medium">
+            <Briefcase size={12} className="text-[var(--accent)] mt-0.5 shrink-0" />
+            <span className="text-[12px] text-[var(--ink)] font-medium">
               {c.recommendedProducts.join(" + ")}
             </span>
           </div>
         )}
         {c.pitch && (
           <div className="mt-1.5 ml-[38px] flex items-start gap-2">
-            <Phone size={12} className="text-[var(--color-sage)] mt-0.5 shrink-0" />
-            <span className="text-[12px] text-[var(--color-ink-soft)] italic leading-relaxed">
+            <Phone size={12} className="text-[var(--safe)] mt-0.5 shrink-0" />
+            <span className="text-[12px] text-[var(--ink-80)] italic leading-relaxed">
               &ldquo;{c.pitch}&rdquo;
             </span>
           </div>
         )}
 
         {/* Row 6: Data sources count */}
-        <div className="mt-2 ml-[38px] flex items-center gap-1.5 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+        <div className="mt-2 ml-[38px] flex items-center gap-1.5 text-[11px] font-tabular text-[var(--ink-48)]">
           <Link2 size={10} />
           <span>{c.dataSources?.length || 0} 个数据来源</span>
         </div>
@@ -448,8 +448,8 @@ function MatchTagBadge({ tag }: { tag: MatchTag }) {
     <span
       className={`inline-flex items-center gap-1 px-1.5 py-[2px] text-[10px] font-tabular border ${
         tag.matched
-          ? "border-[var(--color-sage)] text-[var(--color-sage)]"
-          : "border-[var(--color-line)] text-[var(--color-ink-muted)]"
+          ? "border-[var(--safe)] text-[var(--safe)]"
+          : "border-[var(--ink-14)] text-[var(--ink-48)]"
       }`}
       title={tag.detail}
     >
@@ -465,10 +465,10 @@ function SignalRow({ signal }: { signal: SignalItem }) {
   return (
     <div className="flex items-baseline gap-2 text-[12px]">
       <span className="shrink-0 w-[18px] text-center">{emoji}</span>
-      <span className="text-[var(--color-brass)] font-tabular shrink-0 w-[32px]">{label}</span>
-      <span className="text-[var(--color-ink)]">{signal.title}</span>
+      <span className="text-[var(--accent)] font-tabular shrink-0 w-[32px]">{label}</span>
+      <span className="text-[var(--ink)]">{signal.title}</span>
       {signal.date && (
-        <span className="text-[var(--color-ink-muted)] font-tabular text-[10px] shrink-0">
+        <span className="text-[var(--ink-48)] font-tabular text-[10px] shrink-0">
           ({signal.date})
         </span>
       )}
@@ -478,7 +478,7 @@ function SignalRow({ signal }: { signal: SignalItem }) {
 
 function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
   return (
-    <div className="mt-5 ml-[38px] pl-5 border-l-2 border-[var(--color-brass)] space-y-6 pb-2">
+    <div className="mt-5 ml-[38px] pl-5 border-l-2 border-[var(--accent)] space-y-6 pb-2">
       {/* 基础工商信息 */}
       <div>
         <SectionLabel icon={Building2} text="企业基础信息（企查查补全）" />
@@ -491,8 +491,8 @@ function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
           <Field label="所属行业" value={c.industry} />
         </div>
         {c.mainBusiness && c.mainBusiness !== "未获取" && (
-          <div className="mt-2 text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
-            <span className="text-[var(--color-ink-muted)]">主营：</span>
+          <div className="mt-2 text-[12px] text-[var(--ink-80)] leading-relaxed">
+            <span className="text-[var(--ink-48)]">主营：</span>
             {c.mainBusiness}
           </div>
         )}
@@ -509,27 +509,27 @@ function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
               </div>
               <div className="col-span-11">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[var(--color-brass)] font-tabular text-[10px] uppercase">
+                  <span className="text-[var(--accent)] font-tabular text-[10px] uppercase">
                     {SIGNAL_LABEL[sig.type] || sig.type}
                   </span>
                   {sig.date && (
-                    <span className="text-[var(--color-ink-muted)] font-tabular text-[10px]">
+                    <span className="text-[var(--ink-48)] font-tabular text-[10px]">
                       {sig.date}
                     </span>
                   )}
                 </div>
-                <div className="text-[var(--color-ink)] font-medium leading-snug">{sig.title}</div>
+                <div className="text-[var(--ink)] font-medium leading-snug">{sig.title}</div>
                 {sig.detail && (
-                  <div className="mt-0.5 text-[var(--color-ink-soft)] leading-relaxed">{sig.detail}</div>
+                  <div className="mt-0.5 text-[var(--ink-80)] leading-relaxed">{sig.detail}</div>
                 )}
-                <div className="mt-1 flex items-center gap-2 text-[10px] font-tabular text-[var(--color-ink-muted)]">
+                <div className="mt-1 flex items-center gap-2 text-[10px] font-tabular text-[var(--ink-48)]">
                   <span>{sig.source}</span>
                   {sig.url && (
                     <a
                       href={sig.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 hover:text-[var(--color-brass)] transition-colors"
+                      className="inline-flex items-center gap-0.5 hover:text-[var(--accent)] transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <ExternalLink size={9} /> 原文
@@ -550,7 +550,7 @@ function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
             {c.recommendedProducts.map((prod, i) => (
               <span
                 key={i}
-                className="px-2 py-1 text-[11px] font-tabular border border-[var(--color-brass)] text-[var(--color-brass)] bg-[var(--color-brass)]/5"
+                className="px-2 py-1 text-[11px] font-tabular border border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/5"
               >
                 {prod}
               </span>
@@ -558,8 +558,8 @@ function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
           </div>
         )}
         {c.pitch && (
-          <div className="mt-3 p-3 bg-[var(--color-paper)] border border-[var(--color-line)] text-[12px] text-[var(--color-ink)] leading-relaxed italic">
-            <Phone size={12} className="inline text-[var(--color-sage)] mr-1.5" />
+          <div className="mt-3 p-3 bg-[var(--g0)] border border-[var(--ink-14)] text-[12px] text-[var(--ink)] leading-relaxed italic">
+            <Phone size={12} className="inline text-[var(--safe)] mr-1.5" />
             {c.pitch}
           </div>
         )}
@@ -572,21 +572,21 @@ function ExpandedSignalDetail({ c }: { c: ChannelCandidate }) {
           <div className="mt-2 grid grid-cols-1 gap-y-1.5">
             {c.dataSources.map((ds, i) => (
               <div key={i} className="text-[11px] font-tabular flex items-center gap-1.5">
-                <span className="text-[var(--color-brass)]">{ds.label}</span>
+                <span className="text-[var(--accent)]">{ds.label}</span>
                 {ds.hint && (
                   <>
-                    <span className="text-[var(--color-ink-muted)]">·</span>
+                    <span className="text-[var(--ink-48)]">·</span>
                     {ds.hint.startsWith("http") ? (
                       <a
                         href={ds.hint}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[var(--color-ink-soft)] hover:text-[var(--color-brass)] inline-flex items-center gap-0.5"
+                        className="text-[var(--ink-80)] hover:text-[var(--accent)] inline-flex items-center gap-0.5"
                       >
                         <ExternalLink size={9} /> 查看
                       </a>
                     ) : (
-                      <span className="text-[var(--color-ink-soft)]">{ds.hint}</span>
+                      <span className="text-[var(--ink-80)]">{ds.hint}</span>
                     )}
                   </>
                 )}
@@ -608,8 +608,9 @@ function SectionLabel({
   text: string;
   tone?: "ember";
 }) {
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const color =
-    tone === "ember" ? "text-[var(--color-ember)]" : "text-[var(--color-brass)]";
+    tone === "ember" ? "text-[#c8463a]" : "text-[var(--accent)]";
   return (
     <div
       className={`text-[10px] font-tabular tracking-[0.2em] uppercase inline-flex items-center gap-1.5 ${color}`}
@@ -630,11 +631,11 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)] uppercase mb-0.5">
+      <div className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)] uppercase mb-0.5">
         {label}
       </div>
       <div
-        className={`text-[var(--color-ink)] ${
+        className={`text-[var(--ink)] ${
           mono ? "font-tabular text-[11px]" : "text-[12px]"
         }`}
       >

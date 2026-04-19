@@ -132,15 +132,15 @@ export function RiskctrlWorkspaceClient() {
     <div className="grid grid-cols-12 gap-6">
       <aside className="col-span-4 space-y-5">
         <Card eyebrow="BASELINE" title="基线策略">
-          <div className="flex items-center gap-3 px-3 py-2.5 border border-[var(--color-line-strong)] bg-[var(--color-paper-sunken)]">
-            <span className="text-[10px] font-tabular tracking-wider px-1.5 py-0.5 border border-[var(--color-sage)] text-[var(--color-sage)]">
+          <div className="flex items-center gap-3 px-3 py-2.5 border border-[var(--ink-28)] bg-[var(--ink-04)]">
+            <span className="text-[10px] font-tabular tracking-wider px-1.5 py-0.5 border border-[var(--safe)] text-[var(--safe)]">
               LIVE
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] text-[var(--color-ink)]">
+              <div className="text-[13px] text-[var(--ink)]">
                 {baseline.version}
               </div>
-              <div className="text-[10px] font-tabular text-[var(--color-ink-muted)]">
+              <div className="text-[10px] font-tabular text-[var(--ink-48)]">
                 生产环境当前版本 · {baseline.rules.length} 条规则
               </div>
             </div>
@@ -181,19 +181,19 @@ export function RiskctrlWorkspaceClient() {
                     key={p.v}
                     className={`w-full text-left px-3 py-2 border transition-all ${
                       i === 0
-                        ? "border-[var(--color-brass)] bg-[var(--color-overlay)]"
-                        : "border-[var(--color-line)] hover:border-[var(--color-ink-muted)]"
+                        ? "border-[var(--accent)] bg-[var(--ink-04)]"
+                        : "border-[var(--ink-14)] hover:border-[var(--ink-48)]"
                     }`}
                   >
                     <div className="flex items-baseline gap-2">
-                      <span className="font-tabular text-[12px] text-[var(--color-ink)]">
+                      <span className="font-tabular text-[12px] text-[var(--ink)]">
                         {p.v}
                       </span>
-                      <span className="text-[9px] font-tabular tracking-wider text-[var(--color-brass)] uppercase">
+                      <span className="text-[9px] font-tabular tracking-wider text-[var(--accent)] uppercase">
                         {p.tag}
                       </span>
                     </div>
-                    <div className="text-[11px] text-[var(--color-ink-muted)]">
+                    <div className="text-[11px] text-[var(--ink-48)]">
                       {p.desc}
                     </div>
                   </button>
@@ -210,14 +210,14 @@ export function RiskctrlWorkspaceClient() {
           )}
           {candSource === "edit" && (
             <div>
-              <div className="flex items-center gap-2 text-[11px] text-[var(--color-ink-muted)] mb-2">
-                <Pencil size={12} className="text-[var(--color-brass)]" /> 内置编辑器
+              <div className="flex items-center gap-2 text-[11px] text-[var(--ink-48)] mb-2">
+                <Pencil size={12} className="text-[var(--accent)]" /> 内置编辑器
               </div>
               <textarea
                 defaultValue={`strategy v2025_q1 {\n  R01: age ∈ [22, 62]\n  R02: overdue_12m ≤ 1\n  R03: income ≥ 5000 and multi_source_ok\n  R04: DTI < 0.60\n  R05: credit_cards ≤ 10\n  R06: inquiry_6m ≤ 10\n  R07: (gjj ≥ 12m) OR (sb ≥ 18m)\n}`}
                 rows={9}
                 spellCheck={false}
-                className="w-full p-3 text-[11px] font-tabular bg-[var(--color-paper-sunken)] border border-[var(--color-line-strong)] focus:outline-none focus:border-[var(--color-ink)] text-[var(--color-ink)] leading-relaxed"
+                className="w-full p-3 text-[11px] font-tabular bg-[var(--ink-04)] border border-[var(--ink-28)] focus:outline-none focus:border-[var(--ink)] text-[var(--ink)] leading-relaxed"
               />
             </div>
           )}
@@ -246,7 +246,7 @@ export function RiskctrlWorkspaceClient() {
               accept=".csv,.xlsx"
             />
           )}
-          <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+          <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
             样本要求：含标签（已观察到表现窗的 good/bad），建议 ≥ 3000 条。
           </div>
           <Button
@@ -320,18 +320,18 @@ export function RiskctrlWorkspaceClient() {
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Card className="min-h-[320px] flex items-center justify-center">
                 <div className="text-center py-10 max-w-[440px]">
-                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                     {phase === "running" ? "BACKTESTING" : "AWAITING"}
                   </div>
-                  <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
+                  <p className="mt-4 font-display text-[22px] text-[var(--ink)]">
                     {phase === "running" ? "正在回测…" : "待启动回测"}
                   </p>
-                  <p className="mt-3 text-[13px] text-[var(--color-ink-muted)] leading-relaxed">
+                  <p className="mt-3 text-[13px] text-[var(--ink-48)] leading-relaxed">
                     策略变更需要「用历史数据证明不会变坏」才能上线。
                     <br />
-                    左侧配置 <span className="text-[var(--color-ink)]">基线</span> ·
-                    <span className="text-[var(--color-ink)]"> 候选</span> ·
-                    <span className="text-[var(--color-ink)]"> 样本</span>
+                    左侧配置 <span className="text-[var(--ink)]">基线</span> ·
+                    <span className="text-[var(--ink)]"> 候选</span> ·
+                    <span className="text-[var(--ink)]"> 样本</span>
                     ，运行后产出：
                   </p>
                   <ul className="mt-3 space-y-1.5 text-left inline-block">
@@ -343,11 +343,11 @@ export function RiskctrlWorkspaceClient() {
                     ].map((t) => (
                       <li
                         key={t}
-                        className="text-[12px] text-[var(--color-ink-soft)] flex gap-2"
+                        className="text-[12px] text-[var(--ink-80)] flex gap-2"
                       >
                         <ArrowRight
                           size={11}
-                          className="mt-1 shrink-0 text-[var(--color-brass)]"
+                          className="mt-1 shrink-0 text-[var(--accent)]"
                         />
                         {t}
                       </li>
@@ -401,27 +401,28 @@ function BusinessImpact({
       ? { label: "需进一步评估", tone: "brass", reason: "通过率提升但坏账同步上升" }
       : { label: "不建议采纳", tone: "ember", reason: "关键指标未见改善" };
 
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const toneCls =
     verdict.tone === "sage"
-      ? "text-[var(--color-sage)]"
+      ? "text-[var(--safe)]"
       : verdict.tone === "brass"
-      ? "text-[var(--color-brass)]"
-      : "text-[var(--color-ember)]";
+      ? "text-[var(--accent)]"
+      : "text-[#c8463a]";
   const tonerBorder =
     verdict.tone === "sage"
-      ? "border-[var(--color-sage)]"
+      ? "border-[var(--safe)]"
       : verdict.tone === "brass"
-      ? "border-[var(--color-brass)]"
-      : "border-[var(--color-ember)]";
+      ? "border-[var(--accent)]"
+      : "border-[#c8463a]";
 
   return (
-    <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)] overflow-hidden">
-      <header className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--color-line)]">
+    <section className="bg-[var(--g1)] border border-[var(--ink-14)] overflow-hidden">
+      <header className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--ink-14)]">
         <div>
-          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
             BUSINESS IMPACT
           </div>
-          <div className="mt-1 font-display text-[18px] text-[var(--color-ink)]">
+          <div className="mt-1 font-display text-[18px] text-[var(--ink)]">
             策略切换的业务价值
           </div>
         </div>
@@ -434,31 +435,31 @@ function BusinessImpact({
       </header>
 
       <div className="p-6 grid grid-cols-12 gap-6">
-        <div className="col-span-5 border-r border-[var(--color-line)] pr-6">
+        <div className="col-span-5 border-r border-[var(--ink-14)] pr-6">
           <div className={`text-[11px] uppercase font-tabular tracking-[0.2em] mb-2 ${toneCls}`}>
             <Target size={11} className="inline mr-1" /> 推荐结论
           </div>
-          <p className="font-display text-[18px] text-[var(--color-ink)] leading-snug">
+          <p className="font-display text-[18px] text-[var(--ink)] leading-snug">
             {verdict.reason}
           </p>
           <ul className="mt-4 space-y-2">
-            <li className="flex gap-2 text-[12px] text-[var(--color-ink-soft)]">
-              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--color-brass)]" />
+            <li className="flex gap-2 text-[12px] text-[var(--ink-80)]">
+              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--accent)]" />
               主要变化：规则集扩展至 7 条（新增 R07 公积金/社保复核）
             </li>
-            <li className="flex gap-2 text-[12px] text-[var(--color-ink-soft)]">
-              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--color-brass)]" />
+            <li className="flex gap-2 text-[12px] text-[var(--ink-80)]">
+              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--accent)]" />
               关键改进：AUC +3.8%、坏账率 −22.6%、通过率 +6.7%
             </li>
-            <li className="flex gap-2 text-[12px] text-[var(--color-ink-soft)]">
-              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--color-brass)]" />
+            <li className="flex gap-2 text-[12px] text-[var(--ink-80)]">
+              <ArrowRight size={12} className="mt-1 shrink-0 text-[var(--accent)]" />
               下一步：先 10% 灰度 2 周 → 观察 PSI 稳定性 → 全量上线
             </li>
           </ul>
         </div>
 
         <div className="col-span-7">
-          <div className="text-[10px] uppercase font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] mb-3">
+          <div className="text-[10px] uppercase font-tabular tracking-[0.2em] text-[var(--ink-48)] mb-3">
             折算月度业务量（假设：月申请 1 万笔，户均 8 万）
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-5">
@@ -487,7 +488,7 @@ function BusinessImpact({
               tone="sage"
             />
           </div>
-          <div className="mt-5 pt-4 border-t border-[var(--color-line)] grid grid-cols-3 gap-3 text-[11px] font-tabular">
+          <div className="mt-5 pt-4 border-t border-[var(--ink-14)] grid grid-cols-3 gap-3 text-[11px] font-tabular">
             <DeltaRow label="通过率" a={baseline.pass_rate} b={candidate.pass_rate} fmt={(v: number) => (v * 100).toFixed(1) + "%"} better="up" />
             <DeltaRow label="批准率" a={baseline.approval_rate} b={candidate.approval_rate} fmt={(v: number) => (v * 100).toFixed(1) + "%"} better="up" />
             <DeltaRow label="坏账率" a={baseline.bad_rate} b={candidate.bad_rate} fmt={(v: number) => (v * 100).toFixed(2) + "%"} better="down" />
@@ -509,21 +510,22 @@ function ImpactRow({
   unit: string;
   tone: "sage" | "ember" | "brass";
 }) {
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const toneCls = {
-    sage: "text-[var(--color-sage)]",
-    brass: "text-[var(--color-brass)]",
-    ember: "text-[var(--color-ember)]",
+    sage: "text-[var(--safe)]",
+    brass: "text-[var(--accent)]",
+    ember: "text-[#c8463a]",
   }[tone];
   return (
     <div>
-      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
         {label}
       </div>
       <div className="mt-1 flex items-baseline gap-1.5">
         <span className={`font-display font-tabular text-[26px] leading-none ${toneCls}`}>
           {value}
         </span>
-        <span className="text-[11px] text-[var(--color-ink-muted)] font-tabular">
+        <span className="text-[11px] text-[var(--ink-48)] font-tabular">
           {unit}
         </span>
       </div>
@@ -545,14 +547,15 @@ function DeltaRow({
   better: "up" | "down";
 }) {
   const improved = better === "up" ? b > a : b < a;
-  const tone = improved ? "text-[var(--color-sage)]" : "text-[var(--color-ember)]";
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
+  const tone = improved ? "text-[var(--safe)]" : "text-[#c8463a]";
   const Icon = improved ? TrendingUp : TrendingDown;
   return (
     <div>
-      <span className="text-[var(--color-ink-muted)]">{label}</span>
+      <span className="text-[var(--ink-48)]">{label}</span>
       <span className="ml-2">{fmt(a)}</span>
-      <ArrowRight size={9} className="inline mx-1.5 text-[var(--color-ink-muted)]" />
-      <span className="text-[var(--color-ink)]">{fmt(b)}</span>
+      <ArrowRight size={9} className="inline mx-1.5 text-[var(--ink-48)]" />
+      <span className="text-[var(--ink)]">{fmt(b)}</span>
       <Icon size={10} className={`inline ml-1 ${tone}`} />
     </div>
   );
@@ -574,17 +577,17 @@ function MetricsComparison({
     { label: "坏账率", b: baseline.bad_rate, c: candidate.bad_rate, fmt: (v: number) => (v * 100).toFixed(2) + "%", better: "down" as const },
   ];
   return (
-    <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)]">
-      <header className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--color-line)]">
+    <section className="bg-[var(--g1)] border border-[var(--ink-14)]">
+      <header className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--ink-14)]">
         <div>
-          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+          <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
             BACKTEST METRICS
           </div>
-          <div className="mt-1 font-display text-[18px] text-[var(--color-ink)]">
+          <div className="mt-1 font-display text-[18px] text-[var(--ink)]">
             指标对比
           </div>
         </div>
-        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+        <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
           基线 → 候选
         </div>
       </header>
@@ -593,19 +596,20 @@ function MetricsComparison({
           const delta = r.c - r.b;
           const deltaPct = ((delta / r.b) * 100).toFixed(1);
           const improved = r.better === "up" ? delta > 0 : delta < 0;
-          const tone = improved ? "text-[var(--color-sage)]" : "text-[var(--color-ember)]";
+          // --color-ember → #c8463a (semantic danger; kept literal across themes)
+          const tone = improved ? "text-[var(--safe)]" : "text-[#c8463a]";
           const Icon = improved ? TrendingUp : TrendingDown;
           return (
             <div key={r.label}>
-              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+              <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
                 {r.label}
               </div>
               <div className="mt-1.5 flex items-baseline gap-3">
-                <span className="font-tabular text-[13px] text-[var(--color-ink-muted)] line-through">
+                <span className="font-tabular text-[13px] text-[var(--ink-48)] line-through">
                   {r.fmt(r.b)}
                 </span>
-                <ArrowRight size={11} className="text-[var(--color-ink-muted)]" />
-                <span className="font-display font-tabular text-[24px] text-[var(--color-ink)] leading-none">
+                <ArrowRight size={11} className="text-[var(--ink-48)]" />
+                <span className="font-display font-tabular text-[24px] text-[var(--ink)] leading-none">
                   {r.fmt(r.c)}
                 </span>
               </div>
@@ -632,10 +636,10 @@ function DslDiff({
   return (
     <div className="font-tabular text-[12px] leading-relaxed space-y-3">
       <div>
-        <div className="text-[10px] tracking-[0.2em] text-[var(--color-ink-muted)] uppercase mb-2 flex items-center gap-2">
+        <div className="text-[10px] tracking-[0.2em] text-[var(--ink-48)] uppercase mb-2 flex items-center gap-2">
           <Code2 size={12} /> POLICY DSL
         </div>
-        <pre className="bg-[var(--color-paper-sunken)] border-l-2 border-[var(--color-brass)] p-4 overflow-x-auto text-[var(--color-ink)]">
+        <pre className="bg-[var(--ink-04)] border-l-2 border-[var(--accent)] p-4 overflow-x-auto text-[var(--ink)]">
           <code>
             {"/* 候选策略 " + POLICIES.v2025_q1_new.version + " */\n"}
             {"strategy " + POLICIES.v2025_q1_new.version.toLowerCase().replace(/[^\w]/g, "_") + " {\n"}
@@ -651,12 +655,12 @@ function DslDiff({
             {"\n}"}
           </code>
         </pre>
-        <div className="mt-3 flex gap-6 text-[11px] text-[var(--color-ink-muted)]">
+        <div className="mt-3 flex gap-6 text-[11px] text-[var(--ink-48)]">
           <span>
-            <span className="text-[var(--color-sage)]">+</span> 新增
+            <span className="text-[var(--safe)]">+</span> 新增
           </span>
           <span>
-            <span className="text-[var(--color-brass)]">~</span> 阈值调整
+            <span className="text-[var(--accent)]">~</span> 阈值调整
           </span>
           <span>  未变更</span>
         </div>
@@ -670,17 +674,17 @@ function HitRates({ rules }: { rules: Array<{ id: string; text: string; hit_rate
     <div className="space-y-2">
       {rules.map((r) => (
         <div key={r.id} className="grid grid-cols-12 gap-3 items-center text-[12px]">
-          <div className="col-span-2 font-tabular text-[var(--color-brass)]">{r.id}</div>
-          <div className="col-span-6 text-[var(--color-ink)] truncate">{r.text}</div>
+          <div className="col-span-2 font-tabular text-[var(--accent)]">{r.id}</div>
+          <div className="col-span-6 text-[var(--ink)] truncate">{r.text}</div>
           <div className="col-span-3">
-            <div className="h-1 bg-[var(--color-line)]">
+            <div className="h-1 bg-[var(--ink-14)]">
               <div
-                className="h-full bg-[var(--color-ink)]"
+                className="h-full bg-[var(--ink)]"
                 style={{ width: `${r.hit_rate}%` }}
               />
             </div>
           </div>
-          <div className="col-span-1 text-right font-tabular text-[var(--color-ink-muted)]">
+          <div className="col-span-1 text-right font-tabular text-[var(--ink-48)]">
             {r.hit_rate.toFixed(1)}
           </div>
         </div>
@@ -715,12 +719,12 @@ function ConfusionBlock({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-3">
-        <div className="font-display text-[14px] text-[var(--color-ink)]">{label}</div>
-        <div className="text-[10px] font-tabular text-[var(--color-ink-muted)]">
+        <div className="font-display text-[14px] text-[var(--ink)]">{label}</div>
+        <div className="text-[10px] font-tabular text-[var(--ink-48)]">
           n = {total}
         </div>
       </div>
-      <div className="grid grid-cols-2 border border-[var(--color-line-strong)]">
+      <div className="grid grid-cols-2 border border-[var(--ink-28)]">
         <Cell v={data.tp} label="TP" highlight={highlight} />
         <Cell v={data.fp} label="FP" />
         <Cell v={data.fn} label="FN" />
@@ -728,10 +732,10 @@ function ConfusionBlock({
       </div>
       <div className="mt-3 flex gap-6 text-[11px] font-tabular">
         <span>
-          <span className="text-[var(--color-ink-muted)]">P:</span> {precision.toFixed(1)}%
+          <span className="text-[var(--ink-48)]">P:</span> {precision.toFixed(1)}%
         </span>
         <span>
-          <span className="text-[var(--color-ink-muted)]">R:</span> {recall.toFixed(1)}%
+          <span className="text-[var(--ink-48)]">R:</span> {recall.toFixed(1)}%
         </span>
       </div>
     </div>
@@ -749,14 +753,14 @@ function Cell({
 }) {
   return (
     <div
-      className={`p-3 border-r border-b border-[var(--color-line-strong)] last:border-r-0 ${
-        highlight ? "bg-[var(--color-overlay)]" : ""
+      className={`p-3 border-r border-b border-[var(--ink-28)] last:border-r-0 ${
+        highlight ? "bg-[var(--ink-04)]" : ""
       }`}
     >
-      <div className="text-[9px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+      <div className="text-[9px] font-tabular tracking-wider text-[var(--ink-48)]">
         {label}
       </div>
-      <div className="mt-0.5 font-display font-tabular text-[22px] text-[var(--color-ink)] leading-none">
+      <div className="mt-0.5 font-display font-tabular text-[22px] text-[var(--ink)] leading-none">
         {v}
       </div>
     </div>

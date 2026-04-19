@@ -123,44 +123,44 @@ export function ComplianceWorkspaceClient() {
           <div className="flex items-start gap-3">
             <BookOpen
               size={18}
-              className="text-[var(--color-brass)] mt-0.5 shrink-0"
+              className="text-[var(--accent)] mt-0.5 shrink-0"
             />
             <div>
-              <div className="font-display text-[14px] text-[var(--color-ink)] leading-snug">
+              <div className="font-display text-[14px] text-[var(--ink)] leading-snug">
                 {policy.title}
               </div>
-              <div className="mt-1 text-[11px] font-tabular text-[var(--color-ink-muted)]">
+              <div className="mt-1 text-[11px] font-tabular text-[var(--ink-48)]">
                 {policy.agency} · {policy.effective}
               </div>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-            <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase mb-2">
+          <div className="mt-4 pt-4 border-t border-[var(--ink-14)]">
+            <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase mb-2">
               核心要点
             </div>
             <ul className="space-y-1.5">
               {policy.highlights.map((h, i) => (
                 <li
                   key={i}
-                  className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed flex gap-2"
+                  className="text-[12px] text-[var(--ink-80)] leading-relaxed flex gap-2"
                 >
                   <ArrowRight
                     size={11}
-                    className="mt-1 shrink-0 text-[var(--color-brass)]"
+                    className="mt-1 shrink-0 text-[var(--accent)]"
                   />
                   {h}
                 </li>
               ))}
             </ul>
           </div>
-          <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+          <div className="mt-4 pt-4 border-t border-[var(--ink-14)]">
             <FileDrop
               label="上传新政策文件"
               hint="PDF / Word · 监管办法 / 通知 / 意见"
               accept=".pdf,.doc,.docx"
             />
           </div>
-          <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+          <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
             新政策作为交叉比对的基准，用于扫描所有行内已有规则。
           </div>
         </Card>
@@ -178,7 +178,7 @@ export function ComplianceWorkspaceClient() {
             accept=".pdf,.doc,.docx,.md"
             kind="kb"
           />
-          <div className="mt-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+          <div className="mt-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
             扫描机制：条款切片 → 向量召回 → LLM 冲突判定 → 分级修订建议。
           </div>
           <Button
@@ -218,7 +218,7 @@ export function ComplianceWorkspaceClient() {
               transition={{ duration: 0.4 }}
               className="space-y-5"
             >
-              <section className="bg-[var(--color-paper-raised)] border border-[var(--color-line)] p-6 grid grid-cols-4 gap-6">
+              <section className="bg-[var(--g1)] border border-[var(--ink-14)] p-6 grid grid-cols-4 gap-6">
                 <Stat label="扫描制度" value={policy.scanned} hint="存量内部文件" />
                 <Stat
                   label="硬性冲突"
@@ -241,7 +241,7 @@ export function ComplianceWorkspaceClient() {
                 eyebrow="CONFLICTS"
                 title="冲突与修订建议"
                 action={
-                  <span className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+                  <span className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
                     按严重程度排序
                   </span>
                 }
@@ -257,13 +257,13 @@ export function ComplianceWorkspaceClient() {
             <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Card className="min-h-[260px] flex items-center justify-center">
                 <div className="text-center py-16">
-                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+                  <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                     {phase === "running" ? "AUDITING" : "AWAITING"}
                   </div>
-                  <p className="mt-4 font-display text-[22px] text-[var(--color-ink)]">
+                  <p className="mt-4 font-display text-[22px] text-[var(--ink)]">
                     {phase === "running" ? "巡检进行中" : "待启动合规巡检"}
                   </p>
-                  <p className="mt-2 text-[13px] text-[var(--color-ink-muted)]">
+                  <p className="mt-2 text-[13px] text-[var(--ink-48)]">
                     解析 → 条款 → 召回 → 冲突 → 修订
                   </p>
                 </div>
@@ -289,65 +289,67 @@ function ConflictItem({
   };
 }) {
   const meta = {
+    // --color-ember → #c8463a (semantic danger; kept literal across themes)
     hard: {
       Icon: AlertOctagon,
-      tone: "text-[var(--color-ember)]",
-      border: "border-[var(--color-ember)]",
+      tone: "text-[#c8463a]",
+      border: "border-[#c8463a]",
       label: "HARD",
     },
     soft: {
       Icon: AlertTriangle,
-      tone: "text-[var(--color-brass)]",
-      border: "border-[var(--color-brass)]",
+      tone: "text-[var(--accent)]",
+      border: "border-[var(--accent)]",
       label: "SOFT",
     },
     info: {
       Icon: CheckCircle2,
-      tone: "text-[var(--color-sage)]",
-      border: "border-[var(--color-sage)]",
+      tone: "text-[var(--safe)]",
+      border: "border-[var(--safe)]",
       label: "PASS",
     },
   }[c.severity]!;
   const Icon = meta.Icon;
   return (
-    <div className={`border-l-2 ${meta.border} pl-5 pb-5 border-b border-b-[var(--color-line)] last:border-b-0 last:pb-0`}>
+    <div className={`border-l-2 ${meta.border} pl-5 pb-5 border-b border-b-[var(--ink-14)] last:border-b-0 last:pb-0`}>
       <div className="flex items-baseline gap-3 flex-wrap">
         <span className={`inline-flex items-center gap-1 text-[10px] font-tabular tracking-[0.2em] ${meta.tone}`}>
           <Icon size={11} /> {meta.label}
         </span>
-        <span className="font-display text-[15px] text-[var(--color-ink)]">
+        <span className="font-display text-[15px] text-[var(--ink)]">
           {c.clause}
         </span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-6">
         <div>
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-brass)] uppercase mb-1.5">
+          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--accent)] uppercase mb-1.5">
             新规要求
           </div>
-          <p className="text-[12px] text-[var(--color-ink)] leading-relaxed">
+          <p className="text-[12px] text-[var(--ink)] leading-relaxed">
             {c.requirement}
           </p>
         </div>
         <div>
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase mb-1.5 flex items-center gap-1">
+          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase mb-1.5 flex items-center gap-1">
             <FileText size={11} /> 内部制度
           </div>
-          <p className="text-[11px] text-[var(--color-ink-muted)] font-tabular mb-1">
+          <p className="text-[11px] text-[var(--ink-48)] font-tabular mb-1">
             {c.internal}
           </p>
-          <p className="text-[12px] text-[var(--color-ink-soft)] leading-relaxed">
+          <p className="text-[12px] text-[var(--ink-80)] leading-relaxed">
             {c.current}
           </p>
         </div>
       </div>
 
       {c.severity !== "info" && (
-        <div className="mt-4 pt-3 border-t border-[var(--color-line)]">
-          <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ember)] uppercase mb-1.5">
+        <div className="mt-4 pt-3 border-t border-[var(--ink-14)]">
+          {/* --color-ember → #c8463a (semantic danger; kept literal across themes) */}
+          <div className="text-[10px] font-tabular tracking-[0.2em] text-[#c8463a] uppercase mb-1.5">
             修订建议
           </div>
-          <p className="text-[12px] text-[var(--color-ink)] leading-relaxed">
+          <p className="text-[12px] text-[var(--ink)] leading-relaxed">
             {c.recommend}
           </p>
         </div>

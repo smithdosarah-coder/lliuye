@@ -241,23 +241,24 @@ export function ReportWorkspaceClient() {
       </div>
 
       {/* 顶部错误 banner — 不清空已生成内容,便于用户查看部分结果 */}
+      {/* --color-ember → #c8463a (semantic danger; kept literal across themes) */}
       {state.phase === "error" && state.error && (
-        <div className="mb-4 flex items-start gap-3 px-4 py-3 border-l-4 border-[var(--color-ember)] bg-[rgba(200,60,40,0.06)]">
-          <AlertTriangle size={18} className="text-[var(--color-ember)] shrink-0 mt-0.5" />
+        <div className="mb-4 flex items-start gap-3 px-4 py-3 border-l-4 border-[#c8463a] bg-[rgba(200,60,40,0.06)]">
+          <AlertTriangle size={18} className="text-[#c8463a] shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <div className="font-display text-[14px] text-[var(--color-ember)]">
+            <div className="font-display text-[14px] text-[#c8463a]">
               生成遇到问题
             </div>
-            <div className="mt-0.5 text-[12px] text-[var(--color-ink-soft)] leading-relaxed break-all">
+            <div className="mt-0.5 text-[12px] text-[var(--ink-80)] leading-relaxed break-all">
               {state.error}
             </div>
-            <div className="mt-1 text-[11px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+            <div className="mt-1 text-[11px] font-tabular tracking-wider text-[var(--ink-48)]">
               已生成的段落保留在下方,可选择重试或切换 MOCK 模式演示。
             </div>
           </div>
           <button
             onClick={() => setState((s) => ({ ...s, phase: "idle", error: undefined }))}
-            className="text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] shrink-0"
+            className="text-[var(--ink-48)] hover:text-[var(--ink)] shrink-0"
             aria-label="关闭"
             title="关闭提示"
           >
@@ -270,8 +271,8 @@ export function ReportWorkspaceClient() {
 
       {/* 真模式 ETA 提示 */}
       {!mockMode && running && (
-        <div className="mb-4 px-4 py-2.5 border border-[var(--color-brass)] bg-[rgba(167,120,47,0.05)] text-[12px] text-[var(--color-ink-soft)] flex items-center gap-2">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-brass)] animate-pulse" />
+        <div className="mb-4 px-4 py-2.5 border border-[var(--accent)] bg-[rgba(167,120,47,0.05)] text-[12px] text-[var(--ink-80)] flex items-center gap-2">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
           <span className="font-tabular tracking-wider">真实 pipeline 运行中 · 预计 5-10 分钟,请保持页面打开</span>
         </div>
       )}
@@ -296,15 +297,15 @@ export function ReportWorkspaceClient() {
                   title={opt.tooltip}
                   className={`flex-1 px-3 py-1.5 text-[12px] font-medium transition-all border ${
                     businessLine === opt.value
-                      ? "bg-[var(--color-ink)] text-[var(--color-paper)] border-[var(--color-ink)]"
-                      : "bg-[var(--color-paper-raised)] text-[var(--color-ink-soft)] border-[var(--color-line-strong)] hover:border-[var(--color-ink-muted)]"
+                      ? "bg-[var(--ink)] text-[var(--g0)] border-[var(--ink)]"
+                      : "bg-[var(--g1)] text-[var(--ink-80)] border-[var(--ink-28)] hover:border-[var(--ink-48)]"
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-            <div className="mt-2 text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+            <div className="mt-2 text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
               {businessLine === "reserved"
                 ? "敬请期待"
                 : "银行按业务线匹配申报书模板与字段表。"}
@@ -321,8 +322,8 @@ export function ReportWorkspaceClient() {
               preset={templateUpload}
             />
             {templateUpload.length === 0 && (
-              <div className="mt-2 text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)] flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-brass)]" />
+              <div className="mt-2 text-[10px] font-tabular tracking-wider text-[var(--ink-48)] flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
                 {BUSINESS_LINE_TEMPLATES[businessLine]}(内置默认)
               </div>
             )}
@@ -336,7 +337,7 @@ export function ReportWorkspaceClient() {
               onChange={setUploaded}
               preset={uploaded}
             />
-            <div className="mt-2 text-[10px] text-[var(--color-ink-muted)] font-tabular">
+            <div className="mt-2 text-[10px] text-[var(--ink-48)] font-tabular">
               {mockMode
                 ? "Mock 模式 · 上传仅记录元信息,走后端快速路径。"
                 : "真实模式 · 上传后走完整解析 pipeline。"}
@@ -352,14 +353,14 @@ export function ReportWorkspaceClient() {
                   disabled={running}
                   className={`w-full text-left px-3 py-3 border transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                     preset === p.key
-                      ? "border-[var(--color-ink)] bg-[var(--color-overlay)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-ink-muted)]"
+                      ? "border-[var(--ink)] bg-[var(--ink-04)]"
+                      : "border-[var(--ink-14)] hover:border-[var(--ink-48)]"
                   }`}
                 >
-                  <div className="font-display text-[14px] text-[var(--color-ink)]">
+                  <div className="font-display text-[14px] text-[var(--ink)]">
                     {p.name}
                   </div>
-                  <div className="mt-1 text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+                  <div className="mt-1 text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
                     {p.tagline}
                   </div>
                 </button>
@@ -394,8 +395,9 @@ export function ReportWorkspaceClient() {
               done={state.doneStages}
               error={state.phase === "error"}
             />
+            {/* --color-ember → #c8463a (semantic danger; kept literal across themes) */}
             {state.phase === "error" && state.error && (
-              <div className="mt-4 text-[12px] text-[var(--color-ember)] font-tabular border-l-2 border-[var(--color-ember)] pl-3">
+              <div className="mt-4 text-[12px] text-[#c8463a] font-tabular border-l-2 border-[#c8463a] pl-3">
                 {state.error}
               </div>
             )}
@@ -406,7 +408,7 @@ export function ReportWorkspaceClient() {
             title={state.profile?.company_name ?? "报告预览"}
             action={
               state.stats ? (
-                <span className="text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+                <span className="text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
                   自动 {state.stats.auto_filled}/{state.stats.total_fields} · 未填 {state.stats.unfilled}
                 </span>
               ) : null
@@ -419,7 +421,7 @@ export function ReportWorkspaceClient() {
             />
 
             {state.phase === "done" && state.stats && (
-              <div className="mt-6 pt-5 border-t border-[var(--color-line)] grid grid-cols-3 gap-6">
+              <div className="mt-6 pt-5 border-t border-[var(--ink-14)] grid grid-cols-3 gap-6">
                 <Stat label="总字段" value={state.stats.total_fields ?? 0} />
                 <Stat label="自动填写" value={state.stats.auto_filled ?? 0} />
                 <Stat
@@ -466,28 +468,28 @@ export function ReportWorkspaceClient() {
                   <button
                     key={key}
                     onClick={() => handoffTo(key)}
-                    className="group text-left p-4 border border-[var(--color-line-strong)] hover:border-[var(--color-ink)] hover:bg-[var(--color-overlay)] transition-all"
+                    className="group text-left p-4 border border-[var(--ink-28)] hover:border-[var(--ink)] hover:bg-[var(--ink-04)] transition-all"
                   >
-                    <div className="flex items-center gap-2 text-[var(--color-brass)]">
+                    <div className="flex items-center gap-2 text-[var(--accent)]">
                       <Icon size={16} />
                       <span className="text-[10px] font-tabular tracking-[0.25em] uppercase">
                         {key}
                       </span>
                     </div>
-                    <div className="mt-2 font-display text-[15px] text-[var(--color-ink)]">
+                    <div className="mt-2 font-display text-[15px] text-[var(--ink)]">
                       {title}
                     </div>
-                    <div className="mt-1 text-[11px] text-[var(--color-ink-muted)]">
+                    <div className="mt-1 text-[11px] text-[var(--ink-48)]">
                       {subtitle}
                     </div>
-                    <div className="mt-3 flex items-center gap-1 text-[11px] font-tabular text-[var(--color-ink-muted)] group-hover:text-[var(--color-ink)]">
+                    <div className="mt-3 flex items-center gap-1 text-[11px] font-tabular text-[var(--ink-48)] group-hover:text-[var(--ink)]">
                       带企业画像跳转
                       <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </button>
                 ))}
               </div>
-              <div className="mt-3 text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+              <div className="mt-3 text-[10px] font-tabular tracking-wider text-[var(--ink-48)]">
                 * 通过 sessionStorage 携带 EnterpriseProfile,下游 Agent 无需重复解析。
               </div>
             </Card>
@@ -498,7 +500,7 @@ export function ReportWorkspaceClient() {
         {showRight && (
           <aside className="space-y-5 min-w-0">
             <Card eyebrow="PENDING" title="补充问卷">
-              <div className="mb-3 text-[11px] text-[var(--color-ink-muted)] leading-relaxed">
+              <div className="mb-3 text-[11px] text-[var(--ink-48)] leading-relaxed">
                 系统识别出若干字段缺少证据支撑,请就下列问题补充,或直接跳过留待人工。
               </div>
               <QuestionnairePanel
@@ -585,7 +587,7 @@ function MockToggle({
         disabled ? "opacity-50" : "cursor-pointer"
       }`}
     >
-      <span className="text-[var(--color-ink-muted)]">MOCK</span>
+      <span className="text-[var(--ink-48)]">MOCK</span>
       <button
         type="button"
         role="switch"
@@ -594,18 +596,18 @@ function MockToggle({
         onClick={() => onChange(!value)}
         className={`relative inline-flex h-5 w-10 items-center transition-colors ${
           value
-            ? "bg-[var(--color-ink)]"
-            : "bg-[var(--color-paper-sunken)] border border-[var(--color-line-strong)]"
+            ? "bg-[var(--ink)]"
+            : "bg-[var(--ink-04)] border border-[var(--ink-28)]"
         }`}
       >
         <span
-          className={`inline-block h-3.5 w-3.5 bg-[var(--color-paper)] transition-transform ${
+          className={`inline-block h-3.5 w-3.5 bg-[var(--g0)] transition-transform ${
             value ? "translate-x-5" : "translate-x-0.5"
           }`}
         />
       </button>
       <span
-        className={value ? "text-[var(--color-ink)]" : "text-[var(--color-ink-muted)]"}
+        className={value ? "text-[var(--ink)]" : "text-[var(--ink-48)]"}
       >
         {value ? "ON" : "OFF"}
       </span>
@@ -625,13 +627,13 @@ function ReportPreview({
   if (phase === "idle") {
     return (
       <div className="py-16 text-center">
-        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
           AWAITING
         </div>
-        <p className="mt-3 font-display text-[20px] text-[var(--color-ink)]">
+        <p className="mt-3 font-display text-[20px] text-[var(--ink)]">
           待生成报告
         </p>
-        <p className="mt-2 text-[12px] text-[var(--color-ink-muted)]">
+        <p className="mt-2 text-[12px] text-[var(--ink-48)]">
           选择预置场景 或 上传材料包后点击「开始生成」
         </p>
       </div>
@@ -642,15 +644,15 @@ function ReportPreview({
     const label = stageLabel(activeStage) ?? "准备中";
     return (
       <div className="py-12 text-center">
-        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+        <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
           WORKING
         </div>
-        <p className="mt-3 font-display text-[18px] text-[var(--color-ink)]">
+        <p className="mt-3 font-display text-[18px] text-[var(--ink)]">
           {label}
         </p>
-        <div className="mt-4 mx-auto w-24 h-0.5 bg-[var(--color-line)] overflow-hidden">
+        <div className="mt-4 mx-auto w-24 h-0.5 bg-[var(--ink-14)] overflow-hidden">
           <motion.div
-            className="h-full bg-[var(--color-brass)]"
+            className="h-full bg-[var(--accent)]"
             animate={{ x: ["-100%", "100%"] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
             style={{ width: "40%" }}
@@ -669,19 +671,19 @@ function ReportPreview({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="pb-4 border-b border-[var(--color-line)] last:border-0 last:pb-0"
+            className="pb-4 border-b border-[var(--ink-14)] last:border-0 last:pb-0"
           >
-            <h4 className="font-display text-[15px] text-[var(--color-ink)] mb-2">
+            <h4 className="font-display text-[15px] text-[var(--ink)] mb-2">
               {sec.title}
             </h4>
-            <p className="text-[13px] leading-[1.8] text-[var(--color-ink-soft)] whitespace-pre-wrap">
+            <p className="text-[13px] leading-[1.8] text-[var(--ink-80)] whitespace-pre-wrap">
               {sec.content}
             </p>
           </motion.article>
         ))}
       </AnimatePresence>
       {(phase === "running" || phase === "refining") && activeStage && (
-        <div className="text-[11px] font-tabular tracking-wider text-[var(--color-brass)]">
+        <div className="text-[11px] font-tabular tracking-wider text-[var(--accent)]">
           · {stageLabel(activeStage)}…
         </div>
       )}
@@ -703,16 +705,17 @@ function LLMStatusIndicator({ connected }: { connected: boolean | null }) {
   const isLoading = connected === null;
   const ok = connected === true;
   const label = isLoading ? "LLM 检测中" : ok ? "LLM 已连接" : "LLM 未连接";
+  // --color-ember → #c8463a (semantic danger; kept literal across themes)
   const dotClass = isLoading
-    ? "bg-[var(--color-ink-muted)]"
+    ? "bg-[var(--ink-48)]"
     : ok
-    ? "bg-[var(--color-jade,#2f7d5a)]"
-    : "bg-[var(--color-ember)]";
+    ? "bg-[var(--safe)]"
+    : "bg-[#c8463a]";
   const textClass = isLoading
-    ? "text-[var(--color-ink-muted)]"
+    ? "text-[var(--ink-48)]"
     : ok
-    ? "text-[var(--color-ink)]"
-    : "text-[var(--color-ember)]";
+    ? "text-[var(--ink)]"
+    : "text-[#c8463a]";
 
   return (
     <div
@@ -723,7 +726,7 @@ function LLMStatusIndicator({ connected }: { connected: boolean | null }) {
           ? "正在查询后端健康状态…"
           : "后端未检测到 DEEPSEEK_API_KEY,请联系运维配置环境变量"
       }
-      className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--color-line-strong)] font-tabular text-[11px] tracking-wider select-none"
+      className="inline-flex items-center gap-2 px-3 py-1.5 border border-[var(--ink-28)] font-tabular text-[11px] tracking-wider select-none"
     >
       <span
         className={`inline-block w-2 h-2 rounded-full ${dotClass} ${
