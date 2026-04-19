@@ -458,3 +458,140 @@ def _verdict(self, metrics: list[MetricOutcome]) -> Verdict:
 **Signal**: `A-013-ISSUED-WITH-KERNEL-PATCH`
 
 ---
+
+## [Q-014] 2026-04-19 15:55 · frontend · Stage 3 visual regression 归因 · 色系替代收口
+
+**CLI**: 主 CLI（触发人：用户观察 regression + subagent 诊断）
+**Priority**: P1
+**Blocking**: no（Task A/B/C 已合；本条只决定契约归属）
+**Related**: `docs/review/frontend-stage-3-regression-diagnosis.md` §3.3 / §5.2、`web/src/app/tokens.css:37-45`、Task C commit `290ede2` 自承
+
+### 问题
+Task C 色系迁移按 onboarding 表映射 `--color-line → var(--ink-12)` / `--color-line-strong → var(--ink-24)`。但 `tokens.css` ink scale 实际 = {04,08,14,18,28,32,48,65,80}——**ink-12 / ink-24 不存在**。worker 就近替代为 14 / 28（视觉差 ≤ 3% alpha，单看不可感知），commit body 自承 + 建议 Q/A 收口。
+
+### 选项
+- **A** tokens.css 补 `--ink-12` / `--ink-24`（改红区 tokens + 更新 spec v1.1）
+- **B** 接受 14/28 为 canonical（不动 tokens，更新 onboarding 映射表）
+- **C** 补 `--ink-12` 不补 `--ink-24`（部分补）
+
+### [A-014] 2026-04-19 15:55 · 主 CLI
+
+**Decision**: **B** · 接受 ink-14 / ink-28 为 canonical
+
+**Rationale**:
+- 视觉差 ≤ 3% alpha subagent 实验证明（Crimson 主题最强对比下仍 imperceptible，待 playwright 1440 实测收尾核）
+- tokens.css 是红区，动一次要升 spec + mockup 重锁 + 全量主题回归——成本 >> 3% alpha 收益
+- onboarding 表已是 drafting artifact；正式映射归 `platform-shell-v1` spec §3.3 收敛（主 CLI 另起修订），worker 迁移表以实际 `tokens.css` 为准
+
+**Follow-up**:
+1. 主 CLI 更新 `docs/design/platform-shell-v1.md` §3.3 line token 章节：canonical `--ink-14` / `--ink-28`
+2. 后续 workspace 新增代码凡遇 line / line-strong 直接用 14/28，不要引 12/24
+3. Crimson 主题 playwright 视觉回归留给 Stage 3 APPROVED 前补一次（随 Q-017 打包）
+
+**Signal**: 随 Q-015/016/017 同 commit emit `A-014-INK-14-28-CANONICAL`
+
+---
+
+## [Q-015] 2026-04-19 15:55 · frontend · AGENTS[].tagline 被误用为页级 description
+
+**CLI**: 主 CLI（触发人：用户观察 O1/O2 + subagent 诊断）
+**Priority**: P0
+**Blocking**: **yes** —— 阻塞 Task D 派发（Task D 不解决 O1/O2）
+**Related**: `docs/review/frontend-stage-3-regression-diagnosis.md` §3.3 O1/O2、`web/src/app/archive/[agent]/page.tsx:62`、`web/src/lib/agents.ts:33-94`、`web/src/app/credit/page.tsx:307-350` (旧 segment 动态描述)
+
+### 问题
+Task A 把 6 个 `app/<agent>/page.tsx` 的页级 `<header>`（含 description）整块删后，新 `archive/[agent]/page.tsx` 用 `AGENTS[].tagline` 渲染 lede。但 tagline 原设计是 Archive **index tile** 短标语（如 report = "材料 → 授信申报书" 11 字），不是 page-level description（旧 report = 64 字完整描述）。直接导致：
+- **O1 "少了细节"**：描述信息量骤降
+- **O2 "改了字段"**：credit 页旧 description 随 segment 动态切（3 套 SEGMENT_META），新版只显示一句静态 tagline
+
+### 选项
+- **A** AgentDef 加 `description: string` 字段，archive/[agent] 渲染 description，tile 继续用 tagline
+- **B** Workspace client 自行暴露 `<HeaderSlot>` 把 description 吐给 archive/[agent] 壳渲染
+- **C** 接受短 tagline 作为子路由 lede（承认信息量降级）
+- **A+B 组合** A 作默认，credit（唯一有动态描述的 agent）走 B slot
+
+### [A-015] 2026-04-19 15:55 · 主 CLI
+
+**Decision**: **A + B 组合**
+- **A 作默认**：6 个 AgentDef 全部加 `description: string`（从旧 `app/<agent>/page.tsx` 提取原文案），archive/[agent] 渲染 `{def.description}` 替代 `{def.tagline}`
+- **B 作特例**：credit workspace 通过 `<HeaderSlot>` 机制暴露当前 segment 的动态 description（3 套 SEGMENT_META），archive/[agent] 在 slot 有值时覆盖默认 description
+- **tile 描述**：archive index 继续用 `tagline`（保原设计意图）
+
+**Rationale**:
+- A 最小侵入 + 保 Evidence-First（字段明确归属，不是"数据复用踩坑"）
+- credit 3 套 SEGMENT_META 是产品价值（对公/普惠/对私文案语气不同），必须保留 → B slot 覆盖
+- A/B 组合比纯 B 好：静态 description 不需要每个 workspace 都实现 slot boilerplate
+
+**Follow-up**:
+1. worker 新建 Task E：AgentDef 加 description 字段 + 6 个 agent 原文案迁入 `lib/agents.ts`
+2. credit workspace 实装 `<HeaderSlot>`（React Context / Zustand / 小状态）+ archive/[agent] 接 slot（slot 无值时 fallback 到静态 description）
+3. 旧 `app/<agent>/page.tsx` 6 个文件保留（已 307 redirect），文案作 description 单一数据源迁移后删除旧文件——本轮 Task E 只迁文案、不删文件（A-012.D SHA 语义避免，删除另起 commit）
+
+**Signal**: 随 Q-014/016/017 同 commit emit `A-015-DESCRIPTION-SLOT-CONTRACT`
+
+---
+
+## [Q-016] 2026-04-19 15:55 · frontend · eyebrow 文案规格
+
+**CLI**: 主 CLI（触发人：subagent 诊断 O2）
+**Priority**: P2
+**Blocking**: no
+**Related**: archive/[agent] 渲染 `{def.code} · {def.key.toUpperCase()}`（新 "A06 · REPORT"）vs 旧 "A06 · Report Generation"、`design_mockups/shell.html:2369` Archive view 用 "ARCHIVE · 频道 03" 格式
+
+### 问题
+eyebrow 文案新旧不一致。shell.html Archive 章节用的格式不是英文全名，是 "ARCHIVE · 频道 NN"。6 个 agent 子路由 eyebrow 没有 canonical spec。
+
+### 选项
+- **A** 维持新版 `{code} · {KEY}` = "A06 · REPORT"（短）
+- **B** 回退旧版 `{code} · <English Name>` = "A06 · Report Generation"（长，英文）
+- **C** 引 shell.html Archive 格式 "ARCHIVE · 频道 NN"（中文化，但 6 agent 各自归属哪"频道"需定义）
+- **D** 新定义 `{code} · {CJK title}` = "A06 · 信贷报告助手"（CJK 统一）
+
+### [A-016] 2026-04-19 15:55 · 主 CLI
+
+**Decision**: **B** · "A06 · Report Generation" 回退旧版
+
+**Rationale**:
+- 旧版是 6 agent 已有约定，worker 历史 commit 均遵循
+- A 过短（REPORT 3 字符无辨识度）
+- C "频道 NN" 是 Archive index 层面的编号，子路由套进去是概念错位
+- D CJK eyebrow 违反 spec 字体栈分层（eyebrow 位典型 mono/sans，非 CJK）
+
+**Follow-up**:
+1. worker Task E 同步：AgentDef 加 `eyebrowLabel: string` 字段，值取旧 page 中的英文描述（report="Report Generation" / credit="Credit Decision Assistant" / ...）
+2. archive/[agent] 渲染改为 `{def.code} · {def.eyebrowLabel}`
+3. Archive index tile 保持原 tile spec，不受本条影响
+
+**Signal**: 随 Q-014/015/017 同 commit emit `A-016-EYEBROW-ENGLISH-NAME`
+
+---
+
+## [Q-017] 2026-04-19 15:55 · frontend · Today sheet-card 丰富形态是否 Stage 3 必做
+
+**CLI**: 主 CLI（触发人：用户观察 O3 + subagent 诊断）
+**Priority**: P0
+**Blocking**: **yes** —— 阻塞 Stage 3 整体 APPROVED 判定口径
+**Related**: `docs/review/frontend-stage-3-regression-diagnosis.md` §3.2 / §5.2、`design_mockups/shell.html:1882-2240` Today 规格、`web/src/app/today/page.tsx:79-101` 简版 stub
+
+### 问题
+User 直接观察到"中间气泡框变早期设计版本"——这是 **real regression 感知**，即便 **不是** Task A/B/C 引入（诊断明确归 Stage 2 `e5dad4b` 未升级实装；`.sheet-card` / `pv-sheets` / `pv-foot` / `badge` 从未按 shell.html 规格实装过）。
+
+spec 完整形态 vs 当前 stub 差距：
+- 容器 `.card.warm.sheet-card` vs 普通 `.v-card` linear-gradient
+- 每条 sheet 含 tag pill + state + title + sub + **eta** + **sheet-bar 进度条** vs 仅 `<ul><li>` 标题
+- idle 条独立灰态视觉 vs 同 `<li>` 混排
+- pv-foot + badge "02." + open "打开调度台 ↘" vs 无尾栏
+
+### 选项
+- **A** Stage 3 追加 Task F 实装 sheet-card 完整规格（额外 0.5-1 工作日）
+- **B** 推 Stage 4 专项升级（Stage 3 先 APPROVED，user 会继续看到 regression）
+- **C** 挂 L4 商业交付包（演示专用，默认 Stage 3 不改）
+
+### 推荐（主 CLI 视角）
+**A** —— user 明确感知 + CLAUDE.md §7 "体验 > 架构优雅度"；但工期膨胀需要 user 确认。
+
+### [A-017] PENDING —— 等用户拍板 A/B/C
+
+**本条需 user 决策**：是否把 Today sheet-card 实装纳入 Stage 3？选 A 加 Task F，选 B 推 Stage 4，选 C 默认不改。
+
+---
