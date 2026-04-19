@@ -696,8 +696,110 @@ fixture `baseline_v1/` 只有合并 `confusion_matrix`，没有 per-rule 分解�
   4. Task A runtime baseline 跑出来回填 `baseline.results.per_rule_fpr_spread`
   5. 若跑出值已触草案警戒线（Phase 1 过闸门标准：跑出值 ≤ A-019 target），worker 不硬压指标，按 CLAUDE.md §12 写 gap doc
 
-### [A-019] TBD · 主 CLI
+---
+### [A-012.E] 2026-04-19 17:00 · 主 CLI（主动 · agent4 rebase 触发）
 
-（待主 CLI 裁决；worker 按 A-019 指定公式 + 阈值实装 Task C，同 commit 标 trailer `Signal: A-019-PER-RULE-SPREAD-TARGET-LOCKED` 由主 CLI emit 或随 Task C DONE commit 消费）
+**Decision**: **Upstream catch-up 只许 `git merge --no-ff`，禁 `git rebase` / `git pull --rebase` / `cherry-pick` 作等价替代。**
+
+**触发事件**：agent4 worker 为吸收 A-013 α kernel 选择 `git rebase upstream/chore/l0-infra`，reflog 证据：
+```
+e3acbbb feat/agent4-productize@{1}: rebase (finish): onto 73d6732c41cf233fb035f85991b22467ab79dd1d
+a972e4c feat/agent4-productize@{2}: window-close: Phase 0 approved  ← 原 SHA（已被主 CLI review 引用）
+```
+rebase rewrite 了 `a972e4c` → `e3acbbb`，破 A-012.D。对比 agent2 同日同需求选 `git merge --no-ff`（`9b78130 Merge made by the 'ort' strategy`），SHA 全保留，合规示范。
+
+**Rationale**：
+- A-012.D 硬约束是"已引用 SHA 不可重写"。rebase 的本质就是 replay commits on new base → 所有 commit SHA 全部 rewrite。单个 rebase 动作就能把整条 Phase 0~N 的 review 证据链全部失效
+- Merge commit 虽多一条 graph line，但保原 SHA 可追溯；git history 复杂度是可接受的交换
+- `git pull --rebase` 是 rebase 的隐式形式，同禁；`git cherry-pick` 把别处 commit 拷贝到当前分支会生成新 SHA，但不重写已有 SHA，**允许但需自报为 cherry-pick 动作（commit msg 标明源 SHA）**
+- "linear history"美学不是 banking delivery 的硬需求；SHA 可审计性是
+
+**硬命令**（worker 照搬）：
+```bash
+# ✅ 正确：add-only merge
+git fetch upstream <branch>
+git merge upstream/<branch> --no-ff
+# 冲突解决后 git commit（不需 --amend）
+
+# ❌ 禁止
+git rebase upstream/<branch>
+git pull --rebase
+git rebase -i <any>  # 任何 interactive rebase
+git reset --hard <任何跨越 review 边界的 SHA>   # Phase 内部 reset 宽容
+git push --force / --force-with-lease
+git commit --amend <任何已 push / 已 signal 的 commit>
+```
+
+**纠正 playbook**（reset-hard 仅作 rebase 违规的 rollback，本身不违规）：
+```bash
+# 1. 恢复原 SHA（reflog 查原 SHA，objects 尚未 gc 可取）
+git reset --hard <pre-rebase-SHA>
+
+# 2. 改用合规 merge
+git fetch upstream <branch>
+git merge upstream/<branch> --no-ff
+
+# 3. 重出 ack commit 标明 "post-reject V2"
+git commit --allow-empty -m "ack(<agent>): <phase> onboarding absorbed (post-reject V2)" \
+  --trailer "Signal: <AGENT>-<PHASE>-ACK-V2"
+```
+
+**Enforcement**：
+- 每次 worker emit `*-ACK` / `READY-FOR-REVIEW` / `WINDOW-CLOSED-CLEAN`，主 CLI 对应 reviewer 必查：
+  ```bash
+  git reflog <branch> | grep -iE 'rebase|amend|force'  # 命中 0 才算合规
+  ```
+- 命中即 REJECT + reset-hard playbook 纠正（即使 rebase 结果 diff 等价）。**A-012.D/E 是形式正确 over 结果正确** — SHA 可审计性比整洁性重要
+- Cherry-pick 例外：允许但 worker 必须在 commit msg 显式 `Cherry-pick from <source-SHA>`；reviewer 校验源 SHA 存在且语义一致
+
+**Follow-up**：
+1. `docs/handoff/shared-change-protocol.md`（主 CLI 未起草稿）正式落 §merge-only 条款时引本 A-012.E
+2. 后续 Phase onboarding §硬规则节加"upstream catch-up = merge-only"一条，覆盖 agent2/4 Phase 1 + agent1/3/6 后续 Phase
+3. 本 A-012.E 追溯覆盖 agent2 `9b78130` merge（合规，记正面示范）+ agent4 `e3acbbb` rebase（违规，已 REJECT，待 reset-hard 纠正）
+
+**Signal**: `A-012.E-MERGE-ONLY-RULE`（主 CLI commit 同步 emit）
 
 ---
+
+## [A-019] 2026-04-19 17:06 · 主 CLI（答 Q-019 @ `46051f2`）
+
+**Related**: Q-019 块位于 agent2 worktree `46051f2` `docs/handoff/decisions-log.md`（agent2 Phase 1 Task C 锚点；主 CLI trunk 待 agent2 下次 merge 时按 A-009 add-only union 吸收 Q-019 块 + 本 A-019 块）
+
+**Decision**: **A · σ²（总体方差）≤ 0.03**（Phase 1 草案阈值，Phase 2 Batch 2 用真 baseline 分布锚定）
+
+**公式**（worker 照搬 adapter 实装）：
+```python
+def per_rule_fpr_spread(rule_stats: list[RuleStat]) -> float | None:
+    fprs = [
+        r.FP / (r.FP + r.TN)
+        for r in rule_stats
+        if (r.FP + r.TN) > 0  # N/A 规则跳过，不入均值
+    ]
+    if len(fprs) < 2:
+        return None  # 无意义 → verdict 按 pending 白名单处理
+    mean = sum(fprs) / len(fprs)
+    return sum((x - mean) ** 2 for x in fprs) / len(fprs)  # 总体方差
+```
+
+**阈值锁定**：`metrics.domain.per_rule_fpr_spread.target = 0.03`（Phase 1 草案）
+
+**Rationale**（接纳 worker 推荐 + 主 CLI 校准）：
+1. worker rationale 成立：方差对"整体绿 + 单条偏激"灵敏度高于 max-min，worker 举的 {0.02,0.03,0.02,0.03,0.25} σ²≈0.0087 vs {0.02,0.03,0.02,0.03,0.50} σ²≈0.037 能证明 0.03 阈值区分"可疑"与"失控"
+2. KS/PSI 方差口径一致 → Phase 2 对接人工风控评审零迁移成本
+3. 0.03 threshold 局限：对 ≥ 10 条规则 ruleset 偏松（worker 举 5 规则），**Phase 1 接受草案值，Phase 2 Batch 2 必须**：
+   - Task A runtime dump 跑完观察真 baseline `per_rule_fpr_spread` 分布
+   - 基于 P90/P95 + 安全 margin 锁 Phase 2 正式阈值
+   - yaml baseline 增 `per_rule_fpr_spread.calibrated_from` 审计字段（**这是 baseline schema 扩展，Phase 2 Batch 2 启动前必须 Q 后动**，不许 Task C 同 commit 顺手加 → A-018 教训）
+4. B max-min 弱在"中段集中但两端极值"场景误报；C (CV/MAD/IQR) 对信贷风控陌生，迁移成本 > 统计优越性
+
+**Phase 1 Task C 实施路径**（worker §Phase 1 路径全接纳，不变）：
+1. `agent_riskctrl/backtesting.py` 扩 `rule_stats` per rule `{FP, TN, FP_rate}`
+2. adapter `compute_domain_metrics` 加 `per_rule_fpr_spread` MetricOutcome，`method=deterministic`
+3. yaml `metrics.domain.per_rule_fpr_spread.target: 0.03`（实填，不 `<TBD>`）
+4. Task A runtime baseline 回填 `baseline.results.per_rule_fpr_spread`
+5. 若观测值 > 0.03：按 CLAUDE.md §12 写 `docs/progress/agent2-phase-1-spread-gap.md` 记 "某 ruleset 不均衡"；**不调阈值迎合**（治标不治本反模式）
+6. 若观测值 ≤ 0.005（过度均衡）：标 "规则同质性过高，可能冗余"，不触 fail 但记 follow-up
+
+**Non-blocking**：Q-019 不阻 Task A/B/D（worker 预判正确），Task C 可直接实装。
+
+**Signal**: `A-019-PER-RULE-SPREAD-TARGET-LOCKED`（主 CLI commit 同步 emit）
