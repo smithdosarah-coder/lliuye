@@ -1,6 +1,6 @@
 # 5 Demo 产品化 · 全局看板 (GLOBAL)
 
-**更新日期**：2026-04-19（Phase 2 Batch 1 review 后）
+**更新日期**：2026-04-19（5 worker 并行下发后：前端 Stage 2 + Agent4/2 Phase 0 + Agent6 Phase 1 Finalize + Agent1 Option 2 Rebase）
 **维护人**：主 CLI（唯一可写，子 CLI 只读）
 **DoD 引用**：`docs/scorecard/definition-of-done.md` v1.0
 **Mesh 状态看板**：`py C:/Users/Mr.S/.claude/skills/multi-cli-mesh/scripts/mesh_status.py`
@@ -25,12 +25,13 @@
 
 | Agent | Phase | L0 | L1 | L2 | L3 | 综合 | 最后裁决 |
 |---|---|---|---|---|---|---|---|
-| 6 报告 | v16 maintenance | ✅ | ✅ | 🟡 缺审计日志 | ✅ Phase A adapter | **95%** | `WINDOW-CLOSED-CLEAN` |
-| 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | `PHASE-2-APPROVED` |
-| 1 获客 | Phase 2 Batch 1 CONDITIONAL | ✅ | ✅ handoff contract | 🟡 sampling CSV | 🟡 adapter 挂 registry 待 rebase | **78%** | `CONDITIONAL-APPROVE` |
-| 2 风控 | 未启 | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ❌ 基线未跑 | **55%** | 排队 |
-| 4 预警 | 未启 | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ❌ 基线未跑 | **50%** | 排队 |
-| 5 合规 | 未启 | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 排队 |
+| 6 报告 | **Phase 1 Finalize APPROVED 2026-04-19** | ✅ | ✅ | ✅ 审计+合作机构+分级 | ✅ 模型卡+演示+feedback E2E | **97%** | APPROVED |
+| 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | APPROVED |
+| 1 获客 | **Option 2 Rebase APPROVED 2026-04-19** | ✅ | ✅ handoff contract | 🟡 sampling CSV | ✅ runner adapter + baseline PASS | **82%** | APPROVED（待 Phase 1） |
+| 2 风控 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ✅ adapter+baseline 全绿 | **62%** | APPROVED（待 Phase 1） |
+| 4 预警 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ✅ adapter+baseline PARTIAL PASS | **57%** | APPROVED（待 Phase 1） |
+| 5 合规 | 未启（defer） | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 等 kb_scan 底座稳定 |
+| 前端 Shell | **Stage 2 APPROVED 2026-04-19** | — | — | — | — | **—** | Stage 3 首批 = workspace C 方案解耦 |
 
 **图例**：✅ 全通 / 🟡 部分通 / ❌ 未通
 
@@ -39,25 +40,30 @@
 ## 三、推进顺序（按投产价值排）
 
 ```
-Phase 0 (本周)
-└─ Agent6 收尾 → 审计日志 + 模型卡片 + 反馈飞轮接通
+完成
+├─ Agent6 v16 Phase 1（审计/反馈飞轮仍挂 L2/L3 尾巴，放在 Phase 1 末收）
+├─ Agent3 授信 Phase 2 Batch 1 APPROVED
+└─ Agent1 获客 Phase 2 Batch 1 CONDITIONAL（rebase 待 worker 重开）
 
-Phase 1 (下周起，2 子 CLI 并行)
-├─ Agent3 授信 productize（最大价值，对标 Gamma）
-└─ Agent1 获客 productize（次大价值，对标 CybotStar）
+在途（2026-04-19 起，5 worker 并行）
+├─ 前端 Shell Stage 2 productize（token + AppShell + 4 view，打底给全部 Agent）
+├─ Agent6 Phase 1 Finalize（L2/L3 尾巴：审计 + 合作机构 + 数据分级 + 模型卡 + 演示 + feedback E2E）
+├─ Agent1 Option 2 Rebase（解 CONDITIONAL-APPROVE 条件：adapter 挂进新 framework）
+├─ Agent4 预警 Phase 0（evaluation adapter + baseline 首跑）
+└─ Agent2 风控 Phase 0（evaluation adapter + baseline 首跑）
 
-Phase 2
-├─ Agent4 预警 productize
-└─ Agent2 风控 productize
-
-Phase 3
-└─ Agent5 合规 productize（最单薄，需要最多时间）
+下一批
+├─ Agent3 Phase 2 Batch 2（等前端 Stage 2 落地，避免 UI 双写）
+├─ Agent4 / Agent2 Phase 1 productize（UI + 原因码 + 审计，等 Phase 0 baseline 做锚点）
+├─ Agent1 Phase 2 Batch 2（等前端 Stage 2 落地）
+└─ Agent5 合规 Phase 0（需等 shared/kb_scan/ 底座稳定）
 ```
 
-**不并行 5 个 CLI 的理由**：
-- 主 CLI review 带宽有限（每个 review 需要起服务 + 亲跑 + 对 DoD 逐条打分，约 30-60 min）
-- Agent5 依赖其他 agent 的共享底座稳定，最后做
-- 信创 / 私有化 / 合作机构备案等 L4 条目统一在 Phase 3 末补齐
+**为什么不先跑 Agent4/2/5 productize 而是 Phase 0**：
+- CLAUDE.md §5.2 硬规则"先建 rubric、跑基线、找最大 gap 再改代码"——Agent1 Option 2 无基线先码已踩坑
+- Phase 0 成本 1.5 天，换 Phase 1 productize 有量化锚点
+- Agent5 defer：依赖 shared/kb_scan 底座（Agent4 也用），Agent4 Phase 0 跑稳再切
+- 前端 Stage 2 与 Agent Phase 0 无红区冲突，可真并行
 
 ---
 
@@ -74,11 +80,13 @@ git worktree add ../demo-agent5 -b feat/agent5-productize
 
 | worktree | 分支 | 负责 agent | 状态 |
 |---|---|---|---|
-| `../demo-agent3` | `feat/agent3-productize` | Agent3 授信 | 待启动 |
-| `../demo-agent1` | `feat/agent1-productize` | Agent1 获客 | 待启动 |
-| `../demo-agent4` | `feat/agent4-productize` | Agent4 预警 | 排队 |
-| `../demo-agent2` | `feat/agent2-productize` | Agent2 风控 | 排队 |
-| `../demo-agent5` | `feat/agent5-productize` | Agent5 合规 | 排队 |
+| `../demo-agent3` | `feat/agent3-productize` | Agent3 授信 | Batch 1 APPROVED，Batch 2 等前端 Stage 2 |
+| `../demo-agent1` | `feat/agent1-productize` | Agent1 获客 | **Option 2 Rebase 下发，2026-04-19** |
+| `../demo-agent4` | `feat/agent4-productize` | Agent4 预警 | **Phase 0 下发，2026-04-19** |
+| `../demo-agent2` | `feat/agent2-productize` | Agent2 风控 | **Phase 0 下发，2026-04-19** |
+| `../demo-agent5` | — | Agent5 合规 | defer（等 kb_scan） |
+| `../demo-agent6` | `feat/agent6-v16` | Agent6 报告 | **Phase 1 Finalize 下发，2026-04-19** |
+| `../demo-frontend` | `feat/platform-shell` | Platform shell v1 | **Stage 2 下发，2026-04-19** |
 
 **主 CLI** 留在 `D:\claude code\credit_report_agent_work\`（main 分支）— 不写代码，只审。
 
@@ -86,14 +94,19 @@ git worktree add ../demo-agent5 -b feat/agent5-productize
 
 ## 五、当前焦点（Phase 2 · 2026-04-19 起）
 
-**已完成**：Agent6 v16 Phase 1 收尾 + Agent3 Phase 1 APPROVED + Agent3 Phase 2 Batch 1 APPROVED + Agent1 Phase 2 Batch 1 CONDITIONAL-APPROVE
+**已完成**：Agent6 v16 Phase 1 + Agent3 Phase 1 APPROVED + Agent3 Phase 2 Batch 1 APPROVED + Agent1 Phase 2 Batch 1 CONDITIONAL-APPROVE + evaluation runner Phase A framework（`de1b6b5`）+ Agent6 Phase A adapter（`de1b6b5`）
 
-**在途**：
-- Agent1 Option 2 rebase 修复（等 worker 重开窗口）
-- `chore/agent3-lint-cleanup` fast-forward merge 进 `chore/l0-infra`
+**在途（5 worker 并行）**：
+- 前端 Shell Stage 2：token 迁移 + AppShell 骨架 + 4 view 路由（`docs/onboarding/frontend-shell-phase-1.md`，分支 `feat/platform-shell`）
+- Agent6 Phase 1 Finalize：审计日志 + 合作机构 + 数据分级 + 模型卡 + 演示脚本 + 反馈飞轮 E2E（`docs/onboarding/agent6-phase-1-finalize.md`，分支 `feat/agent6-v16`）
+- Agent1 Option 2 Rebase：解 Batch 1 CONDITIONAL-APPROVE 条件（`docs/onboarding/agent1-option2-rebase.md`，分支 `feat/agent1-productize`）
+- Agent4 预警 Phase 0：evaluation adapter + baseline 首跑（`docs/onboarding/agent4-phase-0.md`，分支 `feat/agent4-productize`）
+- Agent2 风控 Phase 0：evaluation adapter + baseline 首跑（`docs/onboarding/agent2-phase-0.md`，分支 `feat/agent2-productize`）
 
-**下一批（未下发）**：
-- Agent2 / Agent4 / Agent5 Phase 1 启动评估
+**排队**：
+- Agent3 Phase 2 Batch 2（等前端 Stage 2 落地）
+- Agent1 Phase 2 Batch 2（Option 2 解封后等前端 Stage 2）
+- Agent5 Phase 0（defer，等 kb_scan 底座稳定）
 - Agent1 Option 1 解封等 Tavily 生产 key + 合规批文
 
 ---
@@ -167,6 +180,11 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 日期 | agent | phase | verdict | reviewer |
 |---|---|---|---|---|
+| 2026-04-19 | 1 获客 | Option 2 Rebase | APPROVED（含 2 Gap）| 主 CLI |
+| 2026-04-19 | 前端 Shell | Stage 2 | APPROVED（升级自 CONDITIONAL @ b2b48fe）| 主 CLI |
+| 2026-04-19 | 6 报告 | Phase 1 Finalize | APPROVED | 主 CLI |
+| 2026-04-19 | 4 预警 | Phase 0 | APPROVED | 主 CLI |
+| 2026-04-19 | 2 风控 | Phase 0 | APPROVED | 主 CLI |
 | 2026-04-19 | 3 授信 | Phase 2 Batch 1 | APPROVED | 主 CLI |
 | 2026-04-19 | 1 获客 | Phase 2 Batch 1 | CONDITIONAL-APPROVE | 主 CLI |
 | 2026-04-19 | 3 授信 | Phase 1 | APPROVED (A-004) | 主 CLI |

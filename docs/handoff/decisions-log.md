@@ -224,6 +224,135 @@ Agent1 Option 2 的 f2bee8c 在 commit message 里写 "冒烟: py -m evaluation.
 
 ---
 
+## [Q-007] 2026-04-19 · channel(agent1) · Option 2 rebase 遇到 agent_channel/__init__.py 非 onboarding 约定冲突
+
+**CLI**: channel | **Priority**: P1 | **Blocking**: yes
+**详见**：agent1 worktree commit `23272cf`（raised with Signal: NEED-DECISION Q-007）
+
+### 三方分歧
+
+| 来源 | 内容 |
+|---|---|
+| 合并基 `40a96af` | 仅 `# -*- coding: utf-8 -*-` |
+| upstream `c99544f`（lint zero-baseline） | 整文件清空（UP009 删 coding 声明） |
+| agent1 `62e7436` | 扩写 Agent1 工具域 docstring |
+
+**选项**：A 保空 / B 保完整 docstring / C 合并版（保 docstring 主体 + 去 coding 行）
+
+### [A-007] 2026-04-19 · 主 CLI
+
+**Decision**: **C**
+
+**Rationale**:
+1. docstring 是 CLAUDE.md §3.2 要求的工具域语义资产，不是 lint 能顺手清掉的
+2. `c99544f` 删的本意是 UP009 的 coding 声明，不是 docstring
+3. C 同时满足 lint zero-baseline + 文档价值，无副作用
+4. 操作员轮次已口头裁决同 C，本条正式补录
+
+---
+
+## [Q-008] 2026-04-19 · channel(agent1) · Option 2 rebase 第二次非约定冲突 + 批量策略请示
+
+**CLI**: channel | **Priority**: P1 | **Blocking**: yes
+**详见**：agent1 worktree commit `e5db230`（raised with Signal: NEED-DECISION Q-008）
+
+### Q-008.A · evaluation/agent1_channel.yaml add/add 冲突
+
+| 来源 | 形态 |
+|---|---|
+| upstream `544852d` | 骨架占位（common/domain + baseline stub） |
+| agent1 `1e8c770` | 完整型（scenarios + 5 specialized_metrics 含 signal_diversity≥2 硬闸） |
+
+**选项**：A 保完整 + 折叠 upstream baseline / B 保骨架（丢 signal_diversity 硬闸） / C 全手工 merge
+
+### Q-008.B · 批量策略
+
+onboarding 只承诺 1 个预期冲突，实测已 2 个非约定。剩余 13 commits 很可能有同类。
+三策略：1 per-file Q / 2 批量授权 / 3 主 CLI 代 rebase。
+
+### [A-008] 2026-04-19 · 主 CLI
+
+**Decision A**: **A**（保完整 + 折叠 upstream baseline 字段）
+
+**Rationale**: upstream `544852d` 是早占位，`1e8c770` 是真实落地；骨架是完整的占位前驱，保完整是合法演进；baseline 字段 3 行融合 0 成本。
+
+**Decision B**: **策略 2 批量授权**
+
+**Rationale**: 策略 1 拖工期（预计 N 次往返）；策略 3 丢 linear history 且破坏"worker 拥有自己分支"原则；策略 2 在红区保护下预授权可预测模式，是效率 vs 安全的帕累托点。
+
+**批量授权规则**（agent1 可直接应用，无需再 abort）：
+
+| 冲突位置 | 处置 |
+|---|---|
+| `agent_*/__init__.py` / `agent_*/*.py` docstring 级别 | 保 agent1 的 docstring 内容主体，丢 coding 声明等 lint-only 变更 |
+| `evaluation/agent1_*.yaml` / `evaluation/agent1_*.{yml,json}` | 保 agent1 的完整配置 + 折叠 upstream 的 `baseline: {last_run, commit}` 等 tracking 字段 |
+| `evaluation/runner/**`（adapter 注册、registry） | 保 upstream 的 framework 版 + 合并 agent1 侧新增 agent1 adapter |
+| `docs/onboarding/**` / `docs/review/**` / `docs/progress/**` | 保 agent1 的版本（worker 自己的 progress）或 upstream 的（main 写的），按文件命名约定自动判断；二义性仍 abort+Q |
+| `shared/**` | **仍 abort + Q**（红区不可自决） |
+| `docs/contracts/**` | **仍 abort + Q**（契约红区） |
+| `api_server.py` / `agent_*/api/**` | **仍 abort + Q**（agent 间路由红区） |
+| 其他未列 | **仍 abort + Q** |
+
+**落地协议**：
+- agent1 `git fetch upstream` 拉到本 A-007/A-008 commit
+- 按 A-007 C / A-008.A A 先应用已知冲突的解
+- `git rebase upstream/chore/l0-infra` 继续，命中红区 abort+Q，命中授权区直接解 + continue
+- commit chain: 每个 rebase commit 按原 message 保留；rebase 完抛 `Signal: OPTION-2-REBASE-FIXED`
+- 后续 smoke + baseline 同原 onboarding
+
+**审计补偿**（回应 worker 担心）：批量授权不等于无审计——每个实际应用规则的 rebase commit 保留冲突前后 diff，最终 review 我会 spot-check 5 个 resolved conflict 看是否越出规则。越出即 CONDITIONAL-APPROVE。
+
+---
+
+## [Q-009] 2026-04-19 · channel(agent1) · `.gitignore` 冲突（A-008 "其他未列" 触发）+ 规则矩阵扩充请示
+
+**CLI**: channel | **Priority**: P1 | **Blocking**: yes
+**详见**：agent1 worktree commit `32fb7ea`（Signal: NEED-DECISION Q-009）
+
+agent1 严格遵守 A-008 遇非授权冲突 abort，第三次卡在 `.gitignore`（两边都是 add-only，upstream 加 `evaluation/results/**/*.json` 规则、agent1 加 `!evaluation/results/1_20260418.yaml` 放行）。剩余 10 commits 很可能继续卡同类良性根文件。
+
+Q-009.A: `.gitignore` 选项 A/B/C（推荐 A：两边并存）
+Q-009.B: 扩 A-008 规则矩阵 or 一次性 ACK 剩余非红区冲突
+
+### [A-009] 2026-04-19 · 主 CLI
+
+**Decision A（.gitignore 具体）**: **A** 两边并存
+
+**Rationale**: upstream 加的是全局规则扩展，agent1 加的是单行 baseline 放行；add-only 语义正交，合并零冲突。
+
+**Decision B（规则矩阵扩充）**: **同时采纳"扩矩阵" + "非红区 add-only 自决"**
+
+worker 的纪律是对的（每次停下问）但我矩阵太窄。扩充如下：
+
+#### A-008 规则矩阵扩展版（2026-04-19 起生效）
+
+| 冲突位置 | 处置 | 备注 |
+|---|---|---|
+| **新增行**（相对 A-008）| | |
+| `.gitignore` / `pyproject.toml`（非结构破坏）/ `README.md` / 根目录 `.md` `.cfg` `.toml` `.ini` 等非代码配置 | 两边增补并存（add-only），worker 自决 | `.gitignore` 见 Q-009 范式 |
+| **所有其他非红区 add-only 冲突**（两边 diff 只有新增行，无删除/修改） | worker 自决并存，审计侧 spot-check | 兜底条款，避免再为根文件卡 |
+| **原 A-008 条目**（保留不变） | | |
+| `agent_*/__init__.py` docstring | 保 agent1 主体，丢 lint-only 变更 | |
+| `evaluation/agent1_*.yaml` | 保完整 + 折叠 upstream baseline 字段 | |
+| `evaluation/runner/**` | 保 framework 版 + 合并 agent1 adapter | |
+| `docs/{onboarding,review,progress}/**` | 按文件归属判断 | |
+| `shared/**` | **仍 abort + Q** | 红区 |
+| `docs/contracts/**` | **仍 abort + Q** | 契约红区 |
+| `api_server.py` / `agent_*/api/**` | **仍 abort + Q** | 路由红区 |
+| 红区之外任何**非 add-only**（含删除或修改现有行） | **仍 abort + Q** | 风险不对称 |
+
+**兜底条款的 spot-check 加重**：最终 review 我在 10 个 resolved conflict 里抽 5 个，原"越出规则即 CONDITIONAL" 升级为"越出规则或出现 add-only 误判即 REJECTED，整轮 rebase 重做"。worker 被授权更大 → 审计刀更重，对称。
+
+**落地协议**（给 agent1）：
+- `git fetch upstream` 拉本 A-009 commit
+- Q-009.A `.gitignore` 按 A 合并两边 add-only
+- 继续 rebase，按**扩展后矩阵**处理剩余 10 commits
+- 所有 add-only 非红区冲突自决（包含 `.gitignore` 及其他根目录非代码文件）
+- 红区或非 add-only 仍 abort + Q
+- 全绿抛 `Signal: OPTION-2-REBASE-FIXED`，随后原 onboarding 的 smoke + baseline + final Signal
+
+---
+
 ## [Q-010] 2026-04-19 14:30 · shell · archive 动态路由 Stage 2 用 placeholder 而非 import 现有 page 组件
 
 **CLI**: shell（frontend worker · feat/platform-shell）
@@ -292,6 +421,9 @@ A 是最小修复：HTML `<link>` 绕过 CSS 层 @import 约束，字体策略�
 **Decision**: A
 **Rationale**: 与 `docs/review/frontend-stage-2-review.md` Required Actions §3 一致——"字体策略 §3.2 不变"。review 明确只要求补 log、未质疑技术判断。Tailwind v4 inline 展开是 upstream 行为，CSS 源码层无法绕过；A 是现阶段唯一不改字体策略的修法。
 **Follow-up**: Stage 6 私有化部署时统一自托管 woff2，届时 `<link>` 与 `@import url` 都不再需要，本决策作废。CLAUDE.md §7 字体栈六变量声明不动。
+
+---
+
 
 ---
 
