@@ -120,6 +120,203 @@
 .v-card li .prio.P1 { background: #E3B23F; color: var(--ink); }
 .v-card li .prio.P2 { background: var(--ink-14); color: var(--ink-65); }
 
+/* ═══ A-017 · TODAY .card.warm.sheet-card ═══
+   Migrated verbatim from design_mockups/shell.html:1481-1608 (2026-04-18 lock).
+   Scoped under .v-today so archive/warroom are unaffected. */
+.v-today .card {
+  position: relative;
+  padding: 20px 22px 64px;
+  min-height: 318px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(
+    180deg,
+    var(--ch-82) 0%,
+    color-mix(in srgb, var(--g0b) 74%, transparent) 60%,
+    color-mix(in srgb, var(--g1) 72%, transparent) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 24px 48px -28px rgba(15, 26, 18, 0.35);
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.25, 1);
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+}
+.v-today .card:hover { transform: translateY(-3px); }
+.v-today .card.warm {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 78%, transparent) 0%,
+    color-mix(in srgb, var(--g2) 78%, transparent) 55%,
+    color-mix(in srgb, var(--g4) 82%, transparent) 100%
+  );
+}
+
+.v-today .card .tag {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: 0.12em;
+  color: var(--ink-65);
+  display: flex; align-items: center; gap: 10px;
+  height: 18px;
+}
+.v-today .card .tag .dash { width: 14px; height: 1px; background: currentColor; opacity: 0.55; flex-shrink: 0; }
+.v-today .card .tag .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v-today .card .tag .sum {
+  font-family: var(--mono); font-weight: 500;
+  font-size: 10.5px; font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em; color: var(--ink-48);
+  flex-shrink: 0;
+}
+
+.v-today .card h3 {
+  margin-top: 14px;
+  font-family: var(--display); font-weight: 600;
+  display: flex; align-items: baseline; gap: 10px; line-height: 1;
+  height: 64px;
+}
+.v-today .card h3 .nbr {
+  font-family: var(--display); font-weight: 600;
+  font-size: 64px; letter-spacing: -0.04em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.v-today .card h3 em {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  font-size: 22px; color: var(--accent); letter-spacing: -0.01em;
+  margin-left: auto;
+}
+
+.v-today .card.sheet-card .pv-sheets {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-top: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 10px 14px 4px;
+  display: flex; flex-direction: column; gap: 12px;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black 86%, transparent 100%);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 14%, transparent) transparent;
+}
+.v-today .card.sheet-card .pv-sheets::-webkit-scrollbar { width: 4px; }
+.v-today .card.sheet-card .pv-sheets::-webkit-scrollbar-track { background: transparent; }
+.v-today .card.sheet-card .pv-sheets::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: 2px;
+}
+
+.v-today .sheet {
+  position: relative;
+  padding: 11px 14px 13px;
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+  border-radius: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    2px 2px 0 -1px color-mix(in srgb, var(--chalk) 64%, transparent),
+    4px 4px 0 -2px color-mix(in srgb, var(--chalk) 40%, transparent),
+    0 6px 14px -8px rgba(52, 24, 10, 0.32);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.v-today .sheet:hover {
+  transform: translateX(-2px) translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    3px 3px 0 -1px color-mix(in srgb, var(--chalk) 70%, transparent),
+    6px 6px 0 -2px color-mix(in srgb, var(--chalk) 48%, transparent),
+    0 10px 20px -10px rgba(52, 24, 10, 0.4);
+}
+.v-today .sheet.idle {
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    2px 2px 0 -1px color-mix(in srgb, var(--chalk) 46%, transparent),
+    0 4px 10px -8px rgba(52, 24, 10, 0.2);
+}
+.v-today .sheet.running::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px; background: var(--accent);
+  border-radius: 4px 0 0 4px;
+}
+
+.v-today .sheet-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 5px;
+}
+.v-today .sheet-tag {
+  font-family: var(--cjk); font-weight: 600;
+  font-size: 10.5px; letter-spacing: 0.1em;
+  color: var(--ink);
+}
+.v-today .sheet.idle .sheet-tag { color: var(--ink-48); }
+.v-today .sheet-state {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--ink-48); letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.v-today .sheet.running .sheet-state { color: var(--accent); }
+.v-today .sheet-title {
+  font-family: var(--cjkserif); font-weight: 600;
+  font-size: 13px; color: var(--ink);
+  letter-spacing: -0.005em; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.v-today .sheet.idle .sheet-title { color: var(--ink-48); font-style: italic; font-weight: 500; }
+.v-today .sheet-sub {
+  font-family: var(--cjk); font-size: 10.5px;
+  color: var(--ink-48);
+  margin-top: 3px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px;
+}
+.v-today .sheet-sub .eta {
+  font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink-65);
+  white-space: nowrap;
+}
+.v-today .sheet-bar {
+  margin-top: 9px;
+  height: 2px; border-radius: 1px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  position: relative; overflow: hidden;
+}
+.v-today .sheet-bar::after {
+  content: ""; position: absolute; inset: 0 auto 0 0;
+  width: var(--p, 0%);
+  background: linear-gradient(90deg, var(--accent), var(--g4));
+  border-radius: 1px;
+}
+
+.v-today .card.sheet-card .pv-foot.sheet-foot {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+}
+.v-today .card.sheet-card .pv-foot.sheet-foot b {
+  font-family: var(--mono); font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.v-today .card.sheet-card .pv-foot.sheet-foot .tail {
+  font-family: var(--mono); color: var(--ink-65);
+  letter-spacing: 0.04em;
+}
+
+.v-today .card .badge {
+  position: absolute; left: 22px; bottom: 22px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  color: var(--ink-48);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ═══ ARCHIVE view ═══ */
 .v-archive { padding-top: 6px; }
 .v-archive .archive-h {

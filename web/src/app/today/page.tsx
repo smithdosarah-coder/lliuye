@@ -1,7 +1,9 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import {
   TODAY_FEED,
-  TODAY_IN_FLIGHT,
+  TODAY_IDLE_SHEETS,
+  TODAY_RUNNING_SHEETS,
   TODAY_SUMMARY,
   TODAY_TASKS,
 } from "@/lib/mock/today";
@@ -76,28 +78,60 @@ export default function TodayPage() {
           </ul>
         </Link>
 
-        {/* 进行中 */}
-        <Link href="/archive" className="v-card">
-          <div className="v-card-tag">
+        {/* A-017: agent · 正在跑 — card.warm.sheet-card (shell.html:2047-2131) */}
+        <Link href="/dispatch" className="card warm sheet-card">
+          <div className="tag">
             <span className="dash" />
-            进行中 · In Flight
-            <span className="sum">{TODAY_IN_FLIGHT.length} AGENTS</span>
+            <span className="label">agent · 正在跑</span>
+            <span className="sum">
+              共 {String(TODAY_RUNNING_SHEETS.length + TODAY_IDLE_SHEETS.length).padStart(2, "0")} 位
+            </span>
           </div>
-          <div className="v-card-h">
-            {TODAY_IN_FLIGHT.length}
-            <em>running</em>
-          </div>
-          <ul>
-            {TODAY_IN_FLIGHT.map((i) => (
-              <li key={i.id}>
-                <span>
-                  {i.title}
-                  <span className="sub">{i.status}</span>
-                </span>
-                <span className="ts">{i.progress != null ? `${i.progress}%` : "—"}</span>
-              </li>
+          <h3>
+            <span className="nbr">{String(TODAY_RUNNING_SHEETS.length).padStart(2, "0")}</span>
+            <em>running.</em>
+          </h3>
+          <div className="pv-sheets">
+            {TODAY_RUNNING_SHEETS.map((s) => (
+              <div
+                className="sheet running"
+                key={s.id}
+                style={{ "--p": `${s.pct}%` } as CSSProperties}
+              >
+                <div className="sheet-top">
+                  <span className="sheet-tag">{s.tag}</span>
+                  <span className="sheet-state">{s.state}</span>
+                </div>
+                <div className="sheet-title">{s.title}</div>
+                <div className="sheet-sub">
+                  <span>{s.sub}</span>
+                  <span className="eta">{s.eta}</span>
+                </div>
+                <div className="sheet-bar" />
+              </div>
             ))}
-          </ul>
+            {TODAY_IDLE_SHEETS.map((s) => (
+              <div className="sheet idle" key={s.id}>
+                <div className="sheet-top">
+                  <span className="sheet-tag">{s.tag}</span>
+                  <span className="sheet-state">idle</span>
+                </div>
+                <div className="sheet-title">{s.title}</div>
+                <div className="sheet-sub">
+                  <span>{s.sub}</span>
+                  <span className="eta">—</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="pv-foot sheet-foot">
+            <span className="cnt">
+              运行中 <b>{String(TODAY_RUNNING_SHEETS.length).padStart(2, "0")}</b> · 空闲{" "}
+              <b>{String(TODAY_IDLE_SHEETS.length).padStart(2, "0")}</b>
+            </span>
+            <span className="tail">调度台 ↘</span>
+          </div>
+          <div className="badge">02.</div>
         </Link>
 
         {/* 任务 */}
