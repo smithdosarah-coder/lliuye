@@ -25,7 +25,7 @@
 
 | Agent | Phase | L0 | L1 | L2 | L3 | 综合 | 最后裁决 |
 |---|---|---|---|---|---|---|---|
-| 6 报告 | **Phase 1 Finalize APPROVED 2026-04-19** | ✅ | ✅ | ✅ 审计+合作机构+分级 | ✅ 模型卡+演示+feedback E2E | **97%** | APPROVED |
+| 6 报告 | **Phase 2 APPROVED 2026-04-19** | ✅ | ✅ | ✅ 审计+合作机构+分级 | ✅ feedback 回注 E2E + QC Blocker 四维 + 模板扩展 + pending 对齐 | **99%** | APPROVED |
 | 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | APPROVED |
 | 1 获客 | **Phase 1 APPROVED 2026-04-19** | ✅ | ✅ handoff contract | 🟡 sampling CSV + 红区枚举补齐 | ✅ runner + yaml 单源 + feedback 飞轮 E2E | **86%** | APPROVED |
 | 2 风控 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ✅ adapter+baseline 全绿 | **62%** | APPROVED（待 Phase 1） |
