@@ -1083,3 +1083,74 @@
   animation: case-in .55s cubic-bezier(.2,.8,.25,1) forwards;
   animation-delay: calc(.5s + var(--i, 0) * .04s);
 }
+
+/* ═══ Task K1 · 今日账册 belt · mockup L985-1019 移植 · scope 到 .v-today ═══ */
+.v-today .rule {
+  margin: 26px 0 14px;
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 22px;
+  opacity: 0; transform: translateY(10px);
+  animation: rise .9s cubic-bezier(.2,.8,.25,1) 2.5s forwards;
+}
+.v-today .rule .lbl {
+  font-family: var(--cjkserif, var(--cjk));
+  font-weight: 600; font-size: 14px; letter-spacing: .02em;
+  color: var(--ch-82, rgba(23,16,26,.82));
+}
+.v-today .rule .ln {
+  height: 1px;
+  background: var(--ch-28, rgba(23,16,26,.28));
+}
+.v-today .rule .rt {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px; color: var(--ch-70, rgba(23,16,26,.70));
+  font-variant-numeric: tabular-nums; letter-spacing: .04em;
+}
+
+.v-today .belt {
+  color: var(--chalk, #FDF8EF);
+  display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 38px;
+  padding: 14px 0 0;
+  opacity: 0; transform: translateY(18px);
+  animation: rise 1s cubic-bezier(.2,.8,.25,1) 2.65s forwards;
+}
+.v-today .belt .col {
+  border-top: 1px solid var(--ch-22, rgba(23,16,26,.22));
+  padding-top: 16px;
+}
+.v-today .belt .col .k {
+  font-family: var(--cjk);
+  font-weight: 500; font-size: 11.5px; letter-spacing: .14em;
+  color: var(--ch-65, rgba(23,16,26,.65));
+}
+.v-today .belt .col .v {
+  margin-top: 14px;
+  font-family: var(--display);
+  font-weight: 500; font-size: 52px; line-height: .95; letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.v-today .belt .col .v sub {
+  font-family: var(--cjk);
+  font-weight: 500; font-size: 13px; letter-spacing: .06em;
+  color: var(--ch-60, rgba(23,16,26,.60));
+  bottom: 0; vertical-align: baseline;
+}
+.v-today .belt .col .note {
+  margin-top: 10px;
+  font-family: var(--cjk);
+  font-size: 12.5px; color: var(--ch-70, rgba(23,16,26,.70));
+  line-height: 1.55;
+}
+.v-today .belt .col .note em {
+  font-family: var(--italic);
+  font-style: italic; color: var(--chalk); font-weight: 400;
+}
+.v-today .belt .col .note strong {
+  font-family: var(--cjk);
+  font-weight: 600; color: var(--chalk);
+}
+
+@media (max-width: 900px) {
+  .v-today .belt { grid-template-columns: repeat(2, 1fr); }
+}
