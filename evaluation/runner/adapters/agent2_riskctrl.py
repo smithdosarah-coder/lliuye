@@ -265,7 +265,8 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- Phase C stub: ks_improvement ---
+        # --- pending (A-013 白名单) · ks_improvement ---
+        # note 字段与 yaml baseline.pending_reason 一字节级同义（便于 grep 追溯）
         out.append(
             MetricOutcome(
                 name="ks_improvement",
@@ -273,11 +274,11 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 target=self._lookup_target("ks_improvement", "domain") or "n/a",
                 passed=None,
                 method="manual",
-                note="Phase C stub — 需人工基线对照组 KS 值，Phase 0 不假装能跑",
+                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
             )
         )
 
-        # --- Phase C stub: rule_interpretability ---
+        # --- pending (A-013 白名单) · rule_interpretability ---
         out.append(
             MetricOutcome(
                 name="rule_interpretability",
@@ -285,7 +286,7 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 target=self._lookup_target("rule_interpretability", "domain") or "n/a",
                 passed=None,
                 method="manual",
-                note="Phase C stub — 需人工评分或 LLM-judge，Phase 0 不假装能跑",
+                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
             )
         )
 

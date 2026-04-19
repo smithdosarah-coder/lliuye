@@ -37,15 +37,19 @@ baseline:
   commit: 46051f20ebf34f62edf52ac280898ead63910cb0
   fixture_dir: evaluation/runtime/2_latest/
   fallback_anchor: agent_riskctrl/tests/fixtures/baseline_v1/      # adapter 3 级 fallback 末级
-  verdict: PARTIAL                    # 5 deterministic green + 2 Phase C stub N/A；Task B 转 PASS
+  # Phase 1 Task B (2026-04-19): 两 Phase C stub 走 A-013 kernel 白名单
+  # base_evaluator._verdict() 消费本字段，effective=metrics-pending；kernel 改动见 7e6438d（主 CLI 已锁）
+  pending_metrics: [ks_improvement, rule_interpretability]
+  pending_reason: "Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装"
+  verdict: PASS                       # Task B 后：5 deterministic green + 2 pending 豁免 → PASS
   results:
     task_completion_rate: 1.0000      # target >= 0.95   PASS  (flow_1 + flow_2 LLM 均产出合法 ruleset)
     evidence_rate: 1.0000             # target >= 0.98   PASS  (7/7 runtime 规则含 ks/approve_rate/bad_rate 字段)
     hallucination_rate: 0.0000        # target <= 0.01   PASS  (LLM 规则字段 100% ∈ schema.columns)
     tool_success_rate: 1.0000         # target >= 0.95   PASS  (3/3 runtime 工具调用成功：llm_generate_rules / backtest / calculate_confusion_matrix)
     false_positive_rate: 0.0439       # target <= 0.15   PASS  (FP=5 TN=109 → 0.0439；严于 fixture 0.0673)
-    ks_improvement: null              # Phase C stub (pending per Task B; A-013 白名单豁免)
-    rule_interpretability: null       # Phase C stub (pending per Task B; A-013 白名单豁免)
+    ks_improvement: null              # pending per baseline.pending_metrics (A-013 白名单豁免)
+    rule_interpretability: null       # pending per baseline.pending_metrics (A-013 白名单豁免)
   red_lines: PASS                     # halluc≤0.01 / evidence≥0.98 / task_completion≥0.95 三闸门全绿
   runtime_vs_fixture:                 # Phase 1 Task A runtime 相对 Phase 0 fixture 对比（不允许倒退）
     task_completion_rate: "1.0000 == 1.0000 (持平)"
