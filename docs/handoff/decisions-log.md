@@ -304,3 +304,52 @@ onboarding 只承诺 1 个预期冲突，实测已 2 个非约定。剩余 13 co
 
 ---
 
+## [Q-009] 2026-04-19 · channel(agent1) · `.gitignore` 冲突（A-008 "其他未列" 触发）+ 规则矩阵扩充请示
+
+**CLI**: channel | **Priority**: P1 | **Blocking**: yes
+**详见**：agent1 worktree commit `32fb7ea`（Signal: NEED-DECISION Q-009）
+
+agent1 严格遵守 A-008 遇非授权冲突 abort，第三次卡在 `.gitignore`（两边都是 add-only，upstream 加 `evaluation/results/**/*.json` 规则、agent1 加 `!evaluation/results/1_20260418.yaml` 放行）。剩余 10 commits 很可能继续卡同类良性根文件。
+
+Q-009.A: `.gitignore` 选项 A/B/C（推荐 A：两边并存）
+Q-009.B: 扩 A-008 规则矩阵 or 一次性 ACK 剩余非红区冲突
+
+### [A-009] 2026-04-19 · 主 CLI
+
+**Decision A（.gitignore 具体）**: **A** 两边并存
+
+**Rationale**: upstream 加的是全局规则扩展，agent1 加的是单行 baseline 放行；add-only 语义正交，合并零冲突。
+
+**Decision B（规则矩阵扩充）**: **同时采纳"扩矩阵" + "非红区 add-only 自决"**
+
+worker 的纪律是对的（每次停下问）但我矩阵太窄。扩充如下：
+
+#### A-008 规则矩阵扩展版（2026-04-19 起生效）
+
+| 冲突位置 | 处置 | 备注 |
+|---|---|---|
+| **新增行**（相对 A-008）| | |
+| `.gitignore` / `pyproject.toml`（非结构破坏）/ `README.md` / 根目录 `.md` `.cfg` `.toml` `.ini` 等非代码配置 | 两边增补并存（add-only），worker 自决 | `.gitignore` 见 Q-009 范式 |
+| **所有其他非红区 add-only 冲突**（两边 diff 只有新增行，无删除/修改） | worker 自决并存，审计侧 spot-check | 兜底条款，避免再为根文件卡 |
+| **原 A-008 条目**（保留不变） | | |
+| `agent_*/__init__.py` docstring | 保 agent1 主体，丢 lint-only 变更 | |
+| `evaluation/agent1_*.yaml` | 保完整 + 折叠 upstream baseline 字段 | |
+| `evaluation/runner/**` | 保 framework 版 + 合并 agent1 adapter | |
+| `docs/{onboarding,review,progress}/**` | 按文件归属判断 | |
+| `shared/**` | **仍 abort + Q** | 红区 |
+| `docs/contracts/**` | **仍 abort + Q** | 契约红区 |
+| `api_server.py` / `agent_*/api/**` | **仍 abort + Q** | 路由红区 |
+| 红区之外任何**非 add-only**（含删除或修改现有行） | **仍 abort + Q** | 风险不对称 |
+
+**兜底条款的 spot-check 加重**：最终 review 我在 10 个 resolved conflict 里抽 5 个，原"越出规则即 CONDITIONAL" 升级为"越出规则或出现 add-only 误判即 REJECTED，整轮 rebase 重做"。worker 被授权更大 → 审计刀更重，对称。
+
+**落地协议**（给 agent1）：
+- `git fetch upstream` 拉本 A-009 commit
+- Q-009.A `.gitignore` 按 A 合并两边 add-only
+- 继续 rebase，按**扩展后矩阵**处理剩余 10 commits
+- 所有 add-only 非红区冲突自决（包含 `.gitignore` 及其他根目录非代码文件）
+- 红区或非 add-only 仍 abort + Q
+- 全绿抛 `Signal: OPTION-2-REBASE-FIXED`，随后原 onboarding 的 smoke + baseline + final Signal
+
+---
+
