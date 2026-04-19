@@ -15,7 +15,7 @@
       "path": "D:/claude code/demo-agent1",
       "branch": "feat/agent1-productize",
       "role": "worker",
-      "description": "获客 Agent 产品化（待分派）"
+      "description": "获客 Agent · Option 2 rebase 解 CONDITIONAL-APPROVE 条件"
     },
     {
       "name": "agent2",
@@ -43,7 +43,7 @@
       "path": "D:/claude code/demo-agent6",
       "branch": "feat/agent6-v16",
       "role": "worker",
-      "description": "报告助手 v16"
+      "description": "报告助手 · Phase 1 Finalize（L2/L3 尾巴：审计+合作机构+数据分级+模型卡+演示+反馈飞轮）"
     },
     {
       "name": "frontend",
