@@ -615,3 +615,39 @@ spec 完整形态 vs 当前 stub 差距：
 **Signal**: 随 Stage 3 extension onboarding 落盘同 commit emit `A-017-SHEET-CARD-IN-STAGE-3`
 
 ---
+
+## [Q-018] 2026-04-19 16:24 · agent6 · yaml schema 扩展 `pending_business_data`（Task C 事后 Q）
+
+**CLI**: 主 CLI（触发人：agent6 Task C commit `fe567f4`）
+**Priority**: P2
+**Blocking**: no（追认，不阻塞 Task D）
+**Related**: A-013（`baseline.pending_metrics` 白名单）、agent6 Phase 2 Task C onboarding §3 DoD、`evaluation/agent6_report.yaml` Task C 新增段
+
+### 问题
+Task C DoD 要求"每模板跑 runner → `evaluation/results/6_*.yaml` ≥ 5 份落盘，每份 verdict=PASS 或显式 pending"。worker 未跑端到端 LLM 跑批（理由：脱敏模板无真实材料，跑了无产出价值），改在 yaml 加 `pending_business_data: true` 字段标记"待业务方真材料"。**这是 schema 扩展，onboarding 未定义该字段，worker 应先 `Q-NNN 停下问`，但未停。**
+
+### 选项
+- **A** 追认 `pending_business_data: true` 语义（等同 A-013 `pending_metrics` 的 template 级扩展），runner 后续支持按 template 豁免
+- **B** REJECT，要 worker 按硬 DoD 跑 5 份 baseline（即便脱敏跑出来也无意义）
+- **C** 收回到 A-013：把 `pending_business_data` 改为在 yaml `baseline.pending_metrics` 里列 template-level metric（schema 一致性更好，但需 worker 改 yaml 回滚）
+
+### [A-018] 2026-04-19 16:24 · 主 CLI
+
+**Decision**: **A** · 追认 `pending_business_data` 扩展
+
+**Rationale**:
+- 工程意图对齐：脱敏模板跑 LLM 是概率性计算，无真实材料时结果置信度低；worker 判断与 CLAUDE.md §5 评估框架"先建 rubric、跑基线、找最大 gap"兼容
+- 与 A-013 `pending_metrics` 正交：`pending_metrics` 是 metric 级豁免，`pending_business_data` 是 **template 级数据前提豁免**，concerns 不同，两个字段共存合理
+- B 方案（硬跑 5 份无意义 LLM）违反 CLAUDE.md §12"绝不编"与 §3.1"LLM 只在概率任务且有锚"
+- C 方案 schema 一致性微弱，且 A-013 kernel 已稳定，破坏现有语义成本 > 收益
+
+**Protocol breach 处理**：worker 未走 Q-NNN 停下问是 shared-change-protocol 纪律违规，但追认后无损可用性。**不扣 Phase 2 分**，记入 Agent6 Phase 2 最终 review Top Gap 一条"下批 onboarding 更严格授权 yaml schema 扩展路径"。
+
+**Follow-up**（本 Phase 2 Task C 补录）：
+1. Task D 完成前补 `docs/progress/agent6-phase-2-templates.md`（硬 DoD，未做）
+2. 文档中显式标出 5 模板 `pending_business_data=true` 的业务方等待清单
+3. 主 CLI 后续起草的 shared-change-protocol v1.1 正式稿新增条款：`evaluation/*.yaml` schema 新增字段需走 RFC（轻量 Q-NNN），不属红区但属黄区
+
+**Signal**: `A-018-PENDING-BUSINESS-DATA-RATIFIED`（主 CLI commit 同步 emit）
+
+---
