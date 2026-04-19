@@ -70,15 +70,16 @@
 
 ### Task D · /today hero 区
 
-**Goal**：单 word `今日看板` + glyph-rise stagger + 4-pill hero-meta（单位拆分）+ hero lede
-**Input**：mockup L223–356 + L2791–2850
+**Goal**：单 word `今日看板` + glyph-rise stagger + 3 kv + LIVE pill hero-meta（**无 lede**）
+**Input**：mockup L223–356 + L2791–2809
 **Output**：`web/src/app/today/page.tsx`（替换现有 hero） + `web/src/components/today/Hero.tsx`
 **DoD**：
-- [ ] `<h1>` 里每个字符拆 `<span>` 带 `--i` index，React `useEffect` 触发 `.glyph-rise` animation
-- [ ] hero-meta 4 pill：如 `7:12 事件`、`3 红`、`5 黄` 等，每 pill 数字 + 单位分别渲染（`.nbr` + `em`）便于字体精调
-- [ ] lede 段落：mockup L257 原文案移植
-- [ ] `data-theme` 切换时 hero bg 跟随渐变
-**Signal**：`FRONTEND-STAGE-4-TASK-D-DONE`
+- [x] `<h1>` 每字符拆 `<span class="glyph cn">` 带 `--i` index，React `useEffect` 清 animation→reflow→回填 触发 `.glyph-rise`（baseDelay 0.8s + i*0.045s）
+- [x] hero-meta `.hero-meta--row`：3 个 `.kv.big`（管道总额 ¥28.5亿 / 在队项 14项 / 风险等级 黄色III，数字 `.vnum` + 单位 `.vunit` 分渲） + 1 个 `.pill`（LIVE · 动态时钟 · 同步）
+- [x] eyebrow：`YYYY · MM · DD · WD` 动态日期 + `sep` + `em 早上好，王哲。`（SSR `"—"` 占位，client useEffect 填）
+- [x] 无 lede（mockup L2791-2809 不含 lede 段；原 DoD 的 4 pill + lede 描述为草拟错误，以 mockup 为准，R-0 优先）
+- [x] `data-theme` 切换时 hero bg 跟随渐变（依赖 shell-root 的 `--g0..--g7`，Hero 自身透明）
+**Signal**：`FRONTEND-STAGE-4-TASK-D-DONE`（已发，commit `dd438e2`）
 
 ### Task E · /today feed-card
 
