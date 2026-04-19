@@ -1,0 +1,113 @@
+{
+  "description": "Agent2 风控策略 ReadOnly 示例 ruleset（schema 对齐 rules.json Phase 0 fixture / Phase 1 runtime baseline）",
+  "version": "v1.0-readonly-mock",
+  "source": "web/public/mock/riskctrl_ruleset.json · Phase 1 Task D frontend stub",
+  "inputs_total": 5,
+  "outputs_successful": 5,
+  "ruleset": {
+    "description": "基线策略集（5 条规则，覆盖逾期、负债率、信用分、行业、就业稳定性）",
+    "rules": [
+      {
+        "rule_id": "R001",
+        "name": "严重逾期直接拒绝",
+        "description": "近 90 天逾期超过 30 天的客户，**违约风险极高**，一律拒绝。\n\n**依据**：央行征信报告 M2+ 样本实证坏账率 0.72。",
+        "conditions": [
+          {"field": "overdue_days_90d", "operator": ">", "value": 30}
+        ],
+        "action": "reject",
+        "priority": 1,
+        "backtest": {
+          "ks": 0.31,
+          "approve_rate": 0.0,
+          "bad_rate": 0.72,
+          "hit_count": 18,
+          "hit_rate": 0.12,
+          "FP": 4,
+          "TN": 110,
+          "FP_rate": 0.0351
+        }
+      },
+      {
+        "rule_id": "R002",
+        "name": "高负债率人工复核",
+        "description": "负债率超过 0.7 转人工审查。\n\n**理由**：DTI 高但非必然坏账，需结合收入稳定性 / 还款来源综合判断。",
+        "conditions": [
+          {"field": "debt_ratio", "operator": ">", "value": 0.7}
+        ],
+        "action": "manual_review",
+        "priority": 2,
+        "backtest": {
+          "ks": 0.18,
+          "approve_rate": 0.22,
+          "bad_rate": 0.38,
+          "hit_count": 24,
+          "hit_rate": 0.16,
+          "FP": 0,
+          "TN": 0,
+          "FP_rate": 0.0
+        }
+      },
+      {
+        "rule_id": "R003",
+        "name": "低信用分拒绝",
+        "description": "信用分 < 550 直接拒绝。\n\n**锚点**：FICO 550 对应 24 个月违约概率 > 20%。",
+        "conditions": [
+          {"field": "credit_score", "operator": "<", "value": 550}
+        ],
+        "action": "reject",
+        "priority": 3,
+        "backtest": {
+          "ks": 0.26,
+          "approve_rate": 0.0,
+          "bad_rate": 0.58,
+          "hit_count": 14,
+          "hit_rate": 0.09,
+          "FP": 1,
+          "TN": 113,
+          "FP_rate": 0.0088
+        }
+      },
+      {
+        "rule_id": "R004",
+        "name": "高风险行业人工复核",
+        "description": "制造业（mfg）客户，近年下行压力大，需要人工审查现金流。",
+        "conditions": [
+          {"field": "industry_code", "operator": "in", "value": ["mfg"]}
+        ],
+        "action": "manual_review",
+        "priority": 4,
+        "backtest": {
+          "ks": 0.11,
+          "approve_rate": 0.31,
+          "bad_rate": 0.24,
+          "hit_count": 21,
+          "hit_rate": 0.14,
+          "FP": 0,
+          "TN": 0,
+          "FP_rate": 0.0
+        }
+      },
+      {
+        "rule_id": "R005",
+        "name": "稳定就业快速通过",
+        "description": "就业年限 ≥ 3 年且月收入 ≥ 10000 → 快速通过。\n\n**优质客群特征**：稳定收入 + 低违约。",
+        "conditions": [
+          {"field": "employment_years", "operator": ">=", "value": 3},
+          {"field": "income_monthly", "operator": ">=", "value": 10000}
+        ],
+        "action": "approve",
+        "priority": 5,
+        "backtest": {
+          "ks": 0.22,
+          "approve_rate": 0.42,
+          "bad_rate": 0.04,
+          "hit_count": 36,
+          "hit_rate": 0.24,
+          "FP": 0,
+          "TN": 0,
+          "FP_rate": 0.0
+        }
+      }
+    ]
+  }
+}

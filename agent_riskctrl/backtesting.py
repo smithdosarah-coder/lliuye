@@ -15,7 +15,7 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from .rule_engine import RuleSet, apply_ruleset
+from .rule_engine import RuleSet, apply_rule, apply_ruleset
 
 
 # 数据行数上限（MVP降级策略）
@@ -159,15 +159,22 @@ def _summarize_data(df: pd.DataFrame) -> str:
 # 回测执行
 # ======================================================================
 
-def run_backtest(df: pd.DataFrame, ruleset: RuleSet) -> BacktestResult:
+def run_backtest(
+    df: pd.DataFrame,
+    ruleset: RuleSet,
+    label_column: str | None = None,
+) -> BacktestResult:
     """对历史数据执行策略回测。
 
     Args:
         df: 历史授信数据 DataFrame
         ruleset: 策略规则集合
+        label_column: 真实坏账标签列（1=坏账 / 0=正常）。未传则自动探测
+            `label_default` / `label`；均不存在则跳过 per-rule FP/TN（置 0）。
 
     Returns:
-        BacktestResult 回测结果
+        BacktestResult 回测结果。`metrics.rule_stats` per 条规则增
+        `{FP, TN, FP_rate}`（A-019 `per_rule_fpr_spread` 依赖）。
     """
     if df.empty or not ruleset.rules:
         return BacktestResult(total_records=len(df))
@@ -183,23 +190,56 @@ def run_backtest(df: pd.DataFrame, ruleset: RuleSet) -> BacktestResult:
 
     approval_rate = (approved + no_hit) / total if total > 0 else 0.0
 
-    # 各规则命中统计
+    # 各规则命中统计（priority-ordered; 命中即停）
     rule_hit_counts: dict[str, int] = {}
     for r in hit_results:
         rid = r["hit_rule_id"]
         if rid:
             rule_hit_counts[rid] = rule_hit_counts.get(rid, 0) + 1
 
+    # Per-rule FP/TN —— 独立匹配（不走 priority-stop），语义：这条规则单独看对"正常客户"的误杀分布
+    if label_column is None:
+        for cand in ("label_default", "label"):
+            if cand in df.columns:
+                label_column = cand
+                break
+
+    labels: list[int] | None = None
+    if label_column and label_column in df.columns:
+        try:
+            labels = [int(r.get(label_column, 0) or 0) for r in records]
+        except (TypeError, ValueError):
+            labels = None
+
     rule_stats = []
     for rule in ruleset.rules:
         count = rule_hit_counts.get(rule.rule_id, 0)
-        rule_stats.append({
+        stat: dict[str, Any] = {
             "rule_id": rule.rule_id,
             "rule_name": rule.name,
             "action": rule.action,
             "hit_count": count,
             "hit_rate": round(count / total, 4) if total > 0 else 0.0,
-        })
+            "FP": 0,
+            "TN": 0,
+            "FP_rate": 0.0,
+        }
+        # 仅对 reject 规则计 FP/TN：FPR = 该规则对正常客户（label=0）的独立误拒率
+        # approve / manual_review 规则保持 FP=TN=0，adapter 在 (FP+TN)=0 时跳过（A-019 N/A 语义）
+        if labels is not None and rule.action == "reject":
+            fp = 0
+            tn = 0
+            for rec, lbl in zip(records, labels):
+                if lbl != 0:
+                    continue
+                if apply_rule(rule, rec):
+                    fp += 1
+                else:
+                    tn += 1
+            stat["FP"] = fp
+            stat["TN"] = tn
+            stat["FP_rate"] = round(fp / (fp + tn), 4) if (fp + tn) > 0 else 0.0
+        rule_stats.append(stat)
 
     return BacktestResult(
         total_records=total,

@@ -1,0 +1,36 @@
+{
+  "description": "Agent2 Phase 0 baseline — 回测工具调用 trace + 汇总混淆矩阵",
+  "version": "v1.0",
+  "sample_rows": 150,
+  "tool_calls": [
+    {"tool": "load_csv_data", "status": "success", "note": "150 行 x 11 列"},
+    {"tool": "_summarize_data", "status": "success", "note": "numeric/categorical 字段摘要"},
+    {"tool": "apply_ruleset", "status": "success", "note": "5 规则逐条应用"},
+    {"tool": "run_backtest", "status": "success", "note": "approved=72 / rejected=33 / manual=32 / no_hit=13"},
+    {"tool": "calculate_confusion_matrix", "status": "success", "note": "TP=38 FP=7 TN=97 FN=8"},
+    {"tool": "calculate_ks", "status": "success", "note": "aggregate KS=0.27"},
+    {"tool": "calculate_psi", "status": "success", "note": "PSI=0.06，稳定"}
+  ],
+  "confusion_matrix": {
+    "TP": 38,
+    "FP": 7,
+    "TN": 97,
+    "FN": 8
+  },
+  "aggregate_metrics": {
+    "ks": 0.27,
+    "psi": 0.06,
+    "precision": 0.8444,
+    "recall": 0.8261,
+    "f1": 0.8352,
+    "accuracy": 0.9000
+  },
+  "backtest_summary": {
+    "total_records": 150,
+    "approved": 72,
+    "rejected": 33,
+    "manual_review": 32,
+    "no_hit": 13,
+    "approval_rate": 0.5667
+  }
+}

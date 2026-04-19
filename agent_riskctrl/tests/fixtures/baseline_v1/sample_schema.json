@@ -1,0 +1,32 @@
+{
+  "description": "Agent2 Phase 0 baseline — 授信样本 CSV 字段 schema（合成基线，非真实客户数据）",
+  "version": "v1.0",
+  "columns": [
+    "customer_id",
+    "age",
+    "income_monthly",
+    "credit_score",
+    "debt_ratio",
+    "employment_years",
+    "overdue_days_90d",
+    "overdue_count_12m",
+    "industry_code",
+    "loan_purpose",
+    "label_default"
+  ],
+  "column_types": {
+    "customer_id": "string",
+    "age": "int",
+    "income_monthly": "float",
+    "credit_score": "int",
+    "debt_ratio": "float",
+    "employment_years": "float",
+    "overdue_days_90d": "int",
+    "overdue_count_12m": "int",
+    "industry_code": "string",
+    "loan_purpose": "string",
+    "label_default": "int"
+  },
+  "label_column": "label_default",
+  "source": "synthetic baseline for Phase 0 evaluation; mirrors agent_riskctrl/app_demo.py 字段范式"
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Play,
@@ -13,12 +13,15 @@ import {
   CheckCircle2,
   Target,
   Pencil,
+  FileJson,
+  Lock,
 } from "lucide-react";
 
 import { Button, SegmentedControl } from "@/components/ui/Button";
 import { Card, Stat } from "@/components/viz/Card";
 import { PipelineRail } from "@/components/viz/PipelineRail";
 import { FileDrop, KBBadge } from "@/components/ui/FileDrop";
+import { RuleReadOnlyList, type Rule as RuleRO } from "@/components/riskctrl/RuleReadOnlyList";
 
 /**
  * Agent2 · 风控策略运营
@@ -127,6 +130,34 @@ export default function RiskctrlPage() {
 
   const baseline = POLICIES.v2024_q4;
   const candidate = POLICIES.v2025_q1_new;
+
+  // Phase 1 Task D: ReadOnly ruleset 子区 —— fetch mock，Phase 2 切真 /api/riskctrl/ruleset
+  const [readOnlyDoc, setReadOnlyDoc] = useState<{
+    description?: string;
+    version?: string;
+    ruleset?: { description?: string; rules: RuleRO[] };
+  } | null>(null);
+  useEffect(() => {
+    fetch("/mock/riskctrl_ruleset.json")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setReadOnlyDoc(d))
+      .catch(() => setReadOnlyDoc(null));
+  }, []);
+
+  const exportRuleset = () => {
+    if (!readOnlyDoc) return;
+    const blob = new Blob([JSON.stringify(readOnlyDoc, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `riskctrl_ruleset_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="px-8 py-8 max-w-[1400px] mx-auto">
@@ -381,6 +412,55 @@ export default function RiskctrlPage() {
           </AnimatePresence>
         </section>
       </div>
+
+      {/* Phase 1 Task D · 规则详情 ReadOnly 子区（mock 数据，Phase 2 切真 API） */}
+      <section className="mt-8">
+        <Card
+          eyebrow="RULESET · READ ONLY"
+          title="规则详情（候选 ruleset）"
+          action={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={exportRuleset}
+                disabled={!readOnlyDoc}
+                title={readOnlyDoc ? "下载 ruleset JSON" : "mock 加载中"}
+              >
+                <FileJson size={13} /> 导出 JSON
+              </Button>
+              <span
+                className="inline-block"
+                title="Phase 2 交付：DSL 可视化编辑 + 条件推断 + 实时校验"
+              >
+                <Button variant="ghost" size="sm" disabled>
+                  <Lock size={12} /> 进入编辑器
+                </Button>
+              </span>
+            </div>
+          }
+        >
+          {readOnlyDoc && readOnlyDoc.ruleset ? (
+            <div>
+              {readOnlyDoc.ruleset.description && (
+                <p className="mb-4 text-[12px] text-[var(--color-ink-muted)] leading-relaxed">
+                  {readOnlyDoc.ruleset.description}
+                </p>
+              )}
+              <RuleReadOnlyList rules={readOnlyDoc.ruleset.rules} />
+              <div className="mt-3 flex items-center gap-4 text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+                <span>SOURCE · /mock/riskctrl_ruleset.json</span>
+                {readOnlyDoc.version && <span>VERSION · {readOnlyDoc.version}</span>}
+                <span>EDITABLE · phase 2</span>
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-center text-[12px] text-[var(--color-ink-muted)]">
+              ruleset 加载中…
+            </div>
+          )}
+        </Card>
+      </section>
     </div>
   );
 }
