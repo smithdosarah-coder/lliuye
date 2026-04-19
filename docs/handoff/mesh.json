@@ -15,7 +15,14 @@
       "path": "D:/claude code/demo-agent1",
       "branch": "feat/agent1-productize",
       "role": "worker",
-      "description": "获客 Agent 产品化"
+      "description": "获客 Agent 产品化（待分派）"
+    },
+    {
+      "name": "agent2",
+      "path": "D:/claude code/demo-agent2",
+      "branch": "feat/agent2-productize",
+      "role": "worker",
+      "description": "风控 Agent Phase 0（evaluation adapter + baseline 首跑）"
     },
     {
       "name": "agent3",
@@ -25,11 +32,25 @@
       "description": "授信决策 Agent 产品化"
     },
     {
+      "name": "agent4",
+      "path": "D:/claude code/demo-agent4",
+      "branch": "feat/agent4-productize",
+      "role": "worker",
+      "description": "预警 Agent Phase 0（evaluation adapter + baseline 首跑）"
+    },
+    {
       "name": "agent6",
       "path": "D:/claude code/demo-agent6",
       "branch": "feat/agent6-v16",
       "role": "worker",
       "description": "报告助手 v16"
+    },
+    {
+      "name": "frontend",
+      "path": "D:/claude code/demo-frontend",
+      "branch": "feat/platform-shell",
+      "role": "worker",
+      "description": "Platform shell v1 Stage 2（token + AppShell + 4 view）"
     }
   ],
   "upstream_remote": "D:/claude code/credit_report_agent_work",
