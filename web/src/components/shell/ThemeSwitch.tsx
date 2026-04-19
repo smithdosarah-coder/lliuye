@@ -4,11 +4,16 @@ import { useEffect, useState } from "react";
 
 type Theme = "canvas" | "matcha" | "dusk" | "crimson";
 
+/**
+ * 4 可见主题；Ink 故意不出现在切换器里（mockup L3562-3569）,
+ * 但 data-theme="ink" 仍可通过 devtools / URL 参数手动激活。
+ * Letterpress 沿用 mockup selector `data-t="crimson"` 保 1:1。
+ */
 const THEMES: { key: Theme; label: string }[] = [
   { key: "canvas", label: "Canvas" },
   { key: "matcha", label: "Matcha" },
   { key: "dusk", label: "Blush" },
-  { key: "crimson", label: "Crimson" },
+  { key: "crimson", label: "Letterpress" },
 ];
 
 const STORAGE_KEY = "platform-shell-theme";
