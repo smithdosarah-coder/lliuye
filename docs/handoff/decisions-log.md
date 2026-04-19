@@ -399,3 +399,62 @@ A=D2 / B=B2 / C=skip
 3. 主 CLI 接下来起草 `docs/handoff/shared-change-protocol.md` 正式稿（含 A-008.B + A-009 + A-012.D 条款融合）——非本轮 window 事项
 
 ---
+
+## [Q-013] 2026-04-19 15:03 · channel(agent1) · pending-metric verdict 语义（Task B 阻塞）
+
+**CLI**: channel（agent1 worker · feat/agent1-productize）
+**Priority**: P0
+**Blocking**: yes（Task B DoD）
+**Related**: A-012.C、`evaluation/runner/base_evaluator.py` `_verdict()`、agent1_channel.yaml baseline 区块
+
+### 问题
+`_verdict()` 旧逻辑：任一 `passed=None` → verdict 必 PARTIAL（`len(resolved) < len(metrics)`）。
+agent1 adapter emit 2 条 passed=None：
+1. `candidate_relevance_at_top10`（A-012.C 授权 pending）
+2. `source_url_reachable_rate`（mock 场景 passed=None，实为语义 bug — mock 不测 HTTP）
+
+### 选项
+- **α** kernel 白名单：`_verdict` 读 `baseline.pending_metrics` 白名单，命中的 metric 豁免
+- **β** adapter-only：mock 场景 `source_url_reachable_rate` 改 `passed=True + note "mock-exempt"`
+- **γ** adapter 丢弃 pending metric（违 Evidence-First）
+- **δ** 接受 PARTIAL，改 DoD 口径
+
+### 推荐（worker）
+α + β 组合
+
+### [A-013] 2026-04-19 15:08 · 主 CLI
+
+**Decision**: **α + β 组合**；α kernel 改动**主 CLI 亲操本窗口落地**，β adapter 修复 + yaml baseline.pending_metrics + 后续 Task B 收敛 **agent1 worker 落地**。
+
+**Rationale**:
+- α 治本：runner 原生 "pending 不降档" 语义可复用（agent2/4/6 Phase C 人工指标同样吃这套）；yaml schema 扩 `baseline.pending_metrics: [...]` 白名单，命中 metric 不计 resolved 分母 & 不计总数 & 仍 emit 到结果（Evidence-First 可见性保住）
+- β 语义诚实：mock 场景 HTTP 探活本就 N/A，原 `passed=None` 是历史误判；改 `passed=True + note "mock-exempt"` 比保留 None 更准确
+- 拒 γ：违 Evidence-First 第一性原则
+- 拒 δ：δ 规避问题本身、不治本、损产品化 DoD
+- 红区归属：`base_evaluator.py` 在 Phase 1 红区矩阵（A-012.B 演练档确认），改动必须主 CLI 亲操；A-012.D "已引用 SHA 不可重写" 约束不影响新增改动
+
+**Kernel 改动**（本 A-013 同 commit 落地）：
+```python
+def _verdict(self, metrics: list[MetricOutcome]) -> Verdict:
+    pending = set(self.config.get("baseline", {}).get("pending_metrics", []))
+    effective = [m for m in metrics if m.name not in pending]
+    resolved = [m for m in effective if m.passed is not None]
+    ...
+```
+（静态方法 → 实例方法；完整 diff 在本 commit stat）
+
+**回归验证**（主 CLI 本窗口跑）：
+- 4 单测全过：pass+pending→PASS / pass+fail→FAIL / 无 pending list→PARTIAL / 只 pending→PARTIAL
+- report runner `--agent report` 无 artifacts 仍 FAIL（原行为未变）
+- channel 模拟：无 pending→PARTIAL / 只 α 不 β→PARTIAL / α+β→PASS
+
+**Follow-up**（worker 落地）：
+1. Task B 实装 β：`evaluation/runner/adapters/agent1_channel.py` mock 分支 `source_url_reachable_rate` emit `passed=True, note="mock-exempt, HEAD-probe skipped"`
+2. Task B yaml 收敛时加 `baseline.pending_metrics: [candidate_relevance_at_top10]` + `pending_reason: "Phase-2-Batch-2 human review"`
+3. yaml 去 legacy `general_metrics/specialized_metrics`（Task B 原 DoD）
+4. scripts/eval_run.py 废或转壳
+5. 跑 `py -m evaluation.runner --agent channel` 预期 verdict=PASS
+
+**Signal**: `A-013-ISSUED-WITH-KERNEL-PATCH`
+
+---
