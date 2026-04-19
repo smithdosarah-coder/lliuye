@@ -1,0 +1,89 @@
+{
+  "protocol": "stage5-visual-baseline",
+  "version": 1,
+  "locked_at": "2026-04-20T03:23:00Z",
+  "locked_by": "main-cli",
+  "purpose": "R-V1 硬约束 · worker 实装前 sha256 比对，任一文件 hash 不一致即 abort onboarding。视觉基线锁死，禁止修改；如需调整走改稿 → hash 更新 → docs 显式流程。",
+  "sources": {
+    "design_cli": "网页版 Claude (CC design)",
+    "delivered": "2026-04-19 via 终稿.zip (9.6MB)",
+    "visual_quality": "8/10 · 视觉语言与 Stage 4 lock 的 rm-assistant-final-2026-04-19.html 同源 (Shell Final.html 与之 sha256 一致: 84a5e0ef...)",
+    "business_domain_quality": "3/10 · 6 agent 命名偷换 4 处 (Agent1 获客被改成邀约话术 Herald / Agent2 风控被改成巡检 Watcher / Agent4 预警被改成被动舆情 Sentry / Agent5 合规被改成报告校对 Canon)。Step 2 主 CLI 合成时按 canonical business domain 纠偏。"
+  },
+  "canonical_mapping": {
+    "report": {
+      "spa_id": "report",
+      "design_cli_name": "尽调 · 编撰 Dossier Scrivener",
+      "canonical_domain": "信贷报告生成 (Agent6)",
+      "domain_match": "mostly_aligned",
+      "visual_ref": "visual-ref/report-visual-ref.html"
+    },
+    "channel": {
+      "spa_id": "chan",
+      "design_cli_name": "渠道 · 邀约 Herald",
+      "canonical_domain": "获客 look-alike (Agent1)",
+      "domain_match": "offset_severe",
+      "offset_note": "设计做成邀约话术 A/B/C + 7 天节奏 · Agent1 核心是知识库+外网搜相似企业，话术是漏斗最末端",
+      "visual_ref": "visual-ref/channel-visual-ref.html"
+    },
+    "credit": {
+      "spa_id": "credit",
+      "design_cli_name": "额度 · 量尺 Ledger",
+      "canonical_domain": "授信决策 (Agent3)",
+      "domain_match": "partial_aligned",
+      "offset_note": "设计只做利率/月供/覆盖计算器 · Agent3 还需 4 维评分 (财务 35/行业 15/经营 25/担保 25) + 红线 + 对公/普惠/对私三板块 + 消费 ReportJSON 输入",
+      "visual_ref": "visual-ref/credit-visual-ref.html"
+    },
+    "alert": {
+      "spa_id": "alert",
+      "design_cli_name": "舆情 · 哨兵 Sentry",
+      "canonical_domain": "批量扫描预警 (Agent4)",
+      "domain_match": "offset_mild",
+      "offset_note": "设计做成被动舆情信号流 · Agent4 核心是按 22 规则 (FIN/LAW/BIZ/IND-*) 主动批量扫描在贷客户池，输出红/黄/绿分级榜单",
+      "visual_ref": "visual-ref/alert-visual-ref.html"
+    },
+    "compliance": {
+      "spa_id": "compli",
+      "design_cli_name": "合规 · 校对 Canon",
+      "canonical_domain": "政策合规矩阵 (Agent5)",
+      "domain_match": "offset_severe",
+      "offset_note": "设计做成报告稿规则校对 · Agent5 核心是政策事件驱动的业务制度矩阵扫描 (新政策 × 制度库找冲突点)",
+      "visual_ref": "visual-ref/compliance-visual-ref.html"
+    },
+    "riskctrl": {
+      "spa_id": "risk",
+      "design_cli_name": "贷后 · 巡检 Watcher",
+      "canonical_domain": "DSL 策略 + 回测 (Agent2)",
+      "domain_match": "offset_severe",
+      "offset_note": "设计做成客户组合巡检散点 · Agent2 核心是策略 DSL 生成 + 样本回测 (KS / 通过率)",
+      "visual_ref": "visual-ref/riskctrl-visual-ref.html"
+    }
+  },
+  "files": {
+    "original/Agent 6 Variants.html": { "sha256": "69e2a35911f1cb8ce0eb53721931f0e0ee5c92df84bc49ba570e3f118d9e61e4", "size": 50774, "role": "设计稿 · agent6 view 变体探索" },
+    "original/Agent Plan.html": { "sha256": "abe6ce4bfc63f65b61b33c897a15b38cae52efb914b3d7c3ce066f781ca5bb54", "size": 13490, "role": "设计稿 · 交互理念 (副手 agent / 就地改写 / 数据源溯源)" },
+    "original/Agent6 Workspace.html": { "sha256": "87f8dca0452abb975c68dd19e1ad8bfab0f81eb6edf45aa8ae5afe8b63666112", "size": 47379, "role": "设计稿 · SPA 集成页 (6 view router hash 切换)" },
+    "original/Hero Compare.html": { "sha256": "84c657ea6ce97fabc373aa192a36e1b5aa78a5c5d9944c7af9bd1d3f4e806ab0", "size": 18763, "role": "设计稿 · hero 区域对比方案" },
+    "original/Shell Final.html": { "sha256": "84a5e0efdb303bb53a1e833764f67eada2a733d9a4d3eedf2e575d2f967b9aac", "size": 163882, "role": "设计稿 · 最终 shell · 与 Stage 4 lock rm-assistant 同源" },
+    "original/Shell v2.html": { "sha256": "e7e5858070cdc9971d419cd2ff105ba37a873857cfd1393897382c8e33a7086b", "size": 176956, "role": "设计稿 · shell v2 迭代中间态" },
+    "original/design-CLI-shell.html": { "sha256": "54591ab3cf7887c7120965467f9b213a1afc8e49e6ba1cad602712f68fcc3a8b", "size": 129164, "role": "设计稿 · 设计 CLI 自持 shell 备份" },
+    "original/agent6/router.js": { "sha256": "3d1516dee5f3a65b176beb15a22f63b7945af328ac5a559ef6d8a989d00531d5", "size": 41216, "role": "设计稿 · 6 view 渲染函数 + hash 路由" },
+    "original/agent6/styles.css": { "sha256": "9bb3e7f629af37c662e204ec6da1ec71d73cee825da2393fb2863690930019b3", "size": 49477, "role": "设计稿 · workspace 内部组件样式 (seal/docline/stage-flow/board/...)" },
+    "visual-ref/alert-visual-ref.html": { "sha256": "d4c115c9f32f982ab368e05f72d1a03469c49c949cabb310056fa72d41f033e8", "size": 54858, "role": "Agent4 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/alert)" },
+    "visual-ref/channel-visual-ref.html": { "sha256": "215a7a56f856b8c51bd3bd6dda32f9268e70e15863d86b015d4a6da1ce986ae6", "size": 53002, "role": "Agent1 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/chan)" },
+    "visual-ref/compliance-visual-ref.html": { "sha256": "92a39cca8464a37b75e6f16d44497906a3b795998c89e4c07ef617242831fc34", "size": 53776, "role": "Agent5 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/compli)" },
+    "visual-ref/credit-visual-ref.html": { "sha256": "4519092357b8212bb13822d75703b54eb52929bb61f7ee223c2e38d09ffe3544", "size": 54618, "role": "Agent3 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/credit)" },
+    "visual-ref/report-visual-ref.html": { "sha256": "d9f0dce57c2000c364955fed784fd2960fa20b4c8c13ce95568638505bc5b45f", "size": 54879, "role": "Agent6 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/report)" },
+    "visual-ref/riskctrl-visual-ref.html": { "sha256": "54ad141fcbf0764be5497832d3c0d1a6e35c566c74cbc59f4df0c82b0356e7f4", "size": 56837, "role": "Agent2 视觉基线 · 独立 HTML (frozen DOM from SPA#/a/risk)" },
+    "scripts/export-views.mjs": { "sha256": "b565677196f991dc865ce96534ced7fc1eed4ee1cac32372a265808912e9466a", "size": 3118, "role": "可重现性 · Playwright 导出脚本 (一次性跑过，后续不再跑)" }
+  },
+  "verification": {
+    "command": "cd design_mockups/stage5 && find original visual-ref scripts -type f \\( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.mjs' \\) | sort | xargs sha256sum",
+    "expected_count": 16
+  },
+  "usage": {
+    "worker_onboarding": "每个 Stage 5 worker onboarding 第一步 = 跑 verification.command 对比 BASELINE.json 里 files.*.sha256；任一不一致即 abort",
+    "visual_ref_consumption": "worker 实装 /archive/[agent]/ 时双开: 1) file://visual-ref/<agent>-visual-ref.html 作视觉参照 2) Next.js dev server 作实装目标",
+    "modification": "任何 basline 文件改动必须: 1) 先改 BASELINE.json 版本号 + locked_at + 说明 2) 重算 sha256 3) docs/handoff/ 留显式记录"
+  }
+}

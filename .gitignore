@@ -113,3 +113,8 @@ customer/*.xlsx
 customer/*.pdf
 !customer/.gitkeep
 !customer/README.md
+
+# ----------------------------------------------------------------------------
+# Stage 5 · 设计 CLI 过程截图不入库 (9.2MB 探索态，易污染 worker 视觉基线)
+# ----------------------------------------------------------------------------
+design_mockups/stage5/original/uploads/

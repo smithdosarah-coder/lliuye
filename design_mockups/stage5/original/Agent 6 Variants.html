@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Agent 界面 · 6 方案概览</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400;500;600;700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F3ECD9;
+    --chalk: #FBF7EE;
+    --ink: #11170F;
+    --accent: #A03B1C;
+    --safe: #3AB27C;
+    --warn: #C88A2C;
+
+    --display: "Funnel Display","Noto Sans SC",system-ui,sans-serif;
+    --sans: "Instrument Sans","Noto Sans SC",system-ui,sans-serif;
+    --italic: "Instrument Serif","Noto Serif SC",Georgia,serif;
+    --mono: "JetBrains Mono",ui-monospace,monospace;
+    --cjk: "Noto Sans SC",system-ui,sans-serif;
+    --cjkserif: "Noto Serif SC",Georgia,serif;
+
+    --ink-04: color-mix(in srgb, var(--ink) 4%, transparent);
+    --ink-08: color-mix(in srgb, var(--ink) 8%, transparent);
+    --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
+    --ink-22: color-mix(in srgb, var(--ink) 22%, transparent);
+    --ink-32: color-mix(in srgb, var(--ink) 32%, transparent);
+    --ink-48: color-mix(in srgb, var(--ink) 48%, transparent);
+    --ink-65: color-mix(in srgb, var(--ink) 65%, transparent);
+    --ink-82: color-mix(in srgb, var(--ink) 82%, transparent);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  body {
+    padding: 72px 56px 140px;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 60%),
+      var(--paper);
+  }
+
+  /* ══════════════════ header ══════════════════ */
+  .header {
+    max-width: 1760px; margin: 0 auto 64px;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 48px;
+    padding-bottom: 32px; border-bottom: 1px solid var(--ink-22);
+  }
+  .mast { }
+  .mast .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .24em;
+    color: var(--ink-48); text-transform: uppercase; margin-bottom: 16px;
+  }
+  .mast .eyebrow em { font-family: var(--italic); font-style: italic; text-transform: none; color: var(--accent); font-size: 14px; letter-spacing: 0; margin: 0 6px; }
+  .mast h1 {
+    font-family: var(--display); font-weight: 700; font-size: 72px; line-height: .98; letter-spacing: -.025em;
+    margin: 0;
+  }
+  .mast h1 em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); }
+  .mast h1 .cn { font-family: var(--cjkserif); font-weight: 700; }
+
+  .mast-meta {
+    display: flex; gap: 48px; align-items: flex-end;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--ink-48);
+    text-transform: uppercase;
+  }
+  .mast-meta .v { color: var(--ink); font-family: var(--sans); text-transform: none; letter-spacing: .02em; font-size: 13px; display: block; margin-top: 4px; }
+  .mast-meta .v em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+
+  .scale {
+    display: flex; flex-direction: column; gap: 6px; align-items: flex-end;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .15em; color: var(--ink-48); text-transform: uppercase;
+  }
+  .scale-bar {
+    width: 320px; height: 6px; background: var(--ink-08); position: relative;
+    border-radius: 3px; overflow: hidden;
+  }
+  .scale-bar::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--safe) 60%, var(--paper)) 0%,
+      color-mix(in srgb, var(--safe) 60%, var(--paper)) 16.6%,
+      var(--paper) 16.6%, var(--paper) 18%,
+      color-mix(in srgb, var(--warn) 50%, var(--paper)) 18%,
+      color-mix(in srgb, var(--warn) 50%, var(--paper)) 49.8%,
+      var(--paper) 49.8%, var(--paper) 51.2%,
+      color-mix(in srgb, var(--accent) 65%, var(--paper)) 51.2%,
+      color-mix(in srgb, var(--accent) 65%, var(--paper)) 100%);
+  }
+  .scale-labels { width: 320px; display: flex; justify-content: space-between; font-size: 9.5px; letter-spacing: .2em; color: var(--ink-65); }
+
+  /* ══════════════════ grid ══════════════════ */
+  .grid {
+    max-width: 1760px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 72px 56px;
+  }
+
+  .slot { position: relative; }
+  .slot-head {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 18px;
+    padding-bottom: 14px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--ink-22);
+  }
+  .slot-num { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; color: var(--ink-48); }
+  .slot-name { font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: -.01em; }
+  .slot-name em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); font-size: 22px; margin-left: 8px; }
+  .slot-name .cn { font-family: var(--cjkserif); font-weight: 600; }
+  .slot-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-65); }
+  .slot-tag.conservative { color: var(--safe); }
+  .slot-tag.moderate { color: var(--warn); }
+  .slot-tag.bold { color: var(--accent); }
+
+  .thumb {
+    width: 100%; aspect-ratio: 16 / 10;
+    background: var(--chalk);
+    border: 1px solid var(--ink-14);
+    border-radius: 8px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 20px 40px -24px color-mix(in srgb, var(--ink) 22%, transparent);
+  }
+
+  .slot-foot {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px 32px;
+    margin-top: 18px;
+  }
+  .slot-foot .k { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-48); margin-bottom: 3px; }
+  .slot-foot .v { font-size: 13.5px; line-height: 1.55; color: var(--ink-82); }
+  .slot-foot .v em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+
+  /* ══════════════════ shared thumb bits ══════════════════ */
+  .thumb .window-top {
+    position: absolute; inset: 0 0 auto 0; height: 22px;
+    background: var(--ink-04); border-bottom: 1px solid var(--ink-08);
+    display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  }
+  .thumb .window-top .d { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-14); }
+  .thumb .window-top .crumb { margin-left: 12px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--ink-48); text-transform: uppercase; }
+
+  .stage { position: absolute; inset: 22px 0 0 0; display: flex; }
+
+  /* generic block styles */
+  .line { background: var(--ink-22); border-radius: 1px; height: 3px; }
+  .line.long { width: 82%; }
+  .line.mid  { width: 58%; }
+  .line.short{ width: 38%; }
+  .line.weak { background: var(--ink-14); }
+  .line.accent { background: var(--accent); }
+
+  .tag-chip {
+    font-family: var(--mono); font-size: 8px; letter-spacing: .14em; color: var(--ink-48);
+    text-transform: uppercase; padding: 2px 5px; border: 1px solid var(--ink-14); border-radius: 2px;
+    display: inline-block;
+  }
+  .tag-chip.accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .tag-chip.filled { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+
+  /* ════════════ 01  EDITORIAL DRAWER ════════════ */
+  .t01-bg { position: absolute; inset: 22px 0 0 0; display: flex; }
+  .t01-shell {
+    width: 38%; background:
+      linear-gradient(180deg, transparent, color-mix(in srgb, var(--ink) 5%, transparent));
+    border-right: 1px dashed var(--ink-22);
+    position: relative;
+    padding: 16px;
+    opacity: .45;
+  }
+  .t01-shell .m1 { height: 8px; width: 60%; background: var(--ink-22); margin-bottom: 10px; }
+  .t01-shell .m2 { height: 3px; width: 82%; background: var(--ink-14); margin-bottom: 5px; }
+  .t01-shell .card { height: 52px; width: 100%; background: var(--ink-08); margin-top: 18px; border-radius: 3px; }
+  .t01-shell .card.b { height: 36px; margin-top: 8px; }
+  .t01-drawer {
+    flex: 1; background: var(--chalk);
+    border-left: 2px solid var(--ink);
+    box-shadow: -14px 0 28px -18px color-mix(in srgb, var(--ink) 25%, transparent);
+    padding: 14px 18px;
+    position: relative;
+    display: grid; grid-template-rows: auto auto 1fr auto;
+    gap: 10px;
+  }
+  .t01-drawer .dhead { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--ink-14); }
+  .t01-drawer .dhead .title { font-family: var(--italic); font-style: italic; font-size: 13px; color: var(--ink); }
+  .t01-drawer .dhead .title::before { content: "额度建议稿"; font-family: var(--cjkserif); font-style: normal; font-weight: 600; margin-right: 6px; }
+  .t01-drawer .dhead .meta { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--ink-48); }
+  .t01-drawer .deputies { display: flex; gap: 6px; }
+  .deputy-plate {
+    font-family: var(--mono); font-size: 8px; letter-spacing: .1em;
+    padding: 3px 6px; border: 1px solid var(--ink-22); border-radius: 2px;
+    color: var(--ink-65); display: flex; align-items: center; gap: 4px;
+  }
+  .deputy-plate::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--safe); }
+  .deputy-plate.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .deputy-plate.on::before { background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
+  .t01-drawer .body {
+    display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px;
+    font-size: 10px;
+  }
+  .t01-drawer .conv { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--ink-04); border-radius: 3px; }
+  .t01-drawer .conv .b1 { display: flex; flex-direction: column; gap: 3px; padding: 4px 6px; background: var(--chalk); border-radius: 2px; font-family: var(--cjk); font-size: 7px; color: var(--ink-82); }
+  .t01-drawer .conv .b1 span { height: 2px; background: var(--ink-14); border-radius: 1px; width: 88%; }
+  .t01-drawer .conv .you { align-self: flex-end; background: var(--ink); color: var(--chalk); max-width: 78%; }
+  .t01-drawer .conv .you span { background: var(--chalk); opacity: .4; }
+  .t01-drawer .doc {
+    background: var(--chalk);
+    border: 1px solid var(--ink-08);
+    padding: 10px; border-radius: 3px;
+    display: flex; flex-direction: column; gap: 5px;
+    position: relative;
+  }
+  .t01-drawer .doc .h { font-family: var(--cjkserif); font-weight: 600; font-size: 10px; color: var(--ink); }
+  .t01-drawer .doc p { margin: 0; font-size: 7px; line-height: 1.5; color: var(--ink-65); }
+  .t01-drawer .doc sup {
+    font-family: var(--mono); font-size: 6.5px; color: var(--accent); font-weight: 500;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 0 2px; border-radius: 2px; margin-left: 2px; top: -2px; position: relative;
+  }
+  .t01-drawer .docfoot { display: flex; gap: 6px; padding-top: 8px; border-top: 1px solid var(--ink-08); }
+  .t01-drawer .selection {
+    position: absolute; left: 10px; right: 38px; top: 58px; height: 10px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    border-radius: 1px;
+  }
+  .t01-drawer .selection::after {
+    content: "⌘ 让 agent 改这里"; font-family: var(--cjk); font-size: 7px; font-weight: 500;
+    position: absolute; top: -14px; left: 0;
+    background: var(--ink); color: var(--chalk); padding: 2px 5px; border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* ════════════ 02  BENCH / SIDE-BY-SIDE ════════════ */
+  .t02-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 0; position: absolute; inset: 22px 0 0 0; }
+  .t02-col { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .t02-col.left { background: var(--chalk); border-right: 1px solid var(--ink-14); }
+  .t02-col.right {
+    background: var(--chalk);
+    background-image:
+      linear-gradient(90deg, transparent 0 calc(100% - 44px), var(--ink-04) calc(100% - 44px) 100%);
+  }
+  .t02-col .lbl { font-family: var(--mono); font-size: 8px; letter-spacing: .14em; color: var(--ink-48); text-transform: uppercase; padding-bottom: 6px; border-bottom: 1px solid var(--ink-14); margin-bottom: 6px; }
+  .t02-col .lbl em { font-family: var(--italic); font-style: italic; text-transform: none; letter-spacing: 0; color: var(--accent); font-size: 10px; margin: 0 3px; }
+  .t02-col .bubble { padding: 6px 8px; border-radius: 3px; font-family: var(--cjk); font-size: 7.5px; line-height: 1.6; color: var(--ink-82); display: flex; flex-direction: column; gap: 3px; }
+  .t02-col .bubble.you { background: var(--ink); color: var(--chalk); align-self: flex-end; max-width: 70%; }
+  .t02-col .bubble.agent { background: color-mix(in srgb, var(--accent) 8%, var(--chalk)); border-left: 2px solid var(--accent); }
+  .t02-col .bubble span { height: 2px; background: var(--ink-14); border-radius: 1px; width: 80%; }
+  .t02-col .bubble.you span { background: var(--chalk); opacity: .4; }
+  .t02-col .bubble.agent span { background: var(--ink-22); }
+  .t02-col .section {
+    background: var(--chalk); padding: 8px 10px; border-radius: 2px;
+    display: flex; flex-direction: column; gap: 4px;
+    position: relative;
+    border: 1px solid var(--ink-08);
+  }
+  .t02-col .section h5 { margin: 0; font-family: var(--cjkserif); font-weight: 600; font-size: 9.5px; }
+  .t02-col .section .l { height: 2px; background: var(--ink-14); border-radius: 1px; }
+  .t02-col .section .margin {
+    position: absolute; right: -36px; top: 4px; width: 32px;
+    font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; color: var(--accent);
+    line-height: 1.4;
+  }
+  .t02-col .section .margin::before { content: ""; position: absolute; left: -5px; top: 2px; width: 3px; height: 10px; background: var(--accent); }
+  /* 关联线 */
+  .t02-link {
+    position: absolute; left: 50%; width: 0; height: 22px;
+    border-left: 1px dashed var(--accent);
+    top: 120px; transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .t02-link::before,
+  .t02-link::after {
+    content: ""; position: absolute; width: 6px; height: 6px; background: var(--accent); border-radius: 50%;
+    left: -2.5px;
+  }
+  .t02-link::before { top: -3px; }
+  .t02-link::after  { bottom: -3px; }
+
+  /* ════════════ 03  CONVERSATION + ISLANDS ════════════ */
+  .t03-stage { position: absolute; inset: 22px 0 0 0; display: flex; }
+  .t03-rail { width: 32%; background: color-mix(in srgb, var(--ink) 3%, var(--chalk)); padding: 14px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--ink-08); }
+  .t03-main {
+    flex: 1; padding: 14px 20px; display: flex; flex-direction: column; gap: 8px;
+    background-image: radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 60%);
+  }
+  .t03-rail .rail-h { font-family: var(--mono); font-size: 8px; letter-spacing: .16em; color: var(--ink-48); text-transform: uppercase; margin-bottom: 2px; }
+  .t03-rail .rail-item { display: flex; align-items: center; gap: 6px; font-family: var(--cjk); font-size: 8px; color: var(--ink-82); padding: 4px 6px; border-radius: 2px; }
+  .t03-rail .rail-item .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--ink-22); }
+  .t03-rail .rail-item.on { background: var(--ink); color: var(--chalk); }
+  .t03-rail .rail-item.on .dot { background: var(--safe); box-shadow: 0 0 0 2px color-mix(in srgb, var(--safe) 25%, transparent); }
+
+  .msg { display: flex; gap: 6px; align-items: flex-start; }
+  .msg .ava { width: 16px; height: 16px; border-radius: 50%; background: var(--ink-14); flex-shrink: 0; font-family: var(--mono); font-size: 7px; color: var(--ink-65); display: flex; align-items: center; justify-content: center; }
+  .msg .ava.you { background: var(--ink); color: var(--chalk); }
+  .msg .ava.agent { background: var(--accent); color: var(--chalk); }
+  .msg .ava.deputy { background: var(--warn); color: var(--chalk); }
+  .msg .txt { font-family: var(--cjk); font-size: 7.5px; line-height: 1.55; color: var(--ink-82); max-width: 78%; }
+  .msg .txt span { display: block; height: 2px; background: var(--ink-14); border-radius: 1px; margin: 2px 0; }
+  .msg .txt .tag { display: inline-block; font-family: var(--mono); font-size: 6.5px; letter-spacing: .1em; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); padding: 0 3px; border-radius: 2px; margin-right: 3px; }
+
+  .island {
+    margin-left: 22px; padding: 10px 12px;
+    background: var(--chalk);
+    border: 1px solid var(--ink-14);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--ink) 18%, transparent);
+    display: flex; flex-direction: column; gap: 5px;
+    position: relative;
+  }
+  .island::before {
+    content: ""; position: absolute; left: -6px; top: 14px;
+    width: 8px; height: 8px; background: var(--chalk);
+    border-left: 1px solid var(--ink-14); border-bottom: 1px solid var(--ink-14);
+    transform: rotate(45deg);
+  }
+  .island .ih { display: flex; justify-content: space-between; align-items: center; }
+  .island .ih .h { font-family: var(--cjkserif); font-weight: 600; font-size: 9px; color: var(--ink); }
+  .island .ih .v { font-family: var(--mono); font-size: 7px; color: var(--ink-48); letter-spacing: .1em; }
+  .island .l { height: 2px; background: var(--ink-14); border-radius: 1px; }
+  .island .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 2px; }
+  .island .row3 .mini { background: var(--ink-04); padding: 5px; border-radius: 2px; display: flex; flex-direction: column; gap: 2px; }
+  .island .row3 .mini .t { font-family: var(--cjk); font-size: 6.5px; color: var(--ink-65); }
+  .island .row3 .mini .l { background: var(--ink-14); }
+
+  /* ════════════ 04  LEDGER / THREE-PANE ════════════ */
+  .t04-stage { position: absolute; inset: 22px 0 0 0; display: grid; grid-template-columns: 200px 1fr 200px; background: var(--chalk); }
+  .t04-col { padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .t04-col.l { border-right: 1px solid var(--ink-14); background: color-mix(in srgb, var(--ink) 3%, var(--chalk)); }
+  .t04-col.r { border-left: 1px solid var(--ink-14); background: color-mix(in srgb, var(--ink) 3%, var(--chalk)); }
+  .t04-col .h { font-family: var(--mono); font-size: 8px; letter-spacing: .14em; color: var(--ink-48); text-transform: uppercase; padding-bottom: 6px; border-bottom: 1px solid var(--ink-14); }
+  .t04-col .step {
+    display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: start;
+  }
+  .t04-col .step .n { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--ink-48); }
+  .t04-col .step.on .n { color: var(--accent); }
+  .t04-col .step .cap { font-family: var(--cjk); font-size: 8px; color: var(--ink-82); font-weight: 500; }
+  .t04-col .step .cap .sub { display: block; font-weight: 400; color: var(--ink-48); font-size: 7px; margin-top: 2px; }
+  .t04-col .step.on .cap { color: var(--ink); }
+  .t04-col .step.done .cap { color: var(--ink-48); }
+  .t04-col .step.done .n { color: var(--safe); }
+  .t04-col .step.done .n::after { content: "✓"; }
+  .t04-col .rail {
+    position: absolute; left: 22px; top: 46px; bottom: 18px; width: 1px;
+    background: var(--ink-14);
+  }
+  .t04-col.l { position: relative; }
+
+  .t04-center { padding: 18px 24px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .t04-center .hero { font-family: var(--cjkserif); font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+  .t04-center .hero em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); }
+  .t04-center .tagbar { display: flex; gap: 4px; }
+  .t04-center .card {
+    background: var(--chalk); border: 1px solid var(--ink-14); border-radius: 3px;
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+    position: relative;
+  }
+  .t04-center .card .ch { font-family: var(--mono); font-size: 7px; letter-spacing: .12em; color: var(--ink-48); text-transform: uppercase; }
+  .t04-center .card .ch em { font-family: var(--italic); font-style: italic; text-transform: none; color: var(--accent); letter-spacing: 0; }
+  .t04-center .card .hh { font-family: var(--cjkserif); font-weight: 600; font-size: 10px; }
+  .t04-center .card .lrow { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 4px; }
+  .t04-center .card .lrow .cell { background: var(--ink-04); padding: 4px 5px; border-radius: 2px; }
+  .t04-center .card .lrow .cell .n { font-family: var(--mono); font-size: 8.5px; font-weight: 500; color: var(--ink); }
+  .t04-center .card .lrow .cell .cap { font-family: var(--cjk); font-size: 6.5px; color: var(--ink-48); margin-top: 1px; }
+  .t04-center .bank-stamp {
+    position: absolute; right: 18px; top: 14px;
+    font-family: var(--italic); font-style: italic; font-size: 9px; color: var(--accent); opacity: .55;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 3px 7px; border-radius: 2px;
+    letter-spacing: .08em;
+    transform: rotate(-4deg);
+  }
+
+  .t04-col.r .ref {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 6px 8px; background: var(--chalk); border-radius: 2px; border: 1px solid var(--ink-08);
+  }
+  .t04-col.r .ref .rh { font-family: var(--mono); font-size: 7px; letter-spacing: .1em; color: var(--accent); }
+  .t04-col.r .ref .rt { font-family: var(--cjk); font-size: 7.5px; color: var(--ink-82); line-height: 1.45; }
+  .t04-col.r .ref .meta { font-family: var(--mono); font-size: 6.5px; color: var(--ink-48); margin-top: 2px; letter-spacing: .08em; }
+
+  /* ════════════ 05  CANVAS (spatial) ════════════ */
+  .t05-stage { position: absolute; inset: 22px 0 0 0; background: var(--chalk); overflow: hidden; }
+  .t05-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(0deg, var(--ink-08) 1px, transparent 1px),
+      linear-gradient(90deg, var(--ink-08) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: .4;
+  }
+  .t05-card {
+    position: absolute; background: var(--chalk);
+    border: 1px solid var(--ink-22);
+    box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--ink) 25%, transparent);
+    padding: 8px 10px;
+    border-radius: 3px;
+    font-family: var(--cjk); font-size: 7.5px; line-height: 1.5; color: var(--ink-82);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .t05-card .ch { font-family: var(--mono); font-size: 7px; letter-spacing: .12em; color: var(--ink-48); text-transform: uppercase; }
+  .t05-card .h { font-family: var(--cjkserif); font-weight: 600; font-size: 9px; color: var(--ink); }
+  .t05-card .l { height: 2px; background: var(--ink-14); border-radius: 1px; }
+  .t05-card.input { border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--chalk)); }
+  .t05-card.input .ch { color: var(--accent); }
+  .t05-card.out { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+  .t05-card.out .ch { color: var(--ch-55, rgba(251,247,238,.55)); }
+  .t05-card.out .h { color: var(--chalk); }
+  .t05-card.out .l { background: color-mix(in srgb, var(--chalk) 22%, transparent); }
+  .t05-card.deputy { background: color-mix(in srgb, var(--warn) 14%, var(--chalk)); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+  .t05-card.deputy .ch { color: var(--warn); }
+  .t05-wire {
+    position: absolute; stroke: var(--accent); stroke-width: 1.2;
+    fill: none; stroke-dasharray: 3 3; opacity: .55;
+  }
+  .t05-cursor {
+    position: absolute; font-family: var(--mono); font-size: 8px; color: var(--ink);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .t05-cursor::before {
+    content: ""; width: 8px; height: 8px; background: var(--ink); clip-path: polygon(0 0, 100% 60%, 60% 65%, 80% 100%, 0 100%);
+  }
+
+  /* ════════════ 06  TELETYPE / TERMINAL (editorial prompt) ════════════ */
+  .t06-stage { position: absolute; inset: 22px 0 0 0; background: var(--paper); display: flex; flex-direction: column; padding: 20px 32px; gap: 12px; }
+  .t06-stage::before {
+    content: ""; position: absolute; inset: 20px 32px;
+    background-image: repeating-linear-gradient(180deg, transparent 0 17px, var(--ink-08) 17px 18px);
+    opacity: .5;
+    pointer-events: none;
+  }
+  .t06-header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--ink-22); position: relative; z-index: 2; }
+  .t06-header .h { font-family: var(--italic); font-style: italic; font-size: 16px; color: var(--ink); }
+  .t06-header .h strong { font-family: var(--cjkserif); font-weight: 700; font-style: normal; color: var(--ink); margin-right: 6px; }
+  .t06-header .meta { font-family: var(--mono); font-size: 8px; letter-spacing: .16em; color: var(--ink-48); text-transform: uppercase; }
+
+  .t06-body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 8px; }
+  .t06-line { display: grid; grid-template-columns: 56px 1fr; align-items: baseline; gap: 14px; }
+  .t06-line .role { font-family: var(--mono); font-size: 8px; letter-spacing: .18em; color: var(--ink-48); text-transform: uppercase; padding-top: 2px; }
+  .t06-line.agent .role { color: var(--accent); }
+  .t06-line.deputy .role { color: var(--warn); }
+  .t06-line .say { font-family: var(--cjkserif); font-size: 12px; line-height: 1.65; color: var(--ink); font-weight: 500; }
+  .t06-line .say .italic { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); }
+  .t06-line .say .cite { font-family: var(--mono); font-size: 9px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); padding: 0 3px; border-radius: 2px; margin: 0 2px; vertical-align: 1px; }
+
+  .t06-output {
+    margin-top: 4px; padding: 12px 16px;
+    background: var(--chalk);
+    border-left: 3px solid var(--accent);
+    display: grid; grid-template-columns: 56px 1fr; gap: 14px;
+    position: relative;
+  }
+  .t06-output .role { font-family: var(--mono); font-size: 8px; letter-spacing: .18em; color: var(--accent); text-transform: uppercase; padding-top: 3px; }
+  .t06-output .say { font-family: var(--cjkserif); font-size: 10px; line-height: 1.65; color: var(--ink-82); }
+  .t06-output .say .h { display: block; font-weight: 700; color: var(--ink); font-size: 11px; margin-bottom: 4px; }
+  .t06-output .tb { margin-top: 6px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--ink-14); font-family: var(--mono); font-size: 7px; }
+  .t06-output .tb > div { padding: 3px 4px; border-right: 1px solid var(--ink-08); }
+  .t06-output .tb > div:last-child { border-right: none; }
+  .t06-output .tb .head { background: var(--ink-04); color: var(--ink-48); letter-spacing: .1em; text-transform: uppercase; }
+  .t06-output .tb .n { color: var(--ink); }
+
+  .t06-prompt {
+    margin-top: auto; position: relative; z-index: 2;
+    display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: baseline;
+    padding-top: 8px; border-top: 1px solid var(--ink-22);
+  }
+  .t06-prompt .role { font-family: var(--mono); font-size: 8px; letter-spacing: .18em; color: var(--ink-48); }
+  .t06-prompt .input { font-family: var(--cjk); font-size: 11px; color: var(--ink-48); }
+  .t06-prompt .input::after { content: ""; display: inline-block; width: 7px; height: 12px; background: var(--ink); margin-left: 3px; vertical-align: -2px; animation: cblink 1s step-end infinite; }
+  @keyframes cblink { 50% { background: transparent; } }
+  .t06-prompt .hints { display: flex; gap: 4px; }
+
+  /* ══════════════════ footer ══════════════════ */
+  .foot {
+    max-width: 1760px; margin: 80px auto 0;
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 48px;
+    padding-top: 36px; border-top: 1px solid var(--ink-22);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--ink-48); text-transform: uppercase;
+  }
+  .foot em { font-family: var(--italic); font-style: italic; text-transform: none; color: var(--accent); letter-spacing: 0; font-size: 14px; }
+  .foot .mid { justify-self: center; }
+  .foot .right { justify-self: end; }
+
+  .note {
+    max-width: 1760px; margin: 56px auto 0;
+    display: grid; grid-template-columns: 200px 1fr; gap: 48px;
+    padding: 24px 0;
+  }
+  .note .k { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--ink-48); text-transform: uppercase; }
+  .note .v { font-family: var(--cjkserif); font-size: 17px; line-height: 1.7; color: var(--ink-82); }
+  .note .v em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+  .note .v strong { color: var(--ink); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<div class="header">
+  <div class="mast">
+    <div class="eyebrow">乾策 STUDIO <em>— agent workbench —</em> 概览布 · 01</div>
+    <h1>点开一个 agent<br><em>之后，</em><span class="cn">去哪里</span>？</h1>
+  </div>
+  <div class="mast-meta">
+    <div>
+      <span>SAMPLE</span>
+      <span class="v">额度建议稿 · <em>Credit Proposal</em></span>
+    </div>
+    <div>
+      <span>VARIANTS</span>
+      <span class="v">6 × <em>form studies</em></span>
+    </div>
+    <div>
+      <span>DATE</span>
+      <span class="v">2026.04.20</span>
+    </div>
+  </div>
+  <div class="scale">
+    <div>SPECTRUM</div>
+    <div class="scale-bar"></div>
+    <div class="scale-labels">
+      <span>保守</span><span>平衡</span><span>激进</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ GRID ══════════════════ -->
+<div class="grid">
+
+  <!-- ───────── 01 编辑部抽屉 ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">01 / 06</div>
+      <div class="slot-name"><span class="cn">编辑部抽屉</span><em>Editorial Drawer</em></div>
+      <div class="slot-tag conservative">● CONSERVATIVE</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">shell › agent · 额度建议稿</span>
+      </div>
+      <div class="t01-bg">
+        <div class="t01-shell">
+          <div class="m1"></div>
+          <div class="m2"></div><div class="m2"></div>
+          <div class="card"></div>
+          <div class="card b"></div>
+          <div class="card b"></div>
+        </div>
+        <div class="t01-drawer">
+          <div class="dhead">
+            <span class="title"></span>
+            <span class="meta">DRAFT 02 · 14:06</span>
+          </div>
+          <div class="deputies">
+            <span class="deputy-plate">画像副手</span>
+            <span class="deputy-plate on">风控副手 · 有话要说</span>
+            <span class="deputy-plate">合规副手</span>
+          </div>
+          <div class="body">
+            <div class="conv">
+              <div class="b1 you">帮我给华远集团起一份 5000 万流贷建议稿<span></span></div>
+              <div class="b1">好的，我正在读其近三年财报与征信记录…<span></span><span></span></div>
+              <div class="b1 you">把"担保结构"那段改得紧凑一点<span></span></div>
+            </div>
+            <div class="doc">
+              <div class="selection"></div>
+              <div class="h">一、客户基本情况</div>
+              <p>华远集团成立于 2007 年，主营业务为…<sup>¹</sup></p>
+              <div class="h" style="margin-top:2px">二、担保结构</div>
+              <p>本次授信拟采用动产抵押 + 关联担保…<sup>²</sup></p>
+              <div class="docfoot">
+                <span class="tag-chip accent">¹ CRS</span>
+                <span class="tag-chip accent">² 担保登记</span>
+                <span class="tag-chip">v2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">右 62% 抽屉，<em>shell 仍可见</em>。左 chat 右 doc。</div></div>
+      <div><div class="k">HERO</div><div class="v">像走进编辑部的一间抽屉，案头摆着<em>正在改的稿</em>。</div></div>
+      <div><div class="k">副手</div><div class="v">顶部小铭牌，默默亮灯。有话要说时一颗红点。</div></div>
+      <div><div class="k">适合</div><div class="v">重型起草：授信建议稿、晨会材料。</div></div>
+    </div>
+  </div>
+
+  <!-- ───────── 02 工作台双栏 ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">02 / 06</div>
+      <div class="slot-name"><span class="cn">拼版工作台</span><em>Bench &amp; Margin</em></div>
+      <div class="slot-tag conservative">● CONSERVATIVE</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">agent · 额度建议稿 · 拼版台</span>
+      </div>
+      <div class="t02-stage">
+        <div class="t02-col left">
+          <div class="lbl">CONVERSATION <em>— 左栏 —</em></div>
+          <div class="bubble you">帮我起一份 5000 万流贷建议稿<span></span></div>
+          <div class="bubble agent">正在读财报 · 2023/H1 已入库<span></span><span></span></div>
+          <div class="bubble you">担保结构那段压缩 50%<span></span></div>
+          <div class="bubble agent">已改。看右侧第二节<span></span></div>
+          <div class="bubble you">把行业对比放成一张表<span></span></div>
+        </div>
+        <div class="t02-col right">
+          <div class="lbl">ARTIFACT <em>— 右栏 · 带旁注 —</em></div>
+          <div class="section">
+            <h5>一、客户基本情况</h5>
+            <div class="l" style="width: 92%"></div>
+            <div class="l" style="width: 78%"></div>
+            <div class="l" style="width: 84%"></div>
+          </div>
+          <div class="section">
+            <h5>二、担保结构 <span style="font-family:var(--italic);font-style:italic;color:var(--accent);font-weight:400">· 已压缩</span></h5>
+            <div class="l" style="width: 82%"></div>
+            <div class="l" style="width: 68%"></div>
+            <div class="margin">¹ CRS<br>² 担保登记</div>
+          </div>
+          <div class="section">
+            <h5>三、行业对比</h5>
+            <div class="l" style="width: 72%"></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:4px">
+              <div style="height:14px;background:var(--ink-04);border:1px solid var(--ink-08)"></div>
+              <div style="height:14px;background:var(--ink-04);border:1px solid var(--ink-08)"></div>
+              <div style="height:14px;background:var(--ink-04);border:1px solid var(--ink-08)"></div>
+              <div style="height:14px;background:color-mix(in srgb, var(--accent) 18%, var(--chalk));border:1px solid var(--ink-08)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="t02-link"></div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">全屏 50 / 50，左 chat 右 doc，<em>中间关联线</em>。</div></div>
+      <div><div class="k">HERO</div><div class="v">报纸拼版的感觉 —— 左改稿、右出纸，<em>每段带旁注</em>。</div></div>
+      <div><div class="k">引用</div><div class="v">旁注栏（margin）列引用，像学术文章。</div></div>
+      <div><div class="k">适合</div><div class="v">分析+决策：客户画像、风险处置。</div></div>
+    </div>
+  </div>
+
+  <!-- ───────── 03 对话流 + 岛 ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">03 / 06</div>
+      <div class="slot-name"><span class="cn">对话流卡片岛</span><em>Islands in Stream</em></div>
+      <div class="slot-tag moderate">◐ MODERATE</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">agent · 邀约话术 · 流</span>
+      </div>
+      <div class="t03-stage">
+        <div class="t03-rail">
+          <div class="rail-h">AGENTS</div>
+          <div class="rail-item on"><span class="dot"></span>邀约话术</div>
+          <div class="rail-item"><span class="dot"></span>额度建议稿</div>
+          <div class="rail-item"><span class="dot"></span>晨会材料</div>
+          <div class="rail-h" style="margin-top:10px">THIS RUN</div>
+          <div class="rail-item"><span class="dot"></span>12:04 · 你提了要求</div>
+          <div class="rail-item"><span class="dot"></span>12:05 · 画像副手接入</div>
+          <div class="rail-item"><span class="dot"></span>12:06 · 生成 3 张</div>
+        </div>
+        <div class="t03-main">
+          <div class="msg">
+            <div class="ava you">你</div>
+            <div class="txt">约周先生、李总、赵女士下周喝茶<span></span></div>
+          </div>
+          <div class="msg">
+            <div class="ava agent">A</div>
+            <div class="txt"><span class="tag">@画像副手</span>抽最近互动<span></span></div>
+          </div>
+          <div class="msg">
+            <div class="ava deputy">画</div>
+            <div class="txt">周先生近期关注跨境<span></span></div>
+          </div>
+          <div class="island">
+            <div class="ih">
+              <span class="h">邀约卡 × 3</span>
+              <span class="v">A / B 各一版</span>
+            </div>
+            <div class="row3">
+              <div class="mini"><div class="t">周先生</div><div class="l"></div><div class="l" style="width:70%"></div><div class="l" style="width:80%"></div></div>
+              <div class="mini"><div class="t">李总</div><div class="l"></div><div class="l" style="width:70%"></div><div class="l" style="width:80%"></div></div>
+              <div class="mini"><div class="t">赵女士</div><div class="l"></div><div class="l" style="width:70%"></div><div class="l" style="width:80%"></div></div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="ava you">你</div>
+            <div class="txt">周先生那版再口语一点<span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">上下流，<em>产出是漂浮岛</em>嵌在对话里。</div></div>
+      <div><div class="k">HERO</div><div class="v">像和 agent 群聊 —— 副手会在对话里插话。</div></div>
+      <div><div class="k">副手</div><div class="v">作为另一个头像参与，有头衔（画 / 风 / 合）。</div></div>
+      <div><div class="k">适合</div><div class="v">轻型对话：邀约、快速答复、日程沟通。</div></div>
+    </div>
+  </div>
+
+  <!-- ───────── 04 台账 / 三栏流水 ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">04 / 06</div>
+      <div class="slot-name"><span class="cn">台账三栏</span><em>Ledger · Three-Pane</em></div>
+      <div class="slot-tag moderate">◐ MODERATE</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">agent · 风险处置 · 台账</span>
+      </div>
+      <div class="t04-stage">
+        <div class="t04-col l">
+          <div class="h">流程 · STEPS</div>
+          <div class="rail"></div>
+          <div class="step done"><span class="n">01</span><span class="cap">接收预警<span class="sub">客户 · 华远</span></span></div>
+          <div class="step done"><span class="n">02</span><span class="cap">溯源核实<span class="sub">3 个系统 · 已取</span></span></div>
+          <div class="step on"><span class="n">03</span><span class="cap">方案拟订<span class="sub">正在生成</span></span></div>
+          <div class="step"><span class="n">04</span><span class="cap">经办确认<span class="sub">待你审</span></span></div>
+          <div class="step"><span class="n">05</span><span class="cap">提交审批<span class="sub">送风险部</span></span></div>
+        </div>
+        <div class="t04-center">
+          <div class="bank-stamp">中间工位 · CENTER</div>
+          <div class="hero">当前 · <em>方案拟订</em></div>
+          <div class="tagbar">
+            <span class="tag-chip filled">拟订</span>
+            <span class="tag-chip accent">A 追加担保</span>
+            <span class="tag-chip">B 缩减敞口</span>
+            <span class="tag-chip">C 展期</span>
+          </div>
+          <div class="card">
+            <div class="ch">A · <em>追加担保方案</em></div>
+            <div class="hh">增加应收账款质押 2200 万</div>
+            <div class="lrow">
+              <div class="cell"><div class="n">76%</div><div class="cap">预期覆盖率</div></div>
+              <div class="cell"><div class="n">14 天</div><div class="cap">办理周期</div></div>
+              <div class="cell"><div class="n">低</div><div class="cap">操作成本</div></div>
+            </div>
+          </div>
+          <div class="card" style="opacity:.65">
+            <div class="ch">B · 缩减敞口</div>
+            <div class="hh">先收回 30%，观察 60 天</div>
+          </div>
+        </div>
+        <div class="t04-col r">
+          <div class="h">引用 · REFS</div>
+          <div class="ref">
+            <div class="rh">¹ CRS · 征信</div>
+            <div class="rt">2026-03-28 新增逾期…</div>
+            <div class="meta">已采信 · 3 条</div>
+          </div>
+          <div class="ref">
+            <div class="rh">² 担保登记</div>
+            <div class="rt">现有抵押率 62%…</div>
+            <div class="meta">已采信 · 1 条</div>
+          </div>
+          <div class="ref">
+            <div class="rh">³ 行业研报</div>
+            <div class="rt">Q1 装备制造景气度回落</div>
+            <div class="meta">来源：自研</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">三栏：<em>左流程 · 中工位 · 右引用台账</em>。</div></div>
+      <div><div class="k">HERO</div><div class="v">像坐在银行的一张工位上，左右账簿都在看得到的地方。</div></div>
+      <div><div class="k">对话</div><div class="v">弱化 —— 主要是"填卡 + 审方案"，不是聊天。</div></div>
+      <div><div class="k">适合</div><div class="v">工单类：风险处置、合规处置、流程驱动任务。</div></div>
+    </div>
+  </div>
+
+  <!-- ───────── 05 空间画布 ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">05 / 06</div>
+      <div class="slot-name"><span class="cn">空间画布</span><em>Spatial Canvas</em></div>
+      <div class="slot-tag bold">● BOLD</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">agent · 画像分析 · 画布</span>
+      </div>
+      <div class="t05-stage">
+        <div class="t05-grid"></div>
+        <svg class="t05-wire" style="inset:0;width:100%;height:100%">
+          <path d="M 120 90 C 180 90, 200 160, 280 160" />
+          <path d="M 280 160 C 360 160, 380 100, 460 100" />
+          <path d="M 280 160 C 360 160, 380 220, 460 220" />
+          <path d="M 280 160 C 360 160, 400 260, 520 280" />
+        </svg>
+        <div class="t05-card input" style="left:30px;top:42px;width:110px">
+          <div class="ch">INPUT</div>
+          <div class="h">客户 · 华远</div>
+          <div class="l"></div>
+        </div>
+        <div class="t05-card" style="left:220px;top:110px;width:130px">
+          <div class="ch">AGENT · 画像</div>
+          <div class="h">7 维雷达 · 生成中</div>
+          <div class="l"></div>
+          <div class="l" style="width:70%"></div>
+        </div>
+        <div class="t05-card out" style="left:420px;top:50px;width:140px">
+          <div class="ch">OUTPUT · A</div>
+          <div class="h">资产画像</div>
+          <div class="l"></div>
+          <div class="l" style="width:70%"></div>
+          <div class="l" style="width:84%"></div>
+        </div>
+        <div class="t05-card out" style="left:420px;top:175px;width:140px">
+          <div class="ch">OUTPUT · B</div>
+          <div class="h">关系网络</div>
+          <div class="l"></div>
+          <div class="l" style="width:80%"></div>
+        </div>
+        <div class="t05-card deputy" style="left:480px;top:252px;width:130px">
+          <div class="ch">风控副手 · 举手</div>
+          <div class="l"></div>
+          <div class="l" style="width:76%"></div>
+        </div>
+        <div class="t05-cursor" style="left:340px;top:90px">你</div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">无限画布，节点拖动；输入 → agent → 多输出，像<em>办公桌</em>。</div></div>
+      <div><div class="k">HERO</div><div class="v">让用户"把任务摊在桌上看"，适合探索。</div></div>
+      <div><div class="k">副手</div><div class="v">作为额外节点浮现，有事就接线。</div></div>
+      <div><div class="k">适合</div><div class="v">探索性任务：画像分析、跨客户比对、发散思考。</div></div>
+    </div>
+  </div>
+
+  <!-- ───────── 06 排字机 / TELETYPE ───────── -->
+  <div class="slot">
+    <div class="slot-head">
+      <div class="slot-num">06 / 06</div>
+      <div class="slot-name"><span class="cn">排字机</span><em>Teletype</em></div>
+      <div class="slot-tag bold">● BOLD</div>
+    </div>
+    <div class="thumb">
+      <div class="window-top">
+        <span class="d"></span><span class="d"></span><span class="d"></span>
+        <span class="crumb">agent · 额度建议稿 · 排字机</span>
+      </div>
+      <div class="t06-stage">
+        <div class="t06-header">
+          <div class="h"><strong>额度建议稿</strong><em>Credit Proposal</em></div>
+          <div class="meta">SESSION 04-20 · 14:06</div>
+        </div>
+        <div class="t06-body">
+          <div class="t06-line">
+            <span class="role">YOU</span>
+            <span class="say">给华远起一份 <span class="italic">5000 万</span> 流贷建议稿。</span>
+          </div>
+          <div class="t06-line agent">
+            <span class="role">AGENT</span>
+            <span class="say"><span class="italic">正在读财报</span> · 打捞 2023 年度报告 · 引用 <span class="cite">¹</span></span>
+          </div>
+          <div class="t06-line deputy">
+            <span class="role">DEPUTY · 风控</span>
+            <span class="say"><span class="italic">举手 —— </span>该客户 3 月新增一笔小额逾期，是否纳入？</span>
+          </div>
+          <div class="t06-output">
+            <span class="role">DRAFT</span>
+            <div>
+              <span class="say"><span class="h">一、客户基本情况</span>华远集团成立于 2007 年，主营装备制造，2025 年营收 18.4 亿 <span class="cite">²</span></span>
+              <div class="tb">
+                <div class="head">科目</div><div class="head">2023</div><div class="head">2024</div><div class="head">2025</div>
+                <div>营收</div><div class="n">15.2</div><div class="n">16.8</div><div class="n">18.4</div>
+                <div>净利</div><div class="n">1.1</div><div class="n">1.3</div><div class="n">1.5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="t06-prompt">
+          <span class="role">YOU</span>
+          <span class="input">把担保结构那段改紧凑一点</span>
+          <span class="hints">
+            <span class="tag-chip">⌘K</span>
+            <span class="tag-chip">⏎</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="slot-foot">
+      <div><div class="k">FORM</div><div class="v">全屏单栏"<em>排字机稿</em>"—— 对话 / 草稿 / 副手全部排字成一根时间轴。</div></div>
+      <div><div class="k">HERO</div><div class="v">最文学的一版 —— <em>像在听写</em>。延续 shell 的报纸感到极致。</div></div>
+      <div><div class="k">副手</div><div class="v">作为一个 "DEPUTY" 角色排进时间轴，低调但在场。</div></div>
+      <div><div class="k">适合</div><div class="v">所有线性任务，尤其<em>以文本为主</em>的 agent。</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════ bottom note ═══════════════ -->
+<div class="note">
+  <div class="k">你的位置</div>
+  <div class="v">六个方向摆在桌上 —— <em>1 编辑部抽屉</em> 最像现有 shell，<em>6 排字机</em> 把你已有的"新闻报纸"语言推到最远。<strong>挑两个你有感觉的方向</strong>，我把那两个做成可交互原型；或者你把你之前的参考方案发我，我在上面改一版。</div>
+</div>
+
+<div class="foot">
+  <span class="left">QIANCE STUDIO · AGENT VARIANTS · 06</span>
+  <span class="mid"><em>six forms, one task.</em></span>
+  <span class="right">2026.04.20 · DRAFT</span>
+</div>
+
+</body>
+</html>

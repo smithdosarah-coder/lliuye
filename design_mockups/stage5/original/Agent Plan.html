@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Agent 界面 · 方案对比</title>
+<style>
+  :root {
+    --paper: #F4EEE0;
+    --ink: #1C1A17;
+    --ink-65: rgba(28,26,23,.65);
+    --ink-48: rgba(28,26,23,.48);
+    --ink-14: rgba(28,26,23,.14);
+    --accent: #B44E2A;
+    --chalk: #FAF6EA;
+    --serif: "Noto Serif SC", "Songti SC", serif;
+    --italic: "EB Garamond", Georgia, serif;
+    --sans: "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 14.5px; line-height: 1.65;
+    padding: 72px 88px 120px;
+    max-width: 1080px; margin: 0 auto;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .22em;
+    color: var(--ink-48); text-transform: uppercase; margin-bottom: 18px;
+  }
+  .eyebrow em { font-family: var(--italic); font-style: italic; text-transform: none; color: var(--accent); font-size: 14px; letter-spacing: 0; margin: 0 4px; }
+  h1 { font-family: var(--serif); font-weight: 700; font-size: 58px; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 20px; }
+  h1 em { font-family: var(--italic); font-style: italic; font-weight: 500; color: var(--accent); }
+  .lede { font-size: 16px; color: var(--ink-65); max-width: 58ch; margin: 0 0 56px; }
+  h2 { font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: -.01em; margin: 60px 0 18px; border-top: 1px solid var(--ink-14); padding-top: 36px; }
+  h2 .num { font-family: var(--mono); font-size: 13px; letter-spacing: .2em; color: var(--ink-48); margin-right: 14px; vertical-align: 3px; }
+  h3 { font-family: var(--serif); font-weight: 600; font-size: 19px; margin: 28px 0 10px; }
+  p, li { font-size: 15px; color: var(--ink-65); }
+  p strong, li strong { color: var(--ink); font-weight: 600; }
+  em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+  ul { padding-left: 22px; margin: 12px 0 20px; }
+  li { margin-bottom: 6px; }
+  code { font-family: var(--mono); font-size: 13px; background: rgba(28,26,23,.06); padding: 1px 6px; border-radius: 3px; color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; margin: 24px 0 32px; font-size: 14px; }
+  th, td { text-align: left; padding: 14px 16px; vertical-align: top; border-top: 1px solid var(--ink-14); }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-48); font-weight: 500; border-top: 2px solid var(--ink); }
+  td strong { color: var(--ink); font-weight: 600; }
+  td em { color: var(--accent); }
+  tr.row-head td { font-family: var(--serif); font-weight: 600; color: var(--ink); font-size: 17px; }
+
+  .plan-card {
+    background: var(--chalk);
+    border: 1px solid var(--ink-14);
+    padding: 28px 32px;
+    margin: 18px 0;
+    border-radius: 3px;
+  }
+  .plan-card .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .plan-card h3 { margin: 0 0 10px; }
+  .plan-card .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 18px; font-size: 13.5px; margin-top: 16px; }
+  .plan-card .kv dt { color: var(--ink-48); font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+  .plan-card .kv dd { margin: 0; color: var(--ink); }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 14px 22px;
+    margin: 24px 0;
+    background: rgba(180,78,42,.05);
+  }
+  .callout strong { color: var(--accent); }
+  .foot {
+    margin-top: 80px; padding-top: 30px;
+    border-top: 1px solid var(--ink-14);
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink-48); letter-spacing: .15em;
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">乾策 STUDIO <em>— agent workbench —</em> PLAN · DRAFT 01</div>
+<h1>点开一个 agent <em>之后</em>，去哪里？</h1>
+<p class="lede">在铺代码前，我把三条路线画出来摆在桌上：形态、交互模型、数据源处理、副手编排 —— 都有明确的取舍。你审一遍，确认或否决，我再动笔。</p>
+
+<!-- ═══════════════ 前提假设 ═══════════════ -->
+<h2><span class="num">01</span>前提假设 · 我先替你定的事</h2>
+<p>你答卷里有几个 "Decide for me"，我按银行客户经理真实使用节奏做了选择，理由写在后面。</p>
+
+<div class="plan-card">
+  <div class="tag">ASSUMPTION · 1</div>
+  <h3>同一个 agent 工作台，三个入口</h3>
+  <p>入口要"兼顾"，但页面只做一份 —— 不管从 Agent tab 卡片点进、从今日看板 flight 条点进、还是从 IM <code>@</code> 召唤，统一进同一个 agent workbench。区别只在入场动画的"来向"。</p>
+  <dl class="kv">
+    <dt>Agent tab →</dt><dd>下方整屏滑出</dd>
+    <dt>flight →</dt><dd>从 hero 那一行原地展开</dd>
+    <dt>IM @召唤 →</dt><dd>右侧 60% 抽屉滑出，IM 保留可见</dd>
+  </dl>
+</div>
+
+<div class="plan-card">
+  <div class="tag">ASSUMPTION · 2</div>
+  <h3>交互模型：对话 + 就地改写（Cursor / Notion AI 式）</h3>
+  <p>左侧对话区、右侧产出区。用户既可以打字命令 agent，也可以<strong>在产出上圈选一段文字 → 弹出"让 agent 改这里"菜单</strong>。不要做"一轮对话回一篇稿子"那种僵硬的 chatbot。</p>
+</div>
+
+<div class="plan-card">
+  <div class="tag">ASSUMPTION · 3</div>
+  <h3>单 agent 主线，<em>副手 agent 旁挂</em>（小创新）</h3>
+  <p>主 agent 在工作，另有一只"<strong>副手 agent</strong>"在后台读相关数据，<strong>只在它发现有用的东西时举手</strong>。例如：主 agent 在写额度建议稿，风控副手读到客户征信近期有新记录，就在侧边冒一条"<em>注意：该客户 3 月新增一笔小额逾期</em>"。</p>
+  <p>银行实际工作里这种"隐藏的第二只眼"非常重要，但大多数 AI 产品把它做成了"多个 chatbot 并列"，那种是错的 —— 太吵。我们做"默默盯着，有事才说话"。</p>
+</div>
+
+<div class="plan-card">
+  <div class="tag">ASSUMPTION · 4</div>
+  <h3>数据源一定要展示</h3>
+  <p>每段产出后挂一个折叠引用（默认折起来只显一个小圆标），点开看它引用了哪些系统 / 哪条客户档案 / 哪份产品说明。银行合规刚需，客户经理交材料时也需要溯源。</p>
+</div>
+
+<div class="plan-card">
+  <div class="tag">ASSUMPTION · 5</div>
+  <h3>产出半编辑</h3>
+  <p>直接在产出区光标编辑（像 doc），也可以圈选让 agent 改。不做"只读 + 复制导出"的假编辑器 —— 那是上一代产品的做法。</p>
+</div>
+
+<!-- ═══════════════ 三个方案 ═══════════════ -->
+<h2><span class="num">02</span>三个方案 · 形态对比</h2>
+<p>方案不同之处<strong>主要在"页面的壳"</strong>—— 交互模型（对话+就地改写）、数据源引用、副手 agent 都是共用的。</p>
+
+<table>
+  <tr>
+    <th style="width: 18%"></th>
+    <th>A · 编辑部抽屉</th>
+    <th>B · 双页拉丝</th>
+    <th>C · 对话流 + 卡片岛</th>
+  </tr>
+  <tr class="row-head"><td>基调</td><td>最保守</td><td>平衡</td><td>最有想法</td></tr>
+  <tr><td>页面占比</td><td>右侧 62% 抽屉，shell 左侧露出一条"拼版台"</td><td>全屏双栏 50/50，左 conversation 右 artifact</td><td>全屏 IM-like 流，产出是可拖拽的"卡片岛"浮在流中</td></tr>
+  <tr><td>退出方式</td><td>左划回 shell，产出自动归档到 Agent tab</td><td>顶部面包屑回去，或 Esc</td><td>一直存在，像抖音流一样滑动</td></tr>
+  <tr><td>对话 & 产出关系</td><td><strong>左右平行</strong>：左 chat，右 doc</td><td><strong>左右平行 + 关联线</strong>：对话某一条和产出某段有线连接，hover 高亮</td><td><strong>时间线</strong>：对话 → 产出卡片 → 对话 → 卡片 …… 顺序上下走</td></tr>
+  <tr><td>副手 agent</td><td>顶部一排小铭牌，默默亮灯</td><td>右上角"旁听席"，有话要说会冒气泡</td><td>对话流里另一个头像插话（像群聊）</td></tr>
+  <tr><td>数据源引用</td><td>产出段尾一个小圆码 <code>¹</code>，点开浮层</td><td>右侧 margin 列显示，像旁注</td><td>卡片岛底部一条折叠带</td></tr>
+  <tr><td>编辑模式</td><td>右侧产出区直接编辑；圈选弹菜单</td><td>同 A，但有"diff 预览"叠层</td><td>卡片内编辑，改动产生新卡片（版本堆）</td></tr>
+  <tr><td>最适合</td><td>起草类任务（额度建议稿、晨会材料）</td><td>分析+决策任务（画像、风险处置）</td><td>轻量对话类（邀约话术、快速问答）</td></tr>
+  <tr><td>风险</td><td>和现有 shell 太像，不够"agent 感"</td><td>屏占多，小任务显得重</td><td>长任务难定位；卡片堆叠后乱</td></tr>
+</table>
+
+<div class="callout">
+  <p><strong>我的推荐：</strong>A 和 C 各做一个样本 —— A 用「额度建议稿」（重型起草），C 用「客户邀约话术」（轻型对话）。B 的价值在"两边关联"这个细节，我打算把它作为<strong>共享组件</strong>放进 A / C 都用，而不单独做一个方案。这样 3 个方案变 2 个，但覆盖的维度一样多，深度更够。</p>
+</div>
+
+<!-- ═══════════════ 样本 agent ═══════════════ -->
+<h2><span class="num">03</span>两个样本 agent</h2>
+
+<div class="plan-card">
+  <div class="tag">SAMPLE · A 承载</div>
+  <h3>额度建议稿 · <em>Credit Proposal</em></h3>
+  <p>场景：客户经理要给某企业客户起草一份 5000 万授信建议稿，交给审贷会。</p>
+  <ul>
+    <li><strong>输入：</strong>客户名 + 拟授信额度 + 用途 + 抵押物（可选）</li>
+    <li><strong>副手：</strong>风控副手（读征信 / 担保物 / 行业敞口）、合规副手（读最新产品规则）</li>
+    <li><strong>产出形态：</strong>正文（5 段）+ 数据表 + 结论表 + 附件清单</li>
+    <li><strong>数据源：</strong>客户档案 / CRS / 产品库 / 行业研报 / 同业对比</li>
+  </ul>
+</div>
+
+<div class="plan-card">
+  <div class="tag">SAMPLE · C 承载</div>
+  <h3>客户邀约话术 · <em>Outreach Script</em></h3>
+  <p>场景：客户经理临时要约三个客户喝茶，让 agent 按各自画像写三版邀约。</p>
+  <ul>
+    <li><strong>输入：</strong>选客户（从联系人）+ 邀约目的 + 语气偏好</li>
+    <li><strong>副手：</strong>画像副手（抽最近一次互动、兴趣点、雷区）</li>
+    <li><strong>产出形态：</strong>三张"邀约卡片"并列 / 每张带 A/B 两版 / 一键复制到 IM</li>
+    <li><strong>数据源：</strong>客户档案 / 近期 IM 记录 / 日历</li>
+  </ul>
+</div>
+
+<!-- ═══════════════ 小创新清单 ═══════════════ -->
+<h2><span class="num">04</span>小创新清单</h2>
+<p>在延续 shell 视觉的前提下，这些是我想塞进 agent 页的新东西：</p>
+
+<ul>
+  <li><strong>副手默默举手</strong>—— 不是聊天室，是"旁听 → 有事才说"。做成一个低调的"铭牌冒泡"。</li>
+  <li><strong>圈选改写</strong>—— 鼠标划一段文字，出一个小 ⌘ 浮条，两个选项：「让 agent 改」/「追问这段」。</li>
+  <li><strong>引用圆码</strong>—— 正文段尾 <code>¹ ² ³</code>（mono 体，像学术论文），点开浮层展开原始数据片段。</li>
+  <li><strong>进度铭牌</strong>—— agent 执行时不是 loading spinner，而是像报纸头版那样一条 "<em>正在读征信 · 打捞 2023 年度报告</em>"的话梗，每个动作有话术。</li>
+  <li><strong>产出历史手风琴</strong>—— 每次 agent 重跑，旧版本折进右侧手风琴，不会丢。</li>
+  <li><strong>一张"桌面便签"</strong>—— 客户经理的临时想法、会议要点，直接贴在 agent 工作台角落，agent 能读到。</li>
+</ul>
+
+<!-- ═══════════════ 工作步骤 ═══════════════ -->
+<h2><span class="num">05</span>接下来的工作步骤</h2>
+<ul>
+  <li>你审这份 plan，说哪里要改 / 砍 / 加</li>
+  <li>我先铺 <strong>方案 A · 额度建议稿</strong>—— 骨架 + 对话 + 产出 + 副手 + 引用，完整一个 flow</li>
+  <li>再铺 <strong>方案 C · 邀约话术</strong>—— 复用组件，展示对话流 + 卡片岛</li>
+  <li>最后加"三入口演示"（从 shell 的 flight 条 / IM @ / Agent tab 进入）</li>
+</ul>
+
+<div class="callout">
+  <p><strong>问你的：</strong>有异议的话，直接在这份 plan 上指出来。比如：</p>
+  <ul>
+    <li>副手 agent 这个思路认不认？</li>
+    <li>样本选"额度建议稿 + 邀约话术"OK 吗？有更想看的场景可以换</li>
+    <li>方案 B 要不要单独做？还是接受我把它合进 A/C</li>
+    <li>入场动画要不要三种都做演示？（做的话工作量+30%）</li>
+  </ul>
+</div>
+
+<div class="foot">
+  <span>QIANCE STUDIO · PLAN 01 · 2026</span>
+  <span><em>before ink hits paper.</em></span>
+</div>
+
+</body>
+</html>

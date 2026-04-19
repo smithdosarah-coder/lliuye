@@ -1,0 +1,1017 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="stage5-visual-ref" content="agent=alert; src=Agent6 Workspace.html#/a/alert; captured=2026-04-19T19:22:49.967Z">
+<!-- STAGE5 VISUAL REF · alert · DO NOT EDIT · see design_mockups/stage5/README.md -->
+<title>乾策 Studio — Agent6 协作工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&amp;family=Instrument+Sans:ital,wght@0,400..700;1,400..700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400..600&amp;family=Noto+Sans+SC:wght@400..700&amp;family=Noto+Serif+SC:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  --g0:  #F2E7D3; --g0b: #F7EEDC; --g1: #F5D2A9; --g2: #F0B07A;
+  --g3:  #E89766; --g4:  #D4653F; --g5: #A63E1F; --g6: #2C4A3A; --g7: #163025;
+  --accent: #A03B1C; --ink: #11170F; --chalk: #FBF7EE; --safe: #3AB27C;
+
+  --display:"Funnel Display","Noto Sans SC",system-ui,sans-serif;
+  --sans:   "Instrument Sans","Noto Sans SC",system-ui,sans-serif;
+  --italic: "Instrument Serif","Noto Serif SC",Georgia,serif;
+  --mono:   "JetBrains Mono",ui-monospace,monospace;
+  --cjk:    "Noto Sans SC",system-ui,sans-serif;
+  --cjkserif:"Noto Serif SC",Georgia,serif;
+
+  --r-md: 18px; --r-lg: 26px;
+
+  --ink-04: color-mix(in srgb, var(--ink) 4%,  transparent);
+  --ink-08: color-mix(in srgb, var(--ink) 8%,  transparent);
+  --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
+  --ink-18: color-mix(in srgb, var(--ink) 18%, transparent);
+  --ink-28: color-mix(in srgb, var(--ink) 28%, transparent);
+  --ink-48: color-mix(in srgb, var(--ink) 48%, transparent);
+  --ink-65: color-mix(in srgb, var(--ink) 65%, transparent);
+  --ink-80: color-mix(in srgb, var(--ink) 82%, transparent);
+
+  --ch-22: color-mix(in srgb, var(--chalk) 22%, transparent);
+  --ch-42: color-mix(in srgb, var(--chalk) 42%, transparent);
+  --ch-55: color-mix(in srgb, var(--chalk) 55%, transparent);
+  --ch-65: color-mix(in srgb, var(--chalk) 65%, transparent);
+  --ch-82: color-mix(in srgb, var(--chalk) 82%, transparent);
+  --ch-92: color-mix(in srgb, var(--chalk) 92%, transparent);
+
+  --cursor-default: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='1.6' fill='%2311170F'/></svg>") 8 8, default;
+}
+[data-theme="matcha"] { --g0:#F2EDDF; --g0b:#F6F1E5; --g1:#E0E4C5; --g2:#BCCB9C; --g3:#8FAD78; --g4:#5E8A57; --g5:#355F41; --g6:#1C3827; --g7:#0F2218; --accent:#A04A2A; --ink:#141A14; --chalk:#FAF6EA; }
+[data-theme="dusk"]   { --g0:#F6E8EA; --g0b:#F9ECEE; --g1:#F0BEC8; --g2:#E996AC; --g3:#D86F92; --g4:#B14774; --g5:#76284E; --g6:#3C1632; --g7:#1F0A1E; --accent:#CE4A65; --ink:#17101A; --chalk:#FDF4F3; }
+[data-theme="ink"]    { --g0:#F4F4F2; --g0b:#EDEDEA; --g1:#E0E0DC; --g2:#BFBFBA; --g3:#8E8E8A; --g4:#5C5C58; --g5:#2E2E2C; --g6:#131312; --g7:#080807; --accent:#8A2622; --ink:#0C0C0B; --chalk:#F6F6F4; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  font-feature-settings: "ss01","cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: var(--cursor-default);
+  background:
+    radial-gradient(78% 55% at 15% -8%,  color-mix(in srgb, var(--g0b) 85%, transparent) 0%, transparent 55%),
+    radial-gradient(55% 42% at 100% 22%, color-mix(in srgb, var(--g1)  55%, transparent) 0%, transparent 65%),
+    linear-gradient(180deg,
+      var(--g0) 0%, var(--g0) 11%, var(--g1) 27%, var(--g2) 41%,
+      var(--g3) 54%, var(--g4) 68%, var(--g5) 84%, var(--g6) 96%, var(--g7) 100%);
+  background-attachment: fixed;
+  position: relative;
+  transition: background .9s cubic-bezier(.2,.8,.25,1);
+}
+body::before {
+  content:""; position: fixed; inset: -15%;
+  background:
+    radial-gradient(42% 34% at 28% 66%, color-mix(in srgb, var(--g2) 35%, transparent), transparent 60%),
+    radial-gradient(38% 28% at 82% 38%, color-mix(in srgb, var(--g4) 28%, transparent), transparent 62%),
+    radial-gradient(32% 22% at 54% 92%, color-mix(in srgb, var(--g6) 35%, transparent), transparent 60%);
+  filter: blur(12px);
+  animation: drift 38s ease-in-out infinite alternate;
+  pointer-events: none; z-index: 0;
+}
+@keyframes drift {
+  0%   { transform: translate(-2%, 1%) scale(1); opacity: .88; }
+  50%  { transform: translate(2%, -1.5%) scale(1.05); opacity: 1; }
+  100% { transform: translate(3%, -2%) scale(1.04); opacity: .95; }
+}
+body::after {
+  content:""; position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
+  mix-blend-mode: multiply; opacity: .28;
+  pointer-events: none; z-index: 0;
+}
+
+.stage {
+  position: relative; z-index: 1;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 26px 40px 48px 40px;
+}
+
+/* ═══ MASTHEAD · 继承 shell .bar ═══ */
+.bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 32px;
+  padding: 12px 22px;
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse 46% 140% at 2% 50%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 4%, transparent) 38%,
+      transparent 72%),
+    linear-gradient(96deg,
+      color-mix(in srgb, var(--g2) 14%, transparent) 0%,
+      color-mix(in srgb, var(--g1) 7%, transparent) 44%,
+      color-mix(in srgb, var(--g0) 3%, transparent) 78%,
+      transparent 100%),
+    var(--ch-42);
+  backdrop-filter: saturate(1.2) blur(18px);
+  -webkit-backdrop-filter: saturate(1.2) blur(18px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.45) inset, 0 14px 40px -24px rgba(15,26,18,.35);
+  opacity: 0;
+  transform: translateY(-8px);
+  animation: bar-in .9s cubic-bezier(.2,.8,.25,1) .15s forwards;
+}
+@keyframes bar-in { to { opacity: 1; transform: translateY(0); } }
+
+.logo { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; line-height: 1; display: inline-flex; align-items: baseline; gap: 2px; }
+.logo .cn { font-family: var(--cjk); font-weight: 700; }
+.logo sup { font-family: var(--sans); font-size: 10px; font-weight: 500; position: relative; top: -8px; color: var(--ink-65); }
+.logo em { font-family: var(--italic); font-style: italic; font-size: 18px; color: var(--ink-65); margin-left: 6px; }
+
+.tabs { display: flex; gap: 2px; padding: 4px; background: var(--ink-04); border-radius: 999px; justify-self: center; }
+.tabs button { all: unset; cursor: pointer; font-family: var(--sans); font-weight: 500; font-size: 13.5px; letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; color: var(--ink-65); display: inline-flex; align-items: center; gap: 8px; transition: color .2s, background .3s; }
+.tabs button .cn { font-family: var(--cjk); font-weight: 500; }
+.tabs button:hover { color: var(--ink); }
+.tabs button .n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-48); font-variant-numeric: tabular-nums; }
+.tabs button.on { background: var(--ink); color: var(--chalk); }
+.tabs button.on .n { color: var(--ch-55); }
+
+.op { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-65); }
+.op .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px color-mix(in srgb, var(--safe) 22%, transparent); }
+.op .name { color: var(--ink); font-weight: 500; font-family: var(--cjk); }
+.op .role { font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48); padding-left: 10px; border-left: 1px solid var(--ink-14); letter-spacing: .04em; }
+.op .time { font-family: var(--mono); font-size: 11px; color: var(--ink-48); padding-left: 10px; border-left: 1px solid var(--ink-14); font-variant-numeric: tabular-nums; }
+
+/* ═══ HERO 小标 · eyebrow + hero-h1 收敛版 ═══ */
+.eyebrow {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ink-48); margin-top: 22px;
+  opacity: 0; transform: translateY(10px);
+  animation: rise .8s cubic-bezier(.2,.8,.25,1) .35s forwards;
+}
+.eyebrow .sep { width: 32px; height: 1px; background: var(--ink-28); }
+.eyebrow em { font-family: var(--cjkserif); font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink-80); }
+.eyebrow em::before { content: "— "; color: var(--ink-48); }
+
+.hero-h1 {
+  margin-top: 10px;
+  font-family: var(--display); font-weight: 600;
+  font-size: clamp(34px, 3.2vw, 44px);
+  line-height: 1.08; letter-spacing: -.02em;
+  color: var(--ink);
+  max-width: 28ch;
+  opacity: 0; transform: translateY(10px);
+  animation: rise .9s cubic-bezier(.2,.8,.25,1) .5s forwards;
+}
+.hero-h1 .cn { font-family: var(--cjkserif); font-weight: 700; }
+.hero-h1 em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); }
+
+.hero-sub {
+  margin-top: 10px;
+  font-family: var(--cjk); font-size: 13px; line-height: 1.7; color: var(--ink-65);
+  max-width: 56ch;
+  opacity: 0; transform: translateY(10px);
+  animation: rise .9s cubic-bezier(.2,.8,.25,1) .65s forwards;
+}
+.hero-sub em { font-family: var(--italic); font-style: italic; color: var(--ink); }
+.hero-sub .num { font-family: var(--display); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; margin: 0 2px; }
+
+@keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+/* ═══ WORKSPACE · 三栏 glass-chalk 骨架 ═══ */
+.ws {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: 264px 1fr 360px;
+  gap: 18px;
+  align-items: start;
+  opacity: 0; transform: translateY(18px);
+  animation: rise 1s cubic-bezier(.2,.8,.25,1) .85s forwards;
+}
+
+/* 统一 card 容器 —— 和 shell .card 同源 */
+.card {
+  position: relative;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255,255,255,.45);
+  background: linear-gradient(180deg,
+    var(--ch-82) 0%,
+    color-mix(in srgb, var(--g0b) 74%, transparent) 60%,
+    color-mix(in srgb, var(--g1) 72%, transparent) 100%);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 24px 48px -28px rgba(15,26,18,.35);
+}
+.card.plain {
+  background: linear-gradient(180deg,
+    var(--ch-92) 0%,
+    var(--ch-82) 100%);
+}
+
+.card .cap {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 18px 20px 10px;
+  border-bottom: 1px solid var(--ink-14);
+}
+.card .cap .t {
+  font-family: var(--display); font-weight: 600; font-size: 14px;
+  letter-spacing: -.005em; color: var(--ink);
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.card .cap .t .cn { font-family: var(--cjk); font-weight: 700; font-size: 13.5px; letter-spacing: 0; }
+.card .cap .t em { font-family: var(--italic); font-style: italic; font-weight: 400; font-size: 12.5px; color: var(--ink-65); }
+.card .cap .k {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-48);
+  padding: 3px 8px; border: 1px solid var(--ink-14); border-radius: 999px;
+}
+
+/* ═══ 左栏 · 6 agent 航道 ═══ */
+.nav {
+  padding: 12px 10px 14px;
+}
+.nav-title {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 6px 10px 12px;
+}
+.nav-title .t {
+  font-family: var(--display); font-weight: 600; font-size: 13px;
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.nav-title .t .cn { font-family: var(--cjk); font-weight: 700; }
+.nav-title .t em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--ink-65); font-size: 11.5px; }
+.nav-title .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; color: var(--ink-48); text-transform: uppercase; }
+
+.nav-list { display: flex; flex-direction: column; gap: 4px; }
+
+.nav-item {
+  all: unset; cursor: pointer; position: relative;
+  display: grid;
+  grid-template-columns: 6px 34px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 10px 12px 10px 0;
+  border-radius: 10px;
+  transition: background .2s, transform .22s cubic-bezier(.2,.85,.25,1);
+}
+.nav-item:hover { background: color-mix(in srgb, var(--chalk) 55%, transparent); transform: translateX(3px); }
+.nav-item.on { background: color-mix(in srgb, var(--chalk) 75%, transparent); box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 18px -10px rgba(15,26,18,.22); }
+
+.nav-item .spine {
+  grid-column: 1;
+  align-self: stretch; margin: 3px 0;
+  background: var(--c, color-mix(in srgb, var(--ink) 22%, transparent));
+  border-radius: 0 2px 2px 0;
+}
+.nav-item .tag {
+  grid-column: 2;
+  display: inline-grid; place-items: center;
+  width: 34px; height: 28px;
+  border-radius: 7px;
+  font-family: var(--cjk); font-weight: 600; font-size: 11.5px; letter-spacing: .04em;
+  background: var(--bg); color: var(--fg);
+}
+.nav-item .nm {
+  grid-column: 3; display: flex; flex-direction: column; gap: 1px; min-width: 0;
+}
+.nav-item .nm .cn { font-family: var(--cjkserif); font-weight: 600; font-size: 13px; color: var(--ink); letter-spacing: -.005em; }
+.nav-item .nm .en { font-family: var(--italic); font-style: italic; font-size: 10.5px; color: var(--ink-48); letter-spacing: 0; line-height: 1.2; }
+.nav-item .sig {
+  grid-column: 4;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-48); font-variant-numeric: tabular-nums;
+}
+.nav-item .sig .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px color-mix(in srgb, var(--safe) 22%, transparent); }
+.nav-item .sig .pulse.warn { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.nav-item .sig .pulse.idle { background: var(--ink-28); box-shadow: none; }
+
+/* 6 agent 色系 —— 和 shell 的 case .tag 同源 */
+.nav-item.t-report   { --c:#B08640; --bg:color-mix(in srgb,#B08640 18%,transparent); --fg:#7A5A24; }
+.nav-item.t-alert    { --c:#C85A3C; --bg:color-mix(in srgb,#C85A3C 16%,transparent); --fg:#8A3318; }
+.nav-item.t-compli   { --c:#5B7A48; --bg:color-mix(in srgb,#5B7A48 18%,transparent); --fg:#3D5A2A; }
+.nav-item.t-credit   { --c:#3E6292; --bg:color-mix(in srgb,#3E6292 16%,transparent); --fg:#27456D; }
+.nav-item.t-riskctrl { --c:#6B4A6D; --bg:color-mix(in srgb,#6B4A6D 18%,transparent); --fg:#462946; }
+.nav-item.t-channel  { --c:#3C7B7B; --bg:color-mix(in srgb,#3C7B7B 16%,transparent); --fg:#1F5A5A; }
+
+.nav-foot {
+  margin-top: 16px; padding: 12px 12px 6px;
+  border-top: 1px solid var(--ink-14);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.nav-foot .ft-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65);
+}
+.nav-foot .ft-row .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-48); }
+.nav-foot .ft-row .v { font-family: var(--display); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.005em; }
+.nav-foot .ft-row .v em { font-family: var(--italic); font-style: italic; color: var(--accent); font-weight: 400; font-size: 11.5px; margin-left: 4px; }
+
+/* ═══ 中栏 · 当前 Agent 的舞台 ═══ */
+.stage-card { min-height: 820px; }
+
+/* 舞台顶 · 当前 agent 名片 */
+.agent-head {
+  padding: 22px 26px 20px;
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  gap: 16px; align-items: center;
+  border-bottom: 1px solid var(--ink-14);
+}
+.agent-head .seal {
+  width: 58px; height: 58px; border-radius: 14px;
+  background: var(--seal-bg); color: var(--seal-fg);
+  display: grid; place-items: center;
+  font-family: var(--cjkserif); font-weight: 700; font-size: 26px; letter-spacing: -.04em;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 8px 18px -10px rgba(15,26,18,.28);
+}
+.agent-head .id {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.agent-head .id .nm {
+  font-family: var(--display); font-weight: 600;
+  font-size: 22px; letter-spacing: -.015em; color: var(--ink);
+  display: inline-flex; align-items: baseline; gap: 10px;
+}
+.agent-head .id .nm .cn { font-family: var(--cjkserif); font-weight: 700; font-size: 20px; }
+.agent-head .id .nm em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--ink-65); font-size: 17px; }
+.agent-head .id .nm .ver {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  color: var(--ink-48); padding: 3px 7px; border: 1px solid var(--ink-14); border-radius: 999px;
+  text-transform: uppercase; align-self: center;
+}
+.agent-head .id .meta {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65);
+}
+.agent-head .id .meta .mt { display: inline-flex; align-items: baseline; gap: 5px; }
+.agent-head .id .meta .mt .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-48); text-transform: uppercase; }
+.agent-head .id .meta .mt .v { color: var(--ink); font-weight: 500; }
+.agent-head .id .meta .mt .v.ok { color: #3D5A2A; }
+.agent-head .id .meta .mt .v.warn { color: var(--accent); }
+
+.agent-head .launch {
+  all: unset; cursor: pointer;
+  font-family: var(--cjk); font-weight: 600; font-size: 13px;
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--chalk);
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.12) inset, 0 10px 22px -12px rgba(15,26,18,.5);
+  transition: transform .22s cubic-bezier(.2,.8,.25,1);
+}
+.agent-head .launch:hover { transform: translate(2px,-2px); }
+.agent-head .launch .a { font-family: var(--display); transition: transform .3s; }
+.agent-head .launch:hover .a { transform: rotate(-8deg); }
+
+/* 舞台中 · 三阶段流水（ingest → audit → package） */
+.flow {
+  padding: 22px 26px 6px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  position: relative;
+}
+.flow::before {
+  content:""; position: absolute; left: 26px; right: 26px; top: 66px; height: 1px;
+  background: repeating-linear-gradient(90deg, var(--ink-28) 0 4px, transparent 4px 8px);
+}
+.stage-step {
+  position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding-right: 20px;
+}
+.stage-step:last-child { padding-right: 0; }
+.stage-step .head {
+  display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+}
+.stage-step .head .n {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  color: var(--ink-48);
+}
+.stage-step .head .nm { font-family: var(--cjkserif); font-weight: 600; font-size: 14px; color: var(--ink); letter-spacing: -.005em; }
+.stage-step .head em { font-family: var(--italic); font-style: italic; color: var(--ink-65); }
+.stage-step .dot {
+  margin-top: 12px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--ch-82); border: 2px solid var(--ink-28);
+  position: relative; z-index: 2;
+}
+.stage-step.done .dot { background: var(--ink); border-color: var(--ink); }
+.stage-step.live .dot {
+  background: var(--accent); border-color: var(--accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 24%, transparent);
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+@keyframes livePulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 14%, transparent); } }
+.stage-step .sub {
+  margin-top: 10px;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65); line-height: 1.55;
+}
+.stage-step .sub em { font-family: var(--italic); font-style: italic; color: var(--ink); }
+
+/* 舞台主 · 当前步骤正文 */
+.board {
+  padding: 6px 26px 24px;
+  display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px;
+  align-items: start;
+}
+.board .blk {
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.board .blk .hd {
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 1px solid var(--ink-14); padding-bottom: 8px;
+}
+.board .blk .hd .t { font-family: var(--cjkserif); font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.board .blk .hd .t em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--ink-65); font-size: 12px; margin-left: 6px; }
+.board .blk .hd .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; color: var(--ink-48); text-transform: uppercase; }
+
+/* 文件清单 —— 采用 shell 的 case 行样式 */
+.docline {
+  display: grid; grid-template-columns: 3px 34px 1fr auto; gap: 10px; align-items: center;
+  padding: 9px 10px 9px 0;
+  background: color-mix(in srgb, var(--chalk) 78%, transparent);
+  border: 1px solid var(--ink-08);
+  border-radius: 9px;
+  font-family: var(--cjk); font-size: 12px; color: var(--ink);
+  transition: transform .2s cubic-bezier(.2,.85,.25,1), border-color .2s;
+}
+.docline:hover { transform: translateX(3px); border-color: var(--ink-28); }
+.docline .spine { align-self: stretch; background: var(--accent); margin: 2px 0; border-radius: 0 2px 2px 0; }
+.docline.ok .spine { background: #5B7A48; }
+.docline.wait .spine { background: repeating-linear-gradient(180deg, var(--ink-28) 0 4px, transparent 4px 8px); }
+.docline .ix {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-48);
+  text-align: center; font-variant-numeric: tabular-nums;
+}
+.docline .nm { font-family: var(--cjkserif); font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.docline .nm .sub { display: block; font-family: var(--cjk); font-weight: 400; font-size: 10.5px; color: var(--ink-48); margin-top: 1px; letter-spacing: .03em; }
+.docline .st {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-65);
+  padding: 3px 8px; border-radius: 999px; background: var(--ink-08);
+  letter-spacing: .08em;
+}
+.docline.ok .st { color: #3D5A2A; background: color-mix(in srgb, #5B7A48 18%, transparent); }
+.docline.warn .st { color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+/* 推理流水 —— 打字机带引用 */
+.trace { display: flex; flex-direction: column; gap: 9px; }
+.trace-line {
+  display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start;
+  font-family: var(--cjk); font-size: 12px; color: var(--ink-80); line-height: 1.55;
+}
+.trace-line .ts {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-48);
+  padding-top: 1px; font-variant-numeric: tabular-nums; letter-spacing: .04em;
+}
+.trace-line .tx em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+.trace-line .tx b { font-family: var(--cjk); font-weight: 600; color: var(--ink); }
+.trace-line .tx .src {
+  display: inline-block; vertical-align: baseline;
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-48);
+  padding: 1px 6px; margin: 0 2px;
+  border: 1px solid var(--ink-14); border-radius: 999px;
+  letter-spacing: .06em; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.trace-line .tx .src:hover { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+
+.trace-typing {
+  display: inline-block;
+  width: 9px; height: 14px; vertical-align: -2px;
+  background: var(--ink); margin-left: 2px;
+  animation: tblink 1s steps(2) infinite;
+}
+@keyframes tblink { 50% { opacity: 0; } }
+
+/* 右栏 · 结果底座 */
+.out-card { padding-bottom: 12px; }
+.out-foot {
+  padding: 14px 20px 18px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.out-verdict {
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--chalk) 72%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.out-verdict .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; color: var(--ink-48); text-transform: uppercase; }
+.out-verdict .v { font-family: var(--cjkserif); font-weight: 700; font-size: 18px; color: var(--ink); letter-spacing: -.01em; }
+.out-verdict .v em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); margin-left: 6px; }
+.out-verdict .tip { font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65); line-height: 1.5; }
+.out-verdict .tip b { color: var(--ink); font-weight: 600; }
+
+.out-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+}
+.out-metrics .m { display: flex; flex-direction: column; gap: 3px; }
+.out-metrics .m .k { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; color: var(--ink-48); text-transform: uppercase; }
+.out-metrics .m .v { font-family: var(--display); font-weight: 600; font-size: 22px; color: var(--ink); letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.out-metrics .m .v.hot { color: var(--accent); }
+.out-metrics .m .v sub { font-family: var(--cjk); font-size: 10px; color: var(--ink-65); font-weight: 500; margin-left: 3px; vertical-align: baseline; }
+
+.out-foot .cta-row { display: flex; gap: 8px; }
+.out-foot .cta {
+  all: unset; cursor: pointer;
+  flex: 1; text-align: center;
+  font-family: var(--cjk); font-weight: 600; font-size: 12.5px;
+  padding: 11px 14px; border-radius: 999px;
+  border: 1px solid var(--ink-14);
+  color: var(--ink); background: var(--ch-65);
+  transition: background .22s, transform .22s;
+}
+.out-foot .cta.primary { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.out-foot .cta:hover { transform: translateY(-1px); background: var(--ch-92); }
+.out-foot .cta.primary:hover { background: var(--accent); border-color: var(--accent); }
+
+/* 右栏 2 · 追问 */
+.ask {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 20px 20px;
+}
+.ask-seed {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 75%, transparent);
+  border: 1px solid var(--ink-14);
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink);
+  cursor: pointer;
+  transition: background .15s, transform .2s;
+}
+.ask-seed:hover { background: var(--ink); color: var(--chalk); transform: translateX(3px); border-color: var(--ink); }
+.ask-seed em { font-family: var(--italic); font-style: italic; color: var(--ink-65); margin-left: 4px; }
+.ask-seed:hover em { color: var(--ch-65); }
+.ask-seed .q { font-family: var(--mono); font-size: 10px; color: var(--ink-48); margin-right: 2px; letter-spacing: .1em; }
+.ask-seed:hover .q { color: var(--ch-55); }
+
+.ask-input {
+  margin-top: 4px;
+  display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center;
+  padding: 8px 8px 8px 14px;
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+}
+.ask-input input {
+  all: unset; width: 100%;
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink);
+}
+.ask-input input::placeholder { color: var(--ink-48); }
+.ask-input .send {
+  all: unset; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--ink); color: var(--chalk);
+  display: grid; place-items: center;
+  font-family: var(--display); font-size: 14px;
+  transition: transform .2s;
+}
+.ask-input .send:hover { transform: translateX(2px); }
+
+/* ═══ THEME SWITCHER · 继承 shell ═══ */
+.theme-sw {
+  position: fixed; right: 38px; bottom: 38px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 2px;
+  background: var(--ch-82);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  padding: 4px 4px 4px 14px;
+  box-shadow: 0 16px 36px -20px rgba(0,0,0,.4);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  opacity: 0;
+  animation: rise .9s cubic-bezier(.2,.8,.25,1) 1.4s forwards;
+}
+.theme-sw .lbl { color: var(--ink-48); padding-right: 10px; border-right: 1px solid var(--ink-14); margin-right: 4px; }
+.theme-sw button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; color: var(--ink-65); transition: color .2s, background .3s; display: inline-flex; align-items: center; gap: 6px; }
+.theme-sw button:hover { color: var(--ink); }
+.theme-sw button.on { background: var(--ink); color: var(--chalk); }
+.theme-sw .sw-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--ink-14); }
+.theme-sw [data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
+.theme-sw [data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
+.theme-sw [data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
+.theme-sw [data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8 0%, #8A8477 50%, #0C0C0B 100%); }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--ink-14); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-28); }
+::-webkit-scrollbar-track { background: transparent; }
+
+</style>
+</head>
+<body data-theme="canvas" data-view="a/alert">
+
+<div class="stage">
+
+  <!-- Masthead -->
+  <nav class="bar" aria-label="Masthead">
+    <div class="logo"><span class="cn">乾策</span><sup>®</sup> <em>Studio</em></div>
+    <div class="tabs">
+      <button><span class="cn">今日看板</span><span class="n">01</span></button>
+      <button class="on"><span class="cn">Agent 工作台</span><span class="n">02</span></button>
+      <button><span class="cn">档案库</span><span class="n">03</span></button>
+      <button><span class="cn">规则 · 策略</span><span class="n">04</span></button>
+    </div>
+    <div class="op">
+      <span class="dot"></span>
+      <span class="name">周岚 Zhou Lán</span>
+      <span class="role">苏州分行 · 客户经理</span>
+      <span class="time" id="t">03:22:49</span>
+    </div>
+  </nav>
+
+  <!-- Hero 小标 -->
+  <div class="eyebrow">
+    <span>AGENT WORKBENCH · 02</span>
+    <span class="sep"></span>
+    <em>六位协作者，各守一事</em>
+  </div>
+  <h1 class="hero-h1">
+    挑一位 <em>协作者</em>，<span class="cn">交</span>给 Ta <span class="cn">一件今天要办完的事</span>。
+  </h1>
+  <p class="hero-sub">
+    六位 Agent 分管 <em>尽调 · 预警 · 合规 · 信贷 · 风控 · 渠道</em>。每一次运行留三样：
+    <span class="num">输入</span>凭据、<span class="num">推理</span>轨迹、<span class="num">建议</span>底稿。
+    你保留签字权；他们负责把该翻的都翻完。
+  </p>
+
+  <!-- ═══ 路由容器 —— 由 JS 切换 home / agent 页 ═══ -->
+  <div class="agent-bar">
+    <button class="back" data-go="home"><span class="a">←</span><span>回到协作者</span></button>
+    <div class="ab-list">
+      <button class="ab t-report" data-go="a/report"><span class="chip">尽</span><span>尽调</span></button><button class="ab t-alert" data-go="a/alert"><span class="chip">哨</span><span>舆情</span></button><button class="ab t-compli" data-go="a/compli"><span class="chip">规</span><span>合规</span></button><button class="ab t-credit" data-go="a/credit"><span class="chip">额</span><span>额度</span></button><button class="ab t-riskctrl" data-go="a/risk"><span class="chip">巡</span><span>贷后</span></button><button class="ab t-channel" data-go="a/chan"><span class="chip">渠</span><span>渠道</span></button>
+    </div></div><div id="router" class="router" data-view="a/alert">
+    <div class="view v-alert ap a-alert on">
+      
+    <header class="ap-head" style="--seal-bg:color-mix(in srgb,#C85A3C 26%,var(--chalk));--seal-fg:#8A3318;">
+      <div class="seal">哨</div>
+      <div class="id">
+        <div class="nm"><span class="cn">舆情 · 哨兵</span><em>Sentry</em><span class="ver">v2.4</span></div>
+        <div class="meta"><span class="mt"><span class="k">监听</span><span class="v ">6 公开源 · 14 客户</span></span><span class="mt"><span class="k">响应</span><span class="v ok">30 秒内</span></span><span class="mt"><span class="k">今日</span><span class="v ">14 命中 · 3 高</span></span></div>
+      </div>
+      <button class="cta"><span>跑一次</span><span class="a">↗</span></button>
+    </header>
+      <div class="a-alert-grid">
+        <section class="ap-card">
+          <div class="cap"><div class="t"><span class="cn">信号流</span> <em>— Live signals · 近 2 小时</em></div><div class="k">Auto</div></div>
+          <div class="stream">
+            
+              <div class="sig-row" style="animation-delay:0s">
+                <span class="ts">10:24</span>
+                <span class="lv hi">高 级</span>
+                <div class="cn">长三角环保通报：苏州工业园区 <b>某电子企业</b> 被列入待复核名单<span class="s">关键词命中：长电 · 连接器·污水 → 关联客户 <em>睿联电子</em></span></div>
+                <span class="src">SRC · 江苏环保</span>
+              </div>
+              <div class="sig-row" style="animation-delay:0.1s">
+                <span class="ts">10:17</span>
+                <span class="lv mid">中 级</span>
+                <div class="cn">裁判文书网：<b>歌尔股份</b> 买卖合同纠纷 2 宗新增<span class="s">非主诉方，但我们 3 户客户与其上下游相关</span></div>
+                <span class="src">SRC · 裁判文书</span>
+              </div>
+              <div class="sig-row" style="animation-delay:0.2s">
+                <span class="ts">09:58</span>
+                <span class="lv mid">中 级</span>
+                <div class="cn">股东舆情：<b>华勤技术</b> 董事减持 <em>1.2%</em><span class="s">我们 1 户客户主供华勤，触发 <em>集中度-联动</em> 规则</span></div>
+                <span class="src">SRC · 巨潮</span>
+              </div>
+              <div class="sig-row" style="animation-delay:0.30000000000000004s">
+                <span class="ts">09:41</span>
+                <span class="lv lo">低 级</span>
+                <div class="cn">招标公告：<b>立讯精密</b> 新增 5 起小额采购<span class="s">正向信号，入线索池</span></div>
+                <span class="src">SRC · 招标网</span>
+              </div>
+              <div class="sig-row" style="animation-delay:0.4s">
+                <span class="ts">08:52</span>
+                <span class="lv hi">高 级</span>
+                <div class="cn">行政处罚：<b>苏州某显示企业</b> 因环评超标被罚 <em>38 万</em><span class="s">非在册客户，标注供参考</span></div>
+                <span class="src">SRC · 生态环境局</span>
+              </div>
+          </div>
+        </section>
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <section class="ap-card">
+            <div class="cap"><div class="t"><span class="cn">24h 热度</span> <em>— signal density</em></div><div class="k">UTC+8</div></div>
+            <div class="shelf">
+              <div class="heat"><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l="3"></div><div class="cell" data-l="2"></div><div class="cell" data-l="2"></div><div class="cell" data-l="1"></div><div class="cell" data-l=""></div><div class="cell" data-l="1"></div><div class="cell" data-l="2"></div><div class="cell" data-l="2"></div><div class="cell" data-l="3"></div><div class="cell" data-l="3"></div><div class="cell" data-l="1"></div><div class="cell" data-l=""></div><div class="cell" data-l=""></div><div class="cell" data-l="3"></div><div class="cell" data-l="3"></div><div class="cell" data-l=""></div></div>
+              <div class="heat-legend"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+            </div>
+          </section>
+          <section class="ap-card">
+            <div class="cap"><div class="t"><span class="cn">触发规则</span> <em>— Routing</em></div><div class="k">4 / 12</div></div>
+            <div class="shelf">
+              <div class="rules-list">
+                <div class="rule-it on"><span class="nm">环保处罚<span class="when">· 罚额 ≥ 30 万 · 在册</span></span><span class="to">风险 <b>→</b> 客户经理 + 风控</span></div><div class="rule-it "><span class="nm">司法涉诉<span class="when">· 买卖 / 借贷 · 金额 ≥ 100 万</span></span><span class="to">风险 <b>→</b> 客户经理</span></div><div class="rule-it "><span class="nm">股东变动<span class="when">· 减持 ≥ 1% 或 董事辞任</span></span><span class="to">提示 <b>→</b> 客户经理</span></div><div class="rule-it "><span class="nm">集中度联动<span class="when">· 单一下游占比 ≥ 30%</span></span><span class="to">提示 <b>→</b> 客户经理 · 风控</span></div>
+              </div>
+            </div>
+          </section>
+          <section class="ap-card">
+            <div class="cap"><div class="t"><span class="cn">投递记录</span> <em>— Deliveries</em></div><div class="k">今日</div></div>
+            <div class="send-log">
+              <div class="ln"><span class="ts">10:24</span><span>→ <b>周岚</b> · 企业微信 · <em>高级信号</em> 已送达</span></div>
+              <div class="ln"><span class="ts">09:58</span><span>→ <b>周岚</b> + 风控王哲 · 邮件</span></div>
+              <div class="ln"><span class="ts">09:41</span><span>→ <b>周岚</b> · 入线索池，不打扰</span></div>
+              <div class="ln"><span class="ts">08:52</span><span>→ 归档 · 非在册客户</span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div></div>
+
+</div>
+<!-- 下面这段被路由替换，保留作为模板池 ========================= -->
+<div style="display:none" aria-hidden="true">
+
+  <!-- 废弃区 -->
+  <div class="ws">
+    <aside class="card nav">
+      <div class="nav-title">
+        <div class="t"><span class="cn">协作者</span> <em>Crew of six</em></div>
+        <div class="k">06 / 06</div>
+      </div>
+
+      <div class="nav-list" id="nav">
+        <button class="nav-item t-report on" data-id="report">
+          <span class="spine"></span>
+          <span class="tag">尽调</span>
+          <span class="nm">
+            <span class="cn">尽调 · 编撰</span>
+            <span class="en">Dossier Scrivener</span>
+          </span>
+          <span class="sig"><span class="pulse"></span>运行</span>
+        </button>
+        <button class="nav-item t-alert" data-id="alert">
+          <span class="spine"></span>
+          <span class="tag">预警</span>
+          <span class="nm">
+            <span class="cn">舆情 · 哨兵</span>
+            <span class="en">Sentry</span>
+          </span>
+          <span class="sig"><span class="pulse warn"></span>3 条</span>
+        </button>
+        <button class="nav-item t-compli" data-id="compli">
+          <span class="spine"></span>
+          <span class="tag">合规</span>
+          <span class="nm">
+            <span class="cn">合规 · 校对</span>
+            <span class="en">Canon</span>
+          </span>
+          <span class="sig"><span class="pulse"></span>待核</span>
+        </button>
+        <button class="nav-item t-credit" data-id="credit">
+          <span class="spine"></span>
+          <span class="tag">信贷</span>
+          <span class="nm">
+            <span class="cn">额度 · 量尺</span>
+            <span class="en">Ledger</span>
+          </span>
+          <span class="sig"><span class="pulse idle"></span>空闲</span>
+        </button>
+        <button class="nav-item t-riskctrl" data-id="risk">
+          <span class="spine"></span>
+          <span class="tag">风控</span>
+          <span class="nm">
+            <span class="cn">贷后 · 巡检</span>
+            <span class="en">Watcher</span>
+          </span>
+          <span class="sig"><span class="pulse"></span>9 户</span>
+        </button>
+        <button class="nav-item t-channel" data-id="chan">
+          <span class="spine"></span>
+          <span class="tag">渠道</span>
+          <span class="nm">
+            <span class="cn">渠道 · 邀约</span>
+            <span class="en">Herald</span>
+          </span>
+          <span class="sig"><span class="pulse idle"></span>空闲</span>
+        </button>
+      </div>
+
+      <div class="nav-foot">
+        <div class="ft-row"><span class="k">Today Runs</span><span class="v">14<em>次</em></span></div>
+        <div class="ft-row"><span class="k">Avg Latency</span><span class="v">42<em>秒</em></span></div>
+        <div class="ft-row"><span class="k">Cite Coverage</span><span class="v">96<em>%</em></span></div>
+      </div>
+    </aside>
+
+    <!-- 中栏 · Agent 舞台 -->
+    <section class="card stage-card">
+      <!-- Agent 名片 -->
+      <div class="agent-head">
+        <div class="seal" id="seal" style="--seal-bg:color-mix(in srgb,#B08640 28%,var(--chalk));--seal-fg:#7A5A24;">尽</div>
+        <div class="id">
+          <div class="nm">
+            <span class="cn" id="agNmCn">尽调 · 编撰</span>
+            <em id="agNmEn">Dossier Scrivener</em>
+            <span class="ver">v2.4 · 工商+税+舆情</span>
+          </div>
+          <div class="meta">
+            <span class="mt"><span class="k">擅长</span><span class="v" id="agSkill">中小企业经营画像与授信支撑</span></span>
+            <span class="mt"><span class="k">数据源</span><span class="v ok">14 接入</span></span>
+            <span class="mt"><span class="k">今日</span><span class="v">4 次 · 全部留痕</span></span>
+          </div>
+        </div>
+        <button class="launch" id="runBtn">
+          <span>再跑一次</span>
+          <span class="a">↗</span>
+        </button>
+      </div>
+
+      <!-- 三阶段 -->
+      <div class="flow">
+        <div class="stage-step done">
+          <div class="head"><span class="n">01</span><span class="nm">收集</span> <em>— Ingest</em></div>
+          <div class="dot"></div>
+          <div class="sub"><em>凭据齐全</em> · 6 份材料已带回 · 其中 1 份须复核</div>
+        </div>
+        <div class="stage-step live">
+          <div class="head"><span class="n">02</span><span class="nm">审阅</span> <em>— Audit</em></div>
+          <div class="dot"></div>
+          <div class="sub">正在把 <em>流水 · 税单 · 征信</em> 逐笔对齐 · 已完成 <b id="auditPct" style="font-family:var(--mono);">62%</b></div>
+        </div>
+        <div class="stage-step">
+          <div class="head"><span class="n">03</span><span class="nm">成稿</span> <em>— Package</em></div>
+          <div class="dot"></div>
+          <div class="sub">输出 <em>尽调卷 · 额度建议 · 风险清单</em>，由你签字定稿</div>
+        </div>
+      </div>
+
+      <!-- Board · 两列 -->
+      <div class="board">
+        <!-- 左 · 文件与推理 -->
+        <div class="blk">
+          <div class="hd">
+            <div class="t">今日卷宗 <em>— 苏州睿联电子 · SU-2024-1142</em></div>
+            <div class="k">Working</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div class="docline ok">
+              <span class="spine"></span><span class="ix">01</span>
+              <span class="nm">工商登记 + 变更台账<span class="sub">国家企业信用公示 · 2024-11-28 抓取</span></span>
+              <span class="st">已核对</span>
+            </div>
+            <div class="docline ok">
+              <span class="spine"></span><span class="ix">02</span>
+              <span class="nm">对公账户流水 12 个月<span class="sub">招行 · 苏州分行对公</span></span>
+              <span class="st">已核对</span>
+            </div>
+            <div class="docline">
+              <span class="spine"></span><span class="ix">03</span>
+              <span class="nm">纳税申报 · 增值税 / 所得税<span class="sub">江苏税务电子税局 · 近 24 期</span></span>
+              <span class="st">解析中</span>
+            </div>
+            <div class="docline warn">
+              <span class="spine"></span><span class="ix">04</span>
+              <span class="nm">人行征信 · 企业版<span class="sub">报告编号 SZ-20241128-0417</span></span>
+              <span class="st">须复核</span>
+            </div>
+            <div class="docline ok">
+              <span class="spine"></span><span class="ix">05</span>
+              <span class="nm">上下游合同样本 5 份<span class="sub">客户提供 · 含长电科技、歌尔、立讯</span></span>
+              <span class="st">已核对</span>
+            </div>
+            <div class="docline wait">
+              <span class="spine"></span><span class="ix">06</span>
+              <span class="nm">舆情 · 裁判文书 · 环保处罚<span class="sub">6 个公开源同步</span></span>
+              <span class="st">排队</span>
+            </div>
+          </div>
+
+          <!-- 推理流水 -->
+          <div style="margin-top:6px;padding-top:12px;border-top:1px solid var(--ink-14);">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+              <div style="font-family:var(--cjkserif);font-weight:600;font-size:13.5px;">推理流水 <em style="font-family:var(--italic);font-style:italic;font-weight:400;color:var(--ink-65);font-size:12px;margin-left:6px;">— Trace</em></div>
+              <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-48);text-transform:uppercase;">Live · auto-scroll</div>
+            </div>
+            <div class="trace" id="trace">
+              <div class="trace-line"><span class="ts">10:23:41</span><span class="tx">读取 <b>流水 · 12 期</b>，对公入账合计 <b>8,142 万</b> <span class="src">SRC · 招行</span></span></div>
+              <div class="trace-line"><span class="ts">10:23:58</span><span class="tx">与 <b>纳税申报</b> 核对，营收口径差 <em>4.2%</em>，在容忍带内 <span class="src">SRC · 税局</span></span></div>
+              <div class="trace-line"><span class="ts">10:24:03</span><span class="tx">提取 <b>Top 5 下游</b>：长电 / 歌尔 / 立讯 / 华勤 / 和硕 <span class="src">SRC · 合同</span></span></div>
+              <div class="trace-line"><span class="ts">10:24:12</span><span class="tx">关注：应收账期 <em>较同业偏长</em>，歌尔系占比 <b>32%</b> <span class="src">SRC · 流水</span></span></div>
+              <div class="trace-line"><span class="ts">10:24:19</span><span class="tx">在征信报告里发现 <em>1 条关联担保</em>，当事方为同城关联公司<span class="trace-typing"></span></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右 · 结果 -->
+        <div class="blk out-card">
+          <div class="hd">
+            <div class="t">今日建议 <em>— Recommendation</em></div>
+            <div class="k">Draft</div>
+          </div>
+
+          <div class="out-verdict">
+            <div class="k">Verdict · 主结论</div>
+            <div class="v">可授信 <em>2,400 万</em></div>
+            <div class="tip">
+              建议采 <b>1,800 万经营循环 + 600 万应收池</b>；
+              以 <em>歌尔 / 立讯</em> 两条应收线做主回款锚。账期结构偏长，纳入 <b>月度巡检</b>。
+            </div>
+          </div>
+
+          <div class="out-metrics">
+            <div class="m"><div class="k">Coverage</div><div class="v">96<sub>%</sub></div></div>
+            <div class="m"><div class="k">Confidence</div><div class="v">0.87</div></div>
+            <div class="m"><div class="k">Risk</div><div class="v hot">中</div></div>
+          </div>
+
+          <div class="out-foot">
+            <div class="cta-row">
+              <button class="cta">复核底稿</button>
+              <button class="cta primary">签发建议稿 ↗</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右栏 · 追问 + 上下文 -->
+    <aside style="display:flex;flex-direction:column;gap:18px;">
+
+      <div class="card plain">
+        <div class="cap">
+          <div class="t"><span class="cn">追问</span> <em>— Ask further</em></div>
+          <div class="k">Ctrl + K</div>
+        </div>
+        <div class="ask">
+          <button class="ask-seed"><span class="q">Q1</span>把<em>关联担保</em>那条摊开看看</button>
+          <button class="ask-seed"><span class="q">Q2</span>歌尔占比 <em>32%</em>，触发集中度预警吗？</button>
+          <button class="ask-seed"><span class="q">Q3</span>按 <em>1,800 万循环额</em>，月供测算给我</button>
+          <button class="ask-seed"><span class="q">Q4</span>把这份底稿 <em>抄送风控</em></button>
+          <div class="ask-input">
+            <input type="text" placeholder="问它点什么 — 例如：如果把额度调到 2,800 万…">
+            <button class="send">↗</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card plain">
+        <div class="cap">
+          <div class="t"><span class="cn">上下文</span> <em>— Context</em></div>
+          <div class="k">SU-2024-1142</div>
+        </div>
+        <div style="padding:12px 18px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:10px 14px;font-family:var(--cjk);font-size:12px;">
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-48);text-transform:uppercase;align-self:center;">客户</div>
+            <div><b style="font-family:var(--cjkserif);font-weight:700;">苏州睿联电子股份有限公司</b><div style="color:var(--ink-65);font-size:11px;margin-top:2px;">成立 2011 · 员工 342 人 · 苏州工业园区</div></div>
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-48);text-transform:uppercase;align-self:center;">行业</div>
+            <div>电子元器件制造 <span style="color:var(--ink-48);">·</span> 上游连接器</div>
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-48);text-transform:uppercase;align-self:center;">主责</div>
+            <div><b style="font-family:var(--cjk);font-weight:600;">周岚</b> <span style="color:var(--ink-65);">· 苏州分行 · 客户经理</span></div>
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink-48);text-transform:uppercase;align-self:center;">时间线</div>
+            <div>
+              <span style="color:var(--ink-65);">11-26 建档</span> ·
+              <span style="color:var(--ink-65);">11-27 接材料</span> ·
+              <b style="color:var(--accent);">11-28 今日</b>
+            </div>
+          </div>
+
+          <div style="margin-top:6px;padding-top:12px;border-top:1px solid var(--ink-14);">
+            <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;color:var(--ink-48);text-transform:uppercase;margin-bottom:10px;">关联协作者</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;font-family:var(--cjk);font-size:12px;">
+                <span style="display:inline-flex;align-items:center;gap:10px;"><span style="display:inline-grid;place-items:center;width:28px;height:22px;border-radius:6px;font-family:var(--cjk);font-weight:600;font-size:10.5px;background:color-mix(in srgb,#C85A3C 16%,transparent);color:#8A3318;">预警</span><span>舆情 · 哨兵</span></span>
+                <span style="font-family:var(--italic);font-style:italic;color:var(--accent);font-size:11.5px;">已投递 3 条</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;font-family:var(--cjk);font-size:12px;">
+                <span style="display:inline-flex;align-items:center;gap:10px;"><span style="display:inline-grid;place-items:center;width:28px;height:22px;border-radius:6px;font-family:var(--cjk);font-weight:600;font-size:10.5px;background:color-mix(in srgb,#5B7A48 18%,transparent);color:#3D5A2A;">合规</span><span>合规 · 校对</span></span>
+                <span style="color:var(--ink-65);font-size:11.5px;">待此稿完成</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;font-family:var(--cjk);font-size:12px;">
+                <span style="display:inline-flex;align-items:center;gap:10px;"><span style="display:inline-grid;place-items:center;width:28px;height:22px;border-radius:6px;font-family:var(--cjk);font-weight:600;font-size:10.5px;background:color-mix(in srgb,#3E6292 16%,transparent);color:#27456D;">信贷</span><span>额度 · 量尺</span></span>
+                <span style="color:var(--ink-65);font-size:11.5px;">联动中</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+<!-- 模板池结束 ================================================= -->
+
+<!-- Theme 切换 -->
+<div class="theme-sw" role="group" aria-label="主题">
+  <span class="lbl">Palette</span>
+  <button data-t="canvas" class="on"><span class="sw-dot"></span>Canvas</button>
+  <button data-t="matcha"><span class="sw-dot"></span>Matcha</button>
+  <button data-t="dusk"><span class="sw-dot"></span>Blush</button>
+  <button data-t="ink"><span class="sw-dot"></span>Ink</button>
+</div>
+
+<link rel="stylesheet" href="../original/agent6/styles.css">
+<!-- router.js stripped: DOM frozen at capture -->
+
+
+
+</body></html>

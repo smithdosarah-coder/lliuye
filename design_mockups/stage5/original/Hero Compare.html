@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Hero 排版方案对比</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400..600&family=Noto+Sans+SC:wght@400..700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --g0:#F2E7D3; --g0b:#F7EEDC; --g1:#F5D2A9; --g2:#F0B07A; --g3:#E89766;
+  --g4:#D4653F; --g5:#A63E1F; --g6:#2C4A3A; --g7:#163025;
+  --accent:#A03B1C; --ink:#11170F; --chalk:#FBF7EE; --safe:#3AB27C; --warn:#C88A1A;
+  --display:"Funnel Display","Noto Sans SC",system-ui,sans-serif;
+  --sans:"Instrument Sans","Noto Sans SC",system-ui,sans-serif;
+  --italic:"Instrument Serif","Noto Serif SC",Georgia,serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --cjk:"Noto Sans SC",system-ui,sans-serif;
+  --cjkserif:"Noto Serif SC",Georgia,serif;
+  --ink-08: color-mix(in srgb, var(--ink) 8%, transparent);
+  --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
+  --ink-28: color-mix(in srgb, var(--ink) 28%, transparent);
+  --ink-48: color-mix(in srgb, var(--ink) 48%, transparent);
+  --ink-65: color-mix(in srgb, var(--ink) 65%, transparent);
+  --ink-80: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; }
+body {
+  font-family: var(--sans); color: var(--ink);
+  background: linear-gradient(180deg, #F5EDDC 0%, #E8D5B4 40%, #D89A6A 75%, #9F4428 100%);
+  min-height: 100vh;
+  padding: 40px 48px 80px;
+}
+
+.page-title {
+  font-family: var(--display); font-weight: 600; font-size: 22px;
+  letter-spacing: -.02em; color: var(--ink);
+  max-width: 1280px; margin: 0 auto 10px;
+}
+.page-lede {
+  font-family: var(--cjk); font-size: 13px; color: var(--ink-65);
+  max-width: 1280px; margin: 0 auto 36px; line-height: 1.6;
+}
+.page-lede em { font-family: var(--italic); font-style: italic; color: var(--ink); }
+
+.opt {
+  max-width: 1280px; margin: 0 auto 28px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--chalk) 88%, transparent) 0%,
+    color-mix(in srgb, var(--g0b) 72%, transparent) 100%);
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 22px;
+  padding: 26px 30px 30px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 44px -28px rgba(15,26,18,.35);
+}
+.opt-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; margin-bottom: 22px;
+  padding-bottom: 14px; border-bottom: 1px dashed var(--ink-14);
+}
+.opt-head .k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em;
+  color: var(--ink-48); text-transform: uppercase;
+}
+.opt-head .t {
+  font-family: var(--display); font-weight: 600; font-size: 20px;
+  letter-spacing: -.01em; color: var(--ink);
+  display: inline-flex; align-items: baseline; gap: 10px;
+}
+.opt-head .t em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); font-size: 16px; }
+.opt-head .note {
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65); line-height: 1.6;
+  max-width: 62ch;
+}
+.opt-head .note b { font-family: var(--cjk); color: var(--ink); font-weight: 600; }
+
+/* ─── shared tokens ─── */
+.eyebrow {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em;
+  color: var(--ink-48); text-transform: uppercase;
+}
+.eyebrow .sep { width: 28px; height: 1px; background: var(--ink-28); }
+.eyebrow em {
+  font-family: var(--cjkserif); font-style: normal; font-weight: 500;
+  text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink-80);
+}
+.eyebrow em::before { content: "— "; color: var(--ink-48); }
+
+.htitle {
+  font-family: var(--cjkserif); font-weight: 700;
+  font-size: 60px; line-height: 1.04; letter-spacing: -.02em;
+  color: var(--ink);
+}
+.htitle em {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  letter-spacing: -.01em; color: var(--accent);
+}
+
+/* ══════════════════════════════════════════════════════════
+   OPT A · 双栏 hero（左标题 / 右仪表三格）
+   ══════════════════════════════════════════════════════════ */
+.a-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 48px;
+  align-items: end;
+  padding-top: 8px;
+}
+.a-left { display: flex; flex-direction: column; gap: 16px; }
+.a-left .htitle { font-size: 72px; max-width: 14ch; }
+.a-right {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, auto));
+  gap: 0;
+  border-top: 1px solid var(--ink-14);
+  padding-top: 18px;
+  align-self: end;
+}
+.a-right .cell {
+  padding: 0 22px;
+  border-left: 1px solid var(--ink-14);
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 140px;
+}
+.a-right .cell:first-child { border-left: 0; padding-left: 0; }
+.a-right .cell .k {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--ink-48);
+}
+.a-right .cell .v {
+  font-family: var(--display); font-weight: 500;
+  font-size: 42px; letter-spacing: -.025em; line-height: 1;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 4px;
+}
+.a-right .cell .v .u {
+  font-family: var(--cjk); font-weight: 500; font-size: 13px;
+  color: var(--ink-65); letter-spacing: 0;
+}
+.a-right .cell .sub {
+  font-family: var(--cjk); font-size: 11px; color: var(--ink-65); line-height: 1.4;
+}
+.a-right .cell .sub em { font-family: var(--italic); font-style: italic; color: var(--accent); }
+.a-right .cell.warn .v { color: var(--warn); }
+
+/* ══════════════════════════════════════════════════════════
+   OPT B · 标题包数字（inline kicker）
+   ══════════════════════════════════════════════════════════ */
+.b-hero { padding-top: 8px; }
+.b-hero .eyebrow { margin-bottom: 16px; }
+.b-title {
+  font-family: var(--cjkserif); font-weight: 700;
+  font-size: 78px; line-height: 1.02; letter-spacing: -.02em;
+  color: var(--ink);
+}
+.b-title .sep {
+  display: inline-block;
+  width: 26px; height: 1px;
+  background: var(--ink-28);
+  margin: 0 14px;
+  vertical-align: middle;
+}
+.b-title .num {
+  font-family: var(--display); font-weight: 500;
+  letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.b-title em {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  font-size: .6em; color: var(--accent); letter-spacing: -.01em;
+  margin-left: 8px;
+}
+.b-title .urg {
+  font-family: var(--display); font-weight: 500;
+  font-size: .58em; color: var(--accent);
+  letter-spacing: -.02em;
+  padding: 4px 14px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  vertical-align: middle; margin-left: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.b-sub {
+  margin-top: 20px;
+  display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap;
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink-65);
+}
+.b-sub .chip {
+  padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink-80);
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font-size: 12px;
+}
+.b-sub .chip .k { color: var(--ink-48); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; font-family: var(--mono); }
+.b-sub .chip .v { font-family: var(--display); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.b-sub .chip.warn .v { color: var(--warn); }
+
+/* ══════════════════════════════════════════════════════════
+   OPT C · 顶标 + 横向仪表带 (belt 上移)
+   ══════════════════════════════════════════════════════════ */
+.c-hero { padding-top: 8px; }
+.c-hero .eyebrow { margin-bottom: 14px; }
+.c-hero .htitle { font-size: 54px; max-width: none; }
+.c-belt {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--ink-28);
+  border-bottom: 1px solid var(--ink-28);
+  padding: 18px 0;
+}
+.c-belt .col {
+  padding: 0 24px;
+  border-left: 1px solid var(--ink-14);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.c-belt .col:first-child { border-left: 0; padding-left: 0; }
+.c-belt .col .k {
+  font-family: var(--cjk); font-size: 11px; letter-spacing: .14em;
+  color: var(--ink-48);
+}
+.c-belt .col .v {
+  font-family: var(--display); font-weight: 500;
+  font-size: 38px; line-height: 1; letter-spacing: -.025em;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.c-belt .col .v .u {
+  font-family: var(--cjk); font-weight: 500; font-size: 12px;
+  color: var(--ink-65); letter-spacing: 0;
+}
+.c-belt .col .note {
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65); line-height: 1.55;
+}
+.c-belt .col .note em { font-family: var(--italic); font-style: italic; color: var(--ink); font-weight: 400; }
+.c-belt .col.hot .v { color: var(--accent); }
+.c-belt .col.warn .v { color: var(--warn); }
+
+/* ══════════════════════════════════════════════════════════
+   OPT D · 气候条（weather bar）
+   ══════════════════════════════════════════════════════════ */
+.d-hero { padding-top: 8px; }
+.d-hero .eyebrow { margin-bottom: 14px; }
+.d-hero .htitle {
+  font-size: 62px; display: inline-flex; align-items: baseline; gap: 18px;
+}
+.d-hero .htitle .glyph {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  font-size: .58em; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.d-hero .htitle .glyph::before {
+  content: ""; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent);
+}
+.d-weather {
+  margin-top: 22px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.d-chip {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink-80);
+}
+.d-chip .k { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-48); }
+.d-chip .v { font-family: var(--display); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); font-size: 15px; }
+.d-chip .v em { font-family: var(--italic); font-style: italic; color: var(--accent); font-weight: 400; margin-left: 2px; }
+.d-chip.hot { background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.d-chip.hot .k { color: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+.d-chip.hot .v { color: var(--accent); }
+.d-chip.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
+.d-chip.warn .v { color: var(--warn); }
+
+.footer-hint {
+  max-width: 1280px; margin: 40px auto 0;
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-65);
+  padding: 14px 18px; border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 55%, transparent);
+  border: 1px dashed var(--ink-14);
+  line-height: 1.6;
+}
+.footer-hint b { font-family: var(--cjk); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="page-title">Hero 排版方案 · 对比 4 则</div>
+<div class="page-lede">同一组信息（日期、问候、今日看板、07 项 / 03 加急、管道 28.5 亿、队列 14、风险黄色），四种表达方式。<em>看哪一版先让你眼睛落在"今天我要干什么"上。</em></div>
+
+<!-- A -->
+<section class="opt">
+  <div class="opt-head">
+    <div>
+      <div class="k">Option A</div>
+      <div class="t">双栏 Hero <em>title / dashboard</em></div>
+    </div>
+    <div class="note">左栏保留仪式感（日期 · 问候 · 大标题），右栏把三项关键数据升级为 <b>hero 仪表盘</b>。数字不再是底部装饰，而是一眼抓重点的主角。</div>
+  </div>
+  <div class="a-hero">
+    <div class="a-left">
+      <div class="eyebrow">
+        <span>2026 · 04 · 18 · FRI</span>
+        <span class="sep"></span>
+        <em>早上好，王哲。</em>
+      </div>
+      <div class="htitle">今日看板</div>
+    </div>
+    <div class="a-right">
+      <div class="cell">
+        <div class="k">今日管道</div>
+        <div class="v">¥28.5<span class="u">亿</span></div>
+        <div class="sub">在贷 <em>142 户</em> · 本月 +36</div>
+      </div>
+      <div class="cell">
+        <div class="k">在飞任务</div>
+        <div class="v">14<span class="u">项</span></div>
+        <div class="sub">加急 <em>03</em> · 进行中 05</div>
+      </div>
+      <div class="cell warn">
+        <div class="k">观察名单</div>
+        <div class="v">08<span class="u">户</span></div>
+        <div class="sub">昨夜入 <em>2 户</em> · 黄色</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section class="opt">
+  <div class="opt-head">
+    <div>
+      <div class="k">Option B</div>
+      <div class="t">标题包数字 <em>inline kicker</em></div>
+    </div>
+    <div class="note">把 "07 项 · 03 加急" 嵌进主标，lede 完全拿掉。<b>一行标题讲完今天的状态</b>，下面配三个小 chip 补充上下文。最紧凑，最直接。</div>
+  </div>
+  <div class="b-hero">
+    <div class="eyebrow">
+      <span>2026 · 04 · 18 · FRI</span>
+      <span class="sep"></span>
+      <em>早上好，王哲。</em>
+    </div>
+    <div class="b-title">
+      今日看板<span class="sep"></span><span class="num">07</span><em>open.</em>
+      <span class="urg">03 加急</span>
+    </div>
+    <div class="b-sub">
+      <span class="chip"><span class="k">管道</span><span class="v">¥28.5 亿</span></span>
+      <span class="chip"><span class="k">队列</span><span class="v">14</span></span>
+      <span class="chip warn"><span class="k">观察名单</span><span class="v">08 户 · 黄</span></span>
+      <span style="color:var(--ink-48);">—— <em style="font-family:var(--italic);font-style:italic;">三张卡片在下面，点进去看明细。</em></span>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section class="opt">
+  <div class="opt-head">
+    <div>
+      <div class="k">Option C</div>
+      <div class="t">顶标 + 仪表带 <em>title over belt</em></div>
+    </div>
+    <div class="note">主标收短到一行，紧接着一条横向 belt（类似报纸头版的数据栏），把 belt 账册从页面底部上移到 hero 位置。<b>信息即封面</b>。</div>
+  </div>
+  <div class="c-hero">
+    <div class="eyebrow">
+      <span>2026 · 04 · 18 · FRI</span>
+      <span class="sep"></span>
+      <em>早上好，王哲。今天你有 03 件要紧事。</em>
+    </div>
+    <div class="htitle">今日看板</div>
+    <div class="c-belt">
+      <div class="col hot">
+        <div class="k">加急 · 今日</div>
+        <div class="v">03<span class="u">项</span></div>
+        <div class="note">合规 §214 / QC 终审 / <em>政策应对</em></div>
+      </div>
+      <div class="col">
+        <div class="k">在飞任务</div>
+        <div class="v">14<span class="u">项</span></div>
+        <div class="note">进行中 <em>05</em> · 待处理 04</div>
+      </div>
+      <div class="col">
+        <div class="k">今日管道</div>
+        <div class="v">¥28.5<span class="u">亿</span></div>
+        <div class="note">在贷 142 户 · 本月 <em>+36</em></div>
+      </div>
+      <div class="col warn">
+        <div class="k">观察名单 · 黄</div>
+        <div class="v">08<span class="u">户</span></div>
+        <div class="note">昨夜入榜 2 户 · <em>三户</em> 午前消化</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- D -->
+<section class="opt">
+  <div class="opt-head">
+    <div>
+      <div class="k">Option D</div>
+      <div class="t">气候条 <em>weather bar</em></div>
+    </div>
+    <div class="note">学天气 app —— 主标后加一个"当日状态"语义标签（较忙/平静/紧张），下面一行全 chip 横排，最自由也最口语化。<b>像 status bar，不像 dashboard。</b></div>
+  </div>
+  <div class="d-hero">
+    <div class="eyebrow">
+      <span>2026 · 04 · 18 · FRI</span>
+      <span class="sep"></span>
+      <em>早上好，王哲。</em>
+    </div>
+    <div class="htitle">
+      今日看板<span class="glyph">今日·较忙</span>
+    </div>
+    <div class="d-weather">
+      <span class="d-chip hot"><span class="k">加急</span><span class="v">03<em>·今日</em></span></span>
+      <span class="d-chip"><span class="k">在飞</span><span class="v">14</span></span>
+      <span class="d-chip"><span class="k">管道</span><span class="v">¥28.5 亿</span></span>
+      <span class="d-chip warn"><span class="k">观察</span><span class="v">08<em>·黄</em></span></span>
+      <span class="d-chip"><span class="k">新政</span><span class="v">04</span></span>
+      <span class="d-chip"><span class="k">卷宗</span><span class="v">27<em>·待签</em></span></span>
+    </div>
+  </div>
+</section>
+
+<div class="footer-hint">
+  <b>我的建议：</b>
+  Option <b>A（双栏）</b> 最贴近现在 shell 的调性，改动最小，视觉权重对得最准；
+  Option <b>C（仪表带）</b> 表达力最强，但会把原来页底的 belt 搬上来，需要重新考虑页底留什么；
+  Option <b>B</b> 最紧凑适合高密度模式；
+  Option <b>D</b> 最轻最随性，适合辅助 tab 而非主 tab。
+  <br>告诉我挑哪一个（或哪两个融合），我把它合并进 V1。
+</div>
+
+</body>
+</html>
