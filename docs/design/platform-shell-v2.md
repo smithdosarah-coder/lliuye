@@ -2,9 +2,18 @@
 
 **设计源**：`design_mockups/rm-assistant-final-2026-04-19.html`（3748 行，2026-04-19 lock）
 **SHA-256**：`84a5e0efdb303bb53a1e833764f67eada2a733d9a4d3eedf2e575d2f967b9aac`
-**规范状态**：v2 · 2026-04-19 落盘 · supersedes v1（`platform-shell-v1.md` 转 historical）
+**规范状态**：v2.1 · 2026-04-20 修订（Task K1/K2/K3 复刻纠偏） · supersedes v1（`platform-shell-v1.md` 转 historical）
 **落地目标**：Stage 4 frontend Worker 按本规范实装 — **视觉 1:1 复刻**
 **更新权责**：主 CLI 唯一可写
+
+---
+
+## 修订记录
+
+**v2.1 · 2026-04-20（Task K1-K3 纠偏）**：
+1. **Today view** 补 `.rule` + `.belt`（今日账册金额条，mockup L3114-3141）— 原 Task D 读到 grid-3 结束就停，漏 29 行。
+2. **Warroom view** 裁回 14 卡 / 6 pill variant — 原 Task I 按 onboarding 字面扩到 51 卡 / 10 variant，违反 R-0 mockup 优先原则。`WARROOM_LEDE_COUNT = "12"` 按 mockup 字面（即便 4+5+2+3=14，mockup 自身数字不一致也不动）。
+3. **Float-badge 整体删除** — mockup L1024 `.float-badge { display: none !important }`，终稿用 CSS 强隐藏，PM 确认右下角圆形图标不在最终稿视觉内。**规范新增硬约束**：mockup 中任何带 `display: none !important` 的节点，实现时必须连组件带 CSS 一并移除，**不留幽灵 DOM**。
 
 ---
 
@@ -18,7 +27,7 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 - 简单 ul 列表 → case-stack 卷宗堆叠 + 6 Agent 功能色 token
 - 静态 hero → glyph-rise 玻璃字逐字升起（JS 驱动）
 - /dispatch /archive /warroom 三个 placeholder view → 全实装
-- 顶栏右下角加 float-badge（5 主题 SVG 符号：落日/禅圆/桃花/印章/太极）
+- ~~顶栏右下角加 float-badge（5 主题 SVG 符号）~~ → mockup 自身 `display: none !important` 隐藏，v2.1 规范移除（Task K3）
 
 `shell.html` 保留作为 v1 历史参考，**不删**。Stage 3 ext 已实装的部分（Masthead / Desk 骨架 / sheet-card / `/archive/[agent]` workspace clients）作为基线，Stage 4 在其上扩展，**不推翻**。
 
@@ -31,8 +40,9 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 - **动画行为 1:1**：bar-in / glyph-rise / rise / card-rise / case-in / bar-flow / wait-slide / blip / bodyBreath / drift / breathe — 时长、缓动、延迟全部照搬
 - **JS 交互 1:1**：staggerH1 逐字入场 / drawer hover-from-edge (mousemove < 22px) / pin / Esc / live clock / theme switcher（4 button，Ink 隐藏）/ tab→route 切换
 - **5 主题 token 全实装**：CSS 5 套；switcher UI 仅 4 button（Canvas/Matcha/Blush/Letterpress）— 与终稿完全一致，Ink 仅 CSS 隐藏（debug 用 `body[data-theme="ink"]` 手动触发）
-- **5 Float-badge SVG**：落日（Canvas）/ 禅圆 enso（Matcha）/ 桃花单枝（Dusk/Blush）/ 铅字印章（Crimson/Letterpress）/ 太极（Ink）— SVG 路径 1:1 复刻
-- **Mock 数据扩量**：终稿渲 15 条 feed / 4 col×~14 kanban kcard / 6 dispatch channel / 1 active thread w/ memo block — mock fixture 必须扩到该量级，否则视觉对不齐
+- ~~**5 Float-badge SVG**~~ — v2.1 删除（mockup `display: none !important`）
+- **Mock 数据扩量**：终稿渲 15 条 feed / **4 col × 14 kanban kcard**（4+5+2+3，6 pill variant：P0/P1/P2/urg/wait/cn）/ 6 dispatch channel / 1 active thread w/ memo block — mock fixture 必须对齐该量级，否则视觉对不齐
+- **mockup `display: none !important` 硬规则**：mockup 中带此声明的节点，**连组件带 CSS 一并移除**，不留幽灵 DOM（v2.1 追加，Task K3 教训）
 
 ### 1.2 不必 1:1 的（"实际对应"层）
 
@@ -66,7 +76,7 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 
 **Masthead**（共享）：Logo `乾策 Studio` + 4 tab + 右侧 persona dot + name + role + live clock。
 
-**Float badge**（共享）：右下角圆形角标，显示当前 view 编号 + 主题 SVG 符号（5 套）。
+~~**Float badge**（共享）~~ — v2.1 删除（mockup L1024 `display: none !important`，PM 终稿意图）。
 
 **Theme switcher**（共享）：底部右侧 4 button（Canvas/Matcha/Blush/Letterpress），点切 `body[data-theme]`。
 
@@ -106,7 +116,7 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 | Logo | `.logo .cn sup em` | L2774 | 乾策®Studio |
 | Tabs | `.tabs button[data-v]` | L2775-2780 | 4 tab + .on 高亮 + n 编号 |
 | Op (persona) | `.op .dot .name .role .time` | L2781-2786 | 安全 dot + 王哲 + 客户经理·华东 + live time |
-| Float badge | `.float-badge .mini .circle` | L3483-3558 | 圆形角标 + 5 主题 SVG 符号（落日/禅圆/桃花/印章/太极） |
+| ~~Float badge~~ | ~~`.float-badge .mini .circle`~~ | ~~L3483-3558~~ | **v2.1 删**（mockup L1024 `display: none !important`） |
 | Theme switcher | `.theme-sw button[data-t]` | L3562-3569 | 4 button + .on 高亮 + sw-dot |
 
 ### 4.2 Today view（L2791-3144）
@@ -119,11 +129,13 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 | 3-card grid | `.grid-3` | L2812 | 3 列均分 + card-rise 错峰入场 |
 | **Feed card** | `.card.feed-card` | L2815-2950 | 消息预览，15 条 .feed-item（urgent/unread/sys） + .feed-av（warn/sys） + mask fade |
 | **Sheet card** | `.card.warm.sheet-card` | L2953-3038 | ✓ Stage 3 ext 已实装；mock TODAY_RUNNING_SHEETS×3 + TODAY_IDLE_SHEETS×3 |
-| **Board card** | `.card.deep.board-card` | L3040-3144 | 任务钉板，深色渐变 + .peek-list + .pk + .pk-bullet (mention/meeting/agent/pr-p0/pr-p1/pr-urg) + .pk-bar (waiting variant) |
+| **Board card** | `.card.deep.board-card` | L3040-3112 | 任务钉板，深色渐变 + .peek-list + .pk + .pk-bullet (mention/meeting/agent/pr-p0/pr-p1/pr-urg) + .pk-bar (waiting variant) |
+| **Rule + Belt** | `.rule` + `.belt .col` | **L3114-3141** | **v2.1 补**：今日账册金额条，`.rule` 左右 grid（lbl/ln/rt）+ `.belt` 4 列（k 标签 / v.currency unit / note 含 em + strong） |
 
 **Mock 扩量**：
 - `TODAY_FEED`: 5 → **15** 条（含 urgent/unread/sys flag + org tag + ts）
 - `TODAY_TASKS` → 替为 `TODAY_PEEK`：含 type (mention/meeting/agent/pr-p0/pr-p1/pr-urg) + bar pct + waiting flag
+- **`TODAY_BELT`**（v2.1 补）：4 col（本月已放款 28.47 亿元 / 待签卷宗 27 份 / 观察名单黄 08 户 / 本周新政 04 条）+ `TODAY_BELT_RULE`（lbl + rt 时间戳）
 
 ### 4.3 Dispatch view（L3145-3268）
 
@@ -157,13 +169,16 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 
 | 组件 | class | mockup 行 | 备注 |
 |---|---|---|---|
-| Eyebrow / Hero / Lede | `.eyebrow .hero-h1 .lede` | L3356-3365 | "正在 flight." + 12 条任务 |
-| Kanban | `.kanban .kcol (.done) .khd .kbody` | L3367-3477 | 4 列（待处理 4 / 进行中 5 / 冒出 2 / 已归档 3） |
-| Kcard | `.kcard .hd .t .pr (.urg .wait .cn) .meta .body .ft .who .av .go` | L3372+ | 优先级 pill 7 variant：P0 / P1 / P2 / 加急 / 等候 / 新 / 完 |
+| Eyebrow / Hero / Lede | `.eyebrow .hero-h1 .lede` | L3356-3365 | "正在 flight." + **"12 项在飞"**（mockup 字面，尽管 4+5+2+3=14；R-0 mockup 优先，不改） |
+| Kanban | `.kanban .kcol (.done) .khd .kbody` | L3367-3477 | 4 列（待处理·04 / 进行中·05 / 冒出·02 / 已归档·03），**总计 14 卡** |
+| Kcard | `.kcard .hd .t .pr (.P0 .P1 .P2 .urg .wait .cn) .meta .body .ft .who .av .go` | L3372+ | 优先级 pill **6 variant**：P0 / P1 / P2 / urg（加急） / wait（等候） / cn（新/完 复用） |
 
-**Mock 新增**：`web/src/lib/mock/warroom.ts`：
-- `WARROOM_COLS`: 4 col（待处理/进行中/冒出/已归档，含 done flag）
-- `WARROOM_KCARDS`: ~14 kcard（id, col, title, priority, meta, body 含 em, owner avatar）
+**Mock（v2.1 纠偏）**：`web/src/lib/mock/warroom.ts`：
+- `WARROOM_COLUMNS`: 4 col（待处理·04 / 进行中·05 / 冒出·02 / 已归档·03，含 done flag）
+- `WARROOM_CARDS`: **14 kcard 严格对齐**（id, column, title, pill, meta 含 cn wrap, body 含 em, who avatar, go "打开"/"查看"）
+- `WARROOM_LEDE_COUNT = "12"` — mockup 字面（镜像 mockup 自身不一致）
+
+**Task K2 教训**：Task I 按 onboarding 字面扩到 51 卡 / 10 pill variant（P3/compli/law/risk 等），违反 R-0 mockup 优先。v2.1 裁回严格 mockup literal（14 卡 / 6 pill）。**新增硬约束**：onboarding 字面与 mockup 不一致 → 以 mockup 为准。
 
 ## 五、动画与交互清单
 
