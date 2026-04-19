@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { FeedCard } from "@/components/today/FeedCard";
 import { Hero } from "@/components/today/Hero";
 import {
-  TODAY_FEED,
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
   TODAY_TASKS,
@@ -18,29 +18,8 @@ export default function TodayPage() {
       <Hero />
 
       <div className="v-grid-3">
-        {/* 消息预览 */}
-        <Link href="/dispatch" className="v-card">
-          <div className="v-card-tag">
-            <span className="dash" />
-            消息 · Dispatch
-            <span className="sum">{TODAY_FEED.length} ITEMS</span>
-          </div>
-          <div className="v-card-h">
-            {TODAY_FEED.length}
-            <em>messages</em>
-          </div>
-          <ul>
-            {TODAY_FEED.slice(0, 4).map((f) => (
-              <li key={f.id}>
-                <span>
-                  {f.who}
-                  <span className="sub">{f.preview}</span>
-                </span>
-                <span className="ts">{f.ts}</span>
-              </li>
-            ))}
-          </ul>
-        </Link>
+        {/* Task E · 消息 · 最要紧 feed-card */}
+        <FeedCard />
 
         {/* A-017: agent · 正在跑 — card.warm.sheet-card (shell.html:2047-2131) */}
         <Link href="/dispatch" className="card warm sheet-card">
