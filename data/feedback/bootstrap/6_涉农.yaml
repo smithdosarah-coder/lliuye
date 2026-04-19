@@ -1,0 +1,45 @@
+# -*- coding: utf-8 -*-
+# Agent6 · 反馈飞轮 bootstrap 样本 · 涉农场景
+# 用途：业务方二审前 worker 样本；进 prompts.py 哨兵块
+# 对应 DoD：L3-8（反馈飞轮闭环）
+
+scenario: 涉农
+agent: report
+chapter: 3_finance
+field_path: chapter_3_finance.subsidy_income
+
+original_output: |
+  公司 2024 年营业收入 4,200 万元,同比增长 18%,其中包含农业补贴收入
+  620 万元,盈利能力持续提升,还款来源稳定。
+
+corrected_output: |
+  公司 2024 年营业收入 4,200 万元(出处:审计报告 利润表),同比增长 18%;
+  其中主营业务收入 3,580 万元、其他收益 620 万元(性质为政府农业补贴,
+  出处:审计报告附注五-18"其他收益"明细)。
+  授信评估需做如下口径调整:
+  1. 农业补贴属不可持续现金流,不应纳入"主营业务偿债来源";
+  2. 剔除补贴后主营业务同比口径增长为 8.6%,低于原报 18%;
+  3. 还款来源分析应以主营业务经营性现金流为主,补贴仅作缓冲;
+  4. 涉农客户应关注中央/地方补贴政策续期(当前政策有效期至 2026-12)。
+
+correction_reason: |
+  原输出三处问题:
+  1. 补贴收入纳入营业收入口径未拆分 - 审贷员指出涉农客户的政府补贴是"其他收益"
+     不是"营业收入",两者会计科目不同,影响收入增长率计算;
+  2. "还款来源稳定"结论不成立 - 补贴不可持续,涉农客户还款必须看主业经营流;
+  3. 未提示补贴政策续期风险 - 涉农信贷尽调标配,合规检查必查项。
+
+injection_hint:
+  target_chapter: 3
+  anchor: 销售和盈利能力
+  pattern_tags:
+    - 政府补贴科目口径
+    - 涉农还款来源
+    - 补贴政策续期
+  priority: high
+
+metadata:
+  source: manual_desensitized
+  created_at: "2026-04-19"
+  reviewer: pending_business_review
+  signal: AGENT6-PHASE-2-TASK-A-BOOTSTRAP
