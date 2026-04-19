@@ -30,5 +30,16 @@ metrics:
       target: ">= 4.0"
 
 baseline:
-  last_run: null
-  commit: null
+  last_run: 2026-04-19T05:37:29+00:00
+  commit: b21737e6a49366fed754fcd6be9fc147d2237832
+  fixture_dir: agent_riskctrl/tests/fixtures/baseline_v1/
+  verdict: PARTIAL                    # 5 deterministic green + 2 Phase C stub N/A
+  results:
+    task_completion_rate: 1.0000      # target >= 0.95   PASS
+    evidence_rate: 1.0000             # target >= 0.98   PASS
+    hallucination_rate: 0.0000        # target <= 0.01   PASS
+    tool_success_rate: 1.0000         # target >= 0.95   PASS
+    false_positive_rate: 0.0673       # target <= 0.15   PASS
+    ks_improvement: null              # Phase C stub (manual)
+    rule_interpretability: null       # Phase C stub (manual)
+  red_lines: PASS                     # halluc≤0.01 / evidence≥0.98 / task_completion≥0.95 三闸门全绿
