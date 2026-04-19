@@ -1,7 +1,23 @@
+/* 字体加载：Stage 2 Google Fonts 用 layout.tsx 的 <link> 标签注入
+   （Funnel Display / Instrument Sans / Instrument Serif），CSS 内不重复 @import。
+   原因：Tailwind v4 `@import "tailwindcss"` 内部会先展开自身 @import 规则，
+   把外层任何 `@import url()` 推到展开后的样式规则之后，触发
+   "@import rules must precede all rules" 报错；移到 <link> 是最干净的方式。
+   Noto SC / JetBrains Mono 已由 next/font/google 加载。
+   Stage 6 银行私有化前迁自托管至 web/public/fonts/。 */
 @import "tailwindcss";
 
+/* Platform-shell-v1 token 层（4 主题 + 字体 + 圆角 + color-mix 滑块）
+   声明在 :root，与下方 legacy --color-* 平行存在，互不冲突。
+   旧 6 Agent 页面继续消费 --color-paper / --color-ink / --color-brass；
+   新 platform shell 消费 --g0..--g7 / --ink / --chalk / --accent。 */
+@import "./tokens.css";
+@import "./shell.css";
+@import "./views.css";
+
 /**
- * Zhongan Credit AI — Design Tokens
+ * Zhongan Credit AI — Legacy Design Tokens (kept for /credit /channel /alert
+ * /compliance /report /riskctrl 6 个 Agent 页面向下兼容)
  * Base theme: cream editorial (archive)
  * Ink theme: cinematic dark with hero photograph
  */
