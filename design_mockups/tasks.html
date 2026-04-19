@@ -1,0 +1,1504 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>任务看板 Tasks · 乾策 X-Nexus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+SC:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═════════════════════════════════════════════════════════════════
+   TOKENS
+═════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0B0E12;
+  --surface1: #11151B;
+  --surface2: #171C24;
+  --surface3: #1F2530;
+  --surface4: #2A313D;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-visible: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(91, 227, 182, 0.3);
+  --text1: #F5F2EA;
+  --text2: #B8B2A6;
+  --text3: #7A7669;
+  --text4: #4D4B44;
+  --ai: #5BE3B6;
+  --ai-subtle: rgba(91, 227, 182, 0.12);
+  --ai-glow: rgba(91, 227, 182, 0.35);
+  --human: #E8B56B;
+  --human-subtle: rgba(232, 181, 107, 0.12);
+  --danger: #D7534A;
+  --danger-subtle: rgba(215, 83, 74, 0.12);
+  --info: #A394C7;
+  --info-subtle: rgba(163, 148, 199, 0.12);
+
+  --font-display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  --font-body: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+  --r-xs: 3px; --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --d-fast: 180ms; --d-base: 240ms; --d-slow: 400ms; --d-cinema: 600ms;
+
+  --topbar-h: 52px;
+  --leftrail-w: 240px;
+  --rightrail-w: 320px;
+  --miniplayer-h: 44px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.22);
+  --shadow-ai: 0 0 0 1px var(--border-accent), 0 4px 24px rgba(91,227,182,0.15), 0 1px 3px rgba(0,0,0,0.35);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background:
+    radial-gradient(ellipse 1200px 600px at 85% -10%, rgba(91,227,182,0.025), transparent 60%),
+    radial-gradient(ellipse 900px 500px at 10% 110%, rgba(232,181,107,0.02), transparent 60%),
+    var(--bg);
+  color: var(--text1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--surface4); }
+
+/* ═════════════════════════════════════════════════════════════════
+   TOP BAR
+═════════════════════════════════════════════════════════════════ */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+  background: rgba(17, 21, 27, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  z-index: 100;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; min-width: calc(var(--leftrail-w) - 20px); }
+.logo-wordmark {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text1);
+  letter-spacing: 0.01em;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.logo-wordmark .dot-live {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ai); box-shadow: 0 0 8px var(--ai-glow);
+}
+.sep-dot { color: var(--text4); margin: 0 2px; }
+.workspace-switch {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text2);
+  padding: 6px 10px; border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--ease);
+}
+.workspace-switch:hover { background: var(--surface3); color: var(--text1); }
+.workspace-switch .chev { font-size: 10px; color: var(--text3); }
+
+.topbar-center { flex: 1; display: flex; justify-content: center; }
+.search-pill {
+  width: 360px; height: 32px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 12px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  transition: border-color var(--d-fast) var(--ease);
+}
+.search-pill:hover { border-color: var(--border-visible); }
+.search-pill .ico { color: var(--text3); }
+.search-pill .ph { flex: 1; font-size: 13px; color: var(--text3); }
+.search-pill .kbd {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text3); background: var(--surface4);
+  padding: 2px 6px; border-radius: var(--r-xs);
+  letter-spacing: 0.05em;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 14px; min-width: calc(var(--rightrail-w) - 20px); justify-content: flex-end; }
+.bell-wrap { position: relative; padding: 6px; cursor: pointer; color: var(--text2); transition: color var(--d-fast) var(--ease); }
+.bell-wrap:hover { color: var(--text1); }
+.bell-badge {
+  position: absolute; top: 2px; right: 0;
+  min-width: 14px; height: 14px; padding: 0 4px;
+  background: var(--danger); color: #fff;
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--surface1);
+}
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #3a4251, #2d3441);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 15px;
+  color: var(--text1);
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border-visible);
+}
+.avatar .presence {
+  position: absolute; bottom: -1px; right: -1px;
+  width: 9px; height: 9px;
+  background: var(--human);
+  border-radius: 50%;
+  border: 2px solid var(--surface1);
+  box-shadow: 0 0 6px rgba(232,181,107,0.5);
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   LEFT RAIL
+═════════════════════════════════════════════════════════════════ */
+.left-rail {
+  position: fixed;
+  top: var(--topbar-h); bottom: var(--miniplayer-h); left: 0;
+  width: var(--leftrail-w);
+  background: var(--surface1);
+  border-right: 1px solid var(--border);
+  padding: 12px 12px 0 12px;
+  overflow-y: auto;
+  display: flex; flex-direction: column;
+  z-index: 50;
+}
+.rail-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+.rail-search {
+  width: 100%; height: 30px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0 10px;
+  font-size: 12px; color: var(--text2);
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color var(--d-fast) var(--ease);
+  margin-bottom: 6px;
+}
+.rail-search:focus { border-color: var(--border-visible); }
+.rail-search::placeholder { color: var(--text3); }
+
+.rail-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text4);
+  padding: 0 8px;
+  margin-top: 16px; margin-bottom: 6px;
+}
+
+.rail-row {
+  display: flex; align-items: center;
+  gap: 8px;
+  height: 30px; padding: 0 8px;
+  border-radius: var(--r-sm);
+  font-size: 13px; color: var(--text2);
+  cursor: pointer;
+  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+  position: relative;
+}
+.rail-row:hover { background: var(--surface3); color: var(--text1); }
+.rail-row.active {
+  background: var(--ai-subtle);
+  color: var(--text1);
+  box-shadow: inset 2px 0 0 var(--ai);
+}
+.rail-row .icon { width: 16px; flex-shrink: 0; color: var(--text3); font-size: 13px; text-align: center; }
+.rail-row.active .icon { color: var(--ai); }
+.rail-row .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-row .right { flex-shrink: 0; }
+.rail-count {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text3);
+  padding: 1px 6px;
+  background: var(--surface3);
+  border-radius: var(--r-pill);
+}
+.rail-row.active .rail-count { background: var(--surface4); color: var(--text2); }
+.agent-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.agent-dot.amber  { background: var(--human); box-shadow: 0 0 6px rgba(232,181,107,0.45); }
+.agent-dot.purple { background: var(--info); }
+.agent-dot.neutral{ background: var(--text4); }
+.agent-dot.red    { background: var(--danger); box-shadow: 0 0 6px rgba(215,83,74,0.45); }
+.agent-dot.green  { background: var(--ai); box-shadow: 0 0 6px var(--ai-glow); }
+
+.rail-footer {
+  margin: 0 -12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface1);
+}
+.rail-footer .avatar-sm {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: linear-gradient(135deg, #3a4251, #2d3441);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 12px; color: var(--text1);
+  border: 1px solid var(--border-visible);
+}
+.rail-footer .user-name { flex: 1; font-size: 12px; color: var(--text2); line-height: 1.35; }
+.rail-footer .user-name b { color: var(--text1); font-weight: 500; }
+.rail-footer .status { font-family: var(--font-mono); font-size: 10px; color: var(--text3); display: inline-flex; align-items: center; gap: 5px; }
+
+/* ═════════════════════════════════════════════════════════════════
+   CANVAS
+═════════════════════════════════════════════════════════════════ */
+.canvas {
+  margin-top: var(--topbar-h);
+  margin-left: var(--leftrail-w);
+  margin-right: var(--rightrail-w);
+  margin-bottom: var(--miniplayer-h);
+  padding: 24px 32px 40px 32px;
+  min-height: calc(100vh - var(--topbar-h) - var(--miniplayer-h));
+  position: relative;
+}
+
+/* Board header */
+.board-header { padding-bottom: 16px; }
+.board-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+.board-title-row {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; margin-bottom: 20px;
+}
+.board-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  color: var(--text1);
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+.board-title-sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--text3);
+  margin-top: 6px;
+  letter-spacing: 0.005em;
+}
+.board-actions { display: flex; gap: 8px; flex-shrink: 0; padding-bottom: 6px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 14px;
+  font-size: 13px; font-weight: 500;
+  border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--ai);
+  color: #05201A;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 4px 12px rgba(91,227,182,0.18);
+}
+.btn-primary:hover { background: #6EEEC0; }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  color: var(--text2);
+}
+.btn-outline:hover { border-color: var(--text3); color: var(--text1); background: var(--surface2); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  padding: 0 10px;
+}
+.btn-ghost:hover { background: var(--surface3); color: var(--text1); }
+.btn .chev { font-size: 10px; color: var(--text3); }
+
+/* Filter chips */
+.filter-row {
+  display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+  padding: 14px 0 14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-size: 12px; color: var(--text2);
+  transition: border-color var(--d-fast) var(--ease);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--border-visible); }
+.chip.active { background: var(--ai-subtle); border-color: var(--border-accent); color: var(--text1); }
+.chip .close { color: var(--text3); font-size: 11px; cursor: pointer; }
+.chip .close:hover { color: var(--text1); }
+.chip .chev { font-size: 9px; color: var(--text3); margin-left: 2px; }
+.filter-row .clear-all {
+  margin-left: auto;
+  font-size: 12px; color: var(--text3);
+  cursor: pointer;
+  padding: 0 6px;
+}
+.filter-row .clear-all:hover { color: var(--ai); }
+
+/* ═════════════════════════════════════════════════════════════════
+   KANBAN BOARD
+═════════════════════════════════════════════════════════════════ */
+.kanban {
+  margin-top: 20px;
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 20px;
+  align-items: flex-start;
+}
+.kanban-col {
+  flex: 0 0 300px;
+  min-width: 300px;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.col-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--text4);
+  background: transparent;
+}
+.col-header.accent-ai      { border-left-color: var(--ai); }
+.col-header.accent-danger  { border-left-color: var(--danger); }
+.col-header.accent-info    { border-left-color: var(--info); }
+
+.col-header .col-title { font-size: 13px; font-weight: 600; color: var(--text1); letter-spacing: 0.01em; }
+.col-header .col-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+}
+.col-header .col-count {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--text2);
+  padding: 1px 7px;
+  background: var(--surface3);
+  border-radius: var(--r-pill);
+  min-width: 22px; text-align: center;
+}
+.col-header .col-add {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text3);
+  border-radius: var(--r-sm);
+  transition: color var(--d-fast) var(--ease), background var(--d-fast) var(--ease);
+}
+.col-header .col-add:hover { color: var(--text1); background: var(--surface3); }
+
+.col-body {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  min-height: 100px;
+}
+
+/* ─── Task cards ─── */
+.card {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  cursor: grab;
+  transition:
+    border-color var(--d-fast) var(--ease),
+    box-shadow var(--d-fast) var(--ease),
+    transform var(--d-fast) var(--ease);
+}
+.card:hover {
+  border-color: var(--border-visible);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.card:active { cursor: grabbing; }
+.card.focused {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-ai);
+  background: linear-gradient(180deg, var(--surface2), var(--surface1));
+}
+.card.dragging {
+  border: 1px dashed var(--border-accent);
+  opacity: 0.55;
+  background: var(--surface2);
+  transform: rotate(-1deg) translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+}
+
+.card-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.src-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  font-weight: 500;
+}
+.src-badge.ai { background: var(--ai-subtle); color: var(--ai); }
+.src-badge.human { background: var(--surface3); color: var(--text2); }
+
+.card-right-top { display: inline-flex; align-items: center; gap: 7px; }
+.prio-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.prio-dot.high { background: var(--danger); box-shadow: 0 0 5px rgba(215,83,74,0.55); }
+.prio-dot.med  { background: var(--human); box-shadow: 0 0 5px rgba(232,181,107,0.45); }
+.prio-dot.low  { background: var(--text4); }
+.prio-label {
+  font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--text3); letter-spacing: 0.05em;
+}
+
+.card-title {
+  font-size: 14px;
+  color: var(--text1);
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  letter-spacing: 0.003em;
+}
+
+.meta-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.meta-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px;
+  color: var(--text3);
+  padding: 2px 7px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.meta-chip .k { color: var(--text4); }
+.meta-chip .v { color: var(--text2); }
+
+.blocker-note {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px;
+  color: var(--danger);
+  background: var(--danger-subtle);
+  border: 1px solid rgba(215,83,74,0.25);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+.blocker-note .dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--danger); flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(215,83,74,0.5);
+}
+
+.card-bottom {
+  display: flex; align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.avatar-stack { display: inline-flex; flex-shrink: 0; }
+.avatar-stack .av-sm {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: linear-gradient(135deg, #3a4251, #2d3441);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 11px;
+  color: var(--text1);
+  border: 1.5px solid var(--surface1);
+  margin-left: -6px;
+}
+.avatar-stack .av-sm:first-child { margin-left: 0; }
+.avatar-stack .av-sm.me { background: linear-gradient(135deg, #5BE3B6, #3DB38A); color: #07140F; font-weight: 600; }
+
+.due {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
+}
+.due.near { color: var(--human); }
+.due.overdue { color: var(--danger); }
+.due.done { color: var(--info); }
+
+.card-meta-right {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text3);
+}
+.card-meta-right .bit { display: inline-flex; align-items: center; gap: 4px; }
+.card-meta-right .bit.done-check { color: var(--ai); }
+
+.see-more {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text3);
+  padding: 8px;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  transition: color var(--d-fast) var(--ease), background var(--d-fast) var(--ease);
+}
+.see-more:hover { color: var(--ai); background: var(--surface2); }
+
+/* Done card variant */
+.card.done-card .card-title { color: var(--text2); text-decoration: line-through; text-decoration-color: var(--text4); }
+.card.done-card { opacity: 0.82; }
+
+/* ═════════════════════════════════════════════════════════════════
+   RIGHT RAIL · Task detail
+═════════════════════════════════════════════════════════════════ */
+.right-rail {
+  position: fixed;
+  top: var(--topbar-h); bottom: var(--miniplayer-h); right: 0;
+  width: var(--rightrail-w);
+  background: var(--surface1);
+  border-left: 1px solid var(--border);
+  padding: 20px 20px 24px 20px;
+  overflow-y: auto;
+  z-index: 50;
+}
+.rr-breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.rr-breadcrumb b { color: var(--text2); font-weight: 500; }
+.rr-breadcrumb .id { color: var(--ai); }
+
+.rr-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text1);
+  line-height: 1.25;
+  margin: 0 0 12px 0;
+  letter-spacing: 0.003em;
+}
+
+.rr-status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.status-pill.progress { background: var(--ai-subtle); color: var(--ai); }
+.status-pill.progress .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ai); box-shadow: 0 0 5px var(--ai-glow); }
+.status-pill.prio { background: var(--danger-subtle); color: var(--danger); }
+.status-pill.prio .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--danger); }
+
+.rr-divider { height: 1px; background: var(--border); margin: 18px 0; border: 0; }
+
+.rr-section-title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+.meta-list { display: flex; flex-direction: column; gap: 0; }
+.meta-list .mr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.meta-list .mr:last-child { border-bottom: 0; }
+.meta-list .mk {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  flex: 0 0 60px;
+  text-transform: uppercase;
+}
+.meta-list .mv {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text1);
+  display: inline-flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.meta-list .mv.mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--text2); letter-spacing: 0.02em; }
+.meta-list .mv .av-sm {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(135deg, #3a4251, #2d3441);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 10.5px;
+  color: var(--text1);
+  border: 1px solid var(--border-visible);
+}
+.meta-list .mv .av-sm.me { background: linear-gradient(135deg, #5BE3B6, #3DB38A); color: #07140F; font-weight: 600; }
+.meta-list .link-inline {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--ai); margin-left: auto;
+  cursor: pointer;
+}
+.meta-list .link-inline:hover { text-decoration: underline; }
+
+.desc-block {
+  font-size: 12.5px;
+  color: var(--text2);
+  line-height: 1.65;
+}
+.desc-block ul { margin: 6px 0 0 0; padding-left: 16px; }
+.desc-block li { margin-bottom: 3px; }
+
+/* Checklist */
+.checklist-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text1);
+}
+.checklist-row:last-child { border-bottom: 0; }
+.checklist-row .cb {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border-radius: var(--r-xs);
+  border: 1.5px solid var(--text4);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; color: transparent;
+}
+.checklist-row.done .cb { background: var(--ai); border-color: var(--ai); color: #07140F; font-weight: 700; }
+.checklist-row.done .txt { color: var(--text3); text-decoration: line-through; text-decoration-color: var(--text4); }
+.checklist-row .txt { flex: 1; line-height: 1.4; }
+.checklist-row .meta {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text3);
+}
+
+.attach-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  margin-bottom: 6px;
+  font-size: 12px; color: var(--text1);
+}
+.attach-row .ico { color: var(--ai); }
+.attach-row .n { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.attach-row .from {
+  font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--text3); letter-spacing: 0.05em;
+}
+.attach-row .dl { color: var(--text3); cursor: pointer; font-family: var(--font-mono); font-size: 13px; }
+.attach-row .dl:hover { color: var(--ai); }
+
+/* Activity feed */
+.activity {
+  position: relative;
+  padding-left: 14px;
+}
+.activity::before {
+  content: ""; position: absolute;
+  left: 3px; top: 6px; bottom: 6px;
+  width: 1px; background: var(--border);
+}
+.activity .ev {
+  position: relative;
+  padding: 6px 0 10px 10px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.45;
+}
+.activity .ev::before {
+  content: ""; position: absolute;
+  left: -14px; top: 10px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--surface4);
+  border: 2px solid var(--surface1);
+}
+.activity .ev.ai::before { background: var(--ai); box-shadow: 0 0 6px var(--ai-glow); }
+.activity .ev.human::before { background: var(--human); }
+.activity .ev .t {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text3); margin-right: 6px;
+  letter-spacing: 0.04em;
+}
+.activity .ev b { color: var(--text1); font-weight: 500; }
+.activity .ev a { color: var(--ai); }
+
+/* Action stack */
+.action-stack {
+  display: flex; flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.action-block {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.action-block:first-child { border-top: 0; padding-top: 0; }
+.action-block-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text4);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.action-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.action-row .btn { flex: 1 1 auto; justify-content: center; }
+.btn-primary-lg {
+  background: var(--ai);
+  color: #05201A;
+  font-weight: 600;
+  height: 38px;
+  font-size: 13.5px;
+  width: 100%;
+  justify-content: center;
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--r-sm);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 6px 18px rgba(91,227,182,0.22);
+  transition: background var(--d-fast) var(--ease);
+}
+.btn-primary-lg:hover { background: #6EEEC0; }
+.btn-ghost-ai {
+  background: transparent;
+  color: var(--ai);
+  border: 1px dashed var(--border-accent);
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--ease);
+}
+.btn-ghost-ai:hover { background: var(--ai-subtle); }
+.btn-ghost-mini {
+  background: transparent;
+  color: var(--text2);
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+}
+.btn-ghost-mini:hover { background: var(--surface3); color: var(--text1); }
+
+/* ═════════════════════════════════════════════════════════════════
+   MINIPLAYER
+═════════════════════════════════════════════════════════════════ */
+.miniplayer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--miniplayer-h);
+  background: rgba(17, 21, 27, 0.88);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  gap: 14px;
+  z-index: 100;
+  backdrop-filter: blur(14px);
+}
+.mp-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.mp-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--ai-subtle);
+  color: var(--ai);
+  border-radius: var(--r-pill);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.mp-title { font-size: 12.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-title b { color: var(--text1); font-weight: 500; }
+.mp-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text3); letter-spacing: 0.04em; flex-shrink: 0; }
+.mp-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.mp-icon-btn {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text2);
+  border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+}
+.mp-icon-btn:hover { background: var(--surface3); color: var(--text1); }
+.mp-progress {
+  width: 120px; height: 3px;
+  background: var(--surface3);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  position: relative;
+}
+.mp-progress .bar { height: 100%; width: 100%; background: var(--ai); box-shadow: 0 0 6px var(--ai-glow); border-radius: var(--r-pill); }
+
+svg { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ═════════════ TOPBAR ═════════════ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-wordmark"><span class="dot-live"></span>乾策</div>
+    <span class="sep-dot">·</span>
+    <button class="workspace-switch">众安 · 信贷中台 <span class="chev">▾</span></button>
+  </div>
+  <div class="topbar-center">
+    <div class="search-pill" role="button" tabindex="0">
+      <span class="ico" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg></span>
+      <span class="ph">搜索任务、客户、Agent…</span>
+      <span class="kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="bell-wrap" role="button" tabindex="0" aria-label="通知">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span class="bell-badge">3</span>
+    </div>
+    <div class="avatar" title="刘野">刘<span class="presence"></span></div>
+  </div>
+</header>
+
+<!-- ═════════════ LEFT RAIL ═════════════ -->
+<aside class="left-rail">
+  <div class="rail-body">
+    <input class="rail-search" placeholder="搜索频道、任务…" />
+
+    <div class="rail-label">我的工作区</div>
+    <div class="rail-row"><span class="icon">◎</span><span class="label">中厅 Atrium</span><span class="right"></span></div>
+    <div class="rail-row active"><span class="icon">▤</span><span class="label">任务看板</span><span class="right"><span class="rail-count">24</span></span></div>
+    <div class="rail-row"><span class="icon">☰</span><span class="label">收件箱</span><span class="right"><span class="rail-count">7</span></span></div>
+    <div class="rail-row"><span class="icon">✦</span><span class="label">星标</span><span class="right"></span></div>
+
+    <div class="rail-label">AGENT 频道</div>
+    <div class="rail-row"><span class="agent-dot green"></span><span class="label">A1 · 获客</span><span class="right"><span class="rail-count">4</span></span></div>
+    <div class="rail-row"><span class="agent-dot neutral"></span><span class="label">A2 · 风控</span><span class="right"></span></div>
+    <div class="rail-row"><span class="agent-dot amber"></span><span class="label">A3 · 授信</span><span class="right"><span class="rail-count">2</span></span></div>
+    <div class="rail-row"><span class="agent-dot red"></span><span class="label">A4 · 预警</span><span class="right"><span class="rail-count">1</span></span></div>
+    <div class="rail-row"><span class="agent-dot purple"></span><span class="label">A5 · 合规</span><span class="right"></span></div>
+    <div class="rail-row"><span class="agent-dot neutral"></span><span class="label">A6 · 报告</span><span class="right"></span></div>
+
+    <div class="rail-label">团队</div>
+    <div class="rail-row"><span class="icon">#</span><span class="label">信贷一部</span></div>
+    <div class="rail-row"><span class="icon">#</span><span class="label">普惠金融组</span></div>
+    <div class="rail-row"><span class="icon">#</span><span class="label">合规审查</span></div>
+
+    <div class="rail-label">客户</div>
+    <div class="rail-row"><span class="icon">◈</span><span class="label">宁波精诚精密</span></div>
+    <div class="rail-row"><span class="icon">◈</span><span class="label">航天精工</span></div>
+    <div class="rail-row"><span class="icon">◈</span><span class="label">中建八局</span></div>
+  </div>
+
+  <div class="rail-footer">
+    <div class="avatar-sm">刘</div>
+    <div class="user-name"><b>刘野</b><br><span class="status">● 在线 · 专注模式</span></div>
+  </div>
+</aside>
+
+<!-- ═════════════ CANVAS ═════════════ -->
+<main class="canvas">
+  <div class="board-header">
+    <div class="board-eyebrow">我的工作区 · 任务看板</div>
+    <div class="board-title-row">
+      <div>
+        <h1 class="board-title">任务看板 <span style="color:var(--text3); font-style: italic; font-size: 26px;">Tasks</span></h1>
+        <div class="board-title-sub">Human-created &amp; AI-sourced tasks — assigned, tracked, shipped.</div>
+      </div>
+      <div class="board-actions">
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          新建任务
+        </button>
+        <button class="btn btn-outline">视图 <span class="chev">▾</span> <span style="color: var(--text3); font-family: var(--font-mono); font-size: 10.5px; margin-left: 4px;">(看板)</span></button>
+        <button class="btn btn-outline">筛选 <span class="chev">▾</span></button>
+        <button class="btn btn-outline">排序 <span class="chev">▾</span></button>
+        <button class="btn btn-outline">导出 CSV</button>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <span class="chip active">经办人: 我 <span class="close">×</span></span>
+      <span class="chip">优先级: 全部 <span class="chev">▾</span></span>
+      <span class="chip">Agent 来源: 全部 <span class="chev">▾</span></span>
+      <span class="chip">到期: 本周 <span class="chev">▾</span></span>
+      <a class="clear-all" href="#">清除筛选</a>
+    </div>
+  </div>
+
+  <!-- ═════════ KANBAN ═════════ -->
+  <div class="kanban">
+
+    <!-- ─── Column 1 · Backlog ─── -->
+    <section class="kanban-col">
+      <header class="col-header">
+        <span class="col-title">待处理</span>
+        <span class="col-sub">BACKLOG</span>
+        <span class="col-count">6</span>
+        <button class="col-add">+ 添加</button>
+      </header>
+      <div class="col-body">
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A1 · 获客</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P02</span></span>
+          </div>
+          <div class="card-title">宁波精诚精密 · 授信初审</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">客户</span><span class="v">宁波精诚</span></span>
+            <span class="meta-chip"><span class="k">金额</span><span class="v">¥1,200w</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">李</span></div>
+            <span class="due near">到期 04-19</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 0/3</span>
+              <span class="bit">💬 2</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A5 · 合规</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P04</span></span>
+          </div>
+          <div class="card-title">中建八局 · 合规扫描</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">政策</span><span class="v">房地产贷款新规</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">王</span></div>
+            <span class="due">到期 04-20</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 2/7</span>
+              <span class="bit">💬 4</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A1 · 获客</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P05</span></span>
+          </div>
+          <div class="card-title">长三角 SaaS B 轮企业 · look-alike 名单</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">候选</span><span class="v">23 家</span></span>
+            <span class="meta-chip"><span class="k">行业</span><span class="v">SaaS</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">张</span></div>
+            <span class="due">到期 04-21</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 0/4</span>
+              <span class="bit">💬 1</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge human">人工</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P08</span></span>
+          </div>
+          <div class="card-title">客户 X-015 · 季度回访</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">客户</span><span class="v">嘉兴港口物流</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm me">野</span></div>
+            <span class="due">到期 04-22</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 0/2</span>
+              <span class="bit">💬 0</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A5 · 合规</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P06</span></span>
+          </div>
+          <div class="card-title">政策变动 · 小微贷新规应对</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">来源</span><span class="v">银保监 2026-04-14</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">周</span><span class="av-sm">陈</span></div>
+            <span class="due">到期 04-25</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 1/5</span>
+              <span class="bit">💬 6</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge human">人工</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P09</span></span>
+          </div>
+          <div class="card-title">浦东新建材批发 ×3 · 授信复核</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">批次</span><span class="v">3 户联合</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">李</span></div>
+            <span class="due">到期 04-24</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 0/3</span>
+              <span class="bit">💬 0</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ─── Column 2 · In Progress ─── -->
+    <section class="kanban-col">
+      <header class="col-header accent-ai">
+        <span class="col-title">进行中</span>
+        <span class="col-sub">IN PROGRESS</span>
+        <span class="col-count">4</span>
+        <button class="col-add">+ 添加</button>
+      </header>
+      <div class="col-body">
+
+        <!-- FOCUSED card -->
+        <article class="card focused">
+          <div class="card-top">
+            <span class="src-badge ai">A1 · 获客</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P01</span></span>
+          </div>
+          <div class="card-title">宁波精诚精密 · 客户首次接触</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">客户</span><span class="v">宁波精诚</span></span>
+            <span class="meta-chip"><span class="k">审贷会</span><span class="v">10:00</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm me">野</span><span class="av-sm">李</span><span class="av-sm">王</span></div>
+            <span class="due near">到期 04-19</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 2/4</span>
+              <span class="bit">💬 3</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A3 · 授信</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P03</span></span>
+          </div>
+          <div class="card-title">航天精工 · 授信评分复核</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">模型</span><span class="v">对公 v3.1</span></span>
+            <span class="meta-chip"><span class="k">分数</span><span class="v">82.3</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">李</span></div>
+            <span class="due near">到期 04-18</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 4/6</span>
+              <span class="bit">💬 5</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Dragging ghost -->
+        <article class="card dragging">
+          <div class="card-top">
+            <span class="src-badge ai">A4 · 预警</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P02</span></span>
+          </div>
+          <div class="card-title">预警客户 X-007 · 现场核查</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">信号</span><span class="v">司法异常 ×2</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">王</span></div>
+            <span class="due overdue">到期 04-17 · 今日</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 1/3</span>
+              <span class="bit">💬 8</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A2 · 风控</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P05</span></span>
+          </div>
+          <div class="card-title">风控 DSL 规则 v2 · 调试与回测</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">KS</span><span class="v">0.42</span></span>
+            <span class="meta-chip"><span class="k">通过率</span><span class="v">71%</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">周</span></div>
+            <span class="due">到期 04-20</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 2/5</span>
+              <span class="bit">💬 2</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ─── Column 3 · Blocked ─── -->
+    <section class="kanban-col">
+      <header class="col-header accent-danger">
+        <span class="col-title">阻塞</span>
+        <span class="col-sub">BLOCKED</span>
+        <span class="col-count">2</span>
+        <button class="col-add">+ 添加</button>
+      </header>
+      <div class="col-body">
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A5 · 合规</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P03</span></span>
+          </div>
+          <div class="card-title">××企业 · 合规红线待确认</div>
+          <div class="blocker-note">
+            <span class="dot"></span>
+            <span>等待企查查资料回传 · 已催办 2 次</span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">王</span></div>
+            <span class="due overdue">到期 04-16 · 逾期</span>
+            <div class="card-meta-right">
+              <span class="bit">☐ 1/4</span>
+              <span class="bit">💬 11</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-top">
+            <span class="src-badge ai">A3 · 授信</span>
+            <span class="card-right-top"><span class="prio-dot high"></span><span class="prio-label">P02</span></span>
+          </div>
+          <div class="card-title">大客户 X-001 · 授信评审</div>
+          <div class="blocker-note">
+            <span class="dot"></span>
+            <span>等待审贷会排期 · 张主任审批中</span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm me">野</span><span class="av-sm">李</span></div>
+            <span class="due">到期 04-23</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 3/4</span>
+              <span class="bit">💬 6</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ─── Column 4 · Done ─── -->
+    <section class="kanban-col">
+      <header class="col-header accent-info">
+        <span class="col-title">完成</span>
+        <span class="col-sub">DONE</span>
+        <span class="col-count">12</span>
+        <button class="col-add">+ 添加</button>
+      </header>
+      <div class="col-body">
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge human">人工</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P11</span></span>
+          </div>
+          <div class="card-title">Q1 获客报告 · 提交信贷一部</div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm me">野</span></div>
+            <span class="due done">完成 04-15</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 5/5</span>
+              <span class="bit">💬 9</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge ai">A1 · 获客</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P12</span></span>
+          </div>
+          <div class="card-title">建华精密 · 简报导出</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">交付</span><span class="v">Word 已下发</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">李</span></div>
+            <span class="due done">完成 04-14</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 3/3</span>
+              <span class="bit">💬 2</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge ai">A5 · 合规</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P07</span></span>
+          </div>
+          <div class="card-title">东方航空 · 合规巡查</div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">王</span></div>
+            <span class="due done">完成 04-13</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 6/6</span>
+              <span class="bit">💬 4</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge ai">A6 · 报告</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P13</span></span>
+          </div>
+          <div class="card-title">苏州创联电子 · 信贷报告初稿</div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">陈</span></div>
+            <span class="due done">完成 04-12</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 8/8</span>
+              <span class="bit">💬 3</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge human">人工</span>
+            <span class="card-right-top"><span class="prio-dot low"></span><span class="prio-label">P14</span></span>
+          </div>
+          <div class="card-title">周会资料准备</div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm me">野</span></div>
+            <span class="due done">完成 04-11</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 2/2</span>
+              <span class="bit">💬 0</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="card done-card">
+          <div class="card-top">
+            <span class="src-badge ai">A3 · 授信</span>
+            <span class="card-right-top"><span class="prio-dot med"></span><span class="prio-label">P08</span></span>
+          </div>
+          <div class="card-title">杭州致远机电 · 授信通过</div>
+          <div class="meta-chips">
+            <span class="meta-chip"><span class="k">额度</span><span class="v">¥800w</span></span>
+          </div>
+          <div class="card-bottom">
+            <div class="avatar-stack"><span class="av-sm">李</span><span class="av-sm">王</span></div>
+            <span class="due done">完成 04-10</span>
+            <div class="card-meta-right">
+              <span class="bit done-check">☑ 7/7</span>
+              <span class="bit">💬 6</span>
+            </div>
+          </div>
+        </article>
+
+        <div class="see-more">查看更多 6 条 →</div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ═════════════ RIGHT RAIL · Task Detail ═════════════ -->
+<aside class="right-rail">
+  <div class="rr-breadcrumb">任务看板 / <b>进行中</b> / <span class="id">#TASK-237</span></div>
+  <h2 class="rr-title">宁波精诚精密 · 客户首次接触</h2>
+  <div class="rr-status-row">
+    <span class="status-pill progress"><span class="dot"></span> 进行中</span>
+    <span class="status-pill prio"><span class="dot"></span> P01 · 高</span>
+  </div>
+
+  <div class="meta-list">
+    <div class="mr">
+      <div class="mk">经办人</div>
+      <div class="mv"><span class="av-sm me">野</span> 刘野</div>
+    </div>
+    <div class="mr">
+      <div class="mk">协作</div>
+      <div class="mv">
+        <span class="av-sm">李</span> 李四
+        <span style="color:var(--text4); margin: 0 2px;">·</span>
+        <span class="av-sm">王</span> 王组长
+      </div>
+    </div>
+    <div class="mr">
+      <div class="mk">创建</div>
+      <div class="mv mono">张主任 · 2026-04-15</div>
+    </div>
+    <div class="mr">
+      <div class="mk">来源</div>
+      <div class="mv">
+        <span class="src-badge ai">A1 · 获客</span>
+        <span class="link-inline">查看原始简报 →</span>
+      </div>
+    </div>
+    <div class="mr">
+      <div class="mk">到期</div>
+      <div class="mv mono" style="color: var(--human);">2026-04-19 · 2 天后</div>
+    </div>
+    <div class="mr">
+      <div class="mk">客户</div>
+      <div class="mv">宁波精诚精密零部件有限公司</div>
+    </div>
+  </div>
+
+  <hr class="rr-divider">
+
+  <div class="rr-section-title">任务描述</div>
+  <div class="desc-block">
+    根据 A1 获客 AI 召回的信号，准备首次客户接触：
+    <ul>
+      <li>联系人：技术总监 陈先生（135****8821）</li>
+      <li>切入点：近期获江苏科技厅专精特新奖</li>
+      <li>期望：首次沟通后 7 天内拉起授信评审</li>
+    </ul>
+  </div>
+
+  <hr class="rr-divider">
+
+  <div class="rr-section-title">任务清单 · 2/4</div>
+  <div>
+    <div class="checklist-row done"><span class="cb">✓</span><span class="txt">导出企业简报 (A1 生成)</span><span class="meta">04-15</span></div>
+    <div class="checklist-row done"><span class="cb">✓</span><span class="txt">准备切入话术 (by A1)</span><span class="meta">04-16</span></div>
+    <div class="checklist-row"><span class="cb"></span><span class="txt">电话约访陈总监</span><span class="meta">04-18 · 明天</span></div>
+    <div class="checklist-row"><span class="cb"></span><span class="txt">拉起审贷会 thread</span><span class="meta">04-19</span></div>
+  </div>
+
+  <hr class="rr-divider">
+
+  <div class="rr-section-title">附件 · 2</div>
+  <div>
+    <div class="attach-row">
+      <span class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+      <span class="n">宁波精诚精密·简报.docx</span>
+      <span class="from">A1</span>
+      <span class="dl" title="下载">↓</span>
+    </div>
+    <div class="attach-row">
+      <span class="ico" style="color: var(--human);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+      <span class="n">切入话术草稿.md</span>
+      <span class="from">人工</span>
+      <span class="dl" title="下载">↓</span>
+    </div>
+  </div>
+
+  <hr class="rr-divider">
+
+  <div class="rr-section-title">活动</div>
+  <div class="activity">
+    <div class="ev human"><span class="t">09:45</span><b>李四</b> 在 thread 回复："资质齐全，可接"</div>
+    <div class="ev ai"><span class="t">09:43</span><b>A1 获客</b> 生成简报 <a href="#">查看 →</a></div>
+    <div class="ev human"><span class="t">09:42</span><b>张主任</b> 发起任务并指派给 <b>刘野</b></div>
+    <div class="ev"><span class="t">09:40</span>A1 基于画像召回候选企业 ×23</div>
+  </div>
+
+  <hr class="rr-divider">
+
+  <!-- ═════ Action stack ═════ -->
+  <div class="action-stack">
+
+    <div class="action-block">
+      <div class="action-block-label">PRIMARY</div>
+      <div class="action-row">
+        <button class="btn-primary-lg">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          标记完成
+        </button>
+      </div>
+    </div>
+
+    <div class="action-block">
+      <div class="action-block-label">管理</div>
+      <div class="action-row">
+        <button class="btn btn-outline">编辑</button>
+        <button class="btn btn-outline">移动到…</button>
+        <button class="btn btn-outline">归档</button>
+        <button class="btn btn-outline">导出 PDF</button>
+      </div>
+    </div>
+
+    <div class="action-block">
+      <div class="action-block-label">协作</div>
+      <div class="action-row">
+        <button class="btn-ghost-mini">+ 协作者</button>
+        <button class="btn-ghost-mini">↗ 转发到频道</button>
+      </div>
+      <div class="action-row" style="margin-top: 4px;">
+        <button class="btn-ghost-ai">@A3 发起授信评估</button>
+        <button class="btn-ghost-ai">@A5 合规审查</button>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- ═════════════ MINIPLAYER ═════════════ -->
+<footer class="miniplayer">
+  <div class="mp-left">
+    <span class="mp-tag">A1 · 已完成</span>
+    <span class="mp-title"><b>宁波精诚精密</b> · 简报生成 · 证据链已闭环 · 产出 1 份 Word + 14 条信号</span>
+  </div>
+  <span class="mp-meta">14:32 · 用时 1m 48s</span>
+  <div class="mp-progress"><div class="bar"></div></div>
+  <div class="mp-actions">
+    <button class="mp-icon-btn" title="上一条">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <button class="mp-icon-btn" title="详情">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    </button>
+    <button class="mp-icon-btn" title="关闭">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+</footer>
+
+</body>
+</html>

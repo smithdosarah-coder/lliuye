@@ -1,0 +1,268 @@
+/* ================================================================
+   《中厅 Atrium》— Unified Banking AI Collaboration Platform
+   Design Tokens · v0.1
+   Quiet precision with cinematic moments
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* ─── Surfaces (graphite warmed, not pure black) ─── */
+  --bg:        #0B0E12;
+  --surface1:  #11151B;    /* top bar, rail */
+  --surface2:  #171C24;    /* card */
+  --surface3:  #1F2530;    /* input, elevated card */
+  --surface4:  #2A313D;    /* hover */
+
+  /* ─── Borders ─── */
+  --border:          rgba(255, 255, 255, 0.06);
+  --border-visible:  rgba(255, 255, 255, 0.12);
+  --border-strong:   rgba(255, 255, 255, 0.18);
+  --border-ai:       rgba(91, 227, 182, 0.28);
+  --border-human:    rgba(232, 181, 107, 0.28);
+
+  /* ─── Text ─── */
+  --text1:  #F5F2EA;   /* headings, primary */
+  --text2:  #B8B2A6;   /* body, secondary */
+  --text3:  #7A7669;   /* muted, timestamps */
+  --text4:  #4D4B44;   /* disabled, dividers-in-text */
+
+  /* ─── Accents ─── */
+  /* AI / signals / progress — aurora green (not cliché purple) */
+  --ai:           #5BE3B6;
+  --ai-dim:       #3FA887;
+  --ai-subtle:    rgba(91, 227, 182, 0.12);
+  --ai-glow:      rgba(91, 227, 182, 0.35);
+
+  /* Humans / presence / you — warm amber */
+  --human:        #E8B56B;
+  --human-dim:    #B08848;
+  --human-subtle: rgba(232, 181, 107, 0.12);
+
+  /* Semantic */
+  --danger:   #D7534A;
+  --danger-subtle: rgba(215, 83, 74, 0.14);
+  --warning:  #E8B56B;
+  --success:  #5BE3B6;
+  --info:     #A394C7;
+  --info-subtle: rgba(163, 148, 199, 0.14);
+
+  /* Agent temperature tints (subtle, applied to canvas bg) */
+  --temp-a1:  rgba(232, 181, 107, 0.025);   /* 获客 · warm */
+  --temp-a2:  rgba(163, 148, 199, 0.025);   /* 风控 · purple */
+  --temp-a3:  rgba(255, 255, 255, 0.015);   /* 授信 · neutral */
+  --temp-a4:  rgba(215, 83, 74, 0.025);     /* 预警 · red */
+  --temp-a5:  rgba(91, 227, 182, 0.02);     /* 合规 · green cool */
+  --temp-a6:  rgba(255, 255, 255, 0.02);    /* 报告 · neutral */
+
+  /* ─── Typography ─── */
+  --font-display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  --font-body:    'Geist', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+  /* Type scale */
+  --t-display:  clamp(40px, 6vw, 64px);   /* hero */
+  --t-h1:       clamp(28px, 3.5vw, 36px);
+  --t-h2:       22px;
+  --t-h3:       17px;
+  --t-body:     14px;
+  --t-sm:       13px;
+  --t-caption:  12px;
+  --t-eyebrow:  11px;
+
+  /* ─── Radii ─── */
+  --r-xs: 3px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  /* ─── Spacing (8px grid) ─── */
+  --s-0: 0;
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  /* ─── Motion ─── */
+  --ease:        cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-sharp:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --d-fast:      180ms;
+  --d-base:      240ms;
+  --d-slow:      400ms;
+  --d-cinema:    600ms;
+
+  /* ─── Shadows ─── */
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg:  0 24px 60px -16px rgba(0, 0, 0, 0.7);
+  --shadow-xl:  0 40px 100px -24px rgba(0, 0, 0, 0.8);
+  --shadow-ai:  0 0 32px var(--ai-glow);
+
+  /* ─── Layout ─── */
+  --topbar-h:    52px;
+  --leftrail-w:  240px;
+  --rightrail-w: 340px;
+  --miniplayer-h: 44px;
+}
+
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+html {
+  color-scheme: dark;
+  font-feature-settings: "ss01", "cv11", "cv02";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text1);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  letter-spacing: -0.002em;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection { background: var(--ai-subtle); color: var(--ai); }
+
+/* ─── Global noise texture (extremely subtle) ─── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+/* ─── Typography utilities ─── */
+.t-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+.t-display-italic { font-family: var(--font-display); font-style: italic; font-weight: 400; letter-spacing: -0.005em; }
+.t-mono { font-family: var(--font-mono); font-feature-settings: "tnum", "zero"; }
+.t-eyebrow { font-family: var(--font-mono); font-size: var(--t-eyebrow); letter-spacing: 0.2em; text-transform: uppercase; color: var(--text3); }
+
+/* ─── Scrollbar ─── */
+* { scrollbar-width: thin; scrollbar-color: var(--border-visible) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-visible); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ─── Common animations ─── */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.08); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes drift {
+  0% { transform: translateY(100vh); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-10vh); opacity: 0; }
+}
+@keyframes pulse-line {
+  0%, 100% { opacity: 0.3; transform: scaleX(0.3); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+
+/* ─── Common components ─── */
+.dot-live {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ai);
+  box-shadow: 0 0 8px var(--ai-glow);
+  animation: breathe 2s var(--ease) infinite;
+}
+.dot-human {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--human);
+  box-shadow: 0 0 8px rgba(232, 181, 107, 0.4);
+}
+
+.hairline { height: 1px; background: var(--border-visible); border: 0; }
+.hairline-ai {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ai), transparent);
+  border: 0;
+}
+
+.btn-primary {
+  font-family: var(--font-body);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: #0B0E12;
+  background: var(--ai);
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: all var(--d-fast) var(--ease);
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover {
+  background: #7EEFC9;
+  box-shadow: 0 0 24px var(--ai-glow);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-ghost {
+  font-family: var(--font-body);
+  font-size: var(--t-sm);
+  color: var(--text2);
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  border-radius: var(--r-md);
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: all var(--d-fast) var(--ease);
+}
+.btn-ghost:hover {
+  background: var(--surface3);
+  color: var(--text1);
+  border-color: var(--border-strong);
+}
+
+/* Tag / pill */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.04em;
+}
+.tag-ai { background: var(--ai-subtle); color: var(--ai); border: 1px solid var(--border-ai); }
+.tag-human { background: var(--human-subtle); color: var(--human); border: 1px solid var(--border-human); }
+.tag-danger { background: var(--danger-subtle); color: var(--danger); }
+.tag-info { background: var(--info-subtle); color: var(--info); }
+.tag-muted { background: var(--surface3); color: var(--text3); }

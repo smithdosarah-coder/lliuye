@@ -1,0 +1,1458 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="ink">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>中厅 Atrium · # 审贷会-002</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ================================================================
+     IM CHANNEL · Slack-style with AI agents as native members
+     Shell shared with shell.html (TopBar + LeftRail + MiniPlayer)
+     ================================================================ */
+
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--bg); color: var(--text1); }
+
+  /* ─────────────────────────────  TOP BAR  ───────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: var(--topbar-h);
+    background: var(--surface1);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 20px;
+    z-index: 100;
+    gap: 20px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .topbar-brand {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--text1);
+    letter-spacing: -0.01em;
+  }
+  .topbar-sep { color: var(--text4); margin: 0 6px; font-size: 12px; }
+  .topbar-org {
+    font-size: 13px; color: var(--text2);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .topbar-org:hover { color: var(--text1); cursor: pointer; }
+  .topbar-org .chev { font-size: 10px; color: var(--text3); }
+
+  .topbar-center { flex: 1; display: flex; justify-content: center; }
+  .cmdk {
+    width: 360px;
+    height: 30px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    font-size: 12.5px;
+    color: var(--text3);
+    gap: 10px;
+    cursor: text;
+    transition: border-color var(--d-fast) var(--ease);
+  }
+  .cmdk:hover { border-color: var(--border-visible); }
+  .cmdk-ph { flex: 1; }
+  .cmdk-kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border: 1px solid var(--border-visible);
+    border-radius: var(--r-xs);
+    color: var(--text3);
+    background: rgba(0,0,0,0.2);
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .bell {
+    position: relative;
+    font-size: 16px; color: var(--text2);
+    cursor: pointer;
+    transition: color var(--d-fast) var(--ease);
+  }
+  .bell:hover { color: var(--text1); }
+  .bell-badge {
+    position: absolute; top: -4px; right: -6px;
+    min-width: 14px; height: 14px; padding: 0 3px;
+    border-radius: var(--r-pill);
+    background: var(--danger);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+  }
+  .avatar-me {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--human), var(--human-dim));
+    color: #0B0E12;
+    font-family: var(--font-display);
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .avatar-me .dot-human {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 9px; height: 9px;
+    border: 2px solid var(--surface1);
+  }
+
+  /* ─────────────────────────────  LEFT RAIL  ────────────────────────── */
+  .leftrail {
+    position: fixed;
+    top: var(--topbar-h); bottom: 0; left: 0;
+    width: var(--leftrail-w);
+    background: var(--surface1);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 90;
+    display: flex; flex-direction: column;
+  }
+  .leftrail-inner { padding: 14px 10px 80px; flex: 1; }
+
+  .jump {
+    width: 100%;
+    height: 30px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--font-body);
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .jump::placeholder { color: var(--text3); }
+  .jump:focus { border-color: var(--border-visible); background: var(--surface4); }
+
+  .rail-section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 14px 10px 6px;
+  }
+
+  .rail-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px;
+    margin: 1px 0;
+    border-radius: var(--r-sm);
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+    position: relative;
+    border-left: 2px solid transparent;
+  }
+  .rail-row:hover { background: var(--surface2); color: var(--text1); }
+  .rail-row.active {
+    background: var(--surface3);
+    color: var(--text1);
+    border-left-color: var(--ai);
+    font-weight: 500;
+  }
+  .rail-row .ic { font-size: 13px; width: 14px; text-align: center; opacity: 0.85; }
+  .rail-row .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rail-row .mini-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .rail-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: var(--r-pill);
+    background: var(--surface3);
+    color: var(--text3);
+  }
+  .rail-badge.ai { background: var(--ai-subtle); color: var(--ai); }
+  .rail-badge.danger { background: var(--danger-subtle); color: var(--danger); }
+
+  .dot-amber { background: var(--human); box-shadow: 0 0 6px rgba(232,181,107,0.4); }
+  .dot-purple { background: var(--info); box-shadow: 0 0 6px rgba(163,148,199,0.4); }
+  .dot-red { background: var(--danger); box-shadow: 0 0 6px rgba(215,83,74,0.4); }
+  .dot-green { background: var(--ai); box-shadow: 0 0 6px var(--ai-glow); }
+  .dot-neutral { background: var(--text3); }
+
+  .rail-pin {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 56px;
+    padding: 0 16px;
+    background: var(--surface1);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .rail-pin .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--human), var(--human-dim));
+    color: #0B0E12;
+    font-family: var(--font-display);
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .rail-pin .av .dot-human {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 8px; height: 8px;
+    border: 2px solid var(--surface1);
+  }
+  .rail-pin .who { flex: 1; min-width: 0; }
+  .rail-pin .name { font-size: 12.5px; color: var(--text1); font-weight: 500; }
+  .rail-pin .role { font-size: 10.5px; color: var(--text3); }
+
+  /* ─────────────────────────────  MINIPLAYER  ───────────────────────── */
+  .miniplayer {
+    position: fixed; bottom: 0;
+    left: var(--leftrail-w); right: var(--rightrail-w);
+    height: var(--miniplayer-h);
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    z-index: 80;
+  }
+  .mini-left { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text2); }
+  .mini-progress-wrap { flex: 1; display: flex; align-items: center; gap: 10px; }
+  .mini-progress {
+    flex: 1; height: 3px;
+    background: var(--surface4);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+  .mini-progress .bar {
+    height: 100%; width: 60%;
+    background: linear-gradient(90deg, var(--ai-dim), var(--ai));
+    box-shadow: 0 0 12px var(--ai-glow);
+    border-radius: inherit;
+  }
+  .mini-time { font-family: var(--font-mono); font-size: 11.5px; color: var(--text3); }
+  .mini-ctrls { display: flex; gap: 14px; color: var(--text2); font-size: 13px; }
+  .mini-ctrls span { cursor: pointer; transition: color var(--d-fast) var(--ease); }
+  .mini-ctrls span:hover { color: var(--text1); }
+
+  /* ─────────────────────────────  CANVAS  ───────────────────────────── */
+  .canvas {
+    position: fixed;
+    top: var(--topbar-h);
+    left: var(--leftrail-w);
+    right: var(--rightrail-w);
+    bottom: var(--miniplayer-h);
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* channel header */
+  .ch-header {
+    height: 56px;
+    flex-shrink: 0;
+    background: var(--surface1);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 24px;
+    gap: 18px;
+  }
+  .ch-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--text1);
+    letter-spacing: -0.005em;
+  }
+  .ch-hair {
+    width: 28px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ai), transparent);
+    opacity: 0.7;
+  }
+  .ch-meta { font-size: 12px; color: var(--text3); }
+  .ch-members {
+    display: flex;
+    margin-left: 6px;
+  }
+  .ch-members .m {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid var(--surface1);
+    margin-left: -6px;
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text1);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ch-members .m:first-child { margin-left: 0; }
+  .ch-members .m.h1 { background: linear-gradient(135deg, #E8B56B, #B08848); color: #0B0E12; }
+  .ch-members .m.h2 { background: linear-gradient(135deg, #A394C7, #6E6388); color: #0B0E12; }
+  .ch-members .m.h3 { background: linear-gradient(135deg, #7A9EA8, #4A6770); }
+  .ch-members .m.h4 { background: linear-gradient(135deg, #D7534A, #8E3A34); }
+  .ch-members .m.ai1 { background: linear-gradient(135deg, #5BE3B6, #3FA887); color: #0B0E12; font-family: var(--font-display); }
+  .ch-members .m.ai2 { background: linear-gradient(135deg, #3FA887, #2D7A61); color: #0B0E12; font-family: var(--font-display); }
+
+  .ch-actions { margin-left: auto; display: flex; gap: 4px; color: var(--text2); }
+  .ch-icon-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+  }
+  .ch-icon-btn:hover { background: var(--surface3); color: var(--text1); }
+
+  /* message list */
+  .msg-list {
+    flex: 1; overflow-y: auto;
+    padding: 24px 32px 16px;
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+
+  .msg {
+    display: flex; gap: 12px;
+    padding: 8px 12px;
+    margin: -8px -12px;
+    border-radius: var(--r-md);
+    transition: background var(--d-fast) var(--ease);
+    position: relative;
+    animation: fadeInUp 240ms var(--ease) both;
+  }
+  .msg:hover { background: rgba(255,255,255,0.015); }
+  .msg:hover .msg-hover-actions { opacity: 1; }
+
+  .msg-hover-actions {
+    position: absolute;
+    top: -10px; right: 16px;
+    display: flex;
+    background: var(--surface3);
+    border: 1px solid var(--border-visible);
+    border-radius: var(--r-sm);
+    padding: 2px;
+    opacity: 0;
+    transition: opacity var(--d-fast) var(--ease);
+  }
+  .msg-hover-actions .hab {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border-radius: var(--r-xs);
+  }
+  .msg-hover-actions .hab:hover { background: var(--surface4); color: var(--text1); }
+
+  /* avatars */
+  .av-h {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    color: #0B0E12;
+    flex-shrink: 0;
+  }
+  .av-h.amber { background: linear-gradient(135deg, var(--human), var(--human-dim)); }
+  .av-h.plum { background: linear-gradient(135deg, #A394C7, #6E6388); }
+  .av-h.steel { background: linear-gradient(135deg, #7A9EA8, #4A6770); color: var(--text1); }
+
+  .av-ai {
+    width: 36px; height: 36px;
+    border-radius: var(--r-md);
+    flex-shrink: 0;
+    position: relative;
+    background: linear-gradient(135deg, rgba(91,227,182,0.25), rgba(91,227,182,0.08));
+    border: 1px solid var(--border-ai);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 15px;
+    color: var(--ai);
+    box-shadow: 0 0 0 0 var(--ai-glow);
+  }
+  .av-ai::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 10px;
+    border: 1px solid rgba(91,227,182,0.3);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .av-ai .dot-live {
+    position: absolute;
+    top: -2px; right: -2px;
+    width: 8px; height: 8px;
+    border: 2px solid var(--bg);
+  }
+
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-head {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 4px;
+  }
+  .msg-name {
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text1);
+    letter-spacing: -0.005em;
+  }
+  .msg-name.ai {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 16px;
+    color: var(--text1);
+    letter-spacing: -0.01em;
+  }
+  .role-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: var(--r-pill);
+    letter-spacing: 0.06em;
+  }
+  .msg-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+  .msg-text {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text1);
+    word-wrap: break-word;
+  }
+  .msg-text p { margin: 0; }
+  .msg-text p + p { margin-top: 6px; }
+
+  /* inline @mention pill */
+  .mention {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: var(--ai-subtle);
+    color: var(--ai);
+    border: 1px solid var(--border-ai);
+    letter-spacing: 0.01em;
+  }
+  .mention::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--ai);
+    box-shadow: 0 0 6px var(--ai-glow);
+  }
+  .mention.human {
+    background: var(--human-subtle);
+    color: var(--human);
+    border-color: var(--border-human);
+  }
+  .mention.human::before { background: var(--human); box-shadow: 0 0 6px rgba(232,181,107,0.4); }
+
+  /* reactions row */
+  .reactions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .reaction {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 3px 9px;
+    border-radius: var(--r-pill);
+    background: var(--surface3);
+    color: var(--text2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease);
+  }
+  .reaction:hover { border-color: var(--border-visible); }
+  .reaction:active { transform: scale(1.1); }
+  .reaction .em { font-size: 13px; }
+
+  /* dossier / score cards embedded in message */
+  .card-embed {
+    margin-top: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border-visible);
+    border-radius: var(--r-lg);
+    padding: 20px 22px;
+    max-width: 640px;
+  }
+  .card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .card-title-row {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 10px;
+  }
+  .card-rank {
+    font-family: var(--font-display);
+    font-size: 32px;
+    color: var(--human);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 19px;
+    color: var(--text1);
+    letter-spacing: -0.005em;
+  }
+  .card-lede {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--text2);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .card-actions {
+    display: flex; gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .card-actions .btn-ghost {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .card-actions .sep { color: var(--text4); align-self: center; font-size: 11px; }
+
+  /* score card */
+  .score-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--text1);
+    margin-bottom: 14px;
+    letter-spacing: -0.005em;
+  }
+  .score-title .big {
+    font-size: 34px;
+    color: var(--ai);
+    margin-left: 6px;
+    letter-spacing: -0.02em;
+  }
+  .score-title .total {
+    font-size: 14px;
+    color: var(--text3);
+    font-family: var(--font-mono);
+  }
+
+  .score-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .score-bar { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .score-bar .lbl { width: 90px; color: var(--text2); flex-shrink: 0; }
+  .score-bar .track {
+    flex: 1; height: 6px;
+    background: var(--surface4);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+    position: relative;
+  }
+  .score-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ai-dim), var(--ai));
+    border-radius: inherit;
+    box-shadow: 0 0 8px var(--ai-glow);
+    width: 0;
+    animation: fillBar 800ms var(--ease) 120ms forwards;
+  }
+  @keyframes fillBar { to { width: var(--w); } }
+  .score-bar .val {
+    width: 52px; text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text2);
+    flex-shrink: 0;
+  }
+
+  .redline-row {
+    display: flex; flex-wrap: wrap; gap: 8px 16px;
+    padding: 10px 12px;
+    background: var(--surface3);
+    border-radius: var(--r-md);
+    margin-bottom: 12px;
+    font-size: 12.5px;
+  }
+  .redline-row .chk { color: var(--ai); font-family: var(--font-mono); }
+  .redline-row .flag { color: var(--warning); font-family: var(--font-mono); }
+  .redline-row .txt { color: var(--text2); margin-left: 4px; }
+
+  .recommend {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--text1);
+    line-height: 1.55;
+    padding: 12px 14px;
+    border-left: 2px solid var(--ai);
+    background: var(--ai-subtle);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    margin-bottom: 14px;
+  }
+
+  /* AI thinking dots */
+  .thinking {
+    display: inline-flex; align-items: center; gap: 10px;
+    margin-top: 4px;
+  }
+  .thinking-dots {
+    display: inline-flex; gap: 4px;
+  }
+  .thinking-dots span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ai);
+    box-shadow: 0 0 6px var(--ai-glow);
+    animation: breathe 1.4s var(--ease) infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+  .thinking-caption {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.02em;
+  }
+
+  /* AI message arrival: aurora ring pulse once */
+  .msg.ai-msg .av-ai {
+    animation: aiArrive 1200ms var(--ease) 1;
+  }
+  @keyframes aiArrive {
+    0% { box-shadow: 0 0 0 0 var(--ai-glow); }
+    50% { box-shadow: 0 0 0 8px rgba(91,227,182,0); }
+    100% { box-shadow: 0 0 0 0 rgba(91,227,182,0); }
+  }
+
+  /* composer */
+  .composer {
+    flex-shrink: 0;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 12px 24px 14px;
+  }
+  .composer-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+  .composer-hint .k { color: var(--text2); }
+  .composer-input {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text2);
+    min-height: 22px;
+    cursor: text;
+    transition: border-color var(--d-fast) var(--ease);
+  }
+  .composer-input:hover { border-color: var(--border-visible); }
+  .composer-input:focus-within { border-color: var(--border-ai); }
+  .composer-toolbar {
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 8px;
+  }
+  .composer-toolbar .tb-ic {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm);
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background var(--d-fast) var(--ease), color var(--d-fast) var(--ease);
+  }
+  .composer-toolbar .tb-ic:hover { background: var(--surface3); color: var(--text1); }
+  .composer-toolbar .spacer { flex: 1; }
+  .composer-send {
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: #0B0E12;
+    background: var(--ai);
+    border: 0;
+    border-radius: var(--r-md);
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all var(--d-fast) var(--ease);
+  }
+  .composer-send:hover { background: #7EEFC9; box-shadow: 0 0 20px var(--ai-glow); }
+
+  /* ─────────────────────────────  RIGHT RAIL / THREAD  ───────────────── */
+  .rightrail {
+    position: fixed;
+    top: var(--topbar-h); bottom: 0; right: 0;
+    width: var(--rightrail-w);
+    background: var(--surface1);
+    border-left: 1px solid var(--border);
+    z-index: 70;
+    display: flex; flex-direction: column;
+  }
+  .thread-header {
+    height: 48px;
+    flex-shrink: 0;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .thread-header .title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    color: var(--text1);
+  }
+  .thread-header .sub {
+    font-size: 11.5px;
+    color: var(--text3);
+  }
+  .thread-close {
+    margin-left: auto;
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm);
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .thread-close:hover { background: var(--surface3); color: var(--text1); }
+
+  .thread-body {
+    flex: 1; overflow-y: auto;
+    padding: 14px 16px;
+  }
+
+  .thread-parent {
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--ai);
+    border-radius: var(--r-md);
+    margin-bottom: 10px;
+  }
+  .thread-parent-head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 4px;
+  }
+  .thread-parent .av-mini {
+    width: 22px; height: 22px;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, rgba(91,227,182,0.25), rgba(91,227,182,0.08));
+    border: 1px solid var(--border-ai);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--ai);
+    flex-shrink: 0;
+  }
+  .thread-parent .nm {
+    font-family: var(--font-display);
+    font-size: 14px;
+    color: var(--text1);
+  }
+  .thread-parent .ts {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+  .thread-parent .excerpt {
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.5;
+  }
+  .thread-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 12px 0 8px;
+  }
+  .thread-divider .line { flex: 1; height: 1px; background: var(--border); }
+  .thread-divider .n {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .thread-reply {
+    display: flex; gap: 10px;
+    padding: 8px 0;
+  }
+  .thread-reply .av-t {
+    width: 26px; height: 26px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  .thread-reply .av-t.ai {
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, rgba(91,227,182,0.25), rgba(91,227,182,0.08));
+    border: 1px solid var(--border-ai);
+    color: var(--ai);
+    font-family: var(--font-display);
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thread-reply .av-t.human {
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--human), var(--human-dim));
+    color: #0B0E12;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thread-reply .bd { flex: 1; min-width: 0; }
+  .thread-reply .hd {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 2px;
+  }
+  .thread-reply .nm { font-size: 12.5px; color: var(--text1); font-weight: 500; }
+  .thread-reply .nm.ai { font-family: var(--font-display); font-weight: 400; font-size: 14px; }
+  .thread-reply .ts { font-family: var(--font-mono); font-size: 10.5px; color: var(--text3); }
+  .thread-reply .tx {
+    font-size: 13px;
+    color: var(--text1);
+    line-height: 1.55;
+  }
+  .thread-reply .trail {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: var(--r-pill);
+    background: var(--surface3);
+    color: var(--text3);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+
+  .thread-composer {
+    flex-shrink: 0;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px 14px;
+  }
+  .thread-composer-input {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 8px 12px;
+  }
+  .thread-composer-input input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: var(--text1);
+    font-family: var(--font-body);
+    font-size: 13px;
+  }
+  .thread-composer-input input::placeholder { color: var(--text3); }
+  .thread-send {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm);
+    background: var(--ai-subtle);
+    color: var(--ai);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .thread-send:hover { background: var(--ai); color: #0B0E12; }
+  .thread-toggle {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text3);
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+  .thread-toggle input { accent-color: var(--ai); margin: 0; }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    :root { --rightrail-w: 0px; }
+    .rightrail { display: none; }
+    .miniplayer { right: 0; }
+    .canvas { right: 0; }
+  }
+  @media (max-width: 768px) {
+    :root { --leftrail-w: 0px; }
+    .leftrail { display: none; }
+    .canvas, .miniplayer { left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────────────── TOP BAR ─────────────────── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">乾策</span>
+    <span class="dot-live"></span>
+    <span class="topbar-sep">·</span>
+    <span class="topbar-org">众安银行 / 宁波分行 <span class="chev">▾</span></span>
+  </div>
+  <div class="topbar-center">
+    <div class="cmdk">
+      <span>⌘</span>
+      <span class="cmdk-ph">搜索企业 · 任务 · 消息 · 报告...</span>
+      <span class="cmdk-kbd">⌘K</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="bell">
+      🔔
+      <span class="bell-badge">3</span>
+    </div>
+    <div class="avatar-me">刘<span class="dot-human"></span></div>
+  </div>
+</div>
+
+<!-- ─────────────────── LEFT RAIL ─────────────────── -->
+<aside class="leftrail">
+  <div class="leftrail-inner">
+    <input class="jump" placeholder="快速跳转 · 频道 / 人 / 任务" />
+
+    <div class="rail-row">
+      <span class="ic">🏠</span>
+      <span class="label">工作台</span>
+      <span class="rail-badge ai">3</span>
+    </div>
+
+    <div class="rail-section-label">AI 矩阵 · AGENTS</div>
+
+    <div class="rail-row">
+      <span class="ic">◐</span>
+      <span class="mini-dot dot-amber"></span>
+      <span class="label">A1 · 获客</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">◐</span>
+      <span class="mini-dot dot-purple"></span>
+      <span class="label">A2 · 风控</span>
+      <span class="rail-badge">12</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">◉</span>
+      <span class="mini-dot dot-green"></span>
+      <span class="label">A3 · 授信</span>
+      <span class="rail-badge ai">●</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">◐</span>
+      <span class="mini-dot dot-red"></span>
+      <span class="label">A4 · 预警</span>
+      <span class="rail-badge danger">2</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">◐</span>
+      <span class="mini-dot dot-green"></span>
+      <span class="label">A5 · 合规</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">◐</span>
+      <span class="mini-dot dot-neutral"></span>
+      <span class="label">A6 · 报告</span>
+      <span class="rail-badge">5</span>
+    </div>
+
+    <div class="rail-section-label">协作 · CHANNELS</div>
+
+    <div class="rail-row">
+      <span class="ic">#</span>
+      <span class="label">产品组</span>
+      <span class="mini-dot dot-amber"></span>
+    </div>
+    <div class="rail-row active">
+      <span class="ic">#</span>
+      <span class="label">审贷会-002</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">#</span>
+      <span class="label">合规速递</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">#</span>
+      <span class="label">宁波客户-001</span>
+    </div>
+
+    <div class="rail-section-label">直接消息 · DM</div>
+
+    <div class="rail-row">
+      <span class="ic">@</span>
+      <span class="label">李静 · 审贷员</span>
+      <span class="mini-dot dot-amber"></span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">@</span>
+      <span class="label">王建 · 合规官</span>
+    </div>
+
+    <div class="rail-section-label">任务 · TASKS</div>
+
+    <div class="rail-row">
+      <span class="ic">▤</span>
+      <span class="label">我的任务</span>
+      <span class="rail-badge">4</span>
+    </div>
+    <div class="rail-row">
+      <span class="ic">▤</span>
+      <span class="label">看板</span>
+    </div>
+  </div>
+
+  <div class="rail-pin">
+    <div class="av">刘<span class="dot-human"></span></div>
+    <div class="who">
+      <div class="name">刘野</div>
+      <div class="role">客户经理 · 宁波分行</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ─────────────────── CANVAS · CHANNEL ─────────────────── -->
+<main class="canvas">
+
+  <!-- channel header -->
+  <div class="ch-header">
+    <div class="ch-title"># 审贷会-002</div>
+    <div class="ch-hair"></div>
+    <div class="ch-meta">宁波分行 · 审贷会议 · 12 成员</div>
+    <div class="ch-members">
+      <div class="m h1">刘</div>
+      <div class="m h2">李</div>
+      <div class="m h4">王</div>
+      <div class="m ai1">A3</div>
+      <div class="m ai2">A5</div>
+      <div class="m h3">+7</div>
+    </div>
+    <div class="ch-actions">
+      <div class="ch-icon-btn" title="置顶消息">📌</div>
+      <div class="ch-icon-btn" title="频道内搜索">🔍</div>
+      <div class="ch-icon-btn" title="频道设置">⚙</div>
+      <div class="ch-icon-btn" title="成员列表">→</div>
+    </div>
+  </div>
+
+  <!-- message list -->
+  <div class="msg-list" id="msgList">
+
+    <!-- MSG 1 · 刘野 -->
+    <div class="msg">
+      <div class="av-h amber">刘</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name">刘野</span>
+          <span class="role-tag tag-human">客户经理</span>
+          <span class="msg-time">14:12</span>
+        </div>
+        <div class="msg-text">
+          <p>宁波精密零部件这家客户的授信申请我这边整理好了，挂的是 3 亿流贷额度，请各位过目。</p>
+        </div>
+        <div class="reactions">
+          <span class="reaction"><span class="em">👀</span>2</span>
+          <span class="reaction"><span class="em">✅</span>1</span>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 2 · 刘野 with brief card -->
+    <div class="msg">
+      <div class="av-h amber">刘</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name">刘野</span>
+          <span class="role-tag tag-human">客户经理</span>
+          <span class="msg-time">14:13</span>
+        </div>
+        <div class="msg-text">
+          <p>附上 A1 之前生成的客户简报：</p>
+        </div>
+
+        <div class="card-embed">
+          <div class="card-eyebrow">A1 · 获客生成 · 04·17 14:08</div>
+          <div class="card-title-row">
+            <div class="card-rank">01</div>
+            <div class="card-title">宁波精密零部件股份有限公司</div>
+          </div>
+          <div class="card-lede">近 90 天累积 5 条强信号，建议流动资金贷 + 设备按揭组合切入。</div>
+          <div class="chip-row">
+            <span class="tag tag-ai">专精特新 · 认定</span>
+            <span class="tag tag-ai">新增专利 · 3 项</span>
+            <span class="tag tag-ai">设备招标 · 8200 万</span>
+            <span class="tag tag-ai">政府补贴 · 入库</span>
+            <span class="tag tag-ai">外贸增长 · +42%</span>
+          </div>
+          <div class="card-actions">
+            <button class="btn-ghost">展开全文</button>
+            <span class="sep">·</span>
+            <button class="btn-ghost">→ 保存为任务</button>
+            <span class="sep">·</span>
+            <button class="btn-ghost">↗ 导出 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 3 · 李静 -->
+    <div class="msg">
+      <div class="av-h plum">李</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name">李静</span>
+          <span class="role-tag tag-human">审贷员</span>
+          <span class="msg-time">14:21</span>
+        </div>
+        <div class="msg-text">
+          <p>信号面不错，但我想看一下财务画像，特别是近三年应收账款周转和经营现金流。</p>
+          <p><span class="mention">@A3 授信</span> 跑一下 <span style="font-family:var(--font-mono); color:var(--text2); font-size:13px;">913302xxx</span> 的四维评分，重点看流动性。</p>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 4 · A3 AI thinking -->
+    <div class="msg ai-msg">
+      <div class="av-ai">A3<span class="dot-live"></span></div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name ai">A3 · 授信</span>
+          <span class="role-tag tag-ai">AGENT</span>
+          <span class="msg-time">14:22</span>
+        </div>
+        <div class="msg-text">
+          <p>已启动扫描。基础数据与财务指标计算中…</p>
+        </div>
+        <div class="thinking">
+          <div class="thinking-dots"><span></span><span></span><span></span></div>
+          <span class="thinking-caption">调用 financial_analyzer.py · 读取 2023–2025 年报</span>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 5 · A3 with score card — ALSO thread parent -->
+    <div class="msg ai-msg" id="msg-score">
+      <div class="av-ai">A3<span class="dot-live"></span></div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name ai">A3 · 授信</span>
+          <span class="role-tag tag-ai">AGENT</span>
+          <span class="msg-time">14:23</span>
+        </div>
+        <div class="msg-text">
+          <p style="color: var(--ai);">✓ 四维评分完成</p>
+        </div>
+
+        <div class="card-embed">
+          <div class="card-eyebrow">A3 · 授信评分 · v3.1 对公模型</div>
+          <div class="score-title">
+            宁波精密零部件 · 四维评分
+            <span class="big">82</span><span class="total"> / 100</span>
+          </div>
+
+          <div class="score-bars">
+            <div class="score-bar">
+              <span class="lbl">行业景气</span>
+              <span class="track"><span class="fill" style="--w: 87%;"></span></span>
+              <span class="val">87/100</span>
+            </div>
+            <div class="score-bar">
+              <span class="lbl">经营质量</span>
+              <span class="track"><span class="fill" style="--w: 79%;"></span></span>
+              <span class="val">79/100</span>
+            </div>
+            <div class="score-bar">
+              <span class="lbl">偿债能力</span>
+              <span class="track"><span class="fill" style="--w: 74%;"></span></span>
+              <span class="val">81/100</span>
+            </div>
+            <div class="score-bar">
+              <span class="lbl">政策吻合</span>
+              <span class="track"><span class="fill" style="--w: 83%;"></span></span>
+              <span class="val">83/100</span>
+            </div>
+          </div>
+
+          <div class="redline-row">
+            <span><span class="chk">✓</span><span class="txt">连续 3 年盈利</span></span>
+            <span><span class="chk">✓</span><span class="txt">资产负债率 &lt; 65%</span></span>
+            <span><span class="chk">✓</span><span class="txt">经营现金流为正</span></span>
+            <span><span class="flag">⚠</span><span class="txt">应收账款周转天数 92 天（行业中位 68 天）</span></span>
+          </div>
+
+          <div class="recommend">
+            建议：额度 2.5 亿 · 期限 3 年 · 附条件放款（要求季度应收对账）
+          </div>
+
+          <div class="card-actions">
+            <button class="btn-ghost">详细报告 ↗</button>
+            <span class="sep">·</span>
+            <button class="btn-ghost">→ 派给 @王建 合规</button>
+            <span class="sep">·</span>
+            <button class="btn-ghost">→ 归档到任务</button>
+          </div>
+        </div>
+
+        <!-- thread indicator -->
+        <div class="reactions" style="margin-top: 10px;">
+          <span class="reaction" style="color: var(--ai); border-color: var(--border-ai); background: var(--ai-subtle);"><span class="em">💬</span>3 条线程回复 · 查看</span>
+          <span class="reaction"><span class="em">👍</span>2</span>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 6 · 李静 -->
+    <div class="msg">
+      <div class="av-h plum">李</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name">李静</span>
+          <span class="role-tag tag-human">审贷员</span>
+          <span class="msg-time">14:31</span>
+        </div>
+        <div class="msg-text">
+          <p>评分 82 + 应收对账条件合理。<span class="mention human">@王建</span> 合规复核一下专精特新资质是否在有效期、以及去年那个诉讼的进展。</p>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 7 · A5 thinking -->
+    <div class="msg ai-msg">
+      <div class="av-ai">A5<span class="dot-live"></span></div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name ai">A5 · 合规</span>
+          <span class="role-tag tag-ai">AGENT</span>
+          <span class="msg-time">14:33</span>
+        </div>
+        <div class="msg-text">
+          <p>收到 <span class="mention human">@李静</span> 的指令。正在执行 2 项合规检查…</p>
+        </div>
+        <div class="thinking">
+          <div class="thinking-dots"><span></span><span></span><span></span></div>
+          <span class="thinking-caption">查询 工信部专精特新库 · 检索 裁判文书网</span>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+    <!-- MSG 8 · 王建 -->
+    <div class="msg">
+      <div class="av-h steel">王</div>
+      <div class="msg-body">
+        <div class="msg-head">
+          <span class="msg-name">王建</span>
+          <span class="role-tag tag-human">合规官</span>
+          <span class="msg-time">14:35</span>
+        </div>
+        <div class="msg-text">
+          <p>我人工同步看一下，预计 30 分钟内回。Agent 先跑着。</p>
+        </div>
+        <div class="reactions">
+          <span class="reaction"><span class="em">👍</span>3</span>
+        </div>
+      </div>
+      <div class="msg-hover-actions">
+        <div class="hab" title="回复">↩</div>
+        <div class="hab" title="表情">☺</div>
+        <div class="hab" title="线程">💬</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- composer -->
+  <div class="composer">
+    <div class="composer-hint">
+      <span class="k">/</span> 命令  ·  <span class="k">@</span> 召唤 Agent 或成员  ·  <span class="k">:</span> 表情  ·  拖拽文件上传
+    </div>
+    <div class="composer-input" contenteditable="true" data-placeholder="发送到 #审贷会-002...">发送到 #审贷会-002...</div>
+    <div class="composer-toolbar">
+      <div class="tb-ic" title="提及">@</div>
+      <div class="tb-ic" title="附加">⚙</div>
+      <div class="tb-ic" title="语音">🎤</div>
+      <div class="tb-ic" title="附件">📎</div>
+      <div class="tb-ic" title="命令">⌘</div>
+      <div class="spacer"></div>
+      <button class="composer-send">发送 ⏎</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─────────────────── MINIPLAYER ─────────────────── -->
+<div class="miniplayer">
+  <div class="mini-left">
+    <span class="dot-live"></span>
+    <span>A1 · 获客 正在扫描 · 第 3/5 路信号源</span>
+  </div>
+  <div class="mini-progress-wrap">
+    <div class="mini-progress"><div class="bar"></div></div>
+    <span class="mini-time">01:42</span>
+  </div>
+  <div class="mini-ctrls">
+    <span title="上一步">⏮</span>
+    <span title="暂停">⏸</span>
+    <span title="下一步">⏭</span>
+    <span title="展开">↗</span>
+  </div>
+</div>
+
+<!-- ─────────────────── RIGHT RAIL · THREAD ─────────────────── -->
+<aside class="rightrail">
+
+  <div class="thread-header">
+    <div>
+      <div class="title">线程 · Thread</div>
+      <div class="sub">回复 A3 的评分消息</div>
+    </div>
+    <div class="thread-close">✕</div>
+  </div>
+
+  <div class="thread-body">
+
+    <!-- parent summary -->
+    <div class="thread-parent">
+      <div class="thread-parent-head">
+        <div class="av-mini">A3</div>
+        <div class="nm">A3 · 授信</div>
+        <div class="ts">14:23</div>
+      </div>
+      <div class="excerpt">✓ 四维评分完成 · <span style="color: var(--ai);">82/100</span> · 建议额度 2.5 亿</div>
+    </div>
+
+    <div class="thread-divider">
+      <span class="line"></span>
+      <span class="n">3 条回复</span>
+      <span class="line"></span>
+    </div>
+
+    <!-- reply 1 -->
+    <div class="thread-reply">
+      <div class="av-t human">李</div>
+      <div class="bd">
+        <div class="hd">
+          <span class="nm">李静</span>
+          <span class="ts">14:25</span>
+        </div>
+        <div class="tx">评分模型用的是对公最新版吗，要确认一下基准数据的时效。</div>
+      </div>
+    </div>
+
+    <!-- reply 2 -->
+    <div class="thread-reply">
+      <div class="av-t ai">A3</div>
+      <div class="bd">
+        <div class="hd">
+          <span class="nm ai">A3 · 授信</span>
+          <span class="ts">14:26</span>
+        </div>
+        <div class="tx">
+          确认：对公评分 v3.1 · 基准数据截至 2026-03-31 · 行业对标取浙江省精密零部件子行业。
+        </div>
+        <div class="trail">⛯ 已加入决策留痕 · 审计轨迹 #a3-001234</div>
+      </div>
+    </div>
+
+    <!-- reply 3 -->
+    <div class="thread-reply">
+      <div class="av-t human" style="background: linear-gradient(135deg, #A394C7, #6E6388);">李</div>
+      <div class="bd">
+        <div class="hd">
+          <span class="nm">李静</span>
+          <span class="ts">14:28</span>
+        </div>
+        <div class="tx">👌 按这个出具。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="thread-composer">
+    <div class="thread-composer-input">
+      <input type="text" placeholder="回复线程..." />
+      <div class="thread-send">⏎</div>
+    </div>
+    <label class="thread-toggle">
+      <input type="checkbox" />
+      同步到频道
+    </label>
+  </div>
+
+</aside>
+
+<script>
+  // ─── tiny interactivity: reaction pulse, focus composer, close thread ───
+  document.querySelectorAll('.reaction').forEach(r => {
+    r.addEventListener('click', () => {
+      r.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
+        { duration: 240, easing: 'cubic-bezier(0.22,1,0.36,1)' }
+      );
+    });
+  });
+
+  const composer = document.querySelector('.composer-input');
+  if (composer) {
+    composer.addEventListener('focus', () => {
+      if (composer.textContent.trim() === '发送到 #审贷会-002...') composer.textContent = '';
+    });
+    composer.addEventListener('blur', () => {
+      if (composer.textContent.trim() === '') composer.textContent = '发送到 #审贷会-002...';
+    });
+  }
+
+  // auto-scroll message list to bottom on load so latest messages visible
+  const list = document.getElementById('msgList');
+  if (list) requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+</script>
+
+</body>
+</html>

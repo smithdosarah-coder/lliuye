@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="ink">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>乾策 · X-Nexus — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+SC:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Design Tokens
+   ============================================================ */
+:root {
+  --bg: #0B0E12;
+  --surface1: #11151B;
+  --surface2: #171C24;
+  --surface3: #1F2530;
+  --surface4: #2A313D;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-visible: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(91, 227, 182, 0.3);
+  --text1: #F5F2EA;
+  --text2: #B8B2A6;
+  --text3: #7A7669;
+  --text4: #4D4B44;
+  --ai: #5BE3B6;
+  --ai-subtle: rgba(91, 227, 182, 0.12);
+  --ai-glow: rgba(91, 227, 182, 0.35);
+  --human: #E8B56B;
+  --human-subtle: rgba(232, 181, 107, 0.12);
+  --danger: #D7534A;
+  --info: #A394C7;
+  --display: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  --body: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+  --mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --d-fast: 180ms; --d-base: 240ms; --d-slow: 400ms; --d-cinema: 600ms;
+  --shadow-ai: 0 0 0 1px rgba(91,227,182,0.15), 0 12px 40px -12px rgba(91,227,182,0.35);
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text1);
+  line-height: 1.5;
+  font-weight: 400;
+  font-feature-settings: 'ss01','cv02','cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Global noise overlay */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+input { font-family: inherit; color: inherit; }
+
+/* ============================================================
+   Layout — split
+   ============================================================ */
+.shell {
+  position: fixed; inset: 0;
+  display: grid;
+  grid-template-columns: 60fr 40fr;
+}
+
+/* ============================================================
+   LEFT — Signal Field
+   ============================================================ */
+.signal-field {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 800px at 20% 85%, rgba(91,227,182,0.05), transparent 60%),
+    radial-gradient(900px 700px at 85% 15%, rgba(163,148,199,0.04), transparent 60%),
+    linear-gradient(180deg, #0A0D11 0%, #0B0E12 50%, #080A0D 100%);
+  opacity: 0;
+  animation: field-in 800ms var(--ease) forwards;
+}
+
+@keyframes field-in { to { opacity: 1; } }
+
+/* Vertical drifting lines */
+.waterfall {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.line {
+  position: absolute;
+  top: -20%;
+  width: 1px;
+  height: 140%;
+  background: linear-gradient(180deg, transparent 0%, var(--ai) 40%, var(--ai) 60%, transparent 100%);
+  opacity: 0.1;
+  animation: drift linear infinite;
+}
+@keyframes drift {
+  0%   { transform: translateY(-20%); }
+  100% { transform: translateY(20%); }
+}
+
+/* Signal cards */
+.signal-card {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  background: var(--surface1);
+  border: 1px solid var(--border-visible);
+  border-radius: var(--r-sm);
+  padding: 4px 8px;
+  white-space: nowrap;
+  opacity: 0;
+  animation: card-float 18s ease-in-out infinite;
+}
+.signal-card .dot {
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--ai);
+  margin-right: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 6px var(--ai-glow);
+}
+@keyframes card-float {
+  0%   { opacity: 0; transform: translateY(8px); }
+  15%  { opacity: 0.3; }
+  50%  { opacity: 0.35; transform: translateY(-4px); }
+  85%  { opacity: 0.25; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+/* Heartbeat dots */
+.heartbeat {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ai);
+  box-shadow: 0 0 8px var(--ai-glow);
+  animation: heartbeat 1.6s var(--ease) infinite;
+}
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); opacity: 0.5; box-shadow: 0 0 6px var(--ai-glow); }
+  50%      { transform: scale(1.4); opacity: 0.9; box-shadow: 0 0 14px var(--ai-glow); }
+}
+
+/* Scramble numbers */
+.scramble {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  opacity: 0.4;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+/* Masthead */
+.masthead {
+  position: absolute;
+  top: 48px; left: 48px;
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(-8px);
+  animation: mast-in 500ms var(--ease) 200ms forwards;
+}
+@keyframes mast-in { to { opacity: 1; transform: translateY(0); } }
+
+.mast-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 10px;
+}
+.mast-logo {
+  width: 24px; height: 24px;
+  flex: 0 0 24px;
+}
+.mast-logo line {
+  stroke: var(--ai);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.mast-name {
+  font-family: var(--display);
+  font-size: 22px;
+  color: var(--text1);
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.mast-sep {
+  color: var(--text3);
+  font-size: 14px;
+  margin: 0 2px;
+}
+.mast-sub {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text2);
+  font-weight: 500;
+}
+.mast-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-left: 36px;
+}
+
+/* Editorial quote */
+.editorial {
+  position: absolute;
+  left: 60px;
+  top: 38%;
+  transform: translateY(-50%);
+  max-width: 520px;
+  z-index: 5;
+}
+.editorial-drop {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 112px;
+  line-height: 0.9;
+  color: var(--text1);
+  float: left;
+  margin: -8px 10px -4px 0;
+  opacity: 0;
+  filter: blur(6px);
+  animation: ink-drop 900ms var(--ease) 400ms forwards;
+}
+@keyframes ink-drop {
+  0%   { opacity: 0; filter: blur(8px); transform: translateY(4px); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+.editorial-body {
+  font-family: 'Noto Serif SC', var(--display);
+  font-weight: 300;
+  font-size: 26px;
+  line-height: 1.45;
+  color: var(--text2);
+  opacity: 0;
+  animation: ink-body 700ms var(--ease) 700ms forwards;
+}
+@keyframes ink-body {
+  0%   { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.editorial-attr {
+  clear: left;
+  margin-top: 28px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text3);
+  text-transform: uppercase;
+  opacity: 0;
+  animation: ink-body 600ms var(--ease) 1000ms forwards;
+}
+
+/* Bottom stats */
+.stats {
+  position: absolute;
+  left: 48px; right: 48px; bottom: 48px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr 1px 1fr;
+  gap: 40px;
+  z-index: 10;
+  opacity: 0;
+  animation: mast-in 500ms var(--ease) 600ms forwards;
+}
+.stat-num {
+  font-family: var(--mono);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--ai);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  display: flex; align-items: baseline; gap: 6px;
+}
+.stat-num .suffix {
+  font-size: 14px;
+  color: var(--text2);
+  font-weight: 400;
+}
+.stat-label {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+}
+.stat-div {
+  width: 1px;
+  background: var(--border-visible);
+  height: 52px;
+  align-self: end;
+}
+.stat-version .stat-num {
+  color: var(--text1);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+/* ============================================================
+   RIGHT — Login Panel
+   ============================================================ */
+.login {
+  position: relative;
+  background: var(--surface1);
+  border-left: 1px solid var(--border);
+  padding: 120px 64px 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transform: translateX(20px);
+  opacity: 0;
+  animation: panel-in 600ms var(--ease) 300ms forwards;
+}
+@keyframes panel-in { to { opacity: 1; transform: translateX(0); } }
+
+.login::before {
+  /* subtle interior glow */
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(600px 400px at 100% 0%, rgba(91,227,182,0.03), transparent 70%);
+}
+
+.login-inner {
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+}
+
+.login-heading {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--text1);
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+  font-weight: 400;
+}
+.login-sub {
+  font-size: 14px;
+  color: var(--text2);
+  margin-bottom: 2px;
+}
+.login-sub-en {
+  font-size: 13px;
+  color: var(--text3);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* Form */
+.form {
+  margin-top: 56px;
+  display: flex; flex-direction: column;
+  gap: 28px;
+}
+.field, .field-row, .field-btn, .field-or, .field-sso, .field-trial {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: field-in-anim 500ms var(--ease) forwards;
+}
+@keyframes field-in-anim { to { opacity: 1; transform: translateY(0); } }
+
+.field:nth-of-type(1) { animation-delay: 700ms; }
+.field:nth-of-type(2) { animation-delay: 780ms; }
+.field-row  { animation-delay: 860ms; }
+.field-btn  { animation-delay: 940ms; }
+.field-or   { animation-delay: 1020ms; }
+.field-sso  { animation-delay: 1100ms; }
+.field-trial { animation-delay: 1180ms; }
+
+.label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.input-wrap {
+  position: relative;
+  border-bottom: 1px solid var(--border-visible);
+  transition: border-color var(--d-base) var(--ease);
+}
+.input-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  background: var(--ai);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--d-base) var(--ease);
+  box-shadow: 0 0 16px var(--ai-glow);
+}
+.input-wrap:focus-within::after { transform: scaleX(1); }
+
+.input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 12px 0;
+  font-size: 18px;
+  color: var(--text1);
+  letter-spacing: 0.01em;
+  font-weight: 400;
+}
+.input::placeholder { color: var(--text4); font-weight: 300; }
+
+/* Row: remember + forgot */
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.check {
+  display: inline-flex; align-items: center; gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: var(--text2);
+}
+.check input { position: absolute; opacity: 0; pointer-events: none; }
+.check-box {
+  width: 16px; height: 16px;
+  border: 1px solid var(--border-visible);
+  border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all var(--d-base) var(--ease);
+  background: transparent;
+  flex: 0 0 16px;
+}
+.check input:checked + .check-box {
+  background: var(--ai);
+  border-color: var(--ai);
+}
+.check input:checked + .check-box::after {
+  content: "";
+  width: 8px; height: 4px;
+  border-left: 1.5px solid #0B0E12;
+  border-bottom: 1.5px solid #0B0E12;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.check:hover .check-box { border-color: var(--text3); }
+
+.forgot {
+  font-size: 13px;
+  color: var(--ai);
+  transition: all var(--d-base) var(--ease);
+  position: relative;
+}
+.forgot::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1px;
+  background: var(--ai);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--d-base) var(--ease);
+}
+.forgot:hover::after { transform: scaleX(1); }
+
+/* Primary button */
+.btn-primary {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  background: var(--ai);
+  color: #0B0E12;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  transition: box-shadow var(--d-base) var(--ease), transform var(--d-base) var(--ease);
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+}
+.btn-primary:hover {
+  box-shadow: var(--shadow-ai);
+  transform: translateY(-1px);
+}
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0; left: -80%;
+  width: 60%; height: 100%;
+  background: linear-gradient(120deg,
+    transparent 0%,
+    rgba(255,255,255,0) 30%,
+    rgba(255,255,255,0.45) 50%,
+    rgba(255,255,255,0) 70%,
+    transparent 100%);
+  transition: left 700ms var(--ease);
+  pointer-events: none;
+}
+.btn-primary:hover::before { left: 120%; }
+.btn-primary .arrow {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 15px;
+  margin-left: 4px;
+  transition: transform var(--d-base) var(--ease);
+}
+.btn-primary:hover .arrow { transform: translateX(3px); }
+
+/* Divider with OR */
+.field-or {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+.field-or .line-h {
+  flex: 1;
+  height: 1px;
+  background: var(--border-visible);
+}
+.field-or .or-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+
+/* SSO */
+.field-sso {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.btn-sso {
+  height: 40px;
+  background: transparent;
+  border: 1px solid var(--border-visible);
+  color: var(--text2);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 10px;
+  transition: all var(--d-base) var(--ease);
+}
+.btn-sso:hover {
+  background: var(--surface2);
+  border-color: var(--border-accent);
+  color: var(--text1);
+}
+.btn-sso svg { width: 14px; height: 14px; flex: 0 0 14px; }
+
+.field-trial {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text3);
+}
+.field-trial a {
+  color: var(--ai);
+  margin-left: 4px;
+  transition: all var(--d-base) var(--ease);
+}
+.field-trial a:hover { letter-spacing: 0.02em; }
+
+/* Footer */
+.login-foot {
+  margin-top: auto;
+  padding: 40px 0 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+}
+.login-foot-l {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text4);
+  letter-spacing: 0.1em;
+}
+.login-foot-r {
+  display: flex; align-items: center; gap: 18px;
+}
+.lang-toggle {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text3);
+  text-transform: uppercase;
+  transition: color var(--d-base) var(--ease);
+}
+.lang-toggle .on { color: var(--text1); }
+.lang-toggle:hover { color: var(--text2); }
+.theme-btn {
+  width: 22px; height: 22px;
+  color: var(--text3);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color var(--d-base) var(--ease);
+}
+.theme-btn:hover { color: var(--text1); }
+.theme-btn svg { width: 16px; height: 16px; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 960px) {
+  body { overflow: auto; }
+  .shell {
+    position: static;
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+  }
+  .login {
+    order: -1;
+    padding: 72px 32px 32px;
+    min-height: 100vh;
+  }
+  .signal-field {
+    min-height: 70vh;
+  }
+  .editorial { left: 32px; right: 32px; max-width: none; top: 40%; }
+  .editorial-drop { font-size: 84px; }
+  .editorial-body { font-size: 20px; }
+  .masthead { top: 32px; left: 32px; }
+  .stats { left: 32px; right: 32px; bottom: 32px; gap: 20px; }
+  .stat-num { font-size: 24px; }
+  .login-heading { font-size: 44px; }
+}
+
+::selection { background: var(--ai-subtle); color: var(--text1); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ====================================================
+       LEFT — Signal Field
+       ==================================================== -->
+  <section class="signal-field" aria-label="Signal Field">
+
+    <!-- Waterfall lines (populated by JS) -->
+    <div class="waterfall" id="waterfall" aria-hidden="true"></div>
+
+    <!-- Masthead -->
+    <div class="masthead">
+      <div class="mast-row">
+        <svg class="mast-logo" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <line x1="4" y1="4" x2="20" y2="20" />
+          <line x1="20" y1="4" x2="4" y2="20" />
+          <circle cx="12" cy="12" r="1.8" fill="#5BE3B6" stroke="none"/>
+        </svg>
+        <span class="mast-name">乾策</span>
+        <span class="mast-sep">·</span>
+        <span class="mast-sub">X-Nexus</span>
+      </div>
+      <div class="mast-tag">BANKING INTELLIGENCE PLATFORM</div>
+    </div>
+
+    <!-- Editorial quote -->
+    <div class="editorial">
+      <span class="editorial-drop">让</span>
+      <span class="editorial-body">风险被看见，让机会被记住。</span>
+      <div class="editorial-attr">— 乾策产品哲学 · VOL.01</div>
+    </div>
+
+    <!-- Bottom stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num">12<span class="suffix">家</span></div>
+        <div class="stat-label">服务机构 · Institutions</div>
+      </div>
+      <div class="stat-div"></div>
+      <div class="stat">
+        <div class="stat-num">2.4<span class="suffix">万+ / 日</span></div>
+        <div class="stat-label">日均信号 · Daily Signals</div>
+      </div>
+      <div class="stat-div"></div>
+      <div class="stat stat-version">
+        <div class="stat-num">VOL.01 · NO.237</div>
+        <div class="stat-label">当前版本 · Current Build</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ====================================================
+       RIGHT — Login Panel
+       ==================================================== -->
+  <section class="login" aria-label="Sign in">
+    <div class="login-inner">
+
+      <h1 class="login-heading">Sign in</h1>
+      <div class="login-sub">登入您的工作空间</div>
+      <div class="login-sub-en">Continue where you left off.</div>
+
+      <form class="form" onsubmit="event.preventDefault();">
+
+        <div class="field">
+          <label class="label" for="email">邮箱 · Email</label>
+          <div class="input-wrap">
+            <input class="input" type="email" id="email" name="email"
+                   placeholder="name@bank.cn"
+                   autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="password">密码 · Password</label>
+          <div class="input-wrap">
+            <input class="input" type="password" id="password" name="password"
+                   placeholder="••••••••••••"
+                   autocomplete="current-password" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <label class="check">
+            <input type="checkbox" />
+            <span class="check-box"></span>
+            <span>记住我 · Remember me</span>
+          </label>
+          <a href="#" class="forgot">忘记密码 →</a>
+        </div>
+
+        <div class="field-btn">
+          <button type="submit" class="btn-primary">
+            <span>登入 Sign in</span>
+            <span class="arrow">→</span>
+          </button>
+        </div>
+
+        <div class="field-or">
+          <span class="line-h"></span>
+          <span class="or-text">或 · OR</span>
+          <span class="line-h"></span>
+        </div>
+
+        <div class="field-sso">
+          <button type="button" class="btn-sso">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 9a4 4 0 1 1 2.5 3.7c-1 2-3 3.5-5 3.8l1.2-2.4A4 4 0 0 1 8 9z"/>
+              <path d="M14 13a4 4 0 1 0 2.5 3.7c1 .5 2.2.8 3.5.3l-1-2a4 4 0 0 0-5-2z"/>
+            </svg>
+            <span>企业微信</span>
+          </button>
+          <button type="button" class="btn-sso">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7l8-4 8 4-8 4-8-4z"/>
+              <path d="M4 12l8 4 8-4"/>
+              <path d="M4 17l8 4 8-4"/>
+            </svg>
+            <span>飞书 Feishu</span>
+          </button>
+        </div>
+
+        <div class="field-trial">
+          还未开通？<a href="#">申请试用 →</a>
+        </div>
+
+      </form>
+
+      <div class="login-foot">
+        <div class="login-foot-l">© 2026 众安信科 · ZA-INFO</div>
+        <div class="login-foot-r">
+          <a href="#" class="lang-toggle"><span class="on">中文</span> / EN</a>
+          <button class="theme-btn" aria-label="Toggle theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.8A9 9 0 0 1 11.2 3a7 7 0 1 0 9.8 9.8z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   Signal field generator — lines, cards, heartbeats, scramblers
+   ============================================================ */
+(function () {
+  const field = document.getElementById('waterfall');
+  if (!field) return;
+
+  // ---- 1. Vertical drifting lines ----
+  const LINE_COUNT = 54;
+  for (let i = 0; i < LINE_COUNT; i++) {
+    const line = document.createElement('div');
+    line.className = 'line';
+    const left = Math.random() * 100;
+    const width = (0.5 + Math.random() * 1.0).toFixed(2);
+    const opacity = (0.06 + Math.random() * 0.10).toFixed(2);
+    const dur = (6 + Math.random() * 14).toFixed(1);
+    const delay = (-Math.random() * 14).toFixed(1);
+    line.style.left = left + '%';
+    line.style.width = width + 'px';
+    line.style.opacity = opacity;
+    line.style.animationDuration = dur + 's';
+    line.style.animationDelay = delay + 's';
+    field.appendChild(line);
+  }
+
+  // ---- 2. Signal cards ----
+  const SIGNAL_TEXTS = [
+    '中标 · 中国商飞 C919 配套',
+    'B轮融资 · 3.2 亿',
+    '专精特新 · 2026.03',
+    '获授权专利 8 项',
+    '宁波产业园二期投产',
+    '商标侵权诉讼结案',
+    '税务 A级 评定',
+    '海关 AEO 认证',
+    '小巨人企业 · 工信部',
+    '供应链入池 · 宁德时代',
+    '出口退税 · ¥2,180 万',
+    '绿色工厂 · 2026',
+    '研发投入 12.4%',
+    '增发 · 5.8 亿元'
+  ];
+
+  // keep cards out of the masthead and editorial zones
+  function pickCardPosition() {
+    let top, left;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      top = 6 + Math.random() * 80;
+      left = 4 + Math.random() * 72;
+      // avoid masthead top-left rectangle (top <16%, left <35%)
+      if (top < 16 && left < 35) continue;
+      // avoid editorial center-left (top 28–54%, left 5–45%)
+      if (top > 26 && top < 56 && left < 46) continue;
+      // avoid stats bottom (top > 86%)
+      if (top > 86) continue;
+      return { top, left };
+    }
+    return { top: 70, left: 60 };
+  }
+
+  const cardCount = 11;
+  for (let i = 0; i < cardCount; i++) {
+    const card = document.createElement('div');
+    card.className = 'signal-card';
+    const txt = SIGNAL_TEXTS[i % SIGNAL_TEXTS.length];
+    card.innerHTML = '<span class="dot"></span>' + txt;
+    const { top, left } = pickCardPosition();
+    const dur = (14 + Math.random() * 10).toFixed(1);
+    const delay = (-Math.random() * 14).toFixed(1);
+    card.style.top = top.toFixed(1) + '%';
+    card.style.left = left.toFixed(1) + '%';
+    card.style.animationDuration = dur + 's';
+    card.style.animationDelay = delay + 's';
+    field.appendChild(card);
+  }
+
+  // ---- 3. Heartbeat dots ----
+  const beats = [
+    { top: '22%', left: '78%', delay: '0s'   },
+    { top: '46%', left: '72%', delay: '0.4s' },
+    { top: '68%', left: '40%', delay: '0.9s' },
+    { top: '58%', left: '85%', delay: '1.2s' },
+    { top: '30%', left: '62%', delay: '0.2s' }
+  ];
+  beats.forEach(b => {
+    const d = document.createElement('div');
+    d.className = 'heartbeat';
+    d.style.top = b.top; d.style.left = b.left;
+    d.style.animationDelay = b.delay;
+    field.appendChild(d);
+  });
+
+  // ---- 4. Scramble numbers ----
+  const scrams = [
+    { top: '14%', left: '82%', len: 6 },
+    { top: '36%', left: '52%', len: 4 },
+    { top: '72%', left: '64%', len: 8 },
+    { top: '80%', left: '18%', len: 5 },
+    { top: '20%', left: '68%', len: 7 },
+    { top: '54%', left: '90%', len: 4 }
+  ];
+  const scramNodes = [];
+  scrams.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'scramble';
+    el.style.top = s.top;
+    el.style.left = s.left;
+    el.dataset.len = s.len;
+    field.appendChild(el);
+    scramNodes.push(el);
+  });
+
+  const randDigits = (n) => {
+    let s = '';
+    for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 10);
+    return s;
+  };
+
+  function tickScramble() {
+    scramNodes.forEach(el => {
+      const len = parseInt(el.dataset.len, 10) || 5;
+      el.textContent = randDigits(len);
+    });
+  }
+  tickScramble();
+  setInterval(tickScramble, 140);
+
+})();
+
+/* Focus email after intro animation on desktop */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const el = document.getElementById('email');
+    if (el && window.innerWidth > 960) el.focus({ preventScroll: true });
+  }, 1200);
+});
+</script>
+</body>
+</html>
