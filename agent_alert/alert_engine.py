@@ -32,6 +32,11 @@ class AlertReport(BaseModel):
     overall_level: str = "green"   # red / yellow / green
     signals: list[AlertSignal] = Field(default_factory=list)
     summary: str = ""
+    # Phase 1 Task C · trigger_reasons: 结构推断而非关键词黑名单
+    # 枚举：external_signal / internal_rule / cross_hit
+    # 推断规则在 agent_alert/cross_matcher.py::_infer_trigger_reasons
+    # 文档：docs/design/alert-trigger-reasons-taxonomy.md
+    trigger_reasons: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

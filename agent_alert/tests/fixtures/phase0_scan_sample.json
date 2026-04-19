@@ -1,0 +1,1173 @@
+{
+  "_meta": {
+    "role": "regression_anchor",
+    "frozen_at": "2026-04-19",
+    "rule": "SCHEMA FROZEN — 勿改分布/延迟/枚举；仅供 adapter 契约回归单测使用，不作生产基线",
+    "runtime_replacement": "evaluation/manual/4_20260419.yaml (Phase 1 Task A 起)",
+    "adapter_priority": "run.artifacts[0] > DEFAULT_RUNTIME > DEFAULT_FIXTURE(this file)"
+  },
+  "version": "phase0-sample-v1",
+  "generated_at": "2026-04-19",
+  "description": "Agent4 Phase 0 baseline fixture — 100 in-loan customers scan output",
+  "whitelist_entity_ids": [
+    "E0001",
+    "E0002",
+    "E0003",
+    "E0004",
+    "E0005",
+    "E0006",
+    "E0007",
+    "E0008",
+    "E0009",
+    "E0010",
+    "E0011",
+    "E0012",
+    "E0013",
+    "E0014",
+    "E0015",
+    "E0016",
+    "E0017",
+    "E0018",
+    "E0019",
+    "E0020",
+    "E0021",
+    "E0022",
+    "E0023",
+    "E0024",
+    "E0025",
+    "E0026",
+    "E0027",
+    "E0028",
+    "E0029",
+    "E0030",
+    "E0031",
+    "E0032",
+    "E0033",
+    "E0034",
+    "E0035",
+    "E0036",
+    "E0037",
+    "E0038",
+    "E0039",
+    "E0040",
+    "E0041",
+    "E0042",
+    "E0043",
+    "E0044",
+    "E0045",
+    "E0046",
+    "E0047",
+    "E0048",
+    "E0049",
+    "E0050",
+    "E0051",
+    "E0052",
+    "E0053",
+    "E0054",
+    "E0055",
+    "E0056",
+    "E0057",
+    "E0058",
+    "E0059",
+    "E0060",
+    "E0061",
+    "E0062",
+    "E0063",
+    "E0064",
+    "E0065",
+    "E0066",
+    "E0067",
+    "E0068",
+    "E0069",
+    "E0070",
+    "E0071",
+    "E0072",
+    "E0073",
+    "E0074",
+    "E0075",
+    "E0076",
+    "E0077",
+    "E0078",
+    "E0079",
+    "E0080",
+    "E0081",
+    "E0082",
+    "E0083",
+    "E0084",
+    "E0085",
+    "E0086",
+    "E0087",
+    "E0088",
+    "E0089",
+    "E0090",
+    "E0091",
+    "E0092",
+    "E0093",
+    "E0094",
+    "E0095",
+    "E0096",
+    "E0097",
+    "E0098",
+    "E0099",
+    "E0100"
+  ],
+  "customers": [
+    {
+      "entity_id": "E0001",
+      "name": "客户1号·批发零售",
+      "grade": "red",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "司法涉诉升级",
+          "source": "tavily",
+          "snippet_id": "E0001_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "应收账款账龄恶化",
+          "source": "ledger",
+          "snippet_id": "E0001_s1"
+        }
+      ],
+      "scan_time_ms": 344.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0002",
+      "name": "客户2号·餐饮",
+      "grade": "red",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "股东质押比例超限",
+          "source": "tavily",
+          "snippet_id": "E0002_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "工商变更异常",
+          "source": "ledger",
+          "snippet_id": "E0002_s1"
+        }
+      ],
+      "scan_time_ms": 201.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0003",
+      "name": "客户3号·农业",
+      "grade": "red",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "股东质押比例超限",
+          "source": "tavily",
+          "snippet_id": "E0003_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "核心抵押物价值下跌",
+          "source": "ledger",
+          "snippet_id": "E0003_s1"
+        }
+      ],
+      "scan_time_ms": 659.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0004",
+      "name": "客户4号·制造业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "关联交易占比上升",
+          "source": "tavily",
+          "snippet_id": "E0004_s0"
+        }
+      ],
+      "scan_time_ms": 574.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0005",
+      "name": "客户5号·科技",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "关联交易占比上升",
+          "source": "tavily",
+          "snippet_id": "E0005_s0"
+        }
+      ],
+      "scan_time_ms": 408.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0006",
+      "name": "客户6号·科技",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0006_s0"
+        }
+      ],
+      "scan_time_ms": 434.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0007",
+      "name": "客户7号·农业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0007_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "关联交易占比上升",
+          "source": "ledger",
+          "snippet_id": "E0007_s1"
+        }
+      ],
+      "scan_time_ms": 539.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0008",
+      "name": "客户8号·科技",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0008_s0"
+        }
+      ],
+      "scan_time_ms": 376.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0009",
+      "name": "客户9号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0009_s0"
+        }
+      ],
+      "scan_time_ms": 210.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0010",
+      "name": "客户10号·教育培训",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "近 6 月流水波动>30%",
+          "source": "tavily",
+          "snippet_id": "E0010_s0"
+        }
+      ],
+      "scan_time_ms": 760.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0011",
+      "name": "客户11号·批发零售",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "近 6 月流水波动>30%",
+          "source": "tavily",
+          "snippet_id": "E0011_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "法定代表人变更",
+          "source": "ledger",
+          "snippet_id": "E0011_s1"
+        }
+      ],
+      "scan_time_ms": 418.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0012",
+      "name": "客户12号·农业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0012_s0"
+        }
+      ],
+      "scan_time_ms": 668.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0013",
+      "name": "客户13号·制造业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0013_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "近 6 月流水波动>30%",
+          "source": "ledger",
+          "snippet_id": "E0013_s1"
+        }
+      ],
+      "scan_time_ms": 638.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0014",
+      "name": "客户14号·批发零售",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0014_s0"
+        }
+      ],
+      "scan_time_ms": 719.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0015",
+      "name": "客户15号·教育培训",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0015_s0"
+        }
+      ],
+      "scan_time_ms": 767.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0016",
+      "name": "客户16号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "关联交易占比上升",
+          "source": "tavily",
+          "snippet_id": "E0016_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "近 6 月流水波动>30%",
+          "source": "ledger",
+          "snippet_id": "E0016_s1"
+        }
+      ],
+      "scan_time_ms": 357.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0017",
+      "name": "客户17号·建筑业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0017_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "关联交易占比上升",
+          "source": "ledger",
+          "snippet_id": "E0017_s1"
+        }
+      ],
+      "scan_time_ms": 422.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0018",
+      "name": "客户18号·建筑业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0018_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "负面舆情2+",
+          "source": "ledger",
+          "snippet_id": "E0018_s1"
+        }
+      ],
+      "scan_time_ms": 756.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0019",
+      "name": "客户19号·教育培训",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0019_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "行业景气度下行",
+          "source": "ledger",
+          "snippet_id": "E0019_s1"
+        }
+      ],
+      "scan_time_ms": 437.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0020",
+      "name": "客户20号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0020_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "行业景气度下行",
+          "source": "ledger",
+          "snippet_id": "E0020_s1"
+        }
+      ],
+      "scan_time_ms": 635.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0021",
+      "name": "客户21号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0021_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "法定代表人变更",
+          "source": "ledger",
+          "snippet_id": "E0021_s1"
+        }
+      ],
+      "scan_time_ms": 471.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0022",
+      "name": "客户22号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "负面舆情2+",
+          "source": "tavily",
+          "snippet_id": "E0022_s0"
+        }
+      ],
+      "scan_time_ms": 791.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0023",
+      "name": "客户23号·制造业",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "近 6 月流水波动>30%",
+          "source": "tavily",
+          "snippet_id": "E0023_s0"
+        }
+      ],
+      "scan_time_ms": 430.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0024",
+      "name": "客户24号·物流",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "关联交易占比上升",
+          "source": "tavily",
+          "snippet_id": "E0024_s0"
+        },
+        {
+          "type": "internal",
+          "signal": "行业景气度下行",
+          "source": "ledger",
+          "snippet_id": "E0024_s1"
+        }
+      ],
+      "scan_time_ms": 255.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0025",
+      "name": "客户25号·批发零售",
+      "grade": "yellow",
+      "evidence": [
+        {
+          "type": "external",
+          "signal": "行业景气度下行",
+          "source": "tavily",
+          "snippet_id": "E0025_s0"
+        }
+      ],
+      "scan_time_ms": 341.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0026",
+      "name": "客户26号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 237.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0027",
+      "name": "客户27号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 835.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0028",
+      "name": "客户28号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 266.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0029",
+      "name": "客户29号·农业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 357.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0030",
+      "name": "客户30号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 826.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0031",
+      "name": "客户31号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 657.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0032",
+      "name": "客户32号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 473.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0033",
+      "name": "客户33号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 346.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0034",
+      "name": "客户34号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 574.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0035",
+      "name": "客户35号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 184.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0036",
+      "name": "客户36号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 333.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0037",
+      "name": "客户37号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 227.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0038",
+      "name": "客户38号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 323.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0039",
+      "name": "客户39号·农业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 342.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0040",
+      "name": "客户40号·农业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 307.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0041",
+      "name": "客户41号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 417.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0042",
+      "name": "客户42号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 631.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0043",
+      "name": "客户43号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 220.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0044",
+      "name": "客户44号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 346.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0045",
+      "name": "客户45号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 273.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0046",
+      "name": "客户46号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 347.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0047",
+      "name": "客户47号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 721.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0048",
+      "name": "客户48号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 213.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0049",
+      "name": "客户49号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 829.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0050",
+      "name": "客户50号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 291.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0051",
+      "name": "客户51号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 759.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0052",
+      "name": "客户52号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 433.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0053",
+      "name": "客户53号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 800.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0054",
+      "name": "客户54号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 463.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0055",
+      "name": "客户55号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 283.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0056",
+      "name": "客户56号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 568.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0057",
+      "name": "客户57号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 218.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0058",
+      "name": "客户58号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 218.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0059",
+      "name": "客户59号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 225.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0060",
+      "name": "客户60号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 450.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0061",
+      "name": "客户61号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 1282.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0062",
+      "name": "客户62号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 806.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0063",
+      "name": "客户63号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 339.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0064",
+      "name": "客户64号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 486.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0065",
+      "name": "客户65号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 186.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0066",
+      "name": "客户66号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 229.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0067",
+      "name": "客户67号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 268.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0068",
+      "name": "客户68号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 769.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0069",
+      "name": "客户69号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 473.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0070",
+      "name": "客户70号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 589.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0071",
+      "name": "客户71号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 627.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0072",
+      "name": "客户72号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 809.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0073",
+      "name": "客户73号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 776.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0074",
+      "name": "客户74号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 362.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0075",
+      "name": "客户75号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 316.4,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0076",
+      "name": "客户76号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 518.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0077",
+      "name": "客户77号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 241.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0078",
+      "name": "客户78号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 209.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0079",
+      "name": "客户79号·教育培训",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 606.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0080",
+      "name": "客户80号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 549.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0081",
+      "name": "客户81号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 255.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0082",
+      "name": "客户82号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 545.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0083",
+      "name": "客户83号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 468.0,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0084",
+      "name": "客户84号·制造业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 782.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0085",
+      "name": "客户85号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 782.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0086",
+      "name": "客户86号·农业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 626.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0087",
+      "name": "客户87号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 832.5,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0088",
+      "name": "客户88号·建筑业",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 759.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0089",
+      "name": "客户89号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 1936.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0090",
+      "name": "客户90号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 704.2,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0091",
+      "name": "客户91号·批发零售",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 358.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0092",
+      "name": "客户92号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 1670.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0093",
+      "name": "客户93号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 727.1,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0094",
+      "name": "客户94号·餐饮",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 729.8,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0095",
+      "name": "客户95号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 195.9,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0096",
+      "name": "客户96号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 366.7,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0097",
+      "name": "客户97号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 415.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0098",
+      "name": "客户98号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 809.3,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0099",
+      "name": "客户99号·物流",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 299.6,
+      "status": "completed"
+    },
+    {
+      "entity_id": "E0100",
+      "name": "客户100号·科技",
+      "grade": "green",
+      "evidence": [],
+      "scan_time_ms": 205.6,
+      "status": "completed"
+    }
+  ],
+  "tool_calls": {
+    "total": 450,
+    "success": 435
+  }
+}

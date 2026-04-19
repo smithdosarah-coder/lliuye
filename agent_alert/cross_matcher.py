@@ -52,6 +52,40 @@ class RuleHit:
 
 
 # ---------------------------------------------------------------------------
+# trigger_reasons 枚举（结构推断，不是关键词黑名单）
+# ---------------------------------------------------------------------------
+
+TRIGGER_REASON_EXTERNAL = "external_signal"
+TRIGGER_REASON_INTERNAL = "internal_rule"
+TRIGGER_REASON_CROSS = "cross_hit"
+
+
+def _infer_trigger_reasons(hits: list[RuleHit]) -> list[str]:
+    """从 {hit.route for hit in hits} 推断触发原因枚举。
+
+    - both routes present → ["cross_hit"]（交叉命中是 Agent4 核心价值点）
+    - external only       → ["external_signal"]
+    - internal only       → ["internal_rule"]
+    - no hits             → []
+
+    这是 CLAUDE.md §12 "通用机制不黑名单兜底" 的正面落地：
+    枚举来自 RuleHit.route 现有结构（"external" / "internal"），
+    不依赖任何关键词表 / 正则黑名单。语义规约见
+    docs/design/alert-trigger-reasons-taxonomy.md。
+    """
+    routes = {h.route for h in hits}
+    if not routes:
+        return []
+    has_ext = "external" in routes
+    has_int = "internal" in routes
+    if has_ext and has_int:
+        return [TRIGGER_REASON_CROSS]
+    if has_ext:
+        return [TRIGGER_REASON_EXTERNAL]
+    return [TRIGGER_REASON_INTERNAL]
+
+
+# ---------------------------------------------------------------------------
 # CrossMatcher
 # ---------------------------------------------------------------------------
 
@@ -104,6 +138,7 @@ class CrossMatcher(Matcher):
             extras={
                 "external_hits": [h.rule_id for h in hits if h.route == "external"],
                 "internal_hits": [h.rule_id for h in hits if h.route == "internal"],
+                "trigger_reasons": _infer_trigger_reasons(hits),
                 "rule_titles": {h.rule_id: h.rule_title for h in hits},
                 "narrative": (profile.extras or {}).get("narrative", ""),
                 "manager": (profile.extras or {}).get("manager", ""),

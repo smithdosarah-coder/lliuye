@@ -1,0 +1,894 @@
+version: runtime-v1
+generated_at: '2026-04-19T09:03:12Z'
+source:
+  agent: alert
+  git_commit: e18028f0d75eb2bfc1c57ffe9465fb01e3a591fb
+  kb_scenario: demo_data/agent_alert
+  search_provider: MockSearchProvider (demo_mode=True)
+whitelist_entity_ids:
+- LC10001
+- LC10002
+- LC10003
+- LC10101
+- LC10102
+- LC10103
+- LC10104
+- LC10105
+- LC10106
+- LC10107
+- LC20001
+- LC20002
+- LC20003
+- LC20004
+- LC20005
+- LC20006
+- LC20007
+- LC20008
+- LC20009
+- LC20010
+- LC20011
+- LC20012
+- LC20013
+- LC20014
+- LC20015
+- LC20016
+- LC20017
+- LC20018
+- LC20019
+- LC20020
+- LC20021
+- LC20022
+- LC20023
+- LC20024
+- LC20025
+- LC20026
+- LC20027
+- LC20028
+- LC20029
+- LC20030
+- LC20031
+- LC20032
+- LC20033
+- LC20034
+- LC20035
+- LC20036
+- LC20037
+- LC20038
+- LC20039
+- LC20040
+- LC20041
+- LC20042
+- LC20043
+- LC20044
+- LC20045
+- LC20046
+- LC20047
+- LC20048
+- LC20049
+- LC20050
+- LC20051
+- LC20052
+- LC20053
+- LC20054
+- LC20055
+- LC20056
+- LC20057
+- LC20058
+- LC20059
+- LC20060
+- LC20061
+- LC20062
+- LC20063
+- LC20064
+- LC20065
+- LC20066
+- LC20067
+- LC20068
+- LC20069
+- LC20070
+- LC20071
+- LC20072
+- LC20073
+- LC20074
+- LC20075
+- LC20076
+- LC20077
+- LC20078
+- LC20079
+- LC20080
+- LC20081
+- LC20082
+- LC20083
+- LC20084
+- LC20085
+- LC20086
+- LC20087
+- LC20088
+- LC20089
+- LC20090
+customers:
+- entity_id: LC10001
+  name: 华联精密制造有限公司
+  grade: red
+  trigger_reasons:
+  - cross_hit
+  evidence:
+  - type: external
+    signal: 原告诉请被告华联精密制造有限公司支付货款 1200 万元及违约金。
+    source: 裁判文书网 (2025)沪0115民初12345号
+    url: https://wenshu.court.gov.cn/mock/2025_0115_12345
+  - type: external
+    signal: 2025Q4 净利润-680万；被列为被告涉诉标的1200万；核心客户（占营收35%）进入重整程序
+    source: 客户风险标签
+    url: ''
+  - type: internal
+    signal: 第十一条 核心关联方出险的强制预警线：关联方；重整；预警线；主要客户；破产
+    source: 本行制度 internal_policy.md
+    url: ''
+  scan_time_ms: 0.42
+  status: completed
+- entity_id: LC10002
+  name: 兴业通达贸易有限公司
+  grade: red
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 实控人发生变更；大股东持有的60%股权被司法冻结；资产负债率攀升至83.2%
+    source: 客户风险标签
+    url: ''
+  - type: external
+    signal: 近日企查查显示，兴业通达贸易有限公司完成实控人变更，大股东 60% 股权被司法冻结。
+    source: 舆情 · 2026-01-08 兴业通达贸易实控人变更，大股东股权被司法冻结
+    url: https://news.mock/cj/20260108/xingye-controller-change
+  - type: external
+    signal: 实控人发生变更；大股东持有的60%股权被司法冻结；资产负债率攀升至83.2%
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.12
+  status: completed
+- entity_id: LC10003
+  name: 德昌五金制品有限公司
+  grade: red
+  trigger_reasons:
+  - cross_hit
+  evidence:
+  - type: external
+    signal: 德昌五金制品有限公司因未履行生效判决被列入失信被执行人名单。
+    source: 裁判文书网 (2025)苏0583执恢1289号
+    url: https://wenshu.court.gov.cn/mock/2025_0583_1289
+  - type: external
+    signal: 被列入失信被执行人名单；工厂停产超过 15 天；贷后现场检查已逾期 42 天
+    source: 客户风险标签
+    url: ''
+  - type: internal
+    signal: 贷后检查缺位：贷后检查；缺位；逾期
+    source: 本行制度 internal_policy.md
+    url: ''
+  scan_time_ms: 0.09
+  status: completed
+- entity_id: LC10101
+  name: 恒达汽配有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 应收账款周转天数从 45 天升至 78 天；行业景气下行
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.08
+  status: completed
+- entity_id: LC10102
+  name: 瑞丰五金有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 资产负债率 72.1% 触及黄线；近期发生经营范围变更
+    source: 客户风险标签
+    url: ''
+  - type: external
+    signal: 资产负债率 72.1% 触及黄线；近期发生经营范围变更
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.08
+  status: completed
+- entity_id: LC10103
+  name: 金泰电子有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 消费电子行业景气下行；毛利率同比下降 6 个百分点
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.08
+  status: completed
+- entity_id: LC10104
+  name: 永盛包装材料有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 涉及货款纠纷 180 万元，已开庭审理。
+    source: 裁判文书网 (2025)苏01民初8891号
+    url: https://wenshu.court.gov.cn/mock/2025_0100_8891
+  scan_time_ms: 0.07
+  status: completed
+- entity_id: LC10105
+  name: 华丰物流有限公司
+  grade: yellow
+  trigger_reasons:
+  - internal_rule
+  evidence:
+  - type: internal
+    signal: 贷后检查缺位：贷后检查；缺位；逾期
+    source: 本行制度 internal_policy.md
+    url: ''
+  scan_time_ms: 0.07
+  status: completed
+- entity_id: LC10106
+  name: 大明机械有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 主要客户 A 占营收 34% 终止合作；2025Q4 营收环比下降 8%
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.07
+  status: completed
+- entity_id: LC10107
+  name: 鑫源纺织有限公司
+  grade: yellow
+  trigger_reasons:
+  - external_signal
+  evidence:
+  - type: external
+    signal: 关联企业因应收账款纠纷涉诉；纺织行业景气度持续下行
+    source: 客户风险标签
+    url: ''
+  - type: external
+    signal: 关联企业因应收账款纠纷涉诉；纺织行业景气度持续下行
+    source: 客户风险标签
+    url: ''
+  scan_time_ms: 0.07
+  status: completed
+- entity_id: LC20001
+  name: 万邦智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.06
+  status: completed
+- entity_id: LC20002
+  name: 华瑞建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.06
+  status: completed
+- entity_id: LC20003
+  name: 锦泰机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20004
+  name: 新盛食品有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20005
+  name: 嘉利精密有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20006
+  name: 明德食品有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20007
+  name: 翔宇建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.06
+  status: completed
+- entity_id: LC20008
+  name: 翔宇实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20009
+  name: 瑞祥供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20010
+  name: 正大五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20011
+  name: 锦泰供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20012
+  name: 兴弘新材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.07
+  status: completed
+- entity_id: LC20013
+  name: 鼎新环保有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20014
+  name: 博远食品有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20015
+  name: 华鼎材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20016
+  name: 精诚智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20017
+  name: 泰和智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20018
+  name: 华鼎五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20019
+  name: 精诚机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20020
+  name: 精诚商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20021
+  name: 宏图环保有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20022
+  name: 诚信实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20023
+  name: 嘉利材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20024
+  name: 万隆精密有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20025
+  name: 广利智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20026
+  name: 永利工贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20027
+  name: 瑞祥机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20028
+  name: 华瑞五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20029
+  name: 诚信食品有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20030
+  name: 泰和供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20031
+  name: 翔宇精密有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20032
+  name: 中润机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20033
+  name: 诚信新材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20034
+  name: 裕达实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20035
+  name: 宏图建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20036
+  name: 泰和科技有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20037
+  name: 恒通智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20038
+  name: 恒联实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20039
+  name: 广源材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20040
+  name: 裕达材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20041
+  name: 正大环保有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20042
+  name: 盛泽科技有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20043
+  name: 广源商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20044
+  name: 长兴五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20045
+  name: 明德工贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20046
+  name: 广源智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20047
+  name: 恒联机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20048
+  name: 长兴新材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20049
+  name: 龙昌五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20050
+  name: 宏图食品有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20051
+  name: 博远工贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20052
+  name: 泰和材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20053
+  name: 嘉利供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20054
+  name: 中润供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20055
+  name: 瑞祥机电54有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20056
+  name: 嘉利精密55有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20057
+  name: 广源材料56有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20058
+  name: 恒通商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20059
+  name: 聚鑫商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20060
+  name: 聚鑫机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20061
+  name: 鼎新五金有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20062
+  name: 华鼎智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20063
+  name: 兴弘商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20064
+  name: 鼎新环保63有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20065
+  name: 诚信实业64有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20066
+  name: 万邦建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20067
+  name: 博远建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20068
+  name: 恒通材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20069
+  name: 嘉利科技有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20070
+  name: 兴弘实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20071
+  name: 广利材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20072
+  name: 盛泽智能有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20073
+  name: 鼎新材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20074
+  name: 宏图新材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20075
+  name: 诚信机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20076
+  name: 恒联机电75有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.04
+  status: completed
+- entity_id: LC20077
+  name: 兴弘供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20078
+  name: 中润工贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20079
+  name: 长兴材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20080
+  name: 明德机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.09
+  status: completed
+- entity_id: LC20081
+  name: 万邦商贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.06
+  status: completed
+- entity_id: LC20082
+  name: 聚鑫科技有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20083
+  name: 恒联机电82有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20084
+  name: 华瑞机电有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20085
+  name: 瑞祥环保有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20086
+  name: 正大实业有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20087
+  name: 万隆建材有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20088
+  name: 万隆工贸有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20089
+  name: 永利材料有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+- entity_id: LC20090
+  name: 聚鑫供应链有限公司
+  grade: green
+  trigger_reasons: []
+  evidence: []
+  scan_time_ms: 0.05
+  status: completed
+tool_calls:
+  total: 200
+  success: 200
