@@ -181,7 +181,46 @@ Agent1 的"声称能跑但实测不通"暴露一个协议盲点：commit message
 
 ### Signal
 
-- `Signal: PHASE-2-APPROVED` on Agent3（本次 decisions-log commit trailer 带）
-- `Signal: PHASE-2-BATCH-1-CONDITIONAL-APPROVE` on Agent1（同 commit trailer 带）
+- `Signal: PHASE-2-APPROVED` on Agent3（08f9f6d commit trailer 带）
+- `Signal: PHASE-2-BATCH-1-CONDITIONAL-APPROVE` on Agent1（补发，见下面 Q-006）
+
+**注**：08f9f6d 一次 commit 塞两个 signal 违反 `commit-signal-registry.md` §红线。见 Q-006 协议复盘。
 
 ---
+
+## [Q-006] 2026-04-19 · 主 CLI 自问 · Phase 2 Batch 1 review 暴露的三个协议盲点
+
+**CLI**: main (self-audit)
+**Priority**: P2
+**Blocking**: no（历史损伤不修，新规生效前向有效）
+
+### 盲点 1：commit message 声称的冒烟命令未被强制实测
+Agent1 Option 2 的 f2bee8c 在 commit message 里写 "冒烟: py -m evaluation.runner --agent channel"，实测报 ImportError（缺 runner framework，f2bee8c 所在分支没 rebase）。commit message 成了"看起来能跑"的幻觉证据。
+
+### 盲点 2：一 commit 多 Signal 违反 registry §红线
+主 CLI 自己的 08f9f6d 一次 commit 同时塞 `PHASE-2-APPROVED` 和 `PHASE-2-BATCH-1-CONDITIONAL-APPROVE` 两个 signal。mesh_status.py 只抓最后一条，后者被吞。Agent1 若根据 mesh 看板判断批示会错位。
+
+### 盲点 3：cherry-pick 保留 worker trailer → 主 CLI last signal 语义错
+主 CLI 把 chore/agent3-lint-cleanup 的 50cf2a7（trailer `PHASE-2-ONBOARDING-ACK`，worker 语义）cherry-pick 进 chore/l0-infra，导致 mesh_status 显示 main 的 last signal 是 `PHASE-2-ONBOARDING-ACK`——主 CLI 不会 ACK 自己的 onboarding，这是语义污染。
+
+### [A-006] 2026-04-19 · 主 CLI 自决
+
+**立即执行**（本次补救）：
+1. Amend 5277a12 → 3febf0f trailer 改为 `Signal: TASK-B-MERGED-TO-L0`（§2 自由命名规则下合法）
+2. 补一个独立 commit 带 `Signal: PHASE-2-BATCH-1-CONDITIONAL-APPROVE`（本 Q-006 + Agent1 fix onboarding 同 commit）
+3. 08f9f6d 历史损伤不修（已经进 mesh 视野，amend 会 orphan 依赖，得不偿失）
+
+**协议改进**（下一批次起生效）：
+- **新硬规则 R-A**：commit message 声称的冒烟命令必须在**提交分支当前 HEAD** 上实测过再入 commit。违反 → review 自动 CONDITIONAL
+- **新硬规则 R-B**：一 commit 一 signal（registry 本来就有，但缺强制机制）。主 CLI 自己 commit 前 `git log --format='%b' HEAD` 自检 trailer 数量
+- **新硬规则 R-C**：Cherry-pick 主 CLI 必须 amend trailer，从 worker signal 改为主 CLI 视角的 signal（新增 `TASK-<X>-MERGED-TO-L0` / `CHERRY-PICKED-FROM-<SHA>` 类，§2 自由命名已覆盖）
+
+**skill 层改动**（稍后评估，不本次做）：
+- `~/.claude/skills/multi-cli-mesh/protocols/commit-signal-registry.md` 增补 R-A / R-B / R-C 示例
+- `mesh_status.py` 增 "一 commit 多 signal" 检测告警
+- 不本次做的原因：skill 跨项目基础设施，本项目单独证据不足以推全局协议；等 Agent2/4/5 启动再复盘是否持续暴露同类盲点
+
+**落地**：本 A-006 commit 同时补发 Signal: PHASE-2-BATCH-1-CONDITIONAL-APPROVE（补上 08f9f6d 丢失的那个）+ 向 Agent1 下发 fix onboarding。
+
+---
+
