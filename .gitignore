@@ -63,6 +63,8 @@ data/feedback/*.jsonl
 evaluation/results/*.yaml
 evaluation/results/**/*.json
 !evaluation/results/.gitkeep
+evaluation/runtime/2_*/
+evaluation/manual/2_*_run_*.yaml
 
 # ----------------------------------------------------------------------------
 # UI debug artifacts (playwright traces / 根目录 PNG 探索)

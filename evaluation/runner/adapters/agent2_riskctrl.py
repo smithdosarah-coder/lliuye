@@ -34,7 +34,8 @@ from ..registry import register_evaluator
 from ..schemas import EvalRun, MetricOutcome
 
 
-DEFAULT_FIXTURE_DIR = REPO_ROOT / "agent_riskctrl" / "tests" / "fixtures" / "baseline_v1"
+RUNTIME_LATEST_DIR = REPO_ROOT / "evaluation" / "runtime" / "2_latest"
+FIXTURE_BASELINE_V1_DIR = REPO_ROOT / "agent_riskctrl" / "tests" / "fixtures" / "baseline_v1"
 EVIDENCE_KEYS = ("ks", "approve_rate", "bad_rate")
 
 
@@ -42,15 +43,22 @@ def _read_json(p: Path) -> dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def _resolve_fixture_dir(run: EvalRun) -> Path:
-    if not run.artifacts:
-        return DEFAULT_FIXTURE_DIR
-    first = Path(run.artifacts[0])
-    if not first.is_absolute():
-        first = REPO_ROOT / first
-    if first.is_dir():
-        return first
-    return first.parent
+def _resolve_fixture_dir(run: EvalRun) -> tuple[Path, str]:
+    """三级 fallback:
+      1. run.artifacts[0] 显式指定（dir 或 file 所在 dir）
+      2. evaluation/runtime/2_latest/ （scripts/run_agent2_baseline.py 产物）
+      3. agent_riskctrl/tests/fixtures/baseline_v1/ （回归锚，非当期生产基线）
+
+    Returns: (dir, source_tag) — source_tag 入 errors/note 便于 review 溯源
+    """
+    if run.artifacts:
+        first = Path(run.artifacts[0])
+        if not first.is_absolute():
+            first = REPO_ROOT / first
+        return (first if first.is_dir() else first.parent, "artifacts_arg")
+    if RUNTIME_LATEST_DIR.is_dir() and (RUNTIME_LATEST_DIR / "rules.json").exists():
+        return (RUNTIME_LATEST_DIR, "runtime_latest")
+    return (FIXTURE_BASELINE_V1_DIR, "fixture_baseline_v1_regression_anchor")
 
 
 @register_evaluator("riskctrl")
@@ -59,13 +67,14 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
     config_name = "agent2_riskctrl.yaml"
 
     def load_artifacts(self, run: EvalRun) -> dict[str, Any]:
-        fx_dir = _resolve_fixture_dir(run)
+        fx_dir, source_tag = _resolve_fixture_dir(run)
         rules_path = fx_dir / "rules.json"
         schema_path = fx_dir / "sample_schema.json"
         backtest_path = fx_dir / "backtest.json"
 
         artifacts: dict[str, Any] = {
             "fixture_dir": str(fx_dir),
+            "fixture_source": source_tag,
             "rules_path": str(rules_path),
             "schema_path": str(schema_path),
             "backtest_path": str(backtest_path),

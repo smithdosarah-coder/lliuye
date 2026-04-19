@@ -1,4 +1,9 @@
-# Agent2 风控 · baseline_v1 fixture
+# Agent2 风控 · baseline_v1 fixture（回归锚 · regression anchor）
+
+> **Phase 1 起始（2026-04-19）降级为回归锚**：当 `evaluation/runtime/2_latest/` 存在时，adapter 走 runtime 真实产物；本目录仅在无 runtime 产物时作为 fallback 使用，目的是防止"环境无 LLM / 脚本未跑"导致 adapter 失败。
+>
+> 当前生产基线来源：`py scripts/run_agent2_baseline.py` 产物（见 `docs/progress/agent2-phase-1-task-a.md`）。
+> 本 fixture 值全绿 **不证明 Agent2 LLM 链路质量**，只证明 adapter 能识别合格形态（合成 good-run）。
 
 Phase 0 evaluation adapter 的基线产出物。**非真实客户数据**，合成用于锚定 Phase 1 产品化前的量化起点。
 

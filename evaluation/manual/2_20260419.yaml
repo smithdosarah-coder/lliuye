@@ -1,0 +1,93 @@
+# Agent2 风控 · Phase 1 Runtime Baseline 输入契约
+# 日期：2026-04-19
+# 消费方：scripts/run_agent2_baseline.py
+# 产物：evaluation/runtime/2_<timestamp>/{rules,sample_schema,backtest}.json
+#
+# 本文件定义 Phase 1 runtime baseline 的固定输入（3 种流程），
+# 目的是把 Phase 0 的合成 good-run fixture 替换为真实跑 RiskControlAgent.process_message
+# 的端到端产物。
+#
+# 原则：输入固定 → 产物可复现（叠加 LLM 缓存后基本确定性）→ baseline 有意义。
+
+agent: riskctrl
+version: v1.0
+llm_provider: deepseek
+llm_cache: true           # 依赖 llm.py 的磁盘 cache；重跑命中即同值
+csv_seed: 42              # 合成 CSV 固定随机种子；字段 schema 真实，值合成（保证可复现）
+csv_rows: 150             # MAX_ROWS 约束下小样本足够暴露 tool/backtest 链路
+sample_schema_source: agent_riskctrl/tests/fixtures/baseline_v1/sample_schema.json
+
+flows:
+  - id: rule_config
+    description: 流程 1 · 文本策略需求 → DSL 规则（不上传 CSV）
+    user_message: |
+      我们是一家面向个人消费金融的银行，想针对征信分较差的客户收紧。
+      需要一套风控策略：
+      1. 近 90 天有严重逾期（>30 天）的客户直接拒绝
+      2. 负债率 > 0.7 的客户转人工审查
+      3. 征信分 < 600 的客户拒绝
+      4. 12 个月逾期 >=3 次的客户转人工
+      5. 就业 >=2 年且月收入 >=8000 的客户通过
+      请帮我生成结构化的 DSL 规则集。
+    uploaded_files: []
+    captures:
+      - ruleset         # from parse_natural_language_rules(llm_result)
+      - llm_result      # raw LLM output (for evidence_rate 字段核对)
+    smoke_only: false   # 纳入 baseline（驱动 rules.json 产出）
+
+  - id: backtest
+    description: 流程 2 · 文本策略需求 + 样本 CSV → DSL 规则 + 回测
+    user_message: |
+      基于本次上传的历史授信样本，生成一套能把坏账识别出来、
+      同时保持较高通过率的风控策略，并对全量样本做回测。
+    uploaded_files:
+      - __AUTO_GENERATED_CSV__     # script 脚本按 csv_seed 生成 & 托管到 runtime_dir/sample_data.csv
+    captures:
+      - ruleset
+      - backtest_result             # from run_backtest(df, ruleset)
+      - tool_calls                  # 事件流中 tool_call/tool_result 对的汇总
+      - df_columns                  # 作为 sample_schema.json.columns
+    smoke_only: false
+
+  - id: error_analysis
+    description: 流程 3 · 差错案件文字描述（冒烟，不入 baseline）
+    user_message: |
+      客户 C_00017 近 6 个月信用良好，征信分 720，月入 15000，
+      但因 overdue_count_12m=3（3 年前一次信用卡逾期）被规则 R004 误杀。
+      请分析是否存在规则偏激、建议如何优化。
+    uploaded_files: []
+    captures:
+      - analysis_text
+    smoke_only: true    # 不驱动 baseline 指标，仅冒烟验证链路
+
+outputs:
+  rules_json:
+    source: flows[1].captures.ruleset           # backtest 流 的 ruleset 产出主 baseline
+    enrichment_from_backtest: true              # 每条 rule 合入 rule_stats 的 ks/approve/bad 字段
+    schema:
+      inputs_total: flows.count(smoke_only=false)   # = 2
+      outputs_successful: successful_ruleset_count   # 0~2
+      ruleset:
+        description: str
+        rules:
+          - rule_id: str
+            name: str
+            description: str
+            conditions: [{field, operator, value}]
+            action: str
+            priority: int
+            backtest: {ks, approve_rate, bad_rate, hit_count, hit_rate}
+  sample_schema_json:
+    source: flows[1].captures.df_columns        # backtest 流读入 CSV 的列
+    label_column_inference: auto                # 后缀 "default|label|target" 自动识别
+  backtest_json:
+    source: flows[1].captures.{tool_calls, backtest_result}
+    confusion_matrix_from: synthetic_label_column  # 用 df.label_default 与规则 action=reject/approve 对齐算
+
+red_line_acceptance:
+  # Phase 1 baseline 运行后须对齐下列阈值；倒退写 gap doc, 不硬压指标
+  task_completion_rate: ">= 0.90"    # 允许 LLM 链路小幅退化（0.9x * Phase 0 1.0）
+  evidence_rate: ">= 0.88"           # 允许 0.9x * Phase 0 0.98
+  hallucination_rate: "<= 0.05"      # 允许 10x * Phase 0 0.0（单位绝对 0.05，不是相对 0.9x）
+  tool_success_rate: ">= 0.85"       # 允许 0.9x * Phase 0 1.0
+  false_positive_rate: "<= 0.15"     # 对齐 yaml target（而非 Phase 0 严值 0.07）
