@@ -1,0 +1,97 @@
+{
+  "description": "Agent2 Phase 0 baseline — DSL 生成产出（含每条规则的回测证据字段）",
+  "version": "v1.0",
+  "inputs_total": 5,
+  "outputs_successful": 5,
+  "ruleset": {
+    "description": "基线策略集（5 条规则，覆盖逾期、负债率、信用分、行业、就业稳定性）",
+    "rules": [
+      {
+        "rule_id": "R001",
+        "name": "严重逾期直接拒绝",
+        "description": "近 90 天逾期超过 30 天一律拒绝",
+        "conditions": [
+          {"field": "overdue_days_90d", "operator": ">", "value": 30}
+        ],
+        "action": "reject",
+        "priority": 1,
+        "backtest": {
+          "ks": 0.31,
+          "approve_rate": 0.0,
+          "bad_rate": 0.72,
+          "hit_count": 18,
+          "hit_rate": 0.12
+        }
+      },
+      {
+        "rule_id": "R002",
+        "name": "高负债率人工复核",
+        "description": "负债率超过 0.7 转人工审查",
+        "conditions": [
+          {"field": "debt_ratio", "operator": ">", "value": 0.7}
+        ],
+        "action": "manual_review",
+        "priority": 2,
+        "backtest": {
+          "ks": 0.18,
+          "approve_rate": 0.22,
+          "bad_rate": 0.38,
+          "hit_count": 24,
+          "hit_rate": 0.16
+        }
+      },
+      {
+        "rule_id": "R003",
+        "name": "低信用分拒绝",
+        "description": "征信分低于 550 拒绝",
+        "conditions": [
+          {"field": "credit_score", "operator": "<", "value": 550}
+        ],
+        "action": "reject",
+        "priority": 3,
+        "backtest": {
+          "ks": 0.26,
+          "approve_rate": 0.0,
+          "bad_rate": 0.61,
+          "hit_count": 15,
+          "hit_rate": 0.10
+        }
+      },
+      {
+        "rule_id": "R004",
+        "name": "多次逾期复核",
+        "description": "12 个月逾期次数 >=3 转人工",
+        "conditions": [
+          {"field": "overdue_count_12m", "operator": ">=", "value": 3}
+        ],
+        "action": "manual_review",
+        "priority": 4,
+        "backtest": {
+          "ks": 0.21,
+          "approve_rate": 0.15,
+          "bad_rate": 0.45,
+          "hit_count": 12,
+          "hit_rate": 0.08
+        }
+      },
+      {
+        "rule_id": "R005",
+        "name": "稳定就业通过",
+        "description": "就业年限 >=2 年且月收入 >=8000 自动通过",
+        "conditions": [
+          {"field": "employment_years", "operator": ">=", "value": 2},
+          {"field": "income_monthly", "operator": ">=", "value": 8000}
+        ],
+        "action": "approve",
+        "priority": 10,
+        "backtest": {
+          "ks": 0.14,
+          "approve_rate": 1.0,
+          "bad_rate": 0.08,
+          "hit_count": 63,
+          "hit_rate": 0.42
+        }
+      }
+    ]
+  }
+}
