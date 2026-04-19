@@ -149,3 +149,39 @@ rescue commit landed on chore/l0-infra 尾部。请示：
 - Agent3 收到本 A-004 后 commit trailer 带 `Signal: A-004-ACK`
 
 ---
+
+## [A-005] 2026-04-19 · 主 CLI · Phase 2 Batch 1 Review 裁决
+
+**性质**：主 CLI 自主 review（非 worker 发问），记录 Phase 2 Batch 1 对 Agent1 / Agent3 的裁决。
+**Targets**: `feat/agent3-productize` @ d67576f · `chore/agent3-lint-cleanup` @ 50cf2a7 · `feat/agent1-productize` @ e7ddd86
+**Review 文档**：`docs/review/agent3-phase-2-review.md` · `docs/review/agent1-phase-2-batch-1-review.md`
+
+### Agent3 Phase 2 Batch 1 — **APPROVED**
+
+- Task A (d221115)：`py -m evaluation.runner --agent credit` 8/9 PASS（1 Phase C stub），红线闸门全绿，pytest 16/16，无红区改动
+- Task B (50cf2a7 on chore/agent3-lint-cleanup)：ruff 全清（--select BLE001 + 全量 passed），2 文件 12+/13- 纯 except 收窄
+- `chore/agent3-lint-cleanup` 授权 fast-forward merge 进 `chore/l0-infra`
+
+### Agent1 Phase 2 Batch 1 — **CONDITIONAL-APPROVE**
+
+- Option 4 (d1df143)：handoff contract 8/8 + full suite 29/29，A-004 §〇 合规（无 Pydantic.validate）→ APPROVED
+- Option 2 (f2bee8c)：sampling CSV 能跑但 `py -m evaluation.runner --agent channel` 报 `No module named evaluation.runner.__main__` —— **feat/agent1-productize merge base 停在 e9eeaf0，未 rebase 到主 CLI 705326d runner framework**
+- commit message 声称能跑的冒烟命令与实测不符
+
+**Required actions (Agent1)**：
+1. `git fetch upstream && git rebase upstream/chore/l0-infra`
+2. 解 `evaluation/runner/__init__.py` 冲突（保主 CLI framework 版）
+3. 重跑冒烟 `py -m evaluation.runner --agent channel`
+4. commit trailer `Signal: OPTION-2-REBASE-FIXED`
+5. 主 CLI 二次验 → APPROVED
+
+### 质量尾巴
+
+Agent1 的"声称能跑但实测不通"暴露一个协议盲点：commit message 里的冒烟命令未被强制在提交分支上实测。下批 onboarding 增加软规则"冒烟命令必须在提交分支本地实测过再入 commit"。
+
+### Signal
+
+- `Signal: PHASE-2-APPROVED` on Agent3（本次 decisions-log commit trailer 带）
+- `Signal: PHASE-2-BATCH-1-CONDITIONAL-APPROVE` on Agent1（同 commit trailer 带）
+
+---

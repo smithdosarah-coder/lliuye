@@ -1,8 +1,9 @@
 # 5 Demo 产品化 · 全局看板 (GLOBAL)
 
-**更新日期**：2026-04-17
+**更新日期**：2026-04-19（Phase 2 Batch 1 review 后）
 **维护人**：主 CLI（唯一可写，子 CLI 只读）
 **DoD 引用**：`docs/scorecard/definition-of-done.md` v1.0
+**Mesh 状态看板**：`py C:/Users/Mr.S/.claude/skills/multi-cli-mesh/scripts/mesh_status.py`
 
 ---
 
@@ -20,16 +21,16 @@
 
 ---
 
-## 二、当前完整度矩阵（2026-04-17 快照）
+## 二、当前完整度矩阵（2026-04-19 快照）
 
-| Agent | 后端 LOC | 前端 LOC | L0 | L1 | L2 | L3 | 综合 | 距离可卖 |
-|---|---|---|---|---|---|---|---|---|
-| 6 报告 | 1406 + 根目录基础设施 | 748 | ✅ 通 | ✅ 通 | 🟡 缺审计日志 | ✅ 基线已跑 | **95%** | 收尾反馈回流 + 模型卡片 |
-| 3 授信 | 3860 | 1011 | 🟡 待自查 | 🟡 缺可视化 + 导出 | ❌ 缺原因码 | ❌ 基线未跑 | **70%** | 最有价值，先打 |
-| 1 获客 | 2911（v4.0） | 762 | 🟡 待自查 | 🟡 缺导出 + handoff | 🟡 缺数据分级 | ❌ 基线未跑 | **65%** | 信号调优 |
-| 2 风控 | 1513 | 786 | 🟡 待自查 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ❌ 基线未跑 | **55%** | DSL UI 重做 |
-| 4 预警 | 3078 | 483 ⚠️薄 | 🟡 待自查 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ❌ 基线未跑 | **50%** | 前端加厚 |
-| 5 合规 | 3107 | 373 ⚠️最薄 | 🟡 待自查 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 前端重做 |
+| Agent | Phase | L0 | L1 | L2 | L3 | 综合 | 最后裁决 |
+|---|---|---|---|---|---|---|---|
+| 6 报告 | v16 maintenance | ✅ | ✅ | 🟡 缺审计日志 | ✅ Phase A adapter | **95%** | `WINDOW-CLOSED-CLEAN` |
+| 3 授信 | Phase 2 Batch 1 APPROVED | ✅ | ✅ handoff+docx+雷达 | ✅ 原因码+severity | ✅ 基线 PASS + Phase B adapter | **90%** | `PHASE-2-APPROVED` |
+| 1 获客 | Phase 2 Batch 1 CONDITIONAL | ✅ | ✅ handoff contract | 🟡 sampling CSV | 🟡 adapter 挂 registry 待 rebase | **78%** | `CONDITIONAL-APPROVE` |
+| 2 风控 | 未启 | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ❌ 基线未跑 | **55%** | 排队 |
+| 4 预警 | 未启 | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ❌ 基线未跑 | **50%** | 排队 |
+| 5 合规 | 未启 | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 排队 |
 
 **图例**：✅ 全通 / 🟡 部分通 / ❌ 未通
 
@@ -83,7 +84,21 @@ git worktree add ../demo-agent5 -b feat/agent5-productize
 
 ---
 
-## 五、本周焦点（Phase 0）
+## 五、当前焦点（Phase 2 · 2026-04-19 起）
+
+**已完成**：Agent6 v16 Phase 1 收尾 + Agent3 Phase 1 APPROVED + Agent3 Phase 2 Batch 1 APPROVED + Agent1 Phase 2 Batch 1 CONDITIONAL-APPROVE
+
+**在途**：
+- Agent1 Option 2 rebase 修复（等 worker 重开窗口）
+- `chore/agent3-lint-cleanup` fast-forward merge 进 `chore/l0-infra`
+
+**下一批（未下发）**：
+- Agent2 / Agent4 / Agent5 Phase 1 启动评估
+- Agent1 Option 1 解封等 Tavily 生产 key + 合规批文
+
+---
+
+## 五·旧、本周焦点（Phase 0 · 已归档 2026-04-17~04-18）
 
 ### Agent6 收尾 TODO
 
@@ -141,7 +156,7 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 提交时间 | agent | phase | 进度文档 | 状态 |
 |---|---|---|---|---|
-| - | - | - | - | 等待子 CLI 提交 |
+| - | - | - | - | 无待 review |
 
 ---
 
@@ -152,7 +167,10 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 日期 | agent | phase | verdict | reviewer |
 |---|---|---|---|---|
-| - | - | - | - | - |
+| 2026-04-19 | 3 授信 | Phase 2 Batch 1 | APPROVED | 主 CLI |
+| 2026-04-19 | 1 获客 | Phase 2 Batch 1 | CONDITIONAL-APPROVE | 主 CLI |
+| 2026-04-19 | 3 授信 | Phase 1 | APPROVED (A-004) | 主 CLI |
+| 2026-04-18 | 6 报告 | v16 Phase 1 | APPROVED (A-001~003) | 主 CLI |
 
 ---
 
