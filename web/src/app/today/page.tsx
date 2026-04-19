@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { Hero } from "@/components/today/Hero";
 import {
   TODAY_FEED,
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
-  TODAY_SUMMARY,
   TODAY_TASKS,
 } from "@/lib/mock/today";
 
@@ -15,43 +15,7 @@ export const metadata = {
 export default function TodayPage() {
   return (
     <div className="v-today">
-      <div className="eyebrow">
-        <span className="sep" />
-        2026 · 04 · 19 · Saturday <em>华东分行 · 王哲</em>
-      </div>
-
-      <h1 className="hero-h1">
-        今日 <em>collaboration</em> 起点
-      </h1>
-
-      <p className="lede">
-        本日工作围绕 <strong>宁海汇通终审</strong>、<strong>星河医药预警复核</strong>
-        与 <strong>§214 政策合规筛查</strong> 三个主线推进。
-        AI 助手 <span className="num">3</span> 个在跑，待办
-        <span className="num">{TODAY_TASKS.length}</span> 项，未读消息
-        <span className="num">3</span> 条。
-      </p>
-
-      <div className="hero-meta">
-        <span className="pill">
-          <span className="cn">今日实时</span> · 08:47
-        </span>
-        <span className="kv">
-          <span className="k">PIPELINE</span>
-          <span className="v">{TODAY_SUMMARY.pipeline.value}</span>
-          <span className="k" style={{ marginLeft: 6 }}>{TODAY_SUMMARY.pipeline.sub}</span>
-        </span>
-        <span className="kv">
-          <span className="k">QUEUE</span>
-          <span className="v">{TODAY_SUMMARY.queue.value}</span>
-          <span className="k" style={{ marginLeft: 6 }}>{TODAY_SUMMARY.queue.sub}</span>
-        </span>
-        <span className="kv">
-          <span className="k">RISK</span>
-          <span className="v">{TODAY_SUMMARY.risk.value}</span>
-          <span className="k" style={{ marginLeft: 6 }}>{TODAY_SUMMARY.risk.sub}</span>
-        </span>
-      </div>
+      <Hero />
 
       <div className="v-grid-3">
         {/* 消息预览 */}
