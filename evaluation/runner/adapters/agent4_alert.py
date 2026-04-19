@@ -33,12 +33,22 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from ..base_evaluator import REPO_ROOT, BaseEvaluator
 from ..registry import register_evaluator
 from ..schemas import EvalRun, MetricOutcome
 
 
+DEFAULT_RUNTIME = REPO_ROOT / "evaluation" / "manual" / "4_20260419.yaml"
 DEFAULT_FIXTURE = REPO_ROOT / "agent_alert" / "tests" / "fixtures" / "phase0_scan_sample.json"
+
+
+def _load_payload(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        if path.suffix.lower() in (".yaml", ".yml"):
+            return yaml.safe_load(f) or {}
+        return json.load(f)
 
 
 def _p95(values: list[float]) -> float:
@@ -55,10 +65,13 @@ class Agent4AlertEvaluator(BaseEvaluator):
     config_name = "agent4_alert.yaml"
 
     def load_artifacts(self, run: EvalRun) -> dict[str, Any]:
+        # 优先级：run.artifacts[0] > DEFAULT_RUNTIME (runtime dump) > DEFAULT_FIXTURE (回归锚)
         if run.artifacts:
             art_path = Path(run.artifacts[0])
             if not art_path.is_absolute():
                 art_path = REPO_ROOT / art_path
+        elif DEFAULT_RUNTIME.exists():
+            art_path = DEFAULT_RUNTIME
         else:
             art_path = DEFAULT_FIXTURE
 
@@ -71,8 +84,7 @@ class Agent4AlertEvaluator(BaseEvaluator):
                 "tool_calls": {},
             }
 
-        with art_path.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
+        payload = _load_payload(art_path)
 
         return {
             "artifact_path": str(art_path),

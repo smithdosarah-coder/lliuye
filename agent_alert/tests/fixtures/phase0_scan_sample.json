@@ -1,4 +1,11 @@
 {
+  "_meta": {
+    "role": "regression_anchor",
+    "frozen_at": "2026-04-19",
+    "rule": "SCHEMA FROZEN — 勿改分布/延迟/枚举；仅供 adapter 契约回归单测使用，不作生产基线",
+    "runtime_replacement": "evaluation/manual/4_20260419.yaml (Phase 1 Task A 起)",
+    "adapter_priority": "run.artifacts[0] > DEFAULT_RUNTIME > DEFAULT_FIXTURE(this file)"
+  },
   "version": "phase0-sample-v1",
   "generated_at": "2026-04-19",
   "description": "Agent4 Phase 0 baseline fixture — 100 in-loan customers scan output",
