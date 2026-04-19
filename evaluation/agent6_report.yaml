@@ -86,3 +86,27 @@ baseline:
     field_completeness: 0.935
     unfilled_count: 32
     total_filled: 460
+
+# Phase 2 Task C · 模板覆盖度(L3-12)
+# 模板识别由 agent_report/template_adapter.py 提供;预期 qc_floor 为单模板回归基线下限。
+coverage_by_template:
+  total_templates: 5
+  by_scenario:
+    inclusive_skeleton: 1   # 普惠申报书_骨架型.docx (v7.23 基线)
+    corporate_long_form: 2  # 兴业资管_对公成稿B.docx + 经纬测绘_对公成稿A.docx
+    tech_credit: 1          # 科创贷申报书_模板.docx (Phase 2 新增)
+    micro_personal: 1       # 小微对私授信申报书_模板.docx (Phase 2 新增)
+  by_business_line:
+    inclusive: 1
+    corporate: 3
+    personal: 1
+  qc_floor_by_scenario:
+    inclusive_skeleton: 88.5
+    corporate_long_form: 88.0
+    tech_credit: 86.0
+    micro_personal: 82.0
+  per_template_baseline_runs:
+    pending_business_data: true
+    note: "新增 tech_credit / micro_personal 待业务方提供真材料后跑全量回归;
+           当前 baseline 为脱敏模板结构性基线,未做端到端 LLM 跑批"
+
