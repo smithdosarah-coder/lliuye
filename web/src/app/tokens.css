@@ -1,0 +1,119 @@
+/* ================================================================
+   Platform Shell v1 · Design Tokens
+   Source: design_mockups/shell.html L11-117 (2026-04-18 lock)
+   Spec:   docs/design/platform-shell-v1.md §3
+   ================================================================ */
+
+/* Stage 2 · Google Fonts CDN (Stage 6 迁自托管)
+   Funnel Display + Instrument Sans/Serif 是 platform-shell-v1 新增；
+   JetBrains Mono / Noto Sans SC / Noto Serif SC 已由 next/font/google 加载，
+   此处不重复请求。 */
+@import url('https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap');
+
+/* —— Canvas (default) —— */
+:root {
+  --g0:  #F2E7D3;
+  --g0b: #F7EEDC;
+  --g1:  #F5D2A9;
+  --g2:  #F0B07A;
+  --g3:  #E89766;
+  --g4:  #D4653F;
+  --g5:  #A63E1F;
+  --g6:  #2C4A3A;
+  --g7:  #163025;
+  --accent: #A03B1C;
+  --ink:    #11170F;
+  --chalk:  #FBF7EE;
+  --safe:   #3AB27C;
+
+  --display: "Funnel Display", "Noto Sans SC", system-ui, sans-serif;
+  --sans:    "Instrument Sans", "Noto Sans SC", system-ui, sans-serif;
+  --italic:  "Instrument Serif", "Noto Serif SC", Georgia, serif;
+  --mono:    "JetBrains Mono", ui-monospace, monospace;
+  --cjk:     "Noto Sans SC", system-ui, sans-serif;
+  --cjkserif:"Noto Serif SC", Georgia, serif;
+
+  --r-md: 18px;
+  --r-lg: 26px;
+
+  --ink-04: color-mix(in srgb, var(--ink) 4%,  transparent);
+  --ink-08: color-mix(in srgb, var(--ink) 8%,  transparent);
+  --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
+  --ink-18: color-mix(in srgb, var(--ink) 18%, transparent);
+  --ink-28: color-mix(in srgb, var(--ink) 28%, transparent);
+  --ink-32: color-mix(in srgb, var(--ink) 32%, transparent);
+  --ink-48: color-mix(in srgb, var(--ink) 48%, transparent);
+  --ink-65: color-mix(in srgb, var(--ink) 65%, transparent);
+  --ink-80: color-mix(in srgb, var(--ink) 82%, transparent);
+
+  --ch-08: color-mix(in srgb, var(--chalk) 8%,  transparent);
+  --ch-12: color-mix(in srgb, var(--chalk) 12%, transparent);
+  --ch-14: color-mix(in srgb, var(--chalk) 14%, transparent);
+  --ch-22: color-mix(in srgb, var(--chalk) 22%, transparent);
+  --ch-28: color-mix(in srgb, var(--chalk) 28%, transparent);
+  --ch-35: color-mix(in srgb, var(--chalk) 35%, transparent);
+  --ch-40: color-mix(in srgb, var(--chalk) 40%, transparent);
+  --ch-42: color-mix(in srgb, var(--chalk) 42%, transparent);
+  --ch-45: color-mix(in srgb, var(--chalk) 45%, transparent);
+  --ch-52: color-mix(in srgb, var(--chalk) 52%, transparent);
+  --ch-55: color-mix(in srgb, var(--chalk) 55%, transparent);
+  --ch-60: color-mix(in srgb, var(--chalk) 60%, transparent);
+  --ch-65: color-mix(in srgb, var(--chalk) 65%, transparent);
+  --ch-70: color-mix(in srgb, var(--chalk) 70%, transparent);
+  --ch-75: color-mix(in srgb, var(--chalk) 75%, transparent);
+  --ch-82: color-mix(in srgb, var(--chalk) 82%, transparent);
+  --ch-86: color-mix(in srgb, var(--chalk) 86%, transparent);
+  --ch-90: color-mix(in srgb, var(--chalk) 90%, transparent);
+  --ch-92: color-mix(in srgb, var(--chalk) 92%, transparent);
+  --ch-96: color-mix(in srgb, var(--chalk) 96%, transparent);
+
+  --cursor-default: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='1.6' fill='%2311170F'/></svg>") 8 8, default;
+}
+
+/* —— Matcha (抹茶) —— */
+[data-theme="matcha"] {
+  --g0:  #F2EDDF;
+  --g0b: #F6F1E5;
+  --g1:  #E0E4C5;
+  --g2:  #BCCB9C;
+  --g3:  #8FAD78;
+  --g4:  #5E8A57;
+  --g5:  #355F41;
+  --g6:  #1C3827;
+  --g7:  #0F2218;
+  --accent: #A04A2A;
+  --ink:   #141A14;
+  --chalk: #FAF6EA;
+}
+
+/* —— Dusk (粉调暮色) —— */
+[data-theme="dusk"] {
+  --g0:  #F6E8EA;
+  --g0b: #F9ECEE;
+  --g1:  #F0BEC8;
+  --g2:  #E996AC;
+  --g3:  #D86F92;
+  --g4:  #B14774;
+  --g5:  #76284E;
+  --g6:  #3C1632;
+  --g7:  #1F0A1E;
+  --accent: #CE4A65;
+  --ink:   #17101A;
+  --chalk: #FDF4F3;
+}
+
+/* —— Crimson (黑红剧场) —— */
+[data-theme="crimson"] {
+  --g0:  #F3E0D6;
+  --g0b: #F7E8DE;
+  --g1:  #E6B6A0;
+  --g2:  #CF7D5F;
+  --g3:  #A8442C;
+  --g4:  #6E1911;
+  --g5:  #3A0906;
+  --g6:  #180302;
+  --g7:  #080100;
+  --accent: #D5321E;
+  --ink:   #1A0807;
+  --chalk: #FBEEE4;
+}
