@@ -31,7 +31,7 @@
 | 2 风控 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ✅ adapter+baseline 全绿 | **62%** | APPROVED（待 Phase 1） |
 | 4 预警 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ✅ adapter+baseline PARTIAL PASS | **57%** | APPROVED（待 Phase 1） |
 | 5 合规 | 未启（defer） | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 等 kb_scan 底座稳定 |
-| 前端 Shell | **Stage 2 APPROVED 2026-04-19** | — | — | — | — | **—** | Stage 3 首批 = workspace C 方案解耦 |
+| 前端 Shell | **Stage 3 ext APPROVED 2026-04-19** | — | — | — | — | **—** | D usePathname 核验 + E A-015/016 description/eyebrow + F A-017 Today sheet-card 四主题 |
 
 **图例**：✅ 全通 / 🟡 部分通 / ❌ 未通
 
