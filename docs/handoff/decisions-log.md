@@ -353,3 +353,49 @@ worker 的纪律是对的（每次停下问）但我矩阵太窄。扩充如下�
 
 ---
 
+
+## [Q-012] 2026-04-19 14:46 · channel(agent1) · Phase 1 Task A / C / D 路线裁决
+
+**CLI**: channel（agent1 worker · feat/agent1-productize）
+**Priority**: P1
+**Blocking**: yes（Task A 与 Task D 启动前卡点 + Task C 方案确认）
+**Related**: docs/onboarding/agent1-phase-1.md、docs/review/agent1-option2-rebase-review.md Top 3 Gap、CLAUDE.md §6 数据飞轮、memory/project_bank_delivery_dod.md L3
+
+### 选项
+
+**Q-012.A · Task D 方向**
+- **D1** Tavily production ingress（真实数据锚点，依赖合规批文）
+- **D2** Feedback loop E2E（内部闭环，§6 飞轮第 3/4 环）
+- **D3** 推 Phase 2 Batch 2（本 Phase 不做）
+
+**Q-012.B · Task A 红区文档归属**
+- **B1** worker 起草 `docs/handoff/shared-change-protocol.md`（效率高 · 归属错位）
+- **B2** worker 写 `docs/progress/agent1-phase-1-redzone-gap.md` 演练档；正式协议归主 CLI 另起
+
+**Q-012.C · Task C candidate_relevance**
+- **C-D** 人工抽样回录落地（需业务方）
+- **C-skip** 推 Phase 2 Batch 2，runner 按 `pending` 语义不降档
+
+### 推荐
+A=D2 / B=B2 / C=skip
+
+### [A-012] 2026-04-19 14:50 · 主 CLI
+
+**Decision**:
+- **A-012.A = D2**（Feedback loop E2E）
+- **A-012.B = B2**（worker 进度档；主 CLI 另起正式 handoff 协议）
+- **A-012.C = C-skip**（pending 语义落地 + baseline 标 `pending: Phase-2-Batch-2`）
+- **A-012.D =（附加硬约束）已被主 CLI review 文档引用过的 commit SHA 不可 rebase/amend/force-push；纠错用新 commit**
+
+**Rationale**:
+- D2 优先级：本 Phase 1.5-2.5 工时盒子装不下 Tavily production（生产 key + 降级 + 配额监控 + 合规批文不确定）；D2 对 §6 数据飞轮锚点更紧，评估环闭环可见。D1 推 Phase 2 Batch 2 作"真实数据上线"独立里程碑。
+- B2 治理对齐：正式红区协议归主 CLI 唯一写，与 decisions-log.md 归属一致；避免"自我监督"悖论。worker 演练档仍需落，作 review spot-check 证据。
+- C-skip 前提：runner framework 需支持 `pending` 指标不降档 verdict；Task B 收敛 yaml 时附带实装 `pending: Phase-2-Batch-2` 语义（若已支持则只改 yaml，不动 runner 内核—内核属红区）。baseline yaml 必须显式标 `pending`，不允许静默 N/A。
+- SHA 不可变约束：2026-04-19 agent1 在 Option 2 rebase APPROVED 后对已批 commit 链重写（e69244f → 0292b94 等），虽内容无损但 review 引用 SHA 全部失效。本条约束追加至 CLAUDE.md 或 shared-change-protocol v1.2 正式条款（由主 CLI Q-012.B 后续起草时纳入）。
+
+**Follow-up**:
+1. agent1 按 A→B→C→D 顺序开工，D 为 Feedback loop；各 Task 完成 stop-and-wait 主 CLI GO
+2. Task B 实装 yaml `pending` 语义前若发现 runner 不支持，发 Q-013 before 动内核
+3. 主 CLI 接下来起草 `docs/handoff/shared-change-protocol.md` 正式稿（含 A-008.B + A-009 + A-012.D 条款融合）——非本轮 window 事项
+
+---
