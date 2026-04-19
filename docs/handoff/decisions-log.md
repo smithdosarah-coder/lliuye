@@ -224,3 +224,74 @@ Agent1 Option 2 的 f2bee8c 在 commit message 里写 "冒烟: py -m evaluation.
 
 ---
 
+## [Q-010] 2026-04-19 14:30 · shell · archive 动态路由 Stage 2 用 placeholder 而非 import 现有 page 组件
+
+**CLI**: shell（frontend worker · feat/platform-shell）
+**Priority**: P2
+**Blocking**: no（补录 · Stage 2 实装已按 A 落地于 `e5dad4b`）
+**Related**: docs/onboarding/frontend-shell-phase-1.md L78、docs/review/frontend-stage-2-review.md Task C "DEVIATION" 行
+
+### 选项
+- **A** `app/archive/[agent]/page.tsx` 是 placeholder stub，Stage 3 再接业务
+- **B** onboarding 原方案：`import CreditPage from "@/app/credit/page"` 等六路直接 import
+- **C** 抽 `components/workspaces/<Agent>Workspace.tsx` business 组件再挂载
+
+### 推荐
+A（已执行）
+
+### 上下文
+onboarding L78 原文：「archive/[agent]/page.tsx 直接 import 现有 page 组件」。实装评估时发现三个问题使 B 不可行：
+1. 六路现有 `app/<agent>/page.tsx` 全部带 `"use client"` 且在组件内部自行渲染了老顶栏容器，直接 import 会在 platform-shell Masthead 外嵌套一层老顶栏（壳套壳）
+2. 老页面全量消费 `--color-paper` / `--color-ink` / `--color-brass`（legacy ink 主题），与 canvas/matcha/dusk/crimson 新壳色系视觉打架
+3. 老页面部分依赖 `next/navigation` 的 `usePathname` 作高亮，嵌进 `/archive/[agent]` 路径后语义错位
+
+C 干净但工作量 = 6 agent × ~1-1.5 day 解耦/迁移，属 Stage 3 业务迁移范畴。Stage 2 DoD 只要求「结构完整可导航 + /archive/[agent] 可达」，A 满足即可。
+
+**副作用**（需主 CLI 知晓）：next.config.ts 的 `/credit /channel /alert /compliance /report /riskctrl` 六条 307 redirect 生效后，**Stage 2→3 过渡期老页面实际离线**——直访 `/credit` 会被踢到 placeholder。若此期间需保留老页访问，可临时摘 redirect 或挪到 `/archive-legacy/*`，待决。
+
+### [A-010] 2026-04-19 14:50 · 主 CLI（shell 自决 · review 已裁定 CONDITIONAL 认可方向）
+
+**Decision**: A
+**Rationale**: 与 `docs/review/frontend-stage-2-review.md` Task C DEVIATION 行判词一致——"方向合理，现有页面有 `"use client"` + 顶栏耦合，直塞会破壳"。未走 Q/A 是流程瑕疵，不是方向错误；本 Q-010 为事后补录，解 CONDITIONAL。
+**Follow-up**: Stage 3 window 首批任务即"六 agent workspace 按 C 方案解耦"，纳入 Stage 3 onboarding DoD。过渡期老页面离线问题若客户 demo 前暴露则回退 redirect，待下一次 review 决定。
+
+---
+
+## [Q-011] 2026-04-19 14:35 · shell · Google Fonts `@import url` 与 Tailwind v4 顺序冲突 → `<link>` 注入
+
+**CLI**: shell（frontend worker · feat/platform-shell）
+**Priority**: P2
+**Blocking**: no（补录 · Stage 2 实装已按 A 落地于 `e5dad4b`）
+**Related**: commit `a4e609e` (Task A 原方案)、`e5dad4b` (Task C 修正)、docs/design/platform-shell-v1.md §3.2 字体策略
+
+### 选项
+- **A** 移除 tokens.css 内 `@import url(fonts.googleapis.com/...)`，改 `app/layout.tsx <head>` 内 `<link rel="stylesheet">` 注入（含 preconnect）
+- **B** 提前到 Stage 6 自托管 woff2 到 `web/public/fonts/`
+- **C** 保留 `@import url` 但全局压到 `globals.css` 第一行（早于 `@import "tailwindcss"`）
+
+### 推荐
+A（已执行）
+
+### 上下文
+Task A 原方案：tokens.css 顶部 `@import url('https://fonts.googleapis.com/css2?family=Funnel+Display...')` 一行加载 3 family。在 dev 跑起来后 Next.js/Turbopack 报错：
+```
+@import rules must precede all rules aside from @charset and @layer statements
+```
+且所有路由 500。
+
+成因：Tailwind v4 的 `@import "tailwindcss"` 在编译阶段会把自身 @import 规则展开到产物 CSS 的最前部（绕过 1-N 万行），外层任何 `@import url()` 即使在源码里写在更靠前位置，展开后会被推到 Tailwind reset 规则之后，触发 CSS @import 语法硬约束（必须先于所有 rule）。
+
+试过的 C 方案（把 `@import url` 写在 `globals.css` 第 1 行、早于 `@import "tailwindcss"`）仍 500——Turbopack 处理 Tailwind v4 inline 展开时不尊重源码位置。
+
+B 干净但属 Stage 6 范畴（银行私有化部署前收敛），现在做相当于提前 4 stage。
+
+A 是最小修复：HTML `<link>` 绕过 CSS 层 @import 约束，字体策略（Stage 2 CDN / Stage 6 自托管）不变，只改加载介质。layout.tsx L66-73 + 预连接 `fonts.googleapis.com` / `fonts.gstatic.com` 已加，首屏字体命中延迟 < 1 跳。
+
+### [A-011] 2026-04-19 14:50 · 主 CLI（shell 自决 · review 已裁定 CONDITIONAL 认可方向）
+
+**Decision**: A
+**Rationale**: 与 `docs/review/frontend-stage-2-review.md` Required Actions §3 一致——"字体策略 §3.2 不变"。review 明确只要求补 log、未质疑技术判断。Tailwind v4 inline 展开是 upstream 行为，CSS 源码层无法绕过；A 是现阶段唯一不改字体策略的修法。
+**Follow-up**: Stage 6 私有化部署时统一自托管 woff2，届时 `<link>` 与 `@import url` 都不再需要，本决策作废。CLAUDE.md §7 字体栈六变量声明不动。
+
+---
+
