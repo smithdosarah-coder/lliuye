@@ -4,11 +4,9 @@
    Spec:   docs/design/platform-shell-v1.md §3
    ================================================================ */
 
-/* Stage 2 · Google Fonts CDN (Stage 6 迁自托管)
-   Funnel Display + Instrument Sans/Serif 是 platform-shell-v1 新增；
-   JetBrains Mono / Noto Sans SC / Noto Serif SC 已由 next/font/google 加载，
-   此处不重复请求。 */
-@import url('https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap');
+/* Note: Google Fonts @import hoisted to globals.css top to satisfy
+   CSS spec ("@import rules must precede all rules"). 字体策略不变 —
+   Stage 2 用 CDN，Stage 6 迁自托管。 */
 
 /* —— Canvas (default) —— */
 :root {
