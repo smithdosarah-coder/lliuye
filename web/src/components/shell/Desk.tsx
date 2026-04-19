@@ -8,10 +8,17 @@ export function Desk() {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moveThrottle = useRef<number>(0);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (pinned) return;
+      // throttle to ~60fps (16ms) — mousemove fires per-pixel on some OSes
+      const now = performance.now();
+      if (now - moveThrottle.current < 16) return;
+      moveThrottle.current = now;
+
       if (e.clientX < 22) {
         if (closeTimer.current) clearTimeout(closeTimer.current);
         setOpen(true);
@@ -24,6 +31,14 @@ export function Desk() {
       if (e.key === "Escape") {
         setOpen(false);
         setPinned(false);
+        return;
+      }
+      // ⌘K / Ctrl+K → 展开 drawer 并聚焦搜索
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen(true);
+        // wait for drawer transform transition-ready frame
+        requestAnimationFrame(() => searchRef.current?.focus());
       }
     }
     document.addEventListener("mousemove", onMove);
@@ -57,7 +72,7 @@ export function Desk() {
         </div>
 
         <div className="dr-search">
-          <input placeholder="搜客户 / 卷宗 / 政策 / 对话" />
+          <input ref={searchRef} placeholder="搜客户 / 卷宗 / 政策 / 对话" />
           <kbd>⌘K</kbd>
         </div>
 
