@@ -85,15 +85,19 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 3. **动态经验**：`/api/feedback` 端点收审贷员对 Agent 输出的修改，写 `data/feedback/YYYY-MM-DD.jsonl`
 4. **提示词优化**：定期从 feedback 提取 few-shot 示例，注入 `prompts.py`
 
-## 7. 前端设计系统
+## 7. 前端设计系统（platform shell v1）
 
-- 主题：暗色 cinematic，作用域 `data-theme="ink"`
-- 色板：深炭 `#07090B` + 纸白 `#FDFBF6` + 古铜金 `#F0D488` accent
-- 字体：Fraunces（display） + Geist Sans（body） + Geist Mono（数字）
-- Hero：真·摄影背景（CSS `filter: saturate(0.35)` 去蓝）
-- 组件：玻璃卡 + hairline 边 + 软阴影
+**规范源**：`docs/design/platform-shell-v1.md`（主 CLI 唯一可写）
+**设计 mockup**：`design_mockups/shell.html`（2026-04-18 lock · 翻译为 spec）
 
-交付银行/金融客户，体验 > 架构优雅度。后端可复杂，用户触碰的每一层必须丝滑。
+- **信息架构**：4 view 模型——**今日** / **对话**(Slack 风 IM) / **AI 助手**(6 Agent 归入) / **任务**。Agent 不在顶栏，是 Archive view 内部 tiles
+- **共享壳**：左抽屉 Desk（我的客户/进行中/最近/新建）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东）
+- **主题**：`data-theme` 4 套——Canvas（默认，米黄→橙红→墨绿） / Matcha（抹茶） / Dusk（暮粉） / Crimson（剧场黑红），每主题 8 档渐变 `--g0..--g7`
+- **字体栈**：Funnel Display（display） + Instrument Sans/Serif（body/italic） + Noto Sans/Serif SC（中文） + JetBrains Mono（数字）
+- **圆角**：`--r-md: 18px` / `--r-lg: 26px` 全局统一
+- **浏览器基线**：`color-mix()` 要求 Chrome/Edge 111+ / Safari 16.4+（银行内网兼容待产品决策）
+
+交付银行/金融客户，体验 > 架构优雅度。后端可复杂，用户触碰的每一层必须丝滑。任何前端改动先读 spec 再动手，spec 与 mockup 不一致时**以 mockup 为准**，再更 spec。
 
 ## 8. 质量闸门（QC Blocker）
 
