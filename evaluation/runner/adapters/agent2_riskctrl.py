@@ -234,7 +234,9 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
 
     def compute_domain_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
         backtest_doc = artifacts.get("backtest") or {}
+        rules_doc = artifacts.get("rules") or {}
         backtest_path = artifacts.get("backtest_path")
+        rules_path = artifacts.get("rules_path")
 
         out: list[MetricOutcome] = []
 
@@ -262,6 +264,52 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                     passed=None,
                     method="deterministic",
                     note="backtest.confusion_matrix 缺 FP / TN",
+                )
+            )
+
+        # --- per_rule_fpr_spread (A-019 @ c947906: 总体方差 σ² ≤ 0.03) ---
+        # fprs 从 rules.json 的每条规则 backtest.FP/TN 取；FP+TN=0 → N/A skip。
+        # 少于 2 条有效规则 → spread 不适用（value=None, pending-style passed=None）。
+        rules: list[dict] = (rules_doc.get("ruleset") or {}).get("rules") or []
+        fprs: list[float] = []
+        skipped_rule_ids: list[str] = []
+        for r in rules:
+            bt = r.get("backtest") or {}
+            fp_i = bt.get("FP")
+            tn_i = bt.get("TN")
+            if (
+                isinstance(fp_i, (int, float))
+                and isinstance(tn_i, (int, float))
+                and (fp_i + tn_i) > 0
+            ):
+                fprs.append(fp_i / (fp_i + tn_i))
+            else:
+                skipped_rule_ids.append(str(r.get("rule_id") or ""))
+
+        if len(fprs) < 2:
+            out.append(
+                MetricOutcome(
+                    name="per_rule_fpr_spread",
+                    value=None,
+                    target=self._lookup_target("per_rule_fpr_spread", "domain") or "n/a",
+                    passed=None,
+                    method="deterministic",
+                    note=f"有效规则不足 2 条（共 {len(rules)} 规则，skip={len(skipped_rule_ids)}）；spread 不适用",
+                )
+            )
+        else:
+            mean = sum(fprs) / len(fprs)
+            variance = sum((x - mean) ** 2 for x in fprs) / len(fprs)  # 总体方差，A-019 §公式
+            out.append(
+                self.mark(
+                    "per_rule_fpr_spread",
+                    variance,
+                    method="deterministic",
+                    evidence=[rules_path] if rules_path else [],
+                    note=(
+                        f"σ²={variance:.4f} over {len(fprs)} reject-rules FPR "
+                        f"(mean={mean:.4f}, skip={len(skipped_rule_ids)} N/A 规则)"
+                    ),
                 )
             )
 

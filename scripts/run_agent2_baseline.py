@@ -249,6 +249,10 @@ def build_rules_json(
                 "bad_rate": round(bad_rate, 4),
                 "hit_count": bt_stat.get("hit_count", 0),
                 "hit_rate": round(hit_rate, 4),
+                # Phase 1 Task C (A-019): per-rule FP/TN（仅 reject 规则非零，其余 N/A 走 spread 公式跳过）
+                "FP": int(bt_stat.get("FP", 0)),
+                "TN": int(bt_stat.get("TN", 0)),
+                "FP_rate": float(bt_stat.get("FP_rate", 0.0)),
             },
         })
 
