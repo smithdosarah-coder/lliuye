@@ -33,5 +33,13 @@ metrics:
       target: "<= 30"
 
 baseline:
-  last_run: null
-  commit: null
+  last_run: 2026-04-19T05:36:55Z
+  commit: 52d3f90913e5531ba801722c79036aea06999ec9
+  verdict: PARTIAL  # 6/6 deterministic PASS + 2 Phase C stub N/A
+  artifact: agent_alert/tests/fixtures/phase0_scan_sample.json
+  result_file: evaluation/results/4_20260419.yaml  # local-only, gitignored
+  notes: |
+    Phase 0 首跑基线（baseline-first 原则, CLAUDE.md §5.2）。
+    红线闸门全绿：hallucination_rate=0.00 / evidence_rate=1.00 / task_completion_rate=1.00。
+    Phase C 指标（cross_hit_precision / recall_on_known_bad）标 manual stub, 不假装能跑。
+    Fixture 分布：3 red + 22 yellow + 75 green, tool_calls 435/450, P95 832.5ms。
