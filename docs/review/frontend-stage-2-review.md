@@ -71,3 +71,24 @@
 4. 可选：Stage 2.1 window 关闭前做 1440 viewport 视觉对拍（shell-today-1440.png vs 实际 /today），结果写 `docs/ui-snapshot-2026-04-19.md`
 
 完成 1-3 后抛 `Signal: FRONTEND-STAGE-2-CONDITIONAL-RESOLVED`，我复核后升 APPROVED。
+
+---
+
+## Update 2026-04-19 14:52 · APPROVED
+
+**Verdict**: APPROVED（升级自 CONDITIONAL-APPROVE）
+**Resolver commit**: `b2b48fe chore(shell): resolve Stage 2 CONDITIONAL`
+**Signal**: `FRONTEND-STAGE-2-CONDITIONAL-RESOLVED`
+
+### Required Actions 对账
+| # | 方案 | 状态 | 证据 |
+|---|---|---|---|
+| 1 | 老 AppShell.tsx @deprecated 或删 | PASS | b2b48fe 删 150 行整文件；走 CLAUDE.md 全局"可完全删除"而非 @deprecated；tsc --noEmit 0 err |
+| 2 | archive placeholder 策略 Q/A | PASS | decisions-log Q-010/A-010：三阻理由（use client + 老顶栏嵌套 / legacy ink 主题撞色 / usePathname 语义错位）；副作用坦白"Stage 2→3 过渡期老页面离线" |
+| 3 | Google Fonts @import→`<link>` Q/A | PASS | decisions-log Q-011/A-011：Tailwind v4 inline 展开触发 CSS "@import must precede all rules" 硬约束；试过 C 方案仍 500；字体策略 §3.2 不动 |
+| 4 | 1440 viewport 视觉对拍（可选） | SKIP | Stage 2.1 或 Stage 3 前补 |
+
+### Stage 3 入口锚
+- **首批任务**：六 agent workspace C 方案解耦（workspace 业务组件抽离，页面解 `"use client"` 依赖 / 色系迁移）——A-010 Follow-up 已约束
+- **过渡期风险**：/credit /channel 等 6 路 307 → placeholder 生效，老页面离线；客户 demo 前若暴露则回退 redirect 或挪到 `/archive-legacy/*`
+- **字体收敛**：Stage 6 私有化自托管 woff2 时 Q-011 作废（`<link>` 与 `@import url` 都不再需要）

@@ -31,7 +31,7 @@
 | 2 风控 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺规则编辑器 + 图表 | 🟡 缺审计 | ✅ adapter+baseline 全绿 | **62%** | APPROVED（待 Phase 1） |
 | 4 预警 | **Phase 0 APPROVED 2026-04-19** | 🟡 | ❌ 缺仪表盘 + 导出 | 🟡 缺原因码 | ✅ adapter+baseline PARTIAL PASS | **57%** | APPROVED（待 Phase 1） |
 | 5 合规 | 未启（defer） | 🟡 | ❌ 前端需重做 | 🟡 缺条款溯源 UI | ❌ 基线未跑 | **40%** | 等 kb_scan 底座稳定 |
-| 前端 Shell | **Stage 2 CONDITIONAL-APPROVE 2026-04-19** | — | — | — | — | **—** | 4 Required Actions 待补 |
+| 前端 Shell | **Stage 2 APPROVED 2026-04-19** | — | — | — | — | **—** | Stage 3 首批 = workspace C 方案解耦 |
 
 **图例**：✅ 全通 / 🟡 部分通 / ❌ 未通
 
@@ -180,7 +180,7 @@ ls docs/progress/*.md | xargs ls -lt | head -5
 
 | 日期 | agent | phase | verdict | reviewer |
 |---|---|---|---|---|
-| 2026-04-19 | 前端 Shell | Stage 2 | CONDITIONAL-APPROVE | 主 CLI |
+| 2026-04-19 | 前端 Shell | Stage 2 | APPROVED（升级自 CONDITIONAL @ b2b48fe）| 主 CLI |
 | 2026-04-19 | 6 报告 | Phase 1 Finalize | APPROVED | 主 CLI |
 | 2026-04-19 | 4 预警 | Phase 0 | APPROVED | 主 CLI |
 | 2026-04-19 | 2 风控 | Phase 0 | APPROVED | 主 CLI |
