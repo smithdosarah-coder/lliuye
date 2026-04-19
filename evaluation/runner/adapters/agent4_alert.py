@@ -202,7 +202,7 @@ class Agent4AlertEvaluator(BaseEvaluator):
         art_path = artifacts.get("artifact_path")
         out: list[MetricOutcome] = []
 
-        # --- cross_hit_precision — Phase C stub ---
+        # --- cross_hit_precision — pending: Phase 2 Batch 2 human ground-truth ---
         out.append(
             MetricOutcome(
                 name="cross_hit_precision",
@@ -210,11 +210,11 @@ class Agent4AlertEvaluator(BaseEvaluator):
                 target=self._lookup_target("cross_hit_precision", "domain") or "n/a",
                 passed=None,
                 method="manual",
-                note="Phase C stub — 需真实外部扫描数据 + 内部交易标注才能算",
+                note="pending: Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源接入（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）",
             )
         )
 
-        # --- recall_on_known_bad — Phase C stub ---
+        # --- recall_on_known_bad — pending: Phase 2 Batch 2 human ground-truth ---
         out.append(
             MetricOutcome(
                 name="recall_on_known_bad",
@@ -222,7 +222,7 @@ class Agent4AlertEvaluator(BaseEvaluator):
                 target=self._lookup_target("recall_on_known_bad", "domain") or "n/a",
                 passed=None,
                 method="manual",
-                note="Phase C stub — 需已知问题客户标注库",
+                note="pending: Phase 2 Batch 2 — 需已知问题客户标注库（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）",
             )
         )
 

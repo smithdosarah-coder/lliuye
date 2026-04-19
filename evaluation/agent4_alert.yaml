@@ -35,14 +35,18 @@ metrics:
 baseline:
   last_run: 2026-04-19T05:36:55Z
   commit: 52d3f90913e5531ba801722c79036aea06999ec9
-  verdict: PARTIAL  # Phase 0 首跑；Phase 1 Task A/B 后升 PASS
+  verdict: PARTIAL  # Phase 0 首跑；Phase 1 Task B 后升 PASS
   artifact: evaluation/manual/4_20260419.yaml  # Phase 1 Task A runtime dump（AlertKB + MockSearchProvider scan 产物）
   regression_anchor: agent_alert/tests/fixtures/phase0_scan_sample.json  # schema 冻结, 仅供回归单测
   result_file: evaluation/results/4_20260419.yaml  # local-only, gitignored
+  pending_metrics:
+    - cross_hit_precision
+    - recall_on_known_bad
+  pending_reason: "Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源（Tavily / 工商 / 司法）接入后才能算"
   notes: |
     Phase 0 首跑基线（baseline-first 原则, CLAUDE.md §5.2）。
     红线闸门全绿：hallucination_rate=0.00 / evidence_rate=1.00 / task_completion_rate=1.00。
     Phase 1 Task A 起切到 runtime dump artifact（AlertKnowledgeBase.from_scenario +
     MockSearchProvider demo_mode + CustomerScanner.scan），合成 fixture 退为回归锚。
-    Phase C 指标（cross_hit_precision / recall_on_known_bad）Phase 1 Task B 纳入
-    baseline.pending_metrics 白名单, A-013 kernel 免算, verdict 可升 PASS。
+    Phase 1 Task B 起 pending_metrics 白名单挂 A-013 kernel —— cross_hit_precision /
+    recall_on_known_bad 需人工真值库支撑，本 Phase 不假装能跑, verdict 计算从分母移除。
