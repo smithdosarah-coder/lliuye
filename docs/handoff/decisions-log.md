@@ -651,3 +651,53 @@ Task C DoD 要求"每模板跑 runner → `evaluation/results/6_*.yaml` ≥ 5 �
 **Signal**: `A-018-PENDING-BUSINESS-DATA-RATIFIED`（主 CLI commit 同步 emit）
 
 ---
+
+## [Q-019] 2026-04-19 · riskctrl(agent2) · `per_rule_fpr_spread` 公式 + 阈值裁定（Phase 1 Task C 依赖）
+
+**CLI**: worker `feat/agent2-productize`
+**Priority**: P1
+**Blocking**: yes（Task C 的 `metrics.domain.per_rule_fpr_spread.target` 必须锁定；A-014~017 已被 frontend 占用，本 Q 延至 Q-019）
+**Related**: `docs/onboarding/agent2-phase-1.md` §3 Task C / §8、`docs/review/agent2-phase-0-review.md` Top 3 Gap #3、A-013（pending 白名单，不重叠本 Q）、`agent_riskctrl/backtesting.py` `BacktestResult.metrics.rule_stats`
+
+### 问题
+
+Phase 0 baseline 的 `false_positive_rate = 0.0673` 是全规则合并 FPR，R002（高负债率）等单条规则误杀率被"整体绿"掩盖。Phase 1 Task C 扩 `per_rule_confusion_matrix` 并新增 `per_rule_fpr_spread` 作警戒——但 **"spread" 用哪种统计量 + 阈值设多少** 需主 CLI 裁定，worker 不自决（CLAUDE.md §5.2 无基线不改码 + onboarding §8 硬要求）。
+
+fixture `baseline_v1/` 只有合并 `confusion_matrix`，没有 per-rule 分解，所以 Phase 0 baseline 无法反推 spread 真值。真 spread 要等 Task A runtime 产物 + Task C 扩展 `backtesting.py` 后才首次跑出来——**本 Q 要的不是"拍脑袋的目标值"，是公式选型 + 初步警戒区间，真值回填走 baseline 首跑**。
+
+### 选项
+
+- **A · 方差 σ² ≤ 0.03（推荐，保守）**
+  - 公式：`per_rule_fpr_spread = variance([rule.FP / (rule.FP + rule.TN) for rule in ruleset])`（`FP + TN = 0` 的规则视为 `N/A` 跳过，不入均值）
+  - rationale：方差对"极端规则"（1 条规则 FPR 远偏）不如 max-min 敏感，但"整体绿、1 条偏激"场景下仍能识别（FPR 分布 {0.02, 0.03, 0.02, 0.03, 0.25} 的方差 ≈ 0.0087，不触 0.03；而 {0.02, 0.03, 0.02, 0.03, 0.50} 方差 ≈ 0.037 触线）
+  - 信贷风控域习惯：KS 方差 / PSI 方差均用总体方差（非样本方差），口径统一
+  - 0.03 先定为 Phase 1 草案警戒线，baseline 跑出后再在 Phase 2 锚定真阈值
+  
+- **B · max-min spread ≤ 0.15（宽松）**
+  - 公式：`per_rule_fpr_spread = max(rule_fpr) - min(rule_fpr)`
+  - rationale：直观、易向业务方解释（"最激进规则和最保守规则 FPR 相差不超过 15 个点"），但对"5 条绿 + 1 条紫"场景不如方差——极端值一改，spread 立刻跳，可能误报
+  - 0.15 与 yaml 汇总 FPR 阈值 `<= 0.15` 等值，语义"单条规则不得偏离整体均值 15 个点以上"相对易被接受
+  
+- **C · 主 CLI 自定（第三方案 / 其他统计量）**
+  - 如：CV（变异系数 σ/μ），或中位数绝对偏差 MAD，或 IQR
+  - 若主 CLI 认为信贷风控有更合适的 spread 度量，请直接在 A-019 下发；worker 按下发公式 + 阈值实装
+
+### worker 推荐
+
+- **选 A · σ² ≤ 0.03**——理由：
+  1. 方差对"整体绿、单条偏激"场景灵敏度高于 max-min（见 rationale 示例）
+  2. 口径与信贷风控域内常用 KS/PSI 方差一致，便于 Phase 2 对接人工评审
+  3. 0.03 是 Phase 1 草案值，明确标「Q-019 草案 / Phase 2 锚定」，不伪装已 battle-tested
+
+- **Phase 1 实施路径（不论 A/B/C）**：
+  1. `agent_riskctrl/backtesting.py` 扩 `rule_stats` 加 `{FP, TN, FP_rate}` per rule
+  2. adapter `compute_domain_metrics` 新增 `per_rule_fpr_spread` MetricOutcome（`method=deterministic`）
+  3. yaml `metrics.domain.per_rule_fpr_spread.target` 先占位 `<TBD A-019>`，收到 A-019 后 worker 改实值
+  4. Task A runtime baseline 跑出来回填 `baseline.results.per_rule_fpr_spread`
+  5. 若跑出值已触草案警戒线（Phase 1 过闸门标准：跑出值 ≤ A-019 target），worker 不硬压指标，按 CLAUDE.md §12 写 gap doc
+
+### [A-019] TBD · 主 CLI
+
+（待主 CLI 裁决；worker 按 A-019 指定公式 + 阈值实装 Task C，同 commit 标 trailer `Signal: A-019-PER-RULE-SPREAD-TARGET-LOCKED` 由主 CLI emit 或随 Task C DONE commit 消费）
+
+---
