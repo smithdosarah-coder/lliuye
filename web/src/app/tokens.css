@@ -1,14 +1,11 @@
 /* ================================================================
-   Platform Shell v1 · Design Tokens
-   Source: design_mockups/shell.html L11-117 (2026-04-18 lock)
-   Spec:   docs/design/platform-shell-v1.md §3
+   Platform Shell v2 · Design Tokens
+   Source: design_mockups/rm-assistant-final-2026-04-19.html
+           (2026-04-19 lock · sha256 84a5e0ef...)
+   Spec:   docs/design/platform-shell-v2.md
    ================================================================ */
 
-/* Note: Google Fonts @import hoisted to globals.css top to satisfy
-   CSS spec ("@import rules must precede all rules"). 字体策略不变 —
-   Stage 2 用 CDN，Stage 6 迁自托管。 */
-
-/* —— Canvas (default) —— */
+/* —— Canvas (default · 米黄 → 橙红 → 墨绿) —— */
 :root {
   --g0:  #F2E7D3;
   --g0b: #F7EEDC;
@@ -24,16 +21,18 @@
   --chalk:  #FBF7EE;
   --safe:   #3AB27C;
 
-  --display: "Funnel Display", "Noto Sans SC", system-ui, sans-serif;
-  --sans:    "Instrument Sans", "Noto Sans SC", system-ui, sans-serif;
-  --italic:  "Instrument Serif", "Noto Serif SC", Georgia, serif;
-  --mono:    "JetBrains Mono", ui-monospace, monospace;
-  --cjk:     "Noto Sans SC", system-ui, sans-serif;
-  --cjkserif:"Noto Serif SC", Georgia, serif;
+  /* Font stacks — next/font variables injected via layout.tsx <html> className */
+  --display:  var(--font-funnel-display), "Funnel Display", "Noto Sans SC", system-ui, sans-serif;
+  --sans:     var(--font-instrument-sans), "Instrument Sans", "Noto Sans SC", system-ui, sans-serif;
+  --italic:   var(--font-instrument-serif), "Instrument Serif", "Noto Serif SC", Georgia, serif;
+  --mono:     var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  --cjk:      var(--font-sans), "Noto Sans SC", system-ui, sans-serif;
+  --cjkserif: var(--font-serif), "Noto Serif SC", Georgia, serif;
 
   --r-md: 18px;
   --r-lg: 26px;
 
+  /* Ink opacity ramps */
   --ink-04: color-mix(in srgb, var(--ink) 4%,  transparent);
   --ink-08: color-mix(in srgb, var(--ink) 8%,  transparent);
   --ink-14: color-mix(in srgb, var(--ink) 14%, transparent);
@@ -44,6 +43,7 @@
   --ink-65: color-mix(in srgb, var(--ink) 65%, transparent);
   --ink-80: color-mix(in srgb, var(--ink) 82%, transparent);
 
+  /* Chalk opacity ramps */
   --ch-08: color-mix(in srgb, var(--chalk) 8%,  transparent);
   --ch-12: color-mix(in srgb, var(--chalk) 12%, transparent);
   --ch-14: color-mix(in srgb, var(--chalk) 14%, transparent);
@@ -65,6 +65,15 @@
   --ch-92: color-mix(in srgb, var(--chalk) 92%, transparent);
   --ch-96: color-mix(in srgb, var(--chalk) 96%, transparent);
 
+  /* 6 Agent 功能色 (mockup L549-554 base hues · 派生 bg/fg 由 color-mix 在消费处完成) */
+  --t-report:   #B08640;
+  --t-alert:    #C85A3C;
+  --t-compli:   #5B7A48;
+  --t-credit:   #3E6292;
+  --t-riskctrl: #6B4A6D;
+  --t-channel:  #3C7B7B;
+
+  /* Custom cursor —— 微点默认光标 */
   --cursor-default: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='1.6' fill='%2311170F'/></svg>") 8 8, default;
 }
 
@@ -84,7 +93,7 @@
   --chalk: #FAF6EA;
 }
 
-/* —— Dusk (粉调暮色) —— */
+/* —— Dusk (暮粉桃花) —— */
 [data-theme="dusk"] {
   --g0:  #F6E8EA;
   --g0b: #F9ECEE;
@@ -100,18 +109,80 @@
   --chalk: #FDF4F3;
 }
 
-/* —— Crimson (黑红剧场) —— */
+/* —— Letterpress (黑白 · 报纸 / 活字印刷感 · 沿用 mockup selector [data-theme=crimson]) —— */
 [data-theme="crimson"] {
-  --g0:  #F3E0D6;
-  --g0b: #F7E8DE;
-  --g1:  #E6B6A0;
-  --g2:  #CF7D5F;
-  --g3:  #A8442C;
-  --g4:  #6E1911;
-  --g5:  #3A0906;
-  --g6:  #180302;
-  --g7:  #080100;
-  --accent: #D5321E;
-  --ink:   #1A0807;
-  --chalk: #FBEEE4;
+  --g0:  #F0EBE0;
+  --g0b: #EDE7DA;
+  --g1:  #DCD5C4;
+  --g2:  #B8B0A0;
+  --g3:  #7E7870;
+  --g4:  #4A4640;
+  --g5:  #2A2622;
+  --g6:  #14120F;
+  --g7:  #080706;
+  --accent: #1C1A17;
+  --ink:   #14120F;
+  --chalk: #F5F1E6;
 }
+
+/* —— Ink (水墨 · 宣纸) · CSS 就位,Task B 切换器不暴露 —— */
+[data-theme="ink"] {
+  --g0:  #F4F4F2;
+  --g0b: #EDEDEA;
+  --g1:  #E0E0DC;
+  --g2:  #BFBFBA;
+  --g3:  #8E8E8A;
+  --g4:  #5C5C58;
+  --g5:  #2E2E2C;
+  --g6:  #131312;
+  --g7:  #080807;
+  --accent: #8A2622;
+  --ink:   #0C0C0B;
+  --chalk: #F6F6F4;
+}
+
+/* ═══ KEYFRAMES (mockup L194-495) ═══ */
+
+/* Body 呼吸 · 整页 filter 缓脉 */
+@keyframes bodyBreath {
+  0%, 100% { filter: saturate(1) brightness(1); }
+  50%      { filter: saturate(1.06) brightness(1.025); }
+}
+
+/* 噪声 / 云雾漂移 · body::before 位移 + scale */
+@keyframes drift {
+  0%   { transform: translate(-2%, 1%) scale(1); opacity: .88; }
+  33%  { transform: translate(2.4%, -1.6%) scale(1.05); opacity: 1; }
+  66%  { transform: translate(-1.2%, 1.8%) scale(1.07); opacity: .92; }
+  100% { transform: translate(3.2%, -2.2%) scale(1.04); opacity: 1; }
+}
+
+/* 云雾呼吸 · body::before blur 周期 */
+@keyframes breathe {
+  0%, 100% { filter: blur(12px) brightness(.96) saturate(.96); }
+  50%      { filter: blur(16px) brightness(1.08) saturate(1.08); }
+}
+
+/* Hero 大标题按字逐个升起 (per-char stagger via animation-delay) */
+@keyframes glyph-rise { to { transform: translateY(0); } }
+
+/* 小段落 / lede / eyebrow 淡入 + 上滑 */
+@keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+/* 卡片出场 · 淡入 + 上滑 (Y:28px) */
+@keyframes card-rise { to { opacity: 1; transform: translateY(0); } }
+
+/* Masthead 出场 · 淡入 + 下滑 (Y:-8px → 0) */
+@keyframes bar-in { to { opacity: 1; transform: translateY(0); } }
+
+/* 卷宗条出场 · 淡入 + 左滑 (X:-6px → 0) */
+@keyframes case-in { to { opacity: 1; transform: translateX(0); } }
+
+/* 进度条流光 · width 0 → --p */
+@keyframes bar-flow { to { width: var(--p); } }
+
+/* Waiting 态条纹背景滑动 */
+@keyframes wait-slide { to { background-position: 16px 0; } }
+
+/* 状态小圆点脉冲 · scale 1 ↔ 1.25 */
+@keyframes blip { 50% { transform: scale(1.25); } }
