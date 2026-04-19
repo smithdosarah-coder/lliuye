@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { AccountBelt } from "@/components/today/AccountBelt";
 import { BoardCard } from "@/components/today/BoardCard";
 import { FeedCard } from "@/components/today/FeedCard";
 import { Hero } from "@/components/today/Hero";
@@ -80,6 +81,9 @@ export default function TodayPage() {
         {/* Task F · 任务 · 我的桌上 board-card (深色) */}
         <BoardCard />
       </div>
+
+      {/* Task K1 · 今日账册 belt (mockup L3114-3141 · 补漏) */}
+      <AccountBelt />
     </div>
   );
 }

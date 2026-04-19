@@ -121,51 +121,9 @@
 .theme-sw [data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
 .theme-sw [data-t="crimson"] .sw-dot { background: linear-gradient(135deg, #DCD5C4, #14120F); }
 
-/* ═══ FLOAT BADGE (mockup L1022-1055 · 5 主题 SVG 符号浮标) ═══ */
-.shell-root .float-badge {
-  position: fixed; right: 38px; bottom: 38px; z-index: 30;
-  display: flex; align-items: center; gap: 14px;
-  opacity: 0;
-  animation: rise .9s cubic-bezier(.2,.8,.25,1) 2.9s forwards;
-  pointer-events: none;
-}
-.shell-root .float-badge .mini {
-  font-family: var(--cjk); font-weight: 500; font-size: 11px;
-  letter-spacing: .12em; color: var(--ch-75);
-  text-align: right; line-height: 1.5;
-}
-.shell-root .float-badge .mini em {
-  font-family: var(--italic); font-style: italic;
-  color: var(--chalk); letter-spacing: 0; font-weight: 400;
-}
-.shell-root .float-badge .circle {
-  width: 78px; height: 78px; border-radius: 50%;
-  background: var(--chalk);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--ink);
-  box-shadow: 0 20px 48px -20px rgba(0,0,0,.45);
-  position: relative;
-  overflow: hidden; padding: 0;
-}
-.shell-root .float-badge .circle::after {
-  content:""; position: absolute; inset: -6px; border-radius: 50%;
-  border: 1px dashed var(--ch-40);
-  animation: spin 42s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.shell-root .float-badge .circle > * { display: none; }
-.shell-root .float-badge .fb-sym { width: 78px; height: 78px; }
-body:not([data-theme])             .shell-root .float-badge .fb-sym--canvas  { display: block; }
-body[data-theme="canvas"]          .shell-root .float-badge .fb-sym--canvas  { display: block; }
-body[data-theme="matcha"]          .shell-root .float-badge .fb-sym--matcha  { display: block; }
-body[data-theme="dusk"]            .shell-root .float-badge .fb-sym--dusk    { display: block; }
-body[data-theme="crimson"]         .shell-root .float-badge .fb-sym--crimson { display: block; }
-body[data-theme="ink"]             .shell-root .float-badge .fb-sym--ink     { display: block; }
-
-/* Ink 主题 · 徽章改方形纸片 (mockup L1054-1055) */
-body[data-theme="ink"] .shell-root .float-badge .circle { border-radius: 2px; overflow: hidden; }
-body[data-theme="ink"] .shell-root .float-badge .fb-sym { width: 54px; height: 54px; }
+/* FLOAT BADGE · K3 删 · mockup L1024 自身 display:none!important 隐藏
+   (DOM 存在但视觉删除, PM 最终稿意图), 实现层直接移除组件+CSS, 不留
+   幽灵节点 */
 
 /* ═══ LEFT DRAWER (Desk) ═══ */
 .drawer { position: fixed; top: 0; left: 0; height: 100vh; z-index: 45; pointer-events: none; }

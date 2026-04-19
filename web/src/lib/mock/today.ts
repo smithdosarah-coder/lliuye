@@ -133,3 +133,69 @@ export const TODAY_BOARD_NOTES: BoardNote[] = [
   { id: "nt-06", variant: "p2",   pri: "P2",         due: "下周一",     title: "河东纺织访谈纪要",         src: "客户经理口述 · 需整理" },
   { id: "nt-07", variant: "done", pri: "已完成",     due: "09:30",      title: "华东线晨会议程确认",       src: "5 位参会 · 已同步日历" },
 ];
+
+/**
+ * 今日账册 belt · mockup L3120-3140 原文 1:1
+ * 4 列金额条 · .rule 横线 + .belt.col 每栏 (k 标签 / v 数字 / note 注脚)
+ * note 内支持 <em> 斜体 + <strong> 重点; 渲染层按 TextSeg 拆
+ */
+export type BeltNoteSeg = { text: string; em?: boolean; strong?: boolean };
+
+export type BeltCol = {
+  id: string;
+  k: string;
+  v: { currency?: boolean; digits: string; unit: string };
+  note: BeltNoteSeg[];
+};
+
+export const TODAY_BELT: BeltCol[] = [
+  {
+    id: "b1",
+    k: "本月已放款",
+    v: { currency: true, digits: "28.47", unit: "亿元" },
+    note: [
+      { text: "覆盖 " },
+      { text: "142 个", strong: true },
+      { text: " 在贷账户，本月新增 " },
+      { text: "36", em: true },
+      { text: "。" },
+    ],
+  },
+  {
+    id: "b2",
+    k: "待签卷宗",
+    v: { digits: "27", unit: "份" },
+    note: [
+      { text: "自动填写至 " },
+      { text: "93.5%", em: true },
+      { text: "，等你签署。" },
+    ],
+  },
+  {
+    id: "b3",
+    k: "观察名单 · 黄",
+    v: { digits: "08", unit: "户" },
+    note: [
+      { text: "昨夜入榜 2 户 · " },
+      { text: "三户", em: true },
+      { text: " 预计中午前消化。" },
+    ],
+  },
+  {
+    id: "b4",
+    k: "本周新政",
+    v: { digits: "04", unit: "条" },
+    note: [
+      { text: "人行、金监、药监各有发 · " },
+      { text: "一条", em: true },
+      { text: " 命中你的台账。" },
+    ],
+  },
+];
+
+export type BeltRule = { lbl: string; rt: string };
+
+export const TODAY_BELT_RULE: BeltRule = {
+  lbl: "今日账册",
+  rt: "2026 · 04 · 18 · 08:47",
+};
