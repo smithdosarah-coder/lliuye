@@ -5,6 +5,7 @@
    旧 6 Agent 页面继续消费 --color-paper / --color-ink / --color-brass；
    新 platform shell 消费 --g0..--g7 / --ink / --chalk / --accent。 */
 @import "./tokens.css";
+@import "./shell.css";
 
 /**
  * Zhongan Credit AI — Legacy Design Tokens (kept for /credit /channel /alert
