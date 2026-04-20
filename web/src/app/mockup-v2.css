@@ -576,3 +576,108 @@
   .ws-v2 .audit-strip { grid-template-columns: 1fr; }
   .ws-v2 .qc-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ================================================================
+   .ws-v2-skin — lightweight V2 re-skin applied on top of legacy
+   WorkspaceClient.tsx DOM. No component rewrite. Maps legacy card
+   (bg-[var(--color-paper-raised)]) + brass eyebrow + font-display
+   to V2 chalk gradient + ink mono + CJK serif, with per-agent
+   functional-color spine on the left of each card.
+   Scoped under .ws-v2-skin so legacy /report /channel /credit /alert
+   /compliance /riskctrl top-level pages remain untouched.
+   ================================================================ */
+.ws-v2-skin { font-family: var(--sans); color: var(--ink); }
+
+/* per-agent functional-color accent (feeds --t-accent) */
+.ws-v2-skin[data-agent="report"]     { --t-accent: var(--t-report); }
+.ws-v2-skin[data-agent="channel"]    { --t-accent: var(--t-channel); }
+.ws-v2-skin[data-agent="credit"]     { --t-accent: var(--t-credit); }
+.ws-v2-skin[data-agent="alert"]      { --t-accent: var(--t-alert); }
+.ws-v2-skin[data-agent="compliance"] { --t-accent: var(--t-compli); }
+.ws-v2-skin[data-agent="riskctrl"]   { --t-accent: var(--t-riskctrl); }
+
+/* Legacy Card (bg-[var(--color-paper-raised)]) → V2 .ap-like surface
+   with 3px left rail in functional color. */
+.ws-v2-skin section[class*="paper-raised"] {
+  position: relative;
+  border-radius: var(--r-md);
+  border: 1px solid var(--ink-14);
+  background: linear-gradient(180deg,
+    var(--ch-82) 0%,
+    color-mix(in srgb, var(--g0b) 74%, transparent) 60%,
+    color-mix(in srgb, var(--g1) 70%, transparent) 100%);
+  backdrop-filter: blur(10px) saturate(1.08);
+  -webkit-backdrop-filter: blur(10px) saturate(1.08);
+  box-shadow: 0 1px 0 rgba(255,255,255,.55) inset,
+              0 18px 36px -24px rgba(15,26,18,.28);
+  overflow: hidden;
+}
+.ws-v2-skin section[class*="paper-raised"]::before {
+  content: ""; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--t-accent, var(--accent));
+  z-index: 2;
+}
+.ws-v2-skin section[class*="paper-raised"] > header {
+  border-color: var(--ink-14) !important;
+  padding-left: 22px;
+}
+
+/* Eyebrow: brass gold → V2 mono ink-48 */
+.ws-v2-skin [class*="text-[var(--color-brass)]"] {
+  color: var(--ink-48) !important;
+  font-family: var(--mono);
+  letter-spacing: .18em;
+  text-shadow: none;
+}
+
+/* Titles: .font-display → V2 CJK serif weight 700 */
+.ws-v2-skin .font-display {
+  font-family: var(--cjkserif), "Noto Serif SC", serif;
+  font-weight: 700;
+  letter-spacing: -.005em;
+}
+
+/* Primary buttons (bg-[var(--color-ink)] or bg-[var(--ink)]) → V2 ink pill */
+.ws-v2-skin button[class*="bg-[var(--color-ink)]"],
+.ws-v2-skin button[class*="bg-[var(--ink)]"] {
+  background: var(--ink) !important;
+  color: var(--chalk) !important;
+  border-radius: 999px !important;
+  font-family: var(--cjk);
+  font-weight: 600;
+  border: 0;
+  transition: transform .22s cubic-bezier(.2,.8,.25,1), background .2s;
+}
+.ws-v2-skin button[class*="bg-[var(--color-ink)]"]:not(:disabled):hover,
+.ws-v2-skin button[class*="bg-[var(--ink)]"]:not(:disabled):hover {
+  background: var(--t-accent, var(--accent)) !important;
+  transform: translate(1px, -1px);
+}
+
+/* Secondary / ghost buttons: adopt V2 ink-14 hairline pill */
+.ws-v2-skin button[class*="bg-[var(--color-paper-raised)]"],
+.ws-v2-skin button[class*="bg-transparent"] {
+  border-radius: 999px !important;
+  font-family: var(--cjk);
+}
+
+/* Legacy section borders (border-[var(--color-ink-*)] variants) → V2 ink-14/28 */
+.ws-v2-skin [class*="border-[var(--ink-14)]"]  { border-color: var(--ink-14) !important; }
+.ws-v2-skin [class*="border-[var(--ink-28)]"]  { border-color: var(--ink-28) !important; }
+.ws-v2-skin [class*="border-[var(--color-ink)]"]     { border-color: var(--ink) !important; }
+
+/* CJK captions: italic on em, mono tabular numbers on .font-tabular */
+.ws-v2-skin em { font-family: var(--italic); font-style: italic; }
+.ws-v2-skin .font-tabular {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+
+/* Hero h1 em should pick agent accent instead of global --accent */
+.ws-v2-skin .hero-h1 em { color: var(--t-accent, var(--accent)); }
+
+/* Breathing space between hero and workspace body */
+.ws-v2-skin .archive > div:last-child,
+.ws-v2-skin > div > div:last-child { margin-top: 18px; }

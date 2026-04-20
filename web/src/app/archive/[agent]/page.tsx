@@ -39,7 +39,10 @@ export default async function AgentWorkspace({
   const def = AGENTS.find((a) => a.key === key)!;
 
   return (
-    <div className="v-archive px-8 py-8 max-w-[1400px] mx-auto">
+    <div
+      className="v-archive ws-v2-skin px-8 py-8 max-w-[1400px] mx-auto"
+      data-agent={key}
+    >
       <ArchiveAgentShell
         code={def.code}
         eyebrowLabel={def.eyebrowLabel}
