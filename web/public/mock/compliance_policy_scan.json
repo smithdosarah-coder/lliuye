@@ -1,0 +1,130 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 参考 docs/contracts/shell-v1-agent-api-map.md §Agent5 第 8 条 + 合规扫描 SSE 契约: event: policy_hit / conflict_found / scan_done; 每条含政策名、违规业务点、严重级别 red/yellow、证据段落",
+  "_data_lineage": "手写 3-5 条金融监管假政策 (真政策源本轮未接入); 涵盖商业银行互联网贷款、反洗钱、数据安全、小微评价 4 个高频合规主题",
+  "generated_at": "2026-04-20T10:00:00+08:00",
+  "policies": [
+    {
+      "policy_id": "cbirc_2024_075",
+      "title": "《商业银行互联网贷款管理办法》2024 修订版",
+      "agency": "国家金融监督管理总局",
+      "source_url": "https://www.cbirc.gov.cn/mock/2024/75",
+      "fetched_at": "2026-04-20T09:40:12+08:00",
+      "source_name": "cbirc",
+      "effective": "2024-12-01",
+      "snippet": "强化商业银行互联网贷款合作机构管理；联合贷款单笔出资比例不得低于 30%；明确消费者权益保护及年化利率展示要求。"
+    },
+    {
+      "policy_id": "pbc_2025_aml_021",
+      "title": "《金融机构反洗钱和反恐怖融资客户尽职调查和客户身份资料及交易记录保存管理办法》2025 修订",
+      "agency": "中国人民银行",
+      "source_url": "https://www.pbc.gov.cn/mock/2025/aml-021",
+      "fetched_at": "2026-04-20T09:40:28+08:00",
+      "source_name": "pbc",
+      "effective": "2025-08-01",
+      "snippet": "金融机构应按风险为本原则对客户进行持续尽职调查；高风险客户强化身份识别；可疑交易报告时效从 10 日缩短至 5 日。"
+    },
+    {
+      "policy_id": "cbirc_2024_sme_eval",
+      "title": "《商业银行小微企业金融服务监管评价办法（试行）》",
+      "agency": "国家金融监督管理总局",
+      "source_url": "https://www.cbirc.gov.cn/mock/2024/sme-eval",
+      "fetched_at": "2026-04-20T09:40:45+08:00",
+      "source_name": "cbirc",
+      "effective": "2024-09-15",
+      "snippet": "明确小微企业普惠金融考核权重、首贷户占比、贷款利率管控口径；不得以对公数据绕过普惠专项口径考核。"
+    },
+    {
+      "policy_id": "cac_2025_data_060",
+      "title": "《金融数据安全分级指南》（国家网信办 2025 版）",
+      "agency": "国家互联网信息办公室 / 人民银行",
+      "source_url": "https://www.cac.gov.cn/mock/2025/fin-data-060",
+      "fetched_at": "2026-04-20T09:41:02+08:00",
+      "source_name": "cac",
+      "effective": "2025-03-01",
+      "snippet": "金融数据按敏感程度分 5 级；三级以上数据出境须安全评估；客户身份信息与账户信息严禁明文传输。"
+    }
+  ],
+  "scan_events": [
+    {"event": "policy_hit", "policy_id": "cbirc_2024_075", "status": "parsed", "message": "互联网贷款办法 2024 修订版解析完成"},
+    {
+      "event": "conflict_found",
+      "policy_id": "cbirc_2024_075",
+      "clause": "第二十条 合作机构管理",
+      "severity": "red",
+      "requirement": "商业银行不得将授信审查、风险控制等核心环节外包给合作机构",
+      "internal_doc": "《互联网贷款合作业务管理办法 v2022》 § 5.3",
+      "internal_current": "合作机构可承担初筛授信、反欺诈识别等前置风控工作",
+      "recommend": "删除「合作机构可承担初筛授信」条款，反欺诈仅允许信息协同，最终决策由本行完成",
+      "evidence": "新政策第二十条明确要求核心环节不得外包；现行办法 §5.3 对合作机构授予的权限已超出新政策允许范围。"
+    },
+    {
+      "event": "conflict_found",
+      "policy_id": "cbirc_2024_075",
+      "clause": "第十六条 联合贷款",
+      "severity": "red",
+      "requirement": "单笔联合贷款中，商业银行出资比例不得低于 30%",
+      "internal_doc": "《联合贷款合作规范 v2023》 § 3.2",
+      "internal_current": "与某平台联合贷款，我行出资比例约定为 20%",
+      "recommend": "将与合作方的出资比例条款调整为不低于 30%，存量合同需在 6 个月内完成修订补签",
+      "evidence": "新政策第十六条硬性要求出资 ≥30%；现行合作规范 §3.2 约定 20% 与新规直接冲突。"
+    },
+    {
+      "event": "conflict_found",
+      "policy_id": "cbirc_2024_075",
+      "clause": "第二十八条 消费者权益保护",
+      "severity": "yellow",
+      "requirement": "在借款合同主要页面显著位置以年化利率形式展示",
+      "internal_doc": "《个人贷款合同模板 v2024-01》第 3 条",
+      "internal_current": "以日利率形式展示，附括号标注年化",
+      "recommend": "调整合同模板，在首页第一屏用加粗字体直接展示年化利率",
+      "evidence": "新政策第二十八条要求「显著位置以年化利率展示」；现行合同模板需调整展示形式。"
+    },
+    {"event": "policy_hit", "policy_id": "pbc_2025_aml_021", "status": "parsed", "message": "反洗钱办法 2025 修订解析完成"},
+    {
+      "event": "conflict_found",
+      "policy_id": "pbc_2025_aml_021",
+      "clause": "第二十二条 可疑交易报告时效",
+      "severity": "red",
+      "requirement": "金融机构应在识别出可疑交易之日起 5 个工作日内提交可疑交易报告",
+      "internal_doc": "《反洗钱可疑交易报告操作规程 v2023》 § 4.2",
+      "internal_current": "可疑交易报告应于发现之日起 10 个工作日内提交",
+      "recommend": "将可疑交易报告提交时限从 10 日调整为 5 日，并修订系统预警规则",
+      "evidence": "新政策第二十二条将时效从 10 日缩短至 5 日；现行规程需全量更新。"
+    },
+    {
+      "event": "conflict_found",
+      "policy_id": "cbirc_2024_sme_eval",
+      "clause": "第十二条 首贷户考核口径",
+      "severity": "yellow",
+      "requirement": "首贷户比例应按「最近 12 个月内未在任何银行获得贷款」口径统计",
+      "internal_doc": "《普惠金融专项考核办法 v2024》第 8 条",
+      "internal_current": "首贷户口径为「在本行首次借款」",
+      "recommend": "将首贷户认定口径统一为最近 12 个月全行业范围，口径需与征信数据联动核对",
+      "evidence": "新办法第十二条明确口径为全行业 12 个月；现行考核办法过窄，存在口径差异风险。"
+    },
+    {
+      "event": "conflict_found",
+      "policy_id": "cac_2025_data_060",
+      "clause": "第十七条 数据传输",
+      "severity": "red",
+      "requirement": "三级及以上金融数据（含客户身份证号、银行账号）严禁明文传输",
+      "internal_doc": "《客户数据传输规范 v2022》 § 6.1",
+      "internal_current": "部分历史系统对账文件仍为明文 CSV 传输",
+      "recommend": "改造存量对账接口为加密传输（AES-256 或 TLS1.3），排查所有明文链路并提交整改清单",
+      "evidence": "新指南第十七条硬性要求三级数据加密；现行规范覆盖不全，存在合规风险。"
+    },
+    {
+      "event": "scan_done",
+      "summary": {
+        "policies_scanned": 4,
+        "conflicts_total": 7,
+        "red_count": 4,
+        "yellow_count": 3,
+        "info_count": 0,
+        "scan_time_ms": 1840
+      }
+    }
+  ],
+  "fallback_reason": "policy_scan 端点未接专业政策源，演示使用静态 fixture（4 条金融监管 × 7 条冲突）"
+}
