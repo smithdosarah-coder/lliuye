@@ -80,6 +80,46 @@
 
 ---
 
+## Phase 1 Batch 1 · 完工记录（2026-04-20）
+
+| 步骤 | Commit | Signal |
+| --- | --- | --- |
+| ACK | `35aea64` | `PHASE-1-BATCH-1-ACK` |
+| Task A · 3 栏 + dispatch-store | `7c2fc83` | `DISPATCH-THREE-PANE-DONE` |
+| Task B · ComposerBar + /run | `ca7c72c` | `DISPATCH-COMPOSER-DONE` |
+| Task C · event-bus 桥 + HandoffCard | `7de7eff` | `DISPATCH-EVENT-BRIDGE-DONE` |
+| Fix · zustand EMPTY sentinel | `ba708e1` | — |
+| Batch roll-up | `8424f8d` | `READY-FOR-PLATFORM-DISPATCH-REVIEW`（旧） |
+| 本次 READY 重发（GO-2） | 本 commit | `READY-FOR-PLATFORM-DISPATCH-REVIEW` |
+
+（上述 commit sha 基于 rebase onto `upstream/chore/l0-infra` 之后；rebase 前旧 sha 已弃。）
+
+### 浏览器冒烟（localhost:3000/dispatch）
+
+- ThreadList 5 行（中锐工商 / 云融科技 / 鼎川精密 / 海元供应链 / 同信新材料），与 customer-store 5 个 seed 对齐，unread badge 显示正确。
+- 点 thread → `customer-store.focus(customerId)` 触发，中栏 meta 刷新（CREDIT LINE / PARTICIPANTS），右栏 Inspector 展示客户档案 + 负责人 + 协同 + 标签。
+- `/handoff report_to_credit` → 发 `handoff.requested`（`payload.source="dispatch.local"` 防桥回环） + 在当前 thread 插入 pending HandoffCard；点"接手" → `customer-store.advanceStage("cust_zrgs","credit")` 推进，stream 头部 stage 从"报告撰写"切"授信审批"，右栏 Inspector 同步刷新，system_event 记 `王哲 接手了 Agent3 授信`。
+- EventBridge 订阅 11 类 Agent 事件（含 `report.completed` / `credit.decided` / `alert.raised` / `handoff.requested/accepted` 等），非 `dispatch.local` 来源事件自动落对应 thread。
+- 控制台 0 error / 0 warning。
+
+### 红线守住
+
+- `web/src/lib/store/**`（5 份 store + event-bus + handoff-catalog）未动。
+- `web/src/components/shell/**`（AppShell / Desk / ThemeSwitch）未动。
+- 其他 worker view 路径（`/today` / `/archive` / `/warroom` / `/customer` / `/login`）未动。
+- 所有视图状态落在 `web/src/app/dispatch/_components/**` + `web/src/app/dispatch/_store/**`。
+- HandoffCard 结构化 payload 以 JSON 放进 `ImMessage.content`（avoid contract bump）。跨 store 写入仅发生在 user 显式动作（点 thread → focus，点"接手" → advanceStage）。
+
+### Legacy-theme purge 合规（rebase 自查）
+
+基于 `f004a1d LEGACY-THEME-PURGED`：
+
+- 未引入 `crimson` / `Letterpress` / `ink-seal` / `InkSeal` 任何标识符。
+- `dispatch-im.css` 字体栈复查：`--mono` 仅包裹 Latin/数字（timestamps / unread / `<kbd>/`），所有 Chinese field names 走 `--cjk`；原 4 处 CJK-in-mono eyebrow（ThreadList / InspectorPanel / MessageStream meta / SlashMenu head）已转为 Latin eyebrow（`DISPATCH` / `CUSTOMER` / `CREDIT LINE` / `PARTICIPANTS` / `COMMANDS · TYPE TO FILTER`），遵循 mockup `BOOK · RECENT · CREATE` 惯例。
+- 主题切换器 Canvas / Matcha / Dusk / Ink 四套正常生效，无 Letterpress 残留。
+
+---
+
 ## 红线
 
 - ❌ 不改 `web/src/lib/store/*`（红区，走 RFC）
