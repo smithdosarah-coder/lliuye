@@ -957,3 +957,13 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 **Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
 
 **Signal**: `PHASE-2-ANCHOR-CAPTURED`
+
+---
+
+## [ACK] platform-warroom · PHASE-1-BATCH-1
+
+**CLI**: platform-warroom (worker)
+**Date**: 2026-04-20
+**Signal**: `PHASE-1-BATCH-1-ACK`
+
+接收 `docs/onboarding/platform-warroom-phase-1.md` 全 3 Task（Task A kanban + Task B Drawer + Task C FilterBar）。红区守则同 A-020：不动 `lib/store/*` / `components/shell/*` / `HANDOFF_CATALOG`，`web/src/app/warroom/` 自持。拖拽库 `@dnd-kit/core` 按需 Task A 加 deps。
