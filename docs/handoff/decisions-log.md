@@ -957,3 +957,19 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 **Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
 
 **Signal**: `PHASE-2-ANCHOR-CAPTURED`
+
+---
+
+## [ACK-020-today] 2026-04-20 · platform-today CLI-3
+
+**Related**: Q-020 / A-020 / `PHASE-1-BATCH-1-DISPATCHED`
+
+Worker CLI-3 (`platform-today`) 已接批次并 rebase 到 c99a277 共享 store。按 onboarding 顺序推进 Task A → B → C：
+
+- Task A · MorningBrief hero + StatCell（30s 刷新）
+- Task B · PriorityQueue TOP 8（stage × lastActivityAt · RBAC 过滤）
+- Task C · EventTimeline（mount publish seed · 实时追加）
+
+红线遵守：不改 `lib/store/*` / `components/shell/*` / 其他 worker page；跨 worker store 只读。AuthGate 未就绪，未登录先硬编 `u_wangzhe` 兜底。
+
+**Signal**: `PHASE-1-BATCH-1-ACK`
