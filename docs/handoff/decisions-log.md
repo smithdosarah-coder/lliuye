@@ -1023,3 +1023,45 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 - 主 CLI review 通过后，`HANDOFF_CATALOG` 已有 6 个 recipe 可被 Agent workspace 端（CLI-0 / 其他 worker）消费 —— warroom 只是消费端，验证会通过 event-bus 喂数据才能闭环
 - `TO_AGENT_STAGE` 映射（toAgent → CustomerStage）写在 `TicketDrawer.tsx` 内部，未来若想统一可提 RFC 把映射收到 `lib/store/types.ts`
 - `findRecipeById` 在 drawer 里用 `triggerEventId` 查，语义不匹配（event-id ≠ recipe-id），实际走 fallback 不渲染 description —— 后续若 ticket 存 recipeId 字段可补契约
+
+---
+
+## [ACK-020-today] 2026-04-20 · platform-today CLI-3
+
+**Related**: Q-020 / A-020 / `PHASE-1-BATCH-1-DISPATCHED`
+
+Worker CLI-3 (`platform-today`) 已接批次并 rebase 到 c99a277 共享 store。按 onboarding 顺序推进 Task A → B → C：
+
+- Task A · MorningBrief hero + StatCell（30s 刷新）
+- Task B · PriorityQueue TOP 8（stage × lastActivityAt · RBAC 过滤）
+- Task C · EventTimeline（mount publish seed · 实时追加）
+
+红线遵守：不改 `lib/store/*` / `components/shell/*` / 其他 worker page；跨 worker store 只读。AuthGate 未就绪，未登录先硬编 `u_wangzhe` 兜底。
+
+**Signal**: `PHASE-1-BATCH-1-ACK`
+
+---
+
+## [READY-020-today] 2026-04-20 · platform-today CLI-3
+
+**Related**: ACK-020-today / `PHASE-1-BATCH-1-ACK` / commits `c7ab0a8 cff7b2f 7f07479`
+
+Phase 1 Batch 1 三 Task 全部完成，工作树 clean，可交接验收。
+
+- `c7ab0a8` Task A — MorningBrief hero + StatCell（Signal: TODAY-BRIEF-DONE）
+- `cff7b2f` Task B — PriorityQueue TOP 8 客户（Signal: TODAY-QUEUE-DONE）
+- `7f07479` Task C — EventTimeline 实时流 + 5 条 seed（Signal: TODAY-TIMELINE-DONE）
+
+**已消费的共享 store（只读）**
+- `useAuthStore.currentUser` — 问候语 / persona 过滤（未登录自动硬编 u_wangzhe）
+- `useCustomerStore.customers` — PriorityQueue 排序 + lastActivityAt 滤条
+- `useEventBus.history` — 事件流 + MorningBrief alert stat + PriorityQueue 最近事件副标
+
+**已落的 AppShell slot 需求** —— 无（Task 全部在 `app/today/` 内完成）
+
+**Known gaps / 留给联调**
+- 待 CLI-2 `app/warroom/_store/ticket-store` 落地后，MorningBrief 的 `TICKET_FALLBACK_COUNT` 换为真订阅
+- 待 CLI-4 `/login` + AuthGate 落地后，移除 MorningBrief `useEffect` 自动 fallback 登录逻辑
+- 样式 scoped 在 `views.css` `.v-today` 命名空间下，additive only，未触碰既有 class
+
+**Signal**: `READY-FOR-PLATFORM-TODAY-REVIEW`

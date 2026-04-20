@@ -1414,3 +1414,238 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-48); letter-spacing: .04em;
 }
+
+/* ═══ Task B · .v-today .priority-queue ═══
+   动态客户队列（TOP 8）· stage 徽章 + 最近事件 + 打开 workspace。
+   追加 only 扩展 views.css，不改既有 .v-today rule。 */
+.v-today .priority-queue {
+  margin-top: 32px;
+  padding: 20px 22px 14px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 82%, transparent) 0%,
+    color-mix(in srgb, var(--g0b) 74%, transparent) 60%,
+    color-mix(in srgb, var(--g1) 72%, transparent) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 24px 48px -28px rgba(15, 26, 18, 0.35);
+}
+.v-today .priority-queue__head {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;
+}
+.v-today .priority-queue__tag {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: 0.12em;
+  color: var(--ink-65);
+  display: flex; align-items: center; gap: 10px;
+}
+.v-today .priority-queue__tag .dash {
+  width: 14px; height: 1px; background: currentColor; opacity: 0.55;
+}
+.v-today .priority-queue__sum {
+  margin-left: auto; font-family: var(--cjk); font-weight: 500;
+  font-size: 10.5px; color: var(--ink-48); letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.v-today .priority-queue__hint {
+  margin: 0; font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+  letter-spacing: 0.02em;
+}
+.v-today .priority-queue__list {
+  list-style: none; padding: 0; margin: 8px 0 0;
+  display: flex; flex-direction: column;
+}
+.v-today .priority-queue__empty {
+  padding: 24px 8px; color: var(--ink-48);
+  font-family: var(--cjk); font-size: 13px; text-align: center;
+}
+.v-today .priority-queue__empty a {
+  color: var(--accent); text-decoration: underline dotted;
+}
+
+.v-today .priority-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px dashed var(--ink-08);
+  font-family: var(--cjk);
+}
+.v-today .priority-row:last-child { border-bottom: 0; }
+.v-today .priority-row__badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--cjk); font-weight: 500; font-size: 11.5px;
+  letter-spacing: 0.06em;
+  background: var(--ink-08); color: var(--ink);
+}
+.v-today .priority-row.stage-alert      .priority-row__badge { background: var(--t-alert); color: var(--chalk); }
+.v-today .priority-row.stage-credit     .priority-row__badge { background: var(--t-credit); color: var(--chalk); }
+.v-today .priority-row.stage-report     .priority-row__badge { background: var(--t-report); color: var(--chalk); }
+.v-today .priority-row.stage-intake     .priority-row__badge { background: color-mix(in srgb, var(--t-report) 75%, var(--chalk)); color: var(--ink); }
+.v-today .priority-row.stage-monitoring .priority-row__badge { background: color-mix(in srgb, var(--t-alert) 55%, var(--chalk)); color: var(--ink); }
+.v-today .priority-row.stage-lead       .priority-row__badge { background: var(--t-channel); color: var(--chalk); }
+.v-today .priority-row.stage-closed     .priority-row__badge { background: var(--ink-14); color: var(--ink-48); }
+
+.v-today .priority-row__body { min-width: 0; }
+.v-today .priority-row__title {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  font-size: 14px; color: var(--ink); line-height: 1.35;
+}
+.v-today .priority-row__name { font-weight: 600; }
+.v-today .priority-row__ind {
+  font-size: 11.5px; color: var(--ink-48); letter-spacing: 0.02em;
+}
+.v-today .priority-row__amt {
+  margin-left: auto; font-family: var(--cjk);
+  font-size: 11.5px; color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.v-today .priority-row__sub {
+  display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 3px;
+  font-size: 11.5px; color: var(--ink-48); line-height: 1.35;
+}
+.v-today .priority-row__sub-r {
+  font-family: var(--cjk); letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.v-today .priority-row__cta {
+  font-family: var(--cjk); font-size: 11.5px; letter-spacing: 0.04em;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--ink-14);
+  background: color-mix(in srgb, var(--chalk) 65%, transparent);
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .2s cubic-bezier(.2,.8,.25,1), border-color .2s ease;
+}
+.v-today .priority-row__cta:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ═══ Task C · .v-today .event-timeline ═══
+   跨 Agent 事件流 · 最近 20 条. 10min 前淡化. Agent 色 dot 取 --t-<agent>. */
+.v-today .event-timeline {
+  margin-top: 28px;
+  padding: 20px 22px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 78%, transparent) 0%,
+    color-mix(in srgb, var(--g1) 70%, transparent) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 18px 38px -28px rgba(15, 26, 18, 0.35);
+}
+.v-today .event-timeline__head {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;
+}
+.v-today .event-timeline__tag {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: 0.12em;
+  color: var(--ink-65);
+  display: flex; align-items: center; gap: 10px;
+}
+.v-today .event-timeline__tag .dash {
+  width: 14px; height: 1px; background: currentColor; opacity: 0.55;
+}
+.v-today .event-timeline__sum {
+  margin-left: auto; font-family: var(--cjk); font-weight: 500;
+  font-size: 10.5px; color: var(--ink-48); letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.v-today .event-timeline__hint {
+  margin: 0; font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+}
+.v-today .event-timeline__list {
+  list-style: none; padding: 0; margin: 8px 0 0;
+  display: flex; flex-direction: column;
+  border-left: 1px dashed var(--ink-14);
+  padding-left: 14px;
+}
+.v-today .event-timeline__empty {
+  padding: 24px 8px; color: var(--ink-48);
+  font-family: var(--cjk); font-size: 13px; text-align: center;
+}
+
+.v-today .event-row {
+  display: grid;
+  grid-template-columns: 64px auto 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  position: relative;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  transition: opacity .3s ease;
+}
+.v-today .event-row::before {
+  content: "";
+  position: absolute;
+  left: -19px;
+  top: 14px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-48);
+  box-shadow: 0 0 0 2px var(--chalk);
+}
+.v-today .event-row.agent-report::before   { background: var(--t-report); }
+.v-today .event-row.agent-credit::before   { background: var(--t-credit); }
+.v-today .event-row.agent-alert::before    { background: var(--t-alert); }
+.v-today .event-row.agent-channel::before  { background: var(--t-channel); }
+.v-today .event-row.agent-compli::before   { background: var(--t-compli); }
+.v-today .event-row.agent-riskctrl::before { background: var(--t-riskctrl); }
+.v-today .event-row--faded { opacity: 0.42; }
+
+.v-today .event-row__time {
+  font-family: var(--cjk); font-size: 11px;
+  color: var(--ink-48); letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.v-today .event-row__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--cjk); font-size: 11px; letter-spacing: 0.06em;
+  color: var(--chalk);
+  background: var(--ink);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.v-today .event-row.agent-report   .event-row__badge { background: var(--t-report); }
+.v-today .event-row.agent-credit   .event-row__badge { background: var(--t-credit); }
+.v-today .event-row.agent-alert    .event-row__badge { background: var(--t-alert); }
+.v-today .event-row.agent-channel  .event-row__badge { background: var(--t-channel); }
+.v-today .event-row.agent-compli   .event-row__badge { background: var(--t-compli); }
+.v-today .event-row.agent-riskctrl .event-row__badge { background: var(--t-riskctrl); }
+
+.v-today .event-row__text {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.v-today .event-row__cust {
+  font-family: var(--cjk); font-size: 11.5px; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--ink-08);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background .2s ease, color .2s ease;
+}
+.v-today .event-row__cust:hover {
+  background: var(--accent);
+  color: var(--chalk);
+}

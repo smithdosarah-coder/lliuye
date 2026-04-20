@@ -3,11 +3,13 @@ import type { CSSProperties } from "react";
 import { AccountBelt } from "@/components/today/AccountBelt";
 import { BoardCard } from "@/components/today/BoardCard";
 import { FeedCard } from "@/components/today/FeedCard";
-import { Hero } from "@/components/today/Hero";
 import {
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
 } from "@/lib/mock/today";
+import { EventTimeline } from "./_components/EventTimeline";
+import { MorningBrief } from "./_components/MorningBrief";
+import { PriorityQueue } from "./_components/PriorityQueue";
 
 export const metadata = {
   title: "今日 · 乾策 Studio",
@@ -16,7 +18,7 @@ export const metadata = {
 export default function TodayPage() {
   return (
     <div className="v-today">
-      <Hero />
+      <MorningBrief />
 
       <div className="v-grid-3">
         {/* Task E · 消息 · 最要紧 feed-card */}
@@ -82,8 +84,14 @@ export default function TodayPage() {
         <BoardCard />
       </div>
 
+      {/* Task B · 今日客户队列 TOP 8 · stage × lastActivityAt */}
+      <PriorityQueue />
+
       {/* Task K1 · 今日账册 belt (mockup L3114-3141 · 补漏) */}
       <AccountBelt />
+
+      {/* Task C · 跨 Agent 事件流 · event-bus 实时追加 */}
+      <EventTimeline />
     </div>
   );
 }
