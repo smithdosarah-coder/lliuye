@@ -3,11 +3,11 @@ import type { CSSProperties } from "react";
 import { AccountBelt } from "@/components/today/AccountBelt";
 import { BoardCard } from "@/components/today/BoardCard";
 import { FeedCard } from "@/components/today/FeedCard";
-import { Hero } from "@/components/today/Hero";
 import {
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
 } from "@/lib/mock/today";
+import { MorningBrief } from "./_components/MorningBrief";
 
 export const metadata = {
   title: "今日 · 乾策 Studio",
@@ -16,7 +16,7 @@ export const metadata = {
 export default function TodayPage() {
   return (
     <div className="v-today">
-      <Hero />
+      <MorningBrief />
 
       <div className="v-grid-3">
         {/* Task E · 消息 · 最要紧 feed-card */}
