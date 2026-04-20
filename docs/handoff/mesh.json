@@ -51,11 +51,52 @@
       "branch": "feat/platform-shell",
       "role": "worker",
       "description": "Platform shell v1 Stage 2（token + AppShell + 4 view）"
+    },
+    {
+      "name": "platform-dispatch",
+      "path": "D:/claude code/demo-platform-dispatch",
+      "branch": "feat/platform-dispatch",
+      "role": "worker",
+      "description": "Platform Phase 1 · /dispatch Slack 风 IM 3 栏 + ComposerBar + event-bus 桥接",
+      "onboarding": "docs/onboarding/platform-dispatch-phase-1.md"
+    },
+    {
+      "name": "platform-warroom",
+      "path": "D:/claude code/demo-platform-warroom",
+      "branch": "feat/platform-warroom",
+      "role": "worker",
+      "description": "Platform Phase 1 · /warroom 4 列 kanban + HandoffTicket 订阅",
+      "onboarding": "docs/onboarding/platform-warroom-phase-1.md"
+    },
+    {
+      "name": "platform-today",
+      "path": "D:/claude code/demo-platform-today",
+      "branch": "feat/platform-today",
+      "role": "worker",
+      "description": "Platform Phase 1 · /today 动态聚合（MorningBrief + PriorityQueue + EventTimeline）",
+      "onboarding": "docs/onboarding/platform-today-phase-1.md"
+    },
+    {
+      "name": "platform-auth",
+      "path": "D:/claude code/demo-platform-auth",
+      "branch": "feat/platform-auth",
+      "role": "worker",
+      "description": "Platform Phase 1 · /login + RBAC 守卫 + PersonaSwitcher + /audit 入口",
+      "onboarding": "docs/onboarding/platform-auth-phase-1.md"
+    },
+    {
+      "name": "platform-customer",
+      "path": "D:/claude code/demo-platform-customer",
+      "branch": "feat/platform-customer",
+      "role": "worker",
+      "description": "Platform Phase 1 · /customer/[id] 360 + Desk 增强 + 全局 CustomerDrawer slot",
+      "onboarding": "docs/onboarding/platform-customer-phase-1.md"
     }
   ],
   "upstream_remote": "D:/claude code/credit_report_agent_work",
   "decisions_log": "docs/handoff/decisions-log.md",
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
-  "last_updated": "2026-04-19"
+  "arch_contracts": "docs/arch/platform-contracts.md",
+  "last_updated": "2026-04-20"
 }

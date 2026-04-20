@@ -803,3 +803,66 @@ def per_rule_fpr_spread(rule_stats: list[RuleStat]) -> float | None:
 **Non-blocking**：Q-019 不阻 Task A/B/D（worker 预判正确），Task C 可直接实装。
 
 **Signal**: `A-019-PER-RULE-SPREAD-TARGET-LOCKED`（主 CLI commit 同步 emit）
+
+---
+
+## [Q-020] 2026-04-20 · main · Platform Shell v2 五路切分与 Stage 1.0 共享契约落地
+
+**CLI**: main (self-Q，批次下发备忘)
+**Priority**: P1
+**Blocking**: no（contracts 已先落，worker 直接基于 c99a277 rebase）
+**Related**: `docs/arch/platform-contracts.md`（2026-04-20 新增）
+
+### 背景
+
+北部湾首演（Q-014, 2026-04-16）+ 6 Agent POC 全落地（2026-04-19）后，用户反馈：
+> "现在的主要架构功能还有几个没安装，比如 IM 功能和任务版功能"
+> "先把前端彻底定下来，长什么样，有哪些按钮，有哪些功能"
+
+验证：`/dispatch` 13 行骨架 / `/warroom` 45 行静态 mock / `/today` 89 行静态 —— 4 个 shell view 里 3 个只是外壳。登录态 / RBAC / 客户统一 / 跨 Agent handoff 全部为零。
+
+### 决策
+
+切 5 路并行（5 worktree / 5 CLI）：
+1. `feat/platform-dispatch` — `/dispatch` Slack 风 IM 3 栏
+2. `feat/platform-warroom` — `/warroom` 4 列 kanban + handoff ticket
+3. `feat/platform-today` — `/today` 动态聚合
+4. `feat/platform-auth` — `/login` + RBAC 守卫 + PersonaSwitcher + `/audit` 入口
+5. `feat/platform-customer` — `/customer/[id]` 360 + Desk 增强 + 全局 drawer slot
+
+Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，避免 5 路打架。
+
+### Rationale
+
+- **为什么 5 路不是 3 路**：dispatch / warroom / today 是 3 个正交 view，共用底层 store；auth 横切所有入口（单一 writer 必要）；customer 承担 Desk 改造 + 全局 drawer slot（横切但独立 surface）。压到 3 会让 auth+customer 并到一个 worker，冲突 AppShell
+- **为什么 Stage 1.0 先落**：`lib/store/*` 是 5 路唯一共享依赖，让任一 worker 先写 → 其他 4 路 rebase 爆炸。主 CLI 提前 30 分钟写完，后续红区改动走 RFC
+- **为什么保留 today**：虽然 today 读多写少（90% 消费其他 store），但"今日第一屏"是用户登录后**第一眼看到的东西**，决定产品观感下限。不配独立 CLI，会被挤到各 view 收尾阶段草草拼
+- **为什么接纳 AppShell 双写**：CLI-4（AuthGate）和 CLI-5（drawer slot）都要改 AppShell。替代方案是主 CLI 预先把 slot 全留好，但这样 slot API 设计得拍脑袋 —— 不如让两个 worker 自己提 slot 需求，每次改在 decisions-log 留 ≤3 行说明，主 CLI 做 rebase 仲裁
+
+### 约束（红区清单）
+
+- `web/src/lib/store/*.ts` —— 改字段 / 改签名 / 改 RBAC matrix / 改 HANDOFF_CATALOG 一律走 RFC (`Signal: RFC-<topic>-RAISED`)
+- `docs/arch/platform-contracts.md` —— 主 CLI 唯一写入
+- `design_mockups/rm-assistant-final-2026-04-19.html` —— 视觉基准，不可改
+- 跨 worker page/store —— 只 read 不 write
+
+### [A-020] 2026-04-20 · main CLI (self)
+
+**Decision**: APPROVED（self-dispatch）
+
+**Artifacts（已落 commit c99a277）**:
+- `web/src/lib/store/{types,customer-store,event-bus,auth-store,handoff-catalog,index}.ts`
+- `docs/arch/platform-contracts.md`
+
+**Artifacts（本 commit）**:
+- `docs/onboarding/platform-{dispatch,warroom,today,auth,customer}-phase-1.md`（5 份批次文档）
+- 5 个新 worktree 的 `AGENT_IDENTITY.md`（本地 `.gitignore`，不入库）
+- `docs/handoff/mesh.json` 追加 5 条 worker
+- `C:/Users/Mr.S/Desktop/demo-start.bat` 扩 5-CLI 启动参数
+
+**Signal**: `PHASE-1-BATCH-1-DISPATCHED`
+
+**Follow-up**:
+- 5 worker 各自 ACK 后逐 Task 并行推进
+- 主 CLI 不再推进前端新功能，转去 Phase 2 coordination（event-bus 订阅配线 + 跨 view 联调）+ 验收
+- Phase 3（~5d）：真实样本跑穿 + 起草 `docs/frontend-spec/`
