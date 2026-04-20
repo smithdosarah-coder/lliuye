@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { fetchMockJson } from "@/lib/fallback";
 import {
   Play,
   Code2,
@@ -101,6 +102,26 @@ type Phase = "idle" | "running" | "done";
 type CandSource = "draft" | "upload" | "edit";
 type SampleSource = "default" | "upload";
 
+interface RulesetRule {
+  rule_id: string;
+  name: string;
+  description?: string;
+  action?: string;
+  priority?: number;
+  backtest?: {
+    ks?: number;
+    approve_rate?: number;
+    bad_rate?: number;
+    hit_count?: number;
+    hit_rate?: number;
+  };
+}
+
+interface RulesetFixture {
+  version?: string;
+  ruleset?: { description?: string; rules?: RulesetRule[] };
+}
+
 export function RiskctrlWorkspaceClient() {
   const [candSource, setCandSource] = useState<CandSource>("draft");
   const [sampleSource, setSampleSource] = useState<SampleSource>("default");
@@ -108,6 +129,30 @@ export function RiskctrlWorkspaceClient() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [active, setActive] = useState<string>();
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [rulesetMeta, setRulesetMeta] = useState<{
+    version: string;
+    description: string;
+    ruleCount: number;
+  } | null>(null);
+  const [source, setSource] = useState<"mock" | "inline">("inline");
+
+  // Agent2 无后端 API — 拉 /mock/riskctrl_ruleset.json 做基线来源标注
+  useEffect(() => {
+    fetchMockJson<RulesetFixture>("/mock/riskctrl_ruleset.json")
+      .then((j) => {
+        const rules = j.ruleset?.rules ?? [];
+        if (rules.length === 0) return;
+        setRulesetMeta({
+          version: j.version ?? "v1.0",
+          description: j.ruleset?.description ?? "",
+          ruleCount: rules.length,
+        });
+        setSource("mock");
+      })
+      .catch(() => {
+        /* keep inline POLICIES */
+      });
+  }, []);
 
   const run = async () => {
     setPhase("running");
@@ -265,18 +310,29 @@ export function RiskctrlWorkspaceClient() {
       </aside>
 
       <section className="col-span-8 space-y-5">
-        {phase !== "idle" && (
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={reset}>
-              <RotateCcw size={14} /> 重置
-            </Button>
-            {phase === "done" && (
-              <Button>
-                <Download size={14} /> 导出回测报告
+        <div className="flex justify-end gap-2">
+          {source === "mock" && rulesetMeta && (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-tabular tracking-wider uppercase border border-[#c8463a] text-[#c8463a]"
+              title={`数据来源 /mock/riskctrl_ruleset.json · ${rulesetMeta.version} · ${rulesetMeta.ruleCount} 条规则`}
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#c8463a]" />
+              降级模式 · STATIC
+            </span>
+          )}
+          {phase !== "idle" && (
+            <>
+              <Button variant="secondary" onClick={reset}>
+                <RotateCcw size={14} /> 重置
               </Button>
-            )}
-          </div>
-        )}
+              {phase === "done" && (
+                <Button>
+                  <Download size={14} /> 导出回测报告
+                </Button>
+              )}
+            </>
+          )}
+        </div>
         <AnimatePresence mode="wait">
           {phase === "done" ? (
             <motion.div
