@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Play,
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, Stat } from "@/components/viz/Card";
 import { PipelineRail } from "@/components/viz/PipelineRail";
 import { FileDrop, KBBadge } from "@/components/ui/FileDrop";
+import { fetchMockJson } from "@/lib/fallback";
 
 const STAGES = [
   { key: "portfolio", label: "存量客户装载" },
@@ -113,11 +114,123 @@ const CUSTOMERS: Customer[] = [
 
 type Phase = "idle" | "running" | "done";
 
+// ---------------------------------------------------------------------------
+// alert_hitlist.json adapter — shape: {customers: [{entity_id,name,grade,
+// trigger_reasons[], evidence[{type,signal,source,url}], scan_time_ms}], summary, ...}
+// ---------------------------------------------------------------------------
+interface AlertHitlistCustomer {
+  entity_id: string;
+  name: string;
+  grade: "red" | "yellow" | "green";
+  trigger_reasons: string[];
+  evidence: Array<{
+    type: "external" | "internal";
+    signal: string;
+    source: string;
+    url?: string;
+  }>;
+  scan_time_ms?: number;
+}
+
+interface AlertHitlist {
+  version?: string;
+  generated_at?: string;
+  summary?: { total_scanned?: number; red?: number; yellow?: number; green?: number };
+  customers: AlertHitlistCustomer[];
+}
+
+function adaptHitlistToCustomers(h: AlertHitlist): Customer[] {
+  return h.customers.map((c, idx) => {
+    const signal: Signal = c.grade;
+    // grade → 分数区间（红 >=70 / 黄 40-69 / 绿 <40），用 entity_id 尾数加点抖动
+    const tailNum = parseInt(c.entity_id.slice(-3)) || idx;
+    const baseScore =
+      signal === "red" ? 75 + (tailNum % 20) : signal === "yellow" ? 45 + (tailNum % 20) : 15 + (tailNum % 20);
+    const externalCount = c.evidence.filter((e) => e.type === "external").length;
+    const internalCount = c.evidence.filter((e) => e.type === "internal").length;
+    const industry =
+      c.name.includes("制造") || c.name.includes("精密") ? "制造业"
+      : c.name.includes("贸易") ? "批发贸易"
+      : c.name.includes("五金") || c.name.includes("机械") ? "机电制造"
+      : c.name.includes("物流") ? "物流运输"
+      : c.name.includes("建材") ? "建材"
+      : c.name.includes("电子") ? "电子信息"
+      : c.name.includes("纺织") ? "纺织服装"
+      : "综合";
+    const region = c.entity_id.startsWith("LC1") ? "浙江 · 杭州" : c.entity_id.startsWith("LC2") ? "江苏 · 苏州" : "广东 · 深圳";
+    const events = c.evidence.map((ev, i) => ({
+      time: `T-${(i + 1) * 3}d`,
+      source: ev.type === "external" ? ("外部" as const) : ("内部" as const),
+      text: ev.signal,
+      kind:
+        signal === "red"
+          ? ("ember" as const)
+          : signal === "yellow"
+          ? ("brass" as const)
+          : ("sage" as const),
+    }));
+    const advice =
+      signal === "red"
+        ? [
+            "48 小时内启动贷后走访",
+            "提报风控审议，考虑触发提前收回条款",
+            "核实关联方资金流向与最新裁判文书动态",
+          ]
+        : signal === "yellow"
+        ? [
+            "纳入月度关注客户名单",
+            "请客户经理上门沟通了解经营状况",
+            "下次续授信前重新评估行业敞口",
+          ]
+        : ["维持现状", "可推荐增额授信"];
+    return {
+      id: c.entity_id,
+      name: c.name,
+      industry,
+      region,
+      signal,
+      score: baseScore,
+      exposure: `扫描耗时 ${c.scan_time_ms ?? 0} ms · 外部 ${externalCount} 条 · 内部 ${internalCount} 条`,
+      events,
+      advice,
+    };
+  });
+}
+
 export function AlertWorkspaceClient() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [active, setActive] = useState<string>();
   const [done, setDone] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Customer | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>(CUSTOMERS);
+  const [summary, setSummary] = useState<{ total: number; red: number; yellow: number; green: number }>({
+    total: CUSTOMERS.length,
+    red: CUSTOMERS.filter((c) => c.signal === "red").length,
+    yellow: CUSTOMERS.filter((c) => c.signal === "yellow").length,
+    green: CUSTOMERS.filter((c) => c.signal === "green").length,
+  });
+  const [source, setSource] = useState<"mock" | "inline">("inline");
+
+  // Agent4 无后端 API — 挂载时即拉 /mock/alert_hitlist.json；失败回退内置 CUSTOMERS
+  useEffect(() => {
+    fetchMockJson<AlertHitlist>("/mock/alert_hitlist.json")
+      .then((j) => {
+        const adapted = adaptHitlistToCustomers(j);
+        if (adapted.length === 0) return;
+        setCustomers(adapted);
+        setSource("mock");
+        const s = j.summary ?? {};
+        setSummary({
+          total: s.total_scanned ?? adapted.length,
+          red: s.red ?? adapted.filter((c) => c.signal === "red").length,
+          yellow: s.yellow ?? adapted.filter((c) => c.signal === "yellow").length,
+          green: s.green ?? adapted.filter((c) => c.signal === "green").length,
+        });
+      })
+      .catch(() => {
+        // 静态 json 都拉不到 — 继续用内置 CUSTOMERS，不打断演示
+      });
+  }, []);
 
   const run = async () => {
     setPhase("running");
@@ -129,7 +242,7 @@ export function AlertWorkspaceClient() {
     }
     setActive(undefined);
     setPhase("done");
-    setSelected(CUSTOMERS[0]);
+    setSelected(customers[0] ?? null);
   };
   const reset = () => {
     setPhase("idle");
@@ -137,9 +250,9 @@ export function AlertWorkspaceClient() {
     setSelected(null);
   };
 
-  const redCount = CUSTOMERS.filter((c) => c.signal === "red").length;
-  const yellowCount = CUSTOMERS.filter((c) => c.signal === "yellow").length;
-  const greenCount = CUSTOMERS.filter((c) => c.signal === "green").length;
+  const redCount = summary.red;
+  const yellowCount = summary.yellow;
+  const greenCount = summary.green;
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -200,18 +313,29 @@ export function AlertWorkspaceClient() {
       </aside>
 
       <section className="col-span-8 space-y-5">
-        {phase !== "idle" && (
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={reset}>
-              <RotateCcw size={14} /> 重置
-            </Button>
-            {phase === "done" && (
-              <Button>
-                <Download size={14} /> 导出预警清单
+        <div className="flex justify-end gap-2">
+          {source === "mock" && (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-tabular tracking-wider uppercase border border-[#c8463a] text-[#c8463a]"
+              title="Agent4 暂无后端路由，当前展示静态 fixture 数据"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#c8463a]" />
+              降级模式 · STATIC
+            </span>
+          )}
+          {phase !== "idle" && (
+            <>
+              <Button variant="secondary" onClick={reset}>
+                <RotateCcw size={14} /> 重置
               </Button>
-            )}
-          </div>
-        )}
+              {phase === "done" && (
+                <Button>
+                  <Download size={14} /> 导出预警清单
+                </Button>
+              )}
+            </>
+          )}
+        </div>
         <AnimatePresence mode="wait">
           {phase === "done" ? (
             <motion.div
@@ -221,11 +345,16 @@ export function AlertWorkspaceClient() {
               transition={{ duration: 0.4 }}
               className="space-y-5"
             >
-              <Dashboard red={redCount} yellow={yellowCount} green={greenCount} />
+              <Dashboard
+                red={redCount}
+                yellow={yellowCount}
+                green={greenCount}
+                total={summary.total}
+              />
               <div className="grid grid-cols-12 gap-5">
                 <div className="col-span-5">
                   <CustomerList
-                    customers={CUSTOMERS}
+                    customers={customers}
                     selected={selected}
                     onSelect={setSelected}
                   />
@@ -271,17 +400,19 @@ function Dashboard({
   red,
   yellow,
   green,
+  total,
 }: {
   red: number;
   yellow: number;
   green: number;
+  total: number;
 }) {
   return (
     <section className="bg-[var(--g1)] border border-[var(--ink-14)] p-6 grid grid-cols-4 gap-6 items-end">
       <SignalLamp color="ember" count={red} label="红灯" hint="需立即干预" />
       <SignalLamp color="brass" count={yellow} label="黄灯" hint="关注观察" />
       <SignalLamp color="sage" count={green} label="绿灯" hint="健康" />
-      <Stat label="总客户" value={128} hint="本次扫描覆盖" />
+      <Stat label="总客户" value={total} hint="本次扫描覆盖" />
     </section>
   );
 }
