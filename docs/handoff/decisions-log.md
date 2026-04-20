@@ -973,3 +973,9 @@ AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebas
 
 - `components/shell/AppShell.tsx`：`/login` 路径走裸壳（无 Desk / Masthead / ThemeSwitch）；其余路径用 `<AuthGate>` 包 `<ShellChrome>`；drag/drop 逻辑外迁至 ShellChrome。
 - 新增 `components/shell/AuthGate.tsx`：hydration-safe 未登录跳 `/login`、已登录访问 `/login` 跳 `/today`。对 CLI-5 customer drawer 无影响（仍通过 ShellChrome 注入）。
+
+### Masthead / PersonaSwitcher 改动：Task B（2026-04-20）
+
+- `components/shell/Masthead.tsx`：原硬编 "王哲 · 客户经理 · 华东" 替换为 `<PersonaSwitcher />`；time tick 保留。
+- 新增 `components/shell/PersonaSwitcher.tsx`：右上按钮 + Popover 列 5 persona + 退出；切 persona 直接 `login(newId)` 不走 logout/login 往返；Esc / 点外部关闭。
+- 注：onboarding Task B 指标 #3 "Desk 按 assignedTo 过滤" 属 CLI-5 platform-customer 的 Desk 增强范围（contracts §Worktree 职能分工），本 worker 仅提供 `useAuthStore.currentUser.id` 数据源，不改 Desk.tsx。
