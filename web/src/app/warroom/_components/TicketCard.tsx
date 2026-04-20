@@ -1,7 +1,7 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import { Fragment, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 
 import type { HandoffTicket } from "@/lib/store";
 import { byUserId, useCustomerStore } from "@/lib/store";
@@ -48,7 +48,7 @@ export function TicketCard({
   const customer = useCustomerStore((s) => s.byId(ticket.customerId));
   const assignee = ticket.assignedTo ? byUserId(ticket.assignedTo) : undefined;
   const priority = inferPriority(ticket);
-  const pillVariant = priority === "urgent" ? "urg" : "P2";
+  const pillVariant = priority === "urgent" ? "urg" : "wait";
   const pillLabel = priority === "urgent" ? "加急" : "流转";
 
   const style: CSSProperties = {
@@ -79,7 +79,7 @@ export function TicketCard({
         <span className={`pr ${pillVariant}`}>{pillLabel}</span>
       </div>
       <div className="meta">
-        <Fragment>{flowLabel}</Fragment>
+        <span className="cn">{flowLabel}</span>
         {" · "}
         <span className="cn">{formatWhen(ticket.updatedAt)}</span>
       </div>
