@@ -973,3 +973,29 @@ Worker CLI-3 (`platform-today`) 已接批次并 rebase 到 c99a277 共享 store�
 红线遵守：不改 `lib/store/*` / `components/shell/*` / 其他 worker page；跨 worker store 只读。AuthGate 未就绪，未登录先硬编 `u_wangzhe` 兜底。
 
 **Signal**: `PHASE-1-BATCH-1-ACK`
+
+---
+
+## [READY-020-today] 2026-04-20 · platform-today CLI-3
+
+**Related**: ACK-020-today / `PHASE-1-BATCH-1-ACK` / commits `c7ab0a8 cff7b2f 7f07479`
+
+Phase 1 Batch 1 三 Task 全部完成，工作树 clean，可交接验收。
+
+- `c7ab0a8` Task A — MorningBrief hero + StatCell（Signal: TODAY-BRIEF-DONE）
+- `cff7b2f` Task B — PriorityQueue TOP 8 客户（Signal: TODAY-QUEUE-DONE）
+- `7f07479` Task C — EventTimeline 实时流 + 5 条 seed（Signal: TODAY-TIMELINE-DONE）
+
+**已消费的共享 store（只读）**
+- `useAuthStore.currentUser` — 问候语 / persona 过滤（未登录自动硬编 u_wangzhe）
+- `useCustomerStore.customers` — PriorityQueue 排序 + lastActivityAt 滤条
+- `useEventBus.history` — 事件流 + MorningBrief alert stat + PriorityQueue 最近事件副标
+
+**已落的 AppShell slot 需求** —— 无（Task 全部在 `app/today/` 内完成）
+
+**Known gaps / 留给联调**
+- 待 CLI-2 `app/warroom/_store/ticket-store` 落地后，MorningBrief 的 `TICKET_FALLBACK_COUNT` 换为真订阅
+- 待 CLI-4 `/login` + AuthGate 落地后，移除 MorningBrief `useEffect` 自动 fallback 登录逻辑
+- 样式 scoped 在 `views.css` `.v-today` 命名空间下，additive only，未触碰既有 class
+
+**Signal**: `READY-FOR-PLATFORM-TODAY-REVIEW`
