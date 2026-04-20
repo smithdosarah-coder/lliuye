@@ -866,3 +866,94 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 - 5 worker 各自 ACK 后逐 Task 并行推进
 - 主 CLI 不再推进前端新功能，转去 Phase 2 coordination（event-bus 订阅配线 + 跨 view 联调）+ 验收
 - Phase 3（~5d）：真实样本跑穿 + 起草 `docs/frontend-spec/`
+
+---
+
+## [A-021] 2026-04-20 · main CLI (self) · LEGACY-THEME-PURGE
+
+**Trigger**: 用户 ultrathink 复盘 —— "黑红读老 DEMO"。定稿前端即 4-theme 渐变方案（Canvas/Matcha/Dusk/Ink），Letterpress/crimson + 所有印章系统 (seal / 乾 / 朱砂) 需彻底下架，避免再"跑偏"。
+
+**Decision**: 一次性原子提交 purge —— 代码 + spec + mockup 同步过线。
+
+**Artifacts（commit `f004a1d`）**:
+- `web/src/components/shell/ThemeSwitch.tsx` —— 重写为 4-theme only（Type 从 5 → 4，移除 Letterpress button，Dusk label 取代 Blush）
+- `web/src/app/tokens.css` —— 删 `[data-theme="crimson"]` 15 行
+- `web/src/app/shell.css` —— crimson sw-dot → ink sw-dot
+- `web/src/app/globals.css` —— 删 `.ink-source-badge` + 4 × `.ink-seal-*` 共 41 行，留一行 retirement 注释
+- `web/src/components/brand/InkSeal.tsx` —— 删（违反"typography-only ID"硬线 + 无业务 caller）
+- `design_mockups/rm-assistant-final-2026-04-19.html` —— 6 处删除（`[data-theme="crimson"]` / `body[data-theme="crimson"] .fb-sym--crimson` / settings-panel sp-chip / theme-sw sw-dot / `fb-sym--crimson` 铜章 SVG "乾" / 切换器 Letterpress 按钮 → Ink 按钮），新 sha256 `25155e744f769a9ce0e01504af2aaa339c5b7794a887696a8c9254e45b775c9a`
+- `docs/design/platform-shell-v2.md` —— §0/§1.1/§2/§3 共 4 处"5 主题"→"4 主题"
+- `CLAUDE.md` §7 —— mockup 锚点 sha256 升级 + 2026-04-20 post-purge 批注
+
+**Signal**: `LEGACY-THEME-PURGED`
+
+**Rationale**:
+- 用户担忧"擅自改动方案"的根因是 ThemeSwitch.tsx 此前注释写着"Letterpress 沿用 mockup selector `data-t='crimson'` 保 1:1"—— 这就是"盲目复刻 mockup"的放大器。修根不修表。
+- spec + mockup + code 三处此前口径不一（CLAUDE.md §7 已 4-theme / spec 仍 5-theme / mockup 仍含 crimson CSS），不同步过线会继续长新 regression。
+
+---
+
+## [A-022] 2026-04-20 · main CLI (self) · PHASE-1-REVIEW-VERDICTS
+
+**Trigger**: 4 个 worker（warroom / today / auth / customer）自报完成，1 个（platform-dispatch）尾部 Task C 未收尾但主路已落。红区与设计语汇 purge 后需复审 + 下达 GO-2（rebase onto `f004a1d` + 残留自查）。
+
+**Decision**: 4 路 preliminary APPROVE，1 路 PENDING-COMPLETE。合并前强制 rebase + 残留自查通过 → main CLI merge。
+
+### ✅ `feat/platform-warroom` · preliminary APPROVE
+- 红区审计：0 red-zone touches（`web/src/lib/store/*` / contracts / mockup 均未动）
+- 交付：4 列 kanban + HandoffTicket 订阅 store event-bus，静态 mock 逻辑保留作 fallback
+- 条件：rebase onto `f004a1d` → 确认无 crimson/letterpress/seal 字面量 → 发 `PHASE-1-PLATFORM-WARROOM-REBASED-CLEAN`
+
+### ✅ `feat/platform-today` · preliminary APPROVE
+- 红区审计：0 red-zone touches
+- 交付：MorningBrief + PriorityQueue + EventTimeline 三段动态聚合，store-driven
+- 条件：同 warroom
+
+### ✅ `feat/platform-auth` · preliminary APPROVE（含 AppShell 授权触碰）
+- 红区审计：`app-shell.tsx` 内嵌 `<ShellChrome>` + `<AuthGate>` —— 合契约 §Worktree 分工（CLI-4 持 AuthGate slot 写权）
+- 交付：`/login` + RBAC guard + PersonaSwitcher + `/audit` 入口
+- 条件：同 warroom + decisions-log 已含逐 Task 说明，无需补
+
+### ✅ `feat/platform-customer` · preliminary APPROVE（含 AppShell 授权触碰）
+- 红区审计：AppShell 末端新增 `<CustomerDrawer />` 单行 —— 合契约（CLI-5 持 drawer slot 写权）；预写 I-021 通知 CLI-4 采 merge-only 冲突策略
+- 交付：`/customer/[id]` 360 + Desk 拖拽增强 + 全局 drawer slot
+- 条件：同 warroom。与 auth 的 AppShell 冲突由 main CLI rebase 阶段按 A-020.D 规则仲裁
+
+### ⏳ `feat/platform-dispatch` · PENDING-COMPLETE
+- 主路 Slack 风 IM 3 栏 + ComposerBar + event-bus 桥接已落
+- 尾 Task C (README signal) 未发 `READY-FOR-PLATFORM-DISPATCH-REVIEW`
+- 条件：rebase onto `f004a1d` + 残留自查 + 补发 Task C 终版 signal → main CLI 合并
+
+### 合并顺序（由 main CLI 顺序仲裁）
+1. warroom / today（无红区，最小 rebase surface）先 merge
+2. auth（先于 customer 接 AppShell，Chrome 作为基础层）
+3. customer（在 auth 之上加单行 slot，冲突由 customer 预声明的 merge-only 解决）
+4. platform-dispatch（独立 view，最后并）
+
+---
+
+## [Q-022] 2026-04-20 · main CLI (self) · Phase 2 Anchor — Agent Workspace Design Wash
+
+**问题**: Phase 1 Batch 1 完成平台壳功能补齐（IM / 任务栏 / Today / Auth / Customer 360 联动）之后，用户明确下一步: 6 个 `/archive/[agent]` workspace 现仍是"老 demo 形态"，与 shell v2 的 4-theme 渐变方案设计语汇脱节。
+
+**用户原话**:
+> "这次的目的是先把产品完善起来，该有的功能都有，IM、任务栏，以及各种功能的联动。下一步就是我要把设计页面进行改动，现在的 agent 功能页面还是老 demo 的形态，这个后面要改一个更符合现有主题的，更有设计感的"
+
+**Phase 2 范围锚点**（留档，落地延后至 Batch 1 并库后启动）:
+
+- **对象**: 6 个 agent workspace（`web/src/app/archive/[agent]/` + `web/src/components/workspace/*`）—— Channel / Credit / Alert / Compliance / Report / RiskCtrl
+- **目标**: 与 shell v2 4-theme 视觉系统合体，去除老 demo 视觉残留（块状按钮 / 表单堆栈 / 无间奏留白 / 与 tile 色格断裂等）
+- **设计语汇底线**（沿用 L021/L022 purge 后的硬线）:
+  1. 无印章（无 seal / 朱砂 / 铜章 / "乾" 字）
+  2. 中文字段名不包 mono / italic / serif 变体
+  3. 与 6 Agent tile 色（`--t-report` / `--t-alert` / `--t-compli` / `--t-credit` / `--t-riskctrl` / `--t-channel`）对接，每 workspace 用自己的 agent 功能色做 accent，不破 4-theme g0..g7 画布
+  4. 沿 shell v2 圆角（`--r-md: 18px` / `--r-lg: 26px`）+ 动画节拍（`card-rise` / `rise` / `bar-in`）
+- **交付形态**: 沿"mockup-first"（用户自出每个 workspace 的目标形态 mockup）→ main CLI 切 6 路 worker worktree 并行复刻。**不设 demo 时间窗**（已记忆 `project_stage5_workspace_rewrite`）
+- **启动前置**:
+  1. Batch 1 五路全并（含 PENDING-COMPLETE 的 platform-dispatch 收尾）
+  2. event-bus 订阅跨 view 联调通过
+  3. 用户出首个 workspace 的 mockup + 选定首发 agent（建议从 Report/Credit 里挑一，流量最大）
+
+**Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
+
+**Signal**: `PHASE-2-ANCHOR-CAPTURED`
