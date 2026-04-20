@@ -428,6 +428,21 @@
 .ws-v2 .hero-sub .pill.ghost { background: transparent; color: var(--ink-65); border: 1px solid var(--ink-14); }
 .ws-v2 .hero-sub .pill.ghost:hover { color: var(--ink); border-color: var(--ink-28); }
 .ws-v2 .hero-sub .bullet { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-28); display: inline-block; margin: 0 6px; vertical-align: middle; }
+.ws-v2 .hero-sub .v2-cta {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 18px; border-radius: 999px;
+  font-family: var(--display); font-weight: 600; font-size: 13.5px; letter-spacing: -.01em;
+  color: var(--t-accent); border: 1.5px solid color-mix(in srgb, var(--t-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--t-accent) 6%, transparent);
+  transition: background .22s, box-shadow .22s, transform .22s, border-color .22s;
+}
+.ws-v2 .hero-sub .v2-cta em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--t-accent); }
+.ws-v2 .hero-sub .v2-cta:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--t-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--t-accent) 85%, transparent);
+  box-shadow: 0 6px 22px -10px color-mix(in srgb, var(--t-accent) 55%, transparent);
+}
 .ws-v2 .hero-sub .num { font-family: var(--display); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; margin: 0 2px; }
 .ws-v2 .hero-h1 .cn { font-family: var(--cjkserif); font-weight: 700; }
 .ws-v2 .hero-h1 em { font-family: var(--italic); font-style: italic; font-weight: 400; color: var(--accent); }

@@ -293,8 +293,11 @@ const QC_METRICS: QcMetric[] = [
 export default function ReportV2() {
   const [lines, setLines] = useState<TraceLine[]>(INITIAL_SSE_LINES);
   const [isMock, setIsMock] = useState(false);
+  const [started, setStarted] = useState(false);
 
+  // SSE kickoff — no longer mount-auto; waits for `started` CTA press.
   useEffect(() => {
+    if (!started) return;
     let cancelled = false;
     let idx = INITIAL_SSE_LINES.length;
 
@@ -328,7 +331,7 @@ export default function ReportV2() {
           (signal) =>
             streamReportFill({ preset: "dingsheng_trade", mock: false }, signal),
           "/mock/report_fill_mock.json",
-          { timeoutMs: 2000, replayEvents: replay, replayIntervalMs: 320 }
+          { timeoutMs: 2000, replayEvents: replay, replayIntervalMs: 550 }
         )) {
           if (cancelled) return;
           if (source === "mock") setIsMock(true);
@@ -343,7 +346,19 @@ export default function ReportV2() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [started]);
+
+  const handleTrigger = () => {
+    if (started) {
+      // Re-run: reset all derived state then kick again next tick
+      setLines(INITIAL_SSE_LINES);
+      setIsMock(false);
+      setStarted(false);
+      setTimeout(() => setStarted(true), 16);
+    } else {
+      setStarted(true);
+    }
+  };
 
   return (
     <V2Shell
@@ -360,7 +375,9 @@ export default function ReportV2() {
           <>
             460 项字段已写 <span className="num">428</span>，覆盖 <span className="num">93.5%</span>，<em>外因</em> 1 条材料未覆盖 — 补完后局部重跑约 <span className="num">90s</span>。
             <span className="bullet" />
-            <button type="button" className="pill">展开追问 ↗</button>
+            <button type="button" className="v2-cta" onClick={handleTrigger}>
+              {started ? <>重新演示 <em>↻</em></> : <>开始生成报告 <em>↗</em></>}
+            </button>
             <button type="button" className="pill ghost">先跳过，进自审</button>
           </>
         ),
