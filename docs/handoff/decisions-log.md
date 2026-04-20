@@ -989,3 +989,10 @@ AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebas
 - 新增 `components/archive/RbacTileGate.tsx`：archive index 6 tile 的无权包装（置灰 + native tooltip + aria-disabled）。
 - `app/archive/[agent]/page.tsx` / `app/archive/page.tsx`：插入守卫，视觉语言沿用既有 `.agent` tile 规范。
 - `app/views.css`：**additive only** —— 追加 `.v-archive .agent.locked` + `.no-permission*` 样式段，未改现有规则。
+
+### Audit 入口改动：Task D（2026-04-20）
+
+- `components/shell/Masthead.tsx`：`.shell-op` 内 PersonaSwitcher 左侧注入 `<AuditEntry />`（仅 `audit.view` 权限可见）。
+- 新增 `components/shell/AuditEntry.tsx`：无权 return null，有权渲染 `<Link href="/audit">`。
+- 新增 `app/audit/page.tsx` + `AuditView.tsx` + `audit.css`：消费 `useEventBus.history`（前 50 条）+ agent 下拉筛选；URL 直访兜底判 `can({kind:"audit.view"})`，未授权走 `<NoPermission />`。
+- AppShell.tsx **未动本轮**（AuthGate 仍覆盖；audit 页经由 masthead 条件入口 + 页内 RBAC 守卫双层）。

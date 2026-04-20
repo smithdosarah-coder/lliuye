@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuditEntry } from "./AuditEntry";
 import { PersonaSwitcher } from "./PersonaSwitcher";
 
 type Tab = {
@@ -55,6 +56,7 @@ export function Masthead() {
         ))}
       </nav>
       <div className="shell-op">
+        <AuditEntry />
         <PersonaSwitcher />
         <span className="time">{time || "--:--"}</span>
       </div>
