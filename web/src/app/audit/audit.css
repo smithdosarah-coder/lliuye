@@ -1,0 +1,136 @@
+/* ================================================================
+   Audit view · Phase 1 Batch 1 Task D
+   消费 useEventBus.history · 列表 + agent 筛选
+   ================================================================ */
+
+.v-audit {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.v-audit .eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-48);
+  letter-spacing: .16em; text-transform: uppercase;
+}
+.v-audit .eyebrow .sep {
+  display: inline-block; width: 18px; height: 1px; background: var(--ink-28);
+}
+.v-audit .eyebrow em {
+  font-family: var(--italic); font-style: italic; color: var(--ink-65);
+  text-transform: none; letter-spacing: .02em; font-size: 12px;
+}
+.v-audit .hero-h1 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(36px, 5vw, 48px); line-height: 1.05;
+  letter-spacing: -.02em; margin: 4px 0 0;
+}
+.v-audit .hero-h1 .cn { font-family: var(--cjkserif); font-weight: 700; }
+.v-audit .hero-h1 em { font-family: var(--italic); font-style: italic; color: var(--ink-65); }
+.v-audit .lede {
+  font-family: var(--cjk); font-size: 14px; line-height: 1.7;
+  color: var(--ink-65); max-width: 72ch; margin: 0;
+}
+.v-audit .lede strong { color: var(--ink); font-weight: 600; }
+
+.audit-toolbar {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--ch-82);
+  backdrop-filter: saturate(1.15) blur(14px);
+  -webkit-backdrop-filter: saturate(1.15) blur(14px);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+}
+.audit-toolbar label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink-65);
+}
+.audit-toolbar label .t {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-48);
+}
+.audit-toolbar select {
+  font-family: var(--cjk); font-size: 13px; color: var(--ink);
+  padding: 6px 10px;
+  background: var(--ch-55);
+  border: 1px solid var(--ink-14);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.audit-toolbar select:focus { outline: 2px solid var(--ink-28); outline-offset: 1px; }
+.audit-toolbar .audit-count {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .06em;
+  color: var(--ink-48); font-variant-numeric: tabular-nums;
+}
+
+.audit-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.audit-row {
+  display: grid;
+  grid-template-columns: 140px 120px 140px 120px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--ch-82);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink);
+}
+.audit-row .ts {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-48); font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+.audit-row .agent-tag {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+  border: 1px solid var(--ink-14); color: var(--ink-65);
+  white-space: nowrap;
+}
+.audit-row .agent-tag[data-agent="report"]   { color: var(--t-report);   border-color: color-mix(in srgb, var(--t-report)   40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="credit"]   { color: var(--t-credit);   border-color: color-mix(in srgb, var(--t-credit)   40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="channel"]  { color: var(--t-channel);  border-color: color-mix(in srgb, var(--t-channel)  40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="alert"]    { color: var(--t-alert);    border-color: color-mix(in srgb, var(--t-alert)    40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="compli"]   { color: var(--t-compli);   border-color: color-mix(in srgb, var(--t-compli)   40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="riskctrl"] { color: var(--t-riskctrl); border-color: color-mix(in srgb, var(--t-riskctrl) 40%, var(--ink-14)); }
+.audit-row .type {
+  font-weight: 500;
+}
+.audit-row .actor,
+.audit-row .cust {
+  color: var(--ink-65); font-size: 12px;
+}
+.audit-row .corr {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-48);
+  letter-spacing: .04em;
+}
+
+.audit-empty {
+  padding: 48px 24px;
+  background: var(--ch-82);
+  border: 1px dashed var(--ink-28);
+  border-radius: var(--r-lg);
+  text-align: center;
+  font-family: var(--cjk); font-size: 13px; color: var(--ink-65);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.audit-empty em {
+  font-family: var(--italic); font-style: italic; font-size: 12px; color: var(--ink-48);
+}
+
+@media (max-width: 960px) {
+  .audit-row {
+    grid-template-columns: 120px 1fr;
+    gap: 8px;
+  }
+  .audit-row .ts { grid-column: 1; }
+  .audit-row .agent-tag { grid-column: 2; justify-self: start; }
+  .audit-row .type { grid-column: 1 / -1; }
+  .audit-row .actor, .audit-row .cust, .audit-row .corr { grid-column: 1 / -1; }
+}

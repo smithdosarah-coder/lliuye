@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AuditEntry } from "./AuditEntry";
+import { PersonaSwitcher } from "./PersonaSwitcher";
 
 type Tab = {
   href: string;
@@ -54,9 +56,8 @@ export function Masthead() {
         ))}
       </nav>
       <div className="shell-op">
-        <span className="dot" />
-        <span className="name">王哲</span>
-        <span className="role">客户经理 · 华东</span>
+        <AuditEntry />
+        <PersonaSwitcher />
         <span className="time">{time || "--:--"}</span>
       </div>
     </header>

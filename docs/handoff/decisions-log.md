@@ -1065,3 +1065,96 @@ Phase 1 Batch 1 三 Task 全部完成，工作树 clean，可交接验收。
 - 样式 scoped 在 `views.css` `.v-today` 命名空间下，additive only，未触碰既有 class
 
 **Signal**: `READY-FOR-PLATFORM-TODAY-REVIEW`
+
+---
+
+## [ACK-platform-auth] 2026-04-20 · platform-auth worker · Phase 1 Batch 1
+
+**CLI**: platform-auth（worker · `feat/platform-auth`）
+**Signal**: `PHASE-1-BATCH-1-ACK`
+
+Resume 完成（AGENT_IDENTITY.md + contracts + onboarding + auth-store + AppShell + archive/[agent] 全读过）。确认 4 Task 范围 / 红区 / AppShell 双写纪律 / AgentKey("compliance") → AgentId("compli") 映射点。按 A → B → C → D 顺序开工，每 Task 独立 commit。
+
+AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebase 参考）。
+
+### AppShell 改动：Task A（2026-04-20）
+
+- `components/shell/AppShell.tsx`：`/login` 路径走裸壳（无 Desk / Masthead / ThemeSwitch）；其余路径用 `<AuthGate>` 包 `<ShellChrome>`；drag/drop 逻辑外迁至 ShellChrome。
+- 新增 `components/shell/AuthGate.tsx`：hydration-safe 未登录跳 `/login`、已登录访问 `/login` 跳 `/today`。对 CLI-5 customer drawer 无影响（仍通过 ShellChrome 注入）。
+
+### Masthead / PersonaSwitcher 改动：Task B（2026-04-20）
+
+- `components/shell/Masthead.tsx`：原硬编 "王哲 · 客户经理 · 华东" 替换为 `<PersonaSwitcher />`；time tick 保留。
+- 新增 `components/shell/PersonaSwitcher.tsx`：右上按钮 + Popover 列 5 persona + 退出；切 persona 直接 `login(newId)` 不走 logout/login 往返；Esc / 点外部关闭。
+- 注：onboarding Task B 指标 #3 "Desk 按 assignedTo 过滤" 属 CLI-5 platform-customer 的 Desk 增强范围（contracts §Worktree 职能分工），本 worker 仅提供 `useAuthStore.currentUser.id` 数据源，不改 Desk.tsx。
+
+### RBAC 守卫改动：Task C（2026-04-20）
+
+- `components/shell/AppShell.tsx`：**未动本轮**（AuthGate 已于 Task A 接管 children wrap，RBAC 判定在 archive/[agent] 内部走 RbacGuard，不需再动 AppShell）。
+- 新增 `lib/auth/agent-id.ts`：`AGENT_KEY_TO_ID` 映射（唯一差异 `compliance → compli`）。
+- 新增 `components/shell/NoPermission.tsx`：温和文案 + 指引（今日 / 对话 / 助手目录），读 `useAuthStore.currentUser` 展示 role。
+- 新增 `app/archive/[agent]/RbacGuard.tsx`：client wrapper，`can({kind:"agent.access", agent: AGENT_KEY_TO_ID[key]})` 判定。
+- 新增 `components/archive/RbacTileGate.tsx`：archive index 6 tile 的无权包装（置灰 + native tooltip + aria-disabled）。
+- `app/archive/[agent]/page.tsx` / `app/archive/page.tsx`：插入守卫，视觉语言沿用既有 `.agent` tile 规范。
+- `app/views.css`：**additive only** —— 追加 `.v-archive .agent.locked` + `.no-permission*` 样式段，未改现有规则。
+
+### Audit 入口改动：Task D（2026-04-20）
+
+- `components/shell/Masthead.tsx`：`.shell-op` 内 PersonaSwitcher 左侧注入 `<AuditEntry />`（仅 `audit.view` 权限可见）。
+- 新增 `components/shell/AuditEntry.tsx`：无权 return null，有权渲染 `<Link href="/audit">`。
+- 新增 `app/audit/page.tsx` + `AuditView.tsx` + `audit.css`：消费 `useEventBus.history`（前 50 条）+ agent 下拉筛选；URL 直访兜底判 `can({kind:"audit.view"})`，未授权走 `<NoPermission />`。
+- AppShell.tsx **未动本轮**（AuthGate 仍覆盖；audit 页经由 masthead 条件入口 + 页内 RBAC 守卫双层）。
+
+### Batch 1 Readiness（2026-04-20）
+
+4 Task 全绿，均以独立 commit 落地（SHA 不可重写 · A-012.D）：
+
+| Task | Signal | Commit |
+|---|---|---|
+| ACK | PHASE-1-BATCH-1-ACK | `5366f30` |
+| A /login + AuthGate | AUTH-LOGIN-PAGE-DONE | `dc3724c` |
+| B PersonaSwitcher | AUTH-PERSONA-SWITCHER-DONE | `d6a909c` |
+| C RBAC 守卫 + NoPermission | AUTH-RBAC-GUARD-DONE | `fa0ccca` |
+| D /audit 入口 | AUTH-AUDIT-ENTRY-DONE | `8e004e9` |
+
+**红区合规核对**：
+- `lib/store/auth-store.ts` ACCESS / HANDOFFS matrix 未动（仅通过 `can(action)` 谓词消费）
+- `docs/arch/platform-contracts.md` 未改（主 CLI 唯一写入）
+- `design_mockups/rm-assistant-final-2026-04-19.html` 未改
+- 跨 worker page / store 未写（仅读 `useAuthStore` / `useEventBus` / `AGENTS`）
+
+**AppShell 改动栈**（供 CLI-5 platform-customer rebase 参考）：
+- Task A：split into `AppShell` shell-dispatcher + `ShellChrome` inner; drag/drop 逻辑下沉 ShellChrome
+- Task B：Masthead 内部替换 —— 未改 AppShell.tsx
+- Task C：未改 AppShell.tsx（RbacGuard 走 archive/[agent] 内部）
+- Task D：未改 AppShell.tsx（AuditEntry 走 Masthead 内部）
+
+**reflog 干净**：`merge (fast-forward) → commit × 5`，无 rebase / amend / force。
+
+**Signal**: `READY-FOR-PLATFORM-AUTH-REVIEW`
+
+---
+
+### Rebase onto `chore/l0-infra` @ `53b15fb`（2026-04-20 · GO-2）
+
+主 CLI 在 `f004a1d` 落 LEGACY-THEME-PURGED + `53b15fb` 给本路 preliminary APPROVE 后，执行 GO-2：
+`git rebase upstream/chore/l0-infra` —— 6 commit 全部 replay。
+
+**冲突仲裁**：仅 `docs/handoff/decisions-log.md` 一处 append-vs-append（A-021 / A-022 / Q-022 vs ACK-platform-auth），保留双方按时序排列；purge 涉及的 `web/src/app/{tokens,shell,globals}.css` + `ThemeSwitch.tsx` 与 auth 追加段（`.persona-sw*` / `.audit-entry`）落在不同选择器，**无 CSS 冲突**。
+
+**残留自查**（grep `crimson|letterpress|ink-seal|InkSeal|朱砂|铜章` over `web/src/`）：3 处命中均为 `f004a1d` 的 retirement 注释（ThemeSwitch.tsx:9 / globals.css:331 / tokens.css:112），非 auth 引入；CJK-in-mono 仅在 eyebrow brand slug（与 archive / warroom 既有 pattern 一致），非字段名违规。
+
+**新 SHA 链**（rebase 后）：
+
+| Task | Signal | New SHA |
+|---|---|---|
+| ACK | PHASE-1-BATCH-1-ACK | `184334d` |
+| A | AUTH-LOGIN-PAGE-DONE | `f7f3fce` |
+| B | AUTH-PERSONA-SWITCHER-DONE | `ef8d03e` |
+| C | AUTH-RBAC-GUARD-DONE | `ce19051` |
+| D | AUTH-AUDIT-ENTRY-DONE | `90af115` |
+| Readiness | READY-FOR-PLATFORM-AUTH-REVIEW | `cba98c8` |
+
+**验证**：`npx tsc --noEmit` 0 error · `next build` 22 routes 全静态 / SSG · `next start` 起 `:3401` 探活：`/login` 200（DOM 见 `login-root` + 「选一位身份」）/ `/audit` 200（AuthGate gate SSR → CSR 无 session 即 `router.replace("/login")`，**非 404**）/ `/today` 200。
+
+**Signal**: `PHASE-1-PLATFORM-AUTH-REBASED-CLEAN`
