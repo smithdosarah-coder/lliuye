@@ -979,3 +979,13 @@ AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebas
 - `components/shell/Masthead.tsx`：原硬编 "王哲 · 客户经理 · 华东" 替换为 `<PersonaSwitcher />`；time tick 保留。
 - 新增 `components/shell/PersonaSwitcher.tsx`：右上按钮 + Popover 列 5 persona + 退出；切 persona 直接 `login(newId)` 不走 logout/login 往返；Esc / 点外部关闭。
 - 注：onboarding Task B 指标 #3 "Desk 按 assignedTo 过滤" 属 CLI-5 platform-customer 的 Desk 增强范围（contracts §Worktree 职能分工），本 worker 仅提供 `useAuthStore.currentUser.id` 数据源，不改 Desk.tsx。
+
+### RBAC 守卫改动：Task C（2026-04-20）
+
+- `components/shell/AppShell.tsx`：**未动本轮**（AuthGate 已于 Task A 接管 children wrap，RBAC 判定在 archive/[agent] 内部走 RbacGuard，不需再动 AppShell）。
+- 新增 `lib/auth/agent-id.ts`：`AGENT_KEY_TO_ID` 映射（唯一差异 `compliance → compli`）。
+- 新增 `components/shell/NoPermission.tsx`：温和文案 + 指引（今日 / 对话 / 助手目录），读 `useAuthStore.currentUser` 展示 role。
+- 新增 `app/archive/[agent]/RbacGuard.tsx`：client wrapper，`can({kind:"agent.access", agent: AGENT_KEY_TO_ID[key]})` 判定。
+- 新增 `components/archive/RbacTileGate.tsx`：archive index 6 tile 的无权包装（置灰 + native tooltip + aria-disabled）。
+- `app/archive/[agent]/page.tsx` / `app/archive/page.tsx`：插入守卫，视觉语言沿用既有 `.agent` tile 规范。
+- `app/views.css`：**additive only** —— 追加 `.v-archive .agent.locked` + `.no-permission*` 样式段，未改现有规则。

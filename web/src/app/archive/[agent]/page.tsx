@@ -8,6 +8,7 @@ import RiskctrlWorkspace from "@/components/workspace/RiskctrlWorkspace";
 import AlertWorkspace from "@/components/workspace/AlertWorkspace";
 import ComplianceWorkspace from "@/components/workspace/ComplianceWorkspace";
 import { ArchiveAgentShell } from "./ArchiveAgentShell";
+import { RbacGuard } from "./RbacGuard";
 
 export const metadata = {
   title: "AI 助手 · 工作区 · 乾策 Studio",
@@ -43,14 +44,16 @@ export default async function AgentWorkspace({
       className="v-archive ws-v2-skin px-8 py-8 max-w-[1400px] mx-auto"
       data-agent={key}
     >
-      <ArchiveAgentShell
-        code={def.code}
-        eyebrowLabel={def.eyebrowLabel}
-        title={def.title}
-        description={def.description}
-      >
-        <Workspace />
-      </ArchiveAgentShell>
+      <RbacGuard agent={key}>
+        <ArchiveAgentShell
+          code={def.code}
+          eyebrowLabel={def.eyebrowLabel}
+          title={def.title}
+          description={def.description}
+        >
+          <Workspace />
+        </ArchiveAgentShell>
+      </RbacGuard>
     </div>
   );
 }

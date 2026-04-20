@@ -1,4 +1,4 @@
-import { AgentTile } from "@/components/archive/AgentTile";
+import { RbacTileGate } from "@/components/archive/RbacTileGate";
 import { ARCHIVE_TILES } from "@/lib/mock/archive";
 
 export const metadata = {
@@ -33,7 +33,7 @@ export default function ArchivePage() {
 
       <div className="archive">
         {ARCHIVE_TILES.map((t) => (
-          <AgentTile key={t.key} tile={t} />
+          <RbacTileGate key={t.key} tile={t} />
         ))}
       </div>
     </div>
