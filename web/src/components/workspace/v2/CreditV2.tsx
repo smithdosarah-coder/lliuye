@@ -3,8 +3,15 @@
 /**
  * CreditV2 — DOM port of design_mockups/stage5/mockup-v2/credit.html.
  * Credit Decision · Agent6 下游 · 四维评分 + 红线 + 黄线.
+ *
+ * SSE event stream wired to streamDecision via withFallback (W1 origin commit
+ * 8bdafce) with ?preset=corporate|retail URL override and mock fallback on 2s
+ * timeout. useSearchParams is wrapped in a Suspense boundary to satisfy Next 16
+ * static-generation rules.
  */
 
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   V2Shell,
   ChatBlk,
@@ -16,6 +23,8 @@ import {
   type TraceLine,
   type QcMetric,
 } from "./V2Shell";
+import { streamDecision, type DecisionEvent } from "@/lib/api";
+import { withFallback } from "@/lib/fallback";
 
 const MESSAGES: ChatMessage[] = [
   {
@@ -35,13 +44,123 @@ const MESSAGES: ChatMessage[] = [
   },
 ];
 
-const SSE_LINES: TraceLine[] = [
+const INITIAL_SSE_LINES: TraceLine[] = [
   { ts: "10:10:12", stgTag: "prof · 01",    stage: "ev", tx: <>✓ <b>ReportJSON 载入</b> 12 节 <span className="src">SRC agent6_ingest</span></> },
   { ts: "10:10:28", stgTag: "score · 2.1",  stage: "gn", tx: <>✓ <b>经营维度</b> 82 <span className="src">SRC op_indicators</span></> },
   { ts: "10:10:41", stgTag: "score · 2.2",  stage: "gn", tx: <>✓ <b>偿债维度</b> 76（流动比 <em>1.38</em>）<span className="src">SRC financial_analyzer</span></> },
   { ts: "10:10:54", stgTag: "redline · 3.1", stage: "au", tx: <>✓ <b>4 红线 0 触发</b>（实控连带 / 同业违约 / 司法 / 环保）</> },
   { ts: "10:11:08", stgTag: "redline · 3.2", stage: "au", typing: true, tx: <>⚠ <b>集中度黄线</b> CR5=67.2% · <em>建议人审</em></> },
 ];
+
+function creditStageBucket(stage?: string): "ev" | "gn" | "au" {
+  if (!stage) return "gn";
+  if (stage.startsWith("feature") || stage === "profile_loaded") return "ev";
+  if (stage.startsWith("scoring") || stage === "advising" || stage === "case_retrieving") return "gn";
+  if (stage.startsWith("rule") || stage === "redline") return "au";
+  return "gn";
+}
+
+function fmtNowHMS(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function decisionEventToLine(evt: DecisionEvent, idx: number): TraceLine | null {
+  const ts = fmtNowHMS();
+  const tag = (b: "ev" | "gn" | "au") => `${b} · ${String(idx).padStart(2, "0")}`;
+  if (evt.event === "profile_loaded") {
+    const prof = evt.profile as { company_name?: string; subject_name?: string } | undefined;
+    const name = prof?.company_name ?? prof?.subject_name ?? "企业画像";
+    return {
+      ts,
+      stgTag: tag("ev"),
+      stage: "ev",
+      tx: <>✓ <b>{name}</b> 画像载入 <span className="src">SRC agent6</span></>,
+    };
+  }
+  if (evt.event === "stage") {
+    const bucket = creditStageBucket(evt.stage);
+    const payload = evt.payload as { status?: string; message?: string } | undefined;
+    return {
+      ts,
+      stgTag: tag(bucket),
+      stage: bucket,
+      tx: (
+        <>
+          ▸ <b>{evt.stage}</b>
+          {payload?.status ? <em> · {payload.status}</em> : null}
+          {payload?.message ? <span className="src"> {payload.message}</span> : null}
+        </>
+      ),
+    };
+  }
+  if (evt.event === "done") {
+    return { ts, stgTag: tag("au"), stage: "au", tx: <>✓ <b>决策汇总完成</b></> };
+  }
+  if (evt.event === "error") {
+    return {
+      ts,
+      stgTag: tag("au"),
+      stage: "au",
+      tx: <>✗ <span className="bad">{evt.message ?? "error"}</span></>,
+    };
+  }
+  return null;
+}
+
+/**
+ * Adapt streamDecision (callback) → AsyncGenerator for withFallback.
+ * Aborts propagate via signal; yield ordering preserved via queue.
+ */
+function decisionGenerator(
+  segment: "corporate" | "retail",
+  preset: string
+): (signal: AbortSignal) => AsyncGenerator<DecisionEvent> {
+  return async function* (signal: AbortSignal) {
+    const queue: DecisionEvent[] = [];
+    let resolver: ((v: void) => void) | null = null;
+    let finished = false;
+    let streamErr: unknown = null;
+
+    const promise = streamDecision(
+      { segment, preset_name: preset },
+      (evt) => {
+        queue.push(evt);
+        if (resolver) {
+          const r = resolver;
+          resolver = null;
+          r();
+        }
+      },
+      signal
+    )
+      .catch((e) => {
+        streamErr = e;
+      })
+      .finally(() => {
+        finished = true;
+        if (resolver) {
+          const r = resolver;
+          resolver = null;
+          r();
+        }
+      });
+
+    while (true) {
+      if (queue.length === 0) {
+        if (finished) break;
+        await new Promise<void>((r) => (resolver = r));
+      }
+      while (queue.length > 0) {
+        const v = queue.shift()!;
+        yield v;
+      }
+    }
+    await promise;
+    if (streamErr) throw streamErr;
+  };
+}
 
 const SECTIONS: DocSection[] = [
   {
@@ -120,6 +239,65 @@ const QC_METRICS: QcMetric[] = [
 
 export default function CreditV2() {
   return (
+    <Suspense fallback={<CreditV2Inner initialPreset={null} />}>
+      <CreditV2Search />
+    </Suspense>
+  );
+}
+
+function CreditV2Search() {
+  const searchParams = useSearchParams();
+  const rawPreset = searchParams.get("preset");
+  const presetKey = rawPreset === "retail" ? "retail" : rawPreset === "corporate" ? "corporate" : null;
+  return <CreditV2Inner initialPreset={presetKey} />;
+}
+
+function CreditV2Inner({ initialPreset }: { initialPreset: "corporate" | "retail" | null }) {
+  const [lines, setLines] = useState<TraceLine[]>(INITIAL_SSE_LINES);
+  const [isMock, setIsMock] = useState(false);
+
+  const segment: "corporate" | "retail" = initialPreset === "retail" ? "retail" : "corporate";
+  const mockPath = useMemo(
+    () =>
+      segment === "retail"
+        ? "/mock/credit_decision_retail.json"
+        : "/mock/credit_decision_corporate.json",
+    [segment]
+  );
+  const presetName = segment === "retail" ? "lisi_education" : "dingsheng_trade";
+
+  useEffect(() => {
+    let cancelled = false;
+    let idx = INITIAL_SSE_LINES.length;
+
+    const replay = (j: unknown): DecisionEvent[] => {
+      const obj = j as { run_mock_events?: DecisionEvent[] };
+      return obj.run_mock_events ?? [];
+    };
+
+    (async () => {
+      try {
+        for await (const [evt, source] of withFallback<DecisionEvent>(
+          decisionGenerator(segment, presetName),
+          mockPath,
+          { timeoutMs: 2000, replayEvents: replay, replayIntervalMs: 280 }
+        )) {
+          if (cancelled) return;
+          if (source === "mock") setIsMock(true);
+          const line = decisionEventToLine(evt, idx++);
+          if (line) setLines((prev) => [...prev, line]);
+        }
+      } catch {
+        // keep seed
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [segment, presetName, mockPath]);
+
+  return (
     <V2Shell
       agent="credit"
       hero={{
@@ -192,8 +370,8 @@ export default function CreditV2() {
         <>
           <SseBlk
             title={<>事件流 <em>— SSE · profile / score / redline</em></>}
-            kBadge="live"
-            lines={SSE_LINES}
+            kBadge={isMock ? "降级 · MOCK" : "live"}
+            lines={lines}
           />
           <DocWrap
             docTitle="授信评估底稿 · 苏州睿联电子"
