@@ -1180,8 +1180,9 @@
   width: 14px; height: 1px; background: currentColor; opacity: 0.55;
 }
 .v-today .priority-queue__sum {
-  margin-left: auto; font-family: var(--mono); font-weight: 500;
+  margin-left: auto; font-family: var(--cjk); font-weight: 500;
   font-size: 10.5px; color: var(--ink-48); letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 .v-today .priority-queue__hint {
   margin: 0; font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
@@ -1235,7 +1236,7 @@
   font-size: 11.5px; color: var(--ink-48); letter-spacing: 0.02em;
 }
 .v-today .priority-row__amt {
-  margin-left: auto; font-family: var(--mono);
+  margin-left: auto; font-family: var(--cjk);
   font-size: 11.5px; color: var(--accent); font-variant-numeric: tabular-nums;
 }
 .v-today .priority-row__sub {
@@ -1244,7 +1245,8 @@
   font-size: 11.5px; color: var(--ink-48); line-height: 1.35;
 }
 .v-today .priority-row__sub-r {
-  font-family: var(--mono); letter-spacing: 0.04em;
+  font-family: var(--cjk); letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 .v-today .priority-row__cta {
   font-family: var(--cjk); font-size: 11.5px; letter-spacing: 0.04em;
@@ -1293,8 +1295,9 @@
   width: 14px; height: 1px; background: currentColor; opacity: 0.55;
 }
 .v-today .event-timeline__sum {
-  margin-left: auto; font-family: var(--mono); font-weight: 500;
+  margin-left: auto; font-family: var(--cjk); font-weight: 500;
   font-size: 10.5px; color: var(--ink-48); letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 .v-today .event-timeline__hint {
   margin: 0; font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
@@ -1342,7 +1345,7 @@
 .v-today .event-row--faded { opacity: 0.42; }
 
 .v-today .event-row__time {
-  font-family: var(--mono); font-size: 11px;
+  font-family: var(--cjk); font-size: 11px;
   color: var(--ink-48); letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
