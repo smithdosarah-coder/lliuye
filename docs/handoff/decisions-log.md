@@ -1197,3 +1197,40 @@ Task C 要求 CustomerDrawer 全局渲染——点任何页面的客户名（via
 
 **维护者**：platform-customer worker · 单向通告
 
+---
+
+## [A-023] 2026-04-20 · main CLI (self) · PHASE-1-BATCH-1-MERGED
+
+**Trigger**: 5 worker 全部发 `PHASE-1-PLATFORM-<X>-REBASED-CLEAN`，main CLI 按 A-020.D 顺序合并入库。
+
+### 合并链
+
+| # | Worker | Merge SHA | Worker HEAD | 冲突仲裁 |
+|---|---|---|---|---|
+| 1 | warroom | `f0b2a6c` | `cf18c3f` | 0 conflict, fast 3-way |
+| 2 | today | `14f7fc6` | `89d1062` | views.css tail concat + decisions-log append |
+| 3 | auth | `ee75d6b` | `4df84fe` | decisions-log append |
+| 4 | customer | `5abf6ae` | `93fec85` | AppShell.tsx import concat + views.css tail concat + decisions-log append |
+| 5 | dispatch | `731afdb` | `194918a` | 0 conflict, additive |
+
+### 冲突处理原则
+
+- `views.css` · 每 worker 以 `.v-<route>` 命名空间前缀写入，尾部 concat 即可（warroom `.wr-*` / today `.v-today .*` / auth `.v-archive/.no-permission/.persona-sw*` / customer `.v-customer*`）
+- `AppShell.tsx` · auth 结构壳 `<AuthGate>/<ShellChrome>` + customer 单行 `<CustomerDrawer />` slot，imports concat + customer 的 drawer 落在 ShellChrome `shell-root` 内（登录态外自动不渲染 ✓）
+- `decisions-log.md` · 全部 append-vs-append，按时序拼接
+
+### 验证
+
+- `npx tsc --noEmit` 0 error
+- `npx next build` 22 routes 生成（`/login` `/audit` `/customer/[id]` `/dispatch` `/warroom` `/today` 全命中 + `/archive/[agent]` SSG 6 条）
+- `npm install` 166 packages（`@dnd-kit/{core,sortable,utilities}`）0 vulnerabilities
+
+### Phase 2 触发条件
+
+Q-022 锚点：6 × `/archive/[agent]` workspace 设计改造。前置：
+1. ✅ Batch 1 全并（本 commit）
+2. ⏳ event-bus 跨 view 联调冒烟（dispatch handoff → warroom ticket → today timeline 闭环）
+3. ⏳ 用户出首发 workspace mockup
+
+**Signal**: `PHASE-1-BATCH-1-MERGED`
+
