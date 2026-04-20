@@ -97,7 +97,21 @@ export function Desk() {
               <em>{sec.meta}</em>
             </div>
             {sec.rows.map((r) => (
-              <Link key={`${sec.title}-${r.nm}`} href={r.href} className="dr-row">
+              <Link
+                key={`${sec.title}-${r.nm}`}
+                href={r.href}
+                className="dr-row"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "copy";
+                  e.dataTransfer.setData(
+                    "application/x-desk-row",
+                    JSON.stringify({ name: r.nm, href: r.href }),
+                  );
+                  // plain-text fallback for other drop targets / copy-into-text
+                  e.dataTransfer.setData("text/plain", r.nm);
+                }}
+              >
                 <span className={`ic${r.icClass ? ` ${r.icClass}` : ""}`}>{r.ic}</span>
                 <span className="nm-wrap">
                   <span className="nm">{r.nm}</span>

@@ -234,6 +234,31 @@ body[data-desk-pinned="true"] .shell-views {
   text-decoration: none; color: inherit;
 }
 .dr-row:hover { background: rgba(255,255,255,.6); }
+.dr-row[draggable="true"] { cursor: grab; }
+.dr-row[draggable="true"]:active { cursor: grabbing; }
+
+/* Drop zone · 主工作区接 Desk 行 · 载入该客户 context */
+.shell-views.drop-hover {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: -10px;
+  border-radius: var(--r-lg);
+  transition: outline-color .2s;
+  position: relative;
+}
+.shell-views.drop-hover::after {
+  content: "松开以载入 " attr(data-drop-name);
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--cjk); font-weight: 500; font-size: 12.5px;
+  color: var(--ink); letter-spacing: .02em;
+  background: var(--chalk);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 6px 14px;
+  box-shadow: 0 8px 24px -10px rgba(15,26,18,.35);
+  pointer-events: none;
+  z-index: 5;
+}
 
 .dr-row .ic {
   width: 22px; height: 22px; border-radius: 50%;
