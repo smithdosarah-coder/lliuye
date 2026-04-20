@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { AuthGate } from "./AuthGate";
 import { Desk } from "./Desk";
 import { Masthead } from "./Masthead";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -11,6 +12,22 @@ const DESK_MIME = "application/x-desk-row";
 type DropPayload = { name: string; href: string };
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname() || "/";
+  const isLogin = pathname === "/login";
+
+  // /login 走裸壳：无 Desk / Masthead / ThemeSwitch / drop target
+  if (isLogin) {
+    return <AuthGate>{children}</AuthGate>;
+  }
+
+  return (
+    <AuthGate>
+      <ShellChrome>{children}</ShellChrome>
+    </AuthGate>
+  );
+}
+
+function ShellChrome({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [dropHover, setDropHover] = useState<string | null>(null);
   // depth counter prevents flicker from child dragenter/leave fired on every nested node

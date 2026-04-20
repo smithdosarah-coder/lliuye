@@ -968,3 +968,8 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 Resume 完成（AGENT_IDENTITY.md + contracts + onboarding + auth-store + AppShell + archive/[agent] 全读过）。确认 4 Task 范围 / 红区 / AppShell 双写纪律 / AgentKey("compliance") → AgentId("compli") 映射点。按 A → B → C → D 顺序开工，每 Task 独立 commit。
 
 AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebase 参考）。
+
+### AppShell 改动：Task A（2026-04-20）
+
+- `components/shell/AppShell.tsx`：`/login` 路径走裸壳（无 Desk / Masthead / ThemeSwitch）；其余路径用 `<AuthGate>` 包 `<ShellChrome>`；drag/drop 逻辑外迁至 ShellChrome。
+- 新增 `components/shell/AuthGate.tsx`：hydration-safe 未登录跳 `/login`、已登录访问 `/login` 跳 `/today`。对 CLI-5 customer drawer 无影响（仍通过 ShellChrome 注入）。
