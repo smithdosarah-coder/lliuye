@@ -1,26 +1,24 @@
-import { KanbanColumn } from "@/components/warroom/KanbanColumn";
-import { WARROOM_CARDS, WARROOM_COLUMNS, WARROOM_LEDE_COUNT } from "@/lib/mock/warroom";
+import { Suspense } from "react";
+
+import { KanbanBoard } from "./_components/KanbanBoard";
 
 export const metadata = {
   title: "任务 · 乾策 Studio",
 };
 
 /**
- * Warroom view · mockup L3354-3478 (Task K2 裁回 mockup 字面)
- * - eyebrow "WAR ROOM · 第 17 周" + em "本周你有 12 项在飞"
- * - h1 "正在 flight." + lede 开头 num="12"
- * - kanban 4 col: 待处理·04 / 进行中·05 / 冒出·02 / 已归档·03 (done 深色)
- * - 14 card + 6 pill variant (P0/P1/P2/urg/wait/cn)
- * - eyebrow/lede 数字走 mockup 字面 "12", kanban 内实际 14 卡 (mockup 自身
- *   数字不一致, R-0 mockup 优先 · 按 mockup 字面原样镜像)
+ * Warroom view · Platform Phase 1 Batch 1
+ * 外壳（eyebrow / hero / lede）沿用 mockup L3354-3478；kanban 本体换成
+ * 接 ticket-store 的 @dnd-kit 可拖拽 4 列 + TicketDrawer + FilterBar。
+ * KanbanBoard 用 useSearchParams，需 Suspense 边界（Next 16 约束）。
  */
 export default function WarroomPage() {
   return (
     <div className="v-warroom">
       <div className="eyebrow">
-        <span>WAR ROOM · 第 17 周</span>
+        <span>WAR ROOM · 实时任务流</span>
         <span className="sep" />
-        <em>本周你有 {WARROOM_LEDE_COUNT} 项在飞。</em>
+        <em>跨 Agent 交接 kanban · 拖卡片换列</em>
       </div>
       <h1 className="hero-h1" id="h1Warroom">
         <span className="word" data-w="正在" data-cjk="1">
@@ -31,15 +29,11 @@ export default function WarroomPage() {
         </span>
       </h1>
       <p className="lede">
-        <span className="num">{WARROOM_LEDE_COUNT}</span> 条任务分派到你与三位 AI 助手的桌上。拖卡片换列，或在对话里召唤 <em>Bench</em> 重排。
+        从各 Agent 汇入的 <em>HandoffTicket</em>，按状态流转到 4 列 kanban。拖卡片更新状态，或点开 ticket 查看证据链。
       </p>
-
-      <div className="kanban">
-        {WARROOM_COLUMNS.map((col) => {
-          const cards = WARROOM_CARDS.filter((c) => c.column === col.key);
-          return <KanbanColumn key={col.key} column={col} cards={cards} />;
-        })}
-      </div>
+      <Suspense fallback={<div className="wr-filters" aria-hidden="true" />}>
+        <KanbanBoard />
+      </Suspense>
     </div>
   );
 }

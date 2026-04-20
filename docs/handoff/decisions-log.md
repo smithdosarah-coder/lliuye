@@ -957,3 +957,69 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 **Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
 
 **Signal**: `PHASE-2-ANCHOR-CAPTURED`
+
+---
+
+## [ACK] platform-warroom · PHASE-1-BATCH-1
+
+**CLI**: platform-warroom (worker)
+**Date**: 2026-04-20
+**Signal**: `PHASE-1-BATCH-1-ACK`
+
+接收 `docs/onboarding/platform-warroom-phase-1.md` 全 3 Task（Task A kanban + Task B Drawer + Task C FilterBar）。红区守则同 A-020：不动 `lib/store/*` / `components/shell/*` / `HANDOFF_CATALOG`，`web/src/app/warroom/` 自持。拖拽库 `@dnd-kit/core` 按需 Task A 加 deps。
+
+---
+
+## [READY] platform-warroom · PHASE-1-BATCH-1 完成
+
+**CLI**: platform-warroom (worker)
+**Date**: 2026-04-20
+**Signal**: `READY-FOR-PLATFORM-WARROOM-REVIEW`
+
+### Commits
+
+- `701fe5a` — ACK
+- `2698f5e` — Task A · ticket-store + @dnd-kit 4 列 kanban + handoff.requested 订阅
+- `11469c2` — Task B · TicketDrawer Accept / Reject(reason ≤140) / Reassign(DEMO_USERS) / Archive
+- `5540c86` — Task C · FilterBar + `?scope&customer&assignee&from&to&priority` URL query 同步
+
+### Artifacts（全部在 `web/src/app/warroom/` 内）
+
+- `_store/ticket-store.ts` —— zustand-persist (localStorage `platform.warroom.tickets.v1`) + 4 颗 first-run seed + `filtered()` selector + `subscribeHandoffRequested()`
+- `_components/KanbanBoard.tsx` —— DndContext + 4 列 + FilterBar + Drawer 编排
+- `_components/StatusColumn.tsx` —— `useDroppable` + `kcol--over` 高亮
+- `_components/TicketCard.tsx` —— `useDraggable` + 复用 `.kcard` token
+- `_components/TicketDrawer.tsx` —— 客户 / 交接说明 / payload / 参与人 / 来源事件 + 操作链
+- `_components/EmptyColumn.tsx` —— 空态"暂无 ticket"
+- `_components/FilterBar.tsx` —— Tab 我的任务/全部 + 5 Select + 清除
+- `_components/useWarroomFilters.ts` —— URL ⇄ filter 双向 hook
+- `page.tsx` —— Suspense-wrapped, metadata 保留
+
+### Additive 修改（非红区）
+
+- `web/package.json` + `package-lock.json` —— 加 `@dnd-kit/{core,sortable,utilities}`
+- `web/src/app/views.css` —— append `.kcol--over` / `.kempty` / `.tkt-drawer-*` / `.wr-filters`
+
+### 交互 DoD 验证
+
+- [x] 进 `/warroom` 看到 4 列 kanban + 4 颗 seed ticket（清空后空态 "暂无 ticket"）
+- [x] 手动 `publishEvent({ type: "handoff.requested", agent: "report", customerId, actor, payload: { recipeId: "report_to_credit" } })` → 进 Requested 列
+- [x] 拖卡片 Requested → Accepted → publish `handoff.accepted`
+- [x] 点 ticket → Drawer 滑入；Accept 推 customer.stage + publish；Reject 强制 ≤140 字 reason；Reassign 切 DEMO_USERS
+- [x] 切 persona u_lihua → "我的任务" tab 只剩 assignedTo=u_lihua 的 ticket
+- [x] URL `?assignee=u_lihua&priority=urgent` 可分享、刷新还原
+- [x] `npx tsc --noEmit` 清；`next build` 清；`/warroom` 静态产出
+
+### 红区守则自检
+
+- ✅ 未改 `web/src/lib/store/*`
+- ✅ 未改 `HANDOFF_CATALOG`
+- ✅ 未改 `web/src/components/shell/*`
+- ✅ 未动 dispatch / today / customer / login 的 page
+- ✅ `views.css` additive（`.tkt-*` / `.kcol--over` / `.kempty` / `.wr-filters` 全新命名空间）
+
+### 待主 CLI 仲裁 / 下一步
+
+- 主 CLI review 通过后，`HANDOFF_CATALOG` 已有 6 个 recipe 可被 Agent workspace 端（CLI-0 / 其他 worker）消费 —— warroom 只是消费端，验证会通过 event-bus 喂数据才能闭环
+- `TO_AGENT_STAGE` 映射（toAgent → CustomerStage）写在 `TicketDrawer.tsx` 内部，未来若想统一可提 RFC 把映射收到 `lib/store/types.ts`
+- `findRecipeById` 在 drawer 里用 `triggerEventId` 查，语义不匹配（event-id ≠ recipe-id），实际走 fallback 不渲染 description —— 后续若 ticket 存 recipeId 字段可补契约

@@ -1146,3 +1146,271 @@
 @media (max-width: 900px) {
   .v-today .belt { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ═══ Platform Phase 1 Batch 1 · /warroom 扩展（additive · 接 ticket-store + @dnd-kit） ═══
+   空态 / 拖拽高亮 / 右侧抽屉。沿用 views.css 既有 .v-warroom .kcol / .kcard tokens。 */
+.v-warroom .kcol.kcol--over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--ch-52));
+}
+.v-warroom .kcol.done.kcol--over {
+  background: color-mix(in srgb, var(--accent) 14%, var(--g6));
+}
+
+.v-warroom .kempty {
+  font-family: var(--cjk);
+  font-size: 12px; color: var(--ink-48);
+  display: flex; align-items: center; gap: 8px;
+  padding: 18px 12px;
+  border: 1px dashed var(--ink-14);
+  border-radius: 12px;
+  justify-content: center;
+  background: var(--ch-22);
+}
+.v-warroom .kcol.done .kempty {
+  color: var(--ch-55); border-color: var(--ch-22); background: transparent;
+}
+.v-warroom .kempty .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-28); flex-shrink: 0;
+}
+
+/* 右侧滑入 ticket 抽屉 */
+.tkt-drawer-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  backdrop-filter: blur(2px);
+  animation: rise .28s ease-out forwards;
+  opacity: 0; transform: none;
+}
+.tkt-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
+  width: min(480px, 94vw);
+  background: var(--chalk);
+  border-left: 1px solid var(--ink-14);
+  box-shadow: -24px 0 60px -30px rgba(15, 26, 18, .35);
+  transform: translateX(100%);
+  transition: transform .32s cubic-bezier(.22,.8,.28,1);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.tkt-drawer--open { transform: translateX(0); }
+
+.tkt-dr-hd {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--ink-14);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-shrink: 0;
+}
+.tkt-dr-hd-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tkt-dr-chip {
+  font-family: var(--cjk); font-weight: 600; font-size: 12.5px;
+  color: var(--ink); padding: 4px 10px; border-radius: 999px;
+  background: var(--ch-52); border: 1px solid var(--ink-14);
+}
+.tkt-dr-status {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: .04em;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--ink-08); color: var(--ink-65);
+}
+.tkt-dr-status[data-s="requested"] { background: color-mix(in srgb, #E3B23F 30%, transparent); color: var(--ink); }
+.tkt-dr-status[data-s="accepted"]  { background: color-mix(in srgb, var(--t-credit) 22%, transparent); color: var(--t-credit); }
+.tkt-dr-status[data-s="in_progress"] { background: color-mix(in srgb, var(--t-channel) 22%, transparent); color: var(--t-channel); }
+.tkt-dr-status[data-s="completed"] { background: color-mix(in srgb, var(--t-compli) 22%, transparent); color: var(--t-compli); }
+.tkt-dr-status[data-s="rejected"]  { background: color-mix(in srgb, var(--t-alert) 22%, transparent); color: var(--t-alert); }
+
+.tkt-dr-close {
+  font-family: var(--display); font-size: 22px; line-height: 1;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--ink-14); background: transparent;
+  cursor: pointer; color: var(--ink-65);
+  transition: all .15s;
+}
+.tkt-dr-close:hover { background: var(--ink-08); color: var(--ink); }
+
+.tkt-drawer > .tkt-dr-sec,
+.tkt-drawer .tkt-dr-sec {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ink-08);
+}
+.tkt-drawer .tkt-dr-sec:last-of-type { border-bottom: none; }
+.tkt-drawer {
+  overflow-y: auto;
+}
+.tkt-dr-h3 {
+  font-family: var(--cjk); font-weight: 600; font-size: 11px;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-48);
+  margin: 0 0 10px;
+}
+
+.tkt-dr-cust-name {
+  font-family: var(--cjk); font-weight: 600; font-size: 15.5px;
+  color: var(--ink);
+}
+.tkt-dr-cust-meta {
+  font-family: var(--cjk); font-size: 12px; color: var(--ink-65);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.tkt-dr-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.tkt-dr-tag {
+  font-family: var(--cjk); font-size: 10.5px; padding: 2px 8px;
+  border-radius: 999px; background: var(--ink-08); color: var(--ink-65);
+}
+
+.tkt-dr-reason {
+  font-family: var(--cjk); font-size: 13.5px; color: var(--ink);
+  line-height: 1.5; margin: 0;
+}
+.tkt-dr-desc {
+  font-family: var(--cjk); font-size: 12px; color: var(--ink-65);
+  line-height: 1.55; margin: 8px 0 0;
+}
+
+.tkt-dr-json {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--ink-04);
+  padding: 10px 12px; border-radius: 10px;
+  max-height: 220px; overflow: auto;
+  color: var(--ink-80);
+  margin: 0;
+  white-space: pre-wrap; word-break: break-all;
+}
+
+.tkt-dr-roster { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tkt-dr-roster li {
+  display: flex; align-items: baseline; gap: 12px;
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink-80);
+}
+.tkt-dr-role {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: .1em;
+  color: var(--ink-48);
+  min-width: 40px;
+}
+
+.tkt-dr-evt { display: flex; gap: 10px; align-items: baseline; }
+.tkt-dr-evt code {
+  font-family: var(--mono); font-size: 11.5px;
+  background: var(--ink-08); padding: 2px 8px; border-radius: 6px;
+  color: var(--ink);
+}
+.tkt-dr-evt-time { font-family: var(--mono); font-size: 10.5px; color: var(--ink-48); }
+
+.tkt-dr-ft {
+  padding: 14px 20px; border-top: 1px solid var(--ink-14);
+  display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--ch-52);
+}
+.tkt-dr-btn {
+  font-family: var(--cjk); font-weight: 500; font-size: 13px;
+  padding: 8px 18px; border-radius: var(--r-md);
+  border: 1px solid var(--ink-14); background: var(--chalk);
+  color: var(--ink); cursor: pointer;
+  transition: all .15s;
+}
+.tkt-dr-btn:hover { background: var(--ink-08); }
+.tkt-dr-btn--primary {
+  background: var(--accent); color: var(--chalk); border-color: var(--accent);
+}
+.tkt-dr-btn--primary:hover { filter: brightness(1.08); }
+.tkt-dr-btn--danger {
+  background: var(--t-alert); color: var(--chalk); border-color: var(--t-alert);
+}
+.tkt-dr-btn--danger:hover { filter: brightness(1.08); }
+.tkt-dr-btn--ghost { background: transparent; }
+.tkt-dr-btn:disabled { opacity: .45; cursor: not-allowed; }
+.tkt-dr-ft-hint {
+  font-family: var(--cjk); font-size: 11px; color: var(--ink-48);
+}
+.tkt-dr-ft-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.tkt-dr-form .tkt-dr-textarea {
+  width: 100%; min-height: 72px;
+  font-family: var(--cjk); font-size: 13px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  background: var(--chalk); color: var(--ink);
+  resize: vertical;
+}
+.tkt-dr-form .tkt-dr-textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.tkt-dr-char-count {
+  text-align: right;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-48);
+  margin-top: 4px;
+}
+.tkt-dr-form .tkt-dr-select {
+  width: 100%;
+  font-family: var(--cjk); font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  background: var(--chalk);
+  color: var(--ink);
+  cursor: pointer;
+}
+.tkt-dr-form .tkt-dr-select:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+
+/* 卡片拖拽中 zindex 提升 */
+.v-warroom .kcard[aria-pressed="true"],
+.v-warroom .kcard[data-dragging="true"] {
+  box-shadow: 0 20px 40px -16px rgba(15,26,18,.45);
+  z-index: 5;
+}
+
+/* ═══ Filter bar (Task C) ═══ */
+.v-warroom .wr-filters {
+  margin-top: 14px;
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  padding: 10px 12px;
+  background: var(--ch-52);
+  border: 1px solid var(--ink-08);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(10px);
+}
+.v-warroom .wr-filters .wr-tabs {
+  display: inline-flex; gap: 2px; padding: 2px;
+  background: var(--ink-08); border-radius: 999px;
+}
+.v-warroom .wr-filters .wr-tab {
+  font-family: var(--cjk); font-size: 12px; font-weight: 500;
+  padding: 4px 14px; border-radius: 999px;
+  cursor: pointer; color: var(--ink-65);
+  border: none; background: transparent;
+  transition: all .15s;
+}
+.v-warroom .wr-filters .wr-tab.active {
+  background: var(--chalk); color: var(--ink);
+  box-shadow: 0 1px 3px rgba(15,26,18,.1);
+}
+.v-warroom .wr-filters .wr-select {
+  font-family: var(--cjk); font-size: 12px;
+  padding: 5px 10px 5px 12px; padding-right: 26px;
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  background: var(--chalk) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%2311170F' stroke-width='1.2' fill='none' stroke-linecap='round'/></svg>") no-repeat right 10px center;
+  color: var(--ink); cursor: pointer;
+  appearance: none;
+}
+.v-warroom .wr-filters .wr-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.v-warroom .wr-filters .wr-clear {
+  font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+  background: transparent; border: none; cursor: pointer;
+  padding: 4px 8px;
+}
+.v-warroom .wr-filters .wr-clear:hover { color: var(--accent); }
+.v-warroom .wr-filters .wr-count {
+  margin-left: auto;
+  font-family: var(--cjk); font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-48); letter-spacing: .04em;
+}
