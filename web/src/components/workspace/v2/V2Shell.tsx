@@ -261,6 +261,48 @@ export type ChatMessage = {
   ref?: string;
   body: ReactNode;
   spineColor?: string;        // css var or color; defaults to current agent accent
+  /** Optional attachments rendered as chips under tx (legacy-style file list). */
+  attachments?: Array<{ name: string; size?: string; href?: string; icon?: ReactNode }>;
+};
+
+export type PresetChip = {
+  key: string;
+  label: ReactNode;
+  active?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+};
+
+export type ComposerPillBarItem = {
+  key: string;
+  label: ReactNode;
+  active?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  title?: string;
+};
+
+export type ComposerProps = {
+  /** Small pills above the input (e.g. Mock toggle, LLM status). */
+  pills?: ComposerPillBarItem[];
+  /** Aux line above input — e.g. template upload hint. */
+  auxLine?: ReactNode;
+  /** Placeholder for the (visual) textarea. */
+  placeholder?: string;
+  /** Attachment picker config. */
+  attach?: {
+    accept?: string;
+    multiple?: boolean;
+    onPick: (files: File[]) => void;
+    title?: string;
+  };
+  /** Primary send/run CTA. */
+  cta?: {
+    label: ReactNode;
+    disabled?: boolean;
+    onClick?: () => void;
+    title?: string;
+  };
 };
 
 export function ChatBlk({
@@ -270,6 +312,8 @@ export function ChatBlk({
   messages,
   seeds,
   placeholder,
+  presets,
+  composer,
 }: {
   title: ReactNode;
   subTitle?: ReactNode;
@@ -277,6 +321,10 @@ export function ChatBlk({
   messages: ChatMessage[];
   seeds?: Array<{ q: string; body: ReactNode }>;
   placeholder?: string;
+  /** Quick-reply preset chips rendered under agent msgs / above composer. */
+  presets?: PresetChip[];
+  /** Chat composer bar at bottom — replaces legacy seeds+input when provided. */
+  composer?: ComposerProps;
 }) {
   return (
     <div className="blk">
@@ -305,12 +353,50 @@ export function ChatBlk({
                 {m.ref ? <span className="ref">{m.ref}</span> : null}
               </div>
               <div className="tx">{m.body}</div>
+              {m.attachments && m.attachments.length > 0 ? (
+                <div className="attach-chips">
+                  {m.attachments.map((a, j) => {
+                    const inner = (
+                      <>
+                        <span className="ic">{a.icon ?? "📎"}</span>
+                        <span className="nm">{a.name}</span>
+                        {a.size ? <span className="sz">{a.size}</span> : null}
+                      </>
+                    );
+                    return a.href ? (
+                      <a key={j} className="attach-chip" href={a.href} target="_blank" rel="noreferrer">
+                        {inner}
+                      </a>
+                    ) : (
+                      <span key={j} className="attach-chip">{inner}</span>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           );
         })}
       </div>
 
-      {seeds && seeds.length ? (
+      {presets && presets.length > 0 ? (
+        <div className="preset-chips">
+          {presets.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className={clsx("preset-chip", p.active && "on")}
+              disabled={p.disabled}
+              onClick={p.onClick}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {composer ? <ComposerBar {...composer} placeholder={composer.placeholder ?? placeholder} /> : null}
+
+      {!composer && seeds && seeds.length ? (
         <div className="ask">
           {seeds.map((s, i) => (
             <button key={i} type="button" className="ask-seed">
@@ -325,6 +411,78 @@ export function ChatBlk({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/* Composer bar — chat-style primitive used by ReportV2 (legacy controls ported). */
+export function ComposerBar({
+  pills,
+  auxLine,
+  placeholder,
+  attach,
+  cta,
+}: ComposerProps & { placeholder?: string }) {
+  return (
+    <div className="composer">
+      {pills && pills.length > 0 ? (
+        <div className="composer-pills">
+          {pills.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              className={clsx("c-pill", p.active && "on")}
+              disabled={p.disabled}
+              onClick={p.onClick}
+              title={p.title}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {auxLine ? <div className="composer-aux">{auxLine}</div> : null}
+      <div className="composer-bar">
+        {attach ? (
+          <label className="c-attach" title={attach.title ?? "附件"}>
+            <input
+              type="file"
+              accept={attach.accept}
+              multiple={attach.multiple}
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const list = e.target.files;
+                if (!list || list.length === 0) return;
+                const files: File[] = [];
+                for (let i = 0; i < list.length; i += 1) {
+                  const f = list.item(i);
+                  if (f) files.push(f);
+                }
+                attach.onPick(files);
+                // allow re-picking same file
+                e.currentTarget.value = "";
+              }}
+            />
+            <span aria-hidden>📎</span>
+          </label>
+        ) : null}
+        <input
+          type="text"
+          className="c-input"
+          placeholder={placeholder ?? "输入补充信息或 @ 客户名…"}
+        />
+        {cta ? (
+          <button
+            type="button"
+            className="c-send"
+            disabled={cta.disabled}
+            onClick={cta.onClick}
+            title={cta.title}
+          >
+            {cta.label}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

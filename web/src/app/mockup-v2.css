@@ -309,6 +309,80 @@
 .ws-v2 .ask-input .send { background: var(--ink); color: var(--chalk); }
 .ws-v2 .ask-input .send:hover { transform: translateX(2px); }
 
+/* Attachment chips under a msg body (legacy-style file list) */
+.ws-v2 .msg .attach-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ws-v2 .msg .attach-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 80%, transparent);
+  border: 1px solid var(--ink-14);
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-80);
+  text-decoration: none;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ws-v2 .msg .attach-chip:hover { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.ws-v2 .msg .attach-chip .ic { font-size: 11px; }
+.ws-v2 .msg .attach-chip .nm { font-family: var(--cjk); font-size: 11px; }
+.ws-v2 .msg .attach-chip .sz { color: var(--ink-48); }
+.ws-v2 .msg .attach-chip:hover .sz { color: var(--ch-65); }
+
+/* Preset quick-reply chip row */
+.ws-v2 .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.ws-v2 .preset-chip {
+  all: unset; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 75%, transparent);
+  border: 1px solid var(--ink-14);
+  font-family: var(--cjk); font-size: 11px; color: var(--ink);
+  transition: background .15s, color .15s, border-color .15s, transform .2s;
+}
+.ws-v2 .preset-chip:hover:not(:disabled) { background: var(--ink); color: var(--chalk); border-color: var(--ink); transform: translateY(-1px); }
+.ws-v2 .preset-chip.on { background: var(--t-accent); color: var(--chalk); border-color: var(--t-accent); }
+.ws-v2 .preset-chip:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Composer bar (chat-style input; replaces legacy seeds+input when ReportV2 opts in) */
+.ws-v2 .composer { display: flex; flex-direction: column; gap: 8px; }
+.ws-v2 .composer-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ws-v2 .composer-pills .c-pill {
+  all: unset; cursor: pointer;
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 78%, transparent);
+  border: 1px solid var(--ink-14);
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-80);
+  letter-spacing: .04em;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ws-v2 .composer-pills .c-pill:hover:not(:disabled) { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.ws-v2 .composer-pills .c-pill.on { background: var(--t-accent); color: var(--chalk); border-color: var(--t-accent); }
+.ws-v2 .composer-pills .c-pill:disabled { opacity: .5; cursor: not-allowed; }
+.ws-v2 .composer-aux { font-family: var(--mono); font-size: 10px; color: var(--ink-48); letter-spacing: .04em; }
+.ws-v2 .composer-aux em { font-family: var(--italic); font-style: italic; color: var(--t-accent); margin: 0 2px; }
+.ws-v2 .composer-bar {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+  padding: 6px 6px 6px 12px;
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+}
+.ws-v2 .composer-bar .c-attach {
+  cursor: pointer; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ink-04); color: var(--ink-65);
+  transition: background .15s, color .15s;
+}
+.ws-v2 .composer-bar .c-attach:hover { background: var(--ink-14); color: var(--ink); }
+.ws-v2 .composer-bar .c-input { all: unset; width: 100%; font-family: var(--cjk); font-size: 12px; color: var(--ink); }
+.ws-v2 .composer-bar .c-input::placeholder { color: var(--ink-48); }
+.ws-v2 .composer-bar .c-send {
+  all: unset; cursor: pointer;
+  padding: 7px 16px; border-radius: 999px;
+  background: var(--ink); color: var(--chalk);
+  font-family: var(--cjk); font-weight: 600; font-size: 12px;
+  transition: transform .2s, background .2s, opacity .15s;
+}
+.ws-v2 .composer-bar .c-send:hover:not(:disabled) { transform: translateX(2px); }
+.ws-v2 .composer-bar .c-send:disabled { opacity: .45; cursor: not-allowed; }
+
 /* SSE mini */
 .ws-v2 .sse-mini { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
 .ws-v2 .trace-line {
