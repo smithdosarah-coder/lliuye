@@ -170,6 +170,11 @@ interface DispatchState {
     msg: Omit<ImMessage, "id" | "threadId" | "createdAt" | "kind"> & { kind?: ImMessage["kind"] },
   ) => ImMessage;
   clearThread: (threadId: string) => void;
+  updateMessage: (
+    threadId: string,
+    messageId: string,
+    patch: Partial<Pick<ImMessage, "content" | "refs">>,
+  ) => void;
 }
 
 const genMsgId = () =>
@@ -226,6 +231,15 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
   clearThread: (threadId) =>
     set((s) => ({
       messages: { ...s.messages, [threadId]: [] },
+    })),
+  updateMessage: (threadId, messageId, patch) =>
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [threadId]: (s.messages[threadId] ?? []).map((m) =>
+          m.id === messageId ? { ...m, ...patch } : m,
+        ),
+      },
     })),
 }));
 

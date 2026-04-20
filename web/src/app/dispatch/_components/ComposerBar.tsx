@@ -16,6 +16,8 @@ import {
   useCustomerStore,
 } from "@/lib/store";
 
+import { findRecipeById } from "@/lib/store";
+
 import { useDispatchStore } from "../_store/dispatch-store";
 import { agentMeta } from "./agent-meta";
 import {
@@ -25,6 +27,7 @@ import {
   stageToAgent,
   type SlashCommandDef,
 } from "./composer-commands";
+import { encodeHandoff } from "./handoff-payload";
 import { filterCommands, SlashMenu } from "./SlashMenu";
 
 const FALLBACK_USER_ID = "u_wangzhe";
@@ -150,27 +153,39 @@ export function ComposerBar() {
           agent: agentId,
           customerId: customerArg,
           actor: actorId,
-          payload: { source: "dispatch.run", raw },
+          payload: { source: "dispatch.local", raw, kind: "run" },
         });
         router.push(`/archive/${agentId}?customer=${encodeURIComponent(customerArg)}`);
         return;
       }
       case "handoff": {
         const recipeId = args[0] ?? "report_to_credit";
+        const recipe = findRecipeById(recipeId);
+        const ticketId = `ticket_${recipeId}_${Date.now().toString(36)}`;
         addMessage(thread.id, {
           from: actorId,
           kind: "handoff_card",
-          content: `请求交接 · recipe=${recipeId} · 客户 ${fallbackCustomerId ?? "—"}`,
-          refs: { ticketId: `ticket_${recipeId}_${Date.now().toString(36)}` },
+          content: encodeHandoff({
+            status: "pending",
+            recipeId,
+            fromAgent: recipe?.fromAgent,
+            toAgent: recipe?.toAgent,
+            customerId: fallbackCustomerId,
+            reason: recipe?.trigger ?? `请求交接 · recipe=${recipeId}`,
+            ticketId,
+            source: "dispatch.local",
+          }),
+          refs: { ticketId },
         });
         publishEvent({
           type: "handoff.requested",
-          agent: stageToAgent(customer?.stage),
+          agent: recipe?.toAgent ?? stageToAgent(customer?.stage),
           customerId: fallbackCustomerId,
           actor: actorId,
-          payload: { recipeId, source: "dispatch.handoff" },
+          payload: { recipeId, source: "dispatch.local", ticketId },
+          correlationId: ticketId,
         });
-        flash(`已发出交接请求 · ${recipeId}`);
+        flash(`已发出交接请求 · ${recipe?.label ?? recipeId}`);
         return;
       }
       case "assign": {

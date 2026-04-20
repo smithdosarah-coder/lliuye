@@ -1,3 +1,4 @@
+import { EventBridge } from "./_components/EventBridge";
 import { InspectorPanel } from "./_components/InspectorPanel";
 import { MessageStream } from "./_components/MessageStream";
 import { ThreadList } from "./_components/ThreadList";
@@ -13,6 +14,7 @@ export default function DispatchPage() {
       <ThreadList />
       <MessageStream />
       <InspectorPanel />
+      <EventBridge />
     </div>
   );
 }
