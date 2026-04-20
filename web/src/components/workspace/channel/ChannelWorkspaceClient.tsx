@@ -26,11 +26,13 @@ import { PipelineRail } from "@/components/viz/PipelineRail";
 import { ChatTagInput, type Tag } from "@/components/ui/ChatTagInput";
 import { KBBadge } from "@/components/ui/FileDrop";
 import { streamChannelSearch } from "@/lib/api";
+import { fetchMockJson } from "@/lib/fallback";
 import type {
   ChannelCandidate,
   ChannelMetrics,
   SignalItem,
   MatchTag,
+  ChannelSearchEvent,
 } from "@/lib/channel-types";
 
 const STAGES = [
@@ -101,6 +103,31 @@ export function ChannelWorkspaceClient() {
   const [metrics, setMetrics] = useState<ChannelMetrics | null>(null);
   const [dataSource, setDataSource] = useState<string>("");
   const [errMsg, setErrMsg] = useState<string>("");
+  const [fellBack, setFellBack] = useState<boolean>(false);
+
+  // 2s 未拿到首个 SSE event → 降级到 /mock/channel_run.json
+  const runMockFallback = async () => {
+    const j = await fetchMockJson<{
+      run_mock_events: ChannelSearchEvent[];
+      done: { candidates: ChannelCandidate[]; metrics: ChannelMetrics; data_source: string };
+    }>("/mock/channel_run.json");
+    setFellBack(true);
+    // 回放 stage events（每 250ms）
+    for (const evt of j.run_mock_events) {
+      await new Promise((r) => setTimeout(r, 250));
+      if (evt.event === "stage") {
+        if (evt.status === "running") setActive(evt.stage);
+        if (evt.status === "done") {
+          setDone((prev) => new Set(prev).add(evt.stage));
+        }
+      }
+    }
+    // 最终 candidates
+    await new Promise((r) => setTimeout(r, 200));
+    setCandidates(j.done.candidates);
+    setMetrics(j.done.metrics);
+    setDataSource(j.done.data_source || "mock_fallback");
+  };
 
   const run = async () => {
     setPhase("running");
@@ -109,8 +136,24 @@ export function ChannelWorkspaceClient() {
     setMetrics(null);
     setDataSource("");
     setErrMsg("");
+    setFellBack(false);
+
+    // 起一个 2s timeout — 如果到期仍未收到任何 event 就走 mock
+    let primed = false;
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => {
+      if (!primed) {
+        ctrl.abort();
+      }
+    }, 2000);
+
     try {
-      for await (const evt of streamChannelSearch({ query: text, top_n: 8 })) {
+      for await (const evt of streamChannelSearch(
+        { query: text, top_n: 8 },
+        ctrl.signal
+      )) {
+        primed = true;
+        clearTimeout(timeoutId);
         if (evt.event === "stage") {
           if (evt.status === "running") setActive(evt.stage);
           if (evt.status === "done") {
@@ -126,9 +169,21 @@ export function ChannelWorkspaceClient() {
         }
       }
     } catch (e) {
-      console.error(e);
-      setErrMsg((e as Error).message ?? String(e));
+      clearTimeout(timeoutId);
+      // 无 primed 事件 or abort — 走 mock fallback
+      if (!primed) {
+        try {
+          await runMockFallback();
+        } catch (mockErr) {
+          console.error("mock fallback failed", mockErr);
+          setErrMsg((e as Error).message ?? String(e));
+        }
+      } else {
+        console.error(e);
+        setErrMsg((e as Error).message ?? String(e));
+      }
     } finally {
+      clearTimeout(timeoutId);
       setActive(undefined);
       setPhase("done");
     }
@@ -140,6 +195,7 @@ export function ChannelWorkspaceClient() {
     setMetrics(null);
     setDataSource("");
     setErrMsg("");
+    setFellBack(false);
   };
 
   return (
@@ -185,18 +241,29 @@ export function ChannelWorkspaceClient() {
           </aside>
 
           <section className="col-span-8 space-y-6">
-            {phase !== "idle" && (
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={reset}>
-                  <RotateCcw size={14} /> 重置
-                </Button>
-                {phase === "done" && (
-                  <Button>
-                    <Download size={14} /> 导出候选池
+            <div className="flex justify-end gap-2 items-center">
+              {fellBack && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-tabular tracking-wider uppercase border border-[#c8463a] text-[#c8463a]"
+                  title="后端 2s 未响应，已切换到 /mock/channel_run.json"
+                >
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#c8463a]" />
+                  降级模式 · MOCK
+                </span>
+              )}
+              {phase !== "idle" && (
+                <>
+                  <Button variant="secondary" onClick={reset}>
+                    <RotateCcw size={14} /> 重置
                   </Button>
-                )}
-              </div>
-            )}
+                  {phase === "done" && (
+                    <Button>
+                      <Download size={14} /> 导出候选池
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
             <AnimatePresence mode="wait">
               {phase === "done" ? (
                 <motion.div
