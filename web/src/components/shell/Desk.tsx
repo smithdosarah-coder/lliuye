@@ -11,6 +11,20 @@ export function Desk() {
   const moveThrottle = useRef<number>(0);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
+  // Sync pin state -> body dataset so main content can reserve space via CSS.
+  // Stays in sync with Esc-unpin and togglePin in one place.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (pinned) {
+      document.body.dataset.deskPinned = "true";
+    } else {
+      delete document.body.dataset.deskPinned;
+    }
+    return () => {
+      delete document.body.dataset.deskPinned;
+    };
+  }, [pinned]);
+
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (pinned) return;

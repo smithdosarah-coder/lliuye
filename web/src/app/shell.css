@@ -160,6 +160,14 @@
 }
 .drawer.open .dr-panel { transform: translateX(0); }
 
+/* Pin push-mode · 主内容向右让位 (320 panel + 16 left margin) 避免抽屉与 views 重叠。
+   仅推 .shell-views, 不动 Masthead (保持 logo 锚定) · 同宽所有 view 容器。 */
+body[data-desk-pinned="true"] .shell-views {
+  padding-left: 336px;
+  transition: padding-left .4s cubic-bezier(.2,.85,.25,1);
+}
+.shell-views { transition: padding-left .4s cubic-bezier(.2,.85,.25,1); }
+
 .dr-head {
   display: flex; align-items: baseline; justify-content: space-between;
   padding: 2px 4px 10px;
