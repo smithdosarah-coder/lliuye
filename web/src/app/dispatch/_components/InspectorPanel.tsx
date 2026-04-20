@@ -28,7 +28,7 @@ export function InspectorPanel() {
   return (
     <aside className="dpx-inspector">
       <header className="dpx-inspector-head">
-        <span className="dpx-eyebrow">客户档案</span>
+        <span className="dpx-eyebrow">CUSTOMER</span>
         <h3>{customer.name}</h3>
         <p className="dpx-inspector-sub">
           {customer.industry ?? "—"} · {customer.region ?? "—"}

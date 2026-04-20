@@ -56,12 +56,12 @@ export function MessageStream() {
         <div className="dpx-stream-meta">
           {customer?.amount && (
             <span>
-              <em>授信额度</em>
+              <em>CREDIT LINE</em>
               <b>{customer.amount.toLocaleString()} 万</b>
             </span>
           )}
           <span>
-            <em>线程参与人</em>
+            <em>PARTICIPANTS</em>
             <b>{thread.participants.length}</b>
           </span>
         </div>

@@ -14,7 +14,7 @@ export function SlashMenu({ query, highlightIndex, onPick, onHover }: SlashMenuP
   if (items.length === 0) return null;
   return (
     <div className="dpx-slash">
-      <div className="dpx-slash-head">命令 · 输入字母过滤</div>
+      <div className="dpx-slash-head">COMMANDS · TYPE TO FILTER</div>
       <ul>
         {items.map((c, i) => (
           <li

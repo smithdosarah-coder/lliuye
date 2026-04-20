@@ -17,7 +17,7 @@ export function ThreadList() {
   return (
     <aside className="dpx-list">
       <header className="dpx-list-head">
-        <span className="dpx-eyebrow">DISPATCH · 频道</span>
+        <span className="dpx-eyebrow">DISPATCH</span>
         <em>共 {threads.length} 个对话</em>
       </header>
       <div className="dpx-list-body">
