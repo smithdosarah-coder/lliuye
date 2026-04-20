@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-type Theme = "canvas" | "matcha" | "dusk" | "crimson";
+type Theme = "canvas" | "matcha" | "dusk" | "ink";
 
 /**
- * 4 可见主题；Ink 故意不出现在切换器里（mockup L3562-3569）,
- * 但 data-theme="ink" 仍可通过 devtools / URL 参数手动激活。
- * Letterpress 沿用 mockup selector `data-t="crimson"` 保 1:1。
+ * 4 主题切换器（Canvas / Matcha / Dusk / Ink）。
+ * Letterpress (crimson) 2026-04-20 下架 —— 用户判"黑红读老 DEMO"。
  */
 const THEMES: { key: Theme; label: string }[] = [
   { key: "canvas", label: "Canvas" },
   { key: "matcha", label: "Matcha" },
-  { key: "dusk", label: "Blush" },
-  { key: "crimson", label: "Letterpress" },
+  { key: "dusk", label: "Dusk" },
+  { key: "ink", label: "Ink" },
 ];
 
 const STORAGE_KEY = "platform-shell-theme";
@@ -23,7 +22,7 @@ export function ThemeSwitch() {
 
   useEffect(() => {
     const saved = (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) as Theme | null;
-    if (saved && ["canvas", "matcha", "dusk", "crimson"].includes(saved)) {
+    if (saved && ["canvas", "matcha", "dusk", "ink"].includes(saved)) {
       setTheme(saved);
       applyTheme(saved);
     }

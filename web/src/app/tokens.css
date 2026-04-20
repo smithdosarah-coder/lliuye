@@ -109,23 +109,7 @@
   --chalk: #FDF4F3;
 }
 
-/* —— Letterpress (黑白 · 报纸 / 活字印刷感 · 沿用 mockup selector [data-theme=crimson]) —— */
-[data-theme="crimson"] {
-  --g0:  #F0EBE0;
-  --g0b: #EDE7DA;
-  --g1:  #DCD5C4;
-  --g2:  #B8B0A0;
-  --g3:  #7E7870;
-  --g4:  #4A4640;
-  --g5:  #2A2622;
-  --g6:  #14120F;
-  --g7:  #080706;
-  --accent: #1C1A17;
-  --ink:   #14120F;
-  --chalk: #F5F1E6;
-}
-
-/* —— Ink (水墨 · 宣纸) · CSS 就位,Task B 切换器不暴露 —— */
+/* —— Ink (水墨 · 宣纸) · 2026-04-20 取代 Letterpress 进入切换器 —— */
 [data-theme="ink"] {
   --g0:  #F4F4F2;
   --g0b: #EDEDEA;

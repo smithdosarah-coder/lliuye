@@ -327,48 +327,10 @@ body {
   background: rgba(255, 255, 255, 0.04) !important;
 }
 
-/* ===== Badges / seals —— 古铜金小徽 ===== */
-[data-theme="ink"] .ink-source-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  background: linear-gradient(180deg, #e6c68a, #9a7f48);
-  color: #0b0d10;
-  padding: 3px 10px;
-  border-radius: 2px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.5);
-  text-transform: uppercase;
-}
-
-[data-theme="ink"] .ink-seal-mini {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 9px;
-  letter-spacing: 0.15em;
-  padding: 2px 8px;
-  border-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  text-transform: uppercase;
-}
-[data-theme="ink"] .ink-seal-mini::after { display: none; }
-[data-theme="ink"] .ink-seal-vermilion {
-  background: linear-gradient(180deg, #e6c68a, #c9a86a) !important;
-  color: #0b0d10 !important;
-}
-[data-theme="ink"] .ink-seal-ink {
-  background: linear-gradient(180deg, #2a2e34, #14171b) !important;
-  color: var(--color-ink) !important;
-  border: 1px solid var(--color-line-strong);
-}
-[data-theme="ink"] .ink-seal-sage {
-  background: linear-gradient(180deg, #6eb8a8, #4a8475) !important;
-  color: #0b0d10 !important;
-}
+/* ===== 印章 / badges / seals 系统 2026-04-20 下架 =====
+   原 ink-source-badge / ink-seal-mini / -vermilion / -ink / -sage 全部移除。
+   替代：typography-only 标识（4px 功能色 spine + italic 2 字签名 + 8px 功能色圆点 chip）。
+   用户裁决："任何圆/方 seal + 单字 glyph-in-circle 读作老 DEMO"。 */
 
 /* ===== 整页固定摄影 bg（CSS 版，只覆盖 data-theme 容器内） ===== */
 .page-photo-bg-css {

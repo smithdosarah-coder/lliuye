@@ -100,23 +100,8 @@
   --chalk: #FDF4F3;
 }
 
-/* —— Letterpress (黑白 · 报纸 / 活字印刷感) —— */
-[data-theme="crimson"] {
-  --g0:  #F0EBE0;
-  --g0b: #EDE7DA;
-  --g1:  #DCD5C4;
-  --g2:  #B8B0A0;
-  --g3:  #7E7870;
-  --g4:  #4A4640;
-  --g5:  #2A2622;
-  --g6:  #14120F;
-  --g7:  #080706;
-  --accent: #1C1A17;
-  --ink:   #14120F;
-  --chalk: #F5F1E6;
-}
-
 /* —— Ink (水墨 · 宣纸) —— */
+/* Letterpress / crimson 主题 2026-04-20 下架，用户判"黑红读老 DEMO" —— CSS block 已整体删除 */
 [data-theme="ink"] {
   --g0:  #F4F4F2;
   --g0b: #EDEDEA;
@@ -1047,7 +1032,6 @@ body:not([data-theme])                  .float-badge .fb-sym--canvas  { display:
 body[data-theme="canvas"]               .float-badge .fb-sym--canvas  { display: block; }
 body[data-theme="matcha"]               .float-badge .fb-sym--matcha  { display: block; }
 body[data-theme="dusk"]                 .float-badge .fb-sym--dusk    { display: block; }
-body[data-theme="crimson"]              .float-badge .fb-sym--crimson { display: block; }
 body[data-theme="ink"]                  .float-badge .fb-sym--ink     { display: block; }
 
 /* Ink 主题下，.circle 原本是纸片方形，也适配 */
@@ -1132,7 +1116,6 @@ body[data-theme="ink"] .float-badge .fb-sym { width: 54px; height: 54px; }
 .settings-panel .sp-chip[data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
 .settings-panel .sp-chip[data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
 .settings-panel .sp-chip[data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
-.settings-panel .sp-chip[data-t="crimson"] .sw-dot { background: linear-gradient(135deg, #DCD5C4 0%, #4A4640 60%, #14120F 100%); }
 .settings-panel .sp-chip[data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8 0%, #8A8477 50%, #0C0C0B 100%); }
 
 .settings-panel .sp-foot {
@@ -1168,7 +1151,6 @@ body[data-theme="ink"] .float-badge .fb-sym { width: 54px; height: 54px; }
 .theme-sw [data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
 .theme-sw [data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
 .theme-sw [data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
-.theme-sw [data-t="crimson"] .sw-dot { background: linear-gradient(135deg, #DCD5C4 0%, #4A4640 60%, #14120F 100%); }
 .theme-sw [data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8 0%, #8A8477 50%, #0C0C0B 100%); }
 
 /* ═══ LEFT DRAWER (Desk) ═══ */
@@ -3534,14 +3516,7 @@ body[data-theme="ink"] .hero-meta.hero-meta--row .pill .livedot { background: #6
         <path d="M28 36 Q32 32 30 27" stroke="#8B3F5E" stroke-width="1" fill="none" stroke-linecap="round"/>
       </svg>
 
-      <svg class="fb-sym fb-sym--crimson" viewBox="0 0 64 64" aria-hidden="true" fill="none">
-        <!-- 铅字印章：微旋 + 双层边框，编辑部质感 -->
-        <g transform="translate(32 32) rotate(-3) translate(-32 -32)">
-          <rect x="13" y="13" width="38" height="38" fill="#1C1A17"/>
-          <rect x="15" y="15" width="34" height="34" fill="none" stroke="#F0EBE0" stroke-width=".6" opacity=".5"/>
-          <text x="32" y="43" text-anchor="middle" font-family="'Noto Serif SC','Songti SC',serif" font-weight="700" font-size="24" fill="#F0EBE0">乾</text>
-        </g>
-      </svg>
+      <!-- fb-sym--crimson (铅字印章 SVG) 2026-04-20 已删除：Letterpress 主题下架 -->
 
       <svg class="fb-sym fb-sym--ink" viewBox="0 0 64 64" aria-hidden="true" fill="none">
         <!-- 太极 —— 简化纯线条版本，更精致 -->
@@ -3565,7 +3540,7 @@ body[data-theme="ink"] .hero-meta.hero-meta--row .pill .livedot { background: #6
     <button class="on" data-t="canvas"><span class="sw-dot"></span>Canvas</button>
     <button data-t="matcha"><span class="sw-dot"></span>Matcha</button>
     <button data-t="dusk"><span class="sw-dot"></span>Blush</button>
-    <button data-t="crimson"><span class="sw-dot"></span>Letterpress</button>
+    <button data-t="ink"><span class="sw-dot"></span>Ink</button>
   </div>
 
 </main>

@@ -119,7 +119,7 @@
 .theme-sw [data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
 .theme-sw [data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
 .theme-sw [data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
-.theme-sw [data-t="crimson"] .sw-dot { background: linear-gradient(135deg, #DCD5C4, #14120F); }
+.theme-sw [data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8, #0C0C0B); }
 
 /* FLOAT BADGE · K3 删 · mockup L1024 自身 display:none!important 隐藏
    (DOM 存在但视觉删除, PM 最终稿意图), 实现层直接移除组件+CSS, 不留

@@ -21,7 +21,7 @@
 
 v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v2 是**视觉精细化 + 组件库扩充**。两者**架构同源**（4 view + Desk + Masthead + 4 主题 token + 字体栈 + 圆角 + 浏览器基线全部继承），v2 仅在以下维度演进：
 
-- 4 主题 → 5 主题（+ Ink 水墨；Crimson 重定义为 Letterpress 单色）
+- 主题：Canvas / Matcha / Dusk / Ink 共 4 主题（Letterpress/crimson 2026-04-20 下架——用户判"黑红读老 DEMO"）
 - 静态背景 → 三层动画背景（bodyBreath + drift + breathe + noise turbulence overlay）
 - 通用 v-card → 三种特化 peek card（feed-card / sheet-card / board-card）
 - 简单 ul 列表 → case-stack 卷宗堆叠 + 6 Agent 功能色 token
@@ -35,11 +35,11 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 
 ### 1.1 必须 1:1 的（"视觉"层）
 
-- **CSS 全量端口**：终稿 `<style>` 块所有内容 → `web/src/app/{tokens,globals,shell,views}.css`，包括 5 主题 token / 5 keyframe / cursor SVG / noise turbulence overlay / 三层 body 背景 / 22+ 透明度滑块
+- **CSS 全量端口**：终稿 `<style>` 块所有内容 → `web/src/app/{tokens,globals,shell,views}.css`，包括 4 主题 token / 5 keyframe / cursor SVG / noise turbulence overlay / 三层 body 背景 / 22+ 透明度滑块
 - **DOM 全量重建**：4 view 内每一组件实例对应 React 组件，class 名称、嵌套结构、`data-*` 属性 1:1 保留
 - **动画行为 1:1**：bar-in / glyph-rise / rise / card-rise / case-in / bar-flow / wait-slide / blip / bodyBreath / drift / breathe — 时长、缓动、延迟全部照搬
-- **JS 交互 1:1**：staggerH1 逐字入场 / drawer hover-from-edge (mousemove < 22px) / pin / Esc / live clock / theme switcher（4 button，Ink 隐藏）/ tab→route 切换
-- **5 主题 token 全实装**：CSS 5 套；switcher UI 仅 4 button（Canvas/Matcha/Blush/Letterpress）— 与终稿完全一致，Ink 仅 CSS 隐藏（debug 用 `body[data-theme="ink"]` 手动触发）
+- **JS 交互 1:1**：staggerH1 逐字入场 / drawer hover-from-edge (mousemove < 22px) / pin / Esc / live clock / theme switcher（4 button，含 Ink）/ tab→route 切换
+- **4 主题 token 全实装**：CSS 4 套；switcher UI 4 button（Canvas/Matcha/Dusk/Ink）— 2026-04-20 Letterpress/crimson 下架，原 `data-theme="crimson"` block + Letterpress 按钮一并删除
 - ~~**5 Float-badge SVG**~~ — v2.1 删除（mockup `display: none !important`）
 - **Mock 数据扩量**：终稿渲 15 条 feed / **4 col × 14 kanban kcard**（4+5+2+3，6 pill variant：P0/P1/P2/urg/wait/cn）/ 6 dispatch channel / 1 active thread w/ memo block — mock fixture 必须对齐该量级，否则视觉对不齐
 - **mockup `display: none !important` 硬规则**：mockup 中带此声明的节点，**连组件带 CSS 一并移除**，不留幽灵 DOM（v2.1 追加，Task K3 教训）
@@ -78,17 +78,18 @@ v1（`shell.html` 2026-04-18 lock）是**信息架构 + token 体系**奠基；v
 
 ~~**Float badge**（共享）~~ — v2.1 删除（mockup L1024 `display: none !important`，PM 终稿意图）。
 
-**Theme switcher**（共享）：底部右侧 4 button（Canvas/Matcha/Blush/Letterpress），点切 `body[data-theme]`。
+**Theme switcher**（共享）：底部右侧 4 button（Canvas/Matcha/Dusk/Ink），点切 `body[data-theme]`。
 
-## 三、5 主题 token（终稿 L11-158）
+## 三、4 主题 token（终稿 L11-158，Letterpress 下架后）
 
 | 主题 | data-theme key | switcher 标签 | --accent | 风格定位 |
 |---|---|---|---|---|
 | **Canvas**（默认） | (无 attr) | Canvas | `#A03B1C` | 米黄 → 橙红 → 墨绿，editorial 暖色 |
 | **Matcha** | `matcha` | Matcha | `#A04A2A` | 米杏 → 抹茶 → 墨绿，清雅 |
-| **Dusk / Blush** | `dusk` | Blush | `#CE4A65` | 粉白 → 玫瑰 → 紫黑，暮色 |
-| **Letterpress**（替 Crimson） | `crimson` | Letterpress | `#1C1A17` | 米色 → 灰黑 单色，活字印刷感 |
-| **Ink**（隐藏） | `ink` | (无 button) | `#8A2622` | 宣纸白 → 淡墨 → 浓墨，水墨 |
+| **Dusk** | `dusk` | Dusk | `#CE4A65` | 粉白 → 玫瑰 → 紫黑，暮色桃花 |
+| **Ink** | `ink` | Ink | `#8A2622` | 宣纸白 → 淡墨 → 浓墨 + 朱砂 accent，水墨 |
+
+**2026-04-20 退场**：原 Letterpress / crimson 主题（米色 → 灰黑活字印刷感）整体下架。用户裁决"黑红读老 DEMO"；原 `[data-theme="crimson"]` CSS block + switcher 按钮 + `fb-sym--crimson` SVG 已从 mockup 与实装同步删除。
 
 每主题暴露 `--g0..g7`（8 档渐变）+ `--g0b`（米黄变体）+ `--accent` + `--ink` + `--chalk` + `--safe`。
 

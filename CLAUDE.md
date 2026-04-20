@@ -88,15 +88,15 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 ## 7. 前端设计系统（platform shell v2）
 
 **规范源**：`docs/design/platform-shell-v2.md`（主 CLI 唯一可写；v1 归档备查，不再迭代）
-**设计 mockup**：`design_mockups/rm-assistant-final-2026-04-19.html`（2026-04-19 lock · sha256 `84a5e0ef...` · 视觉 1:1 复刻源）
+**设计 mockup**：`design_mockups/rm-assistant-final-2026-04-19.html`（2026-04-20 post-purge · sha256 `25155e74...` · 视觉 1:1 复刻源；原 Letterpress/crimson 已在 2026-04-20 下架）
 
 **交付约束**：**视觉 1:1 复刻 + 实际对应**——CSS tokens / DOM 结构 / 动画 keyframe / SVG 符号 / JS 交互必须与 mockup 逐像素一致；端口 / 路由 / 实时时钟 / mock 数据 shape 按实际前端实现对齐，不硬编 mockup 里的字面值。
 
 - **信息架构**：4 view——**今日**(`/today`) / **对话**(`/dispatch` · Slack 风 IM) / **AI 助手**(`/archive` · 6 Agent tile 聚合) / **任务**(`/warroom` · 4 列 kanban)。Agent 不在顶栏，是 Archive view 内 6 tile；tile 点击跳转既有 `/archive/[agent]` workspace
-- **共享壳**：左抽屉 Desk（客户 / 进行中 / 最近 / 新建 · hover-from-edge < 22px 触发 · pin / Esc / ⌘K）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东 + live clock 20s tick） + 右下 Float-badge（5 主题各一 SVG 符号） + 主题切换器（4 按钮可见 + Ink 隐藏）
-- **主题**：`data-theme` 5 套——**Canvas**（默认，米黄→橙红→墨绿） / **Matcha**（抹茶） / **Dusk**（暮粉桃花） / **Letterpress**（剧场黑红 · 替换 v1 Crimson 命名） / **Ink**（水墨 · CSS 存在但切换器不暴露），每主题 8 档渐变 `--g0..--g7` + `--g0b` + ink/chalk opacity ramps + `--accent` 功能色
+- **共享壳**：左抽屉 Desk（客户 / 进行中 / 最近 / 新建 · hover-from-edge < 22px 触发 · pin / Esc / ⌘K）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东 + live clock 20s tick） + 右下 Float-badge（4 主题各一 SVG 符号） + 主题切换器（4 按钮全部可见）
+- **主题**：`data-theme` 4 套——**Canvas**（默认，米黄→橙红→墨绿） / **Matcha**（抹茶） / **Dusk**（暮粉桃花） / **Ink**（水墨 · 宣纸→深墨 · 2026-04-20 替换 v1 Letterpress 黑红方案，用户判"黑红读老 DEMO"），每主题 8 档渐变 `--g0..--g7` + `--g0b` + ink/chalk opacity ramps + `--accent` 功能色
 - **6 Agent 功能色**：`--t-report` 棕赭 / `--t-alert` 赭红 / `--t-compli` 墨绿 / `--t-credit` 青蓝 / `--t-riskctrl` 绛紫 / `--t-channel` 青绿
-- **Float-badge SVG**：落日(Canvas) / 禅圆 enso(Matcha) / 桃花(Dusk) / 铅字印章(Letterpress) / 太极(Ink)
+- **Float-badge SVG**：落日(Canvas) / 禅圆 enso(Matcha) / 桃花(Dusk) / 太极(Ink)
 - **字体栈**：Funnel Display（display） + Instrument Sans/Serif（body/italic） + Noto Sans/Serif SC（中文） + JetBrains Mono（数字）
 - **圆角**：`--r-md: 18px` / `--r-lg: 26px` 全局统一
 - **动画**：`bodyBreath` 22s（body 背景呼吸） / `drift` 38s（SVG 噪声漂移） / `breathe` 8.5s（card 边缘光晕） / `glyph-rise` 按字 stagger / `rise` / `card-rise` / `bar-in` / `case-in` / `bar-flow` / `wait-slide` / `blip`
