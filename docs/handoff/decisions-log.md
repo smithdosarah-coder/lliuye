@@ -957,3 +957,42 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 **Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
 
 **Signal**: `PHASE-2-ANCHOR-CAPTURED`
+
+---
+
+## [I-021] 2026-04-20 · platform-customer (CLI-5) · AppShell drawer slot 注入告示
+
+**Type**: Informational notice (非 RFC · 无需 A 批复)
+**CLI**: platform-customer (feat/platform-customer)
+**Related**: Q-020/A-020 §冲突预防 "AppShell 可加 slot"; onboarding platform-customer-phase-1 §Task C
+**Blocking for CLI-4?**: 否（CLI-4 改 AppShell 加 `<AuthGate>` 守卫时做正向合并即可；若冲突走 merge-only 解决）
+
+### 做什么
+
+Task C 要求 CustomerDrawer 全局渲染——点任何页面的客户名（via `<CustomerLink>`）都弹右侧 280px 迷你客户卡。按 contracts §Slot 约定，`AppShell.drawer` 归 CLI-5。
+
+**本 CLI 对 AppShell.tsx 的唯一改动**：在 `shell-root` 末尾加一行 `<CustomerDrawer />`。不改现有 drop 处理 / `<Desk />` / `<Masthead />` / children 传递逻辑。
+
+```tsx
+// 仅加这一行（放在 <ThemeSwitch /> 下方，shell-root 内）
++ <CustomerDrawer />
+```
+
+### CLI-4 留意
+
+- AppShell.tsx 的"结构性"改动（加 `<AuthGate>` 包裹 children、加 `<PersonaSwitcher />`、改顶层 JSX）与本改动**互不相交**：CLI-5 只追加 drawer 兄弟节点，不动现有节点
+- rebase 冲突预期：若 CLI-4 在 shell-root 末尾也追加组件，会命中同一位置 → 手动 merge-only 合成（见 A-012.E），不要 rebase
+- 若 CLI-4 想把 drawer 也纳入未来 slot API（Stage 1.1 主 CLI 补），届时 CLI-5 配合迁移为 prop 式 `<AppShell drawer={<CustomerDrawer />}>`。**当前不做此抽象**，避免拍脑袋设计 slot 签名
+
+### 状态管理边界
+
+- 新建 `web/src/components/shell/_customer-drawer-store.ts`——本地私 store，只存 `openId: string | null`。**不进红区**（与 Task B 的 `_desk-store.ts` 同策略）
+- `<CustomerLink>` 作为全局组件（`web/src/components/shared/`），其他 worker（dispatch / warroom / today）可直接 import 使用
+- 不订阅 event-bus，不改 customer-store，不改 auth-store
+
+### Commit 节奏
+
+本 I-021 块随 Task C commit 一起提交（commit msg 注 `Signal: CUSTOMER-DRAWER-DONE`）。CLI-4 无需 ACK。
+
+**维护者**：platform-customer worker · 单向通告
+

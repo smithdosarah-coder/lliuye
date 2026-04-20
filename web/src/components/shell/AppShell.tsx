@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { CustomerDrawer } from "./CustomerDrawer";
 import { Desk } from "./Desk";
 import { Masthead } from "./Masthead";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -74,6 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </section>
       </main>
       <ThemeSwitch />
+      <CustomerDrawer />
     </div>
   );
 }

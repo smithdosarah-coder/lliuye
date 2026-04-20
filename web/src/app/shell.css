@@ -386,3 +386,174 @@ body[data-desk-pinned="true"] .shell-views {
 .dr-row-customer[data-pinned] .dr-row-pin {
   color: var(--accent);
 }
+
+/* ═══ CustomerDrawer · 全局右侧迷你卡 (Phase 1 Batch 1 · Task C) ═══ */
+.cust-drawer-overlay {
+  position: fixed; inset: 0; z-index: 55;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  backdrop-filter: blur(2px);
+  animation: cd-fade .18s ease;
+  display: flex; justify-content: flex-end;
+}
+@keyframes cd-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.cust-drawer {
+  width: 320px; max-width: 92vw; height: 100%;
+  background: var(--g0b);
+  border-left: 1px solid var(--ink-14);
+  box-shadow: -18px 0 48px -20px rgba(15, 26, 18, .35);
+  display: flex; flex-direction: column;
+  padding: 18px 18px 14px;
+  animation: cd-slide .22s cubic-bezier(.2, .8, .2, 1);
+  overflow-y: auto;
+}
+@keyframes cd-slide {
+  from { transform: translateX(24px); opacity: .6; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.cd-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.cd-eyebrow {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-65);
+}
+.cd-eyebrow .sep { width: 20px; height: 1px; background: var(--ink-28); }
+.cd-eyebrow em {
+  font-family: var(--cjkserif); font-style: normal; font-weight: 500;
+  font-size: 12.5px; color: var(--ink);
+  letter-spacing: 0; text-transform: none;
+}
+.cd-eyebrow em::before { content: "— "; color: var(--ink-48); }
+.cd-close {
+  all: unset; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-48); font-size: 13px;
+  border: 1px solid var(--ink-14);
+  transition: background .15s, color .15s;
+}
+.cd-close:hover { background: var(--ink-08); color: var(--ink); }
+
+.cd-title { margin: 12px 0 10px; }
+.cd-title h2 {
+  font-family: var(--display); font-weight: 600;
+  font-size: 22px; line-height: 1.15;
+  letter-spacing: -.02em; color: var(--ink);
+  margin: 0;
+}
+.cd-fullname {
+  font-family: var(--italic); font-style: italic;
+  font-size: 12.5px; color: var(--ink-65);
+  margin-top: 2px;
+}
+
+.cd-meta {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 12px 0 8px;
+  padding: 12px; border-radius: var(--r-md);
+  background: var(--ch-52); border: 1px solid var(--ink-08);
+}
+.cd-meta > div {
+  display: grid; grid-template-columns: 62px 1fr;
+  gap: 10px; align-items: baseline;
+}
+.cd-meta dt {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-48);
+}
+.cd-meta dd {
+  margin: 0;
+  font-family: var(--cjk); font-size: 13px; color: var(--ink);
+}
+.cd-meta dd b {
+  font-family: var(--display); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 8px 0;
+}
+.cd-tags .tag {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--ch-70); color: var(--ink-80);
+  border: 1px solid var(--ink-08);
+}
+
+.cd-recent { margin-top: 12px; }
+.cd-sec-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-family: var(--cjk); font-weight: 600; font-size: 11.5px;
+  color: var(--ink); margin-bottom: 6px;
+}
+.cd-sec-head em {
+  font-family: var(--mono); font-style: normal;
+  font-size: 10px; letter-spacing: .14em; color: var(--ink-48);
+}
+.cd-recent ul {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cd-recent li {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 6px 8px; border-radius: 8px;
+  background: var(--ch-40);
+  font-family: var(--cjk); font-size: 12.5px; color: var(--ink-80);
+}
+.cd-recent li .t {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-48);
+}
+.cd-empty {
+  font-family: var(--italic); font-style: italic;
+  font-size: 12px; color: var(--ink-48);
+  padding: 6px 0;
+}
+
+.cd-foot { margin-top: auto; padding-top: 14px; }
+.cd-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%;
+  padding: 10px 14px; border-radius: var(--r-md);
+  background: var(--accent); color: var(--chalk);
+  font-family: var(--cjk); font-weight: 500; font-size: 13px;
+  text-decoration: none;
+  transition: transform .15s ease, filter .15s ease;
+}
+.cd-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+.cd-notfound {
+  display: flex; flex-direction: column; gap: 12px;
+  align-items: center; justify-content: center;
+  flex: 1;
+  font-family: var(--cjk); color: var(--ink-65);
+  font-size: 13px;
+}
+.cd-notfound code {
+  font-family: var(--mono); font-size: 11.5px;
+  background: var(--ink-08); padding: 2px 6px; border-radius: 4px;
+}
+.cd-notfound button {
+  all: unset; cursor: pointer;
+  padding: 6px 14px; border-radius: var(--r-md);
+  background: var(--ink-08); color: var(--ink);
+  font-family: var(--cjk); font-size: 12.5px;
+}
+.cd-notfound button:hover { background: var(--ink-14); }
+
+/* CustomerLink · 行内文本触发器 */
+.customer-link {
+  all: unset; cursor: pointer;
+  color: var(--accent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent);
+  font-family: inherit; font-size: inherit;
+  transition: color .15s, border-color .15s;
+}
+.customer-link:hover {
+  color: color-mix(in srgb, var(--accent) 80%, var(--ink));
+  border-bottom-color: var(--accent);
+}
