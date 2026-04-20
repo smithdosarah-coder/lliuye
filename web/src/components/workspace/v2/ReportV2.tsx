@@ -294,6 +294,7 @@ export default function ReportV2() {
   const [lines, setLines] = useState<TraceLine[]>(INITIAL_SSE_LINES);
   const [isMock, setIsMock] = useState(false);
   const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
 
   // SSE kickoff — no longer mount-auto; waits for `started` CTA press.
   useEffect(() => {
@@ -337,6 +338,7 @@ export default function ReportV2() {
           if (source === "mock") setIsMock(true);
           const line = reportEventToLine(evt, idx++);
           if (line) setLines((prev) => [...prev, line]);
+          if (evt.event === "done") setFinished(true);
         }
       } catch {
         // swallow — visual stays on INITIAL_SSE_LINES seed
@@ -353,12 +355,21 @@ export default function ReportV2() {
       // Re-run: reset all derived state then kick again next tick
       setLines(INITIAL_SSE_LINES);
       setIsMock(false);
+      setFinished(false);
       setStarted(false);
       setTimeout(() => setStarted(true), 16);
     } else {
       setStarted(true);
     }
   };
+
+  // Intake's leftmost drop cell morphs based on run state — gives "上方也变了" feedback.
+  const dropCell =
+    finished
+      ? { kind: "drop" as const, title: "已生成 · 460 项字段 · 428 自动填写 · 32 项需人工补", sub: "自审通过 · 可导出 Word · 或点右侧「重新演示」", btn: "看自审" }
+      : started
+        ? { kind: "drop" as const, title: "正在生成 · 三阶段 Evidence → Grounded → Self-Audit", sub: "事件流实时写入右侧 SSE 面板 · 预计 90 秒完稿", btn: "生成中…" }
+        : { kind: "drop" as const, title: "拖客户资料到此 · 或点右侧选取", sub: "已收 4/6 件 · .pdf / .docx / .xlsx · 单份 ≤ 20MB", btn: "选文件" };
 
   return (
     <V2Shell
@@ -412,11 +423,12 @@ export default function ReportV2() {
         { key: "green",  name: "绿色金融专项",   tag: "Green",  meta: "green-v2.0 · ESG",   spec: "14 节 · 520 字段 · 含碳核算" },
       ]}
       intake={[
-        { kind: "drop", title: "拖客户资料到此 · 或点右侧选取", sub: "已收 4/6 件 · .pdf / .docx / .xlsx · 单份 ≤ 20MB", btn: "选文件" },
+        dropCell,
         { kind: "opt", on: true, k: "业务线", v: <>对公 Corporate</> },
         { kind: "opt", k: "预置案例", v: <>睿联电子</> },
         { kind: "opt", k: "Mock 回放", v: <>关</>, toggle: true },
       ]}
+      runState={finished ? "done" : started ? "running" : "idle"}
       chatSlot={
         <ChatBlk
           title="对话 · 边写边补"

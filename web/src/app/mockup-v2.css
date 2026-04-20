@@ -449,6 +449,49 @@
 .ws-v2 .eyebrow em { font-family: var(--cjkserif); font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink-80); }
 .ws-v2 .eyebrow em::before { content: "— "; color: var(--ink-48); }
 
+/* demo run-state — opt-in: only .ws-v2[data-run] collapses audit-strip */
+/* idle + running → fold away; done → dramatic pop-in */
+.ws-v2[data-run="idle"] .audit-strip,
+.ws-v2[data-run="running"] .audit-strip {
+  opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0;
+  overflow: hidden; border-top-color: transparent;
+  transition: opacity .35s ease, max-height .55s cubic-bezier(.2,.85,.25,1),
+              padding .4s ease, border-top-color .4s ease;
+  pointer-events: none;
+}
+.ws-v2[data-run="done"] .audit-strip {
+  opacity: 1; max-height: 720px;
+  transition: opacity .5s ease .05s,
+              max-height .7s cubic-bezier(.2,.85,.25,1),
+              padding .55s ease, border-top-color .4s ease;
+}
+.ws-v2[data-run="done"] .audit-strip .verdict,
+.ws-v2[data-run="done"] .audit-strip .cov-col,
+.ws-v2[data-run="done"] .audit-strip .qc-grid {
+  animation: v2AuditPop .7s cubic-bezier(.2,.85,.25,1) both;
+}
+.ws-v2[data-run="done"] .audit-strip .cov-col { animation-delay: .1s; }
+.ws-v2[data-run="done"] .audit-strip .qc-grid { animation-delay: .2s; }
+@keyframes v2AuditPop {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* intake drop cell pulses while running, resolves (accent-glow) on done */
+.ws-v2[data-run="running"] .intake-strip .slot {
+  border-color: color-mix(in srgb, var(--t-accent) 55%, var(--ink-14));
+  background: color-mix(in srgb, var(--t-accent) 5%, transparent);
+  animation: v2IntakeRun 1.6s ease-in-out infinite;
+}
+.ws-v2[data-run="done"] .intake-strip .slot {
+  border-color: color-mix(in srgb, var(--state-ok, var(--t-accent)) 45%, var(--ink-14));
+  background: color-mix(in srgb, var(--state-ok, var(--t-accent)) 6%, transparent);
+}
+@keyframes v2IntakeRun {
+  0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--t-accent) 22%, transparent); }
+  50%     { box-shadow: 0 0 0 6px color-mix(in srgb, var(--t-accent) 0%, transparent); }
+}
+
 /* narrow responsive — single column under 980px */
 @media (max-width: 980px) {
   .ws-v2 .main-board { grid-template-columns: 1fr; }

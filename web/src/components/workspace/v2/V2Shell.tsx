@@ -79,16 +79,22 @@ export type V2ShellProps = {
   chatSlot: ReactNode;
   docSlot: ReactNode;
   auditSlot: ReactNode;
+  /**
+   * Optional demo run-state hook. When set, propagates `data-run` onto .ws-v2 so
+   * scoped CSS can collapse/expand audit-strip and style intake feedback.
+   * Existing 5 agents omit this — they continue rendering as before.
+   */
+  runState?: "idle" | "running" | "done";
 };
 
 export function V2Shell(props: V2ShellProps) {
-  const { agent, hero, apHead, cap, stages, tplTitle, tpls, intake } = props;
+  const { agent, hero, apHead, cap, stages, tplTitle, tpls, intake, runState } = props;
   const accentStyle: CSSProperties = {
     ["--t-accent" as string]: `var(--t-${agent})`,
   };
 
   return (
-    <div className={clsx("ws-v2", `v-${agent}`)}>
+    <div className={clsx("ws-v2", `v-${agent}`)} data-run={runState ?? undefined}>
       {/* Hero · eyebrow + h1 + sub */}
       <div className="eyebrow">
         <span className="hot-dot" />
