@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { fetchMockJson } from "@/lib/fallback";
 import {
   Play,
   RotateCcw,
@@ -90,11 +91,94 @@ const POLICIES = [
 
 type Phase = "idle" | "running" | "done";
 
+// Fixture shape: policies[] + scan_events[{event, policy_id, clause, severity, ...}]
+interface FixturePolicy {
+  policy_id: string;
+  title: string;
+  agency?: string;
+  effective?: string;
+  snippet?: string;
+}
+interface FixtureConflict {
+  event: "conflict_found";
+  policy_id: string;
+  clause: string;
+  severity: "red" | "yellow";
+  requirement: string;
+  internal_doc?: string;
+  internal_current?: string;
+  recommend?: string;
+  evidence?: string;
+}
+interface FixtureScanDone {
+  event: "scan_done";
+  summary: {
+    policies_scanned: number;
+    conflicts_total: number;
+    red_count: number;
+    yellow_count: number;
+  };
+}
+type FixtureEvent = FixtureConflict | FixtureScanDone | { event: string; [k: string]: unknown };
+interface ComplianceFixture {
+  policies: FixturePolicy[];
+  scan_events: FixtureEvent[];
+  generated_at?: string;
+}
+
+// Adapt fixture conflict (severity: red/yellow) to UI conflict (severity: hard/soft/info)
+function adaptFixture(f: ComplianceFixture): typeof POLICIES[0] {
+  const p = f.policies[0] ?? POLICIES[0];
+  const conflicts: typeof POLICIES[0]["conflicts"] = [];
+  let red = 0;
+  let yellow = 0;
+  for (const ev of f.scan_events) {
+    if (ev.event !== "conflict_found") continue;
+    const cf = ev as FixtureConflict;
+    conflicts.push({
+      severity: cf.severity === "red" ? "hard" : "soft",
+      clause: cf.clause,
+      requirement: cf.requirement,
+      internal: cf.internal_doc ?? "—",
+      current: cf.internal_current ?? "—",
+      recommend: cf.recommend ?? "—",
+    });
+    if (cf.severity === "red") red++;
+    else yellow++;
+  }
+  const scanDoneEv = f.scan_events.find((e) => e.event === "scan_done") as FixtureScanDone | undefined;
+  return {
+    key: p.policy_id ?? "mock_policy",
+    title: p.title,
+    agency: p.agency ?? "—",
+    effective: p.effective ?? "—",
+    kind: "监管办法",
+    highlights: p.snippet ? p.snippet.split(/[；;]/).filter(Boolean).slice(0, 4) : POLICIES[0].highlights,
+    scanned: scanDoneEv?.summary.policies_scanned ?? f.policies.length,
+    conflicts,
+    _summary: scanDoneEv?.summary ?? { red_count: red, yellow_count: yellow, conflicts_total: conflicts.length },
+  } as typeof POLICIES[0];
+}
+
 export function ComplianceWorkspaceClient() {
-  const [policy] = useState(POLICIES[0]);
+  const [policy, setPolicy] = useState(POLICIES[0]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [active, setActive] = useState<string>();
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [source, setSource] = useState<"mock" | "inline">("inline");
+
+  // Agent5 policy_scan 端点返回泛政务结果, 演示走静态 fixture
+  useEffect(() => {
+    fetchMockJson<ComplianceFixture>("/mock/compliance_policy_scan.json")
+      .then((f) => {
+        if (!f?.policies || f.policies.length === 0) return;
+        setPolicy(adaptFixture(f));
+        setSource("mock");
+      })
+      .catch(() => {
+        /* keep inline POLICIES */
+      });
+  }, []);
 
   const run = async () => {
     setPhase("running");
@@ -197,18 +281,29 @@ export function ComplianceWorkspaceClient() {
       </aside>
 
       <section className="col-span-8 space-y-5">
-        {phase !== "idle" && (
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={reset}>
-              <RotateCcw size={14} /> 重置
-            </Button>
-            {phase === "done" && (
-              <Button>
-                <Download size={14} /> 导出修订清单
+        <div className="flex justify-end gap-2">
+          {source === "mock" && (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-tabular tracking-wider uppercase border border-[#c8463a] text-[#c8463a]"
+              title="Agent5 policy_scan 端点泛政务结果，演示使用 /mock/compliance_policy_scan.json"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#c8463a]" />
+              降级模式 · STATIC
+            </span>
+          )}
+          {phase !== "idle" && (
+            <>
+              <Button variant="secondary" onClick={reset}>
+                <RotateCcw size={14} /> 重置
               </Button>
-            )}
-          </div>
-        )}
+              {phase === "done" && (
+                <Button>
+                  <Download size={14} /> 导出修订清单
+                </Button>
+              )}
+            </>
+          )}
+        </div>
         <AnimatePresence mode="wait">
           {phase === "done" ? (
             <motion.div
