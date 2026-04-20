@@ -1,0 +1,304 @@
+{
+  "_mock_source": "walkthrough demo 2026-04-20 fallback",
+  "_schema_note": "schema 对齐 agent_credit/api.py POST /api/credit/decision SSE (retail segment): profile_loaded → feature_extracting/done → scoring/done → rule_checking/done → case_retrieving/done → advising/done → done",
+  "_data_lineage": "segment=retail · preset=lisi_education; profile 对齐 agent_credit/mock_data/retail_profiles/lisi_education.json 口径；rule_ids 对齐 red_line_rules_retail.json (retail_rl_003 DTI>0.60 / retail_rl_012 近12m逾期>2); composite=62 / FICO=682 B级",
+  "segment": "retail",
+  "preset_name": "lisi_education",
+  "run_mock_events": [
+    {
+      "event": "profile_loaded",
+      "profile": {
+        "profile_id": "retail_lisi_001",
+        "subject_name": "李某",
+        "id_card_last4": "****1234",
+        "gender": "女",
+        "age": 34,
+        "marital_status": "已婚",
+        "education": "本科",
+        "occupation": "教培机构教师",
+        "employer": "某民办教育科技公司",
+        "years_in_job": 4,
+        "housing_type": "自有房产（有按揭）",
+        "years_at_address": 6,
+        "region": "上海市浦东新区",
+        "financial_anchors": {
+          "monthly_income": 18000,
+          "monthly_income_stable_months": 48,
+          "annual_bonus": 20000,
+          "avg_balance_6m": 42000,
+          "monthly_dti": 0.52,
+          "monthly_total_debt_payment": 9360,
+          "cc_total_limit": 180000,
+          "cc_current_utilization": 0.42,
+          "cc_count": 4,
+          "overdue_12m_count": 0,
+          "overdue_24m_count": 1,
+          "inquiry_24m_count": 11,
+          "credit_history_years": 9,
+          "social_security_months": 48,
+          "period": "2026年3月"
+        },
+        "collateral": {
+          "type": "信用",
+          "collateral_value": 0,
+          "collateral_type": "无"
+        },
+        "existing_credit": {
+          "mortgage_balance": 780000,
+          "mortgage_monthly_payment": 6200,
+          "consumer_loan_balance": 38000,
+          "consumer_loan_monthly_payment": 3160,
+          "total_approved": 68000,
+          "total_used": 68000,
+          "overdue_history": "2024 年 5 月某消费贷 M1 逾期 1 次（已结清，金额 1200 元）"
+        },
+        "request": {"amount": 200000, "purpose": "家庭装修", "term_months": 36}
+      }
+    },
+    {"event": "stage", "stage": "feature_extracting", "payload": {"status": "running", "message": "零售确定性特征抽取中..."}},
+    {
+      "event": "stage",
+      "stage": "feature_extracting",
+      "payload": {
+        "status": "done",
+        "features": {
+          "repayment_capacity.monthly_income_stability": 780,
+          "repayment_capacity.monthly_income_level": 720,
+          "repayment_capacity.dti_ratio": 0.52,
+          "repayment_capacity.avg_balance_6m": 42000,
+          "repayment_capacity.monthly_repay_capacity": 580,
+          "repayment_capacity.cash_surplus": 8640,
+          "repayment_willingness.query_count_24m": 11,
+          "repayment_willingness.overdue_history": 1,
+          "repayment_willingness.cc_utilization": 0.42,
+          "repayment_willingness.credit_history_length": 9,
+          "repayment_willingness.social_security_months": 48,
+          "stability.years_in_job": 4,
+          "stability.years_at_address": 6,
+          "stability.marital_status": 1,
+          "stability.education": 4,
+          "stability.housing_type": 3,
+          "stability.age": 34,
+          "collateral.collateral_type": 0,
+          "collateral.ltv": 0.0,
+          "collateral.title_verified": 0,
+          "collateral.mortgage_count": 1,
+          "collateral.valuation_source": 0
+        },
+        "_calculation_source": "financial_analyzer.py (FICO 确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "scoring", "payload": {"status": "running", "message": "零售评分卡（FICO 300-850）..."}},
+    {
+      "event": "stage",
+      "stage": "scoring",
+      "payload": {
+        "status": "done",
+        "composite_score": 62,
+        "fico_score": 682,
+        "risk_grade": "B",
+        "category_scores": {
+          "repayment_capacity": 640,
+          "repayment_willingness": 705,
+          "stability": 720,
+          "collateral": 520
+        },
+        "sub_scores": {
+          "repayment_capacity": {
+            "monthly_income_stability": 780,
+            "dti_ratio": 560,
+            "avg_balance_6m": 620,
+            "monthly_income_level": 720,
+            "monthly_repay_capacity": 580,
+            "cash_surplus": 660
+          },
+          "repayment_willingness": {
+            "query_count_24m": 620,
+            "overdue_history": 700,
+            "cc_utilization": 720,
+            "credit_history_length": 760,
+            "social_security_months": 740
+          },
+          "stability": {
+            "years_in_job": 720,
+            "years_at_address": 760,
+            "marital_status": 780,
+            "education": 720,
+            "housing_type": 700,
+            "age": 680
+          },
+          "collateral": {
+            "collateral_type": 400,
+            "ltv": 500,
+            "title_verified": 400,
+            "mortgage_count": 620,
+            "valuation_source": 400
+          }
+        },
+        "radar": {
+          "repayment_capacity": 640,
+          "repayment_willingness": 705,
+          "stability": 720,
+          "collateral": 520
+        },
+        "_calculation_source": "scoring_model_retail.py (FICO 口径 · 确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "rule_checking", "payload": {"status": "running", "message": "零售红线规则引擎检查..."}},
+    {
+      "event": "stage",
+      "stage": "rule_checking",
+      "payload": {
+        "status": "done",
+        "hits": [
+          {
+            "rule_id": "retail_rl_003",
+            "name": "负债收入比偏高",
+            "category": "repayment_capacity",
+            "feature_expr": "repayment_capacity.dti_ratio",
+            "actual_value": 0.52,
+            "threshold": 0.50,
+            "operator": ">",
+            "severity": "medium",
+            "is_hard": false,
+            "can_waive": true,
+            "waiver_conditions": ["提供配偶收入证明合并核算", "降低申请额度至月供可覆盖范围"],
+            "description": "负债收入比 52%，超 50% 阈值，还款压力偏大",
+            "evidence_refs": ["人行征信报告.pdf p.4", "工资流水 202601-202603.xlsx"]
+          },
+          {
+            "rule_id": "retail_rl_009",
+            "name": "近 24 月查询次数偏多",
+            "category": "repayment_willingness",
+            "feature_expr": "repayment_willingness.query_count_24m",
+            "actual_value": 11,
+            "threshold": 10,
+            "operator": ">",
+            "severity": "low",
+            "is_hard": false,
+            "can_waive": true,
+            "waiver_conditions": ["说明查询原因（是否为装修比价或重大购置）"],
+            "description": "近 24 月征信查询 11 次略超阈值 10 次，多头借贷风险需观察",
+            "evidence_refs": ["人行征信报告.pdf p.9"]
+          }
+        ],
+        "hard_hit_count": 0,
+        "soft_hit_count": 2,
+        "_engine_source": "rule_engine_v2.py (零售口径 · 确定性 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "case_retrieving", "payload": {"status": "running", "message": "相似零售客户历史案例召回..."}},
+    {
+      "event": "stage",
+      "stage": "case_retrieving",
+      "payload": {
+        "status": "done",
+        "cases": [
+          {
+            "case_id": "case_retail_089",
+            "similarity": 0.91,
+            "subject_name_masked": "某教培行业 *** 工薪",
+            "age_at_decision": 33,
+            "monthly_income_at_decision": 17500,
+            "dti_at_decision": 0.49,
+            "fico_at_decision": 678,
+            "region": "长三角",
+            "year": 2024,
+            "decision": "批准",
+            "approved_amount": 15,
+            "term_months": 36,
+            "interest_rate": 0.0645,
+            "conditions": ["按月自动扣款", "季度征信复查"],
+            "outcome": "按期还本付息，无逾期"
+          },
+          {
+            "case_id": "case_retail_114",
+            "similarity": 0.86,
+            "subject_name_masked": "某民办机构教师",
+            "age_at_decision": 36,
+            "monthly_income_at_decision": 19500,
+            "dti_at_decision": 0.58,
+            "fico_at_decision": 665,
+            "region": "珠三角",
+            "year": 2024,
+            "decision": "有条件批准",
+            "approved_amount": 12,
+            "term_months": 24,
+            "interest_rate": 0.0685,
+            "conditions": ["配偶连带", "利率上浮 40bp"],
+            "outcome": "按期还本付息"
+          },
+          {
+            "case_id": "case_retail_061",
+            "similarity": 0.78,
+            "subject_name_masked": "某 K12 培训机构员工",
+            "age_at_decision": 31,
+            "monthly_income_at_decision": 16000,
+            "dti_at_decision": 0.62,
+            "fico_at_decision": 642,
+            "region": "华东",
+            "year": 2023,
+            "decision": "拒绝",
+            "approved_amount": 0,
+            "term_months": 0,
+            "interest_rate": null,
+            "conditions": [],
+            "outcome": "—"
+          }
+        ],
+        "_retriever_source": "case_retriever.py (向量检索 · 零售池 · 不经过 LLM)"
+      }
+    },
+    {"event": "stage", "stage": "advising", "payload": {"status": "running", "message": "生成零售审批意见话术..."}},
+    {
+      "event": "stage",
+      "stage": "advising",
+      "payload": {
+        "status": "done",
+        "subject_name": "李某",
+        "advice_id": "retail-lisi-0420-001",
+        "decision": "有条件批准",
+        "decision_code": "conditional_approve",
+        "decision_reason": "FICO 682（B 级）良好，历史逾期记录仅 1 次且已结清。但负债收入比 52% 略超阈值，叠加近 24 月查询 11 次略偏多，建议在原申请 20 万基础上下调额度、并要求配偶收入合并核算。",
+        "composite_score": 62,
+        "risk_grade": "B",
+        "approved_amount": 15,
+        "suggested_amount": 15,
+        "approved_term_months": 36,
+        "suggested_term_months": 36,
+        "interest_rate": 0.0665,
+        "suggested_interest_rate": 0.0665,
+        "rate_benchmark": "同类零售消费贷基准 6.15% · 风险加点 50bp",
+        "amount_methods": {
+          "income_method": 18,
+          "dscr_method": 12,
+          "collateral_method": 0
+        },
+        "red_line_hits": [
+          {
+            "rule_id": "retail_rl_003",
+            "rule_name": "负债收入比偏高",
+            "severity": "medium",
+            "is_hard": false,
+            "description": "DTI 52% 超 50% 阈值，需合并配偶收入或降额",
+            "threshold": 0.50,
+            "actual_value": 0.52
+          }
+        ],
+        "conditions": [
+          "合并配偶收入核算 DTI，要求配偶《收入证明》 + 《个人征信授权书》",
+          "授信额度 15 万（原申请 20 万下调 25%），期限 36 个月",
+          "利率 6.65%（基准上浮 50bp），按月等额本息",
+          "绑定工资账户自动扣款，避免人为忘记还款",
+          "征信每季度复查一次；如新增 2 笔信用贷则触发额度回收预警"
+        ],
+        "watch_points": [
+          "教培行业政策敏感，关注职业稳定性是否受行业调整影响",
+          "现有按揭月供 6200 + 消费贷月供 3160 + 本笔月供约 4600，合计占月收入 77%，需压控"
+        ],
+        "_note": "本意见为 AI 辅助建议，copilot 定位；最终决策由审贷员签批"
+      }
+    },
+    {"event": "done"}
+  ]
+}
