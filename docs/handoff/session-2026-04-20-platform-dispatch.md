@@ -13,6 +13,11 @@
 - **前置 commit**：`c99a277 feat(platform/contracts): land Stage 1.0 shared store + RBAC + handoff catalog`
 - **状态**：已下发，等 5 个 platform-* worker 各自 `PHASE-1-BATCH-1-ACK`
 - **下一个里程碑**：收齐 5 个 `READY-FOR-PLATFORM-<X>-REVIEW` → 主 CLI rebase + 冒烟 + APPROVE → 进 Phase 2 跨 view 联动
+- **5 Worker Kickoff Prompts**：`docs/handoff/platform-batch-1-kickoffs.md`（worker resume 完后粘给用户下发的 GO 指令）
+
+## 0.1 Bash 工具修复（2026-04-20 补）
+
+旧主 CLI 发现 Windows 上 Bash 工具报 `No suitable shell found` —— 因为 `CLAUDE_CODE_GIT_BASH_PATH` 只在 `mesh-credit-agents.bat` 的 `--pre-cmd` 里注入给 worker tab，没写进全局 settings。已追加到 `C:\Users\Mr.S\.claude\settings.json` 的 `env` 字段：`CLAUDE_CODE_GIT_BASH_PATH=D:\Git\usr\bin\bash.exe`。**下次任意方式启 CLI 都会自动带上**，新 main CLI session 一进来 Bash 就可用，能跑 `mesh_status.py` / `git log` 自看进度，不用让用户帮粘输出。
 
 ---
 
