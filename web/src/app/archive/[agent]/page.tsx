@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import type { ComponentType } from "react";
 import { AGENTS, type AgentKey } from "@/lib/agents";
-import ReportV2 from "@/components/workspace/v2/ReportV2";
-import ChannelV2 from "@/components/workspace/v2/ChannelV2";
-import CreditV2 from "@/components/workspace/v2/CreditV2";
-import RiskctrlV2 from "@/components/workspace/v2/RiskctrlV2";
-import AlertV2 from "@/components/workspace/v2/AlertV2";
-import CompliV2 from "@/components/workspace/v2/CompliV2";
+import ReportWorkspace from "@/components/workspace/ReportWorkspace";
+import ChannelWorkspace from "@/components/workspace/ChannelWorkspace";
+import CreditWorkspace from "@/components/workspace/CreditWorkspace";
+import RiskctrlWorkspace from "@/components/workspace/RiskctrlWorkspace";
+import AlertWorkspace from "@/components/workspace/AlertWorkspace";
+import ComplianceWorkspace from "@/components/workspace/ComplianceWorkspace";
+import { ArchiveAgentShell } from "./ArchiveAgentShell";
 
 export const metadata = {
   title: "AI 助手 · 工作区 · 乾策 Studio",
@@ -15,12 +16,12 @@ export const metadata = {
 const VALID: AgentKey[] = ["report", "channel", "credit", "riskctrl", "alert", "compliance"];
 
 const WORKSPACES: Record<AgentKey, ComponentType> = {
-  report: ReportV2,
-  channel: ChannelV2,
-  credit: CreditV2,
-  riskctrl: RiskctrlV2,
-  alert: AlertV2,
-  compliance: CompliV2,
+  report: ReportWorkspace,
+  channel: ChannelWorkspace,
+  credit: CreditWorkspace,
+  riskctrl: RiskctrlWorkspace,
+  alert: AlertWorkspace,
+  compliance: ComplianceWorkspace,
 };
 
 export default async function AgentWorkspace({
@@ -35,11 +36,18 @@ export default async function AgentWorkspace({
     console.warn("[archive] unknown agent:", JSON.stringify(agent), "valid:", VALID);
     notFound();
   }
-  void AGENTS.find((a) => a.key === key);
+  const def = AGENTS.find((a) => a.key === key)!;
 
   return (
-    <div className="v-archive">
-      <Workspace />
+    <div className="v-archive px-8 py-8 max-w-[1400px] mx-auto">
+      <ArchiveAgentShell
+        code={def.code}
+        eyebrowLabel={def.eyebrowLabel}
+        title={def.title}
+        description={def.description}
+      >
+        <Workspace />
+      </ArchiveAgentShell>
     </div>
   );
 }
