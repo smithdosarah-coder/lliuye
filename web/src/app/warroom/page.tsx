@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { KanbanBoard } from "./_components/KanbanBoard";
 
 export const metadata = {
@@ -7,8 +9,8 @@ export const metadata = {
 /**
  * Warroom view · Platform Phase 1 Batch 1
  * 外壳（eyebrow / hero / lede）沿用 mockup L3354-3478；kanban 本体换成
- * 接 ticket-store 的 @dnd-kit 可拖拽 4 列 + TicketDrawer。
- * 数量走 tickets.length，不再硬编 mockup 字面 "12"。
+ * 接 ticket-store 的 @dnd-kit 可拖拽 4 列 + TicketDrawer + FilterBar。
+ * KanbanBoard 用 useSearchParams，需 Suspense 边界（Next 16 约束）。
  */
 export default function WarroomPage() {
   return (
@@ -29,7 +31,9 @@ export default function WarroomPage() {
       <p className="lede">
         从各 Agent 汇入的 <em>HandoffTicket</em>，按状态流转到 4 列 kanban。拖卡片更新状态，或点开 ticket 查看证据链。
       </p>
-      <KanbanBoard />
+      <Suspense fallback={<div className="wr-filters" aria-hidden="true" />}>
+        <KanbanBoard />
+      </Suspense>
     </div>
   );
 }
