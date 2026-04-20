@@ -3,8 +3,12 @@
 /**
  * ChannelV2 — DOM port of design_mockups/stage5/mockup-v2/channel.html.
  * Lookalike acquisition · 信号驱动 · 3 阶段 Signal / Match / Recommend.
+ *
+ * SSE event stream wired to streamChannelSearch via withFallback (W1 origin
+ * commit a147227) with /mock/channel_run.json fallback on 2s timeout.
  */
 
+import { useEffect, useState } from "react";
 import {
   V2Shell,
   ChatBlk,
@@ -16,6 +20,9 @@ import {
   type TraceLine,
   type QcMetric,
 } from "./V2Shell";
+import { streamChannelSearch } from "@/lib/api";
+import { withFallback } from "@/lib/fallback";
+import type { ChannelSearchEvent } from "@/lib/channel-types";
 
 const MESSAGES: ChatMessage[] = [
   {
@@ -48,13 +55,70 @@ const MESSAGES: ChatMessage[] = [
   },
 ];
 
-const SSE_LINES: TraceLine[] = [
+const INITIAL_SSE_LINES: TraceLine[] = [
   { ts: "10:15:03", stgTag: "sig · 01", stage: "ev", tx: <>✓ <b>RSS 5 源</b> · 42 原始 <span className="src">SRC 新能源情报</span></> },
   { ts: "10:15:18", stgTag: "sig · 02", stage: "ev", tx: <>✓ <b>专利命中</b> 3 家 <span className="src">SRC NIPRP 索引</span></> },
   { ts: "10:15:31", stgTag: "sig · 03", stage: "ev", tx: <>✓ <b>实体对齐去重</b> → <em>18 家</em></> },
   { ts: "10:16:04", stgTag: "mat · 1.4", stage: "gn", tx: <>look-alike <b>top-K=50</b> → <em>18</em> <span className="src">look_alike_v3</span></> },
   { ts: "10:16:22", stgTag: "rec · 2.1", stage: "au", typing: true, tx: <>top-5 已派单 · <b>张主任</b> <em>歌尔同类</em> 优先</> },
 ];
+
+// Map channel SSE stage → bucket for CSS (s-ev / s-gn / s-au)
+function channelStageBucket(stage?: string): "ev" | "gn" | "au" {
+  if (!stage) return "gn";
+  if (stage === "parse" || stage === "signal_scan" || stage === "aggregate") return "ev";
+  if (stage === "enrich" || stage === "pitch") return "gn";
+  if (stage === "rank") return "au";
+  return "gn";
+}
+
+function fmtNowHMS(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function channelEventToLine(evt: ChannelSearchEvent, idx: number): TraceLine | null {
+  const ts = fmtNowHMS();
+  const tag = (b: "ev" | "gn" | "au") => `${b} · ${String(idx).padStart(2, "0")}`;
+  if (evt.event === "stage") {
+    const bucket = channelStageBucket(evt.stage);
+    return {
+      ts,
+      stgTag: tag(bucket),
+      stage: bucket,
+      tx: (
+        <>
+          ▸ <b>{evt.stage}</b>
+          {evt.status ? <em> · {evt.status}</em> : null}
+          {evt.message ? <span className="src"> {evt.message}</span> : null}
+          {typeof evt.count === "number" ? <> <em>count {evt.count}</em></> : null}
+        </>
+      ),
+    };
+  }
+  if (evt.event === "done") {
+    return {
+      ts,
+      stgTag: tag("au"),
+      stage: "au",
+      tx: (
+        <>
+          ✓ <b>候选就绪</b> · 信号 <em>{evt.metrics?.signalTotal ?? 0}</em> · 企业 <em>{evt.metrics?.companiesFound ?? 0}</em> · 终选 <em>{evt.metrics?.final ?? 0}</em>
+        </>
+      ),
+    };
+  }
+  if (evt.event === "error") {
+    return {
+      ts,
+      stgTag: tag("au"),
+      stage: "au",
+      tx: <>✗ <span className="bad">{evt.message}</span></>,
+    };
+  }
+  return null;
+}
 
 const SECTIONS: DocSection[] = [
   {
@@ -104,6 +168,49 @@ const QC_METRICS: QcMetric[] = [
 ];
 
 export default function ChannelV2() {
+  const [lines, setLines] = useState<TraceLine[]>(INITIAL_SSE_LINES);
+  const [isMock, setIsMock] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let idx = INITIAL_SSE_LINES.length;
+
+    const replay = (j: unknown): ChannelSearchEvent[] => {
+      const obj = j as {
+        run_mock_events?: ChannelSearchEvent[];
+        done?: ChannelSearchEvent;
+      };
+      const out: ChannelSearchEvent[] = [...(obj.run_mock_events ?? [])];
+      if (obj.done) out.push(obj.done);
+      return out;
+    };
+
+    (async () => {
+      try {
+        for await (const [evt, source] of withFallback<ChannelSearchEvent>(
+          (signal) =>
+            streamChannelSearch(
+              { query: "新能源装备 精密连接器 长三角 专精特新", top_n: 8 },
+              signal
+            ),
+          "/mock/channel_run.json",
+          { timeoutMs: 2000, replayEvents: replay, replayIntervalMs: 260 }
+        )) {
+          if (cancelled) return;
+          if (source === "mock") setIsMock(true);
+          const line = channelEventToLine(evt, idx++);
+          if (line) setLines((prev) => [...prev, line]);
+        }
+      } catch {
+        // keep seed
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <V2Shell
       agent="channel"
@@ -177,8 +284,8 @@ export default function ChannelV2() {
         <>
           <SseBlk
             title={<>事件流 <em>— SSE · signal / match / recommend</em></>}
-            kBadge="live"
-            lines={SSE_LINES}
+            kBadge={isMock ? "降级 · MOCK" : "live"}
+            lines={lines}
           />
           <DocWrap
             docTitle="候选企业 · 18 家 · 信号时间线"
