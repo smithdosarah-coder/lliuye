@@ -1321,8 +1321,41 @@
 }
 .tkt-dr-btn--danger:hover { filter: brightness(1.08); }
 .tkt-dr-btn--ghost { background: transparent; }
+.tkt-dr-btn:disabled { opacity: .45; cursor: not-allowed; }
 .tkt-dr-ft-hint {
   font-family: var(--cjk); font-size: 11px; color: var(--ink-48);
+}
+.tkt-dr-ft-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.tkt-dr-form .tkt-dr-textarea {
+  width: 100%; min-height: 72px;
+  font-family: var(--cjk); font-size: 13px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  background: var(--chalk); color: var(--ink);
+  resize: vertical;
+}
+.tkt-dr-form .tkt-dr-textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.tkt-dr-char-count {
+  text-align: right;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-48);
+  margin-top: 4px;
+}
+.tkt-dr-form .tkt-dr-select {
+  width: 100%;
+  font-family: var(--cjk); font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  background: var(--chalk);
+  color: var(--ink);
+  cursor: pointer;
+}
+.tkt-dr-form .tkt-dr-select:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
 }
 
 /* 卡片拖拽中 zindex 提升 */
