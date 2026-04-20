@@ -120,3 +120,9 @@ HubSpot CRM 客户 360 / Salesforce Lightning 客户页 / Linear 的 project tim
 3. 全 Task 完成 → `READY-FOR-PLATFORM-CUSTOMER-REVIEW`
 
 **维护者**：主 CLI
+
+---
+
+## ACK Trail
+
+- 2026-04-20 · platform-customer (CLI-5) · ACK —— Resume 完成，已读 contracts + customer-store + Desk + AppShell；确认 Task B pinned 走本地 `_desk-store`，Task C AppShell drawer slot 改动前在 decisions-log 预告 CLI-4。按 A → B → C 顺序执行，每 Task 独立 commit。

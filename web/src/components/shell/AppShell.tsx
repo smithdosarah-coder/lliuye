@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { AuthGate } from "./AuthGate";
+import { CustomerDrawer } from "./CustomerDrawer";
 import { Desk } from "./Desk";
 import { Masthead } from "./Masthead";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -91,6 +92,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
         </section>
       </main>
       <ThemeSwitch />
+      <CustomerDrawer />
     </div>
   );
 }
