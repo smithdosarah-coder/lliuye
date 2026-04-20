@@ -1024,3 +1024,29 @@ AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebas
 **reflog 干净**：`merge (fast-forward) → commit × 5`，无 rebase / amend / force。
 
 **Signal**: `READY-FOR-PLATFORM-AUTH-REVIEW`
+
+---
+
+### Rebase onto `chore/l0-infra` @ `53b15fb`（2026-04-20 · GO-2）
+
+主 CLI 在 `f004a1d` 落 LEGACY-THEME-PURGED + `53b15fb` 给本路 preliminary APPROVE 后，执行 GO-2：
+`git rebase upstream/chore/l0-infra` —— 6 commit 全部 replay。
+
+**冲突仲裁**：仅 `docs/handoff/decisions-log.md` 一处 append-vs-append（A-021 / A-022 / Q-022 vs ACK-platform-auth），保留双方按时序排列；purge 涉及的 `web/src/app/{tokens,shell,globals}.css` + `ThemeSwitch.tsx` 与 auth 追加段（`.persona-sw*` / `.audit-entry`）落在不同选择器，**无 CSS 冲突**。
+
+**残留自查**（grep `crimson|letterpress|ink-seal|InkSeal|朱砂|铜章` over `web/src/`）：3 处命中均为 `f004a1d` 的 retirement 注释（ThemeSwitch.tsx:9 / globals.css:331 / tokens.css:112），非 auth 引入；CJK-in-mono 仅在 eyebrow brand slug（与 archive / warroom 既有 pattern 一致），非字段名违规。
+
+**新 SHA 链**（rebase 后）：
+
+| Task | Signal | New SHA |
+|---|---|---|
+| ACK | PHASE-1-BATCH-1-ACK | `184334d` |
+| A | AUTH-LOGIN-PAGE-DONE | `f7f3fce` |
+| B | AUTH-PERSONA-SWITCHER-DONE | `ef8d03e` |
+| C | AUTH-RBAC-GUARD-DONE | `ce19051` |
+| D | AUTH-AUDIT-ENTRY-DONE | `90af115` |
+| Readiness | READY-FOR-PLATFORM-AUTH-REVIEW | `cba98c8` |
+
+**验证**：`npx tsc --noEmit` 0 error · `next build` 22 routes 全静态 / SSG · `next start` 起 `:3401` 探活：`/login` 200（DOM 见 `login-root` + 「选一位身份」）/ `/audit` 200（AuthGate gate SSR → CSR 无 session 即 `router.replace("/login")`，**非 404**）/ `/today` 200。
+
+**Signal**: `PHASE-1-PLATFORM-AUTH-REBASED-CLEAN`
