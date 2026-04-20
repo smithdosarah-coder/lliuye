@@ -996,3 +996,31 @@ AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebas
 - 新增 `components/shell/AuditEntry.tsx`：无权 return null，有权渲染 `<Link href="/audit">`。
 - 新增 `app/audit/page.tsx` + `AuditView.tsx` + `audit.css`：消费 `useEventBus.history`（前 50 条）+ agent 下拉筛选；URL 直访兜底判 `can({kind:"audit.view"})`，未授权走 `<NoPermission />`。
 - AppShell.tsx **未动本轮**（AuthGate 仍覆盖；audit 页经由 masthead 条件入口 + 页内 RBAC 守卫双层）。
+
+### Batch 1 Readiness（2026-04-20）
+
+4 Task 全绿，均以独立 commit 落地（SHA 不可重写 · A-012.D）：
+
+| Task | Signal | Commit |
+|---|---|---|
+| ACK | PHASE-1-BATCH-1-ACK | `5366f30` |
+| A /login + AuthGate | AUTH-LOGIN-PAGE-DONE | `dc3724c` |
+| B PersonaSwitcher | AUTH-PERSONA-SWITCHER-DONE | `d6a909c` |
+| C RBAC 守卫 + NoPermission | AUTH-RBAC-GUARD-DONE | `fa0ccca` |
+| D /audit 入口 | AUTH-AUDIT-ENTRY-DONE | `8e004e9` |
+
+**红区合规核对**：
+- `lib/store/auth-store.ts` ACCESS / HANDOFFS matrix 未动（仅通过 `can(action)` 谓词消费）
+- `docs/arch/platform-contracts.md` 未改（主 CLI 唯一写入）
+- `design_mockups/rm-assistant-final-2026-04-19.html` 未改
+- 跨 worker page / store 未写（仅读 `useAuthStore` / `useEventBus` / `AGENTS`）
+
+**AppShell 改动栈**（供 CLI-5 platform-customer rebase 参考）：
+- Task A：split into `AppShell` shell-dispatcher + `ShellChrome` inner; drag/drop 逻辑下沉 ShellChrome
+- Task B：Masthead 内部替换 —— 未改 AppShell.tsx
+- Task C：未改 AppShell.tsx（RbacGuard 走 archive/[agent] 内部）
+- Task D：未改 AppShell.tsx（AuditEntry 走 Masthead 内部）
+
+**reflog 干净**：`merge (fast-forward) → commit × 5`，无 rebase / amend / force。
+
+**Signal**: `READY-FOR-PLATFORM-AUTH-REVIEW`
