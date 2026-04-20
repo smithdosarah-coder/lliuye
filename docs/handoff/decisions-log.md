@@ -957,3 +957,14 @@ Stage 1.0（main CLI 先手，已落 c99a277）：共享 store + 契约文档，
 **Decision**: 仅 Anchor，不开 worktree。待 Batch 1 完成收尾 → 用户给首发 mockup → main CLI 按 A-020 同构模式分派。
 
 **Signal**: `PHASE-2-ANCHOR-CAPTURED`
+
+---
+
+## [ACK-platform-auth] 2026-04-20 · platform-auth worker · Phase 1 Batch 1
+
+**CLI**: platform-auth（worker · `feat/platform-auth`）
+**Signal**: `PHASE-1-BATCH-1-ACK`
+
+Resume 完成（AGENT_IDENTITY.md + contracts + onboarding + auth-store + AppShell + archive/[agent] 全读过）。确认 4 Task 范围 / 红区 / AppShell 双写纪律 / AgentKey("compliance") → AgentId("compli") 映射点。按 A → B → C → D 顺序开工，每 Task 独立 commit。
+
+AppShell 改动变更点将在本 log 逐条补录（供 platform-customer rebase 参考）。
