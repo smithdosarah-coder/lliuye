@@ -15,6 +15,7 @@ import { ChatTagInput, type Tag } from "@/components/ui/ChatTagInput";
 import { FileDrop } from "@/components/ui/FileDrop";
 
 import { fetchPresets, streamDecision } from "@/lib/api";
+import { fetchMockJson } from "@/lib/fallback";
 import { useHeaderSlot } from "@/lib/header-slot";
 import {
   CORP_STAGES,
@@ -154,12 +155,24 @@ export function CreditWorkspaceClient() {
     source: "session" | "preset";
   }>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [fellBack, setFellBack] = useState<boolean>(false);
 
   // 跨 Agent 预填 — 挂载时消费 sessionStorage.enterprise_profile + URL ?preset=
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const presetParam = params.get("preset") || "";
+    const rawPreset = params.get("preset") || "";
+
+    // W1 扩展:?preset=corporate|retail 仅作 segment 切换, 不作 preset_name
+    if (rawPreset === "corporate" || rawPreset === "retail") {
+      setSegment(rawPreset);
+      return; // 由 segment useEffect 自动选第一个 preset
+    }
+    if (rawPreset === "sme" || rawPreset === "inclusive") {
+      setSegment("sme");
+      return;
+    }
+    const presetParam = rawPreset;
 
     const applyProfile = (prof: Record<string, unknown>, source: "session" | "preset") => {
       const name = (prof.company_name as string) || (prof.subject_name as string) || "";
@@ -237,11 +250,66 @@ export function CreditWorkspaceClient() {
       ? SME_STAGES
       : RETAIL_STAGES;
 
+  // 降级:把 mock fixture 的 run_mock_events 按 streamDecision 回调形式回放
+  const replayMockDecision = async () => {
+    const path =
+      segment === "corporate"
+        ? "/mock/credit_decision_corporate.json"
+        : "/mock/credit_decision_retail.json";
+    // sme 没有单独 fixture — 先复用 retail(都是小额/零售口径) 保演示不炸
+    const realPath =
+      segment === "sme" ? "/mock/credit_decision_retail.json" : path;
+    const j = await fetchMockJson<{
+      run_mock_events: Array<Record<string, unknown>>;
+    }>(realPath);
+    setFellBack(true);
+    for (const ev of j.run_mock_events) {
+      await new Promise((r) => setTimeout(r, 280));
+      const evt = ev as {
+        event: string;
+        stage?: string;
+        status?: string;
+        payload?: unknown;
+        profile?: unknown;
+      };
+      setState((prev) => {
+        const next = { ...prev, doneStages: new Set(prev.doneStages) };
+        if (evt.event === "profile_loaded") {
+          next.profile = evt.profile as Profile;
+        } else if (evt.event === "stage" && evt.stage) {
+          // fixture stage 使用 {status: running|done} pattern
+          const stageKey = evt.stage;
+          const payload = evt.payload as { status?: string } | undefined;
+          if (payload?.status === "running") {
+            next.activeStage = stageKey;
+            next.stageHistory = [...prev.stageHistory, stageKey];
+          } else if (payload?.status === "done") {
+            const base = stageOf(stageKey);
+            if (base) next.doneStages.add(base);
+            if (base === "scoring")
+              next.scoring = evt.payload as ScoringPayload;
+            if (base === "case")
+              next.cases = (evt.payload as { cases?: CaseMatch[] })?.cases ?? (evt.payload as CaseMatch[]);
+            if (base === "advising")
+              next.advice = evt.payload as DecisionAdvice;
+            next.activeStage = undefined;
+          }
+        } else if (evt.event === "done") {
+          next.phase = "done";
+          next.activeStage = undefined;
+        }
+        return next;
+      });
+    }
+    setState((s) => ({ ...s, phase: "done" }));
+  };
+
   const runDecision = async () => {
     if (!preset) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    setFellBack(false);
 
     setState({
       ...INITIAL_STATE,
@@ -249,10 +317,17 @@ export function CreditWorkspaceClient() {
       phase: "running",
     });
 
+    let primed = false;
+    const timeoutId = setTimeout(() => {
+      if (!primed) ctrl.abort();
+    }, 2000);
+
     try {
       await streamDecision(
         { segment: toBackendSegment(segment), preset_name: preset },
         (evt) => {
+          primed = true;
+          clearTimeout(timeoutId);
           setState((prev) => {
             const next = { ...prev };
             next.doneStages = new Set(prev.doneStages);
@@ -295,9 +370,30 @@ export function CreditWorkspaceClient() {
         },
         ctrl.signal
       );
+      clearTimeout(timeoutId);
       setState((s) => ({ ...s, phase: s.phase === "error" ? "error" : "done" }));
     } catch (e) {
-      if ((e as Error).name === "AbortError") return;
+      clearTimeout(timeoutId);
+      if ((e as Error).name === "AbortError") {
+        // 只有在从未收到 event 时才视为后端不可达
+        if (!primed) {
+          try {
+            await replayMockDecision();
+            return;
+          } catch (mockErr) {
+            console.error("mock fallback failed", mockErr);
+          }
+        }
+        return;
+      }
+      if (!primed) {
+        try {
+          await replayMockDecision();
+          return;
+        } catch {
+          /* fall through to error */
+        }
+      }
       setState((s) => ({ ...s, phase: "error", error: String(e) }));
     }
   };
@@ -436,6 +532,15 @@ export function CreditWorkspaceClient() {
       <section className="col-span-8 space-y-5">
         {/* Segment switcher + handoff banner (moved from page header) */}
         <div className="flex items-center justify-end gap-3 flex-wrap">
+          {fellBack && (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-tabular tracking-wider uppercase border border-[#c8463a] text-[#c8463a]"
+              title="后端 2s 未响应，已切换到本地 mock fixture"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#c8463a]" />
+              降级模式 · MOCK
+            </span>
+          )}
           {handoffSource && (
             <button
               onClick={() => setHandoffSource(null)}
