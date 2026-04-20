@@ -486,6 +486,187 @@
   text-align: center;
 }
 
+/* ═══ COMPOSER (Task B) ═══ */
+.dpx-composer {
+  position: relative;
+  border-top: 1px solid var(--ink-14);
+  padding: 12px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+}
+.dpx-composer-disabled {
+  border-top: 1px solid var(--ink-14);
+  padding: 16px;
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  color: var(--ink-48);
+  text-align: center;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+}
+
+.dpx-composer-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: stretch;
+}
+.dpx-composer-actor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-65);
+  background: var(--ink-08);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+}
+.dpx-composer-actor::before {
+  content: attr(data-glyph);
+}
+.dpx-composer-actor em {
+  font-style: normal;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.dpx-composer-input {
+  all: unset;
+  font-family: var(--cjk);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  padding: 9px 12px;
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  resize: none;
+  min-height: 38px;
+  max-height: 160px;
+  overflow-y: auto;
+  transition: border-color 0.18s, background 0.18s;
+}
+.dpx-composer-input:focus {
+  border-color: var(--accent);
+  background: var(--chalk);
+}
+.dpx-composer-input::placeholder {
+  color: var(--ink-48);
+}
+
+.dpx-composer-send {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--cjk);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--chalk);
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.18s, transform 0.18s;
+}
+.dpx-composer-send:hover {
+  background: var(--accent);
+}
+.dpx-composer-send:disabled {
+  background: var(--ink-28);
+  cursor: not-allowed;
+}
+
+.dpx-composer-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+.dpx-composer-foot .hint {
+  font-family: var(--cjk);
+  font-size: 11px;
+  color: var(--ink-48);
+}
+.dpx-composer-foot kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--ink-08);
+  border: 1px solid var(--ink-14);
+}
+
+.dpx-composer-flash {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+
+/* —— Slash menu —— */
+.dpx-slash {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 18px;
+  right: 18px;
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  box-shadow: 0 18px 36px -16px rgba(15, 26, 18, 0.4);
+  overflow: hidden;
+  z-index: 10;
+}
+.dpx-slash-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ink-08);
+}
+.dpx-slash ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.dpx-slash li {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.dpx-slash li.on,
+.dpx-slash li:hover {
+  background: var(--ink-08);
+}
+.dpx-slash li .cmd {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.dpx-slash li .hint {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink);
+}
+.dpx-slash li .ex {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+  white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
   .v-dispatch-im {
     grid-template-columns: 240px minmax(0, 1fr) 280px;

@@ -169,6 +169,7 @@ interface DispatchState {
     threadId: string,
     msg: Omit<ImMessage, "id" | "threadId" | "createdAt" | "kind"> & { kind?: ImMessage["kind"] },
   ) => ImMessage;
+  clearThread: (threadId: string) => void;
 }
 
 const genMsgId = () =>
@@ -222,6 +223,10 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       refs: partial.refs,
     });
   },
+  clearThread: (threadId) =>
+    set((s) => ({
+      messages: { ...s.messages, [threadId]: [] },
+    })),
 }));
 
 /** 通过 customerId 反查 thread（事件桥用） */

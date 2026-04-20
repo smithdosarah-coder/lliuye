@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { useCustomerStore } from "@/lib/store";
 
 import { useDispatchStore } from "../_store/dispatch-store";
+import { ComposerBar } from "./ComposerBar";
 import { HandoffCard } from "./HandoffCard";
 import { MessageBubble } from "./MessageBubble";
 import { SystemEventCard } from "./SystemEventCard";
@@ -36,6 +37,7 @@ export function MessageStream() {
             每个对话围绕一位客户，AI 助手会在事件发生时自动留言。
           </p>
         </div>
+        <ComposerBar />
       </section>
     );
   }
@@ -77,6 +79,7 @@ export function MessageStream() {
         })}
         <div ref={tailRef} />
       </div>
+      <ComposerBar />
     </section>
   );
 }
