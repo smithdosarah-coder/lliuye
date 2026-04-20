@@ -12,6 +12,8 @@ import Link from "next/link";
 import { useCustomerStore } from "@/lib/store";
 import type { AgentEvent, Customer, CustomerStage } from "@/lib/store";
 
+import { EVENT_TEXT } from "./event-text";
+
 const STAGE_META: Record<
   CustomerStage,
   { label: string; agent: string; cta: string }
@@ -23,21 +25,6 @@ const STAGE_META: Record<
   monitoring: { label: "贷后", agent: "alert", cta: "复核" },
   lead: { label: "线索", agent: "channel", cta: "建档" },
   closed: { label: "结清", agent: "report", cta: "查阅" },
-};
-
-const EVENT_TEXT: Record<string, string> = {
-  "report.completed": "报告生成完成",
-  "report.drafted": "报告草稿已保存",
-  "credit.decided": "授信决定已出",
-  "credit.redline_hit": "命中红线",
-  "channel.lookalike_picked": "已选中 look-alike",
-  "alert.raised": "触发预警",
-  "alert.handled": "预警已处置",
-  "compli.conflict_found": "合规冲突待判",
-  "riskctrl.dsl_deployed": "风控规则上线",
-  "handoff.requested": "发起 handoff",
-  "handoff.accepted": "接收 handoff",
-  "comment.added": "新留言",
 };
 
 function relativeTime(iso: string, now: Date): string {

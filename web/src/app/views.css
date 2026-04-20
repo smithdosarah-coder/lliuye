@@ -1261,3 +1261,120 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ═══ Task C · .v-today .event-timeline ═══
+   跨 Agent 事件流 · 最近 20 条. 10min 前淡化. Agent 色 dot 取 --t-<agent>. */
+.v-today .event-timeline {
+  margin-top: 28px;
+  padding: 20px 22px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 78%, transparent) 0%,
+    color-mix(in srgb, var(--g1) 70%, transparent) 100%
+  );
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 18px 38px -28px rgba(15, 26, 18, 0.35);
+}
+.v-today .event-timeline__head {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;
+}
+.v-today .event-timeline__tag {
+  font-family: var(--cjk); font-weight: 500;
+  font-size: 11px; letter-spacing: 0.12em;
+  color: var(--ink-65);
+  display: flex; align-items: center; gap: 10px;
+}
+.v-today .event-timeline__tag .dash {
+  width: 14px; height: 1px; background: currentColor; opacity: 0.55;
+}
+.v-today .event-timeline__sum {
+  margin-left: auto; font-family: var(--mono); font-weight: 500;
+  font-size: 10.5px; color: var(--ink-48); letter-spacing: 0.06em;
+}
+.v-today .event-timeline__hint {
+  margin: 0; font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48);
+}
+.v-today .event-timeline__list {
+  list-style: none; padding: 0; margin: 8px 0 0;
+  display: flex; flex-direction: column;
+  border-left: 1px dashed var(--ink-14);
+  padding-left: 14px;
+}
+.v-today .event-timeline__empty {
+  padding: 24px 8px; color: var(--ink-48);
+  font-family: var(--cjk); font-size: 13px; text-align: center;
+}
+
+.v-today .event-row {
+  display: grid;
+  grid-template-columns: 64px auto 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  position: relative;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  transition: opacity .3s ease;
+}
+.v-today .event-row::before {
+  content: "";
+  position: absolute;
+  left: -19px;
+  top: 14px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-48);
+  box-shadow: 0 0 0 2px var(--chalk);
+}
+.v-today .event-row.agent-report::before   { background: var(--t-report); }
+.v-today .event-row.agent-credit::before   { background: var(--t-credit); }
+.v-today .event-row.agent-alert::before    { background: var(--t-alert); }
+.v-today .event-row.agent-channel::before  { background: var(--t-channel); }
+.v-today .event-row.agent-compli::before   { background: var(--t-compli); }
+.v-today .event-row.agent-riskctrl::before { background: var(--t-riskctrl); }
+.v-today .event-row--faded { opacity: 0.42; }
+
+.v-today .event-row__time {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-48); letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.v-today .event-row__badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--cjk); font-size: 11px; letter-spacing: 0.06em;
+  color: var(--chalk);
+  background: var(--ink);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.v-today .event-row.agent-report   .event-row__badge { background: var(--t-report); }
+.v-today .event-row.agent-credit   .event-row__badge { background: var(--t-credit); }
+.v-today .event-row.agent-alert    .event-row__badge { background: var(--t-alert); }
+.v-today .event-row.agent-channel  .event-row__badge { background: var(--t-channel); }
+.v-today .event-row.agent-compli   .event-row__badge { background: var(--t-compli); }
+.v-today .event-row.agent-riskctrl .event-row__badge { background: var(--t-riskctrl); }
+
+.v-today .event-row__text {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.v-today .event-row__cust {
+  font-family: var(--cjk); font-size: 11.5px; letter-spacing: 0.02em;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--ink-08);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background .2s ease, color .2s ease;
+}
+.v-today .event-row__cust:hover {
+  background: var(--accent);
+  color: var(--chalk);
+}

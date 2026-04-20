@@ -7,6 +7,7 @@ import {
   TODAY_IDLE_SHEETS,
   TODAY_RUNNING_SHEETS,
 } from "@/lib/mock/today";
+import { EventTimeline } from "./_components/EventTimeline";
 import { MorningBrief } from "./_components/MorningBrief";
 import { PriorityQueue } from "./_components/PriorityQueue";
 
@@ -88,6 +89,9 @@ export default function TodayPage() {
 
       {/* Task K1 · 今日账册 belt (mockup L3114-3141 · 补漏) */}
       <AccountBelt />
+
+      {/* Task C · 跨 Agent 事件流 · event-bus 实时追加 */}
+      <EventTimeline />
     </div>
   );
 }
