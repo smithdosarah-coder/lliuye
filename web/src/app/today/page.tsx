@@ -8,6 +8,7 @@ import {
   TODAY_RUNNING_SHEETS,
 } from "@/lib/mock/today";
 import { MorningBrief } from "./_components/MorningBrief";
+import { PriorityQueue } from "./_components/PriorityQueue";
 
 export const metadata = {
   title: "今日 · 乾策 Studio",
@@ -81,6 +82,9 @@ export default function TodayPage() {
         {/* Task F · 任务 · 我的桌上 board-card (深色) */}
         <BoardCard />
       </div>
+
+      {/* Task B · 今日客户队列 TOP 8 · stage × lastActivityAt */}
+      <PriorityQueue />
 
       {/* Task K1 · 今日账册 belt (mockup L3114-3141 · 补漏) */}
       <AccountBelt />
