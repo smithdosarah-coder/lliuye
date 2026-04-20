@@ -5,11 +5,12 @@
  * Structure: .ws-v2 > hero + agent-bar + .ap card (head / cap / stage-flow / tpl-strip /
  * intake-strip / main-board[chat-col + doc-col] / audit-strip).
  *
- * Content defaults mirror the 2026-04-20 mockup (苏州睿联电子 / corp-v7.23). All
- * user-facing strings are props so W1 can wire real data; today's defaults sit inline
- * so the visual matches mockup pixel-by-pixel until data wiring lands.
+ * Content defaults mirror the 2026-04-20 mockup (苏州睿联电子 / corp-v7.23). SSE event
+ * stream wired to streamReportFill via withFallback (W1 origin commit 8bdafce/a147227)
+ * with /mock/report_fill_mock.json fallback on 2s timeout.
  */
 
+import { useEffect, useState } from "react";
 import {
   V2Shell,
   ChatBlk,
@@ -21,6 +22,9 @@ import {
   type TraceLine,
   type QcMetric,
 } from "./V2Shell";
+import { streamReportFill } from "@/lib/api";
+import { withFallback } from "@/lib/fallback";
+import type { ReportEvent } from "@/lib/credit-types";
 
 const MESSAGES: ChatMessage[] = [
   {
@@ -65,7 +69,7 @@ const MESSAGES: ChatMessage[] = [
   },
 ];
 
-const SSE_LINES: TraceLine[] = [
+const INITIAL_SSE_LINES: TraceLine[] = [
   { ts: "10:23:41", stgTag: "ev · 01", stage: "ev", tx: <>✓ <b>注册资本</b> 5,000 万 <span className="src">SRC 工商</span></> },
   { ts: "10:23:47", stgTag: "ev · 02", stage: "ev", tx: <>✓ <b>近一年营收</b> 2.14 亿 <span className="src">SRC 利润表</span></> },
   { ts: "10:23:52", stgTag: "ev · 03", stage: "ev", tx: <>✗ <b>实控人关联企业</b> <span className="bad">未找到</span> 挂「需补充」</> },
@@ -73,6 +77,97 @@ const SSE_LINES: TraceLine[] = [
   { ts: "10:24:12", stgTag: "gn · 3.4", stage: "gn", tx: <>写入 <b>主营上下游</b>，占比锚到 <em>合同样本</em> <span className="src">14</span></> },
   { ts: "10:24:19", stgTag: "gn · 4.2", stage: "gn", typing: true, tx: <>写入 <b>财务比率</b> — 资产负债率 <em>52.4%</em> · 流动比 <em>1.38</em> <span className="src">financial_analyzer</span></> },
 ];
+
+// Map SSE stage key → trace stage bucket used by mockup-v2 CSS (s-ev/s-gn/s-au)
+function reportStageBucket(stage?: string): "ev" | "gn" | "au" {
+  if (!stage) return "gn";
+  if (stage === "ingest" || stage === "extract" || stage === "infer") return "ev";
+  if (stage === "write") return "gn";
+  if (stage === "audit") return "au";
+  return "gn";
+}
+
+function fmtNowHMS(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function reportEventToLine(evt: ReportEvent, idx: number): TraceLine | null {
+  const ts = fmtNowHMS();
+  if (evt.event === "stage") {
+    const bucket = reportStageBucket(evt.stage);
+    return {
+      ts,
+      stgTag: `${bucket} · ${String(idx).padStart(2, "0")}`,
+      stage: bucket,
+      tx: (
+        <>
+          ▸ <b>{evt.stage}</b> {evt.message ? <span className="src">{evt.message}</span> : null}
+        </>
+      ),
+    };
+  }
+  if (evt.event === "section") {
+    return {
+      ts,
+      stgTag: `gn · ${String(idx).padStart(2, "0")}`,
+      stage: "gn",
+      tx: (
+        <>
+          写入 <b>{evt.section.title}</b> <span className="src">{evt.section.id}</span>
+        </>
+      ),
+    };
+  }
+  if (evt.event === "profile") {
+    const name = evt.profile.company_name ?? "企业画像";
+    return {
+      ts,
+      stgTag: `ev · ${String(idx).padStart(2, "0")}`,
+      stage: "ev",
+      tx: (
+        <>
+          ✓ <b>{name}</b> 画像载入 <span className="src">SRC agent6</span>
+        </>
+      ),
+    };
+  }
+  if (evt.event === "done") {
+    const stats = evt.payload.stats;
+    return {
+      ts,
+      stgTag: `au · ${String(idx).padStart(2, "0")}`,
+      stage: "au",
+      tx: (
+        <>
+          ✓ <b>自审完成</b>
+          {stats
+            ? (
+              <>
+                {" "}
+                已填 <em>{stats.auto_filled}/{stats.total_fields}</em> · 未填 <em>{stats.unfilled}</em>
+              </>
+            )
+            : null}
+        </>
+      ),
+    };
+  }
+  if (evt.event === "error") {
+    return {
+      ts,
+      stgTag: `au · ${String(idx).padStart(2, "0")}`,
+      stage: "au",
+      tx: (
+        <>
+          ✗ <span className="bad">{evt.message}</span>
+        </>
+      ),
+    };
+  }
+  return null;
+}
 
 const SECTIONS: DocSection[] = [
   {
@@ -196,6 +291,60 @@ const QC_METRICS: QcMetric[] = [
 ];
 
 export default function ReportV2() {
+  const [lines, setLines] = useState<TraceLine[]>(INITIAL_SSE_LINES);
+  const [isMock, setIsMock] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let idx = INITIAL_SSE_LINES.length;
+
+    // Adapt mock fixture JSON → flat ReportEvent[] for withFallback replay.
+    const replay = (j: unknown): ReportEvent[] => {
+      const obj = j as {
+        stages?: Array<{ event: "stage"; stage: string; message?: string }>;
+        sections?: Array<{ event: "section"; section: { id: string; title: string; content: string } }>;
+        done?: { event: "done"; enterprise_profile?: unknown; payload?: unknown };
+      };
+      const events: ReportEvent[] = [];
+      for (const s of obj.stages ?? []) events.push(s as ReportEvent);
+      for (const s of obj.sections ?? []) events.push(s as ReportEvent);
+      if (obj.done) {
+        // Fixture uses `enterprise_profile` at top-level of done — remap into ReportDonePayload.payload.
+        const done = obj.done as Record<string, unknown>;
+        const payload = (done.payload ?? {
+          profile: done.enterprise_profile,
+          sections: (obj.sections ?? []).map((s) => s.section),
+          stats: { total_fields: 460, auto_filled: 428, unfilled: 32 },
+          docx_url: done.report_docx_url,
+        }) as unknown;
+        events.push({ event: "done", payload } as ReportEvent);
+      }
+      return events;
+    };
+
+    (async () => {
+      try {
+        for await (const [evt, source] of withFallback<ReportEvent>(
+          (signal) =>
+            streamReportFill({ preset: "dingsheng_trade", mock: false }, signal),
+          "/mock/report_fill_mock.json",
+          { timeoutMs: 2000, replayEvents: replay, replayIntervalMs: 320 }
+        )) {
+          if (cancelled) return;
+          if (source === "mock") setIsMock(true);
+          const line = reportEventToLine(evt, idx++);
+          if (line) setLines((prev) => [...prev, line]);
+        }
+      } catch {
+        // swallow — visual stays on INITIAL_SSE_LINES seed
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <V2Shell
       agent="report"
@@ -269,8 +418,8 @@ export default function ReportV2() {
         <>
           <SseBlk
             title={<>事件流 <em>— SSE · evidence / grounded / audit</em></>}
-            kBadge="live"
-            lines={SSE_LINES}
+            kBadge={isMock ? "降级 · MOCK" : "live"}
+            lines={lines}
           />
           <DocWrap
             docTitle="信贷申报书 · 苏州睿联电子股份"
