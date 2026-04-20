@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { useCustomerStore } from "@/lib/store";
+import type { ImMessage } from "@/lib/store";
 
 import { useDispatchStore } from "../_store/dispatch-store";
 import { ComposerBar } from "./ComposerBar";
@@ -10,14 +11,17 @@ import { HandoffCard } from "./HandoffCard";
 import { MessageBubble } from "./MessageBubble";
 import { SystemEventCard } from "./SystemEventCard";
 
+const EMPTY_MESSAGES: ImMessage[] = [];
+
 export function MessageStream() {
   const currentId = useDispatchStore((s) => s.currentThreadId);
   const thread = useDispatchStore((s) =>
     s.threads.find((t) => t.id === s.currentThreadId),
   );
-  const messages = useDispatchStore((s) =>
-    s.currentThreadId ? s.messages[s.currentThreadId] ?? [] : [],
+  const rawMessages = useDispatchStore((s) =>
+    s.currentThreadId ? s.messages[s.currentThreadId] : undefined,
   );
+  const messages = rawMessages ?? EMPTY_MESSAGES;
   const customer = useCustomerStore((s) =>
     thread?.customerId ? s.byId(thread.customerId) : undefined,
   );
