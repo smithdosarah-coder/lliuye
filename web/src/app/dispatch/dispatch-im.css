@@ -1,0 +1,493 @@
+/* ================================================================
+   Dispatch IM · Slack 风 3 栏
+   Source: docs/onboarding/platform-dispatch-phase-1.md
+   Tokens: tokens.css (--g0..g7 / --ink / --chalk / --r-md / agent --t-*)
+   配色走 data-theme 主题，禁 Slack 紫 / Teams 蓝
+   ================================================================ */
+
+.v-dispatch-im {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 16px;
+  min-height: calc(100vh - 200px);
+  align-items: stretch;
+}
+
+.dpx-eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+}
+
+/* ═══ LEFT · ThreadList ═══ */
+.dpx-list,
+.dpx-stream,
+.dpx-inspector,
+.dpx-composer {
+  background: linear-gradient(170deg,
+    color-mix(in srgb, var(--chalk) 92%, transparent) 0%,
+    color-mix(in srgb, var(--g0b) 78%, transparent) 100%);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset, 0 18px 40px -28px rgba(15, 26, 18, 0.32);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dpx-list-head,
+.dpx-stream-head,
+.dpx-inspector-head {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--ink-14);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dpx-list-head em {
+  font-family: var(--cjk);
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-65);
+}
+
+.dpx-list-body {
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.dpx-row {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px;
+  border-radius: 12px;
+  transition: background 0.18s, transform 0.18s;
+}
+.dpx-row:hover {
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+}
+.dpx-row.on {
+  background: var(--ink);
+  color: var(--chalk);
+}
+.dpx-row.on .ts,
+.dpx-row.on .dpx-row-sub {
+  color: var(--ch-65);
+}
+
+.dpx-row-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--chalk);
+  background: var(--ink-65);
+}
+.dpx-row-avatar.stage-lead { background: var(--t-channel); }
+.dpx-row-avatar.stage-intake { background: var(--t-channel); }
+.dpx-row-avatar.stage-report { background: var(--t-report); }
+.dpx-row-avatar.stage-credit { background: var(--t-credit); }
+.dpx-row-avatar.stage-alert { background: var(--t-alert); }
+.dpx-row-avatar.stage-monitoring { background: var(--t-compli); }
+.dpx-row-avatar.stage-closed { background: var(--ink-48); }
+
+.dpx-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dpx-row-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.dpx-row-title .nm {
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dpx-row-title .ts {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.dpx-row-sub {
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  color: var(--ink-65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dpx-row-badge {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--chalk);
+  padding: 2px 7px;
+  border-radius: 999px;
+  align-self: center;
+}
+
+/* ═══ MIDDLE · MessageStream ═══ */
+.dpx-stream-head {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.dpx-stream-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dpx-stream-title h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0;
+}
+.dpx-stream-stage {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-65);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dpx-stream-stage::before {
+  content: "—";
+  color: var(--accent);
+}
+
+.dpx-stream-meta {
+  display: flex;
+  gap: 18px;
+}
+.dpx-stream-meta span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+}
+.dpx-stream-meta em {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+}
+.dpx-stream-meta b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.dpx-stream-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dpx-stream.empty {
+  align-items: center;
+  justify-content: center;
+}
+.dpx-empty {
+  text-align: center;
+  color: var(--ink-65);
+  font-family: var(--cjk);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.dpx-empty.inline {
+  padding: 14px;
+}
+.dpx-empty-glyph {
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--ink-28);
+}
+.dpx-empty-hint {
+  font-size: 11.5px;
+  color: var(--ink-48);
+}
+
+/* —— Message bubble —— */
+.dpx-msg {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+}
+.dpx-msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--chalk);
+  background: var(--ink-65);
+}
+.dpx-msg.agent .dpx-msg-avatar {
+  border-radius: 8px;
+}
+.dpx-msg-body {
+  min-width: 0;
+}
+.dpx-msg-meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+.dpx-msg-meta .nm {
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+}
+.dpx-msg-meta .role {
+  font-family: var(--cjk);
+  font-size: 11px;
+  color: var(--ink-48);
+}
+.dpx-msg-meta .ts {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.dpx-msg-text {
+  font-family: var(--cjk);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-80);
+  background: color-mix(in srgb, var(--chalk) 75%, transparent);
+  border: 1px solid var(--ink-08);
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+.dpx-msg.agent .dpx-msg-text {
+  background: color-mix(in srgb, var(--g0b) 75%, transparent);
+}
+
+/* —— System event card —— */
+.dpx-event {
+  border-left: 3px solid var(--ink-48);
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+}
+.dpx-event-tag {
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.dpx-event-body {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-80);
+  line-height: 1.5;
+}
+.dpx-event-time {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+  font-variant-numeric: tabular-nums;
+}
+
+/* —— Handoff card (Task A 占位 · Task C 接 accept/reject) —— */
+.dpx-handoff {
+  border: 1px dashed var(--accent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--chalk) 80%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dpx-handoff header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.dpx-handoff-tag {
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.dpx-handoff header .ts {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+}
+.dpx-handoff-body {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.dpx-handoff-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.dpx-handoff-actions button {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--cjk);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--ink-14);
+  color: var(--ink);
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+}
+.dpx-handoff-actions button.primary {
+  background: var(--accent);
+  color: var(--chalk);
+  border-color: transparent;
+}
+.dpx-handoff-actions button.primary:hover {
+  transform: translateY(-1px);
+}
+.dpx-handoff-actions button.ghost {
+  background: transparent;
+}
+.dpx-handoff-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dpx-handoff.accepted {
+  border-style: solid;
+  border-color: var(--safe);
+}
+.dpx-handoff.rejected {
+  border-color: var(--ink-28);
+  opacity: 0.7;
+}
+
+/* ═══ RIGHT · InspectorPanel ═══ */
+.dpx-inspector-head h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 4px 0 2px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.dpx-inspector-sub {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-65);
+  margin: 0;
+}
+
+.dpx-inspector-meta {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--ink-08);
+}
+.dpx-inspector-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--cjk);
+  font-size: 12.5px;
+}
+.dpx-inspector-row .k {
+  color: var(--ink-48);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.dpx-inspector-row .v {
+  color: var(--ink);
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dpx-inspector-tags {
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dpx-tag {
+  font-family: var(--cjk);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ink-08);
+  color: var(--ink-80);
+}
+
+.dpx-inspector.empty {
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  color: var(--ink-48);
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .v-dispatch-im {
+    grid-template-columns: 240px minmax(0, 1fr) 280px;
+  }
+}
