@@ -1,7 +1,7 @@
 "use client";
 
-import { notFound } from "next/navigation";
-import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useCustomerStore, useEventBus, publishEvent } from "@/lib/store";
 import { CustomerHero } from "./_components/CustomerHero";
 import { AgentTileStrip } from "./_components/AgentTileStrip";
@@ -77,6 +77,13 @@ export function CustomerPageClient({ id }: { id: string }) {
   const customer = useCustomerStore((s) => s.byId(id));
   const focus = useCustomerStore((s) => s.focus);
   const seeded = useRef(false);
+  // SSR 与 zustand persist 首帧可能拿不到 customers（rehydrate 前）；
+  // 只在 client mount 后才允许判 "找不到"，避免直出 404。
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!customer) return;
@@ -103,7 +110,13 @@ export function CustomerPageClient({ id }: { id: string }) {
   }, [customer]);
 
   if (!customer) {
-    notFound();
+    if (!mounted) return <div className="v-customer v-customer-loading" />;
+    return (
+      <div className="v-customer v-customer-empty">
+        <h2>客户 <code>{id}</code> 不存在</h2>
+        <p>可能已被归档或 ID 拼错。回到 <Link href="/today">今日</Link> 从工作台重新选择。</p>
+      </div>
+    );
   }
 
   return (
