@@ -13,9 +13,13 @@
 export function CosmicStage() {
   return (
     <div className="cosmic" aria-hidden>
-      <div className="cosmic__img" />
+      <div className="cosmic__field" />
       <div className="cosmic__stars" />
-      <div className="cosmic__flare" />
+      <div className="cosmic__system">
+        <div className="cosmic__halo" />
+        <div className="cosmic__img" />
+        <div className="cosmic__flare" />
+      </div>
       <div className="cosmic__vignette" />
     </div>
   );

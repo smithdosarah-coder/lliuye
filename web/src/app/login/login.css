@@ -32,29 +32,114 @@
   overflow: hidden;
 }
 
-.cosmic__img {
+/* 深层静态星尘 · 铺底，不旋转；每个 radial-gradient 是一颗固定位置的星，无 tile 拼接 */
+.cosmic__field {
   position: absolute;
-  inset: -4%;
+  inset: 0;
+  pointer-events: none;
+  background-color: #02030a;
+  background-image:
+    radial-gradient(1px 1px at 4% 8%, rgba(255, 255, 255, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 11% 34%, rgba(210, 225, 255, 0.65), transparent 60%),
+    radial-gradient(0.8px 0.8px at 18% 52%, rgba(230, 240, 255, 0.55), transparent 60%),
+    radial-gradient(1.1px 1.1px at 26% 14%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(0.9px 0.9px at 33% 46%, rgba(220, 230, 255, 0.6), transparent 60%),
+    radial-gradient(1px 1px at 42% 8%, rgba(255, 245, 220, 0.7), transparent 60%),
+    radial-gradient(0.8px 0.8px at 48% 70%, rgba(200, 215, 245, 0.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 56% 24%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(0.9px 0.9px at 62% 60%, rgba(210, 225, 255, 0.6), transparent 60%),
+    radial-gradient(1px 1px at 70% 12%, rgba(255, 230, 200, 0.7), transparent 60%),
+    radial-gradient(0.8px 0.8px at 78% 40%, rgba(230, 240, 255, 0.55), transparent 60%),
+    radial-gradient(1.1px 1.1px at 84% 72%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(0.9px 0.9px at 92% 28%, rgba(220, 230, 255, 0.6), transparent 60%),
+    radial-gradient(1px 1px at 96% 56%, rgba(255, 245, 220, 0.65), transparent 60%),
+    radial-gradient(0.8px 0.8px at 6% 88%, rgba(210, 225, 255, 0.55), transparent 60%),
+    radial-gradient(1.2px 1.2px at 24% 92%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(0.9px 0.9px at 44% 94%, rgba(200, 215, 245, 0.6), transparent 60%),
+    radial-gradient(1px 1px at 66% 86%, rgba(255, 230, 200, 0.65), transparent 60%),
+    radial-gradient(0.8px 0.8px at 88% 96%, rgba(220, 230, 255, 0.55), transparent 60%);
+  background-repeat: no-repeat;
+  opacity: 0.88;
+}
+
+/* 旋转系统：行星 + 光晕 + 光斑 一起绕中心极慢旋转（240s / 圈）
+   因为环和行星共心，视觉读作"环在绕转 + 行星表面在漂移" */
+.cosmic__system {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: 50% 50%;
+  animation: cosmicRotate 240s linear infinite;
+  will-change: transform;
+}
+
+/* 行星 + 星环整体贴图 · 占舞台 62%（短边），居中 contain
+   用 radial mask 让贴图边缘柔化溶入星空，消除方形硬边 */
+.cosmic__img {
+  position: relative;
+  width: 62%;
+  aspect-ratio: 1 / 1;
   background:
-    #02030a
-    url("/login/cosmic.png") center center / cover no-repeat;
-  filter: brightness(0.96) saturate(1.05);
-  animation: cosmicDrift 38s ease-in-out infinite alternate;
+    url("/login/cosmic.png") center center / contain no-repeat;
+  filter: brightness(1) saturate(1.08);
+  -webkit-mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
+  mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
+  animation: cosmicBreath 22s ease-in-out infinite alternate;
   will-change: transform, filter;
 }
 
+/* 行星背后的暖色 halo · 让星体更"发光"，椭圆形匹配星环展开方向 */
+.cosmic__halo {
+  position: absolute;
+  width: 78%;
+  aspect-ratio: 1 / 1;
+  background:
+    radial-gradient(ellipse 56% 34% at 50% 50%,
+      rgba(255, 180, 100, 0.32) 0%,
+      rgba(230, 130, 70, 0.18) 22%,
+      rgba(120, 60, 30, 0.08) 48%,
+      transparent 72%);
+  filter: blur(28px);
+  mix-blend-mode: screen;
+  animation: haloPulse 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 镜头光斑 · 跟随系统一起转，永远黏在星环右下 */
+.cosmic__flare {
+  position: absolute;
+  width: 22%;
+  aspect-ratio: 1 / 1;
+  top: 56%;
+  left: 62%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 235, 180, 0.38) 0%,
+      rgba(255, 160, 70, 0.15) 28%,
+      transparent 62%);
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  animation: flarePulse 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 前景星尘 twinkle 层 · 不旋转，覆盖在贴图上方制造"真实星空"感 */
 .cosmic__stars {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.9), transparent 60%),
-    radial-gradient(1px 1px at 28% 62%, rgba(200, 220, 255, 0.8), transparent 60%),
-    radial-gradient(2px 2px at 46% 12%, rgba(255, 230, 210, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 82% 78%, rgba(220, 200, 255, 0.75), transparent 60%),
-    radial-gradient(1px 1px at 66% 36%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1.5px 1.5px at 18% 82%, rgba(210, 225, 255, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 90% 22%, rgba(255, 245, 215, 0.75), transparent 60%),
-    radial-gradient(1px 1px at 72% 68%, rgba(230, 215, 255, 0.7), transparent 60%);
+    radial-gradient(1.5px 1.5px at 8% 14%, rgba(255, 255, 255, 0.95), transparent 60%),
+    radial-gradient(1px 1px at 22% 58%, rgba(200, 220, 255, 0.8), transparent 60%),
+    radial-gradient(2px 2px at 44% 10%, rgba(255, 230, 210, 0.9), transparent 60%),
+    radial-gradient(1px 1px at 86% 76%, rgba(220, 200, 255, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 64% 32%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 16% 84%, rgba(210, 225, 255, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 92% 20%, rgba(255, 245, 215, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 76% 66%, rgba(230, 215, 255, 0.75), transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 42%, rgba(255, 255, 255, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 50% 92%, rgba(220, 235, 255, 0.7), transparent 60%);
   animation: twinkle 5.5s ease-in-out infinite;
   mix-blend-mode: screen;
   pointer-events: none;
@@ -65,31 +150,16 @@
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(1px 1px at 38% 44%, rgba(255, 255, 255, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 8% 54%, rgba(180, 210, 255, 0.7), transparent 60%),
-    radial-gradient(1.5px 1.5px at 56% 88%, rgba(255, 220, 200, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 76% 10%, rgba(220, 230, 255, 0.75), transparent 60%),
-    radial-gradient(1px 1px at 32% 28%, rgba(255, 255, 255, 0.7), transparent 60%);
+    radial-gradient(1px 1px at 34% 40%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1px 1px at 4% 62%, rgba(180, 210, 255, 0.75), transparent 60%),
+    radial-gradient(1.5px 1.5px at 58% 90%, rgba(255, 220, 200, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 80% 6%, rgba(220, 230, 255, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 28% 26%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(1.2px 1.2px at 96% 48%, rgba(255, 240, 210, 0.75), transparent 60%),
+    radial-gradient(1px 1px at 12% 70%, rgba(210, 225, 255, 0.7), transparent 60%),
+    radial-gradient(1px 1px at 68% 82%, rgba(255, 255, 255, 0.7), transparent 60%);
   animation: twinkle 7.8s ease-in-out infinite 1.2s;
   mix-blend-mode: screen;
-}
-
-.cosmic__flare {
-  position: absolute;
-  top: 62%;
-  left: 68%;
-  width: 280px;
-  height: 280px;
-  transform: translate(-50%, -50%);
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(255, 230, 170, 0.35) 0%,
-      rgba(255, 160, 70, 0.14) 26%,
-      transparent 60%);
-  filter: blur(8px);
-  mix-blend-mode: screen;
-  animation: flarePulse 4.8s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .cosmic__vignette {
@@ -97,14 +167,24 @@
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(130% 95% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.55) 100%),
+    radial-gradient(130% 95% at 50% 50%, transparent 58%, rgba(2, 3, 10, 0.55) 100%),
     linear-gradient(90deg, transparent 70%, rgba(2, 3, 10, 0.6) 100%);
 }
 
-@keyframes cosmicDrift {
-  0%   { transform: translate(0, 0) scale(1);           filter: brightness(0.94) saturate(1.05); }
-  50%  { transform: translate(-1%, 0.6%) scale(1.025);  filter: brightness(1.02) saturate(1.1); }
-  100% { transform: translate(0.8%, -0.7%) scale(1.04); filter: brightness(0.98) saturate(1.06); }
+@keyframes cosmicRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes cosmicBreath {
+  0%   { transform: scale(1);      filter: brightness(0.96) saturate(1.04) drop-shadow(0 0 38px rgba(255, 150, 80, 0.13)); }
+  50%  { transform: scale(1.015);  filter: brightness(1.02) saturate(1.1)  drop-shadow(0 0 48px rgba(255, 150, 80, 0.2)); }
+  100% { transform: scale(1.028);  filter: brightness(0.99) saturate(1.06) drop-shadow(0 0 42px rgba(255, 150, 80, 0.15)); }
+}
+
+@keyframes haloPulse {
+  0%, 100% { opacity: 0.75; transform: scale(0.97); }
+  50%      { opacity: 1;    transform: scale(1.04); }
 }
 
 @keyframes twinkle {
@@ -113,8 +193,8 @@
 }
 
 @keyframes flarePulse {
-  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.94); }
-  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.08); }
+  0%, 100% { opacity: 0.75; transform: scale(0.92); }
+  50%      { opacity: 1;    transform: scale(1.08); }
 }
 
 /* ═══ 右侧 glass 登录卡 ════════════════════════════════════════════ */
