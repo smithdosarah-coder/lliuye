@@ -9,6 +9,10 @@ export const metadata = {
 export default function LoginPage() {
   return (
     <div className="login-root">
+      <div className="login-sky" aria-hidden>
+        <div className="login-sky__field" />
+        <div className="login-sky__stars" />
+      </div>
       <section className="login-stage" aria-hidden>
         <CosmicStage />
       </section>

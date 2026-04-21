@@ -19,11 +19,20 @@
   isolation: isolate;
 }
 
-/* ═══ 左侧 cosmic stage ═══════════════════════════════════════════ */
+/* ═══ 跨栏星空层 · 左右两栏通吃的底图 ══════════════════════════════ */
+.login-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .login-stage {
   position: relative;
+  z-index: 1;
   overflow: hidden;
-  background: #02030a;
+  background: transparent;
 }
 
 .cosmic {
@@ -32,8 +41,8 @@
   overflow: hidden;
 }
 
-/* 深层静态星尘 · 铺底，不旋转；每个 radial-gradient 是一颗固定位置的星，无 tile 拼接 */
-.cosmic__field {
+/* 深层静态星尘 · 跨栏铺底；每个 radial-gradient 是一颗固定位置的星，无 tile 拼接 */
+.login-sky__field {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -62,32 +71,68 @@
   opacity: 0.88;
 }
 
-/* 旋转系统：行星 + 光晕 + 光斑 一起绕中心极慢旋转（240s / 圈）
-   因为环和行星共心，视觉读作"环在绕转 + 行星表面在漂移" */
+/* 星系容器 · 不旋转，只是作 flex 居中的锚 */
 .cosmic__system {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transform-origin: 50% 50%;
-  animation: cosmicRotate 240s linear infinite;
-  will-change: transform;
 }
 
-/* 行星 + 星环整体贴图 · 占舞台 62%（短边），居中 contain
-   用 radial mask 让贴图边缘柔化溶入星空，消除方形硬边 */
+/* 星系盒子 · 承载行星贴图 + SVG 环流 + 行星自转层。贴图放到 ::before 上避免 mask 殃及 SVG */
 .cosmic__img {
   position: relative;
   width: 62%;
   aspect-ratio: 1 / 1;
-  background:
-    url("/login/cosmic.png") center center / contain no-repeat;
+}
+.cosmic__img::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/login/cosmic.png") center center / contain no-repeat;
   filter: brightness(1) saturate(1.08);
   -webkit-mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
   mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
   animation: cosmicBreath 22s ease-in-out infinite alternate;
   will-change: transform, filter;
+}
+
+/* SVG 星环粒子层 · 沿椭圆路径流动；mix-blend:screen 叠加发光 */
+.cosmic__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* 行星自转伪装 · 一条漂移的亮带在行星盘面内横扫，制造"地表随自转带出视野"的错觉 */
+.cosmic__planet-spin {
+  position: absolute;
+  top: 30%;
+  left: 30%;
+  width: 40%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  mix-blend-mode: screen;
+  opacity: 0.28;
+  pointer-events: none;
+}
+.cosmic__planet-spin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    102deg,
+    transparent 28%,
+    rgba(255, 215, 160, 0.55) 48%,
+    rgba(255, 180, 120, 0.35) 56%,
+    transparent 74%
+  );
+  animation: planetSpin 38s linear infinite;
 }
 
 /* 行星背后的暖色 halo · 让星体更"发光"，椭圆形匹配星环展开方向 */
@@ -107,26 +152,8 @@
   pointer-events: none;
 }
 
-/* 镜头光斑 · 跟随系统一起转，永远黏在星环右下 */
-.cosmic__flare {
-  position: absolute;
-  width: 22%;
-  aspect-ratio: 1 / 1;
-  top: 56%;
-  left: 62%;
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(255, 235, 180, 0.38) 0%,
-      rgba(255, 160, 70, 0.15) 28%,
-      transparent 62%);
-  filter: blur(10px);
-  mix-blend-mode: screen;
-  animation: flarePulse 4.8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* 前景星尘 twinkle 层 · 不旋转，覆盖在贴图上方制造"真实星空"感 */
-.cosmic__stars {
+/* 前景星尘 twinkle 层 · 根级跨栏，覆盖整个 .login-root */
+.login-sky__stars {
   position: absolute;
   inset: 0;
   background-image:
@@ -145,7 +172,7 @@
   pointer-events: none;
 }
 
-.cosmic__stars::after {
+.login-sky__stars::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -171,9 +198,9 @@
     linear-gradient(90deg, transparent 70%, rgba(2, 3, 10, 0.6) 100%);
 }
 
-@keyframes cosmicRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+@keyframes planetSpin {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
 }
 
 @keyframes cosmicBreath {
@@ -192,12 +219,7 @@
   50%      { opacity: 1; }
 }
 
-@keyframes flarePulse {
-  0%, 100% { opacity: 0.75; transform: scale(0.92); }
-  50%      { opacity: 1;    transform: scale(1.08); }
-}
-
-/* ═══ 右侧 glass 登录卡 ════════════════════════════════════════════ */
+/* ═══ 右侧容器 · 透明壳，让星空穿过整屏 ════════════════════════════ */
 .login-aside {
   position: relative;
   z-index: 2;
@@ -205,32 +227,39 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    linear-gradient(180deg,
-      rgba(8, 12, 24, 0.55) 0%,
-      rgba(6, 9, 18, 0.7) 100%);
-  backdrop-filter: blur(14px) saturate(1.15);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
-  border-left: 1px solid rgba(120, 155, 210, 0.14);
+  background: transparent;
 }
 
-.login-aside::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(80% 40% at 100% 0%, rgba(106, 180, 255, 0.08), transparent 60%),
-    radial-gradient(60% 40% at 0% 100%, rgba(180, 120, 220, 0.05), transparent 65%);
-}
-
-/* ═══ Form ════════════════════════════════════════════════════════ */
+/* ═══ Form · 玻璃卡片 · 自身一层 blur 让文字可读，星空在卡片边缘可见 ═ */
 .login-form {
   position: relative;
   width: min(380px, 100%);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding: clamp(28px, 3vh, 40px) clamp(26px, 2.4vw, 36px);
+  background:
+    linear-gradient(180deg,
+      rgba(8, 12, 24, 0.62) 0%,
+      rgba(6, 9, 18, 0.78) 100%);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  border: 1px solid rgba(120, 155, 210, 0.18);
+  border-radius: 20px;
+  box-shadow:
+    0 30px 80px -30px rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+.login-form::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(80% 40% at 100% 0%, rgba(106, 180, 255, 0.1), transparent 60%),
+    radial-gradient(60% 40% at 0% 100%, rgba(180, 120, 220, 0.06), transparent 65%);
 }
 
 .lf-head {
@@ -524,8 +553,6 @@
     min-height: 100vh;
   }
   .login-aside {
-    border-left: none;
-    border-top: 1px solid rgba(120, 155, 210, 0.14);
     padding: 32px 24px;
   }
   .login-stage__vignette {
