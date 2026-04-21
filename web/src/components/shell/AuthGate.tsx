@@ -13,6 +13,7 @@ import { useAuthStore } from "@/lib/store";
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
   const currentUser = useAuthStore((s) => s.currentUser);
+  const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
 
@@ -29,13 +30,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     if (currentUser && isLogin) {
-      router.replace("/today");
+      logout();
     }
-  }, [hydrated, currentUser, isLogin, router]);
+  }, [hydrated, currentUser, isLogin, router, logout]);
 
   if (!hydrated) return null;
   if (!currentUser && !isLogin) return null;
-  if (currentUser && isLogin) return null;
 
   return <>{children}</>;
 }

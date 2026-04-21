@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { DEMO_USERS, useAuthStore } from "@/lib/store";
@@ -22,14 +22,9 @@ const ROLE_LABEL: Record<Role, string> = {
  */
 export function LoginForm() {
   const login = useAuthStore((s) => s.login);
-  const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
   const [userId, setUserId] = useState<string>(DEMO_USERS[0].id);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    logout();
-  }, [logout]);
 
   const current = DEMO_USERS.find((u) => u.id === userId);
 
