@@ -1,4 +1,4 @@
-import { EarthSceneClient } from "./_components/EarthSceneClient";
+import { CosmicStage } from "./_components/CosmicStage";
 import { LoginForm } from "./_components/LoginForm";
 import "./login.css";
 
@@ -10,8 +10,7 @@ export default function LoginPage() {
   return (
     <div className="login-root">
       <section className="login-stage" aria-hidden>
-        <EarthSceneClient />
-        <div className="login-stage__vignette" />
+        <CosmicStage />
       </section>
       <aside className="login-aside">
         <LoginForm />

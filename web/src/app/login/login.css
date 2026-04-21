@@ -19,42 +19,102 @@
   isolation: isolate;
 }
 
-/* ═══ 左侧 3D stage ═══════════════════════════════════════════════ */
+/* ═══ 左侧 cosmic stage ═══════════════════════════════════════════ */
 .login-stage {
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(60% 50% at 35% 40%, rgba(30, 60, 120, 0.22) 0%, transparent 70%),
-    radial-gradient(55% 45% at 72% 70%, rgba(90, 50, 140, 0.14) 0%, transparent 75%),
-    #03040b;
+  background: #02030a;
 }
 
-.login-stage canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.login-stage__fallback {
+.cosmic {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(40% 35% at 50% 50%, rgba(106, 180, 255, 0.2), transparent 70%);
-  animation: stageBreath 3.2s ease-in-out infinite;
+  overflow: hidden;
 }
 
-.login-stage__vignette {
+.cosmic__img {
+  position: absolute;
+  inset: -4%;
+  background:
+    #02030a
+    url("/login/cosmic.png") center center / cover no-repeat;
+  filter: brightness(0.96) saturate(1.05);
+  animation: cosmicDrift 38s ease-in-out infinite alternate;
+  will-change: transform, filter;
+}
+
+.cosmic__stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1px 1px at 28% 62%, rgba(200, 220, 255, 0.8), transparent 60%),
+    radial-gradient(2px 2px at 46% 12%, rgba(255, 230, 210, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 82% 78%, rgba(220, 200, 255, 0.75), transparent 60%),
+    radial-gradient(1px 1px at 66% 36%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 18% 82%, rgba(210, 225, 255, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 90% 22%, rgba(255, 245, 215, 0.75), transparent 60%),
+    radial-gradient(1px 1px at 72% 68%, rgba(230, 215, 255, 0.7), transparent 60%);
+  animation: twinkle 5.5s ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.cosmic__stars::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 38% 44%, rgba(255, 255, 255, 0.85), transparent 60%),
+    radial-gradient(1px 1px at 8% 54%, rgba(180, 210, 255, 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 56% 88%, rgba(255, 220, 200, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 76% 10%, rgba(220, 230, 255, 0.75), transparent 60%),
+    radial-gradient(1px 1px at 32% 28%, rgba(255, 255, 255, 0.7), transparent 60%);
+  animation: twinkle 7.8s ease-in-out infinite 1.2s;
+  mix-blend-mode: screen;
+}
+
+.cosmic__flare {
+  position: absolute;
+  top: 62%;
+  left: 68%;
+  width: 280px;
+  height: 280px;
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 230, 170, 0.35) 0%,
+      rgba(255, 160, 70, 0.14) 26%,
+      transparent 60%);
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  animation: flarePulse 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.cosmic__vignette {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.55) 100%),
-    linear-gradient(90deg, transparent 70%, rgba(2, 3, 10, 0.55) 100%);
+    radial-gradient(130% 95% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.55) 100%),
+    linear-gradient(90deg, transparent 70%, rgba(2, 3, 10, 0.6) 100%);
 }
 
-@keyframes stageBreath {
-  0%, 100% { opacity: 0.5; }
-  50%      { opacity: 0.9; }
+@keyframes cosmicDrift {
+  0%   { transform: translate(0, 0) scale(1);           filter: brightness(0.94) saturate(1.05); }
+  50%  { transform: translate(-1%, 0.6%) scale(1.025);  filter: brightness(1.02) saturate(1.1); }
+  100% { transform: translate(0.8%, -0.7%) scale(1.04); filter: brightness(0.98) saturate(1.06); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+@keyframes flarePulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.94); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.08); }
 }
 
 /* ═══ 右侧 glass 登录卡 ════════════════════════════════════════════ */
