@@ -80,14 +80,15 @@
   justify-content: center;
 }
 
-/* 星系盒子 · 承载行星贴图 + SVG 环流 + 行星自转层。贴图放到 ::before 上避免 mask 殃及 SVG */
+/* 星系盒子 · 承载 backdrop + SVG 环流 + 行星前景 + 自转层 */
 .cosmic__img {
   position: relative;
   width: 62%;
   aspect-ratio: 1 / 1;
 }
-.cosmic__img::before {
-  content: "";
+
+/* 底层：cosmic.png 全图（星云+星环基底） · 边缘 radial mask 溶入星空 */
+.cosmic__backdrop {
   position: absolute;
   inset: 0;
   background: url("/login/cosmic.png") center center / contain no-repeat;
@@ -96,9 +97,19 @@
   mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
   animation: cosmicBreath 22s ease-in-out infinite alternate;
   will-change: transform, filter;
+  pointer-events: none;
 }
 
-/* SVG 星环粒子层 · 沿椭圆路径流动；mix-blend:screen 叠加发光 */
+/* 前景行星盘面 · scripts/extract_planet_disk.py 从 cosmic.png 抠出的透明 PNG
+   叠在背面粒子之上以制造"被行星挡住"的遮挡；保持和 backdrop 一致的 contain 定位 */
+.cosmic__planet {
+  position: absolute;
+  inset: 0;
+  background: url("/login/planet-disk.png") center center / contain no-repeat;
+  pointer-events: none;
+}
+
+/* SVG 粒子层 · 背面与正面两层夹住行星 */
 .cosmic__ring {
   position: absolute;
   inset: 0;
@@ -108,17 +119,19 @@
   pointer-events: none;
 }
 
-/* 行星自转伪装 · 一条漂移的亮带在行星盘面内横扫，制造"地表随自转带出视野"的错觉 */
+/* 行星自转伪装 · 一条漂移亮带在行星盘面内横扫
+   cosmic.png 910x811 contain 居中：图实际填 89.1% 高度，上下各留 5.45% 空
+   行星中心在图内 (46.2%, 51.4%) → 容器坐标 (46.2%, 51.25%)；半径 19.1% 容器宽 */
 .cosmic__planet-spin {
   position: absolute;
-  top: 30%;
-  left: 30%;
-  width: 40%;
+  top: 32%;
+  left: 27%;
+  width: 38%;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   overflow: hidden;
   mix-blend-mode: screen;
-  opacity: 0.28;
+  opacity: 0.32;
   pointer-events: none;
 }
 .cosmic__planet-spin::before {
