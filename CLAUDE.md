@@ -6,7 +6,7 @@
 
 ## 2. 启动方式
 
-- **后端**：`py /tmp/start_uvicorn.py`（带 TAVILY / DEEPSEEK / PROXY 环境变量的 Python wrapper；直接 `python api_server.py` 会缺 key）
+- **后端**：`py scripts/start_uvicorn.py`（自动从项目根 `.env` 加载 TAVILY / DEEPSEEK / PROXY 等 env，校验缺失 key 后调 uvicorn；首次部署 `cp .env.example .env` 填值即可。直接 `python api_server.py` 会缺 key）
 - **前端**：`cd web && npm run dev`（Next.js 16，路由拓扑见 §7 canon vs legacy）
 - **Agent6 主管线（v16）**：`py v16_pipeline.py --source samples/<模板>.docx --material samples`（classifier → generator → QC gate 全链路 · 项目根 10 个 `v16_*.py` 实现 · 见 `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md`）
 - **旧版 Gradio 报告助手**：`python app.py`（Gradio v9.0 + 引擎 v7.5 单机版 · 不走 API · 与 v16 管线并存，逐步淘汰中）
