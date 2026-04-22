@@ -136,14 +136,14 @@ def _profile_from_report_json(report_json: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# CreditDecisionAgent v2.0
+# CreditDecisionAgent v3.1
 # ---------------------------------------------------------------------------
 
 class CreditDecisionAgent(BaseAgent):
-    """授信决策辅助 v2.0 — 消费 ReportJSON → DecisionAdvice → 回写 Agent6 docx"""
+    """授信决策辅助 v3.1 — 消费 ReportJSON → DecisionAdvice → 回写 Agent6 docx"""
 
     agent_name = "credit_decision"
-    agent_title = "授信决策辅助 v2.0"
+    agent_title = "授信决策辅助 v3.1"
 
     def __init__(self, api_key: str = "", model_provider: str = "deepseek",
                  base_url: str = "", model_name: str = "",
