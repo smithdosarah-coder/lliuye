@@ -19,7 +19,10 @@
 
 - **确定性计算**：财务比率、清算规则、红线阈值、同比环比、账龄周转 → 用 Python / 规则引擎，禁止让 LLM 现场算
 - **概率性计算**：行业分析、风险意见、匹配推荐、话术生成、政策解读 → 用 LLM + 证据链
-- **硬隔离手段**：`truth_fill.py` 做结构化预填，`financial_analyzer.py` 做指标计算，`quality_scorer.py` 做评分——LLM 只消费这些模块的 `format_for_prompt()` 输出
+- **硬隔离手段**：
+  - **预填层**：`truth_fill.py` 做结构化字段/复选框预填（入口 `prefill_labeled_fields_from_kb`），LLM 只补预填留白处
+  - **prompt 注入层**：LLM 只消费三件套的 `format_for_prompt()` 输出 —— `financial_analyzer.py`（确定性财务指标 + 趋势短语）/ `industry_benchmark.py`（行业基准卡）/ `material_anchor.py`（材料锚定 + 行业政策卡），见 `section_generator.py` 三阶段调用
+  - **QC 终审层**：`quality_scorer.py` 做 9 维度评分（QC 闸门，结果不进 prompt，只判通过/阻断）
 
 **反模式**：把 xlsx 甩给 LLM 现场算比率、让 LLM 判定红线是否触发、用 prompt 硬编黑名单规避幻觉。这些在多轮迭代里被证明是循环打补丁。
 
