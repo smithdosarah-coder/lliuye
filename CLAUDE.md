@@ -139,7 +139,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `app.py` — 旧版 Gradio 报告助手 v7.23（Agent6 单机版）
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
-- `shared/sources/impls/` — 5 个源实现（Tavily/akshare/gov_cn/pbc_gov/flk_npc）
+- `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
