@@ -19,8 +19,8 @@
   - CORS middleware（demo.liuye.me / cloudflared / ngrok 隧道）
 
 Run:
-  py /tmp/start_uvicorn.py     # 带 env 的 wrapper
-  uvicorn api_server:app --port 8000
+  py scripts/start_uvicorn.py     # 带 .env 自动加载 + key 校验的 wrapper(推荐)
+  uvicorn api_server:app --port 8000     # 裸跑(env 需提前手动 export)
 """
 from __future__ import annotations
 
