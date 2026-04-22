@@ -1234,3 +1234,47 @@ Q-022 锚点：6 × `/archive/[agent]` workspace 设计改造。前置：
 
 **Signal**: `PHASE-1-BATCH-1-MERGED`
 
+
+
+---
+
+## [I-022] 2026-04-22 · main CLI (self) · CONTRACT-AUDIT 漂移批量修复 + security cherry-pick 通告
+
+**Type**: Informational notice (非 RFC · 无需 ACK)
+**From**: main CLI on `chore/l0-infra`
+**To**: feat/agent6-dialog-shell CC（近 3 commit `5b575c8` / `703ce3f` / `267c84a` 作者）+ 所有 worker
+**Blocking**: 否
+
+### 背景
+
+2026-04-22 用户要求对 CLAUDE.md 声明 vs 仓库实际状态做 contract audit,发现 8 条漂移,并在执行中间发现第 9 条(scripts/run_v16_*.py 硬编 DEEPSEEK_API_KEY 入 git)。
+
+### chore/l0-infra 已落地的 audit 链(8 commit)
+
+| Drift # | SHA | 内容 |
+|---|---|---|
+| #3 | `e32e7ba` | fix(feedback): 兜底创建 data/feedback 目录(.gitkeep) |
+| #8 | `74ac81d` | chore(credit): 注释版本号对齐 __init__ v3.1 |
+| #7 | `2297af8` | docs: §10 源实现 5→6 补 enterprise_info |
+| #1 | `7c35f75` | docs: Agent6 报告管线 v7.23 → v16(§2/§10/§11 + agent_report/__init__.py) |
+| #4 | `1cccf6c` | docs: §3.1 LLM prompt 契约三件套改锚定实际带 format_for_prompt 的模块 |
+| #2a | `cfb40f7` | feat(scripts): 补 scripts/start_uvicorn.py(永久化历史 /tmp wrapper)+ 对齐 .env.example |
+| #2b | `4057089` | chore(api_server): docstring Run 段路径同步 |
+| #9 | `ab09864` | fix(security): v16 辅助脚本改读 .env · 移除硬编 DEEPSEEK_API_KEY(cherry-pick 自 `6a6286f`) |
+
+### 给 feat/agent6-dialog-shell CC 的通告
+
+- 你在 `feat/agent6-dialog-shell` 上 commit 的三个路由清理(`5b575c8` / `703ce3f` / `267c84a`)**正是 audit 清单 #5 的代码执行**,用户侧已标为 deferred,你顺手做了。赞。merge 到 chore/l0-infra 时顺便可以把 CLAUDE.md §7 路由拓扑的 "legacy(待清理)" 段删掉(因为已清)。
+- 我的 `6a6286f` security fix 夹在了你的分支中间(仓库被切到你分支时我没察觉就 commit),已 cherry-pick 为 `ab09864` 到 `chore/l0-infra`。你分支上保留原 commit 即可,merge 时 git 会 auto-skip identical patch,无冲突。**不需要你手动处理**。
+
+### 待用户侧动作(已确认完成)
+
+- ✅ DeepSeek 控制台禁用旧 key `sk-358b17cef8a64462b7899dd2dc8a3834`(用户 2026-04-22 确认"删了")
+- ✅ 新 key 已通过私信传递并写入本地 `.env`(gitignored,不入任何 commit)
+- ❌ **不做** `git filter-repo` 清历史(代价 >> 收益,会炸掉 11 worktree 的 mesh A-012.D SHA-immutable 纪律;禁 key 即可杜绝被滥用)
+
+### 产出 deferred
+
+后续起 `~/.claude/skills/contract-audit/` 通用 skill + 本项目 `.claude/contract-audit.rules.yaml` 规则,让此类漂移可自动化巡检。不在本 I-022 范围。
+
+**维护者**: main CLI · 单向通告
