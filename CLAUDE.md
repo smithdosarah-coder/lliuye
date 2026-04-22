@@ -7,8 +7,9 @@
 ## 2. 启动方式
 
 - **后端**：`py /tmp/start_uvicorn.py`（带 TAVILY / DEEPSEEK / PROXY 环境变量的 Python wrapper；直接 `python api_server.py` 会缺 key）
-- **前端**：`cd web && npm run dev`（Next.js 16，6 路由）
-- **旧版 Gradio 报告助手**：`python app.py`（Agent6 v7.23 单机版，不走 API）
+- **前端**：`cd web && npm run dev`（Next.js 16，路由拓扑见 §7 canon vs legacy）
+- **Agent6 主管线（v16）**：`py v16_pipeline.py --source samples/<模板>.docx --material samples`（classifier → generator → QC gate 全链路 · 项目根 10 个 `v16_*.py` 实现 · 见 `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md`）
+- **旧版 Gradio 报告助手**：`python app.py`（Gradio v9.0 + 引擎 v7.5 单机版 · 不走 API · 与 v16 管线并存，逐步淘汰中）
 
 ## 3. 架构原则
 
@@ -136,7 +137,9 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `material_kb.py` — 材料解析与 KB 构建
 - `evaluation/` — 评估配置（每 Agent 一份 YAML）
 - `data/feedback/` — 动态经验沉淀（审贷员修改 JSONL）
-- `app.py` — 旧版 Gradio 报告助手 v7.23（Agent6 单机版）
+- `app.py` — 旧版 Gradio 报告助手（Gradio v9.0 + 引擎 `agent.py` v7.5 · Agent6 单机版 · 与 v16 管线并存逐步淘汰）
+- `v16_pipeline.py` / `v16_generator.py` / `v16_classifier.py` + 其他 7 个 `v16_*.py` — **Agent6 主管线 v16**（classifier → generator → QC gate · CLI 入口 `py v16_pipeline.py`）
+- `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md` / `20260418-evaluation-runner.md` — v16 LLM 抽象层 + evaluation runner 两份 RFC
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
@@ -149,7 +152,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - Agent3 授信 v3.1（对公 / 普惠 / 对私三板块）
 - Agent4 预警 v3.1（知识库驱动批量扫描）
 - Agent5 合规 v3.1（政策事件驱动）
-- Agent6 报告 v7.23（460 项填写，32 项标未填；覆盖 93.5%）
+- Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 并存逐步淘汰）
 - Agent2 风控 v3.1（DSL + 回测）
 
 ## 12. 开发约束

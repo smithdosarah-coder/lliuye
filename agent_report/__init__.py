@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Agent6 · 报告生成 · v7.23
+Agent6 · 报告生成 · API wrapper 层（unreleased · API wrapper over v16 pipeline）
+
+主管线在项目根的 v16_pipeline.py + v16_generator.py + v16_classifier.py 等 10 个
+v16_*.py 模块。本包是其 FastAPI 化外壳,通过 api.py 暴露 SSE 端点供前端消费。
 
 定位（不可跨界）：
   文书自动化。输入企业材料 + 模板 → 输出 ReportJSON + Word（面向审批委员会）。
@@ -27,4 +30,4 @@ Agent6 · 报告生成 · v7.23
   - 填不了的字段必须标「未能自动填写」，绝不编
 """
 
-__version__ = "7.23.0"
+__version__ = "0.0.0-unreleased+v16-wrapper"  # 真实版本见根 v16_pipeline.py 主管线
