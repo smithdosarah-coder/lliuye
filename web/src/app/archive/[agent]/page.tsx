@@ -1,13 +1,18 @@
+import "../report/report-workspace.css";
+import "../channel/channel-workspace.css";
+import "../riskctrl/riskctrl-workspace.css";
+import "../credit/credit-workspace.css";
+import "../alert/alert-workspace.css";
+import "../compliance/compliance-workspace.css";
 import { notFound } from "next/navigation";
 import type { ComponentType } from "react";
-import { AGENTS, type AgentKey } from "@/lib/agents";
-import ReportWorkspace from "@/components/workspace/ReportWorkspace";
-import ChannelWorkspace from "@/components/workspace/ChannelWorkspace";
-import CreditWorkspace from "@/components/workspace/CreditWorkspace";
-import RiskctrlWorkspace from "@/components/workspace/RiskctrlWorkspace";
-import AlertWorkspace from "@/components/workspace/AlertWorkspace";
-import ComplianceWorkspace from "@/components/workspace/ComplianceWorkspace";
-import { ArchiveAgentShell } from "./ArchiveAgentShell";
+import type { AgentKey } from "@/lib/agents";
+import { ReportWorkspace as ReportCanon } from "../report/_components/ReportWorkspace";
+import ChannelCanon from "../channel/_components/ChannelWorkspace";
+import RiskctrlCanon from "../riskctrl/_components/RiskctrlWorkspace";
+import CreditCanon from "../credit/_components/CreditWorkspace";
+import AlertCanon from "../alert/_components/AlertWorkspace";
+import ComplianceCanon from "../compliance/_components/ComplianceWorkspace";
 import { RbacGuard } from "./RbacGuard";
 
 export const metadata = {
@@ -17,12 +22,12 @@ export const metadata = {
 const VALID: AgentKey[] = ["report", "channel", "credit", "riskctrl", "alert", "compliance"];
 
 const WORKSPACES: Record<AgentKey, ComponentType> = {
-  report: ReportWorkspace,
-  channel: ChannelWorkspace,
-  credit: CreditWorkspace,
-  riskctrl: RiskctrlWorkspace,
-  alert: AlertWorkspace,
-  compliance: ComplianceWorkspace,
+  report: ReportCanon,
+  channel: ChannelCanon,
+  riskctrl: RiskctrlCanon,
+  credit: CreditCanon,
+  alert: AlertCanon,
+  compliance: ComplianceCanon,
 };
 
 export default async function AgentWorkspace({
@@ -37,22 +42,14 @@ export default async function AgentWorkspace({
     console.warn("[archive] unknown agent:", JSON.stringify(agent), "valid:", VALID);
     notFound();
   }
-  const def = AGENTS.find((a) => a.key === key)!;
 
   return (
     <div
-      className="v-archive ws-v2-skin px-8 py-8 max-w-[1400px] mx-auto"
+      className="v-archive v-archive--canon px-6 py-6 max-w-[1720px] mx-auto"
       data-agent={key}
     >
       <RbacGuard agent={key}>
-        <ArchiveAgentShell
-          code={def.code}
-          eyebrowLabel={def.eyebrowLabel}
-          title={def.title}
-          description={def.description}
-        >
-          <Workspace />
-        </ArchiveAgentShell>
+        <Workspace />
       </RbacGuard>
     </div>
   );
