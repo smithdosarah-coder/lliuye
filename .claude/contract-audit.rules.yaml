@@ -1,0 +1,222 @@
+# 信贷 AI 智能体矩阵 · contract-audit 规则
+# 对应 skill: ~/.claude/skills/contract-audit/
+# 每条 check 映射 CLAUDE.md 的一条声明,跑 `py ~/.claude/skills/contract-audit/scripts/audit.py`
+
+project: credit_report_agent_work
+
+checks:
+  # =========================================================================
+  # §2 启动方式
+  # =========================================================================
+  - id: section-2-startup-wrapper
+    type: file-exists
+    section: "2"
+    severity: blocker
+    targets:
+      - path: scripts/start_uvicorn.py
+        label: "§2 后端启动 wrapper"
+      - path: api_server.py
+        label: "§2 FastAPI 总线"
+      - path: app.py
+        label: "§2 旧版 Gradio 报告助手"
+      - path: v16_pipeline.py
+        label: "§2 Agent6 v16 主管线 CLI 入口"
+
+  # =========================================================================
+  # §3.1 确定性 vs 概率性 · LLM prompt 契约三件套
+  # =========================================================================
+  - id: section-3-1-format-for-prompt
+    type: symbol-grep
+    section: "3.1"
+    severity: blocker
+    targets:
+      - file: financial_analyzer.py
+        symbol: "def format_for_prompt"
+      - file: industry_benchmark.py
+        symbol: "def format_for_prompt"
+      - file: material_anchor.py
+        symbol: "def format_for_prompt"
+
+  - id: section-3-1-prefill-entry
+    type: symbol-grep
+    section: "3.1"
+    severity: blocker
+    targets:
+      - file: truth_fill.py
+        symbol: "def prefill_labeled_fields_from_kb"
+
+  # =========================================================================
+  # §6 数据飞轮 · /api/feedback + data/feedback/ 闭环
+  # =========================================================================
+  - id: section-6-feedback-pipeline
+    type: endpoint-pipeline
+    section: "6"
+    severity: blocker
+    endpoint:
+      file: api_server.py
+      pattern: '@app\.post\("/api/feedback"\)'
+    write_dirs:
+      - data/feedback
+
+  # =========================================================================
+  # §7 前端设计系统 · mockup sha256 + 路由拓扑
+  # =========================================================================
+  - id: section-7-mockup-hash
+    type: hash-match
+    section: "7"
+    severity: blocker
+    targets:
+      - file: design_mockups/rm-assistant-final-2026-04-19.html
+        algo: sha256
+        expected_prefix: "25155e74"
+
+  - id: section-7-shell-spec
+    type: file-exists
+    section: "7"
+    severity: blocker
+    targets:
+      - path: docs/design/platform-shell-v2.md
+        label: "§7 shell v2 规范"
+      - path: design_mockups/rm-assistant-final-2026-04-19.html
+        label: "§7 视觉 1:1 复刻源 mockup"
+
+  - id: section-7-web-routes
+    type: route-vs-spec
+    section: "7"
+    actual_path: web/src/app
+    canon:
+      - today
+      - dispatch
+      - archive
+      - warroom
+    legacy_allowed:
+      # §7 声明的辅助路由 + shell v1 legacy (feat/agent6-dialog-shell 已开始清)
+      - login
+      - audit
+      - customer
+      - design
+      - channel
+      - credit
+      - alert
+      - compliance
+      - report
+      - riskctrl
+
+  # =========================================================================
+  # §10 关键文件清单
+  # =========================================================================
+  - id: section-10-core-files
+    type: file-exists
+    section: "10"
+    severity: blocker
+    targets:
+      - path: agent_channel/
+        kind: dir
+      - path: agent_credit/
+        kind: dir
+      - path: agent_alert/
+        kind: dir
+      - path: agent_compliance/
+        kind: dir
+      - path: agent_report/
+        kind: dir
+      - path: agent_riskctrl/
+        kind: dir
+      - path: shared/kb_scan/
+        kind: dir
+      - path: shared/sources/
+        kind: dir
+      - path: shared/sources/impls/
+        kind: dir
+      - path: financial_analyzer.py
+      - path: quality_scorer.py
+      - path: section_generator.py
+      - path: truth_fill.py
+      - path: material_kb.py
+      - path: evaluation/
+        kind: dir
+      - path: test_sources_smoke.py
+      - path: v16_pipeline.py
+        label: "§10 Agent6 v16 主管线"
+      - path: v16_generator.py
+      - path: v16_classifier.py
+
+  - id: section-10-source-impls-6
+    type: file-exists
+    section: "10"
+    severity: warn
+    targets:
+      - path: shared/sources/impls/tavily.py
+      - path: shared/sources/impls/akshare.py
+      - path: shared/sources/impls/gov_cn.py
+      - path: shared/sources/impls/pbc_gov.py
+      - path: shared/sources/impls/flk_npc.py
+      - path: shared/sources/impls/enterprise_info.py
+        label: "§10 声明的 6 个源之一(Agent1 工商信息分层)"
+
+  # =========================================================================
+  # §11 各 Agent 版本(声明 vs __init__.py 实际)
+  # =========================================================================
+  - id: section-11-agent1-channel
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "v4.0"
+        actual_file: agent_channel/__init__.py
+        actual_pattern: "v\\d+\\.\\d+"
+
+  - id: section-11-agent2-riskctrl
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "v3.1"
+        actual_file: agent_riskctrl/__init__.py
+        actual_pattern: "v\\d+\\.\\d+"
+
+  - id: section-11-agent3-credit
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "v3.1"
+        actual_file: agent_credit/__init__.py
+        actual_pattern: "v\\d+\\.\\d+"
+
+  - id: section-11-agent4-alert
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "v3.1"
+        actual_file: agent_alert/__init__.py
+        actual_pattern: "v\\d+\\.\\d+"
+
+  - id: section-11-agent5-compliance
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "v3.1"
+        actual_file: agent_compliance/__init__.py
+        actual_pattern: "v\\d+\\.\\d+"
+
+  - id: section-11-agent6-report-wrapper
+    type: version-align
+    section: "11"
+    severity: warn
+    targets:
+      - declared: "unreleased"
+        actual_file: agent_report/__init__.py
+        actual_pattern: "unreleased|v\\d+"
+
+  # =========================================================================
+  # mesh 身份 · orchestrator 必须在 chore/l0-infra
+  # =========================================================================
+  - id: mesh-identity-orchestrator
+    type: mesh-identity
+    section: "mesh"
+    mesh_json: docs/handoff/mesh.json
+    expected_branch_per_role:
+      orchestrator: chore/l0-infra
