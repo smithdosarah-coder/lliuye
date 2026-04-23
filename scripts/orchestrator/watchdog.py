@@ -31,6 +31,7 @@ from typing import Any, Dict, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from orchestrator.lib import git_helpers, mesh  # noqa: E402
+from orchestrator import scoreboard  # noqa: E402  (used for mesh-status.json render)
 
 
 # ---- thresholds (seconds) ---------------------------------------------------
@@ -126,13 +127,27 @@ def _save_state(state_path: Path, state: Dict[str, Dict[str, Any]]) -> None:
     )
 
 
+def _write_mesh_status(events_path: Path, m: mesh.Mesh) -> None:
+    """Refresh docs/handoff/mesh-status.json for cc_monitor consumption.
+
+    Failures are non-fatal (log to stderr, daemon keeps running).
+    """
+    target = events_path.parent / "mesh-status.json"
+    try:
+        target.write_text(scoreboard.render_json_payload(m), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        print(f"[watchdog] WARN: mesh-status write failed: {e}", file=sys.stderr)
+
+
 def run_tick(
     tick: int,
     events_path: Path,
     state: Dict[str, Dict[str, Any]],
+    m: Optional[mesh.Mesh] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Run one watchdog tick. Mutates+returns state."""
-    m = mesh.load()
+    """Run one watchdog tick. Mutates+returns state. Optionally accepts pre-loaded mesh."""
+    if m is None:
+        m = mesh.load()
     ts = _now_iso()
 
     for w in m.worktrees:
@@ -219,8 +234,10 @@ def main(argv: Optional[list] = None) -> int:
     try:
         while not stop["flag"]:
             tick += 1
-            state = run_tick(tick, events_path, state)
+            m_tick = mesh.load()
+            state = run_tick(tick, events_path, state, m=m_tick)
             _save_state(state_path, state)
+            _write_mesh_status(events_path, m_tick)
             if args.once:
                 break
             # interruptible sleep: many short naps so Ctrl+C lands quickly

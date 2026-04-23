@@ -1,17 +1,21 @@
-"""Mesh Scoreboard · render markdown status table for all worktrees.
+"""Mesh Scoreboard · render markdown status table + structured JSON for all worktrees.
 
 Usage:
-    py scripts/orchestrator/scoreboard.py            # stdout
-    py scripts/orchestrator/scoreboard.py --write    # also write docs/handoff/scoreboard.md
+    py scripts/orchestrator/scoreboard.py                          # markdown to stdout
+    py scripts/orchestrator/scoreboard.py --write                  # also write docs/handoff/scoreboard.md
+    py scripts/orchestrator/scoreboard.py --json-write             # also write docs/handoff/mesh-status.json
+    py scripts/orchestrator/scoreboard.py --out-json <PATH>        # write JSON to specific path
 """
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 # scripts/orchestrator/scoreboard.py -> add scripts/ to sys.path so `orchestrator.lib` imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -126,6 +130,94 @@ def render_scoreboard(m) -> str:
     return "\n".join(lines)
 
 
+# ---------- structured JSON for cc_monitor / external consumers ----------
+
+@dataclass
+class WorktreeRecord:
+    name: str
+    role: str
+    branch: str
+    path: str
+    head_sha: Optional[str]
+    head_short: Optional[str]
+    head_subject: Optional[str]
+    last_signal: Optional[str]
+    age_seconds: Optional[int]
+    age_human: str
+    status: str       # "fresh" / "idle" / "stale" / "unknown"
+    status_emoji: str
+
+
+def collect_record(w) -> WorktreeRecord:
+    """Collect one worktree's full state into a structured record. Triple git call."""
+    sha = git_helpers.head_sha(w.path)
+    if sha is None:
+        return WorktreeRecord(
+            name=w.name, role=w.role, branch=w.branch, path=str(w.path),
+            head_sha=None, head_short=None, head_subject=None,
+            last_signal=None, age_seconds=None, age_human="-",
+            status="unknown", status_emoji="\U000026AB",
+        )
+
+    subject = git_helpers.head_subject(w.path) or ""
+    age = git_helpers.commit_age_seconds(w.path)
+    sig_commit = git_helpers.last_commit_with_signal(w.path)
+    last_sig: Optional[str] = None
+    if sig_commit is not None:
+        last_sig = extract_signal(sig_commit.body) or extract_signal(sig_commit.subject)
+
+    if age is None:
+        status, emoji = "unknown", "\U000026AB"
+    elif age < 4 * 3600:
+        status, emoji = "fresh", "\U0001F7E2"
+    elif age < 7 * 86400:
+        status, emoji = "idle", "\U0001F7E1"
+    else:
+        status, emoji = "stale", "\U0001F534"
+
+    return WorktreeRecord(
+        name=w.name, role=w.role, branch=w.branch, path=str(w.path),
+        head_sha=sha, head_short=sha[:7], head_subject=subject,
+        last_signal=last_sig, age_seconds=age, age_human=format_age(age),
+        status=status, status_emoji=emoji,
+    )
+
+
+def collect_all(m) -> List[WorktreeRecord]:
+    return [collect_record(w) for w in m.worktrees]
+
+
+def render_json_payload(m) -> str:
+    """Render structured JSON consumable by cc_monitor + external dashboards."""
+    records = collect_all(m)
+    summary = {"fresh": 0, "idle": 0, "stale": 0, "unknown": 0}
+    for r in records:
+        summary[r.status] = summary.get(r.status, 0) + 1
+    payload = {
+        "schema_version": 1,
+        "timestamp": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "project": m.project,
+        "protocol_version": m.protocol_version,
+        "worktree_count": len(records),
+        "summary": summary,
+        "worktrees": [asdict(r) for r in records],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _resolve_handoff_dir() -> Optional[Path]:
+    """Walk up from cwd to find docs/handoff/ (sibling of mesh.json)."""
+    cur = Path.cwd().resolve()
+    for _ in range(20):
+        candidate = cur / "docs" / "handoff"
+        if (candidate / "mesh.json").exists():
+            return candidate
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
 # ---------- CLI ----------
 
 def _ensure_utf8_stdout() -> None:
@@ -147,6 +239,16 @@ def main() -> int:
         action="store_true",
         help="Also write to docs/handoff/scoreboard.md (in addition to stdout).",
     )
+    parser.add_argument(
+        "--json-write",
+        action="store_true",
+        help="Also write structured JSON to docs/handoff/mesh-status.json.",
+    )
+    parser.add_argument(
+        "--out-json",
+        metavar="PATH",
+        help="Write structured JSON to PATH (overrides --json-write default location).",
+    )
     args = parser.parse_args()
 
     m = mesh.load()
@@ -154,23 +256,26 @@ def main() -> int:
     print(rendered)
 
     if args.write:
-        # mesh.load() found mesh.json by walking up; resolve sibling scoreboard.md
-        # by re-using the same lookup heuristic.
-        cur = Path.cwd().resolve()
-        out_path: Optional[Path] = None
-        for _ in range(20):
-            candidate = cur / "docs" / "handoff"
-            if (candidate / "mesh.json").exists():
-                out_path = candidate / "scoreboard.md"
-                break
-            if cur.parent == cur:
-                break
-            cur = cur.parent
-        if out_path is None:
+        d = _resolve_handoff_dir()
+        if d is None:
             print("[scoreboard] could not locate docs/handoff/ to write", file=sys.stderr)
             return 1
+        out_path = d / "scoreboard.md"
         out_path.write_text(rendered, encoding="utf-8")
         print(f"\n[scoreboard] wrote {out_path}", file=sys.stderr)
+
+    if args.json_write or args.out_json:
+        if args.out_json:
+            json_path = Path(args.out_json)
+        else:
+            d = _resolve_handoff_dir()
+            if d is None:
+                print("[scoreboard] could not locate docs/handoff/ for JSON", file=sys.stderr)
+                return 1
+            json_path = d / "mesh-status.json"
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(render_json_payload(m), encoding="utf-8")
+        print(f"[scoreboard] wrote {json_path}", file=sys.stderr)
 
     return 0
 

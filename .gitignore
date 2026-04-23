@@ -99,6 +99,7 @@ AGENT_IDENTITY.md
 # ----------------------------------------------------------------------------
 recovery/
 docs/handoff/scoreboard.md
+docs/handoff/mesh-status.json
 docs/handoff/watchdog-events.jsonl
 docs/handoff/.watchdog-state.json
 
