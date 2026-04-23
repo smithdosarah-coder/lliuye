@@ -1278,3 +1278,77 @@ Q-022 锚点：6 × `/archive/[agent]` workspace 设计改造。前置：
 后续起 `~/.claude/skills/contract-audit/` 通用 skill + 本项目 `.claude/contract-audit.rules.yaml` 规则,让此类漂移可自动化巡检。不在本 I-022 范围。
 
 **维护者**: main CLI · 单向通告
+
+---
+
+## [Q-023] 2026-04-23 · main CLI (self) · Product Hardening 四轨批次（Code-Urgent / Code-Arch / Data / Evaluation）
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: no（mesh 空档，新批次可直发）
+**Related**: 代码审计（subagent Explore 于 2026-04-23）· Platform Phase 1 Batch 1 已 MERGED（`f319ccb`）
+
+### 背景
+
+PM 要求"每个 Agent 独立产品力够硬"（见用户多轮 ultrathink 指示）。前几轮讨论曾收敛到"先做真 mock 数据"单轨，用户戳破：**产品力 = 代码 × 数据 × 评估三层并行，单轨推进是单腿跑**。遂派 Explore subagent 按 CLAUDE.md §3.1/§3.2/§3.3/§8/§6 对齐扫描 6 Agent 代码，出硬洞清单。
+
+### 审计结果（一览）
+
+| Agent | §3.1 确定性 | §3.2 工具域 | §3.3 Evidence | §8 QC | 前后端通 | 证据前端化 | §6 飞轮 |
+|---|---|---|---|---|---|---|---|
+| Agent6 报告 | 🟢 | 🟢 | 🟢 | 🟢 | 🟢 | 🔴 | 🟡 |
+| Agent5 合规 | 🟢 | 🟡 | 🟡 | 🔴 | 🟡 | 🔴 | 🔴 |
+| Agent3 授信 | 🟡 | 🔴 | 🟡 | 🟡 | 🟢 | 🔴 | 🔴 |
+| Agent4 预警 | 🟢 | 🟡 | 🟡 | 🔴 | 🔴 | 🔴 | 🔴 |
+| Agent1 获客 | 🟡 | 🔴 | 🟡 | 🔴 | 🟢 | 🔴 | 🔴 |
+| Agent2 风控 | 🟢 | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 |
+
+**两条必须立即处置的硬发现**：
+
+1. **Agent3 §3.1 反模式违反**：`agent_credit/scoring_model_corporate.py:95 _score_financial()` 自己实现财务比率计算，**未消费 `financial_analyzer.py`**——这违反 CLAUDE.md §3.1 明令禁止的"把比率算逻辑分散到多个 Agent"；是 PM 最关心的"跨 Agent 数字一致性"硬违反。
+2. **Archive workspace 在 main 分支漂移**：`web/src/app/archive/[agent]/page.tsx` import 6 个 `_components/*Workspace.tsx`，但这 6 个源文件在 `chore/l0-infra` 上根本不存在，仅存在于 ad-hoc 分支 `feat/agent6-dialog-shell`。**Platform Batch 1 MERGED 时 archive 系列漏网**。contract-audit 0 blocker 没扫到这个洞。
+
+### 选项
+
+- **A** 三轨并行：Code（1 worker）+ Data（1 worker）+ Evaluation（1 worker），共 3 worker
+- **B** 四轨并行：Code 拆成 **C1 紧急**（§3.1 接入 + QC 占位符 + Agent2/4 api.py）+ **C2 架构**（工具域重拆 + Evidence 三阶段协议 + 飞轮第 4 环脚本）+ Data + Evaluation，共 4 worker
+- **C** 只做 C1 + D，C2/E 推后
+
+### 推荐
+
+**B**。理由：
+- C1 是"短平快补漏"（0.5-1 天/task），C2 是"重构升级"（2-3 天/task），**节奏不同混在一个 worker 会拖慢紧急项**
+- D 和 E 完全独立领域（数据 vs 评估跑分器），并行不冲突
+- PM 多次强调"并行矩阵推进"，B 是正解
+- mesh 当前空档撑得住 4 worker（Platform Batch 1 MERGED 已结清）
+
+### [A-023] 2026-04-23 · 主 CLI 自定
+
+**Decision**: B（四轨并行）
+
+**Rationale**: 产品力 = 代码 × 数据 × 评估三层。C1/C2 拆开是节奏差异（紧急 vs 架构），不是资源摊薄；D 作为"数据底座"支撑后续 E 轨基线真度；E 轨复用 Agent6 v16 pipeline 作为 base_evaluator，避免重复实现。
+
+**四 worker 编制**：
+
+| Worker | worktree | 分支 | Batch 1 范围 | 期望 signal |
+|---|---|---|---|---|
+| code-urgent | `D:/claude code/demo-code-urgent` | `feat/code-urgent` | Task 0 archive 归位 + A Agent3 接 financial_analyzer + B QC 占位符 5 Agent 补齐 + C Agent2/4 api.py 新建 | READY-FOR-CODE-URGENT-REVIEW |
+| code-arch | `D:/claude code/demo-code-arch` | `feat/code-arch` | A 5 Agent 工具域 §3.2 重拆 + B 5 Agent Evidence 三阶段协议 + C 飞轮第 4 环 feedback_to_fewshot 脚本 | READY-FOR-CODE-ARCH-REVIEW |
+| data-foundation | `D:/claude code/demo-data-foundation` | `feat/data-foundation` | A schema 规范 + B 宽基 100 家 + C 深柱 15 家名单 + 埋坑清单模板 | READY-FOR-DATA-FOUNDATION-B1-REVIEW |
+| evaluation | `D:/claude code/demo-evaluation` | `feat/evaluation` | A 6 × rubric YAML + B base_evaluator + per-agent adapter + C 首轮基线跑分 | READY-FOR-EVALUATION-B1-REVIEW |
+
+**Archive workspace 漂移处置**：归位职责交给 **code-urgent worker 的 Task 0**——从 `feat/agent6-dialog-shell` 挑选 `web/src/app/archive/*/_components/*Workspace.tsx` + 相关 shared 组件（CustomerSelector / ScanCTA）到 `feat/code-urgent` 分支。rebase 时主 CLI 审 diff，APPROVE 时才 merge 回 main。
+
+**Follow-up**:
+- 下发 signal: `PRODUCT-HARDENING-BATCH-1-DISPATCHED`
+- 4 份 onboarding: `docs/onboarding/{code-urgent,code-arch,data-foundation,evaluation}-phase-1.md`
+- 4 worktree AGENT_IDENTITY 本地指针（gitignore）
+- Kickoff prompts: `docs/handoff/product-hardening-batch-1-kickoffs.md`
+- mesh.json 追加 4 条 worktree 注册
+
+**Batch 2 预告**（不在本 A-023 范围）：
+- Data Batch 2：用户回埋坑清单后产深柱 MVP 3 家完整材料包
+- Evaluation Batch 2：基于 Data B2 真脏数据重跑基线，对比 B1 虚高分看 gap
+- Code Batch 2：按 C1/C2 review 结果定（可能是"6 Agent 证据链前端化"或"Agent1 检索样板打通"）
+
+---
