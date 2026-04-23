@@ -91,6 +91,38 @@
       "role": "worker",
       "description": "Platform Phase 1 · /customer/[id] 360 + Desk 增强 + 全局 CustomerDrawer slot",
       "onboarding": "docs/onboarding/platform-customer-phase-1.md"
+    },
+    {
+      "name": "code-urgent",
+      "path": "D:/claude code/demo-code-urgent",
+      "branch": "feat/code-urgent",
+      "role": "worker",
+      "description": "Product Hardening Batch 1 · 紧急代码硬洞补齐 (archive 归位 + §3.1 financial_analyzer + 占位符 QC + Agent2/4 api.py)",
+      "onboarding": "docs/onboarding/code-urgent-phase-1.md"
+    },
+    {
+      "name": "code-arch",
+      "path": "D:/claude code/demo-code-arch",
+      "branch": "feat/code-arch",
+      "role": "worker",
+      "description": "Product Hardening Batch 1 · 架构对齐重构 (§3.2 工具域重拆 + §3.3 Evidence 三阶段协议 + §6 飞轮第4环脚本)",
+      "onboarding": "docs/onboarding/code-arch-phase-1.md"
+    },
+    {
+      "name": "data-foundation",
+      "path": "D:/claude code/demo-data-foundation",
+      "branch": "feat/data-foundation",
+      "role": "worker",
+      "description": "Product Hardening Batch 1 · 拟真数据底座 (宽基 100 家 + 深柱 15 家名单 + 埋坑清单模板)",
+      "onboarding": "docs/onboarding/data-foundation-phase-1.md"
+    },
+    {
+      "name": "evaluation",
+      "path": "D:/claude code/demo-evaluation",
+      "branch": "feat/evaluation",
+      "role": "worker",
+      "description": "Product Hardening Batch 1 · 6 Agent 评估基线 (rubric YAML×6 + base_evaluator + 首轮基线跑分)",
+      "onboarding": "docs/onboarding/evaluation-phase-1.md"
     }
   ],
   "upstream_remote": "D:/claude code/credit_report_agent_work",
@@ -98,5 +130,5 @@
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
-  "last_updated": "2026-04-20"
+  "last_updated": "2026-04-23"
 }
