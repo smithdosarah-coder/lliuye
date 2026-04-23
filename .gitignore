@@ -95,6 +95,14 @@ desktop.ini
 AGENT_IDENTITY.md
 
 # ----------------------------------------------------------------------------
+# Orchestrator runtime artifacts (auto-generated, per-host)
+# ----------------------------------------------------------------------------
+recovery/
+docs/handoff/scoreboard.md
+docs/handoff/watchdog-events.jsonl
+docs/handoff/.watchdog-state.json
+
+# ----------------------------------------------------------------------------
 # Frontend (web/ Next.js)
 # ----------------------------------------------------------------------------
 web/.next/
