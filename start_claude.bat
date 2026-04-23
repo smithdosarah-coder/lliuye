@@ -1,8 +1,7 @@
 @echo off
-set https_proxy=http://127.0.0.1:7897
-set http_proxy=http://127.0.0.1:7897
-set ALL_PROXY=http://127.0.0.1:7897
-set CLAUDE_CODE_GIT_BASH_PATH=D:\Git\usr\bin\bash.exe
-cd /d "D:\claude code\credit_report_agent_work"
-claude
-pause
+REM ---------------------------------------------------------------------------
+REM 用 Windows Terminal 启动 Claude Code
+REM 行为：在 wt 已开窗口里加一个新 tab；若 wt 未开则新开窗口
+REM 代理 + Git Bash 配置由 scripts\claude-env.bat 在 tab 子 shell 中注入
+REM ---------------------------------------------------------------------------
+wt -w 0 new-tab --title "claude-main" -d "%~dp0" -- cmd /k "%~dp0scripts\claude-env.bat"
