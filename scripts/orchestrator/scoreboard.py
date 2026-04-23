@@ -187,20 +187,45 @@ def collect_all(m) -> List[WorktreeRecord]:
     return [collect_record(w) for w in m.worktrees]
 
 
-def render_json_payload(m) -> str:
-    """Render structured JSON consumable by cc_monitor + external dashboards."""
+def render_json_payload(m, stuck_state=None) -> str:
+    """Render structured JSON consumable by cc_monitor + external dashboards.
+
+    Args:
+        m: loaded mesh
+        stuck_state: optional dict {worktree_name: event_tag} from watchdog
+            (e.g. {"agent3": "stuck:idle-1h"}). Adds `stuck_event` field per worktree.
+
+    schema_version=2 introduced stuck_event + stuck_summary.
+    """
     records = collect_all(m)
     summary = {"fresh": 0, "idle": 0, "stale": 0, "unknown": 0}
     for r in records:
         summary[r.status] = summary.get(r.status, 0) + 1
+
+    stuck_state = stuck_state or {}
+    stuck_summary = {"idle-1h": 0, "abandoned-3d": 0, "git-unreachable": 0}
+
+    worktree_dicts = []
+    for r in records:
+        d = asdict(r)
+        ev = stuck_state.get(r.name)
+        if isinstance(ev, str) and ev.startswith("stuck:"):
+            d["stuck_event"] = ev
+            tag = ev.split(":", 1)[1]
+            stuck_summary[tag] = stuck_summary.get(tag, 0) + 1
+        else:
+            d["stuck_event"] = None
+        worktree_dicts.append(d)
+
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "timestamp": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "project": m.project,
         "protocol_version": m.protocol_version,
         "worktree_count": len(records),
         "summary": summary,
-        "worktrees": [asdict(r) for r in records],
+        "stuck_summary": stuck_summary,
+        "worktrees": worktree_dicts,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

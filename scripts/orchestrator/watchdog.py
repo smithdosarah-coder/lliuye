@@ -127,14 +127,27 @@ def _save_state(state_path: Path, state: Dict[str, Dict[str, Any]]) -> None:
     )
 
 
-def _write_mesh_status(events_path: Path, m: mesh.Mesh) -> None:
-    """Refresh docs/handoff/mesh-status.json for cc_monitor consumption.
+def _write_mesh_status(
+    events_path: Path,
+    m: mesh.Mesh,
+    state: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> None:
+    """Refresh docs/handoff/mesh-status.json with stuck_event from watchdog state.
 
     Failures are non-fatal (log to stderr, daemon keeps running).
     """
     target = events_path.parent / "mesh-status.json"
     try:
-        target.write_text(scoreboard.render_json_payload(m), encoding="utf-8")
+        stuck_state = {}
+        if state:
+            for name, info in state.items():
+                ev = info.get("last_event") if isinstance(info, dict) else None
+                if isinstance(ev, str) and ev.startswith("stuck:"):
+                    stuck_state[name] = ev
+        target.write_text(
+            scoreboard.render_json_payload(m, stuck_state=stuck_state),
+            encoding="utf-8",
+        )
     except Exception as e:  # noqa: BLE001
         print(f"[watchdog] WARN: mesh-status write failed: {e}", file=sys.stderr)
 
@@ -237,7 +250,7 @@ def main(argv: Optional[list] = None) -> int:
             m_tick = mesh.load()
             state = run_tick(tick, events_path, state, m=m_tick)
             _save_state(state_path, state)
-            _write_mesh_status(events_path, m_tick)
+            _write_mesh_status(events_path, m_tick, state=state)
             if args.once:
                 break
             # interruptible sleep: many short naps so Ctrl+C lands quickly
