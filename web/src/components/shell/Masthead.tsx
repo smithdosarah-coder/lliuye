@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuditEntry } from "./AuditEntry";
-import { CanvasModeToggle } from "./CanvasModeToggle";
+import { LogoutButton } from "./LogoutButton";
 import { PersonaSwitcher } from "./PersonaSwitcher";
 
 type Tab = {
@@ -58,8 +58,8 @@ export function Masthead() {
       </nav>
       <div className="shell-op">
         <AuditEntry />
-        <CanvasModeToggle />
         <PersonaSwitcher />
+        <LogoutButton />
         <span className="time">{time || "--:--"}</span>
       </div>
     </header>

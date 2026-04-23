@@ -8,6 +8,7 @@ import {
 } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
 import { AuthGate } from "./AuthGate";
+import { CanvasModeToggle } from "./CanvasModeToggle";
 import { CustomerDrawer } from "./CustomerDrawer";
 import { Desk } from "./Desk";
 import { FreePanelLayer } from "./FreePanelLayer";
@@ -129,7 +130,13 @@ function ShellChrome({ children }: { children: ReactNode }) {
           {children}
         </section>
       </main>
-      <ThemeSwitch />
+      {/* 2026-04-23 · 右下角双 pill 操作组 · CanvasModeToggle + ThemeSwitch
+          CanvasModeToggle 从 Masthead 移到这里，和主题切换同位，用 shell-tools 容器
+          统一气泡 pill 视觉 */}
+      <div className="shell-tools" aria-label="工具栏">
+        <CanvasModeToggle />
+        <ThemeSwitch />
+      </div>
       <CustomerDrawer />
       <FreePanelLayer />
     </div>

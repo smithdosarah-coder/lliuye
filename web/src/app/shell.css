@@ -210,28 +210,126 @@
 }
 .audit-entry .lbl { font-weight: 500; }
 
-/* ═══ THEME SWITCH ═══ */
-.theme-sw {
-  position: fixed; right: 38px; bottom: 38px; z-index: 40;
-  display: inline-flex; align-items: center; gap: 2px;
-  background: var(--ch-82);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  border: 1px solid var(--ink-14);
-  border-radius: 999px;
-  padding: 4px 4px 4px 14px;
-  box-shadow: 0 16px 36px -20px rgba(0,0,0,.4);
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+/* ═══ SHELL TOOLS · 右下角双 pill 组（画布 + 主题 · 2026-04-23） ═══ */
+.shell-tools {
+  position: fixed; right: 28px; bottom: 32px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 10px;
+  pointer-events: none;
 }
-.theme-sw .lbl { color: var(--ink-48); padding-right: 10px; border-right: 1px solid var(--ink-14); margin-right: 4px; }
-.theme-sw button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; color: var(--ink-65); transition: color .2s, background .3s; display: inline-flex; align-items: center; gap: 6px; }
-.theme-sw button:hover { color: var(--ink); }
-.theme-sw button.on { background: var(--ink); color: var(--chalk); }
-.theme-sw .sw-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--ink-14); }
-.theme-sw [data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
-.theme-sw [data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
-.theme-sw [data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
-.theme-sw [data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8, #0C0C0B); }
+.shell-tools > * { pointer-events: auto; }
+
+/* 共享 pill 气泡样式 · shell-pill 所有 tool 按钮继承
+   （画布 / 主题缩略态 / 展开后主题 chip 的底纹一致） */
+.shell-pill {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, var(--ink-14));
+  color: var(--ink-65);
+  font-family: var(--cjk); font-size: 12px; font-weight: 500; letter-spacing: .02em;
+  box-shadow: 0 8px 22px -14px rgba(0,0,0,.32),
+              inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+  transition: color .18s, background .18s, border-color .18s, box-shadow .2s, transform .15s;
+}
+.shell-pill:hover:not(:disabled) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+  border-color: color-mix(in srgb, var(--agent, var(--ink-48)) 28%, var(--ink-14));
+  transform: translateY(-1px);
+}
+.shell-pill:disabled { cursor: not-allowed; opacity: .42; }
+.shell-pill .ic { font-size: 13px; line-height: 1; }
+.shell-pill .lbl {
+  font-family: var(--cjk); font-size: 11.5px; font-weight: 500; letter-spacing: .06em;
+}
+
+/* ═══ THEME SWITCH · 双态（缩略 pill / 展开 popup） ═══ */
+.theme-sw {
+  position: relative;
+  display: inline-flex;
+}
+/* 缩略态：单 pill · 和 canvas-mode-toggle 同尺寸同风格 */
+.theme-sw-trigger {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, var(--ink-14));
+  color: var(--ink);
+  box-shadow: 0 8px 22px -14px rgba(0,0,0,.32),
+              inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+  transition: color .18s, background .18s, border-color .18s, transform .15s;
+}
+.theme-sw-trigger:hover {
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+  border-color: color-mix(in srgb, var(--agent, var(--ink-48)) 28%, var(--ink-14));
+  transform: translateY(-1px);
+}
+.theme-sw.is-open .theme-sw-trigger {
+  background: color-mix(in srgb, var(--chalk) 92%, transparent);
+  border-color: color-mix(in srgb, var(--agent, var(--ink)) 40%, var(--ink-14));
+}
+.theme-sw-trigger .lbl {
+  font-family: var(--cjk); font-size: 11.5px; font-weight: 500; letter-spacing: .06em;
+  color: var(--ink);
+}
+
+/* 展开态：横向 pop · 定位在 trigger 上方，不挤压同 row 的 canvas-mode-toggle */
+.theme-sw-pop {
+  position: absolute;
+  right: 0; bottom: calc(100% + 8px);
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--ink-14);
+  box-shadow: 0 20px 48px -22px rgba(0,0,0,.38),
+              inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  /* 入场动画 · scale + opacity */
+  animation: themePopIn .22s var(--ease-smooth, cubic-bezier(.2,.8,.25,1));
+  transform-origin: bottom right;
+  white-space: nowrap;
+}
+@keyframes themePopIn {
+  from { opacity: 0; transform: translateY(4px) scale(.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.theme-sw-pop button {
+  all: unset; cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--ink-65);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color .15s, background .2s;
+}
+.theme-sw-pop button:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.theme-sw-pop button.on { background: var(--ink); color: var(--chalk); }
+
+/* 主题色圆点 · 通用（缩略态 + 展开态共用） */
+.theme-sw .sw-dot,
+.theme-sw-pop .sw-dot {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+}
+[data-t="canvas"]  .sw-dot { background: linear-gradient(135deg, #F5D2A9, #D4653F); }
+[data-t="matcha"]  .sw-dot { background: linear-gradient(135deg, #BCCB9C, #355F41); }
+[data-t="dusk"]    .sw-dot { background: linear-gradient(135deg, #F0BEC8, #B14774); }
+[data-t="ink"]     .sw-dot { background: linear-gradient(135deg, #F2EFE8, #0C0C0B); }
 
 /* FLOAT BADGE · K3 删 · mockup L1024 自身 display:none!important 隐藏
    (DOM 存在但视觉删除, PM 最终稿意图), 实现层直接移除组件+CSS, 不留
@@ -909,6 +1007,11 @@ body[data-desk-pinned="true"] .shell-views {
 }
 .pc-thumb-main {
   all: unset; cursor: pointer; display: grid;
+  /* 2026-04-23 · all:unset 吞 Chromium 的 -webkit-user-drag 默认值，
+     从 <Link> 换成 <div> 后 React draggable 属性就靠这条 CSS 才真能拖。
+     同 .pp-grip / .mp-grip 的老坑。 */
+  -webkit-user-drag: element;
+  user-select: none;
   grid-template-columns: 3px 1fr;
   grid-template-rows: auto auto;
   gap: 6px 8px;
@@ -919,6 +1022,7 @@ body[data-desk-pinned="true"] .shell-views {
   min-height: 88px;
   transition: background .15s, border-color .15s, transform .15s;
 }
+.pc-thumb-main:active { cursor: grabbing; }
 .pc-thumb-main:hover {
   background: color-mix(in srgb, var(--chalk) 85%, transparent);
   border-color: var(--ink-28);
@@ -1108,35 +1212,42 @@ body[data-panel-canvas-open="true"] .pc-fab {
 /* 让伪元素相对 slot 定位 */
 .rpt-composer { position: relative; }
 
-/* ═══ FREE-PANELS MODE (Task 3b · body[data-free-panels="true"]) ═══
-   opt-in 自由拖排：panel 变 position:absolute，panel-head 成为拖柄，
-   店点击置顶、双击 head 回位。inline style 由 FreePanelLayer.tsx 写入，
-   CSS 只负责语义切换（position + cursor + 初始 z-index）。
-   默认不开；UI toggle 待主 CLI 规划 · 现以 body dataset 调试。 */
+/* ═══ FREE-PANELS MODE · 三态（2026-04-22 重设计）═══
+   body[data-free-panels] 值：
+     "edit"   · 可交互 · 拖 / resize / 双击回位全开
+     "locked" · 保留视觉布局 · 无交互（保存态）
+     "true"   · legacy alias of "edit"（向后兼容）
+     unset    · 回 grid · 清 inline */
+
+/* 视觉（absolute 定位）在 edit / locked / true 都生效 */
+body[data-free-panels="edit"] .v-archive--canon,
+body[data-free-panels="locked"] .v-archive--canon,
 body[data-free-panels="true"] .v-archive--canon {
-  /* absolute 定位父锚点。保留 min-height 0 避免 grid 压缩。 */
   position: relative;
 }
+body[data-free-panels="edit"] .rpt-panel--free,
+body[data-free-panels="locked"] .rpt-panel--free,
 body[data-free-panels="true"] .rpt-panel--free {
   position: absolute !important;
-  /* 初始 z 基线 · 点击后由 store.bringToFront 写更大 inline z-index。 */
   z-index: 10;
-  /* 拖拽中 will-change 提示浏览器 · 防闪烁 */
   will-change: transform, left, top;
-  /* 提示用户这是自由 panel：底 shadow 加重一度，与网格 panel 区分开 */
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent),
     0 2px 6px color-mix(in srgb, var(--ink) 8%, transparent),
     0 18px 38px -14px color-mix(in srgb, var(--ink) 32%, transparent);
 }
+
+/* 交互（cursor:move + tip）仅在 edit 模式 · locked 下不显示，避免误导"能拖" */
+body[data-free-panels="edit"] .rpt-panel--free .rpt-panel-head,
 body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head {
   cursor: move;
   user-select: none;
 }
+body[data-free-panels="edit"] .rpt-panel--free .rpt-panel-head:active,
 body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head:active {
   cursor: grabbing;
 }
-/* 双击 head 提示（仅悬停 head 时显示小 tip · 让用户知道能回位） */
+body[data-free-panels="edit"] .rpt-panel--free .rpt-panel-head:hover::after,
 body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head:hover::after {
   content: "双击回位";
   position: absolute; right: 6px; bottom: -18px;
@@ -1146,39 +1257,111 @@ body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head:hover::after {
   opacity: .72;
 }
 
-/* ═══ CANVAS MODE TOGGLE (2026-04-22) ═══
-   挂 Masthead shell-op · persona 左侧 · 与 theme-sw dot 风格呼应。
-   on 态：填充 ink 底 · icon 翻 chalk；off 态：透明底 · ink-65 文字。
-   disabled：非 /archive/** 路由下 fade + cursor:not-allowed。 */
+/* Locked 态显示"已锁定"副标 · 给用户视觉确认布局已保存 */
+body[data-free-panels="locked"] .v-archive--canon[data-agent]::before {
+  content: "布局已保存 · 点击编辑画布可继续调整";
+  position: fixed; top: 88px; right: calc(376px + 16px); z-index: 41;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  color: var(--ink-48);
+  background: color-mix(in srgb, var(--chalk) 72%, transparent);
+  border: 1px solid var(--ink-08);
+  pointer-events: none;
+}
+
+/* ═══ CANVAS MODE TOGGLE · 2026-04-23 挪到右下角 shell-tools ═══
+   和 .theme-sw-trigger 同风格（气泡 pill · 毛玻璃 · 相同尺寸） */
 .canvas-mode-toggle {
   all: unset;
   cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, var(--ink-14));
+  color: var(--ink);
+  box-shadow: 0 8px 22px -14px rgba(0,0,0,.32),
+              inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+  transition: color .18s, background .18s, border-color .18s, transform .15s;
+}
+.canvas-mode-toggle:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chalk) 88%, transparent);
+  border-color: color-mix(in srgb, var(--agent, var(--ink-48)) 28%, var(--ink-14));
+  transform: translateY(-1px);
+}
+.canvas-mode-toggle.on {
+  background: color-mix(in srgb, var(--agent, var(--ink)) 86%, var(--ink));
+  color: var(--chalk);
+  border-color: color-mix(in srgb, var(--agent, var(--ink)) 88%, var(--ink));
+}
+.canvas-mode-toggle.on:hover {
+  background: color-mix(in srgb, var(--agent, var(--ink)) 90%, var(--ink));
+}
+.canvas-mode-toggle:disabled { cursor: not-allowed; opacity: .42; }
+.canvas-mode-toggle .ic { font-size: 13px; line-height: 1; }
+.canvas-mode-toggle .lbl {
+  font-family: var(--cjk); font-size: 11.5px; font-weight: 500; letter-spacing: .06em;
+}
+
+/* ═══ LOGOUT BUTTON · 顶栏 masthead 常驻退出 pill · 2026-04-23 ═══ */
+.logout-btn {
+  all: unset;
+  cursor: pointer;
   display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 52%, transparent);
+  border: 1px solid var(--ink-14);
+  color: var(--ink-65);
+  font-family: var(--cjk); font-size: 11.5px; font-weight: 500;
+  transition: color .18s, background .18s, border-color .18s;
+}
+.logout-btn:hover {
+  color: var(--t-alert, #C85A3C);
+  background: color-mix(in srgb, var(--t-alert, #C85A3C) 10%, transparent);
+  border-color: color-mix(in srgb, var(--t-alert, #C85A3C) 32%, var(--ink-14));
+}
+.logout-btn .ic { font-family: var(--mono); font-size: 13px; line-height: 1; }
+.logout-btn .lbl { letter-spacing: .06em; }
+
+/* 2026-04-22 · Edit 态强调（编辑中 pulse）· Locked 态保持 .on 底色 */
+.canvas-mode-toggle.editing {
+  background: color-mix(in srgb, var(--accent) 70%, var(--ink) 30%);
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--ink) 30%);
+  color: var(--chalk);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  animation: canvasEditPulse 2.4s ease-in-out infinite;
+}
+.canvas-mode-toggle.editing:hover { background: color-mix(in srgb, var(--accent) 82%, var(--ink)); }
+@keyframes canvasEditPulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent); }
+}
+
+/* 组：主按钮 + 重置按钮并排 */
+.canvas-mode-group {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.canvas-mode-reset {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
   padding: 5px 10px;
   border-radius: 999px;
   border: 1px solid var(--ink-14);
   font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--ink-65);
+  background: color-mix(in srgb, var(--chalk) 72%, transparent);
   transition: color .2s, background .2s, border-color .2s;
 }
-.canvas-mode-toggle:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: var(--ink-40, var(--ink-48));
+.canvas-mode-reset:hover {
+  color: var(--t-alert);
+  border-color: color-mix(in srgb, var(--t-alert) 42%, var(--ink-14));
+  background: color-mix(in srgb, var(--t-alert) 8%, var(--chalk));
 }
-.canvas-mode-toggle.on {
-  background: var(--ink);
-  color: var(--chalk);
-  border-color: var(--ink);
-}
-.canvas-mode-toggle.on:hover { background: var(--ink); }
-.canvas-mode-toggle:disabled {
-  cursor: not-allowed;
-  opacity: .42;
-}
-.canvas-mode-toggle .ic {
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: 0;
-}
-.canvas-mode-toggle .lbl { font-family: var(--cjk); letter-spacing: .08em; }
+.canvas-mode-reset .lbl { font-family: var(--cjk); letter-spacing: .08em; }
