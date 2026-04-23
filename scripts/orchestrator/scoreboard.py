@@ -128,7 +128,19 @@ def render_scoreboard(m) -> str:
 
 # ---------- CLI ----------
 
+def _ensure_utf8_stdout() -> None:
+    """Force stdout to UTF-8 on Windows (default GBK chokes on emoji)."""
+    enc = (sys.stdout.encoding or "").lower()
+    if enc != "utf-8":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main() -> int:
+    _ensure_utf8_stdout()
+
     parser = argparse.ArgumentParser(description="Render mesh scoreboard.")
     parser.add_argument(
         "--write",
