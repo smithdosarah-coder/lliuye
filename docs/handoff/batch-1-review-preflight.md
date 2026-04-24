@@ -166,7 +166,7 @@ ruff check agent_credit/ agent_alert/ agent_riskctrl/ shared/qc/
 | DF-V2-1 | 老产物全删 | `wide-base/` / `schemas/` / `deep-pillar/shortlist.md` / `deep-pillar/pits/` 全部 `git status` 显示 `deleted:` · 不留残余 | `git log --diff-filter=D --name-only feat/data-foundation` 命中这 5 处 |
 | DF-V2-2 | 新目录骨架齐 | `data/mock/deep-pillar/` + `channel-kb/` 3 子目录(historical-clients / marketing-preferences / product-catalog)+ `compliance-kb/` 5 子目录(credit-sop / customer-admission / kyc-aml / risk-preference / review-checklists)全部存在 | `ls data/mock/` 目录树对齐 |
 | DF-V2-3 | 5 家深柱文件夹存在 | `DP001_* ~ DP005_*` 5 个文件夹 · 脱敏名前缀 `DP00N_` 规则统一 | `ls data/mock/deep-pillar/` 计数 = 5 |
-| DF-V2-4 | 每家材料份数 | 20 ≤ 份数 ≤ 40 / 每家 | `find data/mock/deep-pillar/DP00N_*/ -type f \| wc -l` 每家结果在区间 |
+| DF-V2-4 | 每家材料份数 | 20 ≤ 份数 ≤ 65 / 每家（对齐中锐 ground-truth ~90 份形态 · 2026-04-24 polish：原 20-40 偏严 · 实际 v2 worker 产 43-61 份合理） | `find data/mock/deep-pillar/DP00N_*/ -type f \| wc -l` 每家结果在区间 |
 | DF-V2-5 | 扩展名多样性 | 每家 ≥ 3 种扩展名(pdf / xlsx / docx 必居其二,可追加 xls / jpg) | `find data/mock/deep-pillar/DP00N_*/ -type f \| awk -F. '{print $NF}' \| sort -u` 每家 ≥ 3 |
 | DF-V2-6 | 6 大类子目录覆盖 | 每家包含资质 / 场所 / 财务 / 纳税 / 银行流水 / 补充 6 大类材料(子目录或序号前缀形式均可,至少能 `ls` 识别) | 人工读 `ls -R` 输出逐家核 |
 | DF-V2-7 | 命名混乱度 | 每家内同时出现 ≥ 2 种命名风格(如"00、xxx.xlsx" + "1、xxx.pdf" + "审计报告2023年-xxx.pdf"无序号直写)· **禁止**统一规整命名(`DP001_01_营业执照.pdf` 这种 = 结果导向偷懒) | 抽 3 家列出所有文件名 · 人工判 |

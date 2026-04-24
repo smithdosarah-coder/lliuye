@@ -1614,3 +1614,48 @@ Batch 1 状态 4/4 APPROVED：
 - Batch 2 onboarding × 4 + kickoffs + DF-V2-4 polish 合 1 commit Signal: BATCH-2-DISPATCHED
 
 ---
+
+## [Q-030] 2026-04-24 · main CLI (self) · Batch 2 closeout + 3 follow-up 状态 + Batch 3 规划进入
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: no
+**Related**: Q-023/A-023 · Q-028/A-028 · Q-029/A-029 · Preflight v2 §1-§4
+
+### 背景
+
+Batch 2 Product Hardening 4/4 全部 APPROVED + 合流 chore/l0-infra：
+
+| 轨 | Worker branch | Merge SHA | Signal | 预 review subagent 结论 |
+|---|---|---|---|---|
+| 数据 | feat/data-foundation | 271eb6f | PHASE-2-DATA-FOUNDATION-APPROVED | 7/7 硬指标 + 反5原则 5/5 + 0 越界 + 0 答案字段 |
+| 外搜 | feat/code-arch | 8b66bd2 | PHASE-2-CODE-ARCH-APPROVED | 72/72 pytest + additive schema + 0 红区漂移 |
+| 前端 | feat/code-urgent | bc75ed1 | PHASE-2-CODE-URGENT-APPROVED | 12 spec cases + tsc 0 error + fallback.ts audit lock |
+| 评估 | feat/evaluation | c2776b4 | PHASE-2-EVALUATION-APPROVED | 3 Task 齐 + EV-12 架构守护 + 42 项 drift table |
+
+实际合流顺序：data-foundation → code-arch → code-urgent → evaluation。Preflight §5.1 原顺序 code-urgent 第一是 Batch 1 依据（Task 0 archive 归位前置），Batch 2 改动区零重叠故按独立性 + READY 到达时间重排 · 无 rebase 冲突。
+
+### 3 条 follow-up 状态
+
+| # | 条目 | 状态 |
+|---|---|---|
+| 4.1 | DF-V2-4 阈值 polish（20≤份数≤40 → 20≤份数≤65） | ✅ 本 closeout 随 commit 完成 |
+| 4.2 | mesh_launch.py shim 存在本地（~/.claude/skills/multi-cli-mesh/scripts/mesh_launch.py） | 🟡 知情备案 · 不动 · 机器重装需重写 |
+| 4.3 | DF-V2-13 PM google 5 家脱敏名（龙峰精工 / 蓝汀家电 / 宸星家装 / 汇德建材 / 星胤实业） | 🟡 测试阶段豁免（Q-029.D）· 对外 demo 前触发 |
+
+### Batch 2 预期漂移（非 blocker · 留档）
+
+- **evaluation Agent4 baseline 未消费 alert-pool**：worker 接单早于 data-foundation v2 合流 · onboarding 未强制 Batch 2 接 alert-pool · 留给下轮 rebase 自动升级
+- **evaluation Task C Agent1/5 stub 分支**：worker 接单时 code-arch oracle 未到位 · 合流后 code-arch 产 `compute_external_search_metrics` / `compute_policy_compare_metrics` 已 3-way 自动补齐 · stub `method=heuristic` 可随 worker 下次 rebase 升 `method=deterministic`
+
+### [A-030] 2026-04-24 · 主 CLI 自定
+
+**Decision**: Batch 2 closeout 合流 · 进入 Batch 3 规划（= Phase 3 · Agent2 风控 · 最后一批）
+
+**Follow-up**:
+- 本 commit Signal: BATCH-2-CLOSED
+- DF-V2-4 阈值 polish 合 1 commit
+- Batch 3 规划草案待用户 GO 后 dispatch
+- evaluation worker 下次 rebase 自动升级 Agent1/5 metric stub → deterministic（不单独派任务 · 随下次轮次）
+
+---
