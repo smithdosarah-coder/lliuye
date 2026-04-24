@@ -87,6 +87,27 @@ metrics:
       baseline_target: 0.95
       blocker_threshold: 0.80
 
+    # Batch 2 · cross_compare 接入后新增指标
+    - name: coverage
+      desc: 新政策冲突命中率（已知 oracle 冲突被 cross_compare 检出）
+      description: 对 Batch 2 fixture policies cross_compare 后与 oracle_conflicts 对齐的召回率
+      method: oracle_hits / oracle_total
+      type: deterministic
+      adapter: compute_policy_compare_metrics
+      target: ">= 0.6"
+      baseline_target: 0.60
+      blocker_threshold: 0.40
+
+    - name: false_positive_rate
+      desc: cross_compare 报告中不属于 oracle 的 false-positive 比例
+      description: 越低越好;超过 0.3 即 blocker
+      method: false_positive / reported_total
+      type: deterministic
+      adapter: compute_policy_compare_metrics
+      target: "<= 0.3"
+      baseline_target: 0.30
+      blocker_threshold: 0.50
+
 baseline:
   last_run: null
   commit: null

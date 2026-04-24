@@ -1,0 +1,47 @@
+---
+# Oracle (ground-truth) look-alike 候选集 · Task C integration 真值
+# 每组 profile 给 3-5 家「应召回」企业 + 20 家干扰池。
+# 不写真实存续企业,名称加「测试」后缀避免混淆。
+
+profiles:
+  - profile_id: SEM_YZ
+    description: 华东半导体 / 专精特新 / 5-10 亿营收
+    target_industries: ["半导体", "电子信息"]
+    target_regions: ["上海", "江苏", "长三角"]
+    qualifications: ["专精特新", "高新技术"]
+    oracle_companies:
+      - 启星半导体测试有限公司
+      - 晟洁精密电子测试有限公司
+      - 雅宁电子信息测试股份有限公司
+    distractor_companies:
+      - 漠北牧业测试合作社
+      - 融创建材测试连锁
+      - 海通机电测试贸易
+
+  - profile_id: MFG_LOG
+    description: 华东物流 / 中小规模 / 一体化仓储
+    target_industries: ["物流", "运输"]
+    target_regions: ["浙江", "嘉兴"]
+    qualifications: []
+    oracle_companies:
+      - 博瀚物流测试运输有限公司
+      - 启明仓储测试物流有限公司
+      - 海通机电测试运输有限公司
+    distractor_companies:
+      - 启星半导体测试有限公司
+      - 融创建材测试连锁
+      - 漠北牧业测试合作社
+
+  - profile_id: SOFT_EDU
+    description: 软件/教育科技 / 小微 / 专利 ≥ 5
+    target_industries: ["软件", "教育"]
+    target_regions: ["杭州", "西安"]
+    qualifications: ["专利"]
+    oracle_companies:
+      - 启星软件技术测试有限公司
+      - 禾元教培测试科技学校
+      - 融创教育测试科技连锁
+    distractor_companies:
+      - 博瀚物流测试运输有限公司
+      - 海通机电测试贸易
+      - 兴旺生鲜测试合作社

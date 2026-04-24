@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from typing import Callable
@@ -13,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from .policy_parser import PolicyDocument, PolicyRequirement
 from .prompts import SYSTEM_COMPLIANCE_CHECK
+from .internal_policy_indexer import InternalClause
 
 
 class CheckItem(BaseModel):
@@ -115,6 +117,217 @@ def _recalculate_stats(report: ComplianceReport) -> None:
         report.compliance_rate = round((report.passed + report.partial * 0.5) / applicable * 100, 1)
     else:
         report.compliance_rate = 100.0
+
+
+# ---------------------------------------------------------------------------
+# Batch 2 · cross_compare (新政策 vs 内部制度条款)
+# ---------------------------------------------------------------------------
+
+CONFLICT_TYPES = ("new_requirement", "upgraded_requirement", "revoked", "terminology_change")
+CONFLICT_SEVERITIES = ("high", "medium", "low")
+
+
+class PolicyRef(BaseModel):
+    """外部新政策引用。"""
+    new_policy_id: str                       # hash(url) 或 policy 编号
+    title: str = ""
+    source_url: str = ""
+    publish_date: str = ""
+    source_name: str = ""                    # gov_cn / pbc_gov / flk_npc / tavily
+
+
+class InternalClauseRef(BaseModel):
+    """内部制度条款引用。"""
+    clause_id: str
+    source_doc: str = ""
+    section_title: str = ""
+    business_scope: str = ""
+
+
+class EvidenceRef(BaseModel):
+    """冲突条目的 Evidence(复用而非 import shared.sources 以避免循环)."""
+    source: str
+    url: str = ""
+    snippet: str = ""
+
+
+class ConflictItem(BaseModel):
+    """一条"新政策 vs 内部制度条款"冲突记录。
+
+    对外契约:
+      conflict_id = hash(new_policy_id, internal_clause_id, conflict_type)
+      severity ∈ CONFLICT_SEVERITIES
+      conflict_type ∈ CONFLICT_TYPES
+      suggested_amendment:
+          非空 → 必须在正文里引到 new_policy_ref 条款编号 + internal_clause_ref.clause_id
+          不满足上述 → 强制置 "未能自动建议"(§3.3 Evidence-First 底线)
+    """
+    conflict_id: str
+    severity: str = "medium"
+    new_policy_ref: PolicyRef
+    internal_clause_ref: InternalClauseRef
+    conflict_type: str = "new_requirement"
+    suggested_amendment: str = ""
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+
+
+def _policy_item_to_ref(item: dict, source_url: str, source_name: str) -> PolicyRef:
+    """将 Router/direct-tavily/gov_cn 返回的 item 统一转 PolicyRef。"""
+    url = source_url or item.get("url", "") or item.get("source_url", "") or ""
+    pid = item.get("policy_id") or item.get("id") or ""
+    if not pid:
+        pid = hashlib.md5((url or item.get("title", "") or "").encode("utf-8")).hexdigest()[:16]
+    # publish_date 可能是 str / datetime.date / datetime.datetime / None — 统一 str 后切
+    pub_raw = item.get("publish_date") or item.get("date") or ""
+    pub_str = str(pub_raw) if pub_raw else ""
+    return PolicyRef(
+        new_policy_id=pid,
+        title=(item.get("title") or "")[:200],
+        source_url=url,
+        publish_date=pub_str[:40],
+        source_name=source_name or "",
+    )
+
+
+def _clause_to_ref(clause: InternalClause) -> InternalClauseRef:
+    return InternalClauseRef(
+        clause_id=clause.clause_id,
+        source_doc=clause.source_doc,
+        section_title=clause.section_title,
+        business_scope=clause.business_scope,
+    )
+
+
+def _keyword_overlap(
+    clause: InternalClause,
+    policy_text: str,
+) -> tuple[int, list[str]]:
+    """keyword overlap 计数 + 命中清单。"""
+    hits: list[str] = []
+    for kw in clause.keywords:
+        if kw and kw in policy_text:
+            hits.append(kw)
+    return len(hits), hits
+
+
+def _classify_conflict(clause: InternalClause, policy_text: str, hits: list[str]) -> str:
+    """基于规则推断 conflict_type(不走 LLM)。
+
+    启发式:
+      - 政策 text 含 "新增 / 新规 / 从 X 日起" + clause.content 有同主题 → new_requirement
+      - 政策 text 含 "提高 / 加强 / 上调" → upgraded_requirement
+      - 政策 text 含 "废止 / 取消 / 撤销" → revoked
+      - 只有术语名改了(keyword 命中但 content 主题变更) → terminology_change
+    默认 new_requirement。
+    """
+    if any(tok in policy_text for tok in ("废止", "取消", "撤销", "失效")):
+        return "revoked"
+    if any(tok in policy_text for tok in ("提高", "加强", "上调", "更严", "收紧")):
+        return "upgraded_requirement"
+    if any(tok in policy_text for tok in ("术语", "更名", "改称")):
+        return "terminology_change"
+    return "new_requirement"
+
+
+def _classify_severity(conflict_type: str, overlap_count: int) -> str:
+    if conflict_type in ("revoked", "upgraded_requirement"):
+        return "high" if overlap_count >= 2 else "medium"
+    if conflict_type == "terminology_change":
+        return "low"
+    return "medium" if overlap_count >= 2 else "low"
+
+
+def _make_amendment(
+    clause: InternalClause,
+    policy_ref: PolicyRef,
+    conflict_type: str,
+    hits: list[str],
+) -> str:
+    """模板化建议(不 LLM 编,只拼接新政策编号 + 内部 clause 编号)。
+
+    如果 policy_ref.title 或 source_url 缺失 → 返回"未能自动建议"(§3.3)。
+    """
+    if not policy_ref.source_url or not policy_ref.title:
+        return "未能自动建议"
+    prefix = {
+        "new_requirement": "建议按",
+        "upgraded_requirement": "建议升级至",
+        "revoked": "建议废止",
+        "terminology_change": "建议对齐术语至",
+    }.get(conflict_type, "建议对齐至")
+    hits_str = "、".join(hits[:3]) if hits else ""
+    return (
+        f"{prefix}「{policy_ref.title[:60]}」({policy_ref.new_policy_id})"
+        f" 的新要求,对接内部条款 {clause.clause_id}"
+        + (f";关注 {hits_str}" if hits_str else "")
+    )
+
+
+def _conflict_id(new_policy_id: str, clause_id: str, conflict_type: str) -> str:
+    raw = f"{new_policy_id}|{clause_id}|{conflict_type}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def cross_compare(
+    internal_clauses: list[InternalClause],
+    external_policies: list[dict],
+    min_overlap: int = 1,
+) -> list[ConflictItem]:
+    """逐条比对 internal clause × external policy,抽出冲突点。
+
+    external_policies 每条约定字段:
+        raw_item: dict       — 原始源返回(Router.scan_latest_policies 格式)
+        source_url: str
+        source_name: str
+
+    去重: 同一 (new_policy_id, clause_id, conflict_type) 只出一条。
+
+    规则匹配(不走 LLM):
+        clause.keywords ∩ policy_text 的命中数 >= min_overlap → 产出冲突
+    """
+    seen_conflict_ids: set[str] = set()
+    out: list[ConflictItem] = []
+
+    for policy_wrap in external_policies:
+        raw = policy_wrap.get("raw_item") if isinstance(policy_wrap, dict) else None
+        if raw is None and isinstance(policy_wrap, dict):
+            raw = policy_wrap
+        if not isinstance(raw, dict):
+            continue
+        source_url = policy_wrap.get("source_url", "") if isinstance(policy_wrap, dict) else ""
+        source_name = policy_wrap.get("source_name", "") if isinstance(policy_wrap, dict) else ""
+        policy_ref = _policy_item_to_ref(raw, source_url, source_name)
+        policy_text = (
+            (raw.get("title") or "") + "\n"
+            + (raw.get("snippet") or raw.get("content") or raw.get("summary") or "")
+        )
+
+        for clause in internal_clauses:
+            overlap_count, hits = _keyword_overlap(clause, policy_text)
+            if overlap_count < min_overlap:
+                continue
+            conflict_type = _classify_conflict(clause, policy_text, hits)
+            cid = _conflict_id(policy_ref.new_policy_id, clause.clause_id, conflict_type)
+            if cid in seen_conflict_ids:
+                continue
+            seen_conflict_ids.add(cid)
+            severity = _classify_severity(conflict_type, overlap_count)
+            suggested = _make_amendment(clause, policy_ref, conflict_type, hits)
+            evidence = [EvidenceRef(
+                source=source_name or policy_ref.source_name or "router",
+                url=policy_ref.source_url,
+                snippet=(policy_text[:260]).strip(),
+            )]
+            out.append(ConflictItem(
+                conflict_id=cid,
+                severity=severity,
+                new_policy_ref=policy_ref,
+                internal_clause_ref=_clause_to_ref(clause),
+                conflict_type=conflict_type,
+                suggested_amendment=suggested,
+                evidence=evidence,
+            ))
+    return out
 
 
 def format_checklist(report: ComplianceReport) -> str:

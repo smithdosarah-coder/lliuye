@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 from typing import Iterable
 
 from shared.kb_scan.matcher import Matcher, SimilarityScorer
@@ -19,6 +20,7 @@ from shared.kb_scan.models import (
     RiskLevel,
     RuleItem,
     ScanTarget,
+    SignalEvent,
 )
 from shared.kb_scan.search_provider import SearchProvider
 
@@ -370,3 +372,202 @@ class LookAlikeMatcher(Matcher):
             return num / 10000 if num > 100000 else num
         except (ValueError, TypeError):
             return None
+
+
+# ---------------------------------------------------------------------------
+# Batch 2 · Router 接入层(Tavily / enterprise_info 真搜)
+# ---------------------------------------------------------------------------
+
+_COMPANY_NAME_RE = re.compile(
+    r"([一-龥A-Za-z0-9·（）()]{2,30}?"
+    r"(?:股份有限公司|有限责任公司|有限公司|集团公司|集团|公司|合作社|分公司))"
+)
+
+
+class RouterLeadSearcher:
+    """走 shared.sources.Router 的真搜入口(Batch 2 · CLAUDE.md §3.5 环境边界)。
+
+    两条腿:
+      1. Router.query("agent_channel.enterprise_info", ...) → 偏好链 enterprise_info→tavily
+         消费结构化工商字段(上市走 akshare,非上市 Tavily+LLM 严抽)
+      2. 直接 Tavily news query(company_name) → 拼信号时间线 SignalEvent
+
+    上层调用保持和 LeadSearcher.search_candidates 同样签名风格:返回
+    (list[CompanyProfile], metas)。不抛异常,失败时单条 meta 标 error。
+
+    无 TAVILY_API_KEY / 偏好链全挂 → candidates 为空 + metas 暴露 error,
+    degraded 信息由 QueryResult.degraded 透传到 meta 里。
+    """
+
+    def __init__(self, router=None, ensure_bootstrap: bool = True):
+        self._router = router
+        self._ensure_bootstrap = ensure_bootstrap
+
+    def _get_router(self):
+        if self._router is not None:
+            return self._router
+        from shared.sources.router import Router
+        if self._ensure_bootstrap:
+            try:
+                from shared.sources import bootstrap
+                bootstrap()
+            except (ImportError, RuntimeError, ValueError, TypeError):
+                pass
+        self._router = Router()
+        return self._router
+
+    # ---- query → candidate 解析 ----
+
+    def _extract_company_names(self, snippet: str, title: str) -> list[str]:
+        names: list[str] = []
+        for text in (title, snippet):
+            if not text:
+                continue
+            for m in _COMPANY_NAME_RE.finditer(text):
+                name = m.group(1).strip()
+                if len(name) > 30:
+                    continue
+                if name not in names:
+                    names.append(name)
+                if len(names) >= 3:
+                    break
+        return names
+
+    def search_candidates(
+        self,
+        queries: list[str],
+        per_query_limit: int = 10,
+        max_total: int = 30,
+    ) -> tuple[list[CompanyProfile], list[dict]]:
+        """对每条 query 发一次 Router.query;解析 items 为 CompanyProfile。"""
+        from shared.sources.base import QueryRequest
+        from shared.kb_scan.models import Evidence as KBEvidence
+
+        router = self._get_router()
+        seen: dict[str, CompanyProfile] = {}
+        metas: list[dict] = []
+
+        for q in queries:
+            if len(seen) >= max_total:
+                break
+            req = QueryRequest(
+                query=q,
+                query_type="research",     # Tavily 支持 research/news/company_info/generic
+                filters={"search_depth": "advanced"},
+                limit=per_query_limit,
+            )
+            try:
+                result = router.query("agent_channel.enterprise_info", req)
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+                metas.append({
+                    "query": q, "status": "error",
+                    "error": f"{type(e).__name__}: {e}", "count": 0,
+                })
+                continue
+            if not result.ok:
+                metas.append({
+                    "query": q, "status": "error",
+                    "error": result.error or "router returned ok=False",
+                    "degraded": result.degraded, "source_name": result.source_name,
+                    "count": 0,
+                })
+                continue
+
+            new_count = 0
+            for item in result.items:
+                # item shape: {title, url, snippet, score} for Tavily;
+                # enterprise_info (akshare path) 会塞 company_name/industry 等字段
+                title = item.get("title", "") or ""
+                url = item.get("url", "") or item.get("source_url", "") or ""
+                snippet = item.get("snippet", "") or item.get("content", "") or ""
+
+                candidate_names: list[str] = []
+                if item.get("company_name"):
+                    candidate_names = [item["company_name"]]
+                else:
+                    candidate_names = self._extract_company_names(snippet, title)
+
+                for cname in candidate_names or ([title[:40]] if title else []):
+                    key = cname.strip()
+                    if not key or key in seen:
+                        continue
+                    cp = CompanyProfile(
+                        company_name=key,
+                        industry=item.get("industry", "") or "",
+                        region=item.get("region", "") or "",
+                        scale=item.get("scale", "") or "",
+                        revenue_latest=item.get("revenue_latest", "") or "",
+                        main_business=item.get("business_scope", "") or "",
+                        registered_capital=item.get("registered_capital", "") or "",
+                        establishment_date=item.get("establishment_date", "") or "",
+                        keywords=[q],
+                        evidence=[
+                            KBEvidence(
+                                source=result.source_name or "router",
+                                snippet=(snippet or title)[:400],
+                                url=url,
+                            )
+                        ],
+                        extras={
+                            "seed_query": q,
+                            "degraded": bool(result.degraded),
+                            "source_tier": result.source_name,
+                        },
+                    )
+                    seen[key] = cp
+                    new_count += 1
+                    if len(seen) >= max_total:
+                        break
+                if len(seen) >= max_total:
+                    break
+
+            metas.append({
+                "query": q, "status": "ok", "count": len(result.items),
+                "new": new_count, "degraded": bool(result.degraded),
+                "source_name": result.source_name,
+            })
+
+        return list(seen.values()), metas
+
+    # ---- 信号时间线(裸 Tavily news) ----
+
+    def fetch_signal_timeline(
+        self,
+        company_name: str,
+        months: int = 12,
+        limit: int = 5,
+    ) -> list[SignalEvent]:
+        """对 company_name 发一次 Tavily news query,组装近 N 月信号事件。
+
+        走裸 TavilySource(不用 Router),保证 news query_type 直达;
+        Tavily 无 key 时返回空 list(调用侧决定是否暴露 degraded)。
+        """
+        from shared.sources.registry import get, has
+        from shared.sources.base import QueryRequest
+
+        if not company_name or not has("tavily"):
+            return []
+        source = get("tavily")
+        if not source.health():
+            return []
+        req = QueryRequest(
+            query=f'"{company_name}" 最近 {months} 个月 新闻',
+            query_type="news",
+            filters={"search_depth": "basic"},
+            limit=max(1, limit),
+        )
+        try:
+            result = source.query(req)
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+            return []
+        if not result.ok:
+            return []
+        events: list[SignalEvent] = []
+        for item in result.items[:limit]:
+            events.append(SignalEvent(
+                event_type="news",
+                title=(item.get("title") or "")[:120],
+                source_url=item.get("url", "") or "",
+                snippet=(item.get("snippet") or item.get("content") or "")[:300],
+            ))
+        return events

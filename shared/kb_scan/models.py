@@ -43,6 +43,15 @@ class RuleItem(BaseModel):
     rule_type: RuleType = RuleType.EXTRACTED
 
 
+class SignalEvent(BaseModel):
+    """Agent1 候选企业的外部信号事件（近 N 月新闻/获奖/融资）。"""
+    event_date: str = ""                     # YYYY-MM-DD 或原文日期
+    event_type: str = "news"                 # news / award / investment / certification / ...
+    title: str = ""
+    source_url: str = ""
+    snippet: str = ""
+
+
 class CompanyProfile(BaseModel):
     """企业画像，Agent1/Agent4 共用。"""
     company_id: str = ""
@@ -67,6 +76,12 @@ class CompanyProfile(BaseModel):
     risk_tags: list[str] = Field(default_factory=list)
     credit_balance: str = ""                 # 在贷余额
     overdue_days: int = 0
+    # Agent1 look-alike 外搜扩展（Batch 2）· 仅追加不删改
+    signal_timeline: list[SignalEvent] = Field(default_factory=list)
+    match_score: float | None = None         # 归一化 [0, 1] look-alike 综合分
+    match_breakdown: dict[str, float] = Field(default_factory=dict)  # {industry, scale, qualifications}
+    recommended_products: list[str] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)           # Agent1 外搜证据链（向后兼容：和 HitItem.evidences 语义一致）
     # 自由扩展位
     extras: dict = Field(default_factory=dict)
 

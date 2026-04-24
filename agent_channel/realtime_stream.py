@@ -32,6 +32,59 @@ logger = logging.getLogger(__name__)
 # 6 阶段 key（与前端 channel-types.ts 的 CHANNEL_STAGES 对齐）
 STAGES = ["parse", "signal_scan", "aggregate", "enrich", "pitch", "rank"]
 
+
+# ============================================================================
+# Batch 2 · Router/Lookalike 事件工厂(additive only;现有事件契约不变)
+# ============================================================================
+#
+# 和 RouterLeadSearcher / LookAlikeKBMatcher 协作时,调用方可以通过这两个
+# 工厂函数产出 SSE 事件,把 Router 偏好链命中 + look-alike 锚定透明化到前端。
+# 命名遵循 "<namespace>.<verb>" 契约,不与 STAGES 冲突。
+
+SOURCE_HIT_EVENT = "source.hit"
+LOOKALIKE_MATCH_EVENT = "lookalike.match"
+
+
+def source_hit_event(
+    *, query: str, source_name: str, degraded: bool, count: int,
+    evidence_urls: list[str] | None = None,
+) -> dict:
+    """Router.query 返回后,调用方产出的一条 "source.hit" SSE 事件。
+
+    字段:
+      query / source_name / degraded / count: 命中元信息
+      evidence_urls: 前端点击回溯原文的 url 列表(可空)
+    """
+    return {
+        "event": SOURCE_HIT_EVENT,
+        "query": query,
+        "source_name": source_name,
+        "degraded": bool(degraded),
+        "count": int(count),
+        "evidence_urls": list(evidence_urls or []),
+    }
+
+
+def lookalike_match_event(
+    *, candidate_name: str, match_score: float,
+    breakdown: dict, top_anchors: list[str] | None = None,
+) -> dict:
+    """LookAlikeKBMatcher.score 返回后,调用方产出的一条 "lookalike.match" 事件。
+
+    字段:
+      candidate_name: 候选企业名
+      match_score: [0, 1] 归一化分
+      breakdown: {industry, scale, qualifications} 三维分
+      top_anchors: 命中 Top-K 历史客户名
+    """
+    return {
+        "event": LOOKALIKE_MATCH_EVENT,
+        "candidate_name": candidate_name,
+        "match_score": float(match_score),
+        "breakdown": dict(breakdown),
+        "top_anchors": list(top_anchors or []),
+    }
+
 # ========== 信号搜索模板 ==========
 SIGNAL_QUERIES = [
     ("{industry} {region} 中标公告 2025", "bidding"),

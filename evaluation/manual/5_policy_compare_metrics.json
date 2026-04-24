@@ -1,0 +1,9 @@
+{
+  "coverage": 1.0,
+  "false_positive_rate": 0.0943,
+  "oracle_total": 3,
+  "oracle_hit": 3,
+  "reported_total": 53,
+  "false_positive": 5,
+  "computed_at": "2026-04-24"
+}

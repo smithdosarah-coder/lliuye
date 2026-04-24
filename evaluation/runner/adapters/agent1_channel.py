@@ -268,3 +268,73 @@ class Agent1ChannelEvaluator(BaseEvaluator):
             method="manual",
             note=reason,
         )
+
+
+# ---------------------------------------------------------------------------
+# Batch 2 · external_search metrics plug-in(integration test 产物消费)
+# ---------------------------------------------------------------------------
+
+DEFAULT_EXTERNAL_METRICS = REPO_ROOT / "evaluation" / "manual" / "1_external_search_metrics.json"
+
+
+def compute_external_search_metrics(
+    run_dir: Path | str | None = None,
+) -> list[MetricOutcome]:
+    """从 Task C integration test 的 artifact 里解析 precision@10 / recall@10。
+
+    artifact 路径:
+        run_dir/1_external_search_metrics.json (若 run_dir 指定)
+        否则 REPO_ROOT/evaluation/manual/1_external_search_metrics.json
+
+    不抛异常:artifact 缺失时返回 pending MetricOutcome。
+    """
+    if run_dir is not None:
+        art_path = Path(run_dir) / "1_external_search_metrics.json"
+    else:
+        art_path = DEFAULT_EXTERNAL_METRICS
+
+    targets = {
+        "precision_at_10": ">= 0.3",
+        "recall_at_10": ">= 0.5",
+    }
+
+    if not art_path.exists():
+        return [
+            MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 缺失 {art_path}",
+            )
+            for name, target in targets.items()
+        ]
+
+    try:
+        payload = json.loads(art_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return [
+            MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 解析失败 {e}",
+            )
+            for name, target in targets.items()
+        ]
+
+    out: list[MetricOutcome] = []
+    for name, target in targets.items():
+        v = payload.get(name)
+        if v is None:
+            out.append(MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 内缺字段 {name}",
+            ))
+            continue
+        passed = v >= 0.3 if name == "precision_at_10" else v >= 0.5
+        out.append(MetricOutcome(
+            name=name, value=float(v), target=target, passed=passed,
+            method="deterministic",
+            evidence=[str(art_path)],
+            note=f"computed by tests/agent_channel/test_external_search_integration.py",
+        ))
+    return out

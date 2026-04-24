@@ -87,6 +87,27 @@ metrics:
       baseline_target: 0.95
       blocker_threshold: 0.85
 
+    # Batch 2 · 外搜 look-alike pipeline 接入后新增指标
+    - name: precision_at_10
+      desc: Top10 候选里命中 look-alike oracle 的精度
+      description: Tavily+enterprise_info Router 返回 + look-alike 三维 Jaccard 打分 Top10 后的精度
+      method: oracle_hits_in_top10 / 10
+      type: deterministic
+      adapter: compute_external_search_metrics
+      target: ">= 0.3"
+      baseline_target: 0.30
+      blocker_threshold: 0.20
+
+    - name: recall_at_10
+      desc: Top10 候选对 look-alike oracle 的召回
+      description: 每 profile 平均 recall@10 across Batch 2 integration fixture
+      method: oracle_hits_in_top10 / oracle_total
+      type: deterministic
+      adapter: compute_external_search_metrics
+      target: ">= 0.5"
+      baseline_target: 0.50
+      blocker_threshold: 0.30
+
 baseline:
   last_run: null
   commit: null
