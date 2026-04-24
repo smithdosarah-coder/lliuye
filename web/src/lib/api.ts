@@ -15,6 +15,16 @@ export const REPORT_API_BASE =
 
 export type BackendSegment = "corporate" | "retail";
 
+// ---------------------------------------------------------------------------
+// Evidence-First Protocol · SSE 扩展(Batch 2)
+// ---------------------------------------------------------------------------
+// 对齐 shared/evidence/protocol.py `AuditedResult.to_dict()` shape。
+// 5 Agent(channel/credit/alert/compliance/riskctrl)的 done 事件 payload 可带;
+// Agent6 report 目前不带,workspace 层自行处置。
+// 前端只消费,不回写,不 mutate backend 契约。
+
+export type { EvidenceItem, AuditPayload, AuditFinding } from "@/components/evidence/types";
+
 export interface PresetsResponse {
   segment: BackendSegment;
   presets: string[];
@@ -38,6 +48,11 @@ export interface DecisionEvent {
   profile?: unknown;
   message?: string;
   traceback?: string;
+  /** Evidence-First 扩展(done 事件携带);见 shared/evidence/protocol.py */
+  evidence_trail?: import("@/components/evidence/types").EvidenceItem[];
+  unfilled_fields?: string[];
+  findings?: import("@/components/evidence/types").AuditFinding[];
+  blocked?: boolean;
 }
 
 /**

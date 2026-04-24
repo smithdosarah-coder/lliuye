@@ -15,6 +15,8 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   Radar,
   RadarChart,
@@ -115,6 +117,10 @@ export default function CreditWorkspace() {
   }
 
   return (
+    <EvidenceProvider
+      items={CREDIT_EVIDENCE.items}
+      unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+    >
     <div className="rpt-workspace" data-credit-mode={mode} data-scanned={scanned ? "yes" : "no"}>
       <TopBar
         mode={mode}
@@ -168,7 +174,9 @@ export default function CreditWorkspace() {
         generateSteps={session.generateSteps}
         progress={progress}
       />
+      <EvidenceTrail agentTone="credit" />
     </div>
+    </EvidenceProvider>
   );
 }
 

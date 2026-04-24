@@ -12,6 +12,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
+import { EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import { RISKCTRL_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   LineChart,
   Line,
@@ -60,37 +62,43 @@ export default function RiskctrlWorkspace() {
   /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
   const [scanned, setScanned] = useState(false);
   return (
-    <div data-view="archive-riskctrl" data-scanned={scanned ? "yes" : "no"}>
-      <RiskHero />
-      <RiskIndicatorRow />
-      <div className="rpt-body">
-        <aside className="rpt-side">
-          <QueryPanel />
-          <RulesPanel />
-          <RecentPanel />
-        </aside>
-        <main className="rpt-main">
-          <ScanCTA
-            label="样本回测"
-            tone="riskctrl"
-            onDone={() => setScanned(true)}
-            steps={[
-              { label: "装载 DSL 规则 · 3 条件", pct: 18 },
-              { label: "采样 · 50K 近 30 日样本", pct: 42 },
-              { label: "计算 KS / 通过率", pct: 68 },
-              { label: "AB 对比 · 现行版", pct: 88 },
-              { label: "生成回测报告 · 完成", pct: 100 },
-            ]}
-          />
-          <ConversationPanel>
-            <RiskComposer />
-          </ConversationPanel>
-        </main>
-        <aside className="rpt-aux">
-          <RiskOutputPanel />
-        </aside>
+    <EvidenceProvider
+      items={RISKCTRL_EVIDENCE.items}
+      unfilledFields={RISKCTRL_EVIDENCE.unfilledFields}
+    >
+      <div data-view="archive-riskctrl" data-scanned={scanned ? "yes" : "no"}>
+        <RiskHero />
+        <RiskIndicatorRow />
+        <div className="rpt-body">
+          <aside className="rpt-side">
+            <QueryPanel />
+            <RulesPanel />
+            <RecentPanel />
+          </aside>
+          <main className="rpt-main">
+            <ScanCTA
+              label="样本回测"
+              tone="riskctrl"
+              onDone={() => setScanned(true)}
+              steps={[
+                { label: "装载 DSL 规则 · 3 条件", pct: 18 },
+                { label: "采样 · 50K 近 30 日样本", pct: 42 },
+                { label: "计算 KS / 通过率", pct: 68 },
+                { label: "AB 对比 · 现行版", pct: 88 },
+                { label: "生成回测报告 · 完成", pct: 100 },
+              ]}
+            />
+            <ConversationPanel>
+              <RiskComposer />
+            </ConversationPanel>
+          </main>
+          <aside className="rpt-aux">
+            <RiskOutputPanel />
+          </aside>
+        </div>
+        <EvidenceTrail agentTone="riskctrl" />
       </div>
-    </div>
+    </EvidenceProvider>
   );
 }
 
