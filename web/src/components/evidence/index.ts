@@ -6,6 +6,17 @@ export { HighlightCard, ClaimText } from "./HighlightCard";
 export type { HighlightCardProps, ClaimTextProps } from "./HighlightCard";
 export { parseClaims, hasAnchors } from "./claimParser";
 export type { ClaimToken } from "./claimParser";
+export {
+  UnfilledMarker,
+  UnfilledGuard,
+  UnfilledFields,
+  splitUnfilledLiteral,
+} from "./UnfilledMarker";
+export type {
+  UnfilledMarkerProps,
+  UnfilledGuardProps,
+  UnfilledFieldsProps,
+} from "./UnfilledMarker";
 export type {
   EvidenceItem,
   EvidenceMeta,

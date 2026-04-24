@@ -2,6 +2,15 @@
  * Fallback helper — wraps SSE async generators with automatic fallback
  * to a local mock fixture on timeout / connection failure / backend error.
  *
+ * 🔒 Batch 2 audit(2026-04-24 · CLAUDE.md §12 硬红线):
+ *   此文件只做 SSE stream 层面 live→mock 切换,不做字段级默认值兜底。
+ *   严禁后续补丁加入"未知字段静默兜底 0/空字符串/-"之类的代码路径。
+ *   如果后端字段未返回,UI 层走 <UnfilledMarker /> 显式标记"未能自动填写",
+ *   绝不编一个看起来对的数字。
+ *
+ *   Review 闸门验证(本次 audit 通过, 0 命中):
+ *     grep -nE 'return\s+(0|""|'"'"''"'"'|"-"|'"'"'-'"'"')' web/src/lib/fallback.ts
+ *
  * Usage:
  *   const gen = withFallback(
  *     () => streamChannelSearch({ query }),

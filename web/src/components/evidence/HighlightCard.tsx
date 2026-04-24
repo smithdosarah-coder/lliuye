@@ -11,8 +11,9 @@
 
 import { useMemo, useRef, useState, useCallback, type ReactNode } from "react";
 import { useEvidence } from "./EvidenceContext";
-import { isLowConfidence } from "./types";
+import { isLowConfidence, UNFILLED_MARKER_TEXT } from "./types";
 import { parseClaims } from "./claimParser";
+import { UnfilledMarker } from "./UnfilledMarker";
 
 export interface HighlightCardProps {
   refId: string;
@@ -110,15 +111,36 @@ export function ClaimText({ text, className, as = "p" }: ClaimTextProps) {
 
   const tokens = useMemo(() => parseClaims(resolved), [resolved]);
 
-  const rendered: ReactNode[] = tokens.map((t, i) =>
-    t.kind === "text" ? (
-      <span key={`t-${i}`}>{t.content}</span>
-    ) : (
-      <HighlightCard key={`r-${i}-${t.refId}`} refId={t.refId}>
-        {t.content}
-      </HighlightCard>
-    )
-  );
+  const rendered: ReactNode[] = [];
+  tokens.forEach((t, i) => {
+    if (t.kind === "ref") {
+      rendered.push(
+        <HighlightCard key={`r-${i}-${t.refId}`} refId={t.refId}>
+          {t.content}
+        </HighlightCard>
+      );
+      return;
+    }
+    // text token · 拆分字面值 "未能自动填写" 为 <UnfilledMarker inline>
+    if (!t.content.includes(UNFILLED_MARKER_TEXT)) {
+      rendered.push(<span key={`t-${i}`}>{t.content}</span>);
+      return;
+    }
+    const parts = t.content.split(UNFILLED_MARKER_TEXT);
+    parts.forEach((seg, j) => {
+      if (seg) rendered.push(<span key={`t-${i}-${j}`}>{seg}</span>);
+      if (j < parts.length - 1) {
+        rendered.push(
+          <UnfilledMarker
+            key={`u-${i}-${j}`}
+            fieldName={`inline_${i}_${j}`}
+            reason="qc_blocked"
+            inline
+          />
+        );
+      }
+    });
+  });
 
   // 无锚点 + 无 token → 直接返回原文(防守)
   const content = rendered.length > 0 ? rendered : resolved;

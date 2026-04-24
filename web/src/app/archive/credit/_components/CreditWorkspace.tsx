@@ -15,7 +15,12 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
 import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   Radar,
@@ -178,6 +183,7 @@ export default function CreditWorkspace() {
         <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
         <ClaimText text={CREDIT_EVIDENCE.summary} />
       </section>
+      <UnfilledFields />
       <EvidenceTrail agentTone="credit" />
     </div>
     </EvidenceProvider>

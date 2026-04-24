@@ -41,7 +41,12 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { RefCardMessage } from "./RefCardMessage";
-import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
 import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
@@ -161,6 +166,7 @@ export default function ChannelWorkspace() {
           <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
           <ClaimText text={CHANNEL_EVIDENCE.summary} />
         </section>
+        <UnfilledFields />
         <EvidenceTrail agentTone="channel" />
       </div>
     </EvidenceProvider>

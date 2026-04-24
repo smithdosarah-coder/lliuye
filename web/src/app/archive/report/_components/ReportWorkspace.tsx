@@ -20,7 +20,12 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
-import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
 import { REPORT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   REPORT_GLOBAL_STATS,
@@ -80,6 +85,7 @@ export function ReportWorkspace() {
           <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
           <ClaimText text={REPORT_EVIDENCE.summary} />
         </section>
+        <UnfilledFields />
         <EvidenceTrail agentTone="report" />
       </div>
     </EvidenceProvider>
