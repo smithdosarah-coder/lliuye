@@ -11,11 +11,18 @@ sys.path.insert(0, str(_HERE.parent.parent.parent))
 from orchestrator.lib.mesh import Worktree  # noqa: E402
 from orchestrator.recovery import (  # noqa: E402
     DEFAULT_ENV_LINES,
+    VALID_PLATFORMS,
+    _bash_env_chain,
+    _bash_export,
     _load_env_lines,
     _read_stuck_names,
     _synthesize_env_lines,
     build_env_lines,
+    detect_platform,
+    render_applescript,
     render_bat,
+    render_for_platform,
+    render_shell_script,
 )
 
 # Representative explicit env set used by legacy-style tests below; matches
@@ -159,6 +166,109 @@ def test_load_env_lines_backward_compat_returns_file_content(tmp_path):
     ]
 
 
+# ---------- R1 · cross-platform ----------
+
+def test_bash_export_converts_quoted_set_line():
+    assert _bash_export('set "https_proxy=http://proxy:8888"') == \
+        "export https_proxy='http://proxy:8888'"
+
+
+def test_bash_export_converts_bare_set_line():
+    assert _bash_export("set HTTPS_PROXY=http://x") == "export HTTPS_PROXY='http://x'"
+
+
+def test_bash_export_skips_unparseable():
+    assert _bash_export("unrelated line").startswith("# (skipped")
+
+
+def test_bash_env_chain_joins_with_double_amp():
+    chain = _bash_env_chain(_FIXTURE_ENV)
+    # Every valid export must be present; separator is && ; commented skips dropped.
+    assert " && " in chain
+    assert "export https_proxy='http://127.0.0.1:7897'" in chain
+    assert "export CLAUDE_CODE_GIT_BASH_PATH='D:\\Git\\usr\\bin\\bash.exe'" in chain
+
+
+def test_render_applescript_wraps_terminal_invocation():
+    script = render_applescript(_sample_worktree(), _FIXTURE_ENV)
+    assert script.startswith("-- Auto-generated"), script
+    assert 'tell application "Terminal"' in script
+    assert "activate" in script
+    assert "do script" in script
+    assert "exec claude" in script
+    # Path should be POSIX-style inside the do-script cd.
+    assert "cd 'D:/claude code/demo-agent6'" in script
+
+
+def test_render_applescript_escapes_embedded_quotes():
+    script = render_applescript(_sample_worktree(), [])
+    # We pass no env, so the do-script should be `cd '<path>' && exec claude`
+    # and must not contain an unescaped double quote in the middle of the body
+    # (only the outer pair wraps the string).
+    body_section = script.split("do script ", 1)[1]
+    # The first char is `"`, then content, then closing `"`. Count raw dquotes
+    # inside — any inner ones must appear as \" (which we count via plain split).
+    assert body_section.startswith('"'), body_section
+    # No unescaped " inside (every " should be preceded by \)
+    inner = body_section[1:]
+    closing_idx = None
+    i = 0
+    while i < len(inner):
+        ch = inner[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == '"':
+            closing_idx = i
+            break
+        i += 1
+    assert closing_idx is not None, "AppleScript do-script must be properly closed"
+
+
+def test_render_shell_script_is_executable_bash():
+    script = render_shell_script(_sample_worktree(), _FIXTURE_ENV)
+    assert script.startswith("#!/usr/bin/env bash\n")
+    assert "set -e" in script
+    assert "cd 'D:/claude code/demo-agent6'" in script
+    assert "export https_proxy='http://127.0.0.1:7897'" in script
+    assert script.rstrip().endswith("exec claude")
+
+
+def test_render_shell_script_with_empty_env_is_still_valid():
+    script = render_shell_script(_sample_worktree(), [])
+    assert "exec claude" in script
+    # No stray export lines when env list is empty:
+    assert "export " not in script
+
+
+def test_render_for_platform_dispatches_by_target():
+    body_win, ext_win = render_for_platform(_sample_worktree(), _FIXTURE_ENV, "windows")
+    assert ext_win == ".bat"
+    assert "wt -w 0 new-tab" in body_win
+
+    body_mac, ext_mac = render_for_platform(_sample_worktree(), _FIXTURE_ENV, "macos")
+    assert ext_mac == ".applescript"
+    assert 'tell application "Terminal"' in body_mac
+
+    body_lin, ext_lin = render_for_platform(_sample_worktree(), _FIXTURE_ENV, "linux")
+    assert ext_lin == ".sh"
+    assert body_lin.startswith("#!/usr/bin/env bash")
+
+
+def test_render_for_platform_rejects_unknown():
+    try:
+        render_for_platform(_sample_worktree(), [], "solaris")
+    except ValueError as e:
+        assert "unknown platform" in str(e)
+    else:
+        raise AssertionError("expected ValueError for unknown platform")
+
+
+def test_detect_platform_returns_valid_tag():
+    tag = detect_platform()
+    assert tag in VALID_PLATFORMS
+
+
 def test_read_stuck_names_workers_shape(tmp_path):
     state = tmp_path / "state.json"
     state.write_text(
@@ -198,6 +308,17 @@ if __name__ == "__main__":
         test_synthesize_env_lines_honours_mesh_proxy_priority,
         test_synthesize_env_lines_falls_through_to_http_proxy,
         test_load_env_lines_backward_compat_returns_file_content,
+        test_bash_export_converts_quoted_set_line,
+        test_bash_export_converts_bare_set_line,
+        test_bash_export_skips_unparseable,
+        test_bash_env_chain_joins_with_double_amp,
+        test_render_applescript_wraps_terminal_invocation,
+        test_render_applescript_escapes_embedded_quotes,
+        test_render_shell_script_is_executable_bash,
+        test_render_shell_script_with_empty_env_is_still_valid,
+        test_render_for_platform_dispatches_by_target,
+        test_render_for_platform_rejects_unknown,
+        test_detect_platform_returns_valid_tag,
         test_read_stuck_names_workers_shape,
         test_read_stuck_names_flat_string_shape,
         test_read_stuck_names_missing_file,
