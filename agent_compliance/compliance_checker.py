@@ -177,11 +177,14 @@ def _policy_item_to_ref(item: dict, source_url: str, source_name: str) -> Policy
     pid = item.get("policy_id") or item.get("id") or ""
     if not pid:
         pid = hashlib.md5((url or item.get("title", "") or "").encode("utf-8")).hexdigest()[:16]
+    # publish_date 可能是 str / datetime.date / datetime.datetime / None — 统一 str 后切
+    pub_raw = item.get("publish_date") or item.get("date") or ""
+    pub_str = str(pub_raw) if pub_raw else ""
     return PolicyRef(
         new_policy_id=pid,
         title=(item.get("title") or "")[:200],
         source_url=url,
-        publish_date=(item.get("publish_date") or item.get("date") or "")[:40],
+        publish_date=pub_str[:40],
         source_name=source_name or "",
     )
 

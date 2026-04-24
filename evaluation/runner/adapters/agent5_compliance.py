@@ -315,3 +315,70 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
             method="manual",
             note=reason,
         )
+
+
+# ---------------------------------------------------------------------------
+# Batch 2 · policy_compare metrics plug-in (integration test 产物消费)
+# ---------------------------------------------------------------------------
+
+DEFAULT_POLICY_COMPARE_METRICS = REPO_ROOT / "evaluation" / "manual" / "5_policy_compare_metrics.json"
+
+
+def compute_policy_compare_metrics(
+    run_dir: Path | str | None = None,
+) -> list[MetricOutcome]:
+    """从 Task C integration test 的 artifact 里解析 coverage / false_positive_rate。
+
+    artifact 路径:
+        run_dir/5_policy_compare_metrics.json (若 run_dir 指定)
+        否则 REPO_ROOT/evaluation/manual/5_policy_compare_metrics.json
+    """
+    if run_dir is not None:
+        art_path = Path(run_dir) / "5_policy_compare_metrics.json"
+    else:
+        art_path = DEFAULT_POLICY_COMPARE_METRICS
+
+    spec = (
+        ("coverage", ">= 0.6", lambda v: v >= 0.6),
+        ("false_positive_rate", "<= 0.3", lambda v: v <= 0.3),
+    )
+
+    if not art_path.exists():
+        return [
+            MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 缺失 {art_path}",
+            )
+            for name, target, _ in spec
+        ]
+
+    try:
+        payload = json.loads(art_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return [
+            MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 解析失败 {e}",
+            )
+            for name, target, _ in spec
+        ]
+
+    out: list[MetricOutcome] = []
+    for name, target, gate in spec:
+        v = payload.get(name)
+        if v is None:
+            out.append(MetricOutcome(
+                name=name, value=None, target=target, passed=None,
+                method="manual",
+                note=f"pending: artifact 内缺字段 {name}",
+            ))
+            continue
+        out.append(MetricOutcome(
+            name=name, value=float(v), target=target, passed=bool(gate(v)),
+            method="deterministic",
+            evidence=[str(art_path)],
+            note=f"computed by tests/agent_compliance/test_policy_compare_integration.py",
+        ))
+    return out

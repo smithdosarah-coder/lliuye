@@ -1,0 +1,36 @@
+---
+# Oracle 冲突清单 · Agent5 Task C integration 真值
+# 2 条 fixture 新政策 + 已知的 ground-truth conflict 清单
+
+policies:
+  - policy_id: FIXTURE-POL-2026-001
+    title: 银保监 对公小微客户准入新规(测试)
+    source_url: https://example.test/fixture/cbirc-adm-2026.html
+    publish_date: 2026-03-15
+    snippet: |
+      新规要求对公客户年营业收入门槛从 1000 万元上调至 2000 万元,
+      注册资本实缴比例从 30% 提升到 50%。KYC 客户尽职调查中加强受益所有人识别,
+      经营期限不少于 3 年。
+
+  - policy_id: FIXTURE-POL-2026-002
+    title: 人民银行 反洗钱受益所有人识别办法(测试)
+    source_url: https://example.test/fixture/pboc-aml-2026.html
+    publish_date: 2026-04-01
+    snippet: |
+      废止旧反洗钱办法。新办法要求客户尽职调查中对受益所有人追溯至 25% 以上股东。
+      可疑交易报告时限缩短至 24 小时。
+
+# 已知 ground-truth 冲突 — (clause_scope, clause_keyword_hint) 对
+# 指的是哪条内部条款应该被标红冲突
+oracle_conflicts:
+  # 政策 001 应命中 customer-admission 条款 (营业收入 / 注册资本)
+  - policy_id: FIXTURE-POL-2026-001
+    clause_business_scope: customer-admission
+    clause_keyword: 营业收入
+  - policy_id: FIXTURE-POL-2026-001
+    clause_business_scope: customer-admission
+    clause_keyword: 注册资本
+  # 政策 002 应命中 kyc-aml 条款 (受益所有人)
+  - policy_id: FIXTURE-POL-2026-002
+    clause_business_scope: kyc-aml
+    clause_keyword: 受益所有人
