@@ -16,7 +16,24 @@
 | A | 6 × rubric YAML（agent1-5 新 schema + agent6 双写） | M · 1.5d | `EVAL-RUBRIC-YAML-6AGENT-DONE` | ✅ done | `f38490b` |
 | B | 3 adapter（agent1/3/5）+ BaseEvaluator fallback 层 | L · 3d | `EVAL-RUNNER-BASE-DONE` | ✅ done | `0b47270` |
 | C | 首轮基线 JSON + markdown 报告 | S · 0.5d | `EVAL-BASELINE-FIRST-RUN` | ✅ done | `b243913` |
-| 末 | 整批 review 触达 | — | `READY-FOR-EVALUATION-B1-REVIEW` | 🟡 in-progress | (本 commit) |
+| 末 | 整批 review 触达 | — | `READY-FOR-EVALUATION-B1-REVIEW` | ✅ done | `8c4f087` |
+
+---
+
+## HOLDING 阶段（Batch 1 APPROVED 合流后）
+
+| # | Task | 工作量 | 完成 Signal | 状态 | Commit |
+|---|---|---|---|---|---|
+| H-ACK | HOLDING 启动 | S | `HOLDING-EV-ACK` | 🟡 in-progress | (本 commit) |
+| H-A | v16 summary parse · agent6 3 项 method=manual→deterministic | S | `HOLDING-EV-H-A-DONE` | ⏳ pending | — |
+| H-末 | HOLDING 结 | — | `HOLDING-EV-DONE` | ⏳ pending | — |
+
+### HOLDING 红线
+- ❌ 不改 `v16_pipeline.py` / `agent_*/` / `data/mock/` / evaluation rubric YAML
+- ❌ 不碰 EV-12 `ratio_calc_consistency`（Batch 2 议题）
+- ✅ 只动 `evaluation/runner/adapters/agent6_report.py`（加 v16 summary JSON parse）
+- ✅ 必要时 CLI 增强（加 `--out` 等纯加法）
+- ✅ 基线 md "首轮数字偏乐观" 警示段保留
 
 ## 基线首轮 verdict 速览
 
