@@ -93,18 +93,15 @@ class CorporateScoringModel:
     # ------------------------------------------------------------------
 
     def _score_financial(self, f: dict) -> tuple[int, dict]:
-        ocf_quality = 0
-        revenue = f.get("financial.revenue", 0) or 0
-        if revenue:
-            ocf_quality = (f.get("financial.operating_cash_flow", 0) or 0) / revenue
-
+        # §3.1 反模式修复：所有比率/派生指标在 feature_extractor 一处通过
+        # financial_analyzer 算齐，本方法只读消费 + 分段插值，不再现场算 ratio。
         sub = {
             "资产负债率": _interp(f.get("financial.debt_ratio", 0.5), SCORE_CURVES["debt_ratio"]),
             "营收增长率": _interp(f.get("financial.revenue_growth", 0), SCORE_CURVES["revenue_growth"]),
             "净利率": _interp(f.get("financial.net_margin", 0), SCORE_CURVES["net_margin"]),
             "流动比率": _interp(f.get("financial.current_ratio", 1.0), SCORE_CURVES["current_ratio"]),
             "应收账款周转": _interp(f.get("financial.ar_turnover_days", 90), SCORE_CURVES["ar_turnover_days"]),
-            "现金流质量": _interp(ocf_quality, SCORE_CURVES["cashflow_quality"]),
+            "现金流质量": _interp(f.get("financial.ocf_to_revenue", 0) or 0, SCORE_CURVES["cashflow_quality"]),
         }
         weights = {"资产负债率": 0.25, "营收增长率": 0.20, "净利率": 0.15,
                    "流动比率": 0.15, "应收账款周转": 0.10, "现金流质量": 0.15}

@@ -277,7 +277,8 @@ class AdvisorFormatter:
             red_line_explanations=red_line_explanations,
             decision_reason=decision_reason,
             similar_cases_summary=cases_summary,
-            features_snapshot={k: v for k, v in features.items() if not k.startswith("chapters")},
+            features_snapshot={k: v for k, v in features.items()
+                               if not k.startswith("chapters") and not k.startswith("_")},
             scoring_snapshot=scoring.to_dict(),
             amount_methods=scoring.amount_methods or {},
         )
@@ -403,6 +404,12 @@ def _corporate_summary(profile: dict, features: dict) -> str:
         f"净利率: {features.get('financial.net_margin', 0):.1%}",
         f"担保: {profile.get('guarantee_info', {}).get('type', '-')}",
     ]
+    # §3.1 反模式修复：把 financial_analyzer.format_for_prompt 块原文挂上去，
+    # LLM 直接引用确定性比率/同比/异常项，禁止再算。
+    block = features.get("_financial_prompt_block")
+    if block:
+        lines.append("")
+        lines.append(block)
     return "\n".join(lines)
 
 
