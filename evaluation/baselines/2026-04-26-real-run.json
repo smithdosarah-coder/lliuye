@@ -1,0 +1,751 @@
+{
+  "run_day": "2026-04-26",
+  "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+  "schema": "A-024 / A-025 · Batch 2 real baseline",
+  "generated_at": "2026-04-24T17:18:52.151844",
+  "upgraded_over_b1": "agent6 · 5 DP 真 v16 summary JSON 聚合 (非骨架自比); agent1 · channel-kb seed + MockSearchProvider 真搜 (解 8/10 实算); agent5 · compliance-kb 169 SOP + synthesized new-policy 冲突扫描 (解 6/10 实算)",
+  "results": {
+    "alert": {
+      "run": {
+        "agent_id": "alert",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:51.468555+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "field_completeness",
+          "value": null,
+          "target": ">= 0.95",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: B1 新加, adapter 未实装 runtime 四键完整率探针 (yaml baseline.pending_metrics)"
+        },
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "100/100 customers status==completed"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "10/10 red|yellow customers have non-empty evidence · trigger_reasons[cross_hit=2, external_signal=7, internal_rule=1]"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": 0.0,
+          "target": "<= 0.01",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "0/100 entity_id outside whitelist"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": 1.0,
+          "target": ">= 0.90",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "200/200 tool calls succeeded"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "cross_hit_precision",
+          "value": null,
+          "target": ">= 0.80",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源接入（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）"
+        },
+        {
+          "name": "recall_on_known_bad",
+          "value": null,
+          "target": ">= 0.90",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: Phase 2 Batch 2 — 需已知问题客户标注库（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）"
+        },
+        {
+          "name": "grade_distribution_sanity",
+          "value": 1.0,
+          "target": "pass",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "red=3.00% (<5%), green=90.00% (>70%)"
+        },
+        {
+          "name": "signal_diversity",
+          "value": 0.0,
+          "target": ">= 0.60",
+          "passed": false,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "0/10 red/yellow 客户 trigger_reasons 种类 ≥ 2"
+        },
+        {
+          "name": "scan_latency_p95",
+          "value": 1.3333333333333334e-06,
+          "target": "<= 30",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\4_20260419.yaml"
+          ],
+          "note": "P95=0.1ms (0.0000 min) over 100 customers"
+        }
+      ],
+      "verdict": "PASS",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.07137360000342596
+    },
+    "channel": {
+      "run": {
+        "agent_id": "channel",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:51.659427+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "field_completeness",
+          "value": 1.0,
+          "target": ">= 0.85",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "51/51 候选带 entity_id+name+signals+evidence"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "51/51 候选带 evidence"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": 0.0,
+          "target": "<= 0.02",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "0/51 entity_id resolvable=False"
+        },
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "51 候选产出 (≥ Top_N)"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": 1.0,
+          "target": ">= 0.90",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "3/3 工具调用成功 (Tavily+企查查)"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "portrait_match_precision",
+          "value": null,
+          "target": ">= 0.70",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需人工抽检或 LLM-judge 对候选画像条件命中评分"
+        },
+        {
+          "name": "signal_diversity",
+          "value": 1.0,
+          "target": ">= 0.70",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "51/51 候选含 ≥ 2 种 signal.type"
+        },
+        {
+          "name": "ndcg_at_10",
+          "value": null,
+          "target": ">= 0.75",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需人工 gold top10 排序真值集 (Phase 2 业务方提供)"
+        },
+        {
+          "name": "retrieval_recall",
+          "value": 1.0,
+          "target": ">= 0.60",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "10/10 真值 look-alike 被召回"
+        },
+        {
+          "name": "candidate_dedup_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
+          ],
+          "note": "51/51 唯一 entity_id"
+        }
+      ],
+      "verdict": "PARTIAL",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.0031538000039290637
+    },
+    "compliance": {
+      "run": {
+        "agent_id": "compliance",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:51.796967+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "field_completeness",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\5_latest.json"
+          ],
+          "note": "20/20 冲突项 4 键完整"
+        },
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\5_latest.json"
+          ],
+          "note": "20 冲突点产出"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 1.0,
+          "target": ">= 0.98",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\5_latest.json"
+          ],
+          "note": "20/20 双锚齐全"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": null,
+          "target": "<= 0.01",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需政策/制度原文库做 anchor 可解析性校验"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\5_latest.json"
+          ],
+          "note": "4/4 工具调用成功"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "policy_coverage",
+          "value": null,
+          "target": ">= 0.90",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需人工 gold 条款集 + agent5 runtime clause 抽取产出"
+        },
+        {
+          "name": "conflict_recall",
+          "value": null,
+          "target": ">= 0.90",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需业务方已知冲突真值集 (gold_conflicts)"
+        },
+        {
+          "name": "defect_classification_accuracy",
+          "value": null,
+          "target": ">= 0.80",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需人工缺陷严重度标注真值 (gold_severity_map)"
+        },
+        {
+          "name": "terminology_compliance",
+          "value": null,
+          "target": ">= 0.90",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: Phase 2 需监管合规术语表 v1.0 + 冲突描述文本抽取"
+        },
+        {
+          "name": "evidence_completeness",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\evaluation\\manual\\5_latest.json"
+          ],
+          "note": "20/20 冲突点含 3 要素 (policy+business+diff/evidence)"
+        }
+      ],
+      "verdict": "PARTIAL",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.0019063000072492287
+    },
+    "credit": {
+      "run": {
+        "agent_id": "credit",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:51.923141+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "field_completeness",
+          "value": 0.926,
+          "target": ">= 0.90",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "463/500 字段非空 (10 键×50 cases)"
+        },
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.98",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "50/50 cases 带 composite_score + decision"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "50/50 cases 带 decision_reason"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": 0.0,
+          "target": "<= 0.01",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "0/50 cases decision↔approved_amount 自相矛盾"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": null,
+          "target": ">= 0.95",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: mock cases 无 runtime tool_calls 元数据 · 待 Agent3 api.py 埋点后补"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "redline_detection_accuracy",
+          "value": 0.9743589743589743,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "38/39 (拒绝↔红线 或 批准↔无红线) · 有条件批准灰区剔除"
+        },
+        {
+          "name": "credit_limit_reasonability",
+          "value": 0.0,
+          "target": "<= 0.20",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_credit\\mock_data\\corporate_cases.json"
+          ],
+          "note": "median |log10(req/app)| = 0.0000 over 39 approved>0 cases"
+        },
+        {
+          "name": "ratio_calc_consistency",
+          "value": null,
+          "target": ">= 0.99",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: 需 Agent3 runtime 比率输出 + financial_analyzer 对照 · code-urgent §3.1 接入后可算"
+        },
+        {
+          "name": "score_human_agreement",
+          "value": null,
+          "target": ">= 0.85",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: Phase 2 需业务方人工复核真值集"
+        },
+        {
+          "name": "terminology_compliance",
+          "value": null,
+          "target": ">= 0.90",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: Phase 2 需信贷术语表 v1.0 + 审批意见文本抽取"
+        }
+      ],
+      "verdict": "PARTIAL",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.002339899991056882
+    },
+    "riskctrl": {
+      "run": {
+        "agent_id": "riskctrl",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:52.052395+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "field_completeness",
+          "value": null,
+          "target": ">= 0.95",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: B1 新加, adapter 未实装 runtime 探针 (yaml baseline.pending_metrics)"
+        },
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+          ],
+          "note": "5/5 DSL 输出成功"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 1.0,
+          "target": ">= 0.98",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+          ],
+          "note": "5/5 规则含 ks/approve_rate/bad_rate"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": 0.0,
+          "target": "<= 0.01",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\sample_schema.json"
+          ],
+          "note": "0/6 字段 ∉ schema.columns"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": 1.0,
+          "target": ">= 0.95",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\backtest.json"
+          ],
+          "note": "7/7 工具调用成功"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "false_positive_rate",
+          "value": 0.0673076923076923,
+          "target": "<= 0.15",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\backtest.json"
+          ],
+          "note": "FP=7, TN=97, FPR=0.0673"
+        },
+        {
+          "name": "per_rule_fpr_spread",
+          "value": null,
+          "target": "<= 0.03",
+          "passed": null,
+          "method": "deterministic",
+          "evidence": [],
+          "note": "有效规则不足 2 条（共 5 规则，skip=5）；spread 不适用"
+        },
+        {
+          "name": "ks_improvement",
+          "value": null,
+          "target": ">= 0.02",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装"
+        },
+        {
+          "name": "rule_interpretability",
+          "value": null,
+          "target": ">= 4.0",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装"
+        },
+        {
+          "name": "dsl_syntax_correctness",
+          "value": null,
+          "target": ">= 0.98",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "pending: B1 新加, adapter 未实装 parser round-trip 校验 (yaml baseline.pending_metrics)"
+        }
+      ],
+      "verdict": "PARTIAL",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.0017171000072266906
+    },
+    "report": {
+      "run": {
+        "agent_id": "report",
+        "commit": "29d4ca192e723f5f259465d5c4f60ee3f554d996",
+        "artifacts": [
+          "outputs/v16_DP001/v16_pipeline_summary.json",
+          "outputs/v16_DP002/v16_pipeline_summary.json",
+          "outputs/v16_DP003/v16_pipeline_summary.json",
+          "outputs/v16_DP004/v16_pipeline_summary.json",
+          "outputs/v16_DP005/v16_pipeline_summary.json"
+        ],
+        "compare_baseline": false,
+        "timestamp": "2026-04-24T09:18:47.815421+00:00",
+        "extra": {}
+      },
+      "common_metrics": [
+        {
+          "name": "task_completion_rate",
+          "value": 1.0,
+          "target": ">= 0.98",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP001\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP002\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP003\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP004\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP005\\v16_pipeline_summary.json"
+          ],
+          "note": "5 DP mean=1.0000 · min=1.0000 max=1.0000 · per-DP: DP001=1.0, DP002=1.0, DP003=1.0, DP004=1.0, DP005=1.0"
+        },
+        {
+          "name": "field_completeness",
+          "value": null,
+          "target": ">= 0.93",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "5 DP 全 pending · None"
+        },
+        {
+          "name": "evidence_rate",
+          "value": 0.3333333333333333,
+          "target": ">= 0.95",
+          "passed": false,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP001\\普惠申报书_骨架型_v16_qc.md",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP002\\普惠申报书_骨架型_v16_qc.md",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP003\\普惠申报书_骨架型_v16_qc.md",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP004\\普惠申报书_骨架型_v16_qc.md",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP005\\普惠申报书_骨架型_v16_qc.md"
+          ],
+          "note": "5 DP mean=0.3333 · min=0.3333 max=0.3333 · per-DP: DP001=0.3333333333333333, DP002=0.3333333333333333, DP003=0.3333333333333333, DP004=0.3333333333333333, DP005=0.3333333333333333"
+        },
+        {
+          "name": "hallucination_rate",
+          "value": 0.0,
+          "target": "<= 0.01",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP001\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP002\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP003\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP004\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP005\\v16_pipeline_summary.json"
+          ],
+          "note": "5 DP mean=0.0000 · min=0.0000 max=0.0000 · per-DP: DP001=0.0, DP002=0.0, DP003=0.0, DP004=0.0, DP005=0.0"
+        },
+        {
+          "name": "tool_success_rate",
+          "value": null,
+          "target": ">= 0.95",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "5 DP 全 pending · None"
+        }
+      ],
+      "domain_metrics": [
+        {
+          "name": "template_leakage_rate",
+          "value": 0.775,
+          "target": "<= 0.02",
+          "passed": false,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\samples\\普惠申报书_骨架型.docx"
+          ],
+          "note": "5 DP mean=0.7750 · min=0.7500 max=0.8750 · per-DP: DP001=0.75, DP002=0.75, DP003=0.75, DP004=0.75, DP005=0.875"
+        },
+        {
+          "name": "unfilled_marker_accuracy",
+          "value": 0.625,
+          "target": ">= 0.95",
+          "passed": false,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP001\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP002\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP003\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP004\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP005\\v16_pipeline_summary.json"
+          ],
+          "note": "5 DP mean=0.6250 · min=0.6250 max=0.6250 · per-DP: DP001=0.625, DP002=0.625, DP003=0.625, DP004=0.625, DP005=0.625"
+        },
+        {
+          "name": "quality_score_total",
+          "value": 68.6,
+          "target": ">= 65.0",
+          "passed": true,
+          "method": "deterministic",
+          "evidence": [
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP001\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP002\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP003\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP004\\v16_pipeline_summary.json",
+            "D:\\claude code\\demo-evaluation\\outputs\\v16_DP005\\v16_pipeline_summary.json"
+          ],
+          "note": "5 DP mean=68.6000 · min=68.2889 max=69.4444 · per-DP: DP001=68.68888888888888, DP002=68.28888888888889, DP003=68.28888888888889, DP004=68.28888888888889, DP005=69.44444444444444"
+        },
+        {
+          "name": "financial_ratio_consistency",
+          "value": null,
+          "target": ">= 0.99",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "5 DP 全 pending · None"
+        },
+        {
+          "name": "section_length_calibration",
+          "value": null,
+          "target": "<= 0.30",
+          "passed": null,
+          "method": "manual",
+          "evidence": [],
+          "note": "5 DP 全 pending · None"
+        }
+      ],
+      "verdict": "FAIL",
+      "runner_version": "0.1.0-phase-a",
+      "duration_seconds": 0.4007902000012109
+    }
+  }
+}
