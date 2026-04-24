@@ -97,3 +97,9 @@ Batch 1 阶段严禁预制材料包，即使"顺手就做"也不做——避免�
   - Task B `b6299dc`：宽基 100 家 companies.yaml + source-notes.md（分布 25/20/15/12/10/8/5/5 · 难度 20/50/20/10 严格）→ `DATA-WIDE-100-DONE`
   - Task C `82dcce3`：深柱 15 家 shortlist + pit-template + 15 份 pit 空白表 + wide-base `deep_pillar_candidate` 同步置 true → `DATA-DEEP-SHORTLIST-DONE`
   - 全 Task 完成 → 发 `READY-FOR-DATA-FOUNDATION-B1-REVIEW` 等主 CLI review。
+
+- **2026-04-24 (REJECT-V2)**：主 CLI 判 v1 形态错——`yaml` 清洗版本把答案喂到模型嘴边（`difficulty` / `benchmark_ref` / `deep_pillar_candidate` 这些字段就是"答案字段"）。按 v2 onboarding 返工：
+  - **路线切换**：数据形态从"yaml 清洗版"改为"**真实材料包**：文件夹 + 异构格式 + 命名噪声 + 三方数字矛盾 + 零答案字段"
+  - **Agent1/5 外部边界**：不 mock 外部搜索结果——只建 Agent1 内部 KB（历史客户 / 营销偏好 / 产品目录）+ Agent5 内部制度库
+  - **v2 Task 清单**：A 删老产物+重建骨架 / B 深柱 5 家材料包 / C channel-kb / D compliance-kb / E 全轨 final signal
+  - 本次 ACK 即发 `PRODUCT-HARDENING-BATCH-1-V2-ACK`，等读完 v2 onboarding + Q-028 后依序开干。
