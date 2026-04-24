@@ -38,7 +38,7 @@ companies:
     difficulty: easy
     benchmark_ref: "A股688XXX 2023年报 主业/研发投入章节 · 长三角精密加工民企样本"
     tags: [专精特新, 航空航天配套]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB002
     name: 合肥穗丰食品工业有限公司
@@ -110,7 +110,7 @@ companies:
     difficulty: easy
     benchmark_ref: "A股002XXX 2023年报 主业/客户结构章节 · 珠三角声学二供样本"
     tags: [隐形冠军, 声学方案]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB006
     name: 宁波泓锐汽车零部件有限公司
@@ -326,7 +326,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股688XXX 2023年报 产能/客户结构章节 · 半导体封测中型样本"
     tags: [半导体配套, 扩产期]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB018
     name: 潍坊汇辉化工股份有限公司
@@ -470,7 +470,7 @@ companies:
     difficulty: extreme
     benchmark_ref: "银保监 2024 年苏字 XX 号 · 虚假授信 / 关联方占款典型处罚"
     tags: [虚假授信嫌疑, 关联方占款]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   # ========================================
   # 零售商贸 20 家 (easy 4 / medium 10 / hard 4 / extreme 2)
@@ -636,7 +636,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股002XXX 2023年报 应收账款章节 · 建材批发样本"
     tags: [工程应收, 地产下游]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB035
     name: 武汉庆云精品咖啡连锁有限公司
@@ -744,7 +744,7 @@ companies:
     difficulty: hard
     benchmark_ref: "A股000XXX 2023年报 应付账款/诉讼章节 · 家电分销承压样本"
     tags: [应付紧张, 多起诉讼]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB041
     name: 沈阳新沐连锁便利店有限公司
@@ -928,7 +928,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股002XXX 2023年报 咨询业务章节 · IT咨询样本"
     tags: [央企客户, 项目制]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB051
     name: 重庆渝隆区域火锅连锁有限公司
@@ -1220,7 +1220,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股300XXX 2023年报 订单/投诉章节 · 家装连锁样本"
     tags: [订单承压, 消费者投诉]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB067
     name: 长沙铖琢商管运营有限公司
@@ -1256,7 +1256,7 @@ companies:
     difficulty: hard
     benchmark_ref: "A股000XXX 2023年报 应收/垫资章节 · 装饰工程承压样本"
     tags: [高垫资, 回款延期]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB069
     name: 廊坊盛固建材工程有限公司
@@ -1292,7 +1292,7 @@ companies:
     difficulty: extreme
     benchmark_ref: "银保监 2024 年 XX 号 + A股 *ST XXX 风险警示 · 实控人失联典型样本"
     tags: [实控人失联, 多项目停工]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   # ========================================
   # 农业 8 家 (easy 2 / medium 4 / hard 1 / extreme 1)
@@ -1368,7 +1368,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股002XXX 2023年报 存栏/成本章节 · 生猪养殖承压样本"
     tags: [高杠杆, 价格周期]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB075
     name: 陕西秦丰水果合作联社
@@ -1462,7 +1462,7 @@ companies:
     difficulty: easy
     benchmark_ref: "A股688XXX 2023年报 ARR/NRR 章节 · 垂直行业 SaaS 样本"
     tags: [行业 SaaS, 高 NRR]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB080
     name: 杭州观睿视讯科技股份有限公司
@@ -1553,7 +1553,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股300XXX 2023年报 项目验收章节 · 医疗信息化样本"
     tags: [医疗信息化, 验收周期长]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB085
     name: 苏州泰迈车载电子有限公司
@@ -1755,7 +1755,7 @@ companies:
     difficulty: hard
     benchmark_ref: "A股300XXX 2023年报 平台政策章节 · 跨境封号样本"
     tags: [平台封号, 资金冻结]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   # ========================================
   # 集团对私 5 家 (easy 1 / medium 2 / hard 1 / extreme 1)
@@ -1796,7 +1796,7 @@ companies:
     difficulty: medium
     benchmark_ref: "A股600XXX 2023年报 高净值家族章节 · 私行客户控股样本"
     tags: [私行客户, 多元资产]
-    deep_pillar_candidate: false
+    deep_pillar_candidate: true
 
   - company_id: WB098
     name: 某省瀚煜产业集团有限公司
