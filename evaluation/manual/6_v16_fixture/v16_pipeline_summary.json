@@ -1,0 +1,21 @@
+[
+  {
+    "source_docx": "D:\\claude code\\demo-evaluation\\samples\\普惠申报书_骨架型.docx",
+    "output_docx": "D:\\claude code\\demo-evaluation\\evaluation\\manual\\6_v16_fixture\\普惠申报书_骨架型_v16.docx",
+    "pending_json": null,
+    "handler_stats": {
+      "dummy": 0
+    },
+    "apply_stats": {
+      "dummy": 0
+    },
+    "pending_count": 0,
+    "qc": {
+      "passed": true,
+      "score": 82.5,
+      "fatal_fail": false,
+      "hallucinations": 2,
+      "md": "D:\\claude code\\demo-evaluation\\evaluation\\manual\\6_v16_fixture\\普惠申报书_骨架型_v16_qc.md"
+    }
+  }
+]
