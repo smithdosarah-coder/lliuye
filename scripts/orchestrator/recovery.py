@@ -22,10 +22,11 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 # orchestrator package lives under scripts/orchestrator/.  Inject scripts/
 # onto sys.path so `from orchestrator.lib import mesh` resolves.
@@ -41,14 +42,10 @@ USAGE = (
     "       recovery.py --all-stuck\n"
 )
 
-# Mirrors scripts/claude-env.bat — inlined into the cmd /k chain so the
-# spawned shell sees proxy + Git Bash settings without sourcing a helper.
-DEFAULT_ENV_LINES: List[str] = [
-    'set "https_proxy=http://127.0.0.1:7897"',
-    'set "http_proxy=http://127.0.0.1:7897"',
-    'set "ALL_PROXY=http://127.0.0.1:7897"',
-    'set "CLAUDE_CODE_GIT_BASH_PATH=D:\\Git\\usr\\bin\\bash.exe"',
-]
+# Backward-compat alias: the hard-coded proxy fallback is gone (R2). Callers
+# that imported DEFAULT_ENV_LINES keep working but get an empty list, which
+# is the correct "portable default" now (no hidden machine-specific config).
+DEFAULT_ENV_LINES: List[str] = []
 
 
 def _project_root() -> Path:
@@ -56,24 +53,75 @@ def _project_root() -> Path:
     return _HERE.parent.parent.parent
 
 
-def _load_env_lines(claude_env_bat: Optional[Path] = None) -> List[str]:
-    """Read the four ``set "..."`` lines from scripts/claude-env.bat.
+def _read_claude_env_bat(path: Path) -> List[str]:
+    """Extract ``set "..."`` lines from a project-local claude-env.bat.
 
-    Falls back to DEFAULT_ENV_LINES if the helper file is missing or
-    unreadable, so recovery still works on a freshly-cloned worktree.
+    Returns [] if the file is missing, unreadable, or has no `set` directives.
+    This preserves the long-standing project convention without forcing every
+    consumer to maintain one.
     """
-    if claude_env_bat is None:
-        claude_env_bat = _project_root() / "scripts" / "claude-env.bat"
     try:
-        text = claude_env_bat.read_text(encoding="utf-8", errors="replace")
+        text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        return list(DEFAULT_ENV_LINES)
-    lines: List[str] = []
+        return []
+    out: List[str] = []
     for raw in text.splitlines():
         stripped = raw.strip()
         if stripped.lower().startswith("set "):
-            lines.append(stripped)
-    return lines or list(DEFAULT_ENV_LINES)
+            out.append(stripped)
+    return out
+
+
+def _synthesize_env_lines(environ: Optional[Mapping[str, str]] = None) -> List[str]:
+    """Build ``set`` lines from the shell environment.
+
+    Recognised vars (first match wins for proxy):
+        MESH_PROXY / http_proxy / HTTPS_PROXY / ALL_PROXY
+        CLAUDE_CODE_GIT_BASH_PATH
+    Returns [] when nothing relevant is exported, so an un-configured host
+    gets a plain ``claude`` invocation with no injected state.
+    """
+    env = environ if environ is not None else os.environ
+    out: List[str] = []
+    proxy = (
+        env.get("MESH_PROXY")
+        or env.get("http_proxy")
+        or env.get("HTTPS_PROXY")
+        or env.get("https_proxy")
+        or env.get("ALL_PROXY")
+    )
+    if proxy:
+        out.append(f'set "https_proxy={proxy}"')
+        out.append(f'set "http_proxy={proxy}"')
+        out.append(f'set "ALL_PROXY={proxy}"')
+    bash = env.get("CLAUDE_CODE_GIT_BASH_PATH")
+    if bash:
+        out.append(f'set "CLAUDE_CODE_GIT_BASH_PATH={bash}"')
+    return out
+
+
+def build_env_lines(
+    claude_env_bat: Optional[Path] = None,
+    environ: Optional[Mapping[str, str]] = None,
+) -> List[str]:
+    """Resolve the ``set`` lines to inject into the spawned shell.
+
+    Precedence (first non-empty wins):
+        1. ``scripts/claude-env.bat`` in the project root (explicit opt-in).
+        2. Environment variables (see :func:`_synthesize_env_lines`).
+        3. Empty list — portable, no hidden machine state.
+    """
+    if claude_env_bat is None:
+        claude_env_bat = _project_root() / "scripts" / "claude-env.bat"
+    file_lines = _read_claude_env_bat(claude_env_bat)
+    if file_lines:
+        return file_lines
+    return _synthesize_env_lines(environ)
+
+
+def _load_env_lines(claude_env_bat: Optional[Path] = None) -> List[str]:
+    """Backward-compat wrapper. Prefer :func:`build_env_lines` in new code."""
+    return build_env_lines(claude_env_bat=claude_env_bat)
 
 
 def render_bat(worktree: Worktree, env_lines: List[str]) -> str:
@@ -150,7 +198,7 @@ def main(argv: List[str]) -> int:
         return 0 if argv else 2
 
     m = mesh.load()
-    env_lines = _load_env_lines()
+    env_lines = build_env_lines()
     out_dir = _project_root() / "recovery"
 
     if argv[0] == "--all-stuck":
