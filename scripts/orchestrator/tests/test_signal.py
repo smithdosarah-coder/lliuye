@@ -1,6 +1,7 @@
 """Test Signal trailer parsing + validation."""
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -89,6 +90,55 @@ def test_unknown_signal_warn_only():
     assert any("unknown Signal name" in e for e in errs)
 
 
+# ---------- Y1 · project namespace ----------
+
+def _reset_project_registries():
+    """Snapshot + reset so tests don't bleed into each other."""
+    saved = {k: list(v) for k, v in signal.PROJECT_REGISTRIES.items()}
+    signal.PROJECT_REGISTRIES.clear()
+    return saved
+
+
+def _restore_project_registries(saved):
+    signal.PROJECT_REGISTRIES.clear()
+    signal.PROJECT_REGISTRIES.update({k: list(v) for k, v in saved.items()})
+
+
+def test_project_scoped_pattern_makes_unknown_known():
+    saved = _reset_project_registries()
+    try:
+        msg = "feat(x): y\n\nSignal: PROJA-SHIPPED"
+        # Without project scope: unknown under require_known.
+        ok, _ = signal.validate(msg, require_known=True)
+        assert not ok
+
+        # Register a pattern scoped to project-a only.
+        signal.register_project_patterns("project-a", [re.compile(r"^PROJA-[\w-]+$")])
+
+        ok, errs = signal.validate(msg, require_known=True, project_id="project-a")
+        assert ok, f"project-scoped pattern should match: {errs}"
+
+        # Same signal under a different project_id still unknown.
+        ok, _ = signal.validate(msg, require_known=True, project_id="project-b")
+        assert not ok, "project-a pattern must not leak into project-b scope"
+    finally:
+        _restore_project_registries(saved)
+
+
+def test_parse_carries_project_id_through():
+    msg = "feat(x): y\n\nSignal: REVIEW-READY"
+    res = signal.parse(msg, project_id="credit_report_agent_work")
+    assert res.project_id == "credit_report_agent_work"
+    assert res.is_known, "global pattern still matches under project scope"
+
+
+def test_global_patterns_still_match_without_project():
+    """Default caller (no project_id) keeps working exactly as before Y1."""
+    msg = "feat(x): y\n\nSignal: PHASE-1-DISPATCHED"
+    ok, errs = signal.validate(msg, require_known=True)
+    assert ok, f"global pattern should match without project scope: {errs}"
+
+
 if __name__ == "__main__":
     tests = [
         test_basic_parse,
@@ -100,6 +150,9 @@ if __name__ == "__main__":
         test_qa_protocol_recognized,
         test_multiple_signals_invalid,
         test_unknown_signal_warn_only,
+        test_project_scoped_pattern_makes_unknown_known,
+        test_parse_carries_project_id_through,
+        test_global_patterns_still_match_without_project,
     ]
     for t in tests:
         try:

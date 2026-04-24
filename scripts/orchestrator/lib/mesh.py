@@ -32,6 +32,7 @@ class Mesh:
     arch_contracts: str
     last_updated: str
     schema_version: int = 1
+    project_id: str = ""  # canonical machine slug for Signal-namespace scoping (Y1)
 
 
 def load(mesh_json_path: Optional[Path] = None) -> Mesh:
@@ -64,8 +65,13 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
         )
         for w in raw["worktrees"]
     ]
+    project = raw["project"]
+    # project_id falls back to `project` when absent so legacy mesh.json Just Works;
+    # new multi-project installations should set an explicit slug.
+    project_id = raw.get("project_id") or project
+
     return Mesh(
-        project=raw["project"],
+        project=project,
         protocol_version=raw["protocol_version"],
         worktrees=worktrees,
         upstream_remote=raw["upstream_remote"],
@@ -75,6 +81,7 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
         arch_contracts=raw.get("arch_contracts", ""),
         last_updated=raw.get("last_updated", ""),
         schema_version=int(schema_version),
+        project_id=project_id,
     )
 
 

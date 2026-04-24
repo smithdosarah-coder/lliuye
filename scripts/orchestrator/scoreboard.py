@@ -221,6 +221,7 @@ def render_json_payload(m, stuck_state=None) -> str:
         "schema_version": 2,
         "timestamp": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "project": m.project,
+        "project_id": m.project_id or m.project,
         "protocol_version": m.protocol_version,
         "worktree_count": len(records),
         "summary": summary,

@@ -30,7 +30,7 @@ from orchestrator.lib import signal  # noqa: E402
 
 
 USAGE = (
-    "usage: validator.py [--check-known] [<commit-msg-file>]\n"
+    "usage: validator.py [--check-known] [--project-id <id>] [<commit-msg-file>]\n"
     "       (with no file argument, reads commit message from stdin)\n"
 )
 
@@ -45,12 +45,26 @@ def _read_message(path: str | None) -> str:
     return p.read_text(encoding="utf-8", errors="replace")
 
 
+def _pop_flag_value(args: list[str], flag: str) -> str | None:
+    """Pop ``--flag value`` out of args in place; return value or None."""
+    if flag in args:
+        idx = args.index(flag)
+        if idx + 1 >= len(args):
+            sys.stderr.write(f"validator: {flag} requires a value\n")
+            sys.exit(2)
+        value = args[idx + 1]
+        del args[idx:idx + 2]
+        return value
+    return None
+
+
 def main(argv: list[str]) -> int:
     args = list(argv)
     require_known = False
     if "--check-known" in args:
         require_known = True
         args.remove("--check-known")
+    project_id = _pop_flag_value(args, "--project-id")
     if "-h" in args or "--help" in args:
         sys.stdout.write(USAGE)
         return 0
@@ -61,7 +75,9 @@ def main(argv: list[str]) -> int:
     msg_path = args[0] if args else None
     message = _read_message(msg_path)
 
-    ok, errors = signal.validate(message, require_known=require_known)
+    ok, errors = signal.validate(
+        message, require_known=require_known, project_id=project_id
+    )
     if ok:
         return 0
 

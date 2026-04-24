@@ -7,12 +7,20 @@ Format (per docs/contracts/shared-change-protocol.md §八):
 The trailer must appear on a line starting with "Signal:" followed by
 an uppercase identifier with optional dashes/colons. NAME is parsed loosely
 (format strict, name registry warn-only) so the protocol stays extensible.
+
+Multi-project namespace (Y1):
+    Multiple mesh projects can share a host without trailer collisions.
+    Each project carries its own ``project_id`` (mesh.json top-level field).
+    ``validate(..., project_id=X)`` first checks the project-specific registry
+    in ``PROJECT_REGISTRIES`` (extensible at import time), then falls back to
+    the shared ``KNOWN_SIGNAL_PATTERNS``. The trailer grammar itself is
+    unchanged — the project scope is implicit via the caller's mesh context.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # Strict format: "Signal: NAME" where NAME starts with uppercase
 SIGNAL_LINE_RE = re.compile(
@@ -55,41 +63,81 @@ KNOWN_SIGNAL_PATTERNS: List[re.Pattern] = [
 ]
 
 
+# Project-scoped pattern registries. Populated by downstream code or tests.
+# Key = project_id from mesh.json; value = extra patterns recognised ONLY
+# for commits originating in that project. Lookup is additive on top of the
+# global KNOWN_SIGNAL_PATTERNS.
+PROJECT_REGISTRIES: Dict[str, List[re.Pattern]] = {}
+
+
+def register_project_patterns(project_id: str, patterns: List[re.Pattern]) -> None:
+    """Register additional known-signal patterns for a specific project_id."""
+    PROJECT_REGISTRIES.setdefault(project_id, []).extend(patterns)
+
+
+def _match_known(trailer: str, project_id: Optional[str]) -> bool:
+    """Return True if trailer matches any global or project-scoped pattern."""
+    if any(p.match(trailer) for p in KNOWN_SIGNAL_PATTERNS):
+        return True
+    if project_id:
+        for p in PROJECT_REGISTRIES.get(project_id, ()):
+            if p.match(trailer):
+                return True
+    return False
+
+
 @dataclass
 class SignalParseResult:
     found: bool                    # True if any "Signal: X" line found
     trailer: Optional[str]         # The signal name extracted (e.g. "REVIEW-READY")
     line_count: int                # Number of Signal: lines in message (should be 1)
-    is_known: bool                 # True if matches a known pattern
+    is_known: bool                 # True if matches a known pattern (global + project)
+    project_id: Optional[str] = None  # The mesh project_id passed in, if any
 
 
-def parse(commit_message: str) -> SignalParseResult:
-    """Parse a commit message and extract Signal trailer info."""
+def parse(
+    commit_message: str, *, project_id: Optional[str] = None
+) -> SignalParseResult:
+    """Parse a commit message and extract Signal trailer info.
+
+    If ``project_id`` is given, known-name matching additionally consults the
+    project-scoped registry entries registered via
+    :func:`register_project_patterns`.
+    """
     matches = SIGNAL_LINE_RE.findall(commit_message)
     if not matches:
-        return SignalParseResult(False, None, 0, False)
+        return SignalParseResult(False, None, 0, False, project_id)
 
     trailer = matches[-1]
-    is_known = any(p.match(trailer) for p in KNOWN_SIGNAL_PATTERNS)
+    is_known = _match_known(trailer, project_id)
 
     return SignalParseResult(
         found=True,
         trailer=trailer,
         line_count=len(matches),
         is_known=is_known,
+        project_id=project_id,
     )
 
 
-def validate(commit_message: str, *, require_known: bool = False) -> Tuple[bool, List[str]]:
+def validate(
+    commit_message: str,
+    *,
+    require_known: bool = False,
+    project_id: Optional[str] = None,
+) -> Tuple[bool, List[str]]:
     """Validate a commit message's Signal trailer.
 
     Returns (is_valid, list_of_errors).
 
     Format errors (missing trailer, malformed syntax, multiple trailers) always fail.
     Unknown trailer names produce an error only if require_known=True.
+
+    ``project_id`` scopes the known-name lookup to a project registry (see
+    ``PROJECT_REGISTRIES`` and :func:`register_project_patterns`).
     """
     errors: List[str] = []
-    res = parse(commit_message)
+    res = parse(commit_message, project_id=project_id)
 
     if not res.found:
         errors.append(
@@ -104,8 +152,9 @@ def validate(commit_message: str, *, require_known: bool = False) -> Tuple[bool,
         )
 
     if require_known and not res.is_known:
+        scope = f" in project {project_id!r}" if project_id else ""
         errors.append(
-            f"unknown Signal name '{res.trailer}'; "
+            f"unknown Signal name '{res.trailer}'{scope}; "
             f"see docs/contracts/shared-change-protocol.md for registry"
         )
 
