@@ -8,8 +8,8 @@
 
 - **现状**：`~/.claude/skills/multi-cli-mesh/` 还是 **v2026-04-19 老版**（SKILL.md mtime 2026-04-19，scripts 里跑的还是老 `mesh_status.py` / `mesh_launch.py` / `mesh_watch.py`）
 - **盲点**：昨晚 2026-04-23 21:50-22:28 产出的 **P1-P5 orchestrator 五件套 + mesh-status.json schema v2**（1534 行代码 + 6 份测试）**全部只在 repo `scripts/orchestrator/`，未回流到 skill**
-- **下一步**：按本文档 §3 方案 12 步执行。**不要直接打包上传**——现在打包就是 2026-04-19 旧版 + 漏掉 5 模块核心。
-- **Blocker**：用户有 3 个未拍板决策（§4），不答就没法执行
+- **下一步**：按本文档 §3 方案 **15 步**（原 12 步 + 决策追加 1.5 / 2.5 / 11.5 / 13）执行。**不要直接打包上传**——现在打包就是 2026-04-19 旧版 + 漏掉 5 模块核心
+- **Blocker**：~~用户有 3 个未拍板决策~~（§4 已于 2026-04-24 ultrathink 拍板，见 §4 决策表）——**可直接执行**，不需要再问用户
 
 ---
 
@@ -85,12 +85,14 @@ multi-cli-mesh/
     └── mesh-status-json-schema.md    ✨ 新
 ```
 
-### 实施顺序
+### 实施顺序（v2 · 已含 3 决策点 follow-through）
 
 | # | 动作 | 估工 | 备注 |
 |---|---|---|---|
 | 1 | `cp -r scripts/orchestrator/` → skill `scripts/orchestrator/` | XS | sys.path hack 自包含，开箱跑 |
+| 1.5 | 改 `__init__.py` docstring 去掉 "for credit_report_agent_work"，改成项目无关 | XS | 决策 3 打包需要 · 脱敏 |
 | 2 | 跑 skill 内 `pytest scripts/orchestrator/tests/` | XS | 打包前验收基线 |
+| 2.5 | **独立性冒烟**：`cd <其他 worktree> && py ~/.claude/skills/multi-cli-mesh/scripts/orchestrator/scoreboard.py --write` 要能写出该 worktree 的 `docs/handoff/mesh-status.json` | S | 验证 mesh.json lookup 走 CWD，非 `__file__.parent`；若失败需改 `lib/mesh.py` |
 | 3 | 写 `protocols/signal-playbook.md` | S | 从 2026-04-23 handoff §5 搬 |
 | 4 | 写 `protocols/worker-phase-discipline.md` | S | 合并 2 个 feedback memory |
 | 5 | 写 `protocols/red-zone-gates.md` | S | 从 memory red_zone_discipline 搬 |
@@ -98,19 +100,21 @@ multi-cli-mesh/
 | 7 | 写 `references/self-healing-architecture.md` | M | P1→P5 分层图（文本） |
 | 8 | 写 `references/mesh-status-json-schema.md` | S | 反推 commit `7ed0b31`/`ea9a994` |
 | 9 | 写 `checklists/install-hooks.md` | XS | 3-5 步 |
-| 10 | 更新路径引用（open-window / close-window / bootstrap） | XS | grep `mesh_status.py\|mesh_launch.py\|mesh_watch.py` 全替换 |
-| 11 | 重写 `SKILL.md` v2 | M | 7 节结构 |
-| 12 | 删/shim 3 老脚本（依决策点 2 定） | XS | 步骤 10 零遗漏后再动 |
+| 10 | **live 引用全量替换**：5 AGENT_IDENTITY.md（main + 4 product-hardening worker，全 gitignored 本地改）+ `C:\Users\Mr.S\.claude\CLAUDE.md` 中 "py scripts/mesh_status.py" 一行 + skill 内 open-window/close-window/bootstrap | S | 历史 committed handoff docs **保留原文**（git history 不污染） |
+| 11 | 重写 `SKILL.md` v2（7 节结构） | M | 顺手把文档里"mesh_status 是唯一脚本"的叙事改成"P1-P5 五件套" |
+| 11.5 | **脱敏扫描**：`grep -r "credit\|众安\|信贷\|financial_analyzer\|quality_scorer\|truth_fill" ~/.claude/skills/multi-cli-mesh/` 必须 ≤0 实质命中（schema 示例中合理提及除外） | XS | 决策 3 上传前强制 |
+| 12 | **直接删** 3 老脚本（`mesh_status.py` / `mesh_launch.py` / `mesh_watch.py`）+ 删 repo 的 `scripts/orchestrator/` 整树 | XS | 必须 Step 10 零遗漏；验证 `grep` 0 命中后才 rm |
+| 13 | **打包上传到 `~/.agents/skills/`**：`cp -r` + `git add/commit/push`（push 前二次确认 remote 和可见性） | S | 决策 3 落地 · 参考你自己已有的 `~/.agents/skills/algorithmic-art` 等 pattern |
 
 ---
 
-## 4. 🚧 BLOCKING · 3 个决策点（下个 CC 第一件事就问用户）
+## 4. 🔒 3 个决策点 · 已由 2026-04-24 主 CLI（/clear 前）拍板
 
-| # | 问题 | 选项 | 我（2026-04-24）的建议 |
+| # | 问题 | **决策** | 决策理由（ultrathink 结论） |
 |---|---|---|---|
-| 1 | repo `scripts/orchestrator/` 和 skill 搬过去后两份怎么同步？ | (A) repo 删，项目引 skill 路径 (B) 保留两份，skill canonical，人工同步 (C) symlink | 🟢 **B**：渐进，等下一次 skill eval 通过再收敛；A 引入循环依赖（项目跑起来需先装 skill） |
-| 2 | 3 个老脚本（mesh_status/mesh_launch/mesh_watch）删还是留 deprecation shim？ | (A) 直接删 (B) 留 shim 打 deprecation warning | 🟡 **B**：前面 grep 到 ≥5 处硬编老路径（其他 worktree 的 identity / kickoff 文档），shim 减少一次性大改动 |
-| 3 | skill 打包目标受众？ | (A) 私人用 (B) 公开 `~/.agents/skills/` 仓库 (C) 飞书团队分享 | **需用户明确**——影响打包格式（tar / git repo / SKILL.md only）+ 脱敏范围 |
+| 1 | repo `scripts/orchestrator/` 和 skill 搬过去后两份怎么同步？ | **A · skill canonical，repo 侧 Step 12 整树删除** | (1) 打包 skill 的初心 = 多项目复用 + 多机器迁移，A 直接兑现；(2) orchestrator 代码逻辑项目无关，只耦合 `docs/handoff/mesh.json` 约定；(3) B/C 是"治标"——B 是永久过渡期，C 有 Windows symlink 坑 |
+| 2 | 3 个老脚本（mesh_status/mesh_launch/mesh_watch）删还是留 deprecation shim？ | **A · 直接删** | (1) live 引用清点完毕 ≤6 处（5 AGENT_IDENTITY + 1 global CLAUDE.md），一次性 sed 可清；(2) historical handoff docs 不改（git 历史保留）；(3) shim 是已知范围调用者场景下的过度保护，违反"治本不治标" |
+| 3 | skill 打包目标受众？ | **B · 加入你自有的 `~/.agents/skills/` 仓库** | (1) 匹配你已有 pattern（`~/.claude/skills/` 下 20+ skill 都 symlink 到 `~/.agents/skills/`）；(2) 兑现多机器迁移 + 跨项目复用；(3) 5 日打磨的 mesh 协议套件对社区 Claude Code 重度用户有价值；(4) 预检脱敏即可——代码纯协议无项目耦合 |
 
 ---
 
@@ -125,13 +129,15 @@ multi-cli-mesh/
 
 ---
 
-## 6. 下个 CC 的第一步（playbook）
+## 6. 下个 CC 的第一步（playbook · v2 · 决策已拍板）
 
-1. 读 `AGENT_IDENTITY.md` + 清单所有文件（含本文档，是清单项 13）
-2. 跑 `git log --format='%h %s' -20 chore/l0-infra` 看最后 signal = `SKILL-UPGRADE-PLAN-STAGED`
-3. **不要立即执行 §3**——先拉用户拍板 §4 的 3 个决策点
-4. 拍板后跑 TaskCreate 列 12 步，按顺序执行，**每步独立 commit**（用户红线 4 硬闸）
-5. 当前批次 Product Hardening Phase 1 Batch 1 的 4 worker 仍等 ACK（`mesh_status` / 新版 scoreboard 查），不受本 skill 升级影响——本升级是 orchestrator 内部工具，不触碰 worker 分支
+1. 读 `AGENT_IDENTITY.md` + 清单所有文件（含本文档，是清单项 8）
+2. 跑 `git log --format='%h %s' -20 chore/l0-infra` 看最后 signal = **`SKILL-UPGRADE-DECISIONS-MADE`**（原 `-PLAN-STAGED` 已推进）
+3. **直接起 TaskCreate 列 15 步（含 1.5 / 2.5 / 11.5 / 13）**，按顺序执行，**每步独立 commit**（用户红线 4 硬闸：GO + TaskCreate + 方案 + Authorized-By trailer）。3 决策点已由上一任主 CLI 拍板（§4），**不需要再问用户**，直接跑
+4. 遇到任何需要改 live 路径的地方（AGENT_IDENTITY × 5、global CLAUDE.md × 1），**务必在 Step 10 一次性处理**，不要半路乱改
+5. Step 12 删 repo `scripts/orchestrator/` 前，**必须**完成 Step 10 + 对全仓库 `grep -rn "scripts/orchestrator" | grep -v "~/.claude"` 0 命中 verify；Step 13 push 前**必须**完成 Step 11.5 脱敏扫描
+6. 当前批次 Product Hardening Phase 1 Batch 1 的 4 worker 仍等 ACK（用新版 scoreboard 查：`py ~/.claude/skills/multi-cli-mesh/scripts/orchestrator/scoreboard.py`），不受本 skill 升级影响——本升级是 orchestrator 内部工具，不触碰 worker 分支
+7. 全流程预计工期：15 步 × 平均 S/M 工作量 ≈ 半天 CLI 时间（不含用户验收等待）
 
 ---
 
