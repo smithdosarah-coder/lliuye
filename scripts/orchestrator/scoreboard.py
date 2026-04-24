@@ -146,6 +146,25 @@ class WorktreeRecord:
     age_human: str
     status: str       # "fresh" / "idle" / "stale" / "unknown"
     status_emoji: str
+    # Y3 · age of the most recent commit carrying a `Signal:` trailer
+    # (may differ from HEAD age when HEAD is a doc/typo fix commit).
+    # None when no Signal commit was found in the last 50 entries.
+    last_signal_age_seconds: Optional[int] = None
+    last_signal_age_human: str = "-"
+
+
+def signal_age_seconds(sig_commit, now: Optional[datetime] = None) -> Optional[int]:
+    """Compute seconds since the given signal commit. None when ``sig_commit`` is None."""
+    if sig_commit is None:
+        return None
+    try:
+        now = now or datetime.now(timezone.utc)
+        commit_ts = sig_commit.timestamp
+        if commit_ts.tzinfo is None:
+            commit_ts = commit_ts.replace(tzinfo=timezone.utc)
+        return int((now - commit_ts).total_seconds())
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 def collect_record(w) -> WorktreeRecord:
@@ -157,6 +176,7 @@ def collect_record(w) -> WorktreeRecord:
             head_sha=None, head_short=None, head_subject=None,
             last_signal=None, age_seconds=None, age_human="-",
             status="unknown", status_emoji="\U000026AB",
+            last_signal_age_seconds=None, last_signal_age_human="-",
         )
 
     subject = git_helpers.head_subject(w.path) or ""
@@ -165,6 +185,8 @@ def collect_record(w) -> WorktreeRecord:
     last_sig: Optional[str] = None
     if sig_commit is not None:
         last_sig = extract_signal(sig_commit.body) or extract_signal(sig_commit.subject)
+
+    sig_age = signal_age_seconds(sig_commit)
 
     if age is None:
         status, emoji = "unknown", "\U000026AB"
@@ -180,6 +202,8 @@ def collect_record(w) -> WorktreeRecord:
         head_sha=sha, head_short=sha[:7], head_subject=subject,
         last_signal=last_sig, age_seconds=age, age_human=format_age(age),
         status=status, status_emoji=emoji,
+        last_signal_age_seconds=sig_age,
+        last_signal_age_human=format_age(sig_age),
     )
 
 
