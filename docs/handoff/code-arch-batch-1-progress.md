@@ -48,3 +48,15 @@
 ## 进度备注
 
 按 Task A → B → C 顺序执行，每 Task 独立 commit 携带对应 Signal trailer。
+
+---
+
+## HOLDING 阶段（Batch 1 已合流后的清尾）
+
+Batch 1 APPROVED · 合流主线。进 HOLDING 不抢 Batch 2 scope。
+
+| # | Task | 状态 | Signal | Commit |
+|---|---|---|---|---|
+| H-0 | HOLDING ACK | ⏳ | `HOLDING-CA-ACK` | 本 commit |
+| H-A | `feedback_to_fewshot.py` 加 `--dry-run` + 测试 | ⏳ | `HOLDING-CA-H-A-DONE` | — |
+| H-Z | HOLDING 收尾 | ⏳ | `HOLDING-CA-DONE` | — |
