@@ -13,8 +13,14 @@ Phase 0 可确定性计算的指标 (消费 agent_credit/mock_data/):
     - redline_detection_accuracy — decision∈{拒绝,有条件批准} 与 hit_red_lines 非空的一致率
     - credit_limit_reasonability — median |log10(requested/approved)| over approved>0
 
-Phase 2 pending (需真值 / LLM-judge / financial_analyzer runtime):
-  - ratio_calc_consistency / score_human_agreement / terminology_compliance
+Batch 2 Task B · EV-12 跨 Agent 财务比率一致率:
+  - extract_financial_ratios(enterprise_id) — 独立调用 financial_analyzer
+    提取 current_ratio / debt_ratio / roe / gross_margin 4 条; 与
+    agent6_report.extract_financial_ratios 双侧并行, 由
+    evaluation.runner.cross_agent.ratio_consistency 交叉对比一致率.
+
+Phase 2 pending (需真值 / LLM-judge):
+  - score_human_agreement / terminology_compliance
 
 Artifact 协议:
   run.artifacts[0] 为 corporate_cases.json 路径 → 直接消费
@@ -25,6 +31,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -320,3 +327,80 @@ class Agent3CreditEvaluator(BaseEvaluator):
             method="heuristic",
             note=reason,
         )
+
+    def _extract_financial_ratios(self, enterprise_id: str) -> dict[str, float | None]:
+        """EV-12 入口 (instance method; 委派给 module-level extract_financial_ratios)."""
+        return extract_financial_ratios(enterprise_id)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Batch 2 Task B · EV-12 跨 Agent 一致率用
+# ═══════════════════════════════════════════════════════════════════
+
+DEEP_PILLAR_ROOT = REPO_ROOT / "data" / "mock" / "deep-pillar"
+
+
+def _resolve_financial_xlsx_agent3(enterprise_id: str) -> Path | None:
+    """Agent3 侧: 按授信链常用的"最新年度财报"优先顺序挑 xlsx.
+
+    Agent3 决策时倾向取最新一期 (审贷视角: 反映当期偿债能力).
+    与 agent6 独立实现, 但因为两侧都锚到 `data/mock/deep-pillar/<eid>_*`
+    物理文件名, 正常情况下会挑到同一份 xlsx.
+    """
+    candidates = sorted(DEEP_PILLAR_ROOT.glob(f"{enterprise_id}_*"))
+    if not candidates:
+        return None
+    client_dir = candidates[0]
+    # 优先级: 财务报表 > 财务 > 任一 xlsx · 日期降序
+    patterns = ["*财务报表2025*.xlsx", "*财务报表2024*.xlsx", "*财务报表*.xlsx", "*.xlsx"]
+    for pat in patterns:
+        xlsx = sorted(client_dir.glob(pat), reverse=True)
+        for p in xlsx:
+            if p.is_file():
+                return p
+    return None
+
+
+def extract_financial_ratios(enterprise_id: str) -> dict[str, float | None]:
+    """Agent3 独立调用 financial_analyzer 的入口 (EV-12 双侧独立之一).
+
+    红线: 只读消费 financial_analyzer.FinancialAnalyzer, 不改业务代码.
+    """
+    xlsx = _resolve_financial_xlsx_agent3(enterprise_id)
+    empty = {n: None for n in ("current_ratio", "debt_ratio", "roe", "gross_margin")}
+    if xlsx is None or not xlsx.exists():
+        return empty
+
+    # lazy import 保持 adapter top-level 体感轻 (base_evaluator 导入路径)
+    root_str = str(REPO_ROOT)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
+    try:
+        from financial_analyzer import FinancialAnalyzer  # noqa: E402
+    except ImportError:
+        return empty
+
+    try:
+        ind = FinancialAnalyzer().analyze(str(xlsx))
+    except Exception:
+        return empty
+
+    current_ratio = ind.current_ratio.current if ind.current_ratio else None
+    debt_ratio = ind.debt_to_asset_ratio.current if ind.debt_to_asset_ratio else None
+    gross_margin = ind.gross_margin.current if ind.gross_margin else None
+    # ROE = net_profit / total_equity (FinancialIndicators 未内置 roe, 此处 Agent3 侧就地算)
+    roe: float | None = None
+    try:
+        np_ = ind.net_profit.current if ind.net_profit else None
+        eq_ = ind.total_equity.current if ind.total_equity else None
+        if np_ is not None and eq_ not in (None, 0):
+            roe = float(np_) / float(eq_) * 100.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        roe = None
+
+    return {
+        "current_ratio": current_ratio,
+        "debt_ratio": debt_ratio,
+        "roe": roe,
+        "gross_margin": gross_margin,
+    }

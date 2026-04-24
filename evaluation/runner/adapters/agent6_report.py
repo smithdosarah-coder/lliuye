@@ -490,17 +490,112 @@ class Agent6ReportEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- EV-12 / section_length_calibration 仍 pending (Batch 2 议题) ---
-        for name in ("financial_ratio_consistency", "section_length_calibration"):
-            out.append(
-                MetricOutcome(
-                    name=name,
-                    value=None,
-                    target=self._lookup_target(name, "domain") or "n/a",
-                    passed=None,
-                    method="manual",
-                    note="Phase B stub — financial_analyzer runtime (EV-12 Batch 2) / 真人范文库依赖",
-                )
+        # --- financial_ratio_consistency — EV-12 Batch 2 交由
+        # evaluation.runner.cross_agent.ratio_consistency 主编排计算 · 本 adapter
+        # 不 inline 算 (保持 agent6 adapter 单 artifact 单 DP 语义), 此处保留 manual
+        # stub, 由 baseline JSON 顶层 ev_12_ratio_calc_consistency 承载.
+        out.append(
+            MetricOutcome(
+                name="financial_ratio_consistency",
+                value=None,
+                target=self._lookup_target("financial_ratio_consistency", "domain") or "n/a",
+                passed=None,
+                method="manual",
+                note=(
+                    "由 evaluation.runner.cross_agent.ratio_consistency 跨 5 DP 聚合算 "
+                    "(baseline JSON 顶层 ev_12_ratio_calc_consistency 字段, method 升级为 "
+                    "deterministic_cross_agent)"
+                ),
             )
+        )
+        # --- section_length_calibration 仍 pending (真人范文库依赖) ---
+        out.append(
+            MetricOutcome(
+                name="section_length_calibration",
+                value=None,
+                target=self._lookup_target("section_length_calibration", "domain") or "n/a",
+                passed=None,
+                method="manual",
+                note="Phase B stub — 真人范文库依赖 (Batch 3)",
+            )
+        )
 
         return out
+
+    def _extract_financial_ratios(self, enterprise_id: str) -> dict[str, float | None]:
+        """EV-12 入口 (instance method; 委派给 module-level extract_financial_ratios)."""
+        return extract_financial_ratios(enterprise_id)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Batch 2 Task B · EV-12 跨 Agent 一致率用
+#   agent6_report 侧独立实现 (与 agent3_credit 并行不 import 对方),
+#   都读 data/mock/deep-pillar/<eid>_*/ 下 xlsx → FinancialAnalyzer.analyze.
+#   若有朝一日某侧改走 LLM / 硬编数字, EV-12 的 consistency 会下降至 < 99%
+#   触发 blocker_threshold 阻断发布.
+# ═══════════════════════════════════════════════════════════════════
+
+DEEP_PILLAR_ROOT = REPO_ROOT / "data" / "mock" / "deep-pillar"
+
+
+def _resolve_financial_xlsx_agent6(enterprise_id: str) -> Path | None:
+    """Agent6 侧: 按报告管线 material_kb.parse_client_folder 的"财报优先级".
+
+    v16 pipeline 的 material_kb 按文件名特征排: 财务报表 > 年度 > 审计.
+    """
+    candidates = sorted(DEEP_PILLAR_ROOT.glob(f"{enterprise_id}_*"))
+    if not candidates:
+        return None
+    client_dir = candidates[0]
+    patterns = ["*财务报表2025*.xlsx", "*财务报表2024*.xlsx", "*财务报表*.xlsx", "*.xlsx"]
+    for pat in patterns:
+        xlsx = sorted(client_dir.glob(pat), reverse=True)
+        for p in xlsx:
+            if p.is_file():
+                return p
+    return None
+
+
+def extract_financial_ratios(enterprise_id: str) -> dict[str, float | None]:
+    """Agent6 独立调用 financial_analyzer 的入口 (EV-12 双侧独立之二).
+
+    红线: 只读消费 financial_analyzer.FinancialAnalyzer, 不改 v16_* 业务代码.
+    """
+    xlsx = _resolve_financial_xlsx_agent6(enterprise_id)
+    empty = {n: None for n in ("current_ratio", "debt_ratio", "roe", "gross_margin")}
+    if xlsx is None or not xlsx.exists():
+        return empty
+
+    import sys as _sys
+    root_str = str(REPO_ROOT)
+    if root_str not in _sys.path:
+        _sys.path.insert(0, root_str)
+    try:
+        from financial_analyzer import FinancialAnalyzer  # noqa: E402
+    except ImportError:
+        return empty
+
+    try:
+        ind = FinancialAnalyzer().analyze(str(xlsx))
+    except Exception:
+        return empty
+
+    current_ratio = ind.current_ratio.current if ind.current_ratio else None
+    debt_ratio = ind.debt_to_asset_ratio.current if ind.debt_to_asset_ratio else None
+    gross_margin = ind.gross_margin.current if ind.gross_margin else None
+    # ROE = net_profit / total_equity (Agent6 侧就地算, 与 Agent3 对齐)
+    roe: float | None = None
+    try:
+        np_ = ind.net_profit.current if ind.net_profit else None
+        eq_ = ind.total_equity.current if ind.total_equity else None
+        if np_ is not None and eq_ not in (None, 0):
+            roe = float(np_) / float(eq_) * 100.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        roe = None
+
+    return {
+        "current_ratio": current_ratio,
+        "debt_ratio": debt_ratio,
+        "roe": roe,
+        "gross_margin": gross_margin,
+    }

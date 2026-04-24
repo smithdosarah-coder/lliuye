@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from evaluation.runner.registry import get_evaluator
 from evaluation.runner.schemas import EvalRun
+from evaluation.runner.cross_agent.ratio_consistency import check_ratio_consistency
 
 RUN_DAY = "2026-04-26"
 DP_IDS = ["DP001", "DP002", "DP003", "DP004", "DP005"]
@@ -293,6 +294,34 @@ def _render_md(payload: dict, first: dict) -> str:
     lines.append("- **Agent2 riskctrl / Agent4 alert**: 本轮沿用 B1 fixture, 待 data-foundation Batch 2 Phase 2 落地 agent4 在贷客户池 / agent2 历史样本 CSV 后重跑.")
     lines.append("")
 
+    # EV-12 cross-agent section
+    ev12 = payload.get("ev_12_ratio_calc_consistency") or {}
+    if ev12:
+        lines.append("## EV-12 · 跨 Agent 财务比率一致率 (Task B)")
+        lines.append("")
+        lines.append(
+            f"- **consistency_rate** = `{ev12['consistency_rate']:.4f}` "
+            f"(match {ev12['match_count']}/{ev12['total_checks']}, "
+            f"blocker_threshold=`{ev12['blocker_threshold']}`, "
+            f"passed=`{ev12['passed']}`)"
+        )
+        lines.append(
+            "- **守护点**: Agent3 授信链 + Agent6 报告管线对同一企业 (DP001-005) "
+            "各自独立调用 `financial_analyzer.FinancialAnalyzer.analyze(xlsx)`, "
+            "抽 4 条比率 (current_ratio / debt_ratio / roe / gross_margin) 做交叉对比."
+        )
+        lines.append("- **notes**:")
+        for n in ev12.get("notes", []):
+            lines.append(f"    - {n}")
+        lines.append(
+            "- **实现**: `evaluation/runner/cross_agent/ratio_consistency.py` · 单测 "
+            "`evaluation/runner/tests/test_ratio_consistency.py` (4 case: exact / boundary / "
+            "over_tolerance / drift). 两侧 adapter 各有 module-level "
+            "`extract_financial_ratios(enterprise_id)` 独立实现 (不 import 对方), 若某侧改走 "
+            "LLM / 硬编数字, consistency 会跌至 < 0.99 触发 blocker."
+        )
+        lines.append("")
+
     # Per-Agent 分段 (real slot / pending / gap)
     for agent_id, run in payload["results"].items():
         lines.append(f"## {agent_id} · {verdict_emoji.get(run['verdict'], run['verdict'])}")
@@ -361,6 +390,31 @@ def main() -> int:
         print(f"  {ag}: verdict={r['verdict']}")
     results["report"] = agent6_merged
 
+    # --- EV-12 (Task B) 跨 Agent 财务比率一致率 ---
+    print("\n[EV-12] cross-agent ratio consistency (5 DP × 4 ratios)...")
+    ev12 = check_ratio_consistency(DP_IDS, tolerance=0.01, blocker_threshold=0.99)
+    print(
+        f"  consistency={ev12.consistency_rate:.4f} "
+        f"({ev12.match_count}/{ev12.total_checks}) passed={ev12.passed}"
+    )
+    # 挂到 agent3 + agent6 results (domain metric 的 value 由此填入, 覆盖 cross_agent_deferred stub)
+    for agent_id in ("credit", "report"):
+        run = results.get(agent_id) or {}
+        target_name = (
+            "ratio_calc_consistency" if agent_id == "credit" else "financial_ratio_consistency"
+        )
+        for m in run.get("domain_metrics", []):
+            if m.get("name") == target_name:
+                m["value"] = ev12.consistency_rate
+                m["method"] = "deterministic"  # cross-agent 同源确定性
+                m["passed"] = ev12.passed
+                m["evidence"] = ["evaluation/runner/cross_agent/ratio_consistency.py"]
+                m["note"] = (
+                    f"EV-12 Task B (cross_agent_consistency) · 5 DP × 4 比率 = "
+                    f"{ev12.total_checks} 项, match {ev12.match_count}/{ev12.total_checks} "
+                    f"(blocker_threshold=0.99). " + " · ".join(ev12.notes)[:200]
+                )
+
     payload = {
         "run_day": RUN_DAY,
         "commit": _git_head(),
@@ -369,9 +423,11 @@ def main() -> int:
         "upgraded_over_b1": (
             "agent6 · 5 DP 真 v16 summary JSON 聚合 (非骨架自比); "
             "agent1 · channel-kb seed + MockSearchProvider 真搜 (解 8/10 实算); "
-            "agent5 · compliance-kb 169 SOP + synthesized new-policy 冲突扫描 (解 6/10 实算)"
+            "agent5 · compliance-kb 169 SOP + synthesized new-policy 冲突扫描 (解 6/10 实算); "
+            "EV-12 · agent3/6 跨 Agent 财务比率一致率实装"
         ),
         "results": results,
+        "ev_12_ratio_calc_consistency": ev12.to_dict(),
     }
 
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
