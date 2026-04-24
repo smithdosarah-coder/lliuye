@@ -5,16 +5,35 @@
 对私：抽取约 22 个评分卡变量，分 4 类（capacity / willingness / stability / collateral）
 
 约定：特征 key 使用扁平化点号命名，如 "financial.debt_ratio"。
+
+§3.1 反模式修复（Product Hardening Batch 1 · Task A）：
+对公财务比率（debt_ratio / net_margin / current_ratio / 应收周转天数 等）一律
+路由 financial_analyzer.FinancialAnalyzer.compute_indicators 计算，禁止本模块
+内重复实现。下游 scoring_model_corporate / advisor_formatter 同样消费这一计算
+结果（feature dict + format_for_prompt 文本），确保 Agent3 与 Agent6 在同一组
+报表上得到完全一致的比率。
 """
 
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 _AGENT_DIR = Path(__file__).parent
 _BASELINE_PATH = _AGENT_DIR / "mock_data" / "industry_baselines_v2.json"
+
+_PROJECT_ROOT = str(_AGENT_DIR.parent)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from financial_analyzer import (  # noqa: E402
+    FinancialAnalyzer,
+    FinancialIndicators,
+    FinancialStatements,
+    PeriodValue,
+)
 
 
 def _load_baselines() -> dict:
@@ -40,6 +59,109 @@ def _normalize_industry_code(industry_str: str) -> str:
         return "DEFAULT"
     head = industry_str.split("-")[0].strip()
     return head or "DEFAULT"
+
+
+# ----------------------------------------------------------------------
+# §3.1 反模式修复：profile.financial_anchors → FinancialIndicators
+# ----------------------------------------------------------------------
+
+# financial_anchors 的口径与 financial_analyzer 解析 xlsx 后的 raw 表保持一致：
+# 期末值/当期累计是"元"。但 mock 数据 / Agent6 ReportJSON 通常已经是"万元"。
+# 这里统一约定：anchors 的 *_latest / *_prev / total_* / accounts_receivable
+# 等量级字段都按"万元"传入，由本模块统一 ×10000 拉回"元"喂给 financial_analyzer
+# （后者对外输出已按单位格式化，无需额外换算）。
+
+_BS_FIELDS_WAN: tuple[tuple[str, str, str], ...] = (
+    # (anchor_key, balance_sheet_subject, anchors_unit)
+    ("total_assets", "资产总计", "万元"),
+    ("total_liabilities", "负债合计", "万元"),
+    ("net_assets", "所有者权益合计", "万元"),
+    ("accounts_receivable", "应收账款", "万元"),
+    ("inventory", "存货", "万元"),
+    ("short_term_borrowing", "短期借款", "万元"),
+)
+
+_IS_FIELDS_WAN: tuple[tuple[str, str, str, str], ...] = (
+    # (latest_key, prev_key, statement_subject, anchors_unit)
+    ("revenue_latest", "revenue_prev", "营业收入", "万元"),
+    ("net_profit_latest", "net_profit_prev", "净利润", "万元"),
+)
+
+
+def _wan_to_yuan(v) -> float | None:
+    if v in (None, "") or v == 0:
+        return float(v) * 10000.0 if v == 0 else None
+    try:
+        return float(v) * 10000.0
+    except (TypeError, ValueError):
+        return None
+
+
+def _anchors_to_indicators(fin_anchors: dict) -> FinancialIndicators:
+    """把 ReportJSON.financial_anchors（万元口径）拼成 FinancialStatements
+    并交给 FinancialAnalyzer 计算 FinancialIndicators。
+    所有比率/同比/异常均由 financial_analyzer 一处产出。
+    """
+    fin = fin_anchors or {}
+    stmts = FinancialStatements(source_file="agent_credit.feature_extractor::anchors")
+
+    for anchor_key, subj, _unit in _BS_FIELDS_WAN:
+        cur = _wan_to_yuan(fin.get(anchor_key))
+        if cur is None:
+            continue
+        stmts.balance_sheet[subj] = PeriodValue(
+            current=cur, previous=None, unit="万元",
+            current_label="当期", previous_label="上期",
+            compare_caption="较年初",
+        )
+
+    # 流动资产/流动负债缺直接字段时，给 financial_analyzer 留空 → 流动比率自然
+    # 退化为 None，由下游 fallback；不要在本模块自算 flow ratio。
+
+    for cur_key, prev_key, subj, _unit in _IS_FIELDS_WAN:
+        cur = _wan_to_yuan(fin.get(cur_key))
+        prev = _wan_to_yuan(fin.get(prev_key))
+        if cur is None and prev is None:
+            continue
+        stmts.income_statement[subj] = PeriodValue(
+            current=cur, previous=prev, unit="万元",
+            current_label="当期", previous_label="上期",
+            compare_caption="同比",
+        )
+
+    # 现金流：anchors 提供 operating_cash_flow（万元）单期
+    ocf_yuan = _wan_to_yuan(fin.get("operating_cash_flow"))
+    if ocf_yuan is not None:
+        stmts.cash_flow["经营活动产生的现金流量净额"] = PeriodValue(
+            current=ocf_yuan, previous=None, unit="万元",
+            current_label="当期", previous_label="",
+        )
+
+    analyzer = FinancialAnalyzer()
+    indicators = analyzer.compute_indicators(stmts)
+    indicators.anomalies = analyzer.detect_anomalies(indicators)
+    indicators.trend_labels = analyzer.summarize_trends(indicators)
+    return indicators
+
+
+def _pct_to_decimal(pv: PeriodValue) -> float:
+    """financial_analyzer 输出的百分比指标（unit='%'）回拉成小数喂评分曲线。"""
+    if pv is None or pv.current is None:
+        return 0.0
+    return pv.current / 100.0
+
+
+def _yoy_pct_to_decimal(pv: PeriodValue) -> float:
+    if pv is None or pv.yoy_pct is None:
+        return 0.0
+    return pv.yoy_pct / 100.0
+
+
+def _ratio_value(pv: PeriodValue) -> float:
+    """流动/速动比率(unit='倍')、应收周转天数(unit='天')等直接量纲指标。"""
+    if pv is None or pv.current is None:
+        return 0.0
+    return float(pv.current)
 
 
 class FeatureExtractor:
@@ -81,7 +203,7 @@ class FeatureExtractor:
 
         features: dict[str, Any] = {}
 
-        # ---- financial.* ----
+        # 量纲：anchors 一律按"万元"输入，对外保留原值；财务比率走 financial_analyzer。
         revenue = float(fin.get("revenue_latest") or 0)
         revenue_prev = float(fin.get("revenue_prev") or 0)
         net_profit = float(fin.get("net_profit_latest") or 0)
@@ -98,19 +220,33 @@ class FeatureExtractor:
         request_amt = float(req.get("amount") or 0)
         term_months = int(req.get("term_months") or 12)
 
-        debt_ratio = _safe_div(total_liab, total_assets)
-        revenue_growth = _safe_div(revenue - revenue_prev, revenue_prev) if revenue_prev else 0
-        net_margin = _safe_div(net_profit, revenue)
-        ar_turnover_days = _safe_div(ar * 365, revenue) if revenue else 0
-        current_assets_approx = ar + inv + max(ocf, 0)
-        current_ratio = _safe_div(current_assets_approx + ocf, max(st_debt, 1))
-        quick_ratio = _safe_div(current_assets_approx - inv, max(st_debt, 1))
-        gross_margin = _safe_div(revenue - (revenue - ebitda), revenue) if revenue else 0
-        # 估算毛利率差距
+        # ---- §3.1 反模式修复：所有比率走 financial_analyzer ----
+        indicators = _anchors_to_indicators(fin)
+        debt_ratio = _pct_to_decimal(indicators.debt_to_asset_ratio)
+        revenue_growth = _yoy_pct_to_decimal(indicators.revenue)
+        net_margin = _pct_to_decimal(indicators.net_margin)
+        gross_margin = _pct_to_decimal(indicators.gross_margin)
+        ar_turnover_days = _ratio_value(indicators.ar_turnover_days)
+        current_ratio = _ratio_value(indicators.current_ratio)
+        quick_ratio = _ratio_value(indicators.quick_ratio)
+        # OCF/Revenue 单点派生（曾散落在 scoring_model_corporate._score_financial 内）
+        ocf_to_revenue = (
+            indicators.operating_cf_net / indicators.revenue.current
+            if indicators.operating_cf_net is not None and indicators.revenue.current
+            else 0.0
+        )
+
         gross_margin_gap = gross_margin - float(baseline.get("gross_margin_median", 0.25))
         consecutive_loss = (1 if net_profit < 0 else 0) + (1 if net_profit_prev < 0 else 0)
         request_to_netasset = _safe_div(request_amt, net_assets) if net_assets else 0
         cashflow_coverage = _safe_div(ocf, request_amt) if request_amt else 0
+
+        # 同一份 indicators 下游 advisor_formatter 直接消费，避免重复构造
+        try:
+            from financial_analyzer import FinancialAnalyzer as _FA
+            financial_prompt_block = _FA().format_for_prompt(indicators)
+        except Exception:
+            financial_prompt_block = ""
 
         features.update({
             "financial.revenue": revenue,
@@ -128,11 +264,14 @@ class FeatureExtractor:
             "financial.current_ratio": current_ratio,
             "financial.quick_ratio": quick_ratio,
             "financial.operating_cash_flow": ocf,
+            "financial.ocf_to_revenue": ocf_to_revenue,
             "financial.short_term_borrowing": st_debt,
             "financial.ebitda": ebitda,
             "financial.consecutive_loss_years": consecutive_loss,
             "financial.request_to_netasset": request_to_netasset,
             "financial.accounts_receivable": ar,
+            # 下划线前缀：内部传递给 advisor_formatter，不进 features_snapshot
+            "_financial_prompt_block": financial_prompt_block,
         })
 
         # ---- industry.* ----

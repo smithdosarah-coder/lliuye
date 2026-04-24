@@ -1,0 +1,1549 @@
+/* Agent1 Channel (Scout) · canon workspace · agent-specific CSS
+ * Depends on: report-workspace.css (canon shell 壳样式 · .v-archive--canon .rpt-*)
+ * Scope: .v-archive--canon[data-agent="channel"] （仅 tint + ch-* 专属视图）
+ * 2026-04-21 H1 · 从 canon 横向迁移 · Radar / Funnel / Candidates
+ */
+
+.v-archive--canon[data-agent="channel"] {
+  --agent: var(--t-channel);
+}
+
+/* ══════ 左栏 · Query 画像 ══════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-q-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-meta > div {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-meta dt {
+  color: var(--ink-60);
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-meta dd {
+  margin: 0;
+  color: var(--ink);
+}
+.v-archive--canon[data-agent="channel"] .ch-q-tags-wrap {
+  border-top: 1px dashed var(--ink-14);
+  padding-top: 12px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-tags-lbl {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  background: color-mix(in srgb, var(--agent) 8%, var(--chalk));
+  color: color-mix(in srgb, var(--agent) 72%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--agent) 24%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb {
+  border-top: 1px dashed var(--ink-14);
+  padding-top: 12px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb-lbl {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 1px dotted var(--ink-10);
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb-row:last-child {
+  border-bottom: none;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb-row .name {
+  color: var(--ink);
+  flex: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-q-kb-row .hit {
+  color: var(--ink-50);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+/* ══════ 左栏 · Signals 信号源 ════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-sig-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-card {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 10px 11px;
+  background: color-mix(in srgb, var(--chalk) 96%, var(--agent) 4%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 180ms var(--ease-smooth), background 180ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-card:hover {
+  border-color: color-mix(in srgb, var(--agent) 40%, var(--ink-14));
+  background: color-mix(in srgb, var(--chalk) 92%, var(--agent) 8%);
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-card[data-status="degraded"] {
+  background: color-mix(in srgb, var(--chalk) 96%, var(--t-alert, #C85A3C) 4%);
+  border-color: color-mix(in srgb, var(--t-alert, #C85A3C) 30%, var(--ink-14));
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-card[data-status="off"] {
+  opacity: 0.55;
+  background: var(--chalk);
+  border-style: dashed;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-kind {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 78%, var(--ink));
+  letter-spacing: 0.02em;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-status {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-status[data-s="active"] {
+  color: color-mix(in srgb, var(--agent) 70%, var(--ink-50));
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-status[data-s="degraded"] {
+  color: var(--t-alert, #C85A3C);
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-status[data-s="off"] {
+  color: var(--ink-40);
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-stats {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-stats .num {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-stats .lbl {
+  font-size: 10px;
+  color: var(--ink-50);
+  letter-spacing: 0.08em;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-bar {
+  height: 3px;
+  background: var(--ink-08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--agent), color-mix(in srgb, var(--agent) 65%, transparent));
+  border-radius: 2px;
+  transition: width 400ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-meta {
+  font-size: 10.5px;
+  color: var(--ink-50);
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.v-archive--canon[data-agent="channel"] .ch-sig-meta .note {
+  color: var(--ink-40);
+  font-style: italic;
+}
+
+/* ══════ 左栏 · Recent sessions ══════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-rc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-row {
+  position: relative;
+  padding: 10px 16px 10px 26px;
+  border-bottom: 1px dotted var(--ink-10);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 160ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-row:last-child {
+  border-bottom: none;
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-row:hover {
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-row[data-done="true"] .rpt-tl-kind {
+  color: color-mix(in srgb, var(--agent) 70%, var(--ink-50));
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-bar {
+  height: 2px;
+  background: var(--ink-08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .ch-rc-bar-fill {
+  height: 100%;
+  background: var(--agent);
+  border-radius: 1px;
+  transition: width 400ms var(--ease-smooth);
+}
+
+/* ══════ 右栏 · Output tabs ═════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-out-tabs button {
+  flex: 1 1 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-out-paper {
+  padding: 20px 22px;
+}
+.v-archive--canon[data-agent="channel"] .ch-out-sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--ink-14);
+}
+.v-archive--canon[data-agent="channel"] .ch-out-sec-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-out-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--ink-60);
+}
+.v-archive--canon[data-agent="channel"] .ch-out-legend .lg[data-k="coverage"] {
+  color: color-mix(in srgb, var(--agent) 80%, var(--ink));
+}
+.v-archive--canon[data-agent="channel"] .ch-out-legend .lg[data-k="similarity"] {
+  color: color-mix(in srgb, var(--t-credit, #2F6F8C) 80%, var(--ink));
+}
+.v-archive--canon[data-agent="channel"] .ch-out-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-50);
+}
+
+/* ══════ 右栏 · Radar ═══════════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-rad-chart {
+  width: 100%;
+  padding: 4px 0 10px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-chart .recharts-polar-grid-angle line,
+.v-archive--canon[data-agent="channel"] .ch-rad-chart .recharts-polar-grid-concentric-polygon {
+  stroke: var(--ink-20);
+}
+/* 综合得分摘要（雷达下方） */
+.v-archive--canon[data-agent="channel"] .ch-rad-summary {
+  padding: 8px 0 10px;
+  border-top: 1px dotted var(--ink-10);
+  border-bottom: 1px dotted var(--ink-10);
+  margin: 6px 0 10px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-summary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-summary-row .lbl {
+  color: var(--ink-48);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-summary-row .v.main {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-summary-row .v.bench {
+  color: var(--ink-48);
+  font-size: 12.5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-summary-row .sep {
+  color: var(--ink-30);
+  font-size: 10.5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-lead {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-lead.pos {
+  color: var(--safe, #3AB27C);
+  background: color-mix(in srgb, var(--safe, #3AB27C) 12%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-lead.neg {
+  color: var(--t-alert, #C85A3C);
+  background: color-mix(in srgb, var(--t-alert, #C85A3C) 12%, transparent);
+}
+
+/* 维度列表 · 8 维 × 象限色 */
+.v-archive--canon[data-agent="channel"] .ch-rad-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: help;
+  transition: background 160ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row:hover {
+  background: color-mix(in srgb, var(--agent) 5%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .q-chip {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--ink-80);
+  font-weight: 500;
+  min-width: 52px;
+  text-align: center;
+}
+.ch-rad-row .q-chip[data-q="base"]   { background: color-mix(in srgb, var(--t-compli)   16%, transparent); color: color-mix(in srgb, var(--t-compli)   80%, var(--ink)); }
+.ch-rad-row .q-chip[data-q="bonus"]  { background: color-mix(in srgb, var(--t-channel)  16%, transparent); color: color-mix(in srgb, var(--t-channel)  80%, var(--ink)); }
+.ch-rad-row .q-chip[data-q="demand"] { background: color-mix(in srgb, var(--t-alert)    16%, transparent); color: color-mix(in srgb, var(--t-alert)    80%, var(--ink)); }
+.ch-rad-row .q-chip[data-q="health"] { background: color-mix(in srgb, var(--t-report)   16%, transparent); color: color-mix(in srgb, var(--t-report)   80%, var(--ink)); }
+.ch-rad-row .q-chip[data-q="market"] { background: color-mix(in srgb, var(--t-riskctrl) 16%, transparent); color: color-mix(in srgb, var(--t-riskctrl) 80%, var(--ink)); }
+.v-archive--canon[data-agent="channel"] .ch-rad-row .axis {
+  color: var(--ink-80);
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .pair {
+  font-family: var(--mono);
+  font-size: 11px;
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .v.score {
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+  font-weight: 600;
+  font-size: 13px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .v.bench {
+  color: var(--ink-48);
+  font-size: 10.5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .delta {
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: center;
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .delta.pos {
+  color: var(--safe, #3AB27C);
+  background: color-mix(in srgb, var(--safe, #3AB27C) 10%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .delta.neg {
+  color: var(--t-alert, #C85A3C);
+  background: color-mix(in srgb, var(--t-alert, #C85A3C) 10%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-rad-row .sep {
+  color: var(--ink-30);
+}
+
+/* ══════ 右栏 · Funnel ══════════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-fn-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--agent) 18%, transparent);
+  color: color-mix(in srgb, var(--agent) 80%, var(--ink));
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-lbl {
+  font-weight: 500;
+  color: var(--ink);
+  flex: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-count {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-pass {
+  font-size: 10.5px;
+  color: var(--ink-50);
+  font-family: var(--mono);
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-bar {
+  height: 10px;
+  background: var(--ink-08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-bar-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--agent) 85%, transparent) 0%,
+    color-mix(in srgb, var(--agent) 55%, transparent) 100%
+  );
+  border-radius: 3px;
+  transition: width 500ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-row[data-i="0"] .ch-fn-bar-fill {
+  background: linear-gradient(90deg, var(--agent), color-mix(in srgb, var(--agent) 70%, transparent));
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-row[data-i="4"] .ch-fn-bar-fill {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--agent) 95%, #000) 0%,
+    color-mix(in srgb, var(--agent) 60%, #000) 100%
+  );
+}
+.v-archive--canon[data-agent="channel"] .ch-fn-detail {
+  font-size: 11.5px;
+  color: var(--ink-50);
+  padding-left: 30px;
+}
+
+/* ══════ 右栏 · Candidates ══════════════════════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-cd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-card {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  background: var(--chalk);
+  transition: border-color 180ms var(--ease-smooth), background 180ms var(--ease-smooth), transform 180ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-card:hover {
+  border-color: color-mix(in srgb, var(--agent) 40%, var(--ink-14));
+  background: color-mix(in srgb, var(--chalk) 96%, var(--agent) 4%);
+  transform: translateY(-1px);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-card[data-risk="yes"] {
+  border-left: 3px solid color-mix(in srgb, var(--t-alert, #C85A3C) 55%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-head {
+  display: grid;
+  grid-template-columns: 34px 1fr 90px;
+  gap: 12px;
+  align-items: start;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-rank {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+  letter-spacing: 0.03em;
+  padding-top: 1px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.3;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-meta {
+  font-size: 11.5px;
+  color: var(--ink-55);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sim {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sim-pct {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--agent) 82%, var(--ink));
+  line-height: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sim-bar {
+  width: 80px;
+  height: 4px;
+  background: var(--ink-08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sim-fill {
+  height: 100%;
+  background: var(--agent);
+  border-radius: 2px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sim-lbl {
+  font-size: 9.5px;
+  color: var(--ink-50);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dotted var(--ink-10);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sigs,
+.v-archive--canon[data-agent="channel"] .ch-cd-risk,
+.v-archive--canon[data-agent="channel"] .ch-cd-prod {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sigs .lbl,
+.v-archive--canon[data-agent="channel"] .ch-cd-risk .lbl,
+.v-archive--canon[data-agent="channel"] .ch-cd-prod .lbl {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-50);
+  margin-right: 4px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-sig {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agent) 10%, var(--chalk));
+  color: color-mix(in srgb, var(--agent) 72%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, transparent);
+  font-size: 11px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-risk-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--t-alert, #C85A3C) 8%, var(--chalk));
+  color: color-mix(in srgb, var(--t-alert, #C85A3C) 75%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--t-alert, #C85A3C) 30%, transparent);
+  font-size: 11px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-prod-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink-04);
+  color: var(--ink-70);
+  border: 1px solid var(--ink-14);
+  font-size: 11px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-note {
+  font-size: 11.5px;
+  color: var(--ink-55);
+  font-style: italic;
+  line-height: 1.55;
+}
+
+/* ══════ 右栏 · Signal Timeline (区域 3) ═══════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-tl-panel {
+  min-height: 320px;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 14px;
+  color: var(--ink-48);
+  font-size: 12px;
+  font-style: italic;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-empty .ic {
+  font-size: 18px;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-list::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  bottom: 6px;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--agent) 40%, transparent),
+    color-mix(in srgb, var(--agent) 10%, transparent)
+  );
+  pointer-events: none;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-row {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  align-items: start;
+  position: relative;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--agent);
+  border: 2px solid var(--chalk);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--agent) 30%, transparent);
+  margin-top: 5px;
+  margin-left: 3px;
+  z-index: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-row[data-sev="pos"] .ch-tl-dot {
+  background: var(--safe, #3AB27C);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-row[data-sev="neg"] .ch-tl-dot {
+  background: var(--t-alert, #C85A3C);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-card {
+  padding: 8px 10px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 55%, transparent);
+  border: 1px solid var(--ink-08);
+  transition: background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-card:hover {
+  background: color-mix(in srgb, var(--chalk) 75%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 22%, var(--ink-08));
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .kind {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 80%, var(--ink));
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+}
+.ch-tl-meta .kind[data-kind="legal"]    { color: var(--t-alert);    background: color-mix(in srgb, var(--t-alert)    14%, transparent); }
+.ch-tl-meta .kind[data-kind="policy"]   { color: var(--t-channel);  background: color-mix(in srgb, var(--t-channel)  14%, transparent); }
+.ch-tl-meta .kind[data-kind="fund"]     { color: var(--t-credit);   background: color-mix(in srgb, var(--t-credit)   14%, transparent); }
+.ch-tl-meta .kind[data-kind="tax"]      { color: var(--t-report);   background: color-mix(in srgb, var(--t-report)   14%, transparent); }
+.ch-tl-meta .kind[data-kind="bid-win"]  { color: var(--t-compli);   background: color-mix(in srgb, var(--t-compli)   14%, transparent); }
+.ch-tl-meta .kind[data-kind="news"]     { color: var(--t-riskctrl); background: color-mix(in srgb, var(--t-riskctrl) 14%, transparent); }
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .at {
+  color: var(--ink-48);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .sev {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .sev[data-sev="pos"] { color: var(--safe, #3AB27C); }
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .sev[data-sev="neg"] { color: var(--t-alert, #C85A3C); }
+.v-archive--canon[data-agent="channel"] .ch-tl-meta .sev[data-sev="neu"] { color: var(--ink-30); }
+.v-archive--canon[data-agent="channel"] .ch-tl-title {
+  font-family: var(--cjkserif);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-detail {
+  font-size: 11.5px;
+  color: var(--ink-65);
+  line-height: 1.55;
+  margin-bottom: 6px;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-source {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--ink-48);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-source a {
+  color: color-mix(in srgb, var(--agent) 80%, var(--ink));
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in srgb, var(--agent) 50%, transparent);
+  transition: color 120ms;
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-source a:hover {
+  color: var(--agent);
+}
+.v-archive--canon[data-agent="channel"] .ch-tl-source .ic {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* ══════ 布局 v2 · 十字结构（2026-04-22 task #50） ════════
+   Hero → QueryBar → FunnelStrip → [主画布 | 信号时间线] → Composer
+   主画布 = 雷达+候选横排 + AI 回复流纵列 */
+
+.v-archive--canon[data-agent="channel"] .ch-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: calc(100vh - 120px);
+}
+
+/* --- 区域 1 · Query 输入条 ---------------------------- */
+.v-archive--canon[data-agent="channel"] .ch-querybar {
+  padding: 14px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  resize: horizontal;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-title em {
+  font-style: italic;
+  color: var(--agent);
+  font-family: var(--italic);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-recent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-recent label {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-recent select {
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: 10px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  color: var(--ink);
+  font-family: var(--cjk);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-body {
+  display: flex;
+  gap: 10px;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-14);
+  background: color-mix(in srgb, var(--chalk) 50%, transparent);
+  font-size: 13.5px;
+  color: var(--ink);
+  font-family: var(--cjk);
+  transition: border-color 160ms, background 160ms;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--agent) 60%, var(--ink-14));
+  background: color-mix(in srgb, var(--chalk) 80%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-btn {
+  padding: 0 18px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--agent) 88%, var(--ink));
+  color: var(--chalk);
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+  transition: transform 120ms var(--ease-spring), box-shadow 160ms;
+  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--agent) 50%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--agent) 60%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-btn .kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--chalk) 18%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-tags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px dotted var(--ink-10);
+  padding-top: 8px;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-tags .lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-48);
+  text-transform: uppercase;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-tags .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.v-archive--canon[data-agent="channel"] .ch-querybar-tags .tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--agent) 7%, var(--chalk));
+  color: color-mix(in srgb, var(--agent) 70%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--agent) 20%, transparent);
+}
+
+/* --- 顶栏 · Funnel 横条 ------------------------------- */
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip {
+  padding: 10px 16px 12px;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-head .eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-head .flow {
+  font-size: 11px;
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-head .arr {
+  color: var(--ink-30);
+  margin: 0 6px;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-head .tail {
+  color: var(--ink-48);
+  margin-left: 4px;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-cell {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 40%, transparent);
+  border: 1px solid var(--ink-08);
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-n {
+  grid-row: 1 / 3;
+  align-self: center;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 70%, var(--ink));
+  line-height: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-lbl {
+  font-size: 11.5px;
+  color: var(--ink-80);
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-count {
+  grid-column: 3;
+  grid-row: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-bar {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  height: 3px;
+  background: var(--ink-08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .ch-funnel-strip-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--agent), color-mix(in srgb, var(--agent) 60%, transparent));
+  border-radius: 2px;
+  transition: width 400ms var(--ease-smooth);
+}
+
+/* --- 主画布 + 信号时间线（cross 十字） ---------------- */
+.v-archive--canon[data-agent="channel"] .ch-cross {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 16px;
+  min-height: 0;
+  align-items: stretch;
+  flex: 1;
+}
+@media (max-width: 1439px) {
+  .v-archive--canon[data-agent="channel"] .ch-cross {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 14px;
+  }
+}
+@media (max-width: 1279px) {
+  .v-archive--canon[data-agent="channel"] .ch-cross {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 12px;
+  }
+}
+
+/* 主画布纵列：雷达+候选 横排 + 对话流 纵下 */
+.v-archive--canon[data-agent="channel"] .ch-canvas {
+  display: grid;
+  grid-template-rows: minmax(360px, auto) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-canvas-top {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="channel"] .ch-canvas-top .ch-radar-panel {
+  min-height: 420px;
+}
+.v-archive--canon[data-agent="channel"] .ch-canvas-top .ch-cand-panel {
+  /* Task 3a · 解开 620px max-height 锁死，让 .rpt-panel resize:both 能真拉大。
+     保留 min-height 作初始撑开；全局 .rpt-panel 已有 min(90vh, 1200px) 兜底。 */
+  min-height: 420px;
+  max-height: none;
+}
+
+/* 右栏 aside · SignalTimeline 占满 */
+.v-archive--canon[data-agent="channel"] .ch-aside {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.v-archive--canon[data-agent="channel"] .ch-aside .ch-tl-panel {
+  flex: 1;
+  max-height: none;
+}
+
+/* 2026-04-23 · ConversationPanel 作为 docked 容器内嵌 Composer
+   structure:  section.rpt-panel--conv-docked
+     ├ PanelPinHandle
+     ├ .rpt-panel-head
+     ├ .rpt-panel-body.rpt-conv-body (flex:1 · 消息流)
+     └ .rpt-composer-slot.rpt-composer (flex-shrink:0 · 贴底)
+   docked 全局规则在 report-workspace.css，这里只做 channel 微调 */
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* 2026-04-23 · Composer 整体 · 融合主色调 · 不再白底硬堆叠
+   策略：agent 色 5% 极低透 + chalk 25% 透底叠加，让下层页面渐变透出来；
+   textarea 本身做成独立气泡框（圆角 + 弱边），视觉和对话气泡同语言。 */
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked > .rpt-composer-slot {
+  flex-shrink: 0;
+  margin: 0;
+  border-width: 0;
+  border-top: 1px solid color-mix(in srgb, var(--agent) 14%, transparent);
+  border-radius: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--agent) 4%, transparent) 0%,
+    color-mix(in srgb, var(--chalk) 22%, transparent) 100%
+  );
+  backdrop-filter: blur(10px) saturate(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+  box-shadow: none;
+  padding: 10px 14px 12px;
+}
+/* textarea 容器气泡化：圆角大 + 弱 agent 边 + 半透白内胆 */
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-bar {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--chalk) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 16%, var(--ink-08));
+  padding: 8px 12px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+  transition: border-color 180ms var(--ease-smooth, ease), box-shadow 180ms var(--ease-smooth, ease);
+}
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-bar:focus-within {
+  border-color: color-mix(in srgb, var(--agent) 42%, var(--ink-14));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent),
+              0 0 0 3px color-mix(in srgb, var(--agent) 12%, transparent);
+}
+/* 发送键更圆 · pill 融入气泡边 · 不再蓝色方块硬塞 */
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-send {
+  right: 4px;
+  bottom: 3px;
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+/* hints 行：更轻 · 小 mono 灰字，不再带圆角 chip 外观 */
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-hints {
+  padding: 6px 2px 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+}
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-hint {
+  opacity: 0.72;
+}
+.v-archive--canon[data-agent="channel"] .rpt-panel--conv-docked .rpt-composer-hint[data-active="true"] {
+  opacity: 1;
+  color: var(--agent);
+}
+
+/* 2026-04-22 · Composer staging attachment chips · 拖入 ref-card 先挂这儿不发送
+   2026-04-23 · inline-flex + fit-content · 虚线框只包 chip 本身不顶满整行
+   · 改实线 + 微弱 accent 底，和对话语言一致 */
+.v-archive--canon[data-agent="channel"] .rpt-composer-attach {
+  display: inline-flex; flex-wrap: wrap; gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 5px 7px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--agent) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, var(--ink-08));
+}
+.v-archive--canon[data-agent="channel"] .rpt-composer-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, var(--ink-14));
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  color: var(--ink);
+  max-width: 260px;
+}
+.v-archive--canon[data-agent="channel"] .rpt-composer-chip-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--agent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 24%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .rpt-composer-chip-title {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v-archive--canon[data-agent="channel"] .rpt-composer-chip-x {
+  all: unset;
+  cursor: pointer;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-48);
+  background: var(--ink-04);
+  font-size: 11px;
+  line-height: 1;
+  transition: color .15s, background .15s;
+}
+.v-archive--canon[data-agent="channel"] .rpt-composer-chip-x:hover {
+  color: var(--chalk);
+  background: var(--t-alert);
+}
+
+/* ── WeChat-style messages (channel only) ───────────────────────
+   Step 1 · 2026-04-22 CLI-C
+   覆盖 .rpt-msg 默认 flex 布局，改成 grid · 头像跟随 bubble 高度 · 时间戳气泡下方
+   规则：user 靠右(头像在 bubble 右)，AI 靠左(头像在 bubble 左)；
+   连续同 speaker 间距 4px，不连续 12px；只在 channel 作用域生效，不污染 report。 */
+
+/* 关掉 .rpt-conv-list flex gap，改用 margin 控制连续/不连续 */
+.v-archive--canon[data-agent="channel"] .rpt-conv-list {
+  gap: 0;
+}
+.v-archive--canon[data-agent="channel"] .rpt-conv-list > .rpt-msg {
+  margin-top: 12px;
+}
+.v-archive--canon[data-agent="channel"] .rpt-conv-list > .rpt-msg:first-child {
+  margin-top: 0;
+}
+.v-archive--canon[data-agent="channel"] .rpt-msg--user + .rpt-msg--user,
+.v-archive--canon[data-agent="channel"] .rpt-msg--ai + .rpt-msg--ai {
+  margin-top: 4px;
+}
+
+/* 2026-04-23 · 时间戳挪到 avatar 顶（用户 #1 诉求 · 消息下方不再挂 foot 行）。
+   grid-areas 改 2 行 3 列：time 独占一格对齐 avatar，bubble 占第 2 行。 */
+.v-archive--canon[data-agent="channel"] .wc-msg {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "avatar time"
+    "avatar bubble";
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: start;
+  position: relative;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg--user {
+  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-areas:
+    "time   avatar"
+    "bubble avatar";
+  justify-items: end;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg--ai {
+  justify-items: start;
+}
+
+/* 头像 · 2026-04-22 fix · 固定 40×40 方形 · 顶对齐 bubble
+   用户反馈"大小不一致而且有点丑"：原 align-self:stretch + aspect-ratio 会让头像
+   跟随 bubble 高度变（单行 bubble 40px，多行 120px），看上去乱跳。改回类微信标
+   准做法：固定 40px 方形，顶对齐 bubble，无论 bubble 几行，头像大小稳定。 */
+.v-archive--canon[data-agent="channel"] .wc-msg-avatar {
+  grid-area: avatar;
+  align-self: start;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--agent) 60%, transparent);
+  background: color-mix(in srgb, var(--agent) 16%, var(--chalk));
+  color: var(--agent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 15px;
+  line-height: 1;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-avatar--user {
+  border-color: color-mix(in srgb, var(--ink) 50%, transparent);
+  background: var(--ink);
+  color: var(--chalk);
+  font-family: var(--cjk);
+  font-size: 14px;
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-avatar--thinking {
+  animation: blip 2.2s ease-in-out infinite;
+  background: color-mix(in srgb, var(--agent) 10%, var(--chalk));
+}
+
+/* 气泡 · 2026-04-23 去边框版 · 字与背景贴合不要死白框 */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble {
+  grid-area: bubble;
+  position: relative;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  max-width: min(620px, 100%);
+  border: 0;
+  background: color-mix(in srgb, var(--chalk) 48%, transparent);
+  backdrop-filter: blur(8px) saturate(1.08);
+  -webkit-backdrop-filter: blur(8px) saturate(1.08);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent);
+  word-break: break-word;
+  align-self: start;
+}
+/* AI · 浅 agent 染色 + 左下小尖（对头像方向） */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--ai {
+  border-radius: 4px 14px 14px 14px;
+  background: color-mix(in srgb, var(--agent) 7%, color-mix(in srgb, var(--chalk) 45%, transparent));
+}
+/* User · 浅墨 + 右下小尖（不走"墨绿微信"，按 spec 取神不取形） */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--user {
+  border-radius: 14px 4px 14px 14px;
+  background: color-mix(in srgb, var(--ink) 9%, color-mix(in srgb, var(--chalk) 50%, transparent));
+  justify-self: end;
+}
+/* AI Question · 左侧 ? 标 */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--ask {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--agent) 9%, color-mix(in srgb, var(--chalk) 40%, transparent));
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble-ic {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--agent) 20%, transparent);
+  color: var(--agent);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 1px;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble-text {
+  display: block;
+}
+/* Command 变体 · mono 字体 */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--cmd {
+  background: color-mix(in srgb, var(--safe, #3AB27C) 6%, var(--chalk));
+  border-color: color-mix(in srgb, var(--safe, #3AB27C) 28%, var(--ink-14));
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--cmd code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+/* Thinking 包装 · 透明无气泡 padding，里面塞 think button */
+.v-archive--canon[data-agent="channel"] .wc-msg-bubble--think {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  max-width: min(620px, 100%);
+}
+
+/* Foot · 时间戳行 */
+.v-archive--canon[data-agent="channel"] .wc-msg-foot {
+  grid-area: time;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  padding: 0 4px;
+  margin-bottom: -2px;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-fieldref {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+  color: var(--agent);
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-at {
+  color: var(--ink-48);
+}
+
+/* Thinking · 带可折叠按钮 (channel scope) */
+.v-archive--canon[data-agent="channel"] .wc-msg-think {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1px dashed var(--ink-14);
+  border-radius: 4px 14px 14px 14px;
+  background: color-mix(in srgb, var(--agent) 3%, var(--chalk));
+  font-size: 12px;
+  color: var(--ink-65);
+  transition: border-color 200ms, background 200ms, color 200ms;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-think:hover {
+  border-color: color-mix(in srgb, var(--agent) 42%, var(--ink-14));
+  background: color-mix(in srgb, var(--agent) 6%, var(--chalk));
+  color: var(--ink-80);
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-think-caret {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--agent);
+}
+
+/* Typing dot 指示 (demo 占位 · Step 2) */
+.v-archive--canon[data-agent="channel"] .wc-msg-typing {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 4px 14px 14px 14px;
+  background: color-mix(in srgb, var(--agent) 5%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--agent) 18%, var(--ink-14));
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-typing > span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--agent) 65%, transparent);
+  animation: wcTypeDot 1.2s ease-in-out infinite;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-typing > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.v-archive--canon[data-agent="channel"] .wc-msg-typing > span:nth-child(3) {
+  animation-delay: 0.30s;
+}
+@keyframes wcTypeDot {
+  0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+  30%          { opacity: 1;   transform: translateY(-3px); }
+}
+
+/* ══════ Ref-card 消息（拖气泡进对话框 · CLI-D） ═══════════════════
+   结构：li.rpt-msg.rpt-msg--user.rpt-msg--refcard > ... > .rpt-ref-card
+   视觉契约：`--agent` 6% 浅底 + 1px accent 14% 边；双按钮（展开 / 跳转）
+   胶囊化，accent 随 agentKey 色（通过 --ref-accent 注入）。
+   高度自适应 · min 80 · blurb 未展开时 clamp 2 行。 */
+/* 2026-04-23 · ref-card 消息外层 li 限宽 + 靠右 · 防止顶满整行 */
+.v-archive--canon[data-agent="channel"] .rpt-msg--refcard {
+  width: max-content;
+  max-width: min(360px, 72%);
+  margin-left: auto;
+}
+.v-archive--canon[data-agent="channel"] .rpt-msg--refcard .rpt-msg-body--user {
+  width: 100%;
+}
+.v-archive--canon[data-agent="channel"] .rpt-msg--refcard .rpt-ref-card {
+  --ref-fill: color-mix(in srgb, var(--ref-accent, var(--agent)) 6%, var(--chalk));
+  --ref-edge: color-mix(in srgb, var(--ref-accent, var(--agent)) 14%, var(--ink-14));
+  min-height: 64px;
+  width: 100%;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px;
+  background: var(--ref-fill);
+  border: 1px solid var(--ref-edge);
+  border-radius: var(--r-md, 18px);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ref-accent, var(--ink)) 72%, var(--ink-65));
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ref-accent, var(--agent));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ref-accent, var(--agent)) 28%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-title {
+  font-family: var(--cjk);
+  font-size: 13.5px; font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-sub {
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  color: var(--ink-65);
+  line-height: 1.4;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-blurb {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-80, var(--ink));
+  line-height: 1.55;
+  max-height: 2.8em;
+  overflow: hidden;
+  opacity: .82;
+  transition: max-height .22s cubic-bezier(.2,.8,.25,1), opacity .22s;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-blurb.is-open {
+  max-height: 1000px;
+  opacity: 1;
+  -webkit-line-clamp: unset;
+  display: block;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-card-acts {
+  display: inline-flex; gap: 6px;
+  margin-top: 2px;
+  justify-content: flex-end;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-act {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ref-accent, var(--ink)) 28%, var(--ink-14));
+  color: color-mix(in srgb, var(--ref-accent, var(--ink)) 82%, var(--ink-65));
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-act:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ref-accent, var(--ink)) 10%, transparent);
+  color: var(--ink);
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-act--primary {
+  background: var(--ref-accent, var(--agent));
+  color: var(--chalk);
+  border-color: var(--ref-accent, var(--agent));
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-act--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ref-accent, var(--agent)) 85%, var(--ink));
+  color: var(--chalk);
+}
+.v-archive--canon[data-agent="channel"] .rpt-ref-act:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   visual-v3 · channel 内部组件 apply --obj-shadow-hover 统一（2026-04-23）
+   5 处 hover（信号卡 / 候选卡 / 近期行 / 雷达行 / 时间线卡）叠加 obj token ·
+   不动原 border / background 个性色 · 只加统一 shadow lift · demo 手感一致。
+   ══════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="channel"] .ch-sig-card:hover,
+.v-archive--canon[data-agent="channel"] .ch-cd-card:hover,
+.v-archive--canon[data-agent="channel"] .ch-tl-card:hover {
+  box-shadow: var(--obj-shadow-hover);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-card:hover {
+  /* .ch-cd-card 原已有 transform translateY · 保留 · 只加 shadow */
+  box-shadow: var(--obj-shadow-hover);
+}

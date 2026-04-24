@@ -28,8 +28,33 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
+from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 app = FastAPI(title="Agent1 Channel Lookalike API", version="4.0")
+
+
+def _qc_clean_event(evt: dict) -> dict:
+    """SSE 流出口侧的占位符闸门 (CLAUDE.md §8 第 1 条)。
+
+    对事件中的字符串字段做 placeholder scan, 命中则:
+      - 用 ``mark_unfilled`` 把残留替换为"未能自动填写", 保前端可见
+      - 在事件上挂 ``_qc_placeholder_hits`` 元数据, 便于 UI/log 显式提示
+    不抛异常以免单条事件污染导致整个 SSE 流断, 这是 *软降级*; 调用方若想
+    *硬阻断* 改 ``shared.qc.assert_clean`` 即可。
+    """
+    cleaned: dict = {}
+    hits_total: list[str] = []
+    for k, v in evt.items():
+        if isinstance(v, str):
+            hits = scan_placeholders(v)
+            if hits:
+                hits_total.extend(h.kind for h in hits)
+                cleaned[k] = mark_unfilled(v)
+                continue
+        cleaned[k] = v
+    if hits_total:
+        cleaned["_qc_placeholder_hits"] = hits_total
+    return cleaned
 
 
 @app.get("/api/channel/scenarios")
@@ -93,7 +118,10 @@ async def channel_run(req: ChannelRunRequest):
                 top_n=req.top_n,
                 force_mock=req.mock,
             ):
-                yield sse_encode({k: to_jsonable(v) for k, v in evt.items()})
+                # QC blocker: 占位符残留软降级为"未能自动填写"
+                yield sse_encode(_qc_clean_event(
+                    {k: to_jsonable(v) for k, v in evt.items()}
+                ))
         except Exception as e:
             traceback.print_exc()
             yield sse_encode({

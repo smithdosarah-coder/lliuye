@@ -7,11 +7,12 @@
 - 本文件通过 routes 合并模式装载，单进程单端口
 
 装载的 Agent 路由：
-  - agent_report.api  → /api/report/*  (Agent6, 最成熟)
-  - agent_credit.api  → /api/credit/*  (Agent3)
-  - agent_channel.api → /api/channel/* (Agent1)
+  - agent_report.api     → /api/report/*     (Agent6, 最成熟)
+  - agent_credit.api     → /api/credit/*     (Agent3)
+  - agent_channel.api    → /api/channel/*    (Agent1)
   - agent_compliance.api → /api/compliance/* (Agent5)
-  TODO Phase 2: agent_alert.api / agent_riskctrl.api
+  - agent_alert.api      → /api/alert/*      (Agent4, Phase 2 接入 · Task C)
+  - agent_riskctrl.api   → /api/riskctrl/*   (Agent2, Phase 2 接入 · Task C)
 
 跨切关注点（留在本文件）：
   - /health 总健康检查
@@ -184,8 +185,8 @@ _mount_agent_routes("agent_report.api", "Agent6 Report")
 _mount_agent_routes("agent_credit.api", "Agent3 Credit")
 _mount_agent_routes("agent_channel.api", "Agent1 Channel")
 _mount_agent_routes("agent_compliance.api", "Agent5 Compliance")
-# TODO Phase 2: _mount_agent_routes("agent_alert.api", "Agent4 Alert")
-# TODO Phase 2: _mount_agent_routes("agent_riskctrl.api", "Agent2 RiskCtrl")
+_mount_agent_routes("agent_alert.api", "Agent4 Alert")
+_mount_agent_routes("agent_riskctrl.api", "Agent2 RiskCtrl")
 
 
 # ---------------------------------------------------------------------------
