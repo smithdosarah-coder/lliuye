@@ -48,3 +48,17 @@
 ## 进度备注
 
 按 Task A → B → C 顺序执行，每 Task 独立 commit 携带对应 Signal trailer。
+
+---
+
+## HOLDING 阶段（Batch 1 已合流后的清尾）
+
+Batch 1 APPROVED · 合流主线。进 HOLDING 不抢 Batch 2 scope。
+
+| # | Task | 状态 | Signal | Commit |
+|---|---|---|---|---|
+| H-0 | HOLDING ACK | ✅ | `HOLDING-CA-ACK` | `d0024c3` |
+| H-A | `feedback_to_fewshot.py` 加 `--dry-run` + 测试 | ✅ | `HOLDING-CA-H-A-DONE` | `c1cbaba` |
+| H-Z | HOLDING 收尾 | ✅ | `HOLDING-CA-DONE` | 本 commit |
+
+HOLDING 阶段新增 3 test（dry_run_does_not_write / normal_writes / dry_run_idempotent），与原 4 case 一起 7/7 pass；W1 (feedback_to_fewshot CLI) 对齐 inject 脚本的 `--dry-run`/写盘二路。
