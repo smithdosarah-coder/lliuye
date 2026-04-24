@@ -51,6 +51,7 @@ def detect_stuck(
     *,
     idle_threshold: int = IDLE_THRESHOLD,
     abandoned_threshold: int = ABANDONED_THRESHOLD,
+    unreachable_subtype: Optional[str] = None,
 ) -> Optional[str]:
     """Pure stuck-classification function. Returns event tag or None.
 
@@ -63,12 +64,22 @@ def detect_stuck(
             (kwarg-only; defaults to IDLE_THRESHOLD)
         abandoned_threshold: seconds before a worker is flagged abandoned
             (kwarg-only; defaults to ABANDONED_THRESHOLD)
+        unreachable_subtype: when ``head_sha is None``, the caller may
+            supply a finer-grained category from
+            ``git_helpers.diagnose_unreachable`` — one of
+            'path-missing', 'perm-denied', 'binary-missing', 'unreachable'
+            — which becomes ``stuck:git-<subtype>``. Legacy callers passing
+            None still get the umbrella ``stuck:git-unreachable`` tag.
 
     Returns:
-        "stuck:git-unreachable" | "stuck:abandoned-3d" | "stuck:idle-1h" | None
+        "stuck:git-unreachable" | "stuck:git-path-missing" |
+        "stuck:git-perm-denied" | "stuck:git-binary-missing" |
+        "stuck:abandoned-3d" | "stuck:idle-1h" | None
     """
     # git unreachable trumps everything (could be a deleted/corrupt worktree)
     if head_sha is None:
+        if unreachable_subtype and unreachable_subtype != "unreachable":
+            return f"stuck:git-{unreachable_subtype}"
         return "stuck:git-unreachable"
 
     # only workers can be stuck; orchestrator is meant to idle
@@ -185,6 +196,9 @@ def run_tick(
 
         sha = git_helpers.head_sha(w.path)
         age = git_helpers.commit_age_seconds(w.path) if sha else None
+        unreachable_subtype = (
+            git_helpers.diagnose_unreachable(w.path) if sha is None else None
+        )
 
         # cache: if HEAD unchanged, skip the heavier last_commit_with_signal call
         # (tick still proceeds; we just don't re-parse the log)
@@ -197,6 +211,7 @@ def run_tick(
             w, sha, age, prev_sha,
             idle_threshold=idle_th,
             abandoned_threshold=abandoned_th,
+            unreachable_subtype=unreachable_subtype,
         )
         is_status_change = False
         if event_tag is None:

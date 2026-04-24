@@ -117,6 +117,49 @@ def test_custom_abandoned_threshold_overrides_default():
     assert res == "stuck:abandoned-3d", f"expected abandoned tag, got {res!r}"
 
 
+# ---------- G2 · git-unreachable sub-classification ----------
+
+def test_unreachable_subtype_path_missing():
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt, head_sha=None, age=None, prev_sha=None,
+        unreachable_subtype="path-missing",
+    )
+    assert res == "stuck:git-path-missing"
+
+
+def test_unreachable_subtype_perm_denied():
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt, head_sha=None, age=None, prev_sha=None,
+        unreachable_subtype="perm-denied",
+    )
+    assert res == "stuck:git-perm-denied"
+
+
+def test_unreachable_subtype_binary_missing():
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt, head_sha=None, age=None, prev_sha=None,
+        unreachable_subtype="binary-missing",
+    )
+    assert res == "stuck:git-binary-missing"
+
+
+def test_unreachable_subtype_unknown_falls_back_to_umbrella():
+    """subtype='unreachable' or None → legacy stuck:git-unreachable tag."""
+    wt = _wt("worker")
+    res1 = watchdog.detect_stuck(
+        wt, head_sha=None, age=None, prev_sha=None,
+        unreachable_subtype="unreachable",
+    )
+    assert res1 == "stuck:git-unreachable"
+    res2 = watchdog.detect_stuck(
+        wt, head_sha=None, age=None, prev_sha=None,
+    )
+    assert res2 == "stuck:git-unreachable"
+
+
 if __name__ == "__main__":
     tests = [
         test_fresh_worker_no_stuck,
@@ -129,6 +172,10 @@ if __name__ == "__main__":
         test_custom_idle_threshold_fires_earlier,
         test_custom_idle_threshold_relaxed_keeps_fresh,
         test_custom_abandoned_threshold_overrides_default,
+        test_unreachable_subtype_path_missing,
+        test_unreachable_subtype_perm_denied,
+        test_unreachable_subtype_binary_missing,
+        test_unreachable_subtype_unknown_falls_back_to_umbrella,
     ]
     for t in tests:
         try:

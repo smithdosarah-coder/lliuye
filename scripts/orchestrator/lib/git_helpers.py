@@ -1,6 +1,8 @@
 """Per-worktree git operations: log, last-commit-time, head-sha."""
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -38,8 +40,34 @@ def head_sha(worktree: Path) -> Optional[str]:
     """Get HEAD sha of a worktree, or None if git fails."""
     try:
         return run_git(worktree, "rev-parse", "HEAD").strip()
-    except RuntimeError:
+    except (RuntimeError, FileNotFoundError):
         return None
+
+
+def diagnose_unreachable(worktree: Path) -> str:
+    """Classify *why* ``head_sha`` returned None for this worktree.
+
+    Returns one of (subtype names, without the ``stuck:`` prefix):
+        'binary-missing' — ``git`` is not on PATH at all
+        'path-missing'   — the worktree directory does not exist
+        'perm-denied'    — the directory exists but can't be read
+        'unreachable'    — some other reason (corrupt .git dir, locked index,
+                           etc.); consumers should treat as legacy umbrella
+
+    Pre-checks are cheap and intentional — resolving cause up front saves a
+    round-trip to the git subprocess when the filesystem already has the
+    answer.
+    """
+    if shutil.which("git") is None:
+        return "binary-missing"
+    try:
+        if not Path(worktree).exists():
+            return "path-missing"
+        if not os.access(worktree, os.R_OK):
+            return "perm-denied"
+    except OSError:
+        return "perm-denied"
+    return "unreachable"
 
 
 def head_subject(worktree: Path) -> Optional[str]:

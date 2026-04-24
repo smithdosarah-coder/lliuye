@@ -227,7 +227,14 @@ def render_json_payload(m, stuck_state=None) -> str:
         summary[r.status] = summary.get(r.status, 0) + 1
 
     stuck_state = stuck_state or {}
-    stuck_summary = {"idle-1h": 0, "abandoned-3d": 0, "git-unreachable": 0}
+    stuck_summary = {
+        "idle-1h": 0,
+        "abandoned-3d": 0,
+        "git-unreachable": 0,
+        "git-path-missing": 0,
+        "git-perm-denied": 0,
+        "git-binary-missing": 0,
+    }
 
     worktree_dicts = []
     for r in records:
