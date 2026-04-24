@@ -1,0 +1,1432 @@
+{
+  "version": "runtime-v2-batch2",
+  "generated_at": "2026-04-24T09:13:59.554751Z",
+  "source": {
+    "agent": "compliance",
+    "kb_scenario": "data/mock/compliance-kb (v2 · 5 sub-kb)",
+    "search_provider": "stub · Tavily 不可用降级源",
+    "note": "compliance-kb (内部制度库) 是真 data-foundation v2 产出; 新监管政策来源 (外部) 降级为 inline synthesized stub, 真实接入 Tavily/银保监 API 需 Phase 2 (见 CLAUDE.md §3.5 环境边界)"
+  },
+  "policy_file": "NEWPOL_2026_01",
+  "policy_meta": {
+    "policy_id": "NEWPOL_2026_01",
+    "title": "关于进一步规范对公普惠授信与贷后管理的通知 (2026 修订)",
+    "source": "stub · Tavily 不可用降级源 · 已在 md 标注",
+    "effective_date": "2026-05-01",
+    "clauses": [
+      {
+        "clause_id": "NP_C01",
+        "text": "小微企业单户授信额度上限由 1000 万调整为 1500 万, 符合专精特新可上浮至 2000 万",
+        "keywords": [
+          "单户授信",
+          "小微企业",
+          "额度上限",
+          "1500万"
+        ]
+      },
+      {
+        "clause_id": "NP_C02",
+        "text": "贷后检查频率调整为对公授信客户每 90 天不低于 1 次现场检查",
+        "keywords": [
+          "贷后检查",
+          "频率",
+          "90 天",
+          "现场检查"
+        ]
+      },
+      {
+        "clause_id": "NP_C03",
+        "text": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+        "keywords": [
+          "KYC",
+          "受益人",
+          "穿透",
+          "三层"
+        ]
+      },
+      {
+        "clause_id": "NP_C04",
+        "text": "重点行业限制客群目录新增光伏产能过剩类 + 教培转型未完成类",
+        "keywords": [
+          "重点行业限制",
+          "光伏",
+          "教培"
+        ]
+      },
+      {
+        "clause_id": "NP_C05",
+        "text": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+        "keywords": [
+          "审查要点",
+          "关联方",
+          "5%"
+        ]
+      },
+      {
+        "clause_id": "NP_C06",
+        "text": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+        "keywords": [
+          "不良",
+          "批量",
+          "1 亿"
+        ]
+      }
+    ]
+  },
+  "extracted_clauses": [
+    {
+      "clause_id": "CRED_不良资产处置操作流程_000",
+      "text": "不良资产处置操作流程（摘选）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_001",
+      "text": "文号：资产保全 [2023] 第 06 号　版本：v2023.06　生效：2023-07-01　失效：长期有效（待修订）　密级：内部",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_002",
+      "text": "1、回收优先：任何处置方案需以回收本金+合理利息为第一目标；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_003",
+      "text": "2、程序合规：诉讼、和解、转让等处置方式必须履行内部审批程序；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_004",
+      "text": "3、信息披露：重大处置事项须向风险管理委员会报告。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_005",
+      "text": "1、与借款人/担保人协商展期或重组；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_006",
+      "text": "2、通过第三方担保公司代偿；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_007",
+      "text": "3、资产置换（押品变现）。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_008",
+      "text": "1、一般诉讼（主要争议在借款人还款能力）；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_009",
+      "text": "2、财产保全（涉及担保人转移资产风险）；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_010",
+      "text": "3、破产清算（借款人已资不抵债）。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_011",
+      "text": "1、转让对象：AMC 或具备资质的金融资产投资公司；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_012",
+      "text": "2、批量转让需经总行董事会审议。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_013",
+      "text": "本版修订日期：2023-06-28",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_不良资产处置操作流程_014",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_000",
+      "text": "文号：公司授信 [2024] 第 15 号　版本：v2024.12　生效：2025-01-01　失效：2027-12-31　密级：内部",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_001",
+      "text": "第一条　为规范本行公司贷款调查报告的格式、内容与撰写标准，制定本规范。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_002",
+      "text": "第二条　本规范适用于本行对公贷款业务的客户调查报告（含首贷与续贷）。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_003",
+      "text": "1、基本情况（企业信息 · 股东结构 · 关联方关系）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_004",
+      "text": "2、经营分析（行业地位 · 主营业务 · 核心客户与供应商）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_005",
+      "text": "3、财务分析（3 年财务报表指标 · 偏离度分析 · 同行业对标）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_006",
+      "text": "4、现金流分析（经营性现金流覆盖 · 还款来源可靠性）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_007",
+      "text": "5、担保分析（担保方式 · 押品评估 · 处置能力）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_008",
+      "text": "6、合规与风险（征信情况 · 未决诉讼 · 行政处罚）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_009",
+      "text": "7、授信建议（品种 / 额度 / 期限 / 定价 / 条件）",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_010",
+      "text": "1、财报数据引自最近一期审计报告或经管理层确认的内部报表；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_011",
+      "text": "2、流水数据引自银行对账单或第三方数据平台拉取记录；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_012",
+      "text": "3、征信数据引自人行征信中心出具的企业信用报告；",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_013",
+      "text": "4、舆情数据引自正式监管公告、裁判文书网、信用中国等权威渠道。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_014",
+      "text": "第三条　数据应溯源：任何结论或数字需注明数据来源文件及页码。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_015",
+      "text": "第四条　避免主观臆断：不得使用“大致”、“大概”、“预计”等未经数据支持的模糊表述。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_016",
+      "text": "第五条　财务比率必须与 3 年均值及同行业均值对标；显著偏离的需在报告中解释。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_017",
+      "text": "第六条　关联交易与关联担保事项必须独立成段披露；不得合并于一般往来中。",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_018",
+      "text": "主办部门：公司部 - 公司客户中心",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CRED_公司贷款调查报告撰写_019",
+      "text": "本版修订日期：2024-12-10",
+      "source_doc": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_000",
+      "text": "对公企业客户准入标准（2026 版）",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_001",
+      "text": "文号：对公准入 [2026] 第 01 号　版本：v2026.01　生效：2026-01-01　失效：2027-12-31　密级：内部",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_002",
+      "text": "1、借款人为依法设立并有效存续的企业法人；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_003",
+      "text": "3、注册资本实缴比例不低于 50%；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_004",
+      "text": "4、公司治理结构健全（具备董事会/股东会/监事会）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_005",
+      "text": "5、行业不属于本行年度避开清单。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_006",
+      "text": "1、近 2 年营业收入连续为正且年增长率在行业合理区间；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_007",
+      "text": "3、上下游结构稳定，无重大客户流失；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_008",
+      "text": "4、在建项目资金来源合规。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_009",
+      "text": "1、近 1 年营业收入 ≥ 5000 万元；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_010",
+      "text": "2、总资产 ≥ 3000 万元；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_011",
+      "text": "3、资产负债率 ≤ 70%（制造业可放宽至 75%）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_012",
+      "text": "4、速动比率 ≥ 0.8；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_013",
+      "text": "5、经营性现金流净额近 2 年累计为正。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_014",
+      "text": "1、最近 3 年审计报告为标准无保留意见；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_015",
+      "text": "2、未披露的对外担保余额不超过净资产的 50%；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_016",
+      "text": "3、无正在进行的重大诉讼（涉案金额超过净资产 10%）。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_017",
+      "text": "本版修订日期：2025-12-22",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_对公企业客户准入标准_018",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_000",
+      "text": "小微企业客户准入标准（2026 版）",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_001",
+      "text": "文号：小微准入 [2026] 第 01 号　版本：v2026.01　生效：2026-01-01　失效：2027-12-31　密级：内部",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_002",
+      "text": "1、借款人为依法设立并有效存续的企业法人；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_003",
+      "text": "2、成立时间满 18 个月（高新技术企业可放宽至 12 个月）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_004",
+      "text": "3、注册资本符合行业常识且实缴比例不低于 30%；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_005",
+      "text": "4、经营场所具备真实办公/生产能力；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_006",
+      "text": "5、行业不属于本行年度避开清单。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_007",
+      "text": "1、近 12 个月月均结算流水不低于 30 万元；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_008",
+      "text": "2、近 3 个月内无大额异常出账（单笔 > 100 万元且无合理业务匹配）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_009",
+      "text": "3、核心客户/供应商集中度不超过 60%；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_010",
+      "text": "4、主业与工商登记经营范围相符。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_011",
+      "text": "1、法人代表征信查询 30 天内无新增逾期；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_012",
+      "text": "2、企业征信无当前关注类及以下分类；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_013",
+      "text": "3、近 24 个月未被监管机构行政处罚（金额 > 5 万元）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_014",
+      "text": "1、近 1 年营业收入 ≥ 800 万元；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_015",
+      "text": "2、毛利率 ≥ 8%（特殊行业另行约定）；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_016",
+      "text": "3、资产负债率 ≤ 75%；",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_017",
+      "text": "4、经营性现金流净额近 2 年连续为正。",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_018",
+      "text": "本版修订日期：2025-12-18",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "CUST_小微企业客户准入标准_019",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_000",
+      "text": "KYC 客户尽职调查操作规范（2025 版）",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_001",
+      "text": "文号：反洗钱 [2025] 第 04 号　版本：v2025.04　生效：2025-05-01　失效：2027-04-30　密级：内部",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_002",
+      "text": "1、初次建立业务关系的客户；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_003",
+      "text": "2、现有客户重要信息发生变更；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_004",
+      "text": "3、高风险等级客户定期重审（1 年 1 次）；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_005",
+      "text": "4、与本行发生单笔 ≥ 100 万元大额交易的自然人或法人。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_006",
+      "text": "1、注册名称 / 统一社会信用代码 / 注册地址 / 经营地址 / 法定代表人；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_007",
+      "text": "2、股权结构（至少至实际受益人）；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_008",
+      "text": "3、经营范围 / 行业分类；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_009",
+      "text": "1、姓名 / 身份证件号码 / 国籍；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_010",
+      "text": "4、是否属于政治公众人物（PEP）。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_011",
+      "text": "1、低风险：普通商业企业 / 无跨境业务 / 行业风险较低；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_012",
+      "text": "2、中风险：涉及跨境结算 / 商贸/建材/地产等高现金行业；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_013",
+      "text": "3、高风险：涉及现金密集行业 / 关联交易复杂 / 政治公众人物相关。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_014",
+      "text": "第一条　客户经理应按客户风险等级对应的频率开展后续监控，发现异常及时上报。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_015",
+      "text": "主办部门：合规部 - 反洗钱中心",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_016",
+      "text": "本版修订日期：2025-04-22",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_KYC客户尽职调查操_017",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_000",
+      "text": "反洗钱可疑交易识别与报告手册",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_001",
+      "text": "文号：反洗钱 [2024] 第 09 号　版本：v2024.09　生效：2024-10-01　失效：2026-09-30　密级：内部",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_002",
+      "text": "1、资金来源异常：与客户经营范围明显不匹配；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_003",
+      "text": "2、资金流向异常：频繁转入非关联方个人账户；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_004",
+      "text": "3、金额特征异常：接近大额报告阈值的多笔交易；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_005",
+      "text": "4、时间特征异常：集中在非营业时段的大额交易；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_006",
+      "text": "5、对手方异常：频繁与高风险国家/地区发生资金往来。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_007",
+      "text": "1、贸易型企业频繁与个人账户发生货款收付；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_008",
+      "text": "2、咨询服务公司出现大额货物采购转账；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_009",
+      "text": "3、单一客户账户同一日存在多笔刚好低于大额报告阈值的交易。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_010",
+      "text": "1、贸易对象国与客户主营市场显著不符；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_011",
+      "text": "2、境外收款方多次更换但货物商品无变化；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_012",
+      "text": "3、以“货物退回”为名的大额回流。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_013",
+      "text": "1、客户经理/柜员识别可疑迹象，10 日内提交《可疑交易识别登记表》；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_014",
+      "text": "2、分行反洗钱岗独立评估并决定是否上报；",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_015",
+      "text": "3、报告统一经总行反洗钱中心审核后上报中国反洗钱监测分析中心。",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_016",
+      "text": "主办部门：合规部 - 反洗钱中心",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_017",
+      "text": "本版修订日期：2024-09-18",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "KYC-_反洗钱可疑交易识别与_018",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_000",
+      "text": "文号：授信审查 [2025] 第 12 号　版本：v2025.12　生效：2025-12-15　失效：2027-12-14　密级：内部",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_001",
+      "text": "1、客户调查报告（含 3 年财务分析 + 现金流测算）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_002",
+      "text": "3、贷前合规审查清单（已勾选）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_003",
+      "text": "4、审计报告（近 3 年）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_004",
+      "text": "6、行业研究简报（同行业对标）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_005",
+      "text": "1、还款来源的可实现性（一源覆盖率 ≥ 130%）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_006",
+      "text": "2、担保价值覆盖率 ≥ 150%（纯信用的除外）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_007",
+      "text": "3、借款人承担能力（资产负债率/速动比率）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_008",
+      "text": "1、行业风险敞口与本行组合",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_009",
+      "text": "3、关联交易与关联担保暴露",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_010",
+      "text": "4、单户超越预警线的一事一议",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_011",
+      "text": "1、监管禁入与行业限制核对",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_012",
+      "text": "2、KYC / AML 尽调完整性",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_013",
+      "text": "1、审查会委员不少于 5 人出席；",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_014",
+      "text": "2、三分之二以上委员同意方为通过；",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_015",
+      "text": "3、审查意见以书面方式记录并签字。",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_016",
+      "text": "本版修订日期：2025-12-10",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_授信审查会审批要点_017",
+      "text": "页脚：本文档为银行内部制度 · 未经授权不得外传",
+      "source_doc": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_000",
+      "text": "文号：合规审查 [2025] 第 10 号　版本：v2025.10　生效：2025-11-01　失效：2027-10-31　密级：内部",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_001",
+      "text": "1、借款人主体资格文件齐全（营业执照/组织机构代码/税务登记/统一社会信用代码）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_002",
+      "text": "2、法定代表人身份证明有效",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_003",
+      "text": "4、近 3 年审计报告齐全且意见类型为标准无保留",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_004",
+      "text": "5、经营范围与贷款用途匹配",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_005",
+      "text": "6、征信报告 30 天内出具",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_006",
+      "text": "7、纳税证明连续 24 个月",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_007",
+      "text": "8、近 12 个月银行流水完整",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_008",
+      "text": "10、无监管部门行政处罚记录",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_009",
+      "text": "1、财报数字与纳税申报表的口径差异在合理范围（≤ 10%）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_010",
+      "text": "2、财报数字与银行流水的口径差异在合理范围（≤ 15%）",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_011",
+      "text": "4、对外担保余额占净资产不超过 50%",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_012",
+      "text": "5、应收账款账期与行业常态匹配",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_013",
+      "text": "6、存货周转天数处于合理区间",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_014",
+      "text": "1、借款人或法人被列为失信被执行人",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_015",
+      "text": "2、借款人近 2 年被监管部门处罚金额 > 50 万元",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_016",
+      "text": "3、资金用途涉及房地产开发、证券投资、股权收购等禁止领域",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_017",
+      "text": "4、借款人实控人近 1 年涉及刑事案件且未结案",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_018",
+      "text": "5、借款人正在进行破产清算或重整",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "REVI_贷前合规审查清单_019",
+      "text": "主办部门：合规部 - 审查中心",
+      "source_doc": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_000",
+      "text": "2026 年度授信风险偏好政策",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_001",
+      "text": "文号：风险偏好 [2026] 第 01 号　版本：v2026.01　生效：2026-01-01　失效：2026-12-31　密级：内部",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_002",
+      "text": "第一条　为落实董事会风险偏好声明，推动业务高质量发展，制定本年度风险偏好政策。",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_003",
+      "text": "第二条　风险偏好是本行在给定风险容忍度下愿意接受的风险类型与水平。",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_004",
+      "text": "1、全行不良贷款率 ≤ 1.5%；",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_005",
+      "text": "2、关注类贷款占比 ≤ 3.5%；",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_006",
+      "text": "3、逾期 90 天以上贷款/不良贷款 ≤ 100%；",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_007",
+      "text": "4、拨备覆盖率 ≥ 160%。",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_008",
+      "text": "1、制造业（含精密制造/高端装备）：鼓励",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_009",
+      "text": "6、基础设施（非高风险）：中性",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_010",
+      "text": "1、大中型央国企：稳步增加",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_011",
+      "text": "2、专精特新企业：大幅增加",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_012",
+      "text": "3、科技型创新企业：大幅增加",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_013",
+      "text": "4、小微企业：支持但风控前置",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_014",
+      "text": "5、高净值个人企业主：中性",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_015",
+      "text": "1、长三角/珠三角/京津冀：重点投放",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_016",
+      "text": "2、成渝双城经济圈：积极拓展",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_017",
+      "text": "1、单一法人最大授信余额不超过资本净额的 10%；",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_018",
+      "text": "2、单一集团客户最大授信余额不超过资本净额的 15%；",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    },
+    {
+      "clause_id": "RISK_2026年度授信风险_019",
+      "text": "3、同业授信不超过总资产的 5%。",
+      "source_doc": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+    }
+  ],
+  "gold_clauses": [],
+  "conflict_items": [
+    {
+      "conflict_id": "CF_NP_C01_vs_CUST_小微企业客户准入标准_000",
+      "policy_anchor": "NP_C01",
+      "policy_snippet": "小微企业单户授信额度上限由 1000 万调整为 1500 万, 符合专精特新可上浮至 2000 万",
+      "business_anchor": "CUST_小微企业客户准入标准_000",
+      "business_snippet": "小微企业客户准入标准（2026 版）",
+      "matched_keywords": [
+        "小微企业"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx 对应条款, 对齐新政 NP_C01 关键变化 (小微企业)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "小微企业单户授信额度上限由 1000 万调整为 1500 万, 符合专精特新可上浮至 2000 万",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx",
+          "snippet": "小微企业客户准入标准（2026 版）",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['小微企业']"
+    },
+    {
+      "conflict_id": "CF_NP_C01_vs_RISK_2026年度授信风险_013",
+      "policy_anchor": "NP_C01",
+      "policy_snippet": "小微企业单户授信额度上限由 1000 万调整为 1500 万, 符合专精特新可上浮至 2000 万",
+      "business_anchor": "RISK_2026年度授信风险_013",
+      "business_snippet": "4、小微企业：支持但风控前置",
+      "matched_keywords": [
+        "小微企业"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C01 关键变化 (小微企业)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "小微企业单户授信额度上限由 1000 万调整为 1500 万, 符合专精特新可上浮至 2000 万",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "4、小微企业：支持但风控前置",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['小微企业']"
+    },
+    {
+      "conflict_id": "CF_NP_C02_vs_KYC-_KYC客户尽职调查操_014",
+      "policy_anchor": "NP_C02",
+      "policy_snippet": "贷后检查频率调整为对公授信客户每 90 天不低于 1 次现场检查",
+      "business_anchor": "KYC-_KYC客户尽职调查操_014",
+      "business_snippet": "第一条　客户经理应按客户风险等级对应的频率开展后续监控，发现异常及时上报。",
+      "matched_keywords": [
+        "频率"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx 对应条款, 对齐新政 NP_C02 关键变化 (频率)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "贷后检查频率调整为对公授信客户每 90 天不低于 1 次现场检查",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx",
+          "snippet": "第一条　客户经理应按客户风险等级对应的频率开展后续监控，发现异常及时上报。",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['频率']"
+    },
+    {
+      "conflict_id": "CF_NP_C02_vs_RISK_2026年度授信风险_006",
+      "policy_anchor": "NP_C02",
+      "policy_snippet": "贷后检查频率调整为对公授信客户每 90 天不低于 1 次现场检查",
+      "business_anchor": "RISK_2026年度授信风险_006",
+      "business_snippet": "3、逾期 90 天以上贷款/不良贷款 ≤ 100%；",
+      "matched_keywords": [
+        "90 天"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C02 关键变化 (90 天)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "贷后检查频率调整为对公授信客户每 90 天不低于 1 次现场检查",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "3、逾期 90 天以上贷款/不良贷款 ≤ 100%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['90 天']"
+    },
+    {
+      "conflict_id": "CF_NP_C03_vs_KYC-_KYC客户尽职调查操_000",
+      "policy_anchor": "NP_C03",
+      "policy_snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+      "business_anchor": "KYC-_KYC客户尽职调查操_000",
+      "business_snippet": "KYC 客户尽职调查操作规范（2025 版）",
+      "matched_keywords": [
+        "KYC"
+      ],
+      "severity": "严重",
+      "suggestion": "更新 data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx 对应条款, 对齐新政 NP_C03 关键变化 (KYC)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx",
+          "snippet": "KYC 客户尽职调查操作规范（2025 版）",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['KYC']"
+    },
+    {
+      "conflict_id": "CF_NP_C03_vs_KYC-_KYC客户尽职调查操_007",
+      "policy_anchor": "NP_C03",
+      "policy_snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+      "business_anchor": "KYC-_KYC客户尽职调查操_007",
+      "business_snippet": "2、股权结构（至少至实际受益人）；",
+      "matched_keywords": [
+        "受益人"
+      ],
+      "severity": "严重",
+      "suggestion": "更新 data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx 对应条款, 对齐新政 NP_C03 关键变化 (受益人)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx",
+          "snippet": "2、股权结构（至少至实际受益人）；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['受益人']"
+    },
+    {
+      "conflict_id": "CF_NP_C03_vs_REVI_授信审查会审批要点_012",
+      "policy_anchor": "NP_C03",
+      "policy_snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+      "business_anchor": "REVI_授信审查会审批要点_012",
+      "business_snippet": "2、KYC / AML 尽调完整性",
+      "matched_keywords": [
+        "KYC"
+      ],
+      "severity": "严重",
+      "suggestion": "更新 data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx 对应条款, 对齐新政 NP_C03 关键变化 (KYC)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "客户准入 KYC 实际受益人识别须穿透至最终自然人 (原两层改三层)",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx",
+          "snippet": "2、KYC / AML 尽调完整性",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['KYC']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_CRED_公司贷款调查报告撰写_003",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "CRED_公司贷款调查报告撰写_003",
+      "business_snippet": "1、基本情况（企业信息 · 股东结构 · 关联方关系）",
+      "matched_keywords": [
+        "关联方"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx 对应条款, 对齐新政 NP_C05 关键变化 (关联方)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/credit-sop/公司贷款调查报告撰写规范.docx",
+          "snippet": "1、基本情况（企业信息 · 股东结构 · 关联方关系）",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['关联方']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_CUST_对公企业客户准入标准_011",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "CUST_对公企业客户准入标准_011",
+      "business_snippet": "3、资产负债率 ≤ 70%（制造业可放宽至 75%）；",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx",
+          "snippet": "3、资产负债率 ≤ 70%（制造业可放宽至 75%）；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_CUST_小微企业客户准入标准_016",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "CUST_小微企业客户准入标准_016",
+      "business_snippet": "3、资产负债率 ≤ 75%；",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/customer-admission/小微企业客户准入标准（2026版）.docx",
+          "snippet": "3、资产负债率 ≤ 75%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_KYC-_反洗钱可疑交易识别与_003",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "KYC-_反洗钱可疑交易识别与_003",
+      "business_snippet": "2、资金流向异常：频繁转入非关联方个人账户；",
+      "matched_keywords": [
+        "关联方"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx 对应条款, 对齐新政 NP_C05 关键变化 (关联方)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx",
+          "snippet": "2、资金流向异常：频繁转入非关联方个人账户；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['关联方']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_REVI_贷前合规审查清单_010",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "REVI_贷前合规审查清单_010",
+      "business_snippet": "2、财报数字与银行流水的口径差异在合理范围（≤ 15%）",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx",
+          "snippet": "2、财报数字与银行流水的口径差异在合理范围（≤ 15%）",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_RISK_2026年度授信风险_004",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "RISK_2026年度授信风险_004",
+      "business_snippet": "1、全行不良贷款率 ≤ 1.5%；",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "1、全行不良贷款率 ≤ 1.5%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_RISK_2026年度授信风险_005",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "RISK_2026年度授信风险_005",
+      "business_snippet": "2、关注类贷款占比 ≤ 3.5%；",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "2、关注类贷款占比 ≤ 3.5%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_RISK_2026年度授信风险_018",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "RISK_2026年度授信风险_018",
+      "business_snippet": "2、单一集团客户最大授信余额不超过资本净额的 15%；",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "2、单一集团客户最大授信余额不超过资本净额的 15%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C05_vs_RISK_2026年度授信风险_019",
+      "policy_anchor": "NP_C05",
+      "policy_snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+      "business_anchor": "RISK_2026年度授信风险_019",
+      "business_snippet": "3、同业授信不超过总资产的 5%。",
+      "matched_keywords": [
+        "5%"
+      ],
+      "severity": "一般",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C05 关键变化 (5%)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "对公授信审查要点须在调查报告中披露关联方持股 ≥ 5% 的企业",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "3、同业授信不超过总资产的 5%。",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['5%']"
+    },
+    {
+      "conflict_id": "CF_NP_C06_vs_CRED_不良资产处置操作流程_000",
+      "policy_anchor": "NP_C06",
+      "policy_snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+      "business_anchor": "CRED_不良资产处置操作流程_000",
+      "business_snippet": "不良资产处置操作流程（摘选）",
+      "matched_keywords": [
+        "不良"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx 对应条款, 对齐新政 NP_C06 关键变化 (不良)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx",
+          "snippet": "不良资产处置操作流程（摘选）",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['不良']"
+    },
+    {
+      "conflict_id": "CF_NP_C06_vs_CRED_不良资产处置操作流程_012",
+      "policy_anchor": "NP_C06",
+      "policy_snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+      "business_anchor": "CRED_不良资产处置操作流程_012",
+      "business_snippet": "2、批量转让需经总行董事会审议。",
+      "matched_keywords": [
+        "批量"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx 对应条款, 对齐新政 NP_C06 关键变化 (批量)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/credit-sop/不良资产处置操作流程（摘选）.docx",
+          "snippet": "2、批量转让需经总行董事会审议。",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['批量']"
+    },
+    {
+      "conflict_id": "CF_NP_C06_vs_RISK_2026年度授信风险_004",
+      "policy_anchor": "NP_C06",
+      "policy_snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+      "business_anchor": "RISK_2026年度授信风险_004",
+      "business_snippet": "1、全行不良贷款率 ≤ 1.5%；",
+      "matched_keywords": [
+        "不良"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C06 关键变化 (不良)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "1、全行不良贷款率 ≤ 1.5%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['不良']"
+    },
+    {
+      "conflict_id": "CF_NP_C06_vs_RISK_2026年度授信风险_006",
+      "policy_anchor": "NP_C06",
+      "policy_snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+      "business_anchor": "RISK_2026年度授信风险_006",
+      "business_snippet": "3、逾期 90 天以上贷款/不良贷款 ≤ 100%；",
+      "matched_keywords": [
+        "不良"
+      ],
+      "severity": "重要",
+      "suggestion": "更新 data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx 对应条款, 对齐新政 NP_C06 关键变化 (不良)",
+      "evidence": [
+        {
+          "source": "new_policy_stub",
+          "snippet": "不良资产处置允许批量转让, 批次金额上限由 5000 万提升至 1 亿",
+          "url": ""
+        },
+        {
+          "source": "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx",
+          "snippet": "3、逾期 90 天以上贷款/不良贷款 ≤ 100%；",
+          "url": ""
+        }
+      ],
+      "diff_note": "新政关键字命中 1 处: ['不良']"
+    }
+  ],
+  "gold_conflicts": [],
+  "gold_severity_map": {},
+  "tool_calls": {
+    "total": 4,
+    "success": 4
+  }
+}

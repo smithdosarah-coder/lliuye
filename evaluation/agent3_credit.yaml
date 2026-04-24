@@ -49,11 +49,11 @@ metrics:
   domain:
     - name: ratio_calc_consistency
       desc: 财务比率与 financial_analyzer Python 计算一致率
-      description: Agent3 输出财务比率（流动比率/资产负债率/ROE 等）与 financial_analyzer 确定性计算结果一致（绝对差 < 0.005）的比例
-      method: agree_ratios / total_ratios  (|delta|<0.005)
+      description: Agent3 输出财务比率（流动比率/资产负债率/ROE/毛利率 4 条）与 Agent6 管线独立调用 financial_analyzer 产出一致率（|delta|≤1%）; EV-12 Batch 2 解锁 · 由 evaluation.runner.cross_agent.ratio_consistency 跨 5 DP 聚合算
+      method: cross_agent_consistency (agent3 vs agent6 · financial_analyzer 双侧独立调用)
       target: ">= 0.99"
       baseline_target: 0.99
-      blocker_threshold: 0.95
+      blocker_threshold: 0.99
 
     - name: redline_detection_accuracy
       desc: 红线触发识别准确率（对比人工标注）

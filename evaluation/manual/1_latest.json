@@ -1,0 +1,2631 @@
+{
+  "version": "runtime-v2-batch2",
+  "generated_at": "2026-04-24T09:12:39.431774Z",
+  "source": {
+    "agent": "channel",
+    "kb_scenario": "data/mock/channel-kb/historical-clients",
+    "search_provider": "MockSearchProvider(demo_data/mock_pool)",
+    "note": "Tavily key 未配置, 降级走 MockSearchProvider (真 mock pool)"
+  },
+  "seed_profile": {
+    "profile_id": "B2_look_alike_2026_Q2",
+    "name": "channel-kb 聚合 · 制造业专精特新 look-alike",
+    "target_industries": [
+      "制造业"
+    ],
+    "target_sub_industries": [
+      "精密机械",
+      "轴承",
+      "智能装备",
+      "电子元器件"
+    ],
+    "target_regions": [
+      "浙江省",
+      "江苏省",
+      "上海市",
+      "福建省"
+    ],
+    "scale_range": [
+      "小型",
+      "中型"
+    ],
+    "revenue_range": null,
+    "must_have_tags": [
+      "专精特新",
+      "高新技术"
+    ],
+    "nice_to_have_tags": [
+      "发明专利",
+      "智能制造"
+    ],
+    "exclude_tags": [
+      "重污染",
+      "过剩产能"
+    ],
+    "policy_context": "channel-kb seed = 12 historical clients",
+    "reasoning": "data/mock/channel-kb/historical-clients/ 10 家聚合特征 · 2026-Q2 区域重点 + 行业组合建议 · v2.0 真 KB",
+    "editable": true
+  },
+  "search_queries": [
+    "浙江省 制造业 专精特新 高新技术",
+    "江苏省 制造业 专精特新 高新技术",
+    "上海市 制造业 专精特新 高新技术"
+  ],
+  "query_metas": [
+    {
+      "query": "浙江省 制造业 专精特新 高新技术",
+      "status": "ok",
+      "count": 50,
+      "new": 50
+    },
+    {
+      "query": "江苏省 制造业 专精特新 高新技术",
+      "status": "ok",
+      "count": 50,
+      "new": 1
+    },
+    {
+      "query": "上海市 制造业 专精特新 高新技术",
+      "status": "ok",
+      "count": 50,
+      "new": 0
+    }
+  ],
+  "candidates": [
+    {
+      "entity_id": "MOCK_001",
+      "name": "杭州精工智造有限公司",
+      "industry": "制造业",
+      "region": "浙江省杭州市滨江区",
+      "scale": "小型",
+      "revenue_latest": "4200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "发明专利",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "精密加工",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "数控机床",
+          "source": "keyword_match"
+        },
+        {
+          "type": "supply_chain",
+          "value": "up=宝钢股份",
+          "source": "industry"
+        },
+        {
+          "type": "supply_chain",
+          "value": "down=吉利汽车",
+          "source": "industry"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "精密零部件CNC加工、模具制造",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_002",
+      "name": "宁波智造精密科技有限公司",
+      "industry": "制造业",
+      "region": "浙江省宁波市北仑区",
+      "scale": "小型",
+      "revenue_latest": "5800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "智能制造",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "智能制造",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "自动化",
+          "source": "keyword_match"
+        },
+        {
+          "type": "supply_chain",
+          "value": "up=ABB",
+          "source": "industry"
+        },
+        {
+          "type": "supply_chain",
+          "value": "down=美的集团",
+          "source": "industry"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业自动化装备研发制造",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_003",
+      "name": "绍兴振华轴承制造有限公司",
+      "industry": "制造业",
+      "region": "浙江省绍兴市上虞区",
+      "scale": "微型",
+      "revenue_latest": "2800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "轴承",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "精密制造",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "精密轴承研发与生产",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_004",
+      "name": "温州永达阀门有限公司",
+      "industry": "制造业",
+      "region": "浙江省温州市瓯海区",
+      "scale": "小型",
+      "revenue_latest": "3600万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "阀门",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "管道",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业阀门生产",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_005",
+      "name": "苏州锐锋新材料有限公司",
+      "industry": "制造业",
+      "region": "江苏省苏州市工业园区",
+      "scale": "小型",
+      "revenue_latest": "4800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新材料",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "发明专利",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "新材料",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "高分子",
+          "source": "keyword_match"
+        },
+        {
+          "type": "supply_chain",
+          "value": "down=宁德时代",
+          "source": "industry"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "高性能复合材料研发生产",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_006",
+      "name": "常州恒泰精密模具有限公司",
+      "industry": "制造业",
+      "region": "江苏省常州市武进区",
+      "scale": "小型",
+      "revenue_latest": "3900万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "模具",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "精密",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "精密注塑模具设计与制造",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_007",
+      "name": "无锡晶华半导体装备有限公司",
+      "industry": "制造业",
+      "region": "江苏省无锡市滨湖区",
+      "scale": "中型",
+      "revenue_latest": "12000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "半导体",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "装备",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "半导体前道工艺装备",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_008",
+      "name": "深圳新锐芯科技有限公司",
+      "industry": "信息技术",
+      "region": "广东省深圳市南山区",
+      "scale": "小型",
+      "revenue_latest": "6500万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "芯片设计",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "IC",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "射频芯片设计",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_009",
+      "name": "深圳云图AI科技有限公司",
+      "industry": "信息技术",
+      "region": "广东省深圳市南山区",
+      "scale": "小型",
+      "revenue_latest": "5200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "人工智能",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "人工智能",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "机器视觉",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "AI视觉解决方案",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_010",
+      "name": "上海智联软件技术有限公司",
+      "industry": "信息技术",
+      "region": "上海市浦东新区",
+      "scale": "中型",
+      "revenue_latest": "15000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "双软认证",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "软件",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "SaaS",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "ERP",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "企业数字化SaaS平台",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_011",
+      "name": "上海华晟生物医药有限公司",
+      "industry": "生物医药",
+      "region": "上海市张江高科技园区",
+      "scale": "小型",
+      "revenue_latest": "3800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "发明专利",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "创新药",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "生物医药",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "肿瘤创新药研发",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_012",
+      "name": "苏州百年健康科技有限公司",
+      "industry": "生物医药",
+      "region": "江苏省苏州市工业园区",
+      "scale": "小型",
+      "revenue_latest": "4500万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "医疗器械",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "高值耗材",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "心血管介入器械",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_013",
+      "name": "杭州清洁能源科技有限公司",
+      "industry": "新能源",
+      "region": "浙江省杭州市余杭区",
+      "scale": "小型",
+      "revenue_latest": "6800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新能源",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "环保",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "光伏",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "新能源",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "分布式光伏系统",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_014",
+      "name": "北京智行新能源汽车零部件有限公司",
+      "industry": "制造业",
+      "region": "北京市海淀区",
+      "scale": "中型",
+      "revenue_latest": "18000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新能源",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "新能源汽车",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "三电",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "新能源汽车电控系统",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_015",
+      "name": "成都天府软件工程有限公司",
+      "industry": "信息技术",
+      "region": "四川省成都市高新区",
+      "scale": "小型",
+      "revenue_latest": "3200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "软件",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "软件",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "定制开发",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "行业软件定制",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_016",
+      "name": "广州绿洁环保科技有限公司",
+      "industry": "环保",
+      "region": "广东省广州市天河区",
+      "scale": "小型",
+      "revenue_latest": "4200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "环保",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "环保",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "水处理",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业污水处理系统",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_017",
+      "name": "台州华洋机械制造有限公司",
+      "industry": "制造业",
+      "region": "浙江省台州市黄岩区",
+      "scale": "微型",
+      "revenue_latest": "1800万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "机械",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "加工",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "通用机械零部件加工",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_018",
+      "name": "嘉兴天工精密电子有限公司",
+      "industry": "制造业",
+      "region": "浙江省嘉兴市南湖区",
+      "scale": "小型",
+      "revenue_latest": "5500万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "电子",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "电子",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "PCB",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "高频连接器",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_019",
+      "name": "金华天诚模具有限公司",
+      "industry": "制造业",
+      "region": "浙江省金华市婺城区",
+      "scale": "微型",
+      "revenue_latest": "2100万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "模具",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "塑料模",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "塑料模具设计",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_020",
+      "name": "湖州绿源节能设备有限公司",
+      "industry": "环保",
+      "region": "浙江省湖州市吴兴区",
+      "scale": "小型",
+      "revenue_latest": "3300万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "环保",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "节能",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "环保",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业节能设备",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_021",
+      "name": "东莞精诚电子科技有限公司",
+      "industry": "制造业",
+      "region": "广东省东莞市长安镇",
+      "scale": "中型",
+      "revenue_latest": "11000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "电子",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "电子",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "SMT",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "电子产品代工",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_022",
+      "name": "佛山和美陶瓷有限公司",
+      "industry": "制造业",
+      "region": "广东省佛山市禅城区",
+      "scale": "中型",
+      "revenue_latest": "9800万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "建材",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "陶瓷",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "建材",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "建筑陶瓷",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_024",
+      "name": "北京云智AI技术有限公司",
+      "industry": "信息技术",
+      "region": "北京市海淀区",
+      "scale": "小型",
+      "revenue_latest": "4800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "人工智能",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "AI",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "NLP",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "自然语言处理",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_025",
+      "name": "上海博科生物技术有限公司",
+      "industry": "生物医药",
+      "region": "上海市浦东新区",
+      "scale": "小型",
+      "revenue_latest": "5300万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "发明专利",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "IVD",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "诊断试剂",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "体外诊断试剂",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_026",
+      "name": "深圳蓝芯半导体有限公司",
+      "industry": "制造业",
+      "region": "广东省深圳市龙岗区",
+      "scale": "小型",
+      "revenue_latest": "7200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "半导体",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "封装测试",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "集成电路封装测试",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_027",
+      "name": "南京紫金新材料科技有限公司",
+      "industry": "制造业",
+      "region": "江苏省南京市江宁区",
+      "scale": "小型",
+      "revenue_latest": "4100万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新材料",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "新材料",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "纳米",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "功能性纳米材料",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_028",
+      "name": "重庆西南汽车零部件有限公司",
+      "industry": "制造业",
+      "region": "重庆市渝北区",
+      "scale": "中型",
+      "revenue_latest": "13500万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "汽车",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "汽车",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "零部件",
+          "source": "keyword_match"
+        },
+        {
+          "type": "supply_chain",
+          "value": "down=长安汽车",
+          "source": "industry"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "汽车冲压件",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_029",
+      "name": "成都安迪生物制药有限公司",
+      "industry": "生物医药",
+      "region": "四川省成都市温江区",
+      "scale": "小型",
+      "revenue_latest": "3700万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "原料药",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "制药",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "医药中间体",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_030",
+      "name": "武汉光谷创新科技有限公司",
+      "industry": "信息技术",
+      "region": "湖北省武汉市东湖高新区",
+      "scale": "小型",
+      "revenue_latest": "5800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "光电子",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "光电子",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "激光",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "光通信器件",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_031",
+      "name": "杭州良品食品有限公司",
+      "industry": "批发零售",
+      "region": "浙江省杭州市拱墅区",
+      "scale": "中型",
+      "revenue_latest": "20000万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "批发零售",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "食品",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "食品",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "零售",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "休闲食品连锁",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_033",
+      "name": "青岛海蓝新能源科技有限公司",
+      "industry": "新能源",
+      "region": "山东省青岛市崂山区",
+      "scale": "小型",
+      "revenue_latest": "5400万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新能源",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "储能",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "储能",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "电池",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "储能电池系统",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_034",
+      "name": "苏州晶创精密光学有限公司",
+      "industry": "制造业",
+      "region": "江苏省苏州市吴中区",
+      "scale": "小型",
+      "revenue_latest": "4600万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "光学",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "光学",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "镜头",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "精密光学镜头",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_035",
+      "name": "上海海拓半导体材料有限公司",
+      "industry": "制造业",
+      "region": "上海市松江区",
+      "scale": "小型",
+      "revenue_latest": "5900万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新材料",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "半导体材料",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "靶材",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "高纯溅射靶材",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_036",
+      "name": "深圳盛世医疗器械有限公司",
+      "industry": "生物医药",
+      "region": "广东省深圳市宝安区",
+      "scale": "小型",
+      "revenue_latest": "4300万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "医疗器械",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "医疗器械",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "监护仪",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "监护设备",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_037",
+      "name": "郑州金穗农机装备有限公司",
+      "industry": "制造业",
+      "region": "河南省郑州市金水区",
+      "scale": "小型",
+      "revenue_latest": "3900万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "农机",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "农机",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "农业装备",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "小型农机具",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_038",
+      "name": "合肥长鑫芯片测试有限公司",
+      "industry": "制造业",
+      "region": "安徽省合肥市高新区",
+      "scale": "小型",
+      "revenue_latest": "6200万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "芯片",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "测试",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "芯片测试服务",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_039",
+      "name": "西安航天精密仪器有限公司",
+      "industry": "制造业",
+      "region": "陕西省西安市雁塔区",
+      "scale": "中型",
+      "revenue_latest": "16000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "航空航天",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "航天",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "精密仪器",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "航天精密仪器",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_040",
+      "name": "南京微晶激光技术有限公司",
+      "industry": "制造业",
+      "region": "江苏省南京市栖霞区",
+      "scale": "小型",
+      "revenue_latest": "5100万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "激光",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "激光",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "加工",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "激光加工装备",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_043",
+      "name": "温州创新智能家居有限公司",
+      "industry": "制造业",
+      "region": "浙江省温州市乐清市",
+      "scale": "小型",
+      "revenue_latest": "4700万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "智能家居",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "智能家居",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "IoT",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "智能家居产品",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_044",
+      "name": "宁波海天船舶配件有限公司",
+      "industry": "制造业",
+      "region": "浙江省宁波市镇海区",
+      "scale": "小型",
+      "revenue_latest": "3400万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "船舶",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "船舶",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "配件",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "船舶配件",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_045",
+      "name": "深圳鹏程云计算有限公司",
+      "industry": "信息技术",
+      "region": "广东省深圳市福田区",
+      "scale": "中型",
+      "revenue_latest": "22000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "云计算",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "云计算",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "IDC",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "云计算服务",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_046",
+      "name": "苏州云栈工业软件有限公司",
+      "industry": "信息技术",
+      "region": "江苏省苏州市工业园区",
+      "scale": "小型",
+      "revenue_latest": "4100万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "工业软件",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "工业软件",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "MES",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "MES制造执行系统",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_047",
+      "name": "杭州启明智能网联有限公司",
+      "industry": "信息技术",
+      "region": "浙江省杭州市西湖区",
+      "scale": "小型",
+      "revenue_latest": "5600万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "信息技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "车联网",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "车联网",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "智能网联",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "车联网平台",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_048",
+      "name": "东莞华晟塑胶制品有限公司",
+      "industry": "制造业",
+      "region": "广东省东莞市长安镇",
+      "scale": "微型",
+      "revenue_latest": "2200万",
+      "signals": [
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "塑胶",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "注塑",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "塑胶制品加工",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_049",
+      "name": "长沙华智生物育种有限公司",
+      "industry": "现代农业",
+      "region": "湖南省长沙市岳麓区",
+      "scale": "小型",
+      "revenue_latest": "3100万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "现代农业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物育种",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "种业",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "生物育种",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "作物种子选育",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_050",
+      "name": "成都华威环保工程有限公司",
+      "industry": "环保",
+      "region": "四川省成都市双流区",
+      "scale": "小型",
+      "revenue_latest": "3800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "环保",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "大气",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "高新技术",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "环保",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "大气治理",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业废气治理",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_051",
+      "name": "宁波甬江精密传动有限公司",
+      "industry": "制造业",
+      "region": "浙江省宁波市江北区",
+      "scale": "小型",
+      "revenue_latest": "4000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "传动",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "传动",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "减速机",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "精密减速机",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_052",
+      "name": "苏州清尚新材料科技有限公司",
+      "industry": "制造业",
+      "region": "江苏省苏州市相城区",
+      "scale": "小型",
+      "revenue_latest": "3500万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "新材料",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "新材料",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "高分子",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "特种高分子材料",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_053",
+      "name": "深圳新宇机器人科技有限公司",
+      "industry": "制造业",
+      "region": "广东省深圳市南山区",
+      "scale": "小型",
+      "revenue_latest": "6800万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "机器人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "机器人",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "自动化",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "工业机器人",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_054",
+      "name": "上海浦华半导体设备有限公司",
+      "industry": "制造业",
+      "region": "上海市闵行区",
+      "scale": "中型",
+      "revenue_latest": "14000万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "省级研发机构",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "制造业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "半导体",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "半导体设备",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "晶圆",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "半导体后道设备",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    },
+    {
+      "entity_id": "MOCK_055",
+      "name": "北京未来医疗AI有限公司",
+      "industry": "生物医药",
+      "region": "北京市海淀区中关村",
+      "scale": "小型",
+      "revenue_latest": "4400万",
+      "signals": [
+        {
+          "type": "qualification",
+          "value": "国家高新技术企业",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "qualification",
+          "value": "专精特新小巨人",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "生物医药",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "人工智能",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "tag",
+          "value": "专精特新",
+          "source": "qcc_mock"
+        },
+        {
+          "type": "keyword",
+          "value": "医疗AI",
+          "source": "keyword_match"
+        },
+        {
+          "type": "keyword",
+          "value": "影像",
+          "source": "keyword_match"
+        }
+      ],
+      "evidence": [
+        {
+          "source": "demo_data/mock_pool/companies.jsonl",
+          "snippet": "医疗影像AI",
+          "url": ""
+        }
+      ],
+      "resolvable": true
+    }
+  ],
+  "gold_lookalike": [
+    "MOCK_001",
+    "MOCK_002",
+    "MOCK_003",
+    "MOCK_004",
+    "MOCK_005",
+    "MOCK_006",
+    "MOCK_007",
+    "MOCK_008",
+    "MOCK_009",
+    "MOCK_010"
+  ],
+  "gold_top10_ranking": [],
+  "tool_calls": {
+    "total": 3,
+    "success": 3
+  }
+}
