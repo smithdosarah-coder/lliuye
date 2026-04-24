@@ -1659,3 +1659,78 @@ Batch 2 Product Hardening 4/4 全部 APPROVED + 合流 chore/l0-infra：
 - evaluation worker 下次 rebase 自动升级 Agent1/5 metric stub → deterministic（不单独派任务 · 随下次轮次）
 
 ---
+
+## [Q-031] 2026-04-25 · main CLI (self) · Mesh 大清理 + 3 worker 漏合债务 + 7 前端 branch 做一半债务 + Phase 4 规划
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: no
+**Related**: Q-029/A-029 · Q-030/A-030 · platform-contracts.md · CLAUDE.md §7 platform shell v2
+
+### 背景
+
+Batch 2 closeout 后审计 mesh 发现 3 类历史债务：
+
+**(1) 12 个 worktree 产出已合 · 可清**（本 commit 执行）：
+- 8 个产出已 100% 合入 main（agent2/agent4 Phase 1 V2 · frontend/platform-shell Stage 4 · platform Phase 1 五件套 auth/customer/dispatch/today/warroom）
+- 4 个 close-marker only · Batch 2 APPROVED+MERGED 后 worker 自打 WINDOW-CLOSED-CLEAN（code-urgent/code-arch/data-foundation/evaluation）
+
+**(2) 3 个 worker worktree 漏合 · 冻结**（本 commit **不动** · 未来处置）：
+
+| worker | 未合 commit | 内容价值 |
+|---|---|---|
+| agent1 | 30 | Phase 1 productize 4 Task + 数据飞轮 E2E loop · 大部分已被 Batch 2 code-arch Agent1 外搜替代 · 🟡 中 |
+| agent3 | 11 | **L2-7/L2-8 reason codes · L1-4 docx 审批信导出 · L1-3 RiskRadar · L1-11 Agent6→Agent3 handoff button · L3-1/2 baseline** · 🔴 高 |
+| agent6 | 20 | **模型卡 L3-11/12 · 反馈飞轮 E2E L3-8 · 审计日志 hook · 合作机构+数据分级 L2-13/14 · Phase 2 QC 四维强化 · 模板扩展** · 🔴 极高（DoD 对外收口的核心资产） |
+
+**(3) 7 个前端 branch（不在 mesh.json · 无 worker worktree 归属）· 做一半 · 冻结**：
+
+主 CLI 实证调查（grep main web/src + diff branch HEAD）判定：**不是废设计，是缺件在 main 里**：
+
+| branch | main 当前状态 | 缺啥 · 做一半证据 |
+|---|---|---|
+| shell-free-drag | `panel-canvas-store.ts`/`whiteboard-store.ts` 在 · 组件本体 0 | 加 `PanelCanvas.tsx` + `Whiteboard.tsx` 组件本体 |
+| canvas-mode-toggle | `CanvasModeToggle` 组件 0 命中 | ⌘⇧F hotkey + 模式切换触发器 |
+| credit-mock-endpoint | `/api/credit/mock-session` 0 命中 | corp/small/retail 三板块 mock 端点 |
+| chat-wechat-style | ConversationPanel 在 · dispatch 线程分群组 0 | IM 功能扩展 |
+| alert-codex-fusion | AlertWorkspace 751 行 | Codex 融合 6 step（pin + queue + heat + CTA + left drop）· REVIEW-READY |
+| compliance-codex-fusion | ComplianceWorkspace 757 行 | Codex 融合 6 step（matrix drawer + advice bar + pin）· REVIEW-READY |
+| agent-workspaces-v2 | RiskctrlWorkspace 36 处 KS/AUC/通过率 在 | net -126 行 视觉 replace（v2 hero band redesign）· Phase 4 决策要不要 |
+
+**漏合原因**：2026-04-22 CLI-A/B batch 合流后，用户 refocus 到 Batch 1/2 后端 Product Hardening · 前端 7 branch + agent1/3/6 产出因 main CLI review→merge 闭环未走完而滞留。
+
+### [A-031] 2026-04-25 · 主 CLI 自定
+
+**Decision**: 3 档处置 · 本 commit 执行档 1 清理 · 档 2/3 保留等 Phase 4
+
+**档 1 · 立即清理**（本 commit 执行）：
+- 12 worktree 物理目录删除（demo-evaluation 物理目录 Windows 文件锁 · 等用户手动删）
+- 12 branch `git branch -D` 删除
+- mesh.json 刷新 · worktrees[] 缩至 4 个（main + agent1/3/6）· 新增 `frozen_branches_no_worktree[]` 登记 7 前端 branch · 新增 `cleanup_log[]` 记录动作
+- 本 commit Signal: `MESH-CLEANUP-BATCH-2-RESIDUAL`
+
+**档 2 · 冻结 3 worker worktree（agent1/3/6）**：
+- worktree 物理目录 + branch + AGENT_IDENTITY.md 全保留
+- mesh.json 标 `frozen: true` · 不走 scoreboard idle 告警
+- **Phase 4 启动前必须处置**：
+  - agent1 → cherry-pick 数据飞轮 E2E（其余已被 Batch 2 code-arch 替代 · 丢弃）
+  - agent3 → rebase + review + merge（reason codes + docx 导出 + RiskRadar + handoff button 全是 DoD 要求）
+  - agent6 → rebase + review + merge（模型卡 + 飞轮 + 审计日志 是 DoD L3 对外收口核心）
+- 处置工期预估 3-4 天
+
+**档 3 · 冻结 7 前端 branch（无 worktree）**：
+- branch 物理不在 worktree · 记 `frozen_branches_no_worktree[]`
+- **Phase 4 启动时处置（前端整合 Batch）**：
+  - Step 1: rebase 每个 branch 到 Phase 4 启动时的 chore/l0-infra tip（含 Batch 3 Agent2 硬化产出）
+  - Step 2: 按依赖顺序合（先 shell 基础 free-drag + canvas-mode → 后 3 agent workspace codex fusion → 再 chat-wechat-style → agent-workspaces-v2 视觉 polish 视情况合）
+  - Step 3: rebase 时手动保留 Batch 2 EvidenceTrail 挂载（避免回退前端成果）
+  - 工期预估 5-7 天
+
+**Phase 4 总规划**：Batch 3 Agent2 硬化（3-4 天）完结后立即启动 · 覆盖档 2 + 档 3 · 总工期 8-11 天 · 对外 demo 前必完成。
+
+**Follow-up**:
+- 本 commit Signal: MESH-CLEANUP-BATCH-2-RESIDUAL
+- demo-evaluation 物理目录 Windows 文件锁残留 · 用户关闭所有编辑器/终端后手动 `rm -rf "D:/claude code/demo-evaluation"`
+- Phase 4 启动前重读本 Q-031 档 2/3 处置清单
+
+---

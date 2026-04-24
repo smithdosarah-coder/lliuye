@@ -17,114 +17,54 @@
       "path": "D:/claude code/demo-agent1",
       "branch": "feat/agent1-productize",
       "role": "worker",
-      "description": "获客 Agent · Option 2 rebase 解 CONDITIONAL-APPROVE 条件"
-    },
-    {
-      "name": "agent2",
-      "path": "D:/claude code/demo-agent2",
-      "branch": "feat/agent2-productize",
-      "role": "worker",
-      "description": "风控 Agent Phase 0（evaluation adapter + baseline 首跑）"
+      "description": "获客 Agent · 30 commit 未合（Phase 1 productize + 数据飞轮 E2E）· Phase 4 前一次性处置（cherry-pick / merge / 放弃三选一）",
+      "frozen": true
     },
     {
       "name": "agent3",
       "path": "D:/claude code/demo-agent3",
       "branch": "feat/agent3-productize",
       "role": "worker",
-      "description": "授信决策 Agent 产品化"
-    },
-    {
-      "name": "agent4",
-      "path": "D:/claude code/demo-agent4",
-      "branch": "feat/agent4-productize",
-      "role": "worker",
-      "description": "预警 Agent Phase 0（evaluation adapter + baseline 首跑）"
+      "description": "授信决策 Agent · 11 commit 未合（Phase 2 Batch 1 · L2-7/L2-8 reason codes + L1-4 docx 导出 + RiskRadar + Agent6→Agent3 handoff button）· Phase 4 前 review + merge",
+      "frozen": true
     },
     {
       "name": "agent6",
       "path": "D:/claude code/demo-agent6",
       "branch": "feat/agent6-v16",
       "role": "worker",
-      "description": "报告助手 · Phase 1 Finalize（L2/L3 尾巴：审计+合作机构+数据分级+模型卡+演示+反馈飞轮）"
+      "description": "报告助手 · 20 commit 未合（Phase 1 finalize: 模型卡 L3-11/12 + 反馈飞轮 E2E L3-8 + 审计日志 + 数据分级 L2-13/14 · Phase 2: QC 四维强化 + 模板扩展 + pending_metrics）· Phase 4 前 review + merge",
+      "frozen": true
+    }
+  ],
+  "frozen_branches_no_worktree": [
+    {
+      "branch": "feat/agent-workspaces-v2",
+      "note": "5 agent archive hero redesign (riskctrl KS×AUC / compliance policy ticker / alert traffic light / credit dashboard / report pipeline) · net -126 行 replace 视觉 · Phase 4 决策合否"
     },
     {
-      "name": "frontend",
-      "path": "D:/claude code/demo-frontend",
-      "branch": "feat/platform-shell",
-      "role": "worker",
-      "description": "Platform shell v1 Stage 2（token + AppShell + 4 view）"
+      "branch": "feat/alert-codex-fusion",
+      "note": "alert workspace Codex 融合 6 step: 扩 mock shape + shell drop zone + CTA 5 步进度 + 左栏扫描范围/知识库/监测源 + queue + heat + ConversationPanel + pin · REVIEW-READY"
     },
     {
-      "name": "platform-dispatch",
-      "path": "D:/claude code/demo-platform-dispatch",
-      "branch": "feat/platform-dispatch",
-      "role": "worker",
-      "description": "Platform Phase 1 · /dispatch Slack 风 IM 3 栏 + ComposerBar + event-bus 桥接",
-      "onboarding": "docs/onboarding/platform-dispatch-phase-1.md"
+      "branch": "feat/compliance-codex-fusion",
+      "note": "compliance workspace Codex 融合 6 step: mock + shell drop zone + matrix drawer 左右对照 + 底部修订意见栏 + pin · REVIEW-READY"
     },
     {
-      "name": "platform-warroom",
-      "path": "D:/claude code/demo-platform-warroom",
-      "branch": "feat/platform-warroom",
-      "role": "worker",
-      "description": "Platform Phase 1 · /warroom 4 列 kanban + HandoffTicket 订阅",
-      "onboarding": "docs/onboarding/platform-warroom-phase-1.md"
+      "branch": "feat/credit-mock-endpoint",
+      "note": "/api/credit/mock-session corp/small/retail 三板块 · main 当前 0 mock-session 端点"
     },
     {
-      "name": "platform-today",
-      "path": "D:/claude code/demo-platform-today",
-      "branch": "feat/platform-today",
-      "role": "worker",
-      "description": "Platform Phase 1 · /today 动态聚合（MorningBrief + PriorityQueue + EventTimeline）",
-      "onboarding": "docs/onboarding/platform-today-phase-1.md"
+      "branch": "feat/canvas-mode-toggle",
+      "note": "⌘⇧F hotkey + CanvasModeToggle 组件 + panel-layout-store clearAgent action · main 当前 CanvasModeToggle 0 存在"
     },
     {
-      "name": "platform-auth",
-      "path": "D:/claude code/demo-platform-auth",
-      "branch": "feat/platform-auth",
-      "role": "worker",
-      "description": "Platform Phase 1 · /login + RBAC 守卫 + PersonaSwitcher + /audit 入口",
-      "onboarding": "docs/onboarding/platform-auth-phase-1.md"
+      "branch": "feat/shell-free-drag",
+      "note": "PanelCanvas.tsx + Whiteboard.tsx 组件本体 · main 当前有 store 但组件缺"
     },
     {
-      "name": "platform-customer",
-      "path": "D:/claude code/demo-platform-customer",
-      "branch": "feat/platform-customer",
-      "role": "worker",
-      "description": "Platform Phase 1 · /customer/[id] 360 + Desk 增强 + 全局 CustomerDrawer slot",
-      "onboarding": "docs/onboarding/platform-customer-phase-1.md"
-    },
-    {
-      "name": "code-urgent",
-      "path": "D:/claude code/demo-code-urgent",
-      "branch": "feat/code-urgent",
-      "role": "worker",
-      "description": "Product Hardening Batch 1 · 紧急代码硬洞补齐 (archive 归位 + §3.1 financial_analyzer + 占位符 QC + Agent2/4 api.py)",
-      "onboarding": "docs/onboarding/code-urgent-phase-1.md"
-    },
-    {
-      "name": "code-arch",
-      "path": "D:/claude code/demo-code-arch",
-      "branch": "feat/code-arch",
-      "role": "worker",
-      "description": "Product Hardening Batch 1 · 架构对齐重构 (§3.2 工具域重拆 + §3.3 Evidence 三阶段协议 + §6 飞轮第4环脚本)",
-      "onboarding": "docs/onboarding/code-arch-phase-1.md"
-    },
-    {
-      "name": "data-foundation",
-      "path": "D:/claude code/demo-data-foundation",
-      "branch": "feat/data-foundation",
-      "role": "worker",
-      "description": "Product Hardening Batch 1 · 拟真数据底座 (宽基 100 家 + 深柱 15 家名单 + 埋坑清单模板)",
-      "onboarding": "docs/onboarding/data-foundation-phase-1.md"
-    },
-    {
-      "name": "evaluation",
-      "path": "D:/claude code/demo-evaluation",
-      "branch": "feat/evaluation",
-      "role": "worker",
-      "description": "Product Hardening Batch 1 · 6 Agent 评估基线 (rubric YAML×6 + base_evaluator + 首轮基线跑分)",
-      "onboarding": "docs/onboarding/evaluation-phase-1.md"
+      "branch": "feat/chat-wechat-style",
+      "note": "dispatch 左侧线程分群组/私聊 + ConversationPanel 类微信气泡 + demo 假聊天"
     }
   ],
   "upstream_remote": "D:/claude code/credit_report_agent_work",
@@ -132,5 +72,31 @@
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
-  "last_updated": "2026-04-23"
+  "last_updated": "2026-04-25",
+  "cleanup_log": [
+    {
+      "date": "2026-04-25",
+      "action": "removed 12 idle worktrees + 12 branches",
+      "worktrees_removed": [
+        "demo-agent2 (merged · feat/agent2-productize)",
+        "demo-agent4 (merged · feat/agent4-productize)",
+        "demo-frontend (merged · feat/platform-shell)",
+        "demo-platform-auth (merged · feat/platform-auth)",
+        "demo-platform-customer (merged · feat/platform-customer)",
+        "demo-platform-dispatch (merged · feat/platform-dispatch)",
+        "demo-platform-today (merged · feat/platform-today)",
+        "demo-platform-warroom (merged · feat/platform-warroom)",
+        "demo-code-arch (close-marker only · feat/code-arch Batch 2 APPROVED-MERGED)",
+        "demo-code-urgent (close-marker only · feat/code-urgent Batch 2 APPROVED-MERGED)",
+        "demo-data-foundation (close-marker only · feat/data-foundation Batch 2 APPROVED-MERGED)",
+        "demo-evaluation (close-marker only · feat/evaluation Batch 2 APPROVED-MERGED · physical dir 手动删等文件解锁)"
+      ],
+      "kept_frozen_worktrees": ["demo-agent1", "demo-agent3", "demo-agent6"],
+      "kept_frozen_branches_no_worktree": [
+        "feat/agent-workspaces-v2", "feat/alert-codex-fusion", "feat/compliance-codex-fusion",
+        "feat/credit-mock-endpoint", "feat/canvas-mode-toggle", "feat/shell-free-drag", "feat/chat-wechat-style"
+      ],
+      "reason": "Batch 2 closeout + Phase 4 前端整合规划 · 见 decisions-log Q-031"
+    }
+  ]
 }
