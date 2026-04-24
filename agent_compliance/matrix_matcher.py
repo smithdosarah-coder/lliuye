@@ -341,7 +341,7 @@ class MatrixMatcher:
                 cell = HARD_CHECKERS[check](rule, event, dsl.get("params") or {})
                 if cell is not None:
                     return cell
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, IndexError) as e:
                 return _NA(rule, event, f"硬规则执行异常：{e}")
         # 无硬规则 → 按 category → event_type 判断适用性
         applicable = CATEGORY_TO_EVENT.get(getattr(rule, "category", "其他"), set())
@@ -350,7 +350,7 @@ class MatrixMatcher:
             if self.use_llm and self.llm_judge is not None:
                 try:
                     return self.llm_judge(rule, event)
-                except Exception:
+                except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
                     pass
             return _comply(rule, event, f"类别={rule.category}，适用但无确定性命中")
         return _NA(rule, event, f"类别={rule.category} 与事件类型不匹配")

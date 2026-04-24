@@ -31,7 +31,7 @@ def to_jsonable(obj: Any) -> Any:
     if hasattr(obj, "to_dict") and callable(obj.to_dict):
         try:
             return to_jsonable(obj.to_dict())
-        except Exception:
+        except (TypeError, ValueError, AttributeError, KeyError):
             pass
     if hasattr(obj, "__dict__"):
         return to_jsonable({k: v for k, v in obj.__dict__.items()

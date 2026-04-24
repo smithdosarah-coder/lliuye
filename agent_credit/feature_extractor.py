@@ -40,7 +40,7 @@ def _load_baselines() -> dict:
     try:
         with open(_BASELINE_PATH, "r", encoding="utf-8") as fh:
             return json.load(fh).get("industries", {}) or {}
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
         return {}
 
 
@@ -49,7 +49,7 @@ def _safe_div(a: float, b: float, default: float = 0.0) -> float:
         if not b:
             return default
         return a / b
-    except Exception:
+    except (ZeroDivisionError, TypeError, ValueError):
         return default
 
 
@@ -183,7 +183,7 @@ class FeatureExtractor:
                 features[f"enriched.{k}"] = v
             if evidence:
                 features["enriched._evidence"] = evidence  # 供 QC / UI 审计
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             pass
         return features
 
@@ -245,7 +245,7 @@ class FeatureExtractor:
         try:
             from financial_analyzer import FinancialAnalyzer as _FA
             financial_prompt_block = _FA().format_for_prompt(indicators)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, AttributeError, ImportError):
             financial_prompt_block = ""
 
         features.update({
@@ -292,7 +292,7 @@ class FeatureExtractor:
         est_date = (profile.get("establishment_date") or "")[:4]
         try:
             est_years = max(0, 2026 - int(est_date)) if est_date.isdigit() else 3
-        except Exception:
+        except (ValueError, TypeError):
             est_years = 3
         employee_count = int(profile.get("employee_count") or 0)
         features.update({

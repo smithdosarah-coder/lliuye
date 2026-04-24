@@ -35,6 +35,12 @@ from agent_riskctrl.output_validator import soft_clean as _qc_scrub  # noqa: E40
 app = FastAPI(title="Agent2 Risk Control API", version="3.1")
 
 
+@app.get("/api/riskctrl/health")
+async def riskctrl_health():
+    """Agent2 sub-app 健康探针 (与 portal /health 平级, 用于精细化故障定位)。"""
+    return {"status": "ok", "agent": "agent_riskctrl"}
+
+
 class RiskCtrlDslRequest(BaseModel):
     rule_text: str                       # 自然语言策略意图
     provider: str | None = None

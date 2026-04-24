@@ -31,7 +31,7 @@ def _safe_run(segment: str, stage_map, preset_v, api_key, provider):
     import traceback
     try:
         yield from _run_pipeline(segment, preset_v, "", provider, api_key, stage_map)
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         err = f"❌ **运行时异常**：`{type(e).__name__}: {e}`\n\n```\n{traceback.format_exc()[-1200:]}\n```"
         print("[agent_credit UI ERROR]", traceback.format_exc(), flush=True)
         # 9 个输出：lights, card, scoring_md, cases_md, file, status, advice, result, profile

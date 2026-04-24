@@ -84,7 +84,7 @@ class AlertKnowledgeBase(KnowledgeBase):
         if meta.exists():
             try:
                 kb.scenario_meta = json.loads(meta.read_text(encoding="utf-8"))
-            except Exception:
+            except (OSError, json.JSONDecodeError, ValueError, TypeError):
                 kb.scenario_meta = {}
         return kb
 
@@ -104,7 +104,7 @@ class AlertKnowledgeBase(KnowledgeBase):
         try:
             p = Path(policy_path)
             self.policy_text = self._read_text(p)
-        except Exception:
+        except (OSError, ValueError, TypeError, AttributeError):
             self.policy_text = ""
 
         # 把 clauses 映射为 POL- 类 RuleItem（覆盖掉默认一段一规则的兜底）
@@ -129,7 +129,7 @@ class AlertKnowledgeBase(KnowledgeBase):
                         continue
                     self.rules.append(r)
                 meta["llm_extracted_rules"] = len(llm_rules)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
                 meta["llm_extract_error"] = str(e)[:120]
         return meta
 

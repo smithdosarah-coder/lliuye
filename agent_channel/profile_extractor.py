@@ -43,7 +43,7 @@ class ProfileExtractor:
                 data = self.llm_caller(PROFILE_EXTRACT_SYSTEM, user)
                 if isinstance(data, dict) and "pitches" in data:
                     data = None  # 误判，走兜底
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
                 data = None
 
         if not isinstance(data, dict):
@@ -64,12 +64,12 @@ class ProfileExtractor:
         else:
             try:
                 data["revenue_range"] = (float(rr[0]), float(rr[1]))
-            except Exception:
+            except (ValueError, TypeError, IndexError):
                 data["revenue_range"] = None
 
         try:
             return IdealProfile.model_validate(data)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return self._fallback_profile(kb)
 
     # ---- 统计聚合 ----
@@ -188,5 +188,5 @@ class ProfileExtractor:
             if num > 100000:
                 return num / 10000
             return num
-        except Exception:
+        except (ValueError, TypeError):
             return None

@@ -106,19 +106,19 @@ class EnterpriseInfoSource(BaseSource):
         """尝试 akshare 上市公司路径。akshare 未装 / 未匹配 → 返回 None。"""
         try:
             import akshare as ak  # 局部 import — 没装就跳过整条路径
-        except Exception:
+        except (ImportError, ModuleNotFoundError, AttributeError):
             return None
 
         try:
             stock_code = self._match_listed_code(ak, company_name)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             return None
         if not stock_code:
             return None
 
         try:
             info = self._fetch_listed_info(ak, stock_code, company_name)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             return QueryResult(
                 ok=False, source_name=self.name,
                 error=f"akshare fetch failed: {type(e).__name__}: {e}",
@@ -205,7 +205,7 @@ class EnterpriseInfoSource(BaseSource):
 
         try:
             extracted = self._llm_extract_fields(company_name, raw)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             return QueryResult(
                 ok=False, source_name=self.name,
                 error=f"llm extraction failed: {type(e).__name__}: {e}",
@@ -243,7 +243,7 @@ class EnterpriseInfoSource(BaseSource):
                 include_domains=["qcc.com", "tianyancha.com", "qichacha.com"],
             )
             return raw.get("results") or []
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return []
 
     def _llm_extract_fields(self, company_name: str, raw: list[dict]) -> dict[str, Any]:
@@ -284,7 +284,7 @@ class EnterpriseInfoSource(BaseSource):
         try:
             data = json.loads(m.group())
             return data if isinstance(data, dict) else {}
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return {}
 
     def _get_llm(self):

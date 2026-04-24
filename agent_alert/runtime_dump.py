@@ -61,7 +61,7 @@ class _ToolCallCounter:
                 if isinstance(result, list):
                     self.success += 1
                 return result
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
                 return []
 
         return _call
@@ -80,7 +80,7 @@ def _git_head() -> str:
             capture_output=True, text=True, check=True, timeout=5,
         )
         return r.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return "unknown"
 
 
@@ -128,7 +128,7 @@ def dump(out_path: Path) -> dict[str, Any]:
             hit = matcher.match_customer(profile, rules)
             dt_ms = (time.perf_counter() - t0) * 1000.0
             rows.append(_serialize_hit(hit, dt_ms))
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             dt_ms = (time.perf_counter() - t0) * 1000.0
             rows.append({
                 "entity_id": profile.company_id or profile.company_name,

@@ -192,7 +192,7 @@ def classify_risks(
         # 如果返回的是 dict（model_class 解析失败时的降级）
         if isinstance(result, dict):
             return RiskAssessment.model_validate(result)
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
         pass
 
     return _default_assessment(profile_text, materials)

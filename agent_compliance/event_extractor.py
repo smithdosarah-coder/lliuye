@@ -146,7 +146,7 @@ def _to_float(v) -> float | None:
         return None
     try:
         return float(v)
-    except Exception:
+    except (ValueError, TypeError):
         m = re.search(r"-?\d+(\.\d+)?", str(v))
         return float(m.group()) if m else None
 
@@ -166,7 +166,7 @@ def _parse_date(v) -> date | None:
     if m:
         try:
             return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-        except Exception:
+        except (ValueError, TypeError):
             return None
     return None
 

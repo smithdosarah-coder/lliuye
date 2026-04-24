@@ -277,7 +277,7 @@ def _run_scenario_stream(scenario_id: str):
                 docx_path,
             )
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         status_lines.append(f"❌ 异常：{type(e).__name__}: {e}")
         yield (
             _idle_stats_html(),

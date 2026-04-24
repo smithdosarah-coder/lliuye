@@ -23,7 +23,7 @@ def _load_default_raw() -> dict:
     try:
         with open(_DEFAULT_PATH, "r", encoding="utf-8") as fh:
             return json.load(fh)
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
         return {}
 
 
@@ -67,7 +67,7 @@ class RiskAppetiteConfig:
                             if hasattr(merged, k):
                                 setattr(merged, k, v)
                         return merged
-                except Exception:
+                except (OSError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
                     pass
         return cls.default(segment)
 
@@ -79,7 +79,7 @@ class RiskAppetiteConfig:
             try:
                 with open(path, "r", encoding="utf-8") as fh:
                     existing = json.load(fh) or {}
-            except Exception:
+            except (OSError, json.JSONDecodeError, ValueError, TypeError):
                 existing = {}
         existing[self.segment] = asdict(self)
         existing["version"] = "v2.0"

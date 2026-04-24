@@ -69,7 +69,7 @@ class LeadSearcher:
             results: list[CompanyProfile] = []
             try:
                 results = self.provider.search_companies(q, filters=filters, limit=per_query_limit)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
                 metas.append({"query": q, "status": "error", "error": str(e)[:120], "count": 0})
                 continue
             new_count = 0
@@ -107,7 +107,7 @@ class LookAlikeMatcher(Matcher):
         """
         try:
             cand = CompanyProfile.model_validate(target.payload)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return None
         return HitItem(
             hit_id=f"LEAD_{cand.company_id or cand.company_name}",
@@ -368,5 +368,5 @@ class LookAlikeMatcher(Matcher):
                 return float(s.replace("万", "").strip())
             num = float(s)
             return num / 10000 if num > 100000 else num
-        except Exception:
+        except (ValueError, TypeError):
             return None

@@ -38,7 +38,7 @@ class AkshareSource(BaseSource):
                 return self._query_macro(request)
             if qt == "industry":
                 return self._query_industry(request)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             return QueryResult(
                 ok=False,
                 source_name=self.name,

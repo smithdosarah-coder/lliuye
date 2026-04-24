@@ -98,7 +98,7 @@ def run_channel_search_stream(
             )
         try:
             llm = LLMClient(provider=provider or "deepseek", api_key=effective_key) if effective_key else None
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             logger.warning("[channel] LLMClient init failed: %s", e)
             llm = None
 
@@ -181,7 +181,7 @@ def run_channel_search_stream(
             },
             "data_source": data_source,
         }
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         yield {
             "event": "error",
             "message": f"{type(e).__name__}: {e}",
@@ -218,7 +218,7 @@ def _parse_intent(llm, query: str) -> list[dict]:
             if isinstance(t, dict) and "category" in t and "value" in t
         ]
         return out[:10] if out else _regex_parse(query)
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, json.JSONDecodeError):
         return _regex_parse(query)
 
 
@@ -320,7 +320,7 @@ def _parallel_signal_search_core(
             )
             route_stats[signal_type] = (0, 0, f"tavily_err:{e}")
             return []
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             logger.warning(
                 "[channel.signal_search] route=%s unexpected error: %s: %s",
                 signal_type, type(e).__name__, e,
@@ -373,7 +373,7 @@ def _parallel_signal_search_core(
                     logger.warning("[channel.signal_search] route=%s TIMEOUT 15s, skipped", stype)
                     route_stats[stype] = (0, 0, "timeout_15s")
                     yield ("progress", stype, 0)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
                     logger.warning("[channel.signal_search] route=%s future failed: %s", stype, e)
                     route_stats[stype] = (0, 0, f"exc:{type(e).__name__}")
                     yield ("progress", stype, 0)
@@ -461,7 +461,7 @@ def _extract_signal(
 
     try:
         raw = llm.simple_chat(system, user_prompt, temperature=0.1)
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
         return None
 
     text = (raw or "").strip()
@@ -472,13 +472,13 @@ def _extract_signal(
 
     try:
         arr = json.loads(text)
-    except Exception:
+    except (json.JSONDecodeError, ValueError, TypeError):
         lo = text.find("[")
         hi = text.rfind("]")
         if lo >= 0 and hi > lo:
             try:
                 arr = json.loads(text[lo:hi + 1])
-            except Exception:
+            except (json.JSONDecodeError, ValueError, TypeError):
                 return None
         else:
             return None
@@ -599,7 +599,7 @@ def _is_recent(date_str: str, days: int = 60) -> bool:
     try:
         dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
         return (datetime.now() - dt) < timedelta(days=days)
-    except Exception:
+    except (ValueError, TypeError):
         return False
 
 
@@ -667,7 +667,7 @@ def _fetch_qcc_info(company_name: str, tavily_key: str) -> dict:
                 "_degraded": result.degraded,
             }
             return mapped
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
         # 优雅降级到旧 Tavily 逻辑——分层架构挂了不影响 Agent1
         pass
 
@@ -712,10 +712,10 @@ def _fetch_qcc_info(company_name: str, tavily_key: str) -> dict:
         if m:
             try:
                 info["employees"] = int(m.group(1))
-            except Exception:
+            except (ValueError, TypeError):
                 pass
         return info
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
         return {}
 
 
@@ -833,7 +833,7 @@ def _generate_pitch(llm, item: dict) -> str:
         pitch = (raw or "").strip()
         if pitch:
             return pitch[:200]
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
         pass
 
     return _fallback_pitch(item)
@@ -948,6 +948,6 @@ def _domain_from_url(url: str) -> str:
         parts = url.split("/")
         if len(parts) >= 3:
             return parts[2]
-    except Exception:
+    except (AttributeError, TypeError, IndexError):
         pass
     return ""

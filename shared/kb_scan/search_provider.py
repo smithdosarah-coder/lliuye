@@ -117,7 +117,7 @@ class MockSearchProvider(SearchProvider):
                 continue
             try:
                 out.append(cls(**json.loads(line)))
-            except Exception:
+            except (json.JSONDecodeError, ValueError, TypeError, KeyError, AttributeError):
                 continue
         return out
 
@@ -127,7 +127,7 @@ class MockSearchProvider(SearchProvider):
             return default
         try:
             return json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
             return default
 
     # ---- SearchProvider 接口实现 ----
@@ -161,7 +161,7 @@ class MockSearchProvider(SearchProvider):
             try:
                 if ts and datetime.fromisoformat(ts.replace("Z", "")) < cutoff:
                     continue
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 pass
             out.append(n)
         return out[:limit]
@@ -193,7 +193,7 @@ class MockSearchProvider(SearchProvider):
             try:
                 if ts and datetime.fromisoformat(ts.replace("Z", "")) < cutoff:
                     continue
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 pass
             out.append(e)
         return out
@@ -274,7 +274,7 @@ class WebSearchProvider(SearchProvider):
         from .tavily_client import TavilyClient, TavilySearchError
         try:
             from llm import LLMClient
-        except Exception as e:
+        except (ImportError, ModuleNotFoundError, AttributeError) as e:
             raise NotImplementedError(f"LLMClient not available: {e}")
 
         # 拼查询：原始 query + industry/region/scale
@@ -334,7 +334,7 @@ class WebSearchProvider(SearchProvider):
         llm_api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("LLM_API_KEY") or ""
         try:
             llm = LLMClient(provider=llm_provider, api_key=llm_api_key)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             llm = None
 
         # === 深度抓取：对 TOP URL 调 /extract 拿全文（远比 snippet 详细） ===
@@ -347,7 +347,7 @@ class WebSearchProvider(SearchProvider):
                 rc = item.get("raw_content") or ""
                 if u and rc:
                     extracted_map[u] = rc[:6000]  # 上限 6000 字防爆 token
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
             extracted_map = {}  # extract 失败不阻塞，回落到 snippet
 
         profiles: list[CompanyProfile] = []
@@ -484,7 +484,7 @@ def _extract_profile_from_web(
 只输出 JSON 对象，不要 markdown 围栏。抽不到具体企业输出 {{}}。"""
     try:
         raw = llm.simple_chat(system, user, temperature=0.1)
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
         return None
 
     text = (raw or "").strip()
@@ -496,14 +496,14 @@ def _extract_profile_from_web(
             text = text[4:].strip()
     try:
         obj = json.loads(text)
-    except Exception:
+    except (json.JSONDecodeError, ValueError, TypeError):
         # 容错：找第一个 { 到最后一个 }
         lo = text.find("{")
         hi = text.rfind("}")
         if lo >= 0 and hi > lo:
             try:
                 obj = json.loads(text[lo:hi + 1])
-            except Exception:
+            except (json.JSONDecodeError, ValueError, TypeError):
                 return None
         else:
             return None
@@ -516,7 +516,7 @@ def _extract_profile_from_web(
     try:
         emp = obj.get("employee_count") or 0
         emp = int(emp) if str(emp).strip() else 0
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         emp = 0
     return CompanyProfile(
         company_name=name,

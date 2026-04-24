@@ -66,7 +66,7 @@ def parse_policy(policy_text: str, llm_fn: Callable) -> PolicyDocument:
                 if not req.req_id:
                     req.req_id = f"REQ-{i + 1:03d}"
             return result
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
         pass
 
     # 兜底：返回空文档

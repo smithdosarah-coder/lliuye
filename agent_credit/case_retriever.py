@@ -60,7 +60,7 @@ class CaseRetriever:
             try:
                 with open(path, "r", encoding="utf-8") as fh:
                     cases = json.load(fh) or []
-            except Exception:
+            except (OSError, json.JSONDecodeError, ValueError, TypeError):
                 cases = []
         self._cases[segment] = cases
         return cases

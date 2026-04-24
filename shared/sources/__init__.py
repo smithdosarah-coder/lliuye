@@ -48,7 +48,7 @@ def bootstrap() -> dict[str, bool]:
             from .registry import register
             register(cls())
             status[f"source.{mod_name}"] = True
-        except Exception as e:
+        except (ImportError, ModuleNotFoundError, AttributeError, RuntimeError, ValueError, TypeError) as e:
             status[f"source.{mod_name}"] = False
             status[f"source.{mod_name}.err"] = f"{type(e).__name__}: {e}"  # type: ignore[assignment]
 
@@ -63,7 +63,7 @@ def bootstrap() -> dict[str, bool]:
         except ModuleNotFoundError:
             # 没有 sources_config.py 是允许的，不报错
             status[f"prefs.{agent_mod}"] = False
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError, ValueError, TypeError) as e:
             status[f"prefs.{agent_mod}"] = False
             status[f"prefs.{agent_mod}.err"] = f"{type(e).__name__}: {e}"  # type: ignore[assignment]
 

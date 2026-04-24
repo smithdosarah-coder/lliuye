@@ -64,7 +64,7 @@ class FlkNpcSource(BaseSource):
             )
         try:
             body = resp.json()
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             return QueryResult(ok=False, source_name=self.name, error=f"invalid json: {e}")
 
         if body.get("code") != 200:
@@ -119,7 +119,7 @@ class FlkNpcSource(BaseSource):
             try:
                 encoded = base64.b64encode(bbbs.encode("utf-8")).decode("ascii")
                 url = DETAIL_URL_PREFIX + encoded
-            except Exception:
+            except (AttributeError, ValueError, TypeError, UnicodeError):
                 url = "https://flk.npc.gov.cn/"
 
             items.append({

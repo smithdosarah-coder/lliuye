@@ -86,7 +86,7 @@ class CustomerScanner:
         for i, profile in enumerate(customers, 1):
             try:
                 hit = self.matcher.match_customer(profile, rules)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
                 # 单家失败不阻断全流程
                 yield ScanProgress(
                     kind="tick", index=i, total=total,
