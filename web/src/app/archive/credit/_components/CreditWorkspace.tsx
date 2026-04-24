@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
 import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   Radar,
@@ -174,6 +174,10 @@ export default function CreditWorkspace() {
         generateSteps={session.generateSteps}
         progress={progress}
       />
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={CREDIT_EVIDENCE.summary} />
+      </section>
       <EvidenceTrail agentTone="credit" />
     </div>
     </EvidenceProvider>

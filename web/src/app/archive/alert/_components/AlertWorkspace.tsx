@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
-import { EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
 import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   ALERT_GLOBAL_STATS,
@@ -96,6 +96,10 @@ export default function AlertWorkspace() {
           />
         </section>
       </div>
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={ALERT_EVIDENCE.summary} />
+      </section>
       <EvidenceTrail agentTone="alert" />
     </div>
     </EvidenceProvider>

@@ -11,7 +11,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
-import { EvidenceProvider, EvidenceTrail } from "@/components/evidence";
+import { ClaimText, EvidenceProvider, EvidenceTrail } from "@/components/evidence";
 import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   COMPLIANCE_GLOBAL_STATS,
@@ -98,6 +98,10 @@ export default function ComplianceWorkspace() {
           />
         </section>
       </div>
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
+      </section>
       <EvidenceTrail agentTone="compliance" />
     </div>
     </EvidenceProvider>

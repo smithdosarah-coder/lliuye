@@ -14,9 +14,14 @@ import type { EvidenceItem } from "./types";
 export interface AgentEvidenceFixture {
   items: EvidenceItem[];
   unfilledFields: string[];
+  /** Evidence-grounded 分析结论段 · 内嵌 [ref:xxx]...[/ref] 锚点对应 items 的 ref_id。 */
+  summary: string;
 }
 
 export const CHANNEL_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "根据 [ref:ch_ev_uscc_001]福鼎明辉精密的工商信息[/ref]与 [ref:ch_ev_benchmark_002]F5189 行业画像[/ref]对比,目标企业的规模与地域高度吻合;" +
+    "近 12 月纳税申报 [ref:ch_ev_tax_003]连续 8 季度无异常[/ref]支撑现金流稳定;另有 [ref:ch_ev_bidding_004]2025 年 3 月中标地铁配件订单(低置信)[/ref]提示订单驱动的增长信号,建议进入 B 轮精查。",
   items: [
     {
       source: "材料包/工商执照_福鼎明辉.pdf",
@@ -51,6 +56,12 @@ export const CHANNEL_EVIDENCE: AgentEvidenceFixture = {
 };
 
 export const CREDIT_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "申请人 2024 财报显示 [ref:cr_ev_finratios_001]流动比率 1.71 · 资产负债率 48.2%[/ref],偿债能力处于行业安全区;" +
+    "Python 确定性计算得 [ref:cr_ev_zscore_002]Z-score 2.41[/ref],未触及警示阈值;" +
+    "红线规则 [ref:cr_ev_redline_003]近 12 月无重大诉讼 + 股东无失信[/ref]均命中;" +
+    "结合 [ref:cr_ev_cases_004]近 2 年 5 条相似授信案例[/ref]建议额度中位 680 万 · 期限 12-18 月;" +
+    "审贷员备注 [ref:cr_ev_note_005]季节性备货(置信偏低,需书面确认)[/ref]仅作参考。",
   items: [
     {
       source: "Agent6 Report/顶盛贸易_ReportJSON.json",
@@ -92,6 +103,10 @@ export const CREDIT_EVIDENCE: AgentEvidenceFixture = {
 };
 
 export const ALERT_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "外部扫描检出 [ref:al_ev_lawsuit_001]2026-04-10 被执行信息 87 万[/ref],同期内部账户 [ref:al_ev_cashflow_002]净流出 320 万 · 3σ 异常[/ref];" +
+    "天眼查监测到 [ref:al_ev_supplier_003]核心供应商变更(置信中等)[/ref]加大经营不确定性;" +
+    "触发规则 [ref:al_ev_rule_004]AL-035 双路命中 → 红灯[/ref],建议 24 小时内复核。",
   items: [
     {
       source: "外部扫描 · 裁判文书网",
@@ -126,6 +141,10 @@ export const ALERT_EVIDENCE: AgentEvidenceFixture = {
 };
 
 export const COMPLIANCE_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "监管侧 [ref:co_ev_regulation_001]金融监管总局 3 号文要求实际受益人穿透核验[/ref]与内部 [ref:co_ev_internal_002]授信规程 3.4 条仅要求法人签字[/ref]存在口径冲突;" +
+    "差异比对 [ref:co_ev_conflict_003]policy_diff_2026Q2 生成冲突清单[/ref]显示需补制度条款 + 系统字段;" +
+    "配合 [ref:co_ev_pboc_004]央行反洗钱年报要求(低置信,作参考)[/ref]同步梳理高风险客户名单。",
   items: [
     {
       source: "金融监管总局 · 2026 年 3 号文",
@@ -160,6 +179,12 @@ export const COMPLIANCE_EVIDENCE: AgentEvidenceFixture = {
 };
 
 export const REPORT_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "从 [ref:rp_ev_balance_001]2024 年度审计报告中流动资产 2,135 万 / 流动负债 1,248 万[/ref]确定流动比率 1.71;" +
+    "结构化预填得 [ref:rp_ev_prefill_002]营收 2024 = 5820 万(确定性抽取)[/ref];" +
+    "税务申报 [ref:rp_ev_tax_003]2024 Q4 1480 万(偏差 2.1%)[/ref]交叉印证;" +
+    "行业对标 [ref:rp_ev_benchmark_004]毛利率 32.4% 落在 F5189 70 分位以上[/ref];" +
+    "QC 评分 [ref:rp_ev_score_005]整体 86/100,字段完整性 68 需补流水(置信偏低)[/ref]列为后续补材料点。",
   items: [
     {
       source: "客户上传 · 2024 年度审计报告.pdf",
@@ -201,6 +226,11 @@ export const REPORT_EVIDENCE: AgentEvidenceFixture = {
 };
 
 export const RISKCTRL_EVIDENCE: AgentEvidenceFixture = {
+  summary:
+    "基于 [ref:rc_ev_sample_001]50k 2026Q1 样本池 · 逾期率 3.2%[/ref]回测草案 v4.3;" +
+    "DSL 命中率 [ref:rc_ev_dsl_002]R-RC-07 通过率 71.2%[/ref];" +
+    "性能指标 [ref:rc_ev_backtest_003]KS 0.34 / AUC 0.78 / Gini 0.56[/ref]较现行版 +0.04 显著;" +
+    "AB 分析 [ref:rc_ev_abtest_004]净收益 +280 万/月(置信偏低,需多季度复现)[/ref]支撑灰度发布建议。",
   items: [
     {
       source: "样本池 · sample_riskctrl_2026Q1.parquet",
