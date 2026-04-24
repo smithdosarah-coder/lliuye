@@ -6,7 +6,11 @@ Usage:
         --path <abs-path> --branch <branch> --role <orchestrator|worker> \
         [--description "..."] [--onboarding "docs/onboarding/<name>-phase-1.md"]
 
-Behavior:
+    py scripts/orchestrator/launcher.py migrate --from <N> --to <M>
+        # Migrate mesh.json between schema versions (skeleton; no registered
+        # migrations yet. Intended for future breaking changes.)
+
+Behavior (register):
 
   1. Read docs/handoff/mesh.json (located via lib.mesh path-walk).
   2. Append a worktree entry. Reject duplicate names (exit 1).
@@ -35,6 +39,10 @@ from orchestrator.lib import mesh as mesh_lib  # noqa: E402
 
 
 VALID_ROLES = ("orchestrator", "worker")
+
+# Registered migrations: (from_version, to_version) -> callable(raw_dict) -> new_dict.
+# Kept empty now — we ship schema v1 as canonical. Future breaking changes append here.
+MIGRATIONS: "dict[tuple[int, int], callable]" = {}
 
 
 # ---------- mesh.json mutation (pure / testable) ----------
@@ -189,6 +197,10 @@ def _build_parser() -> argparse.ArgumentParser:
     reg.add_argument("--role", required=True, choices=VALID_ROLES, help="Role of the CLI in this worktree.")
     reg.add_argument("--description", default="", help="One-line description.")
     reg.add_argument("--onboarding", default=None, help="Onboarding doc path (optional).")
+
+    mig = sub.add_parser("migrate", help="Migrate mesh.json between schema versions.")
+    mig.add_argument("--from", dest="from_version", type=int, required=True, help="Current schema_version.")
+    mig.add_argument("--to", dest="to_version", type=int, required=True, help="Target schema_version.")
     return p
 
 
@@ -228,11 +240,57 @@ def cmd_register(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate(args: argparse.Namespace) -> int:
+    """Migrate mesh.json between schema versions.
+
+    Loads the raw mesh.json, validates the --from version matches the on-disk
+    value, looks up a registered migration, applies it, and writes back.
+
+    Returns 0 on no-op same-version / successful migration, 1 on version mismatch
+    or unregistered migration.
+    """
+    mesh_path = mesh_lib._find_mesh_json()
+    raw = json.loads(Path(mesh_path).read_text(encoding="utf-8"))
+    current = int(raw.get("schema_version", 1))
+
+    if args.from_version != current:
+        sys.stderr.write(
+            f"launcher migrate: --from {args.from_version} does not match "
+            f"on-disk schema_version {current} in {mesh_path}\n"
+        )
+        return 1
+
+    if args.from_version == args.to_version:
+        print(f"[launcher] migrate: mesh.json already at schema {args.to_version}, no-op")
+        return 0
+
+    key = (args.from_version, args.to_version)
+    fn = MIGRATIONS.get(key)
+    if fn is None:
+        sys.stderr.write(
+            f"launcher migrate: no migration registered for "
+            f"{args.from_version} -> {args.to_version}. "
+            f"Registered: {sorted(MIGRATIONS.keys())}\n"
+        )
+        return 1
+
+    new_raw = fn(raw)
+    new_raw["schema_version"] = args.to_version
+    Path(mesh_path).write_text(
+        json.dumps(new_raw, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"[launcher] migrated schema {args.from_version} -> {args.to_version}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.cmd == "register":
         return cmd_register(args)
+    if args.cmd == "migrate":
+        return cmd_migrate(args)
     parser.print_help()
     return 2
 

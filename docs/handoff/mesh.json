@@ -1,6 +1,7 @@
 {
   "project": "credit_report_agent_work",
   "description": "信贷 AI 智能体矩阵 · 6 Agent + 主 CLI 编排",
+  "schema_version": 1,
   "protocol_version": "1.1",
   "worktrees": [
     {

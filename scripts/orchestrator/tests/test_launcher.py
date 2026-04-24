@@ -1,9 +1,11 @@
 """Test launcher.add_worktree + scaffold_identity (no real mesh.json mutation)."""
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 # Allow `py scripts/orchestrator/tests/test_launcher.py` from project root.
@@ -11,15 +13,16 @@ _HERE = Path(__file__).resolve()
 sys.path.insert(0, str(_HERE.parent.parent.parent))  # project_root/scripts
 
 from orchestrator import launcher  # noqa: E402
-from orchestrator.lib import identity  # noqa: E402
+from orchestrator.lib import identity, mesh as mesh_lib  # noqa: E402
 
 
 # ---------- mesh.json shape used in tests ----------
 
-def _fake_mesh_dict() -> dict:
+def _fake_mesh_dict(*, schema_version: int = 1) -> dict:
     return {
         "project": "fake_proj",
         "description": "test fixture",
+        "schema_version": schema_version,
         "protocol_version": "1.1",
         "worktrees": [
             {
@@ -139,6 +142,7 @@ def test_add_worktree_preserves_top_level_keys():
         expected_first_keys = [
             "project",
             "description",
+            "schema_version",
             "protocol_version",
             "worktrees",
             "upstream_remote",
@@ -222,6 +226,77 @@ def test_identity_load_missing_returns_none():
         wt = Path(td) / "empty-wt"
         wt.mkdir()
         assert identity.load(wt) is None
+
+
+# ---------- schema_version (R3) ----------
+
+def test_mesh_load_parses_schema_version():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        mesh_path = _write_fake_mesh(tmp)
+        m = mesh_lib.load(mesh_path)
+        assert m.schema_version == 1
+
+
+def test_mesh_load_defaults_schema_version_and_warns():
+    """Legacy mesh.json missing schema_version → default=1 + DeprecationWarning."""
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        legacy = _fake_mesh_dict()
+        del legacy["schema_version"]
+        mesh_path = tmp / "mesh.json"
+        mesh_path.write_text(json.dumps(legacy, indent=2) + "\n", encoding="utf-8")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            m = mesh_lib.load(mesh_path)
+
+        assert m.schema_version == 1
+        assert any(issubclass(w.category, DeprecationWarning) for w in caught), \
+            "expected DeprecationWarning on missing schema_version"
+
+
+def test_migrate_same_version_is_noop():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        mesh_path = _write_fake_mesh(tmp)
+        # monkey-patch finder so launcher.cmd_migrate picks our fixture
+        orig = mesh_lib._find_mesh_json
+        mesh_lib._find_mesh_json = lambda: mesh_path
+        try:
+            ns = argparse.Namespace(cmd="migrate", from_version=1, to_version=1)
+            rc = launcher.cmd_migrate(ns)
+            assert rc == 0
+        finally:
+            mesh_lib._find_mesh_json = orig
+
+
+def test_migrate_version_mismatch_fails():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        mesh_path = _write_fake_mesh(tmp)  # on-disk schema=1
+        orig = mesh_lib._find_mesh_json
+        mesh_lib._find_mesh_json = lambda: mesh_path
+        try:
+            ns = argparse.Namespace(cmd="migrate", from_version=99, to_version=100)
+            rc = launcher.cmd_migrate(ns)
+            assert rc == 1
+        finally:
+            mesh_lib._find_mesh_json = orig
+
+
+def test_migrate_unregistered_pair_fails():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        mesh_path = _write_fake_mesh(tmp)
+        orig = mesh_lib._find_mesh_json
+        mesh_lib._find_mesh_json = lambda: mesh_path
+        try:
+            ns = argparse.Namespace(cmd="migrate", from_version=1, to_version=2)
+            rc = launcher.cmd_migrate(ns)
+            assert rc == 1  # no registered migration 1->2 yet
+        finally:
+            mesh_lib._find_mesh_json = orig
 
 
 def test_identity_load_grep_with_emphasis():

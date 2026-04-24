@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
+
+CURRENT_SCHEMA_VERSION = 1
 
 
 @dataclass
@@ -28,6 +31,7 @@ class Mesh:
     contracts_dir: str
     arch_contracts: str
     last_updated: str
+    schema_version: int = 1
 
 
 def load(mesh_json_path: Optional[Path] = None) -> Mesh:
@@ -38,6 +42,17 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
     if not p.exists():
         raise FileNotFoundError(f"mesh.json not found at {p}")
     raw = json.loads(p.read_text(encoding="utf-8"))
+
+    schema_version = raw.get("schema_version")
+    if schema_version is None:
+        warnings.warn(
+            f"mesh.json at {p} missing `schema_version`; assuming 1. "
+            f'Add `"schema_version": 1` to silence.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        schema_version = 1
+
     worktrees = [
         Worktree(
             name=w["name"],
@@ -59,6 +74,7 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
         contracts_dir=raw["contracts_dir"],
         arch_contracts=raw.get("arch_contracts", ""),
         last_updated=raw.get("last_updated", ""),
+        schema_version=int(schema_version),
     )
 
 
