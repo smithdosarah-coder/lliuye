@@ -15,6 +15,7 @@ Usage:
     py scripts/feedback_to_fewshot.py --since 2026-04-01        # 日期过滤
     py scripts/feedback_to_fewshot.py --top-n 5                 # 每 agent 取前 N 条模式
     py scripts/feedback_to_fewshot.py --min-count 2             # 至少 2 条相似反馈才入选
+    py scripts/feedback_to_fewshot.py --dry-run                 # 只打印将写什么,不真写
 """
 
 from __future__ import annotations
@@ -174,13 +175,24 @@ def scan_feedback(
     return records
 
 
-def write_candidates(candidates: dict[str, list[dict]], out_dir: Path = FEWSHOT_DIR) -> list[Path]:
-    out_dir.mkdir(parents=True, exist_ok=True)
+def write_candidates(
+    candidates: dict[str, list[dict]],
+    out_dir: Path = FEWSHOT_DIR,
+    *,
+    dry_run: bool = False,
+) -> list[Path]:
+    """落盘 candidates。dry_run=True 时只返回**预计**要写的路径列表，不真正写盘。"""
     written: list[Path] = []
+    if not dry_run:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
     for agent, items in candidates.items():
         if not items:
             continue  # 空聚类不落盘，避免假阳性 candidates 文件
         path = out_dir / f"{agent}-candidates.json"
+        if dry_run:
+            written.append(path)
+            continue
         payload = {
             "agent": agent,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -206,6 +218,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="聚类至少含 N 条记录才入选（避免单次偶发）")
     parser.add_argument("--feedback-dir", default=str(FEEDBACK_DIR))
     parser.add_argument("--out-dir", default=str(FEWSHOT_DIR))
+    parser.add_argument("--dry-run", action="store_true",
+                        help="不写盘，只打印将写入的文件和候选数量")
     args = parser.parse_args(argv)
 
     since = _parse_since(args.since)
@@ -214,16 +228,17 @@ def main(argv: list[str] | None = None) -> int:
                 len(records), args.agent or "*", since or "*")
 
     candidates = aggregate(records, top_n=args.top_n, min_count=args.min_count)
-    written = write_candidates(candidates, Path(args.out_dir))
+    written = write_candidates(candidates, Path(args.out_dir), dry_run=args.dry_run)
 
+    prefix = "[dry-run] would write" if args.dry_run else "wrote"
     for path in written:
         agent = path.stem.replace("-candidates", "")
         try:
             display = path.relative_to(PROJECT_ROOT)
         except ValueError:
             display = path
-        logger.info("  %-10s → %s (%d examples)",
-                    agent, display, len(candidates.get(agent, [])))
+        logger.info("  %s %d few-shot 到 %s (%s)",
+                    prefix, len(candidates.get(agent, [])), display, agent)
 
     if not written:
         logger.info("no candidates produced (feedback 数量不足或 min-count 过严)")
