@@ -1559,3 +1559,58 @@ worker yaml 把材料解析/外搜/比对核心能力全部 bypass，答案字�
 - Batch 2 规划等 4 全 APPROVE + Phase 1 落地再正式启动
 
 ---
+
+## [Q-029] 2026-04-24 · main CLI (self) · Batch 1 closeout + Batch 2 dispatch 四轨分配 + DF-V2-13 测试阶段豁免
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: no
+**Related**: Q-023/A-023 · Q-028/A-028 · Preflight v2 review 4 agent · demo-runbook + dod-current-status
+
+### 背景
+
+Batch 1 状态 4/4 APPROVED：
+- code-urgent + holding（合流 28d1037/54e42a8）CONDITIONAL→APPROVED
+- code-arch + holding（合流 53f3eca/b412656）APPROVED
+- evaluation + holding（合流 069f589/2530b5c）APPROVED
+- data-foundation v2（e4f23b5）返工 · 15 硬指标全过 · F1-F5 未触发
+
+### DF-V2-13 测试阶段豁免
+
+用户决策："重复也没问题，只要格式对就行，我们就是测试使用"—— 2026 Q2 测试阶段重名不构成法律风险。
+
+**豁免范围**：
+- ✅ 测试阶段 2026 Q2 · 内部开发 + 内部演示
+- ❌ 对外客户演示 / 商业化 / 签单 · 必须补 PM google 5 家非真存续
+
+5 家脱敏名册（未来追溯）：龙峰精工 / 蓝汀家电 / 宸星家装 / 汇德建材 / 星胤实业
+
+**追踪 Q-029.D**：一旦进入对外场景触发追查。
+
+### Batch 2 四轨
+
+| 轨 | Worker | 范围 | 期望 Signal | 工时 |
+|---|---|---|---|---|
+| 前端 | code-urgent | 证据链前端化 archive evidence UI + 高亮卡 + 未填标记 | READY-FOR-CODE-URGENT-B2-REVIEW | 2-3 天 |
+| 外搜 | code-arch | Agent1/5 SearchProvider 接 Tavily + 银保监/央行 · 读内部 KB 做种子 | READY-FOR-CODE-ARCH-B2-REVIEW | 3-5 天 |
+| 评估 | evaluation | 真基线重跑 DP001-005 + EV-12 ratio_calc_consistency + Agent1/5 召回精确率 | READY-FOR-EVALUATION-B2-REVIEW | 2-3 天 |
+| 数据 | data-foundation | Phase 2 Agent4 mock（alert-pool 客户 + 流水 + 外部信号） | READY-FOR-DATA-FOUNDATION-B2-REVIEW | 5-7 天 |
+
+**Onboarding**：
+- docs/onboarding/batch-2-code-urgent-evidence-frontend.md
+- docs/onboarding/batch-2-code-arch-external-search.md
+- docs/onboarding/batch-2-evaluation-real-baseline.md
+- docs/onboarding/batch-2-data-foundation-phase-2.md
+
+**Kickoff**: docs/handoff/batch-2-kickoffs.md
+
+### [A-029] 2026-04-24 · 主 CLI 自定
+
+**Decision**: Batch 1 closeout + DF-V2-13 测试豁免 + Batch 2 四轨 dispatch
+
+**Follow-up**:
+- 本 commit Signal: Q-029-RESOLVED
+- v2 合流 Signal: PHASE-1-DATA-FOUNDATION-V2-APPROVED
+- Batch 2 onboarding × 4 + kickoffs + DF-V2-4 polish 合 1 commit Signal: BATCH-2-DISPATCHED
+
+---
