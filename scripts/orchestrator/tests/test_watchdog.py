@@ -75,6 +75,48 @@ def test_orchestrator_still_flagged_git_unreachable():
     assert res == "stuck:git-unreachable"
 
 
+# ---------- Y2 · per-mesh tunable thresholds ----------
+
+def test_custom_idle_threshold_fires_earlier():
+    """Shorten idle_threshold to 30m => a 35m-old worker gets flagged idle."""
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt,
+        head_sha="abc",
+        age=35 * 60,  # 35 minutes
+        prev_sha="abc",
+        idle_threshold=30 * 60,  # 30-minute window
+    )
+    assert res == "stuck:idle-1h", f"expected idle tag on shortened window, got {res!r}"
+
+
+def test_custom_idle_threshold_relaxed_keeps_fresh():
+    """Loosen idle_threshold to 4h => a 2h-old worker is still fine."""
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt,
+        head_sha="abc",
+        age=2 * 3600,
+        prev_sha="abc",
+        idle_threshold=4 * 3600,
+    )
+    assert res is None
+
+
+def test_custom_abandoned_threshold_overrides_default():
+    """Set abandoned_threshold to 1h => a 90m-old silent worker goes straight to abandoned."""
+    wt = _wt("worker")
+    res = watchdog.detect_stuck(
+        wt,
+        head_sha="abc",
+        age=90 * 60,
+        prev_sha="abc",
+        idle_threshold=30 * 60,
+        abandoned_threshold=3600,
+    )
+    assert res == "stuck:abandoned-3d", f"expected abandoned tag, got {res!r}"
+
+
 if __name__ == "__main__":
     tests = [
         test_fresh_worker_no_stuck,
@@ -84,6 +126,9 @@ if __name__ == "__main__":
         test_git_unreachable_when_head_sha_none,
         test_orchestrator_never_stuck_for_idle,
         test_orchestrator_still_flagged_git_unreachable,
+        test_custom_idle_threshold_fires_earlier,
+        test_custom_idle_threshold_relaxed_keeps_fresh,
+        test_custom_abandoned_threshold_overrides_default,
     ]
     for t in tests:
         try:

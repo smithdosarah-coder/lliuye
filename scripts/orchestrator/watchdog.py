@@ -35,8 +35,12 @@ from orchestrator import scoreboard  # noqa: E402  (used for mesh-status.json re
 
 
 # ---- thresholds (seconds) ---------------------------------------------------
-IDLE_THRESHOLD = 3600          # 1 hour
-ABANDONED_THRESHOLD = 86400 * 3  # 3 days
+# These constants remain as the legacy defaults; mesh.json `thresholds` block
+# (Y2) overrides them per project. Tag names ("stuck:idle-1h" / "stuck:abandoned-3d")
+# are preserved for consumer stability — the "1h"/"3d" suffix is semantic
+# ("looks idle" / "looks abandoned"), not a literal reading of the threshold.
+IDLE_THRESHOLD = 3600          # 1 hour (legacy default)
+ABANDONED_THRESHOLD = 86400 * 3  # 3 days (legacy default)
 
 
 def detect_stuck(
@@ -44,6 +48,9 @@ def detect_stuck(
     head_sha: Optional[str],
     age: Optional[int],
     prev_sha: Optional[str],
+    *,
+    idle_threshold: int = IDLE_THRESHOLD,
+    abandoned_threshold: int = ABANDONED_THRESHOLD,
 ) -> Optional[str]:
     """Pure stuck-classification function. Returns event tag or None.
 
@@ -52,6 +59,10 @@ def detect_stuck(
         head_sha: current HEAD sha, or None if git unreachable
         age: commit_age_seconds, or None
         prev_sha: HEAD sha recorded last tick, or None on first sight
+        idle_threshold: seconds of silence before a worker is flagged idle
+            (kwarg-only; defaults to IDLE_THRESHOLD)
+        abandoned_threshold: seconds before a worker is flagged abandoned
+            (kwarg-only; defaults to ABANDONED_THRESHOLD)
 
     Returns:
         "stuck:git-unreachable" | "stuck:abandoned-3d" | "stuck:idle-1h" | None
@@ -68,11 +79,11 @@ def detect_stuck(
         return None
 
     # abandoned takes priority over idle (longer threshold = stronger signal)
-    if age > ABANDONED_THRESHOLD:
+    if age > abandoned_threshold:
         return "stuck:abandoned-3d"
 
     # idle-1h requires both age AND no movement since last tick
-    if age > IDLE_THRESHOLD and prev_sha is not None and prev_sha == head_sha:
+    if age > idle_threshold and prev_sha is not None and prev_sha == head_sha:
         return "stuck:idle-1h"
 
     return None
@@ -163,6 +174,10 @@ def run_tick(
         m = mesh.load()
     ts = _now_iso()
 
+    # Pull per-mesh thresholds, falling back to module defaults (Y2).
+    idle_th = int(m.thresholds.get("idle_seconds", IDLE_THRESHOLD))
+    abandoned_th = int(m.thresholds.get("abandoned_seconds", ABANDONED_THRESHOLD))
+
     for w in m.worktrees:
         prev = state.get(w.name, {})
         prev_sha = prev.get("head_sha")
@@ -178,7 +193,11 @@ def run_tick(
         else:
             details = "head-changed-or-first-sight"
 
-        event_tag = detect_stuck(w, sha, age, prev_sha)
+        event_tag = detect_stuck(
+            w, sha, age, prev_sha,
+            idle_threshold=idle_th,
+            abandoned_threshold=abandoned_th,
+        )
         is_status_change = False
         if event_tag is None:
             # only emit "fresh" when status flipped from a stuck state

@@ -299,6 +299,42 @@ def test_migrate_unregistered_pair_fails():
             mesh_lib._find_mesh_json = orig
 
 
+# ---------- Y2 · mesh.json thresholds block ----------
+
+def test_mesh_load_defaults_thresholds():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        mesh_path = _write_fake_mesh(tmp)
+        m = mesh_lib.load(mesh_path)
+        assert m.thresholds["idle_seconds"] == mesh_lib.DEFAULT_IDLE_SECONDS
+        assert m.thresholds["abandoned_seconds"] == mesh_lib.DEFAULT_ABANDONED_SECONDS
+
+
+def test_mesh_load_honours_explicit_thresholds():
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        d = _fake_mesh_dict()
+        d["thresholds"] = {"idle_seconds": 600, "abandoned_seconds": 7200}
+        mesh_path = tmp / "mesh.json"
+        mesh_path.write_text(json.dumps(d, indent=2), encoding="utf-8")
+        m = mesh_lib.load(mesh_path)
+        assert m.thresholds["idle_seconds"] == 600
+        assert m.thresholds["abandoned_seconds"] == 7200
+
+
+def test_mesh_load_partial_thresholds_fall_back_per_key():
+    """Providing only one key keeps the other at its default."""
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td)
+        d = _fake_mesh_dict()
+        d["thresholds"] = {"idle_seconds": 1800}  # abandoned_seconds omitted
+        mesh_path = tmp / "mesh.json"
+        mesh_path.write_text(json.dumps(d, indent=2), encoding="utf-8")
+        m = mesh_lib.load(mesh_path)
+        assert m.thresholds["idle_seconds"] == 1800
+        assert m.thresholds["abandoned_seconds"] == mesh_lib.DEFAULT_ABANDONED_SECONDS
+
+
 def test_identity_load_grep_with_emphasis():
     """Real-world AGENT_IDENTITY.md uses **bold** + Chinese keys + backticks."""
     with tempfile.TemporaryDirectory() as td:

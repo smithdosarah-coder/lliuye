@@ -3,11 +3,23 @@ from __future__ import annotations
 
 import json
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 CURRENT_SCHEMA_VERSION = 1
+
+# Legacy defaults; kept here so the behaviour without a `thresholds` block in
+# mesh.json matches the hard-coded values watchdog used in v1.
+DEFAULT_IDLE_SECONDS = 3600
+DEFAULT_ABANDONED_SECONDS = 86400 * 3
+
+
+def _default_thresholds() -> Dict[str, int]:
+    return {
+        "idle_seconds": DEFAULT_IDLE_SECONDS,
+        "abandoned_seconds": DEFAULT_ABANDONED_SECONDS,
+    }
 
 
 @dataclass
@@ -33,6 +45,8 @@ class Mesh:
     last_updated: str
     schema_version: int = 1
     project_id: str = ""  # canonical machine slug for Signal-namespace scoping (Y1)
+    # Watchdog tunables (Y2). Keys: idle_seconds, abandoned_seconds.
+    thresholds: Dict[str, int] = field(default_factory=_default_thresholds)
 
 
 def load(mesh_json_path: Optional[Path] = None) -> Mesh:
@@ -70,6 +84,22 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
     # new multi-project installations should set an explicit slug.
     project_id = raw.get("project_id") or project
 
+    # thresholds block is optional; missing keys fall back to the legacy defaults.
+    raw_thresholds = raw.get("thresholds") or {}
+    thresholds = _default_thresholds()
+    for key in thresholds:
+        if key in raw_thresholds:
+            try:
+                thresholds[key] = int(raw_thresholds[key])
+            except (TypeError, ValueError):
+                warnings.warn(
+                    f"mesh.json thresholds.{key} is not an int "
+                    f"({raw_thresholds[key]!r}); falling back to default "
+                    f"{thresholds[key]}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
     return Mesh(
         project=project,
         protocol_version=raw["protocol_version"],
@@ -82,6 +112,7 @@ def load(mesh_json_path: Optional[Path] = None) -> Mesh:
         last_updated=raw.get("last_updated", ""),
         schema_version=int(schema_version),
         project_id=project_id,
+        thresholds=thresholds,
     )
 
 
