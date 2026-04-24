@@ -21,4 +21,8 @@ Agent4 · 贷中风险预警 · v3.1 知识库驱动批量扫描
 
 共享：
   与 Agent1 / Agent5 共享 SearchProvider + KnowledgeBase 接口（shared/kb_scan/ 底座）。
+
+工具域公开 API（`<域>_<动作>` 命名）都在 `agent_alert.domains` 子包下：
+  `from agent_alert.domains import internal_txn_evaluate, disposition_generate_plan, ...`
 """
+

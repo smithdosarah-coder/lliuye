@@ -22,4 +22,8 @@ Agent3 · 授信决策辅助 · v3.1 对公 / 普惠 / 对私三板块
 架构核心：
   DecisionEngine = FeatureExtractor + ScoringModel(对公/对私可切换) + RuleEngine + CaseRetriever + AdvisorFormatter
   不套 Agent1/4/5 的"知识库扫描范式"—— 这里是"一对多维深入"（对 1 做 N 维判断），不是"一对多筛选"。
+
+工具域公开 API（`<域>_<动作>` 命名）都在 `agent_credit.domains` 子包下：
+  `from agent_credit.domains import scoring_calc_corporate, redline_check_classify, ...`
 """
+

@@ -21,4 +21,8 @@ Agent5 · 合规巡检 · v3.1 政策事件驱动
 
 共享：
   与 Agent1 / Agent4 共享 shared/kb_scan/ 底座，但触发源 / 输入 / 输出差异清晰，不合并。
+
+工具域公开 API（`<域>_<动作>` 命名）都在 `agent_compliance.domains` 子包下：
+  `from agent_compliance.domains import policy_parse_document, violation_check_matrix, ...`
 """
+
