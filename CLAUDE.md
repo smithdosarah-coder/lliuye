@@ -47,6 +47,33 @@
 
 Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查查实现），切换来源一行代码。下游统一消费 `CompanyProfile` / `ScanResult` 结构，不准依赖数据来源细节。
 
+### 3.5 反结果导向 5 原则（mock 数据约束 · 决定落地）
+
+信贷 Agent 矩阵所有 mock 数据必须同时满足以下 5 条，违反即返工。适用场景：data-foundation worker 产出、Agent 自测数据、任何外部搜索 mock。本节与 §3.1 互补——§3.1 管**运行时计算归属**，本节管**训练 / 评估时数据归属**。
+
+| # | 原则 | 意思 | 反面案例 |
+|---|---|---|---|
+| 1 | **盲测** | PM 设计埋坑与 worker 实现物理分离，worker 不预知埋坑答案 | worker 同时设计数据 + 填埋坑清单 |
+| 2 | **难度分层** | 覆盖简单 20% / 中等 50% / 困难 20% / 极端 10% | 全堆极端档以显"数据硬" |
+| 3 | **真实来源锚定** | 参考 A 股年报 / 央行模板 / 银保监处罚公告的真实形态 | 凭空编企业名和数字 |
+| 4 | **脱敏再造** | 不直接用真实存续企业数据；改名字改数字保量级 | 抄真实公司材料直接入库 |
+| 5 | **环境边界** | mock 给 Agent "稳态内部 context"，**不替它做"本该外搜的工作"** | 把 Agent1 / Agent5 的外部候选 / 新政策也 mock 掉，使 Agent 只做 dict lookup 不做真检索 |
+
+**环境边界具体落地（per Agent · 数据归属分割线）**：
+
+| Agent | 内部 mock（稳态 context · 要建的库） | 外部不 mock（Agent 自搜 · 核心能力） |
+|---|---|---|
+| Agent6 报告 | 客户提交材料包（文件夹 + pdf / xlsx / docx / 扫描件混合）| — |
+| Agent3 授信 | 复用 Agent6 材料 + ReportJSON | — |
+| Agent1 获客 | 银行已成交客户画像 + 营销倾向性文件 + 产品目录 | 外部企业候选（SearchProvider 实搜 Tavily / 企查查）|
+| Agent5 合规 | 银行业务制度库（SOP / 准入 / KYC / 风偏 / 审查清单）| 外部新政策（SearchProvider 实搜银保监 / 央行）|
+| Agent4 预警 | 在贷客户池 + 内部流水 + 外部信号流（可全 mock，核心能力是跨源交叉）| — |
+| Agent2 风控 | 历史贷款样本 CSV + 字段字典（内部建模）| — |
+
+**形态硬线**：mock 不可以是"pre-extracted key-value yaml"，必须保留真实消费形态（Agent6/3 = 文件夹异构文件 · Agent1/5 = 文档库 · Agent4 = 多表 · Agent2 = CSV），含命名混乱 / 扫描件 / 多年跨度 / 数字合理矛盾等噪声；**绝不含答案字段**（difficulty / match_score / risk_level / conflict_points / optimal_dsl 等），Agent 自己算。
+
+本 5 原则沉淀于 Q-028/A-028（2026-04-24）· data-foundation Batch 1 REJECT-V2 复盘。
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |

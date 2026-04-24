@@ -142,92 +142,122 @@ ruff check agent_credit/ agent_alert/ agent_riskctrl/ shared/qc/
 
 ## §2 data-foundation 验收预案
 
-### 2.1 Task 清单
+> **v2 版**（2026-04-24 rewrite · 原 yaml 形态 DF-1~13 作废）。
+> 批次已判 REJECT-V2(Q-028 / A-028)——v1 产物形态错(yaml 把答案喂到模型嘴边)。
+> v2 worker 在 `D:/claude code/demo-data-foundation` worktree 覆盖式返工,Phase 1 交付 3 组 mock(深柱 5 家 + Agent1 内部 KB + Agent5 内部制度库),**不做宽基 100 家**。
+> 判决依据:`docs/onboarding/data-foundation-phase-1-v2.md` + `docs/handoff/data-foundation-v2-kickoff.md` + CLAUDE.md §3.5 反结果导向 5 原则。
+
+### 2.1 v2 Task 清单
 
 | Task | Signal | 核心交付物 |
 |---|---|---|
-| A | `DATA-SCHEMA-DONE` | `data/mock/README.md` + `data/mock/schemas/wide-base.yaml` + `data/mock/schemas/deep-pillar.yaml` |
-| B | `DATA-WIDE-100-DONE` | `data/mock/wide-base/companies.yaml`（100 家）+ `source-notes.md` |
-| C | `DATA-DEEP-SHORTLIST-DONE` | `data/mock/deep-pillar/shortlist.md` + `pit-template.md` + 15 份 `pits/<company_id>.md` 空模板 |
+| A | `DATA-SCHEMA-V2-DONE`(embedded `DATA-LEGACY-PURGED`) | 删 v1 老产物(`wide-base/` / `schemas/` / `deep-pillar/shortlist.md` / `deep-pillar/pits/`)+ 新建 `data/mock/{deep-pillar,channel-kb,compliance-kb}/` 空目录骨架 + `data/mock/README.md` |
+| B | `DATA-DEEP-PILLAR-5-DONE` | `data/mock/deep-pillar/DP001_<脱敏名>/` ~ `DP005_<脱敏名>/` · 每家 20-40 份异构材料(6 大类:资质/场所/财务/纳税/银行流水/补充)· 命名混乱 · 跨 2022-2025 · 三方数字合理矛盾 · 零答案字段 |
+| C | `CHANNEL-KB-DONE` | `data/mock/channel-kb/{historical-clients, marketing-preferences, product-catalog}/` · 10-15 家历史画像 + 3-5 份营销倾向 docx + 1 份产品目录 · **不含**外部候选企业池 |
+| D | `COMPLIANCE-KB-DONE` | `data/mock/compliance-kb/{credit-sop, customer-admission, kyc-aml, risk-preference, review-checklists}/` · 仿银行内部 SOP 体例 docx · **不含**外部新政策 |
+| E | `READY-FOR-DATA-FOUNDATION-B1-V2-REVIEW` | 全轨 ACK |
 
-### 2.2 硬指标清单（13 项）
+入口 Signal:`PRODUCT-HARDENING-BATCH-1-V2-ACK`(worker resume doc-only commit trailer)
+
+### 2.2 硬指标清单(15 项 · DF-V2-1~15)
 
 | # | 指标 | 阈值 | 判定 |
 |---|---|---|---|
-| DF-1 | 两份 schema YAML yamllint 通过 | 0 error/warn | `yamllint data/mock/schemas/` |
-| DF-2 | 宽基 100 家整文件 yamllint 通过 | 0 error | `yamllint data/mock/wide-base/companies.yaml` |
-| DF-3 | 8 大行业覆盖 + 家数分布 | 严格 25/20/15/10/8/12/5/5 | 人工 grep `industry_l1` 计数 |
-| DF-4 | 难度分层比例 | 20/50/20/10 精确 | grep `difficulty:` 计数 |
-| DF-5 | 每家企业 8-10 个字段 | 字段齐 | 脚本校验 schema 对齐 |
-| DF-6 | `source-notes.md` 脚注覆盖 100 家 | 100/100 | 行数匹配 |
-| DF-7 | PM 抽检 20 家真度 | ≥ 80% | PM 亲自 sign off（非主 CLI 能代劳） |
-| DF-8 | 深柱 15 家难度分布 | 3/7-8/3/1-2（简/中/困/极） | 人工核 `shortlist.md` |
-| DF-9 | 15 份埋坑清单模板字段齐 | 所有 checkbox 未勾（等 PM 填） | grep `[ ]` 计数 ≥ 5/份 |
-| DF-10 | 极端档至少 1 家"虚假授信"模式 | 存在 + 参考银保监处罚公告 | 人工读 `source-notes.md` 相应脚注 |
-| DF-11 | 反结果导向 4 原则合规 | 盲测/分层/锚定/脱敏四条全 ✓ | 主 CLI 人工 review（见 2.4） |
-| DF-12 | 不动任何 `agent_*/` / `web/` | 0 命中 | `git diff --name-only` |
-| DF-13 | Agent1 检索 API 能消费 `companies.yaml` | 格式 schema 对齐 | 对照 `shared/enterprise_profile.py` 中 `EnterpriseProfile` 字段名与 schema 字段名一致性；跑 `agent_channel/api.py` 的 `/api/channel/search` SSE 冒烟看 yaml 能否被 loader parse |
+| DF-V2-1 | 老产物全删 | `wide-base/` / `schemas/` / `deep-pillar/shortlist.md` / `deep-pillar/pits/` 全部 `git status` 显示 `deleted:` · 不留残余 | `git log --diff-filter=D --name-only feat/data-foundation` 命中这 5 处 |
+| DF-V2-2 | 新目录骨架齐 | `data/mock/deep-pillar/` + `channel-kb/` 3 子目录(historical-clients / marketing-preferences / product-catalog)+ `compliance-kb/` 5 子目录(credit-sop / customer-admission / kyc-aml / risk-preference / review-checklists)全部存在 | `ls data/mock/` 目录树对齐 |
+| DF-V2-3 | 5 家深柱文件夹存在 | `DP001_* ~ DP005_*` 5 个文件夹 · 脱敏名前缀 `DP00N_` 规则统一 | `ls data/mock/deep-pillar/` 计数 = 5 |
+| DF-V2-4 | 每家材料份数 | 20 ≤ 份数 ≤ 40 / 每家 | `find data/mock/deep-pillar/DP00N_*/ -type f \| wc -l` 每家结果在区间 |
+| DF-V2-5 | 扩展名多样性 | 每家 ≥ 3 种扩展名(pdf / xlsx / docx 必居其二,可追加 xls / jpg) | `find data/mock/deep-pillar/DP00N_*/ -type f \| awk -F. '{print $NF}' \| sort -u` 每家 ≥ 3 |
+| DF-V2-6 | 6 大类子目录覆盖 | 每家包含资质 / 场所 / 财务 / 纳税 / 银行流水 / 补充 6 大类材料(子目录或序号前缀形式均可,至少能 `ls` 识别) | 人工读 `ls -R` 输出逐家核 |
+| DF-V2-7 | 命名混乱度 | 每家内同时出现 ≥ 2 种命名风格(如"00、xxx.xlsx" + "1、xxx.pdf" + "审计报告2023年-xxx.pdf"无序号直写)· **禁止**统一规整命名(`DP001_01_营业执照.pdf` 这种 = 结果导向偷懒) | 抽 3 家列出所有文件名 · 人工判 |
+| DF-V2-8 | 多年跨度 | 时间戳覆盖 ≥ 3 年份(2022/2023/2024/2025 中至少 3 个)· 不强求每家齐全 | `ls` 每家 + grep 文件名里 20XX 年份字符 |
+| DF-V2-9 | 三方数字合理矛盾 | 财报 vs 申报表 vs 流水三方营收量级一致但具体数字不完全对齐(例:4800/5000/5200 万)· **不得清洗成三方完全对齐** | 抽 2 家 read 关键文件(财报 xlsx + 申报表 pdf + 流水 pdf)人工核 |
+| DF-V2-10 | 零答案字段 | **0 命中**以下字段名在任何产物(deep-pillar + channel-kb + compliance-kb + README):`difficulty` / `match_score` / `risk_level` / `tags` / `benchmark_ref` / `conflict_points` / `optimal_dsl` | `grep -rE "difficulty\|match_score\|risk_level\|tags:\|benchmark_ref\|conflict_points\|optimal_dsl" data/mock/` 结果为空 |
+| DF-V2-11 | channel-kb 不含外部候选 | `historical-clients/` 仅"已成交客户" · 目录/文件名不含 `candidate` / `候选企业` / `候选池` / `外部企业` / `potential_client` 等词 · 0 命中 | `find data/mock/channel-kb/ -iname "*candidate*" -o -iname "*候选*" -o -iname "*外部企业*" -o -iname "*potential*"` 结果为空 |
+| DF-V2-12 | compliance-kb 不含外部政策 | 目录/文件名不含 `银保监` / `央行` / `国务院` / `CBIRC` / `PBOC` / `NFRA` / `gov.cn` 等官方机构字样 · 不含 `2026新规` / `xx号令` / `xx通知(外发)` 等外部政策文件命名 · 0 命中 | `find data/mock/compliance-kb/ -iname "*银保监*" -o -iname "*央行*" -o -iname "*国务院*" -o -iname "*CBIRC*" -o -iname "*PBOC*" -o -iname "*NFRA*"` 结果为空 |
+| DF-V2-13 | 脱敏企业名 | PM 随机抽 5 家 google 搜,**不得命中真实存续企业**(避免法律风险)· 企业名风格允许"行业+地区+编号"自造拼接 | PM 亲自 sign off(主 CLI 不代签) |
+| DF-V2-14 | 不越界 | 仅动 `data/mock/` + `docs/` · 不动 `agent_*/` / `web/` / `shared/` / `evaluation/` / `scripts/` | `git diff --name-only chore/l0-infra..feat/data-foundation \| grep -vE "^(data/mock/\|docs/)"` 期望空 |
+| DF-V2-15 | 反结果导向 5 原则合规 | 盲测法(零答案字段)/ 难度分层(PM 内部 1/2/1/1 档,**产物不写**)/ 真实来源锚定(中锐形态)/ 脱敏再造 / 环境边界(Agent1/5 不 mock 外部)五条**全 ✓** | 主 CLI 逐条 review(见 §2.4) |
 
 ### 2.3 自动化验收命令
 
 ```bash
-cd "D:/claude code/credit_report_agent_work" && git checkout feat/data-foundation
+cd "D:/claude code/demo-data-foundation" && git checkout feat/data-foundation && git pull
 
-# 1. yamllint
-pip install yamllint
-yamllint data/mock/schemas/
-yamllint data/mock/wide-base/companies.yaml
+# 1. 老产物是否全删(DF-V2-1)
+git log --diff-filter=D --name-only feat/data-foundation | grep -E "wide-base/|schemas/|deep-pillar/shortlist.md|deep-pillar/pits/"
+# 期望:5 处都命中
 
-# 2. 行业 + 难度分布校验
-py -c "
-import yaml
-with open('data/mock/wide-base/companies.yaml') as f:
-    data = yaml.safe_load(f)
-from collections import Counter
-industries = Counter(c['industry_l1'] for c in data['companies'])
-difficulties = Counter(c['difficulty'] for c in data['companies'])
-print('行业分布:', dict(industries))
-print('难度分布:', dict(difficulties))
-assert sum(industries.values()) == 100, f'总数 {sum(industries.values())} != 100'
-"
-# 键名以 schemas/wide-base.yaml 敲定为准，上例假设 companies[].industry_l1 / difficulty
+# 2. 新目录骨架齐(DF-V2-2)
+ls -d data/mock/deep-pillar/ data/mock/channel-kb/ data/mock/compliance-kb/
+ls -d data/mock/channel-kb/{historical-clients,marketing-preferences,product-catalog}
+ls -d data/mock/compliance-kb/{credit-sop,customer-admission,kyc-aml,risk-preference,review-checklists}
 
-# 3. 深柱清单
-wc -l data/mock/deep-pillar/shortlist.md
-ls data/mock/deep-pillar/pits/ | wc -l   # 期望 15
-grep -c "\[ \]" data/mock/deep-pillar/pits/*.md   # 每份 ≥ 5
+# 3. 5 家深柱文件夹(DF-V2-3)
+ls -d data/mock/deep-pillar/DP00* | wc -l   # 期望 5
 
-# 4. 不越界
+# 4. 每家份数 + 扩展名多样性(DF-V2-4 / DF-V2-5)
+for dir in data/mock/deep-pillar/DP00*/; do
+  cnt=$(find "$dir" -type f | wc -l)
+  exts=$(find "$dir" -type f | awk -F. '{print tolower($NF)}' | sort -u | wc -l)
+  echo "$dir files=$cnt exts=$exts"
+done
+# 期望每家:20 ≤ files ≤ 40 · exts ≥ 3
+
+# 5. 零答案字段(DF-V2-10)· 核心红线
+grep -rE "difficulty|match_score|risk_level|tags:|benchmark_ref|conflict_points|optimal_dsl" data/mock/
+# 期望:空(任何命中都 REJECT-V3)
+
+# 6. channel-kb 不含外部候选(DF-V2-11)
+find data/mock/channel-kb/ \( -iname "*candidate*" -o -iname "*候选*" -o -iname "*外部企业*" -o -iname "*potential*" \)
+# 期望:空
+
+# 7. compliance-kb 不含外部政策(DF-V2-12)
+find data/mock/compliance-kb/ \( -iname "*银保监*" -o -iname "*央行*" -o -iname "*国务院*" -o -iname "*CBIRC*" -o -iname "*PBOC*" -o -iname "*NFRA*" -o -iname "*gov.cn*" \)
+# 期望:空
+
+# 8. 多年跨度抽检(DF-V2-8)
+for dir in data/mock/deep-pillar/DP00*/; do
+  years=$(find "$dir" -type f | grep -oE "20(22|23|24|25)" | sort -u | wc -l)
+  echo "$dir years_covered=$years"
+done
+# 期望:每家 years ≥ 3
+
+# 9. 不越界(DF-V2-14)
 git diff --name-only chore/l0-infra..feat/data-foundation | grep -vE "^(data/mock/|docs/)" | wc -l
-# 期望 0
+# 期望:0
 
-# 5. Agent1 消费验证
-py scripts/start_uvicorn.py &
-curl -N -X POST http://127.0.0.1:8000/api/channel/search -H "Content-Type: application/json" -d '{"query":"精密机械","kb":"data/mock/wide-base/companies.yaml"}'
-# 期望：能返回候选企业，不因 yaml shape 读取失败报 500
+# 10. README 可读性(人工配合,见 §2.4)
+cat data/mock/README.md | head -40
 ```
 
-### 2.4 人工抽检点（5 项）
+### 2.4 人工抽检点(5 项)
 
-1. **反结果导向 4 原则逐条核**：
-   - 盲测法：worker 未填埋坑清单具体内容（只留空模板）✓/✗
-   - 难度分层：20/50/20/10 精确比例 ✓/✗
-   - 真实来源锚定：随机挑 10 家的 `source-notes.md`，每条应指向一个真实 A 股公司 / 央行模板 / 银保监处罚案（脱敏前身），不能是"某通用制造企业"这种空话
-   - 脱敏再造：随机抽 5 家企业名 google 搜，不能是真实存续企业（避免法律风险）
-2. **宽基 100 家真度抽检**：PM 亲自抽 20 家看财务字段量级、注册资本、行业子类是否合理。这步**必须 PM 签字**，主 CLI 不代签。
-3. **深柱 15 家覆盖面**：确认极端档至少 1 家"虚假授信"模式（参考 2020-2024 年银保监处罚公告），否则 Batch 2 埋坑无法覆盖"合规最高风险"这一档。
-4. **埋坑清单模板语义**：每份 `pits/<company_id>.md` 的示例坑（财报口径冲突 / 征信时效滞后 / 关联交易隐蔽 / 资产评估虚高 / 历史违规未披露）是否与该企业的行业/规模档位**逻辑自洽**，不能 5 家极小微企业都挂"关联交易隐蔽"这种大企业才有的模式。
-5. **`data/mock/README.md` 可读性**：新人 10 分钟内读完能理解"宽基 vs 深柱 / 消费方 / 反结果导向"三件事。
+1. **反结果导向 5 原则逐条核**(v2 新增第 5 条 · **最关键**):
+   - 盲测法:`grep -rE "difficulty|tags:|benchmark_ref"` 为空 ✓/✗(DF-V2-10 机控 + 人工 double check README 措辞不暗示档位)
+   - 难度分层:PM 内部维护 1/2/1/1 档位(easy / medium / hard / extreme),**产物里不得出现档位字面值** ✓/✗
+   - 真实来源锚定:随机挑 3 家 deep-pillar,对照 `D:\刘野\众安\新建文件夹\2026.3.25续贷材料` 中锐续贷包看命名风格 / 6 大类分布 / 扫描件形态是否同源仿真,不能整洁过度 ✓/✗
+   - 脱敏再造:PM 随机抽 5 家企业名 google 搜,不能是真实存续企业 ✓/✗(DF-V2-13 · **必须 PM 签字**,主 CLI 不代签)
+   - **环境边界** 🆕:channel-kb 不出现候选企业池 + compliance-kb 不出现外部政策 ✓/✗(DF-V2-11 / DF-V2-12 机控 + 人工 read README 确认消费方约束写清)
+2. **命名真实度对比中锐包**:抽 1 家 deep-pillar(如 DP003),列出所有文件名,与 `D:\刘野\众安\新建文件夹\2026.3.25续贷材料` 下真实客户包命名对比——序号前缀混乱度 / 中文日期混用 / 扩展名分布 / 扫描件占比是否同量级。不能过度"整洁化"。
+3. **三方数字矛盾抽检**:抽 2 家 deep-pillar,read 财报 xlsx + 增值税申报表 pdf + 银行流水 3 家文件,核营收 / 所得税 / 进项量级是否一致但具体数字**不完全对齐**(4800 vs 5000 vs 5200 万级别差异)。若三方清洗到一致数字 = 把答案喂嘴边,F3 触发。
+4. **内部 KB / 制度库不越界**:
+   - channel-kb:read `historical-clients/` 5 份画像,确认全部"已成交客户"立场(有授信额度 / 签约产品 / 历史业务特征),不是"外部候选评估池"口吻
+   - compliance-kb:read 每个子目录 1 份 docx,确认"银行内部 SOP"体例(文号 + 章节编号 + 修订日期 + 密级水印),不含"银保监 2026 年 X 号文"这类外部政策
+5. **格式仿真度 + README 可读性**:
+   - deep-pillar 扫描件 pdf 是否有 OCR 可识别文字但格式不齐(审计报告 / 完税证明首选此形态)
+   - xlsx 是否混行合并 / 部分列空白 / sheet 名五花八门
+   - `data/mock/README.md` 新人 10 分钟内读完能理解"3 组 mock 消费方对应 / 为什么没有外部候选池 / 为什么没有外部政策"三件事
 
-### 2.5 REJECT-V2 触发条件
+### 2.5 REJECT-V3 触发条件
 
-- **F1**：难度分布不是严格 20/50/20/10（如 15/55/20/10）→ v2 要求精确重分
-- **F2**：PM 抽检真度 < 80% → v2 要求全量重审参考标杆，命中率 < 80% 的反工
-- **F3**：15 份埋坑清单模板缺字段 / 勾选了具体内容（抢 PM 的活）→ v2 明令"worker 不填坑，只立模板"
-- **F4**：越界动 `agent_*/` / `web/` → 直接 REJECT + commit 作废
-- **F5**：真实客户数据入 git（任何 yaml 出现已知存续企业名）→ 停工 + 事故复盘 + 全量重造
+- **F1 · 再犯 yaml 形态**:新增任何 `companies.yaml` / `entities.yaml` / `prefilled.yaml` / `shortlist.md`(或等价结构化清洗文件)→ 直接 REJECT-V3 + commit 作废 + 事故复盘(与 Q-028 同根错误)
+- **F2 · 出现答案字段**:grep 命中 `difficulty` / `match_score` / `risk_level` / `tags` / `benchmark_ref` / `conflict_points` / `optimal_dsl` 任一 → v3 要求全量洗 + 重审产物 · worker 不得辩驳"只是注释"
+- **F3 · 三方数字太整齐**:财报 / 申报表 / 流水 营收数字完全一致(清洗到三方对齐)→ v3 要求按 `±3-8%` 合理幅度重播数字 · 保量级不保完全一致
+- **F4 · 违反环境边界(新第 5 原则)**:channel-kb 出现候选企业池 / compliance-kb 出现外部政策文件 → 直接 REJECT-V3 + 重审反 5 原则培训 · 同时触发 CLAUDE.md §3.5 培训 gap 复盘
+- **F5 · 越界业务代码**:diff 命中 `agent_*/` / `web/` / `shared/` / `evaluation/` / `scripts/` → 直接 REJECT + commit 作废 · 与 v1 F4 等同红线
 
-REJECT-V2 文档路径：`docs/onboarding/data-foundation-phase-1-v2.md` + `Signal: PHASE-1-DATA-FOUNDATION-REJECTED-V2-DISPATCHED`
+REJECT-V3 文档路径:`docs/onboarding/data-foundation-phase-1-v3.md` + `Signal: PHASE-1-DATA-FOUNDATION-REJECTED-V3-DISPATCHED`(若触发)
 
 ---
 
