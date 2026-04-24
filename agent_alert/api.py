@@ -33,6 +33,12 @@ from agent_alert.output_validator import soft_clean as _qc_scrub  # noqa: E402
 app = FastAPI(title="Agent4 Alert Radar API", version="3.1")
 
 
+@app.get("/api/alert/health")
+async def alert_health():
+    """Agent4 sub-app 健康探针 (与 portal /health 平级, 用于精细化故障定位)。"""
+    return {"status": "ok", "agent": "agent_alert"}
+
+
 class AlertScanRequest(BaseModel):
     scenario_key: str = ""               # e.g. "micro_credit_100"; 空 → 默认场景
     uploaded_files: list[str] | None = None
