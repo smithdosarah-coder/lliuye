@@ -24,9 +24,26 @@
 
 | # | Task | 工作量 | 完成 Signal | 状态 | Commit |
 |---|---|---|---|---|---|
-| H-ACK | HOLDING 启动 | S | `HOLDING-EV-ACK` | 🟡 in-progress | (本 commit) |
-| H-A | v16 summary parse · agent6 3 项 method=manual→deterministic | S | `HOLDING-EV-H-A-DONE` | ⏳ pending | — |
-| H-末 | HOLDING 结 | — | `HOLDING-EV-DONE` | ⏳ pending | — |
+| H-ACK | HOLDING 启动 | S | `HOLDING-EV-ACK` | ✅ done | `887365b` |
+| H-A | v16 summary parse · agent6 3 项 method=manual→deterministic | S | `HOLDING-EV-H-A-DONE` | ✅ done | `42364ea` |
+| H-末 | HOLDING 结 | — | `HOLDING-EV-DONE` | 🟡 in-progress | (本 commit) |
+
+### H-A 验证数据
+
+Fixture：`evaluation/manual/6_v16_fixture/`（合成 summary + QC md + docx placeholder）
+
+```
+py -m evaluation.runner --agent report --artifacts evaluation/manual/6_v16_fixture --out /tmp/eval.json
+```
+
+| 指标 | H-A 前 | H-A 后 |
+|---|---|---|
+| `evidence_rate` | manual N/A | **0.7778**（7/9 维度无 miss · deterministic） |
+| `hallucination_rate` | manual N/A | **0.2500**（2 halluc / 8 段落 · deterministic · fixture 小样本虚高） |
+| `quality_score_total` | manual N/A | **82.5000**（qc.score 直读 · deterministic） |
+
+Fallback 验证（`samples/` 旁无 summary 文件）：三项仍 N/A，与 H-A 前一致。
+回归（6 agent `--all`）：verdict 分布与 Batch 1 首轮一致（alert PASS / 其余 PARTIAL / report FAIL）。
 
 ### HOLDING 红线
 - ❌ 不改 `v16_pipeline.py` / `agent_*/` / `data/mock/` / evaluation rubric YAML
