@@ -1352,3 +1352,58 @@ PM 要求"每个 Agent 独立产品力够硬"（见用户多轮 ultrathink 指�
 - Code Batch 2：按 C1/C2 review 结果定（可能是"6 Agent 证据链前端化"或"Agent1 检索样板打通"）
 
 ---
+
+## [Q-024] 2026-04-24 · main CLI (self) · evaluation worker 路径冲突（onboarding vs 仓库现状）
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: **yes** — 卡 evaluation worker Task A 开工前；worker 一粘 GO prompt 开 Task A 就会踩
+**Related**: Q-023/A-023 · Preflight 审计（general-purpose agent 2026-04-24）· `docs/handoff/batch-1-review-preflight.md`
+
+### 背景
+
+写 Batch 1 Review Preflight 时派 Explore agent 对照 `docs/onboarding/evaluation-phase-1.md` 与仓库现状，发现路径冲突：
+
+- **onboarding 要求**：在 `evaluation/` 根新建 `base_evaluator.py` / `cli.py` / `adapters/*.py` × 6
+- **仓库现状**（2026-04-24 扫描）：`evaluation/runner/` 下已有 `base_evaluator.py`（182 行 ABC 骨架，生产就绪）+ `cli.py`（94 行，CLI 参数齐全）+ `schemas.py` + `registry.py` + `__main__.py`；`evaluation/runner/adapters/` 下已有 `agent2_riskctrl.py` / `agent4_alert.py` / `agent6_report.py` 三个 Phase A adapter 实现（前一轮 `docs/contracts/rfc/20260418-evaluation-runner.md` RFC 遗留）
+- **缺什么**：agent1_channel / agent3_credit / agent5_compliance 三个 adapter 未写（正是 evaluation Batch 1 Task B 该补的）
+
+worker resume 完 onboarding 会看到 "新建 evaluation/base_evaluator.py" 这句，按字面执行 = 在两处各有一个 base class = 双份架构；若自己先 grep 发现冲突，又没 A-NNN 指示，只能停工等裁决 = blocker。
+
+### 选项
+
+- **A** **续建 `evaluation/runner/`**：worker Task B 不动 base_evaluator，只补 agent1/3/5 adapter；Task A 的 rubric YAML 指向 `evaluation/` 根（与现状一致）；Task C 基线跑分用 `py -m evaluation.runner`
+- **B** 另起 `evaluation/base_evaluator.py`：按 onboarding 字面建，`evaluation/runner/` 归入 deprecated，风险是 Phase A 的 agent2/4/6 实现重写 + v16 pipeline 消费接口可能断
+- **C** 薄 wrapper：`evaluation/base_evaluator.py` 做 `from evaluation.runner.base_evaluator import BaseEvaluator`，双入口兼容
+
+### 推荐
+
+**A**。理由：
+
+1. `evaluation/runner/base_evaluator.py` 已是 ABC 生产就绪骨架（`run(EvalRun) -> EvalResult` 全流程 + `evaluate_target` 字符串目标解析 + `mark(name, value, method, evidence, note)` adapter 便利方法），Phase A agent2/4/6 adapter 跑通验证了架构可用——**没有重写必要**
+2. B 选项等于作废 Phase A 沉淀 + 潜在破 v16 pipeline 消费接口（`evaluation/agent6_report.yaml` 被 `v16_pipeline` 读）
+3. C 选项看似"兼容"，实际引入两个 base class 入口 = 长期维护债
+
+### [A-024] 2026-04-24 · 主 CLI 自定
+
+**Decision**: A（续建 `evaluation/runner/`）
+
+**Rationale**: ABC 骨架已经过 agent2/4/6 三个 Phase A adapter 验证架构可行性；worker 的 Task B 是 "补 Phase B 三个 adapter"，不是 "重写 base"。
+
+**对 evaluation worker 的具体指示**（覆盖 onboarding 字面）：
+
+| Task | onboarding 字面 | **A-024 后的实际路径** |
+|---|---|---|
+| A 产物 | `evaluation/agent*.yaml` × 6 | `evaluation/agent*.yaml` × 6（路径同，schema 见 Q-025） |
+| B 产物 1 | 新建 `evaluation/base_evaluator.py` | **不动**，用 `evaluation/runner/base_evaluator.py` 现有 `BaseEvaluator` ABC |
+| B 产物 2 | 新建 `evaluation/adapters/agent*.py` × 6 | **补** `evaluation/runner/adapters/agent1_channel.py` + `agent3_credit.py` + `agent5_compliance.py`（其他 3 个 Phase A 已存在，不覆盖） |
+| B 产物 3 | `evaluation/cli.py` | **不动**，用 `evaluation/runner/cli.py`；新增 agent1/3/5 自动被 registry.py 发现 |
+| C 跑法 | `python -m evaluation.cli --agent <id>` | `python -m evaluation.runner --agent <id>`（同语义）|
+| C 产物 | `evaluation/baselines/2026-04-23-first-run.json` | 同，但 evaluation runner 默认路径是 `evaluation/results/YYYY-MM-DD/<agent>_<commit>.json`；worker 产 baseline 汇总请用 `evaluation/baselines/2026-04-24-first-run.json`（日期按 Task C 实际落地日）|
+
+**Follow-up**:
+- 本次 commit trailer 带 `Signal: Q-024-RESOLVED`
+- evaluation worker GO prompt 增强版（见 `kickoffs.md` 补丁章节 / 主 CLI 粘贴给用户的内容）加一步："ACK 后先 `git fetch origin chore/l0-infra && git log origin/chore/l0-infra -5`，读 Q-024/A-024 + Q-025/A-025 后再动 Task A"
+- code-urgent / code-arch / data-foundation worker 不受 Q-024 影响（路径不重叠）
+
+---
