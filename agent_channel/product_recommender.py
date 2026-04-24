@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+from pathlib import Path
 from typing import Iterable
 
 from shared.kb_scan.models import HitItem, IdealProfile
@@ -17,6 +19,56 @@ from agent_channel.prompts import (
     PITCH_GEN_SYSTEM, PITCH_GEN_PROMPT,
     BATCH_PITCH_SYSTEM, BATCH_PITCH_PROMPT,
 )
+
+
+def load_product_catalog(kb_dir: str | Path) -> list[dict]:
+    """装载 data/mock/channel-kb/product-catalog/*.xlsx 为 row dict 列表。
+
+    返回字段约定:
+      product / positioning / segment / amount_range /
+      term / rate / guarantee / risk_gates
+    openpyxl 缺失或空目录返回 []。
+    """
+    base = Path(kb_dir)
+    if not base.is_dir():
+        return []
+    try:
+        import openpyxl
+    except ImportError:
+        return []
+    rows: list[dict] = []
+    keys = ("product", "positioning", "segment", "amount_range",
+            "term", "rate", "guarantee", "risk_gates")
+    for fname in sorted(os.listdir(base)):
+        if not fname.lower().endswith(".xlsx"):
+            continue
+        fpath = base / fname
+        try:
+            wb = openpyxl.load_workbook(str(fpath), data_only=True)
+        except (OSError, ValueError, KeyError):
+            continue
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            data = list(ws.iter_rows(values_only=True))
+            if not data or len(data) < 2:
+                continue
+            header = data[0]
+            # 跳过"说明" 类非产品 sheet
+            if not header or not any(
+                isinstance(v, str) and any(k in v for k in ("产品", "名称"))
+                for v in header if v
+            ):
+                continue
+            for row in data[1:]:
+                if not row or all(v is None or str(v).strip() == "" for v in row):
+                    continue
+                mapping = dict(zip(keys, [str(v).strip() if v is not None else "" for v in row[:len(keys)]]))
+                if not mapping.get("product"):
+                    continue
+                mapping["source_doc"] = str(fpath)
+                mapping["source_sheet"] = sheet_name
+                rows.append(mapping)
+    return rows
 
 
 class ProductRecommender:
@@ -168,6 +220,53 @@ class ProductRecommender:
             "scale": p.get("scale", ""),
             "keywords": keywords_str.strip(),
         }
+
+    # ---- Batch 2 · catalog 反查(走规则,不走 LLM) ----
+
+    @staticmethod
+    def recommend_from_catalog(
+        candidate: dict,
+        catalog: list[dict],
+        top_n: int = 3,
+    ) -> list[str]:
+        """基于 data/mock/channel-kb/product-catalog 的 xlsx 规则匹配。
+
+        匹配打分:
+          +2 客群标签命中 candidate tags/qualifications
+          +1 行业命中 (candidate.industry 含 catalog.segment 关键词)
+          +1 风控要点触达 (candidate 具备对应资质/ 专利)
+
+        返回匹配分降序 Top-N 产品名列表(去重)。
+        """
+        if not catalog:
+            return []
+        tags = set((candidate.get("tags") or []) + (candidate.get("qualifications") or []))
+        industry = candidate.get("industry", "") or ""
+        scored: list[tuple[float, str]] = []
+        for row in catalog:
+            name = (row.get("product") or row.get("name") or "").strip()
+            if not name:
+                continue
+            segment = (row.get("segment") or row.get("target") or "") + " " + (row.get("positioning") or "")
+            risk = row.get("risk_gates") or row.get("risk") or ""
+            score = 0.0
+            for t in tags:
+                if t and t in (segment + " " + risk):
+                    score += 2.0
+            if industry and any(tok in segment for tok in re.split(r"[/、，,]", industry) if tok):
+                score += 1.0
+            if tags and any(q in risk for q in ("专利", "专精特新", "高新")):
+                score += 0.5
+            if score > 0:
+                scored.append((score, name))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        out: list[str] = []
+        for _, n in scored:
+            if n not in out:
+                out.append(n)
+            if len(out) >= top_n:
+                break
+        return out
 
     @staticmethod
     def _template_pitch(hit: HitItem, ideal: IdealProfile) -> str:
