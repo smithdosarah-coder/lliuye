@@ -110,6 +110,18 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
 
         out: list[MetricOutcome] = []
 
+        # --- field_completeness (B1 新加, pending per yaml.baseline.pending_metrics) ---
+        out.append(
+            MetricOutcome(
+                name="field_completeness",
+                value=None,
+                target=self._lookup_target("field_completeness", "common") or "n/a",
+                passed=None,
+                method="manual",
+                note="pending: B1 新加, adapter 未实装 runtime 探针 (yaml baseline.pending_metrics)",
+            )
+        )
+
         # --- task_completion_rate ---
         inputs_total = rules_doc.get("inputs_total")
         outputs_successful = rules_doc.get("outputs_successful")
@@ -335,6 +347,18 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 passed=None,
                 method="manual",
                 note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
+            )
+        )
+
+        # --- dsl_syntax_correctness (B1 新加, pending) ---
+        out.append(
+            MetricOutcome(
+                name="dsl_syntax_correctness",
+                value=None,
+                target=self._lookup_target("dsl_syntax_correctness", "domain") or "n/a",
+                passed=None,
+                method="manual",
+                note="pending: B1 新加, adapter 未实装 parser round-trip 校验 (yaml baseline.pending_metrics)",
             )
         )
 

@@ -102,6 +102,18 @@ class Agent4AlertEvaluator(BaseEvaluator):
 
         total = len(customers) or 1
 
+        # --- field_completeness (B1 新加, pending per yaml.baseline.pending_metrics) ---
+        out.append(
+            MetricOutcome(
+                name="field_completeness",
+                value=None,
+                target=self._lookup_target("field_completeness", "common") or "n/a",
+                passed=None,
+                method="manual",
+                note="pending: B1 新加, adapter 未实装 runtime 四键完整率探针 (yaml baseline.pending_metrics)",
+            )
+        )
+
         # --- task_completion_rate ---
         completed = sum(1 for c in customers if c.get("status") == "completed")
         out.append(
@@ -266,6 +278,34 @@ class Agent4AlertEvaluator(BaseEvaluator):
                     passed=None,
                     method="heuristic",
                     note="no customers — cannot compute grade distribution",
+                )
+            )
+
+        # --- signal_diversity (B1 新加, 可算 · red/yellow 客户 trigger_reasons 种类数 ≥ 2 的占比) ---
+        red_yellow = [c for c in customers if c.get("grade") in ("red", "yellow")]
+        if red_yellow:
+            with_ge2 = sum(
+                1 for c in red_yellow
+                if len(set(c.get("trigger_reasons", []) or [])) >= 2
+            )
+            out.append(
+                self.mark(
+                    "signal_diversity",
+                    with_ge2 / len(red_yellow),
+                    method="deterministic",
+                    evidence=[art_path] if art_path else [],
+                    note=f"{with_ge2}/{len(red_yellow)} red/yellow 客户 trigger_reasons 种类 ≥ 2",
+                )
+            )
+        else:
+            out.append(
+                MetricOutcome(
+                    name="signal_diversity",
+                    value=None,
+                    target=self._lookup_target("signal_diversity", "domain") or "n/a",
+                    passed=None,
+                    method="heuristic",
+                    note="no red/yellow customers — cannot compute",
                 )
             )
 
