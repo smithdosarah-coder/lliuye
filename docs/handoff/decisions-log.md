@@ -1407,3 +1407,97 @@ worker resume 完 onboarding 会看到 "新建 evaluation/base_evaluator.py" 这
 - code-urgent / code-arch / data-foundation worker 不受 Q-024 影响（路径不重叠）
 
 ---
+
+## [Q-025] 2026-04-24 · main CLI (self) · rubric YAML schema 新老字段兼容
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: **yes** — 卡 evaluation worker Task A 开工前；Task A 写 YAML 字段名错一个全批次链路废
+**Related**: Q-024/A-024（同一批 preflight 发现）· `v16_pipeline` 消费 `evaluation/agent6_report.yaml`
+
+### 背景
+
+现状 vs onboarding schema 字段名冲突：
+
+- **仓库现状**（6 份 YAML，2026-04-15 格式）：
+  ```yaml
+  metrics:
+    - name: <metric_name>
+      desc: <human_readable_description>
+      target: ">= 0.9" / "<= 0.02" / "pass"
+  baseline: { last_run: ..., commit: ..., result: { ... } }
+  ```
+- **onboarding 要求**（`docs/onboarding/evaluation-phase-1.md`）：
+  ```yaml
+  - name: portrait_match_precision
+    description: Top10 候选中匹配画像条件的比例
+    method: top10_matches_criteria / 10
+    baseline_target: 0.7
+    blocker_threshold: 0.5
+  ```
+
+差异：`desc` → `description`（字段改名）；`target` → `baseline_target`（语义变）；新增 `method`（指标计算方法）+ `blocker_threshold`（发布阻断线）；老 `target` 的字符串表达式（">= 0.9"）被拆成数字 `baseline_target`。
+
+硬风险：`evaluation/agent6_report.yaml` 被 `v16_pipeline.py` 消费（跑分比对 EV-6 依赖 `target` 字符串），强行改名字段会断 v16 baseline。
+
+### 选项
+
+- **A** 全量迁新 schema：6 份 YAML 全改，同步改 `v16_pipeline` 读取逻辑
+- **B** 兼容层：`BaseEvaluator._metrics_config()` 读时优先读新字段（`description` / `baseline_target` / `blocker_threshold` / `method`），fallback 到老字段（`desc` → `description`，`target` 字符串 → 解析为 `baseline_target` 数字 + 保留原 target 逻辑）。YAML 一律按新 schema 写，老 YAML 迁移但保留 `target` 字段做双写
+- **C** 改 onboarding 保留老 schema：worker 按 `desc / target` 继续写
+
+### 推荐
+
+**B**。理由：
+
+1. 新 schema 字段（`method` / `blocker_threshold`）确实比老 schema 更能支撑"发布阻断线"这类产品决策，应保留
+2. A 方案破 v16 pipeline 消费 = 破 Agent6 回归基线（CLAUDE.md §3.1 + Preflight §3 红线"Agent6 跑分不漂 1%"）——评估轨想改 Agent6 读法等于抢了 code-arch 的活
+3. C 方案退化回老 schema = Batch 1 之后的 Batch 2 PM 对标依然没 `blocker_threshold` = 客户演示时没红绿灯
+4. B 方案工作量小：`BaseEvaluator` 读 YAML 时做 2 行 `.get('baseline_target', _parse_target(m.get('target')))` 级 fallback 即可
+
+### [A-025] 2026-04-24 · 主 CLI 自定
+
+**Decision**: B（兼容层，新写 YAML 一律新 schema，`BaseEvaluator` 读时 fallback 老字段）
+
+**Rationale**: 新老双写，`BaseEvaluator` 侧解析层兼容；Agent6 yaml 保留 `target` 字段（v16 pipeline 继续读），同时补 `description / method / baseline_target / blocker_threshold` 新字段（`BaseEvaluator` 读取路径）。
+
+**对 evaluation worker 的具体指示**：
+
+1. **新写 YAML（agent1/2/3/4/5）一律按新 schema**：
+   ```yaml
+   metrics:
+     common:
+       - name: field_completeness
+         description: 字段填充率
+         method: filled_fields / expected_fields
+         baseline_target: 0.85
+         blocker_threshold: 0.6
+       # ... 5 通用
+     domain:
+       # ... 5 领域
+   ```
+   6 Agent 统一结构 `metrics.common[5] + metrics.domain[5] = 10 条`。
+
+2. **Agent6 yaml 保留老字段 + 新增新字段**（双写）：`agent6_report.yaml` 已有的 `desc / target` 不动，每条指标追加 `description / method / baseline_target / blocker_threshold` 字段（值一致，格式规范化）。v16 pipeline 继续读 `target`，`BaseEvaluator` 优先读新字段。
+
+3. **BaseEvaluator `_metrics_config()` 读取 fallback**（worker Task B 时实现）：
+   ```python
+   def _normalize_metric(m: dict) -> dict:
+       return {
+           'name': m['name'],
+           'description': m.get('description') or m.get('desc') or '',
+           'method': m.get('method') or '',
+           'baseline_target': m.get('baseline_target') if 'baseline_target' in m
+                              else _parse_legacy_target(m.get('target', '')),
+           'blocker_threshold': m.get('blocker_threshold'),
+       }
+   ```
+   `_parse_legacy_target` 处理 `">= 0.9"` / `"<= 0.02"` / `"pass"` 三种老格式，返回 `float` 或 `None`（`"pass"` → `None` + 注记布尔判定）。
+
+4. **Preflight 硬指标 EV-3 调整**：新 YAML 必须 `method / baseline_target / blocker_threshold` 齐（**Agent6 yaml 豁免**，只需 description + baseline_target 可从 target 推出即视为通过）。
+
+**Follow-up**:
+- 本次 commit trailer 带 `Signal: Q-025-RESOLVED`
+- Preflight `docs/handoff/batch-1-review-preflight.md` §4.1 / §4.2 / §4.5 同步更新（去掉"[主 CLI 补]"标记，改为 A-025 判决内容）
+
+---
