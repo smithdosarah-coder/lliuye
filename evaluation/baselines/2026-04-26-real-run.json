@@ -1,17 +1,17 @@
 {
   "run_day": "2026-04-26",
-  "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+  "commit": "60fd68213805c22444078c7705d65574af084065",
   "schema": "A-024 / A-025 · Batch 2 real baseline",
-  "generated_at": "2026-04-24T17:34:29.896961",
+  "generated_at": "2026-04-24T17:39:51.099635",
   "upgraded_over_b1": "agent6 · 5 DP 真 v16 summary JSON 聚合 (非骨架自比); agent1 · channel-kb seed + MockSearchProvider 真搜 (解 8/10 实算); agent5 · compliance-kb 169 SOP + synthesized new-policy 冲突扫描 (解 6/10 实算); EV-12 · agent3/6 跨 Agent 财务比率一致率实装",
   "results": {
     "alert": {
       "run": {
         "agent_id": "alert",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:28.498140+00:00",
+        "timestamp": "2026-04-24T09:39:49.709946+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -124,15 +124,15 @@
       ],
       "verdict": "PASS",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.04475370000000112
+      "duration_seconds": 0.04845629999181256
     },
     "channel": {
       "run": {
         "agent_id": "channel",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:28.632596+00:00",
+        "timestamp": "2026-04-24T09:39:49.853445+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -195,12 +195,12 @@
       "domain_metrics": [
         {
           "name": "portrait_match_precision",
-          "value": null,
+          "value": 0.5,
           "target": ">= 0.70",
           "passed": null,
-          "method": "manual",
+          "method": "heuristic",
           "evidence": [],
-          "note": "pending: 需人工抽检或 LLM-judge 对候选画像条件命中评分"
+          "note": "stub_awaiting_code_arch_b2 · stub precision@10=0.5 · 待 code-arch Batch 2 BATCH-2-INTEGRATION-TEST-DONE 交付 evaluation\\manual\\1_oracle.json oracle 标注后 re-run"
         },
         {
           "name": "signal_diversity",
@@ -231,7 +231,7 @@
           "evidence": [
             "D:\\claude code\\demo-evaluation\\evaluation\\manual\\1_latest.json"
           ],
-          "note": "10/10 真值 look-alike 被召回"
+          "note": "10/10 gold look-alike 被召回 · runtime-dump (stub gold)"
         },
         {
           "name": "candidate_dedup_rate",
@@ -247,15 +247,15 @@
       ],
       "verdict": "PARTIAL",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.003828899993095547
+      "duration_seconds": 0.0018471000075805932
     },
     "compliance": {
       "run": {
         "agent_id": "compliance",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:28.728590+00:00",
+        "timestamp": "2026-04-24T09:39:49.942308+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -316,21 +316,21 @@
       "domain_metrics": [
         {
           "name": "policy_coverage",
-          "value": null,
+          "value": 0.5,
           "target": ">= 0.90",
           "passed": null,
-          "method": "manual",
+          "method": "heuristic",
           "evidence": [],
-          "note": "pending: 需人工 gold 条款集 + agent5 runtime clause 抽取产出"
+          "note": "stub_awaiting_code_arch_b2 · stub coverage=0.5 · 待 code-arch Batch 2 oracle evaluation\\manual\\5_oracle.json 落地 re-run"
         },
         {
           "name": "conflict_recall",
-          "value": null,
+          "value": 0.5,
           "target": ">= 0.90",
           "passed": null,
-          "method": "manual",
+          "method": "heuristic",
           "evidence": [],
-          "note": "pending: 需业务方已知冲突真值集 (gold_conflicts)"
+          "note": "stub_awaiting_code_arch_b2 · stub recall=0.5 stub fpr=0.2 · 待 code-arch Batch 2 oracle 落地"
         },
         {
           "name": "defect_classification_accuracy",
@@ -364,15 +364,15 @@
       ],
       "verdict": "PARTIAL",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.0021118000004207715
+      "duration_seconds": 0.0014685999922221527
     },
     "credit": {
       "run": {
         "agent_id": "credit",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:28.814603+00:00",
+        "timestamp": "2026-04-24T09:39:50.029394+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -485,15 +485,15 @@
       ],
       "verdict": "PARTIAL",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.002062100000330247
+      "duration_seconds": 0.0012782999983755872
     },
     "riskctrl": {
       "run": {
         "agent_id": "riskctrl",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:28.904261+00:00",
+        "timestamp": "2026-04-24T09:39:50.121742+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -602,12 +602,12 @@
       ],
       "verdict": "PARTIAL",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.0016822000034153461
+      "duration_seconds": 0.0009889999928418547
     },
     "report": {
       "run": {
         "agent_id": "report",
-        "commit": "21180bf2239e2dd413d5f114aca3188664210975",
+        "commit": "60fd68213805c22444078c7705d65574af084065",
         "artifacts": [
           "outputs/v16_DP001/v16_pipeline_summary.json",
           "outputs/v16_DP002/v16_pipeline_summary.json",
@@ -616,7 +616,7 @@
           "outputs/v16_DP005/v16_pipeline_summary.json"
         ],
         "compare_baseline": false,
-        "timestamp": "2026-04-24T09:34:26.612862+00:00",
+        "timestamp": "2026-04-24T09:39:47.845906+00:00",
         "extra": {}
       },
       "common_metrics": [
@@ -749,7 +749,7 @@
       ],
       "verdict": "FAIL",
       "runner_version": "0.1.0-phase-a",
-      "duration_seconds": 0.27784569999494124
+      "duration_seconds": 0.2888593999959994
     }
   },
   "ev_12_ratio_calc_consistency": {

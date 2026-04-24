@@ -39,6 +39,11 @@ from ..schemas import EvalRun, MetricOutcome
 
 
 DEFAULT_RUNTIME = REPO_ROOT / "evaluation" / "manual" / "5_latest.json"
+ORACLE_PATH = REPO_ROOT / "evaluation" / "manual" / "5_oracle.json"
+STUB_COVERAGE = 0.5      # onboarding Task C · oracle 未到位时 stub 值
+STUB_CONFLICT_RECALL = 0.5
+STUB_FPR = 0.2           # false_positive_rate · 非 rubric 指标, 仅记 note
+STUB_SOURCE = "stub_awaiting_code_arch_b2"
 
 
 @register_evaluator("compliance")
@@ -46,7 +51,40 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
     agent_id = "compliance"
     config_name = "agent5_compliance.yaml"
 
+    def _load_oracle_annotations(
+        self,
+        source: str = "code-arch-b2",
+    ) -> dict[str, Any] | None:
+        """B2 Task C · code-arch Batch 2 政策/冲突 oracle 标注加载.
+
+        预期格式 (code-arch 交付契约):
+          {
+            "source": "code-arch-b2",
+            "generated_at": "...",
+            "policies": [
+              {
+                "policy_id": "...",
+                "gold_clauses": [{"clause_id": "...", "text": "..."}],
+                "gold_conflicts": [
+                  {"conflict_id": "...", "policy_anchor": "...",
+                   "business_anchor": "...", "detect_or_not": true}
+                ],
+                "gold_severity_map": {"conflict_id": "严重|重要|一般"}
+              }
+            ]
+          }
+        """
+        if not ORACLE_PATH.exists():
+            return None
+        try:
+            payload = json.loads(ORACLE_PATH.read_text(encoding="utf-8"))
+            payload["_source_tag"] = source
+            return payload
+        except (json.JSONDecodeError, OSError):
+            return None
+
     def load_artifacts(self, run: EvalRun) -> dict[str, Any]:
+        oracle = self._load_oracle_annotations()
         if run.artifacts:
             art_path = Path(run.artifacts[0])
             if not art_path.is_absolute():
@@ -63,6 +101,7 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
                 "gold_conflicts": [],
                 "gold_severity_map": {},
                 "tool_calls": {},
+                "oracle": oracle,
             }
 
         try:
@@ -77,16 +116,31 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
                 "gold_conflicts": [],
                 "gold_severity_map": {},
                 "tool_calls": {},
+                "oracle": oracle,
             }
+
+        # Oracle 优先: 若到位, 用 oracle 覆盖 dump stub gold
+        gold_clauses = payload.get("gold_clauses") or []
+        gold_conflicts = payload.get("gold_conflicts") or []
+        gold_severity_map = payload.get("gold_severity_map") or {}
+        if oracle and isinstance(oracle.get("policies"), list) and oracle["policies"]:
+            p0 = oracle["policies"][0]
+            if p0.get("gold_clauses"):
+                gold_clauses = p0["gold_clauses"]
+            if p0.get("gold_conflicts"):
+                gold_conflicts = p0["gold_conflicts"]
+            if p0.get("gold_severity_map"):
+                gold_severity_map = p0["gold_severity_map"]
 
         return {
             "artifact_path": str(art_path),
             "conflict_items": payload.get("conflict_items") or [],
             "extracted_clauses": payload.get("extracted_clauses") or [],
-            "gold_clauses": payload.get("gold_clauses") or [],
-            "gold_conflicts": payload.get("gold_conflicts") or [],
-            "gold_severity_map": payload.get("gold_severity_map") or {},
+            "gold_clauses": gold_clauses,
+            "gold_conflicts": gold_conflicts,
+            "gold_severity_map": gold_severity_map,
             "tool_calls": payload.get("tool_calls") or {},
+            "oracle": oracle,
         }
 
     def compute_common_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
@@ -180,7 +234,9 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
 
         out: list[MetricOutcome] = []
 
-        # policy_coverage — extracted 条款 recall over gold
+        oracle: dict | None = artifacts.get("oracle")
+
+        # policy_coverage — B2 Task C · oracle 到位算真值; 否则 stub 0.5
         if extracted and gold_clauses:
             extracted_ids = {c.get("clause_id") for c in extracted}
             hit = sum(1 for g in gold_clauses if g.get("clause_id") in extracted_ids)
@@ -189,45 +245,67 @@ class Agent5ComplianceEvaluator(BaseEvaluator):
                     "policy_coverage",
                     hit / len(gold_clauses),
                     method="deterministic",
-                    evidence=[art_path] if art_path else [],
-                    note=f"{hit}/{len(gold_clauses)} gold clauses 被抽取",
+                    evidence=[str(ORACLE_PATH) if oracle else (art_path or "")],
+                    note=(
+                        f"{hit}/{len(gold_clauses)} gold clauses 被抽取 · "
+                        f"{'oracle(code-arch-b2)' if oracle else 'runtime-dump gold'}"
+                    ),
                 )
             )
         else:
             out.append(
-                self._pending(
-                    "policy_coverage",
-                    "domain",
-                    "pending: 需人工 gold 条款集 + agent5 runtime clause 抽取产出",
+                MetricOutcome(
+                    name="policy_coverage",
+                    value=STUB_COVERAGE,
+                    target=self._lookup_target("policy_coverage", "domain") or "n/a",
+                    passed=None,  # stub 不计入 verdict
+                    method="heuristic",
+                    evidence=[],
+                    note=(
+                        f"{STUB_SOURCE} · stub coverage={STUB_COVERAGE} · "
+                        f"待 code-arch Batch 2 oracle {ORACLE_PATH.relative_to(REPO_ROOT)} 落地 re-run"
+                    ),
                 )
             )
 
-        # conflict_recall
+        # conflict_recall — B2 Task C · oracle 到位算真值; 否则 stub 0.5
+        # 外加 false_positive_rate 诊断 (非 rubric 指标, 挂 note)
         if conflict_items and gold_conflicts:
-            # 用 (policy_anchor, business_anchor) tuple 作为冲突标识
             detected_keys = {
                 (c.get("policy_anchor"), c.get("business_anchor")) for c in conflict_items
             }
-            hit = sum(
-                1
-                for g in gold_conflicts
-                if (g.get("policy_anchor"), g.get("business_anchor")) in detected_keys
-            )
+            gold_keys = {
+                (g.get("policy_anchor"), g.get("business_anchor")) for g in gold_conflicts
+            }
+            hit = len(detected_keys & gold_keys)
+            fp = len(detected_keys - gold_keys)
+            fpr = (fp / len(detected_keys)) if detected_keys else 0.0
             out.append(
                 self.mark(
                     "conflict_recall",
                     hit / len(gold_conflicts),
                     method="deterministic",
-                    evidence=[art_path] if art_path else [],
-                    note=f"{hit}/{len(gold_conflicts)} gold conflicts 被识别",
+                    evidence=[str(ORACLE_PATH) if oracle else (art_path or "")],
+                    note=(
+                        f"recall={hit}/{len(gold_conflicts)} · "
+                        f"false_positive_rate={fpr:.4f} ({fp}/{len(detected_keys)} detections) · "
+                        f"{'oracle(code-arch-b2)' if oracle else 'runtime-dump gold'}"
+                    ),
                 )
             )
         else:
             out.append(
-                self._pending(
-                    "conflict_recall",
-                    "domain",
-                    "pending: 需业务方已知冲突真值集 (gold_conflicts)",
+                MetricOutcome(
+                    name="conflict_recall",
+                    value=STUB_CONFLICT_RECALL,
+                    target=self._lookup_target("conflict_recall", "domain") or "n/a",
+                    passed=None,
+                    method="heuristic",
+                    evidence=[],
+                    note=(
+                        f"{STUB_SOURCE} · stub recall={STUB_CONFLICT_RECALL} "
+                        f"stub fpr={STUB_FPR} · 待 code-arch Batch 2 oracle 落地"
+                    ),
                 )
             )
 
