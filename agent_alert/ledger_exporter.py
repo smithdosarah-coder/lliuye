@@ -40,7 +40,7 @@ def export_ledger_excel(
     try:
         from openpyxl import Workbook
         from openpyxl.styles import PatternFill, Font, Alignment
-    except Exception:
+    except (ImportError, ModuleNotFoundError, AttributeError):
         return _export_csv(hl, out_dir, ts)
 
     wb = Workbook()

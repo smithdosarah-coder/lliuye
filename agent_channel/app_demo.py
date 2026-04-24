@@ -49,7 +49,7 @@ def _load_scenarios() -> list[dict]:
             continue
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
             continue
         # 把 files 展开成绝对路径
         abs_files = [str((sub / f).resolve()) for f in meta.get("files", [])]
@@ -194,7 +194,7 @@ def build_tab(api_key_state, provider_state):
         try:
             agent = ChannelMatchAgent(api_key=api_key, model_provider=provider)
             _agent_cache["instance"] = agent
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             yield f"❌ Agent 初始化失败：{e}", ""
             return
 
@@ -212,7 +212,7 @@ def build_tab(api_key_state, provider_state):
                 if ev.get("type") == "message":
                     final_chunks.append(ev.get("content", ""))
                 yield log, "\n\n".join(final_chunks) if final_chunks else "*处理中…*"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             log += f"\n❌ 执行异常：{e}\n"
             yield log, "\n\n".join(final_chunks)
 
@@ -233,10 +233,10 @@ def build_tab(api_key_state, provider_state):
         out_dir = str(PROJECT_ROOT / "outputs")
         try:
             path = export_hitlist_excel(hl, output_dir=out_dir)
-        except Exception:
+        except (OSError, ImportError, ValueError, TypeError, AttributeError, KeyError):
             try:
                 path = export_hitlist_csv(hl, output_dir=out_dir)
-            except Exception:
+            except (OSError, ValueError, TypeError, AttributeError, KeyError):
                 path = export_hitlist_markdown(hl, output_dir=out_dir)
         return gr.update(value=path, visible=True)
 

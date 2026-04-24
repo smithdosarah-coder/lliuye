@@ -20,7 +20,7 @@ def _load_weights() -> dict:
     try:
         with open(_WEIGHTS_PATH, "r", encoding="utf-8") as fh:
             return json.load(fh)
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
         return {}
 
 

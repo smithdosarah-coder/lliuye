@@ -88,7 +88,7 @@ class BaseAgent:
                     if model_class and isinstance(data, dict):
                         return model_class.model_validate(data)
                     return data
-            except (json.JSONDecodeError, Exception) as e:
+            except (json.JSONDecodeError, RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
                 if attempt == retries - 1:
                     raise ValueError(
                         f"LLM未返回有效JSON（{retries}次重试后）: {str(e)[:200]}"

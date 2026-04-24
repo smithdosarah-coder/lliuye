@@ -65,7 +65,7 @@ async def list_channel_scenarios():
             {"key": k, "name": v.get("name"), "desc": v.get("desc")}
             for k, v in SCENARIOS.items()
         ]}
-    except Exception:
+    except (ImportError, ModuleNotFoundError, AttributeError, KeyError, TypeError):
         scen_dir = PROJECT_ROOT / "demo_data" / "agent_channel" / "scenarios"
         if not scen_dir.exists():
             return {"scenarios": []}
@@ -80,7 +80,7 @@ async def list_channel_scenarios():
                         "name": data.get("name", sub.name),
                         "desc": data.get("description", ""),
                     })
-                except Exception:
+                except (OSError, json.JSONDecodeError, ValueError, TypeError):
                     items.append({"key": sub.name, "name": sub.name, "desc": ""})
         return {"scenarios": items}
 
@@ -103,7 +103,7 @@ async def channel_run(req: ChannelRunRequest):
     def gen():
         try:
             from agent_channel.realtime_stream import run_channel_search_stream
-        except Exception as e:
+        except (ImportError, ModuleNotFoundError, AttributeError) as e:
             yield sse_encode({
                 "event": "error",
                 "message": f"import failed: {e}",
@@ -122,7 +122,7 @@ async def channel_run(req: ChannelRunRequest):
                 yield sse_encode(_qc_clean_event(
                     {k: to_jsonable(v) for k, v in evt.items()}
                 ))
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             traceback.print_exc()
             yield sse_encode({
                 "event": "error",

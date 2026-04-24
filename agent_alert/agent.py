@@ -117,7 +117,7 @@ class AlertRadarAgent(BaseAgent):
             try:
                 plan = generate_disposition(report)
                 dispositions[h.target.payload.get("company_name", "")] = plan
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
                 continue
         yield self._tool_result(
             "dispositions",

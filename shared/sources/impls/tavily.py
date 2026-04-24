@@ -35,7 +35,7 @@ class TavilySource(BaseSource):
         try:
             from shared.kb_scan.tavily_client import TavilyClient
             self._client = TavilyClient(api_key=self._api_key)
-        except Exception:
+        except (ImportError, ModuleNotFoundError, AttributeError, RuntimeError, ValueError, TypeError):
             self._client = None
         return self._client
 
@@ -67,7 +67,7 @@ class TavilySource(BaseSource):
                 include_domains=include_domains,
                 exclude_domains=exclude_domains,
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             return QueryResult(
                 ok=False,
                 source_name=self.name,

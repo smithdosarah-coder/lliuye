@@ -61,7 +61,7 @@ class KnowledgeBase:
             else:
                 meta["status"] = "skipped"
                 meta["reason"] = f"unknown doc_type={doc_type}"
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError, ImportError) as e:
             meta["status"] = "error"
             meta["error"] = str(e)[:200]
         self.raw_files.append(meta)
@@ -130,7 +130,7 @@ class KnowledgeBase:
                 from docx import Document
                 doc = Document(str(path))
                 return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-            except Exception:
+            except (OSError, ImportError, ValueError, TypeError, AttributeError, KeyError):
                 return ""
         if ext == ".pdf":
             try:
@@ -141,7 +141,7 @@ class KnowledgeBase:
                         t = page.extract_text() or ""
                         texts.append(t)
                 return "\n".join(texts)
-            except Exception:
+            except (OSError, ImportError, ValueError, TypeError, AttributeError, KeyError):
                 return ""
         return ""
 
@@ -161,7 +161,7 @@ class KnowledgeBase:
                                   for i, c in enumerate(row)]
                         continue
                     rows.append({header[i]: row[i] for i in range(min(len(header), len(row)))})
-            except Exception:
+            except (OSError, ImportError, ValueError, KeyError, TypeError, AttributeError):
                 pass
         elif ext == ".csv":
             with path.open("r", encoding="utf-8", errors="ignore") as f:
@@ -177,7 +177,7 @@ class KnowledgeBase:
                 if line:
                     try:
                         rows.append(json.loads(line))
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError, TypeError):
                         pass
 
         out: list[CompanyProfile] = []
@@ -207,7 +207,7 @@ class KnowledgeBase:
                         r.get("overdue_days") or r.get("逾期天数") or "0").replace(".", "").isdigit() else 0,
                     extras={k: v for k, v in r.items() if k not in {"company_name", "企业名称"}},
                 ))
-            except Exception:
+            except (ValueError, TypeError, KeyError, AttributeError):
                 continue
         return out
 
@@ -252,7 +252,7 @@ class KnowledgeBase:
                 if line:
                     try:
                         data.append(json.loads(line))
-                    except Exception:
+                    except (json.JSONDecodeError, ValueError, TypeError):
                         pass
         out = []
         for i, d in enumerate(data):
@@ -263,7 +263,7 @@ class KnowledgeBase:
                 d.setdefault("source_doc", path.name)
                 d.setdefault("rule_type", RuleType.STRUCTURED)
                 out.append(RuleItem(**d))
-            except Exception:
+            except (ValueError, TypeError, KeyError, AttributeError):
                 continue
         return out
 
@@ -317,7 +317,7 @@ class KnowledgeBase:
                         row_dict = {header[i]: row[i] for i in range(min(len(header), len(row)))}
                         row_dict["_sheet"] = ws.title
                         rows.append(row_dict)
-            except Exception:
+            except (OSError, ImportError, ValueError, KeyError, TypeError, AttributeError):
                 pass
         elif ext == ".csv":
             with path.open("r", encoding="utf-8", errors="ignore") as f:

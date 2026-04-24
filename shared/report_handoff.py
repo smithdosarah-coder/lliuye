@@ -146,7 +146,7 @@ def apply_decision_writeback(
         import shutil
         shutil.copy2(docx_path, str(target))
         return str(target)
-    except Exception:
+    except (OSError, ImportError, ValueError, TypeError):
         return docx_path
 
 
@@ -164,6 +164,6 @@ def list_available_reports() -> list[dict]:
                 "generated_at": payload.get("generated_at", ""),
                 "filename": p.name,
             })
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
             continue
     return out

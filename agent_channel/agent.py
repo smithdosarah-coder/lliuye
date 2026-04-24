@@ -196,13 +196,13 @@ class ChannelMatchAgent(BaseAgent):
             if isinstance(out, dict):
                 return out
             return None
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return None
 
     def _safe_llm_chat(self, system: str, user: str) -> str:
         try:
             return self.llm_chat(system=system, user=user) or ""
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return ""
 
     # ---- Markdown 渲染 ----

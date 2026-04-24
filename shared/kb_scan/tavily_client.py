@@ -96,7 +96,7 @@ class TavilyClient:
                 if datetime.now() - ts > CACHE_TTL:
                     return None
             return raw.get("data")
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, AttributeError):
             return None
 
     def _cache_put(self, key: str, data: dict) -> None:
@@ -109,7 +109,7 @@ class TavilyClient:
                 ),
                 encoding="utf-8",
             )
-        except Exception:
+        except (OSError, ValueError, TypeError):
             # 缓存写失败不影响主路径
             pass
 
@@ -157,7 +157,7 @@ class TavilyClient:
 
         try:
             data = resp.json()
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             raise TavilySearchError(f"invalid json: {e}", status=resp.status_code, body_preview=resp.text[:500])
 
         self._cache_put(key, data)
@@ -200,7 +200,7 @@ class TavilyClient:
             )
         try:
             data = resp.json()
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
             raise TavilySearchError(
                 f"extract invalid json: {e}",
                 status=resp.status_code, body_preview=resp.text[:500],
@@ -211,7 +211,7 @@ class TavilyClient:
     def close(self) -> None:
         try:
             self._client.close()
-        except Exception:
+        except (OSError, AttributeError, RuntimeError):
             pass
 
     def __del__(self):

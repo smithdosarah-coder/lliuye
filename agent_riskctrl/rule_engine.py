@@ -135,7 +135,7 @@ def parse_natural_language_rules(llm_output: dict) -> RuleSet:
                 priority=int(item.get("priority", 10)),
             )
             parsed_rules.append(rule)
-        except Exception:
+        except (ValueError, TypeError, KeyError, AttributeError):
             continue
 
     # 按 priority 升序排列（1最高）

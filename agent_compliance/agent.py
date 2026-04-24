@@ -72,7 +72,7 @@ class ComplianceRadarAgent(BaseAgent):
                     "请选择预置场景（推荐：互联网贷款合规）或上传：监管政策 + 内部制度 + 业务数据 三类文件。"
                 )
                 yield self._done("等待输入")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
             yield self._message(f"❌ 执行异常：{type(e).__name__}: {e}")
             yield self._done("异常终止")
 
@@ -186,7 +186,7 @@ class ComplianceRadarAgent(BaseAgent):
                 f"📦 已导出：\n- 榜单 Excel：`{Path(xlsx_path).name}`\n"
                 f"- 整改报告 Word：`{Path(docx_path).name}`"
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError, ImportError) as e:
             yield self._message(f"⚠️ 导出异常：{e}")
 
         yield self._done(f"巡检完成（总用时 {time.time()-t_all:.1f}s）")
@@ -241,7 +241,7 @@ class ComplianceRadarAgent(BaseAgent):
                 output_dir=str(PROJECT_ROOT / "outputs"),
             )
             yield self._file(xlsx_path)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError, ImportError) as e:
             yield self._message(f"⚠️ 导出异常：{e}")
         yield self._done("自定义巡检完成")
 

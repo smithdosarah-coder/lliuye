@@ -225,7 +225,7 @@ def _run_pipeline(segment: str, preset_name: str,
                 "", "", gr.update(), "等待输入", None, None, None
             )
             return
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         yield (
             f"❌ 载入失败：{e}", "", "", "", gr.update(),
             "载入失败", None, None, None,
@@ -312,7 +312,7 @@ def _writeback_agent6(advice: DecisionAdvice | None, report_json_path: str,
     try:
         out = agent.writeback_to_agent6(advice, report_json_path)
         return gr.update(value=out, visible=True), f"已回写：{out}"
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         return gr.update(value=None), f"回写失败：{e}"
 
 

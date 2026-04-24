@@ -47,7 +47,7 @@ def execute_with_degradation(chain: list[str], request: QueryRequest) -> QueryRe
         # 跳过健康检查失败的源
         try:
             healthy = source.health()
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             healthy = False
             errors.append(f"{name}: health check raised {type(e).__name__}: {e}")
         if not healthy:
@@ -57,7 +57,7 @@ def execute_with_degradation(chain: list[str], request: QueryRequest) -> QueryRe
         # 真正调用
         try:
             result = source.query(request)
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             errors.append(f"{name}: {type(e).__name__}: {e}")
             continue
 

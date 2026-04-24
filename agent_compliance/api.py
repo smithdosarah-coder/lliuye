@@ -62,5 +62,5 @@ async def compliance_policy_scan(query: str = "", limit: int = 10):
         if hits:
             resp["_qc_placeholder_hits"] = hits
         return resp
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         return {"policies": [], "error": f"{type(e).__name__}: {e}"}

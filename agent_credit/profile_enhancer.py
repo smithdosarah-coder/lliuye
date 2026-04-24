@@ -80,7 +80,7 @@ def enhance_enterprise_profile(profile: Any, *, llm_fn=None) -> tuple[dict, list
                     "source_url": ev.source_url,
                     "fetched_at": ev.fetched_at,
                 })
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError, LookupError):
         # 优雅降级：增强失败不影响主流程
         pass
 
@@ -112,7 +112,7 @@ def enhance_enterprise_profile(profile: Any, *, llm_fn=None) -> tuple[dict, list
                     "source_url": ev.source_url,
                     "fetched_at": ev.fetched_at,
                 })
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError, LookupError):
         pass
 
     return enriched, evidence_list

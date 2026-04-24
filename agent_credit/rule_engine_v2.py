@@ -77,7 +77,7 @@ class RuleEngineV2:
                 with open(path, "r", encoding="utf-8") as fh:
                     data = json.load(fh) or {}
                 rules = data.get("rules", []) or []
-            except Exception:
+            except (OSError, json.JSONDecodeError, ValueError, TypeError):
                 rules = []
         self._cache[segment] = rules
         return rules

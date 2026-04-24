@@ -98,7 +98,7 @@ class ProductRecommender:
                     leads_block=leads_block,
                 ),
             )
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             data = None
 
         result: dict[str, str] = {}
@@ -142,7 +142,7 @@ class ProductRecommender:
         try:
             out = self.llm_chat(PITCH_GEN_SYSTEM, user)
             return (out or "").strip().strip('"""\'') or self._template_pitch(hit, ideal)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return self._template_pitch(hit, ideal)
 
     # ---- 内部：Hit payload → match_channels 输入 ----

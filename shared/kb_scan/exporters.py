@@ -18,7 +18,7 @@ def export_hitlist_excel(hl: HitList, output_dir: str | Path = "outputs") -> str
     try:
         from openpyxl import Workbook
         from openpyxl.styles import PatternFill, Font, Alignment
-    except Exception:
+    except (ImportError, ModuleNotFoundError, AttributeError):
         # 降级为 CSV
         return export_hitlist_csv(hl, output_dir)
 

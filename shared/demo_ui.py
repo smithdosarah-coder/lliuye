@@ -155,7 +155,7 @@ def load_scenarios(agent_name: str) -> list[dict]:
         try:
             with open(f, "r", encoding="utf-8") as fh:
                 scenarios.append(json.load(fh))
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
             continue
     return scenarios
 
@@ -202,7 +202,7 @@ def stream_agent(
 
     try:
         agent = agent_class(api_key=api_key, model_provider=provider)
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         yield f"❌ Agent 初始化失败：{e}", ""
         return
 
@@ -216,7 +216,7 @@ def stream_agent(
             else:
                 process_log += format_event(event)
             yield process_log, final_message
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         process_log += f"\n❌ 执行异常：{e}\n"
         yield process_log, final_message
 

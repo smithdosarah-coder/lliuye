@@ -210,7 +210,7 @@ def generate_approval(
             llm_explanation = llm_chat_func(SYSTEM_APPROVAL, user_prompt)
             if llm_explanation and len(llm_explanation) > 30:
                 decision.explanation = llm_explanation[:800]
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             pass  # 保持规则引擎的说明
 
     return decision

@@ -78,7 +78,7 @@ class RuleExtractor:
                 from docx import Document
                 doc = Document(str(path))
                 return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-            except Exception:
+            except (OSError, ImportError, ValueError, TypeError, AttributeError, KeyError):
                 return ""
         if ext == ".pdf":
             try:
@@ -89,7 +89,7 @@ class RuleExtractor:
                         t = page.extract_text() or ""
                         parts.append(t)
                 return "\n".join(parts)
-            except Exception:
+            except (OSError, ImportError, ValueError, TypeError, AttributeError, KeyError):
                 return ""
         return ""
 
@@ -122,7 +122,7 @@ class RuleExtractor:
             llm = self._get_llm()
             resp = llm.simple_chat("你是规则抽取助手，只输出 JSON。", prompt)
             data = self._parse_json_array(resp)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return []
         out = []
         for j, d in enumerate(data):
@@ -140,7 +140,7 @@ class RuleExtractor:
                     severity=self._parse_severity(d.get("severity")),
                     rule_type=RuleType.EXTRACTED,
                 ))
-            except Exception:
+            except (ValueError, TypeError, KeyError, AttributeError):
                 continue
         return out
 
@@ -153,7 +153,7 @@ class RuleExtractor:
         try:
             data = json.loads(m.group())
             return data if isinstance(data, list) else []
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError):
             return []
 
     def _parse_severity(self, v) -> RiskLevel:

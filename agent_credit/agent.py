@@ -82,7 +82,7 @@ def _profile_from_report_json(report_json: dict) -> dict:
             return 0.0
         try:
             return float(m.group(1).replace(",", ""))
-        except Exception:
+        except (ValueError, TypeError):
             return 0.0
 
     def _amount_wan(raw: str) -> float:
@@ -93,7 +93,7 @@ def _profile_from_report_json(report_json: dict) -> dict:
             return 0.0
         try:
             num = float(m.group(1).replace(",", ""))
-        except Exception:
+        except (ValueError, TypeError):
             return 0.0
         if "亿" in raw:
             return num * 10000
@@ -213,7 +213,7 @@ class CreditDecisionAgent(BaseAgent):
                         profile = rj
                         # 简单判定 segment
                         segment = "retail" if profile.get("name") else "corporate"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             yield self._message(f"输入解析失败：{e}")
             yield self._done("终止")
             return
@@ -320,7 +320,7 @@ class CreditDecisionAgent(BaseAgent):
                 out_path = self.writeback_to_agent6(advice, report_json_path)
                 yield self._tool_result("writeback", f"已回写：{out_path}")
                 yield self._file(out_path)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 yield self._message(f"回写失败（不阻塞决策结果）：{e}")
 
         yield self._done(

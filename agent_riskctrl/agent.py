@@ -104,7 +104,7 @@ class RiskControlAgent(BaseAgent):
                             f"{', '.join(df.columns.tolist())}\n"
                             f"数据示例:\n{df.head(3).to_string(index=False)}"
                         )
-                    except Exception:
+                    except (OSError, ValueError, KeyError, TypeError, AttributeError):
                         pass
                     break
 
@@ -118,7 +118,7 @@ class RiskControlAgent(BaseAgent):
             )
             if not isinstance(llm_result, dict):
                 llm_result = {"rules": llm_result} if isinstance(llm_result, list) else {}
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             yield self._tool_result("llm_parse_rules", f"LLM调用失败: {e}")
             yield self._message(f"策略解析失败: {e}")
             yield self._done("策略解析失败")
@@ -195,7 +195,7 @@ class RiskControlAgent(BaseAgent):
             )
             if not isinstance(llm_result, dict):
                 llm_result = {"rules": llm_result} if isinstance(llm_result, list) else {}
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             yield self._tool_result("llm_generate_rules", f"失败: {e}")
             yield self._message(f"策略生成失败: {e}")
             yield self._done("策略生成失败")
@@ -232,7 +232,7 @@ class RiskControlAgent(BaseAgent):
                 user=f"回测结果如下：\n\n{bt_report}",
             )
             yield self._message(f"## 回测结果\n\n{bt_report}\n\n## AI分析\n\n{analysis}")
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             yield self._message(f"## 回测结果\n\n{bt_report}")
 
         yield self._done("回测分析完成")
@@ -259,7 +259,7 @@ class RiskControlAgent(BaseAgent):
                     if isinstance(file_contents, str)
                     else str(file_contents)
                 )
-            except Exception as e:
+            except (OSError, ValueError, TypeError, AttributeError, KeyError) as e:
                 case_data = f"文件读取失败: {e}"
             yield self._tool_result("read_files", f"已读取 {len(uploaded_files)} 个文件")
 
@@ -280,7 +280,7 @@ class RiskControlAgent(BaseAgent):
             )
             yield self._tool_result("error_analysis", "分析完成")
             yield self._message(f"## 差错案件分析报告\n\n{analysis}")
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             yield self._tool_result("error_analysis", f"分析失败: {e}")
             yield self._message(f"差错分析失败: {e}")
 

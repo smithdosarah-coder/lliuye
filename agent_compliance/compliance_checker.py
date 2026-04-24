@@ -86,7 +86,7 @@ def check_compliance(
             # 重新计算统计数据，确保准确
             _recalculate_stats(result)
             return result
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
         pass
 
     # 兜底：为每条要求生成默认的fail结果

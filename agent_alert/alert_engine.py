@@ -382,7 +382,7 @@ def evaluate_alerts(data: dict, profile=None, search_text: str = "") -> AlertRep
             result = func(data=data, search_text=search_text)
             if result is not None:
                 triggered.append(result)
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, IndexError):
             continue
 
     # 聚合信号：any红->红, any黄->黄, else绿

@@ -74,7 +74,7 @@ def scan_latest_policies(query: str = "", limit: int = 10, llm_fn=None) -> list[
                     # 不立即 parse_policy：节省 LLM token，让上层按需触发
                     "policy_doc": None,
                 })
-    except Exception:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
         # 优雅降级：扫描失败返回空 list，不打断既有 process_message
         pass
     return results

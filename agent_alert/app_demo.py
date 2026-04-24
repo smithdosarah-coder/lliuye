@@ -56,7 +56,7 @@ def _load_scenario() -> dict:
         return {}
     try:
         return json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
         return {}
 
 
@@ -503,7 +503,7 @@ def _run_scan(
     )
     try:
         agent = AlertRadarAgent(api_key=api_key or "", model_provider=provider or "deepseek")
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         yield (
             _render_stats_bar(status="idle"),
             _render_ledger(None),
@@ -575,7 +575,7 @@ def _run_scan(
                     gr.update(),
                     None, {}, "",
                 )
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         yield (
             _render_stats_bar(total=total, red=red, yellow=yellow, green=green,
                               duration_s=time.time() - t0, status="idle"),
@@ -655,7 +655,7 @@ def _on_export(hitlist: HitList | None, dispositions: dict):
             f'✅ 已导出：{html.escape(Path(path).name)}</div>'
         )
         return gr.update(value=path, visible=True), status
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, ImportError, AttributeError, KeyError) as e:
         return gr.update(value=None, visible=False), (
             f'<div style="color:{ZHONGAN_RED}; font-size:12px;">⚠️ 导出失败：{html.escape(str(e))}</div>'
         )
