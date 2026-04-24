@@ -92,3 +92,8 @@ Batch 1 阶段严禁预制材料包，即使"顺手就做"也不做——避免�
 ## 工作日志（append-only）
 
 - **2026-04-24**：worker resume 完成；发 ACK doc-only commit（即本 runbook 首稿）。等 GO 进 Task A。
+- **2026-04-24**：收到 GO，按 A → B → C 顺序一口气跑完 Batch 1：
+  - Task A `5bac8e4 → 95a4d4f`：`data/mock/README.md` + 2 份 schema + 目录骨架 → `DATA-SCHEMA-DONE`
+  - Task B `b6299dc`：宽基 100 家 companies.yaml + source-notes.md（分布 25/20/15/12/10/8/5/5 · 难度 20/50/20/10 严格）→ `DATA-WIDE-100-DONE`
+  - Task C `82dcce3`：深柱 15 家 shortlist + pit-template + 15 份 pit 空白表 + wide-base `deep_pillar_candidate` 同步置 true → `DATA-DEEP-SHORTLIST-DONE`
+  - 全 Task 完成 → 发 `READY-FOR-DATA-FOUNDATION-B1-REVIEW` 等主 CLI review。
