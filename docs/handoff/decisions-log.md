@@ -1657,6 +1657,7 @@ Batch 2 Product Hardening 4/4 全部 APPROVED + 合流 chore/l0-infra：
 - DF-V2-4 阈值 polish 合 1 commit
 - Batch 3 规划草案待用户 GO 后 dispatch
 - evaluation worker 下次 rebase 自动升级 Agent1/5 metric stub → deterministic（不单独派任务 · 随下次轮次）
+- **被 Q-032 部分更新**：Batch 3 scope 从 "Agent2 窄硬化" 扩至 "Phase 3-Final · DoD 倒推 8 轨并行" · 原 Batch 3 降格为 P3F 轨 8
 
 ---
 
@@ -1731,6 +1732,86 @@ Batch 2 closeout 后审计 mesh 发现 3 类历史债务：
 **Follow-up**:
 - 本 commit Signal: MESH-CLEANUP-BATCH-2-RESIDUAL
 - demo-evaluation 物理目录 Windows 文件锁残留 · 用户关闭所有编辑器/终端后手动 `rm -rf "D:/claude code/demo-evaluation"`
-- Phase 4 启动前重读本 Q-031 档 2/3 处置清单
+- ~~Phase 4 启动前重读本 Q-031 档 2/3 处置清单~~ **被 Q-032 推翻**：档 2/3 冻结方案不再生效 · 直接进入 Phase 3-F 激活
+
+---
+
+## [Q-032] 2026-04-25 · main CLI (self) · Phase 3-Final 总规划 · 推翻 Q-031 档 2/3 冻结
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: no
+**Related**: Q-030/A-030 · Q-031/A-031 · docs/scorecard/dod-current-status-2026-04-24.md · docs/scorecard/definition-of-done.md v1.0
+
+### 背景
+
+Batch 2 closeout + mesh cleanup 后用户要求"PM 视角审视产品 · 不在意时间 · 全面推进对外交付银行准备"。主 CLI 真审视：
+
+- 读 `docs/scorecard/dod-current-status-2026-04-24.md` · 发现 L3 POC 30% 是最大 gap · L1-3 可视化 4 条全缺 · L2-12/13/14 合规 3 份文档缺 · L3-9/10/11/12 E2E+截屏+模型卡+演示脚本全缺
+- 审视 3 frozen worker（agent6 20 commit · agent3 11 commit · agent1 30 commit）：agent6 branch 直接解 L2-12/13/14 + L3-8/11/12 等 6 条 DoD 硬指标 · agent3 branch 解 L2-7/8 + L1-4 + L1-11 · agent1 branch 有 1 条飞轮 + 2-3 条中价值
+- 审视 7 frozen frontend branch：实证调查（grep main + diff 每 branch HEAD）发现它们**不是废设计**，是**做一半**：shell-free-drag 加 PanelCanvas/Whiteboard 组件本体（main 只有 store）· canvas-mode-toggle 加 CanvasModeToggle（main 缺）· credit-mock-endpoint 加 /api/credit/mock-session（main 缺）· alert/compliance-codex-fusion 是 agent workspace 完整 Codex 融合（REVIEW-READY）· agent-workspaces-v2 是 5 agent hero redesign
+
+**结论**：Q-031 档 2/3 冻结方案是回避决策。推翻 · 进入 Phase 3-F 8 轨并行。
+
+### Phase 3-F 总规划摘要
+
+详细 scope 见 `docs/handoff/session-2026-04-25-phase-3-final-handoff.md` §4。简表：
+
+| 轨 | 内容 | 解 DoD | 工期 |
+|---|---|---|---|
+| 1 · agent6 解冻 | 20 commit rebase + merge | L2-12/13/14 + L3-8/11/12 + QC 四维 | 2-3 天 |
+| 2 · agent3 解冻 | 11 commit rebase + merge | L2-7/8 + L1-4 + L1-11 + L1-3 Agent3 | 1-2 天 |
+| 3 · agent1 cherry-pick | 3 commit 必 pick（飞轮 + xlsx 导出 + handoff button） | L3-8 + L1-4 + L1-11 补 | 0.5-1 天 |
+| 4 · 前端整合 | 7 branch rebase + 融合 + Batch 2 EvidenceTrail 兼容 | L1-3 可视化 4 条全解 + shell 交互 | 7-8 天 |
+| 5 · reason_codes 字典 | Agent4/5（+ 可选 Agent1/2） | L2-7/8 剩余 | 1 天 |
+| 6 · L3 POC 证据 | E2E × 3 + 截屏 + P95 + 运维文档 | L3-9/10 + L0-12/13 + L3-5 | 2-3 天 |
+| 7 · 文档补齐 | L2-15 本地化 + 5 Agent 模型卡 + 演示脚本 + Agent1 信号时间线 UI | L2-15 + L3-11（5）+ L3-12（5）+ L1-3 Agent1 | 2-3 天 |
+| 8 · Agent2 硬化 | 复用原 Batch 3 3 份 onboarding | L3-2/3 Agent2 + Q-030 Follow-up | 5-7 天 |
+
+并行拓扑：
+- Stage 1 · Day 1-4 · 轨 1/2/3/5/7/8 data 部分 · 6 worker 并行
+- Stage 2 · Day 5-9 · 轨 4 前端整合（等 1/2/3 合流）+ 轨 8 code/eval
+- Stage 3 · Day 10-13 · 轨 6 E2E + load test（等轨 4 完）
+
+### DoD 目标转变
+
+| 层 | 当前 | P3F 目标 |
+|---|---|---|
+| L0 | 75% | 90% |
+| L1 | 60% | 90% |
+| L2 | 75% | 95% |
+| L3 | 45% | **85%** |
+| L4 | 10% | 10%（非目标） |
+
+### 对 Q-031 的处理
+
+- 档 1（12 worktree 清理）· **保留**（已执行）
+- 档 2（agent1/3/6 冻结）· **推翻** · 进入 P3F 轨 1/2/3
+- 档 3（7 前端 branch 冻结）· **推翻** · 进入 P3F 轨 4
+
+### f950b40（本任 Batch 3 dispatch）处理
+
+不 revert · 原 3 份 onboarding（batch-3-data-foundation-agent2-samples.md + batch-3-code-arch-agent2-hardening.md + batch-3-evaluation-agent2-metrics.md）复用为 P3F 轨 8 输入 · 不污染 git 历史 · 新主 CLI 写新 kickoffs 时直接引用这 3 份。
+
+### 用户协作反馈
+
+本任 4 次被纠偏：
+1. "说人话" · 短 + verdict 先行
+2. "冻结啥用" · 回避决策 = 失职（直接导致本 Q-032 推翻 Q-031）
+3. "仔细评估下" · 实证调查 7 前端 branch 发现都是做一半
+4. "这三个事是你审视了全产品形态之后决策的吗" · 承认上任规划惯性 · 从 DoD 倒推重规划
+
+这些反馈沉淀到 `docs/handoff/session-2026-04-25-phase-3-final-handoff.md` §7.3，新主 CLI 必读。
+
+### [A-032] 2026-04-25 · 主 CLI 自定
+
+**Decision**: Phase 3-Final 8 轨并行 · DoD 倒推 · 推翻 Q-031 档 2/3 冻结 · 用户明示"不在意时间"
+
+**Follow-up**:
+- 本 commit Signal: ORCHESTRATOR-HANDOFF-PHASE-3-FINAL-PLANNED
+- 新主 CLI resume 后执行 handoff doc §6 Hour 1-7 playbook
+- 新主 CLI 首次 dispatch commit Signal: PHASE-3-FINAL-DISPATCHED
+- Phase 3-F 完结预计 commit Signal: PHASE-3-FINAL-COMPLETED-DOD-85
+- 用户启动新主 CLI：双击桌面 `start_claude.bat`（已存在 · 单主 CLI 启动器 · 无需修改）
 
 ---
