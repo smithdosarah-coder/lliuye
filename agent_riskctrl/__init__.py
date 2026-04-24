@@ -17,4 +17,8 @@ Agent2 · 风控策略 · v3.1 DSL + 回测
 架构核心：
   与 Agent3 的区别 —— Agent3 是"对一个客户做多维判断"，Agent2 是"对一批客户用一条规则筛"。
   两者都走规则引擎，但规则的生命周期不同：Agent2 的规则是策略产物（可迭代），Agent3 的规则是红线（刚性）。
+
+工具域公开 API（`<域>_<动作>` 命名）都在 `agent_riskctrl.domains` 子包下：
+  `from agent_riskctrl.domains import dsl_gen_parse_from_llm, backtest_run, ...`
 """
+

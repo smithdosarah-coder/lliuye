@@ -18,4 +18,8 @@ Agent1 · 全渠道获客 · v4.0 信号驱动搜索
 
 架构硬约束：
   围绕"搜索"设计，抽 SearchProvider 接口，Mock/Web 可切换；下游统一消费 CompanyProfile 结构。
+
+工具域公开 API（`<域>_<动作>` 命名）都在 `agent_channel.domains` 子包下：
+  `from agent_channel.domains import signal_search_stream, profile_extract_ideal_from_kb, ...`
 """
+
