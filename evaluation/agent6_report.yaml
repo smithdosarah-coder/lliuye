@@ -1,42 +1,83 @@
 # Agent6 报告生成 评估配置
+# schema: A-025 · 双写（老 desc/target 保留 · v16 pipeline 继续消费 + 追加新 description/method/baseline_target/blocker_threshold）
 agent: report
 version: v7.23
-updated: 2026-04-15
+updated: 2026-04-24
 
 metrics:
   common:
     - name: field_completeness
       desc: 模板字段自动填写率（460 项基线）
+      description: 模板字段自动填写率（460 项基线）
+      method: filled_fields / expected_fields_total (v16 pipeline baseline 460)
       target: ">= 0.93"
+      baseline_target: 0.93
+      blocker_threshold: 0.80
     - name: evidence_rate
       desc: 每段生成内容挂证据（段落 ID / 材料文件名）
+      description: 每段生成内容挂证据（段落 ID / 材料文件名）的比例
+      method: sections_with_evidence / sections_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
     - name: hallucination_rate
       desc: 生成内容中出现材料里不存在的数字或事实
+      description: 生成内容中出现材料里不存在的数字或事实 占比
+      method: ungrounded_claims / total_claims
       target: "<= 0.01"
+      baseline_target: 0.01
+      blocker_threshold: 0.03
     - name: tool_success_rate
       desc: 材料解析 / 字段抽取 / 段落生成工具调用成功率
+      description: 材料解析/字段抽取/段落生成工具调用 success/total
+      method: tool_calls_success / tool_calls_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
     - name: task_completion_rate
       desc: 端到端跑通率（材料输入到 Word 输出）
+      description: 材料输入到 Word 输出的端到端跑通率
+      method: runs_with_docx_output / runs_total
       target: ">= 0.98"
+      baseline_target: 0.98
+      blocker_threshold: 0.85
 
   domain:
     - name: financial_ratio_consistency
       desc: 报告中财务比率与 financial_analyzer 计算一致率
+      description: 报告中财务比率与 financial_analyzer Python 计算一致（|delta|<0.005）的比例
+      method: agree_ratios / total_ratios  (|delta|<0.005)
       target: ">= 0.99"
+      baseline_target: 0.99
+      blocker_threshold: 0.95
     - name: template_leakage_rate
       desc: 模板样例文本残留率（通过 SequenceMatcher 检测）
+      description: 段落相对 samples/ 基线 SequenceMatcher ratio ≥ 0.85 的占比
+      method: leaked_paragraphs / total_paragraphs  (sim >= 0.85)
       target: "<= 0.02"
+      baseline_target: 0.02
+      blocker_threshold: 0.08
     - name: unfilled_marker_accuracy
       desc: 「未能自动填写」标记的准确性（该标却没标 / 不该标却标了）
+      description: 「未能自动填写」标记的准确性（1 - 占位符残留 / 段落总数）
+      method: 1 - placeholder_residue / total_paragraphs
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
     - name: section_length_calibration
       desc: 生成段落长度与真人范文的偏差中位数
+      description: 生成段落长度相对真人范文的相对偏差中位数
+      method: median(|gen_len - gold_len| / gold_len)
       target: "<= 0.30"
+      baseline_target: 0.30
+      blocker_threshold: 0.60
     - name: quality_score_total
       desc: quality_scorer.py 9 维度总分
+      description: quality_scorer.py 9 维度综合总分
+      method: quality_scorer.score_total(docx)
       target: ">= 65.0"
+      baseline_target: 65.0
+      blocker_threshold: 55.0
 
 baseline:
   last_run: 2026-04-03

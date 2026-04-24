@@ -1,48 +1,106 @@
 # Agent4 贷中预警 评估配置
+# schema: A-025 · 双字段（老 desc/target 保留 + 新 description/method/baseline_target/blocker_threshold）
+# 注意: Phase 0 baseline (PARTIAL verdict) 已有 runtime dump (manual/4_20260419.yaml)，domain name 保持不变
 agent: alert
 version: v3.1
-updated: 2026-04-15
+updated: 2026-04-24
 
 metrics:
   common:
+    - name: field_completeness
+      desc: 榜单客户结构化字段完整率（entity_id/grade/evidence/trigger_reasons 四键）
+      description: 榜单客户结构化字段完整率（entity_id/grade/evidence/trigger_reasons 四键均非空）
+      method: customers_with_4keys / customers_total
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: task_completion_rate
       desc: 客户池扫描完成率（100 家客户全量跑通）
+      description: 客户池批量扫描 status==completed 的占比
+      method: customers_status_completed / customers_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: evidence_rate
       desc: 每个红/黄灯客户附具体触发证据（外部事件 + 内部规则）
+      description: 红/黄灯客户 evidence 字段非空的占比
+      method: red_yellow_with_evidence / red_yellow_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.75
+
     - name: hallucination_rate
       desc: 不存在的客户 / 虚构事件被列入榜单
+      description: 榜单 entity_id 不在客户池白名单的占比
+      method: entity_id_not_in_whitelist / entity_id_total
       target: "<= 0.01"
+      baseline_target: 0.01
+      blocker_threshold: 0.05
+
     - name: tool_success_rate
       desc: 外部扫描 + 内部交易查询的工具调用成功率
+      description: 外部扫描 + 内部交易查询工具调用 success/total
+      method: tool_calls_success / tool_calls_total
       target: ">= 0.90"
+      baseline_target: 0.90
+      blocker_threshold: 0.70
 
   domain:
     - name: cross_hit_precision
       desc: 双路命中（外部 + 内部）的红灯精准率
+      description: 外部事件 × 内部规则双路同时触发的红灯 precision（pending · Phase 2 真值库）
+      method: cross_hit_true_positive / cross_hit_total  (需人工标注真值)
       target: ">= 0.80"
+      baseline_target: 0.80
+      blocker_threshold: 0.60
+
     - name: recall_on_known_bad
       desc: 已知问题客户被 Agent 识别为红/黄灯的召回率
+      description: 已知 known-bad 客户被识别为 red/yellow 的召回率（pending · Phase 2 真值库）
+      method: known_bad_flagged_red_or_yellow / known_bad_total
       target: ">= 0.90"
+      baseline_target: 0.90
+      blocker_threshold: 0.70
+
     - name: grade_distribution_sanity
       desc: 红/黄/绿分级分布合理性（红灯 < 5%，绿灯 > 70%）
+      description: 红灯占比 < 5% 且 绿灯占比 > 70% → PASS
+      method: red_ratio < 0.05 AND green_ratio > 0.70
       target: "pass"
+      baseline_target: 1.0
+      blocker_threshold: 0.0
+
     - name: scan_latency_p95
       desc: 100 家客户批量扫描 P95 耗时（分钟）
+      description: 客户扫描耗时 P95（分钟单位）
+      method: percentile(scan_time_ms, 95) / 60000
       target: "<= 30"
+      baseline_target: 30.0
+      blocker_threshold: 60.0
+
+    - name: signal_diversity
+      desc: 每红/黄灯客户平均触发信号种类数（≥ 2 视为多样性健康）
+      description: 红/黄灯客户中 len(trigger_reasons) ≥ 2 的占比
+      method: red_yellow_with_ge2_trigger_reasons / red_yellow_total
+      target: ">= 0.60"
+      baseline_target: 0.60
+      blocker_threshold: 0.40
 
 baseline:
   last_run: 2026-04-19T05:36:55Z
   commit: 52d3f90913e5531ba801722c79036aea06999ec9
-  verdict: PARTIAL  # Phase 0 首跑；Phase 1 Task B 后升 PASS
+  verdict: PARTIAL  # Phase 0 首跑；Phase 1 Task B 后升 PASS；B1 新加 field_completeness/signal_diversity 待 adapter 实装
   artifact: evaluation/manual/4_20260419.yaml  # Phase 1 Task A runtime dump（AlertKB + MockSearchProvider scan 产物）
   regression_anchor: agent_alert/tests/fixtures/phase0_scan_sample.json  # schema 冻结, 仅供回归单测
   result_file: evaluation/results/4_20260419.yaml  # local-only, gitignored
   pending_metrics:
     - cross_hit_precision
     - recall_on_known_bad
-  pending_reason: "Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源（Tavily / 工商 / 司法）接入后才能算"
+    - field_completeness
+    - signal_diversity
+  pending_reason: "cross_hit_precision/recall_on_known_bad: Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源（Tavily / 工商 / 司法）接入后才能算; field_completeness/signal_diversity: B1 新加, adapter 未实装 runtime 探针"
   notes: |
     Phase 0 首跑基线（baseline-first 原则, CLAUDE.md §5.2）。
     红线闸门全绿：hallucination_rate=0.00 / evidence_rate=1.00 / task_completion_rate=1.00。
@@ -50,3 +108,5 @@ baseline:
     MockSearchProvider demo_mode + CustomerScanner.scan），合成 fixture 退为回归锚。
     Phase 1 Task B 起 pending_metrics 白名单挂 A-013 kernel —— cross_hit_precision /
     recall_on_known_bad 需人工真值库支撑，本 Phase 不假装能跑, verdict 计算从分母移除。
+    B1 (2026-04-24): schema 升 A-025 双字段；新加 field_completeness / signal_diversity
+    两条进 pending_metrics，待 adapter 补实装。

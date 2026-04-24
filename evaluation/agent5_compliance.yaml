@@ -1,36 +1,91 @@
 # Agent5 合规巡检 评估配置
+# schema: A-025 · 双字段（老 desc/target 保留 + 新 description/method/baseline_target/blocker_threshold）
 agent: compliance
 version: v3.1
-updated: 2026-04-15
+updated: 2026-04-24
 
 metrics:
   common:
+    - name: field_completeness
+      desc: 冲突点结构化字段完整率（政策锚/业务锚/冲突等级/建议 4 键）
+      description: 冲突点结构化字段完整率（policy_anchor/business_anchor/severity/suggestion 四键均非空）
+      method: conflict_items_with_4keys / conflict_items_total
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: task_completion_rate
       desc: 新政策输入能否产出违规冲突点清单
+      description: 新政策文件输入到冲突点清单产出的成功率
+      method: runs_with_conflict_list / runs_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: evidence_rate
       desc: 每条违规项附政策原文条款 + 业务制度段落
+      description: 冲突项附 policy_anchor + business_anchor 的占比
+      method: items_with_both_anchors / items_total
       target: ">= 0.98"
+      baseline_target: 0.98
+      blocker_threshold: 0.90
+
     - name: hallucination_rate
       desc: 政策条款号 / 业务制度段落引用错误率
+      description: 政策条款号/业务制度段落引用对不上原文的占比
+      method: unresolvable_anchors / anchors_total
       target: "<= 0.01"
+      baseline_target: 0.01
+      blocker_threshold: 0.05
+
     - name: tool_success_rate
       desc: 政策解析 + 矩阵匹配 + 判定工具调用成功率
+      description: 政策解析/矩阵匹配/冲突判定工具链 success/total
+      method: tool_calls_success / tool_calls_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
 
   domain:
-    - name: policy_parse_accuracy
-      desc: 政策文件关键条款抽取准确率
+    - name: policy_coverage
+      desc: 政策文件关键条款抽取覆盖率（人工标注条款集）
+      description: 政策文件关键条款抽取覆盖率（对比人工标注条款集的 recall）
+      method: extracted_clauses_in_gold / gold_clauses_total
       target: ">= 0.90"
-    - name: conflict_precision
-      desc: 标注为冲突的明细项中真实冲突占比
-      target: ">= 0.85"
+      baseline_target: 0.90
+      blocker_threshold: 0.75
+
     - name: conflict_recall
       desc: 已知冲突点被识别的召回率
+      description: 已知冲突点（人工 gold）被识别的召回率
+      method: identified_conflicts_in_gold / gold_conflicts_total
       target: ">= 0.90"
+      baseline_target: 0.90
+      blocker_threshold: 0.75
+
     - name: defect_classification_accuracy
       desc: 缺陷分类（严重/重要/一般）与人工一致率
+      description: 缺陷三级分类（严重/重要/一般）与人工标注一致率
+      method: severity_agreement / items_total
       target: ">= 0.80"
+      baseline_target: 0.80
+      blocker_threshold: 0.65
+
+    - name: terminology_compliance
+      desc: 合规术语规范率（对比监管用语表 v1.0）
+      description: 冲突点描述中合规术语使用率（对比监管用语表 v1.0）
+      method: compliant_terms / terms_total_detected
+      target: ">= 0.90"
+      baseline_target: 0.90
+      blocker_threshold: 0.75
+
+    - name: evidence_completeness
+      desc: 冲突点证据链完整性（政策条款原文 + 业务制度原文 + 差异点三要素齐全）
+      description: 冲突点证据链完整性（条款原文/制度原文/差异说明 三要素齐全的占比）
+      method: items_with_3evidence_pieces / items_total
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
 
 baseline:
   last_run: null
