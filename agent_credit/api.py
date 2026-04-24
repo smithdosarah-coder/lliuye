@@ -26,8 +26,29 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
+from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 app = FastAPI(title="Agent3 Credit Decision API", version="3.1")
+
+
+def _qc_scrub(payload):
+    """递归把字符串字段里的占位符替换为"未能自动填写"; 返回 (清洗后, 命中类型列表)。"""
+    hits: list[str] = []
+
+    def walk(v):
+        if isinstance(v, str):
+            local = scan_placeholders(v)
+            if local:
+                hits.extend(h.kind for h in local)
+                return mark_unfilled(v)
+            return v
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        return v
+
+    return walk(payload), hits
 
 
 class DecisionRequest(BaseModel):
@@ -66,11 +87,15 @@ def _decision_event_stream(req: DecisionRequest):
         yield sse_encode({"event": "profile_loaded", "profile": to_jsonable(profile)})
 
         for stage, payload in agent.run_decision_stream(profile, req.segment):  # type: ignore
-            yield sse_encode({
+            cleaned, hits = _qc_scrub(to_jsonable(payload))
+            evt = {
                 "event": "stage",
                 "stage": stage,
-                "payload": to_jsonable(payload),
-            })
+                "payload": cleaned,
+            }
+            if hits:
+                evt["_qc_placeholder_hits"] = hits
+            yield sse_encode(evt)
 
         yield sse_encode({"event": "done"})
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
