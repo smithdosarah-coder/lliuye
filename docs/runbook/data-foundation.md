@@ -112,3 +112,15 @@ Batch 1 阶段严禁预制材料包，即使"顺手就做"也不做——避免�
   - Task E：发 `READY-FOR-DATA-FOUNDATION-B1-V2-REVIEW` 汇报主 CLI。
 
   Batch 2 触发条件：主 CLI APPROVE v2 · 方向一致则再启动 Phase 2 Agent4 / Phase 3 Agent2（见 A-028 分 Phase 计划）。
+
+---
+
+## Batch 2 · Phase 2（Agent4 预警 mock）
+
+- **2026-04-24 (B2-P2 ACK)**：收到主 CLI Phase 2 Agent4 mock onboarding（`docs/onboarding/batch-2-data-foundation-phase-2.md` · orchestrator 分支 `chore/l0-infra@e68f28e`）。准备开工：
+  - 新增唯一目录：`data/mock/alert-pool/`（clients.csv + transactions/ + external-signals/）
+  - 规模：100-200 家在贷客户 · 每家 ≥12 月流水 csv + 3-10 条外部信号 md
+  - 参考决策：Q-028/A-028（反 5 原则 + 环境边界 Agent4 全 mock 豁免）· Q-029/A-029（Batch 1 closeout · 测试阶段豁免 · Batch 2 四轨）
+  - commit 粒度：Task A → B → C 各一个 commit + 自检 final（或合入 Task C）
+  - Signal 映射：`ALERT-POOL-CLIENTS-DONE` → `ALERT-POOL-TRANSACTIONS-DONE` → `ALERT-POOL-SIGNALS-DONE` → `READY-FOR-DATA-FOUNDATION-B2-REVIEW`
+  - 本 ACK 即 `PRODUCT-HARDENING-BATCH-2-DF-P2-ACK`。下一步：强制 onboarding 读 Q-028/Q-029 + CLAUDE.md §3.5 + deep-pillar 流水形态锚定，然后开 Task A。
