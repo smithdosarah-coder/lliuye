@@ -1,0 +1,2164 @@
+/* Canon Workspace Shell · 三栏对话式 · 2026-04-21 redesign
+ * Scope: .v-archive--canon（router 外层 div 注入）· 所有 canon agent 共享壳样式
+ * Agent tint 注入：.v-archive--canon[data-agent="<name>"] { --agent: var(--t-<name>) }
+ * 2026-04-21 H1 横向迁移：从 .v-archive-report 重命名为 .v-archive--canon（agent-agnostic）
+ * 继承 canon_rules.md A 章（A.1 hero-meta bridge · A.6 card hover 等）
+ */
+
+.v-archive--canon {
+  font-family: var(--cjk);
+  color: var(--ink);
+}
+.v-archive--canon[data-agent="report"] {
+  --agent: var(--t-report);
+}
+
+/* ── Hero ────────────────────────────────────────────── */
+.v-archive--canon .rpt-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+  padding: 18px 4px 20px;
+  border-bottom: 1px solid var(--ink-14);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.v-archive--canon .rpt-hero-badge {
+  width: 54px;
+  height: 54px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.v-archive--canon .rpt-hero-code {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.v-archive--canon .rpt-hero-title {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1;
+}
+.v-archive--canon .rpt-hero-title em {
+  font-style: italic;
+  color: var(--agent);
+}
+.v-archive--canon .rpt-hero-sub {
+  font-size: 12.5px;
+  color: var(--ink-65);
+  margin-top: 6px;
+}
+.v-archive--canon .rpt-hero-stats {
+  display: flex;
+  gap: 24px;
+  padding: 8px 4px;
+}
+.v-archive--canon .rpt-stat { min-width: 86px; }
+.v-archive--canon .rpt-stat-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--ink-48);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.v-archive--canon .rpt-stat-value {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2026-04-23 · BEM 别名补丁 · alert / compliance 的 HeroSection 使用 .rpt-hero__*
+   双下划线 BEM · canon 原 CSS 只定 dash 版 · 导致字堆叠裸奔。
+   镜像 dash 规则到 BEM · 两体系并存 · 不影响 dash 用户（report）。 */
+.v-archive--canon .rpt-hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-hero__badge {
+  color: var(--agent);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.v-archive--canon .rpt-hero__sep {
+  color: var(--ink-28);
+  margin: 0 2px;
+}
+.v-archive--canon .rpt-hero__title {
+  font-family: var(--display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.15;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.v-archive--canon .rpt-hero__sub {
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  color: var(--ink-65);
+  margin: 6px 0 0;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.v-archive--canon .rpt-hero__stats {
+  display: flex;
+  gap: 24px;
+  padding: 8px 4px 0;
+  margin: 12px 0 0;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-hero__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 86px;
+}
+.v-archive--canon .rpt-hero__stat dt {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--ink-48);
+  text-transform: uppercase;
+  margin: 0;
+}
+.v-archive--canon .rpt-hero__stat dd {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Body · 三栏 grid ───────────────────────────────── */
+.v-archive--canon .rpt-body {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 480px;
+  gap: 16px;
+  min-height: calc(100vh - 220px);
+  align-items: stretch;
+}
+@media (max-width: 1439px) {
+  .v-archive--canon .rpt-body {
+    grid-template-columns: 260px minmax(0, 1fr) 440px;
+    gap: 14px;
+  }
+}
+@media (max-width: 1279px) {
+  .v-archive--canon .rpt-body {
+    grid-template-columns: 240px minmax(0, 1fr) 400px;
+    gap: 12px;
+  }
+}
+
+/* ── v2 grid 别名 · CLI-B 重设计用 .rpt-grid/.rpt-col 命名 · 2026-04-22 补 ──
+   credit / alert / compliance workspace 都用新命名但漏了 grid CSS 定义，
+   三个页面 panel 全部塌成 block 流占满整宽。这里镜像 .rpt-body/.rpt-side/.rpt-main/.rpt-aux
+   的既有规则，不动新代码结构。 */
+.v-archive--canon .rpt-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 480px;
+  gap: 16px;
+  min-height: calc(100vh - 220px);
+  align-items: stretch;
+}
+@media (max-width: 1439px) {
+  .v-archive--canon .rpt-grid {
+    grid-template-columns: 260px minmax(0, 1fr) 440px;
+    gap: 14px;
+  }
+}
+@media (max-width: 1279px) {
+  .v-archive--canon .rpt-grid {
+    grid-template-columns: 240px minmax(0, 1fr) 400px;
+    gap: 12px;
+  }
+}
+.v-archive--canon .rpt-col {
+  min-width: 0;
+  min-height: 0;
+}
+.v-archive--canon .rpt-col--left,
+.v-archive--canon .rpt-col--right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.v-archive--canon .rpt-col--mid {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+/* ── v2 会话 · .rpt-conv + BEM 风 .rpt-msg__* 样式 · 2026-04-22 补 ──
+   credit/alert/compliance 的 ConversationMsg 用 BEM 命名（__head / __who 等），
+   canon 里原本只有 report/channel 风的 dash 命名（-head / -who），BEM 全部无样式
+   导致消息渲染成裸 div。这里补 canon-scoped 的 BEM 样式集，与旧名并存互不覆盖。 */
+.v-archive--canon .rpt-conv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 4px 2px;
+  min-height: 0;
+}
+.v-archive--canon .rpt-msg {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--chalk) 58%, transparent);
+  border: 1px solid var(--ink-08);
+  max-width: 92%;
+  align-self: flex-start;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent);
+}
+.v-archive--canon .rpt-msg--sys {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+  border-color: var(--ink-08);
+  font-size: 11.5px;
+  color: var(--ink-65);
+  max-width: 100%;
+  align-self: center;
+}
+.v-archive--canon .rpt-msg--user {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--ink) 6%, var(--chalk));
+  border-color: color-mix(in srgb, var(--ink) 12%, var(--ink-08));
+}
+.v-archive--canon .rpt-msg--ai {
+  background: color-mix(in srgb, var(--agent) 5%, var(--chalk));
+  border-color: color-mix(in srgb, var(--agent) 20%, var(--ink-08));
+}
+.v-archive--canon .rpt-msg--thinking {
+  background: color-mix(in srgb, var(--agent) 3%, var(--chalk));
+  border: 1px dashed color-mix(in srgb, var(--agent) 28%, var(--ink-14));
+}
+.v-archive--canon .rpt-msg__dot {
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.v-archive--canon .rpt-msg__sys-txt {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-65);
+}
+.v-archive--canon .rpt-msg__head {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-msg__who {
+  color: var(--ink);
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.v-archive--canon .rpt-msg--user .rpt-msg__who {
+  color: var(--ink);
+}
+.v-archive--canon .rpt-msg--ai .rpt-msg__who {
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+}
+.v-archive--canon .rpt-msg__at {
+  color: var(--ink-48);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-msg__ref {
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+}
+.v-archive--canon .rpt-msg__body {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.v-archive--canon .rpt-msg__diff {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--agent) 8%, transparent);
+  border-left: 2px solid var(--agent);
+}
+.v-archive--canon .rpt-msg__diff-anchor {
+  display: block;
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.v-archive--canon .rpt-msg__diff-after {
+  display: block;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* thinking 展开 · .rpt-think / .rpt-think__sum / .rpt-think__list / .rpt-think__item */
+.v-archive--canon .rpt-think {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 14%, transparent);
+}
+.v-archive--canon .rpt-think__sum {
+  cursor: pointer;
+  color: color-mix(in srgb, var(--agent) 70%, var(--ink-65));
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  padding: 2px 0;
+}
+.v-archive--canon .rpt-think__list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon .rpt-think__item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chalk) 50%, transparent);
+}
+.v-archive--canon .rpt-think__lbl {
+  display: flex; align-items: baseline; gap: 6px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.v-archive--canon .rpt-think__idx {
+  color: var(--ink-55);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+.v-archive--canon .rpt-think__ev {
+  list-style: disc inside;
+  margin: 0;
+  padding-left: 4px;
+  color: var(--ink-65);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.v-archive--canon .rpt-think__ev li {
+  margin: 2px 0;
+}
+
+/* .rpt-panel--conv 作为 "会话 + composer" 一体容器 · 保证 Composer 停靠
+   2026-04-23 · 规则去掉 .v-archive--canon 前缀 · 让 report/riskctrl 也生效
+   （它们用 data-view="archive-report" / archive-riskctrl，不在 canon scope） */
+.rpt-panel--conv.rpt-panel--conv-docked {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.rpt-panel--conv-docked > .rpt-panel-head {
+  flex-shrink: 0;
+}
+.rpt-panel--conv-docked > .rpt-panel-body,
+.rpt-panel--conv-docked > .rpt-conv {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.rpt-panel--conv-docked > .rpt-composer,
+.rpt-panel--conv-docked > .rpt-composer-slot {
+  flex-shrink: 0;
+  margin: 0;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--chalk) 38%, transparent);
+  padding: 10px 14px 12px;
+}
+
+/* v2 panel BEM 样式（__head / __eyebrow / __title / __counter / __meta / __updated / __body）
+   credit / alert / compliance 都用 BEM 命名 · canon 原本只有 dash 版 · 全部裸奔
+   2026-04-23 补齐 · 让 head 有 padding+border，body 有 padding，eyebrow 有 mono 小字 */
+.v-archive--canon .rpt-panel__head {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--ink-08);
+}
+.v-archive--canon .rpt-panel__head::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -14px;
+  height: 14px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--agent) 5%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+.v-archive--canon .rpt-panel__eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--agent) 72%, var(--ink-48));
+  line-height: 1.2;
+}
+.v-archive--canon .rpt-panel__title {
+  margin: 4px 0 0;
+  font-family: var(--cjk);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.v-archive--canon .rpt-panel__counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-48);
+  white-space: nowrap;
+}
+.v-archive--canon .rpt-panel__meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-48);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-panel__updated {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-panel__body {
+  padding: 14px 16px 14px;
+  min-width: 0;
+  /* 不写 overflow · 让父 .rpt-panel 的 overflow:auto 管 resize，避免吞 handle */
+}
+
+/* v2 composer BEM 样式（__hints / __ta / __send / __foot / __hint / __hint-txt）
+   credit/alert/compliance Composer 用 BEM 命名，canon 之前只有 dash 命名。
+   这里补齐，让内部按钮、textarea、hints 都有形。 */
+.v-archive--canon .rpt-composer {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.v-archive--canon .rpt-composer__hints {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.v-archive--canon .rpt-composer__hint {
+  all: unset;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--ink-08);
+  color: var(--ink-65);
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.v-archive--canon .rpt-composer__hint:hover {
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--agent) 30%, var(--ink-14));
+}
+.v-archive--canon .rpt-composer__ta {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink-14);
+  border-radius: 12px;
+  background: var(--chalk);
+  color: var(--ink);
+  font-family: var(--cjk);
+  font-size: 13px;
+  line-height: 1.55;
+  resize: vertical;
+  transition: border-color 180ms var(--ease-smooth, ease), box-shadow 180ms var(--ease-smooth, ease);
+}
+.v-archive--canon .rpt-composer__ta:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--agent) 45%, var(--ink-14));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--agent) 15%, transparent);
+}
+.v-archive--canon .rpt-composer__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.v-archive--canon .rpt-composer__hint-txt {
+  color: var(--ink-48);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-composer__send {
+  all: unset;
+  cursor: pointer;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: var(--agent);
+  color: #fff;
+  font-family: var(--cjk);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  transition: background .2s, opacity .2s;
+}
+.v-archive--canon .rpt-composer__send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--agent) 82%, var(--ink));
+}
+.v-archive--canon .rpt-composer__send:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* ── 左栏 · 三块纵向 ─────────────────────────────────── */
+.v-archive--canon .rpt-side {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+/* 2026-04-22 · PanelPinHandle / MessagePinHandle 需要相对定位锚点。
+   Report 不在 .v-archive--canon 作用域内，canon 下的 position:relative 规则不生效，
+   补一条 scoped 到 [data-view="archive-report"] 的规则，只管定位，不接管 bubble 样式。 */
+[data-view="archive-report"] .rpt-panel { position: relative; }
+[data-view="archive-report"] .rpt-msg { position: relative; }
+
+/* Task 3a · 解开 max-height 锁死（阻 .rpt-panel resize:both 真实生效）。
+   保留 min-height 作初始撑开锚点；max-height none 让用户能拖大；
+   .rpt-panel 全局 max-height: min(90vh, 1200px) 仍兜底避免撑爆视口。 */
+.v-archive--canon .rpt-side > .rpt-panel--tpl { min-height: 240px; max-height: none; }
+.v-archive--canon .rpt-side > .rpt-panel--mat { min-height: 320px; max-height: none; }
+.v-archive--canon .rpt-side > .rpt-panel--tl { min-height: 0; }
+
+/* ── 中栏 · 对话主轴 + Composer ─────────────────────── */
+.v-archive--canon .rpt-main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.v-archive--canon .rpt-composer-slot {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  background: var(--chalk);
+  padding: 14px 16px;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  transition: border-color 220ms var(--ease-smooth);
+}
+.v-archive--canon .rpt-composer-slot:focus-within {
+  border-color: color-mix(in srgb, var(--agent) 36%, var(--ink-14));
+}
+
+/* ── 右栏 · 预览产出 ─────────────────────────────────── */
+.v-archive--canon .rpt-aux {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.v-archive--canon .rpt-aux > .rpt-panel--preview {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Panel 基座 · bubble 语言（2026-04-22 P1 改造） ────
+   从纯白卡 → 半透明气泡：g0b 底 + backdrop-blur 过玻璃 + 双层阴影 + 22px 圆角。
+   canon A.6 hover 继承保留；bubble 层次由 backdrop + shadow 承担。
+   2026-04-22 P2：加 resize: both + min/max 约束，全局 panel 支持拉大缩小。 */
+.v-archive--canon .rpt-panel {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--g0b) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(108%);
+  -webkit-backdrop-filter: blur(14px) saturate(108%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent),
+    0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent),
+    0 10px 28px -18px color-mix(in srgb, var(--ink) 22%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  /* 2026-04-22 · 用户要"日常气泡大小调整再自由一些"：
+     min 压到 80/140（原 140/220），max-height 去除上限（原 min(90vh,1200px)），
+     max-width 保留 100% 防横向溢出父容器。 */
+  min-height: 80px;
+  min-width: 140px;
+  max-height: none;
+  max-width: 100%;
+  resize: both;
+  transition:
+    box-shadow 220ms var(--ease-smooth),
+    border-color 220ms var(--ease-smooth),
+    transform 220ms var(--ease-smooth);
+}
+/* resize handle 视觉化（原生 handle 太小） */
+.v-archive--canon .rpt-panel::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, transparent 0 45%, color-mix(in srgb, var(--ink) 28%, transparent) 45% 55%, transparent 55% 70%, color-mix(in srgb, var(--ink) 28%, transparent) 70% 80%, transparent 80%);
+  opacity: 0.5;
+  z-index: 2;
+}
+/* 登录页豁免（登录不套 canon · 但保险起见兜一层） */
+body[data-route="login"] .v-archive--canon .rpt-panel {
+  resize: none;
+}
+/* 2026-04-23 · visual-v3/P2c · rpt-panel apply --obj-* token
+   保留 border-color agent 色 + inset 高光作为 panel 身份标识 · 主阴影换
+   --obj-shadow-hover token · 加 -1px translateY lift · 5 主题 × 6 agent
+   自动衍生（颜色走 var(--agent)）。同时给 data-view scope 加同规则，
+   让 channel/report/riskctrl 也吃到统一 hover 语言。 */
+.v-archive--canon .rpt-panel:hover,
+[data-view^="archive-"] .rpt-panel:hover {
+  border-color: color-mix(in srgb, var(--agent) 30%, color-mix(in srgb, var(--ink) 10%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--chalk) 60%, transparent),
+    var(--obj-shadow-hover);
+  transform: translateY(-1px);
+  transition: outline .14s ease, box-shadow .18s ease, transform .14s ease, border-color .18s ease;
+}
+
+/* Dragging · FreePanelLayer 未来 mousedown 时挂 [data-dragging="true"] · CSS 先就绪 */
+.v-archive--canon .rpt-panel[data-dragging="true"],
+[data-view^="archive-"] .rpt-panel[data-dragging="true"] {
+  outline: var(--obj-ring-drag);
+  outline-offset: 3px;
+  box-shadow: var(--obj-shadow-drag);
+  transform: scale(1.015);
+  opacity: 0.94;
+  cursor: grabbing;
+}
+
+/* Pinned · 未来 Canvas pin 成功时 JS 加 .rpt-panel--pinned · CSS 先就绪 */
+.v-archive--canon .rpt-panel.rpt-panel--pinned,
+[data-view^="archive-"] .rpt-panel.rpt-panel--pinned {
+  outline: var(--obj-ring-pinned);
+  outline-offset: 2px;
+  box-shadow: var(--obj-shadow-pinned);
+}
+
+.v-archive--canon .rpt-panel-head {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--ink-08);
+}
+/* canon A.1 · hero-meta bridge 衍生：panel head → body 渐隐桥 */
+.v-archive--canon .rpt-panel-head::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -14px;
+  height: 14px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--agent) 5%, transparent),
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.v-archive--canon .rpt-panel-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--agent);
+  margin-bottom: 4px;
+}
+.v-archive--canon .rpt-panel-title {
+  font-family: var(--cjkserif);
+  font-size: 13px;
+  color: var(--ink);
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.v-archive--canon .rpt-panel-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-48);
+  white-space: nowrap;
+}
+.v-archive--canon .rpt-panel-body {
+  flex: 1;
+  padding: 12px 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── 占位符（P3-P4 逐块替换） ───────────────────────── */
+.v-archive--canon .rpt-placeholder {
+  padding: 26px 14px;
+  text-align: center;
+  color: var(--ink-48);
+  font-size: 11.5px;
+  line-height: 1.8;
+  border: 1px dashed var(--ink-14);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--agent) 3%, var(--chalk));
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+}
+
+/* ═══ P2 · 左栏三块实装 ═══ */
+
+/* ── TemplatePanel ────────────────────────────────── */
+.v-archive--canon .rpt-tpl-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.v-archive--canon .rpt-tpl-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--ink-08);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--agent) 4%, var(--chalk));
+}
+.v-archive--canon .rpt-tpl-ring { flex-shrink: 0; }
+.v-archive--canon .rpt-tpl-ring-track {
+  fill: none;
+  stroke: var(--ink-08);
+  stroke-width: 4;
+}
+.v-archive--canon .rpt-tpl-ring-fill {
+  fill: none;
+  stroke: var(--agent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 500ms var(--ease-smooth, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.v-archive--canon .rpt-tpl-ring-pct {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.v-archive--canon .rpt-tpl-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex: 1;
+  gap: 6px;
+  text-align: center;
+}
+.v-archive--canon .rpt-tpl-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.v-archive--canon .rpt-tpl-stats .num {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon .rpt-tpl-stats .lbl {
+  font-size: 9.5px;
+  color: var(--ink-48);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-tpl-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.v-archive--canon .rpt-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  transition:
+    border-color 220ms var(--ease-smooth, ease),
+    color 220ms var(--ease-smooth, ease),
+    background 220ms var(--ease-smooth, ease);
+}
+.v-archive--canon .rpt-btn--ghost {
+  border: 1px solid var(--ink-14);
+  color: var(--ink-65);
+}
+.v-archive--canon .rpt-btn--ghost:hover {
+  border-color: color-mix(in srgb, var(--agent) 38%, var(--ink-14));
+  color: var(--agent);
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+}
+.v-archive--canon .rpt-tpl-avail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.v-archive--canon .rpt-tpl-avail-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+  margin: 4px 0 2px;
+}
+.v-archive--canon .rpt-tpl-avail-row {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  gap: 8px;
+  transition: background 180ms;
+}
+.v-archive--canon .rpt-tpl-avail-row:hover {
+  background: color-mix(in srgb, var(--agent) 7%, transparent);
+}
+.v-archive--canon .rpt-tpl-avail-row .name {
+  font-size: 11.5px;
+  color: var(--ink-80);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v-archive--canon .rpt-tpl-avail-row .meta {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  flex-shrink: 0;
+}
+
+/* ── MaterialPanel ────────────────────────────────── */
+.v-archive--canon .rpt-mat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.v-archive--canon .rpt-mat-drop {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 14px;
+  border: 1.5px dashed var(--ink-14);
+  border-radius: 10px;
+  text-align: center;
+  transition: border-color 220ms, background 220ms;
+}
+.v-archive--canon .rpt-mat-drop:hover {
+  border-color: color-mix(in srgb, var(--agent) 40%, var(--ink-14));
+  background: color-mix(in srgb, var(--agent) 3%, transparent);
+}
+.v-archive--canon .rpt-mat-drop-ic {
+  font-size: 18px;
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+}
+.v-archive--canon .rpt-mat-drop-lbl {
+  font-size: 11.5px;
+  color: var(--ink-80);
+}
+.v-archive--canon .rpt-mat-drop-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ink-48);
+}
+.v-archive--canon .rpt-mat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.v-archive--canon .rpt-mat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid var(--ink-08);
+  border-radius: 10px;
+  background: var(--chalk);
+  transition: border-color 200ms, box-shadow 200ms, transform 200ms;
+}
+.v-archive--canon .rpt-mat-card.pending {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--agent) 3%, var(--chalk));
+}
+.v-archive--canon .rpt-mat-card:hover {
+  border-color: color-mix(in srgb, var(--agent) 32%, var(--ink-14));
+  box-shadow: 0 4px 14px -10px color-mix(in srgb, var(--agent) 45%, transparent);
+  transform: translateY(-1px);
+}
+.v-archive--canon .rpt-mat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.v-archive--canon .rpt-mat-kind {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 16%, transparent);
+  color: var(--agent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.v-archive--canon .rpt-mat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.v-archive--canon .rpt-mat-dot.ok {
+  background: var(--safe, #3AB27C);
+}
+.v-archive--canon .rpt-mat-dot.pending {
+  background: color-mix(in srgb, var(--agent) 60%, transparent);
+  animation: blip 1.8s ease-in-out infinite;
+}
+.v-archive--canon .rpt-mat-name {
+  font-size: 10.5px;
+  color: var(--ink);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.v-archive--canon .rpt-mat-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-48);
+}
+.v-archive--canon .rpt-mat-note {
+  font-size: 9.5px;
+  color: var(--ink-65);
+  line-height: 1.4;
+}
+.v-archive--canon .rpt-mat-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+.v-archive--canon .rpt-mat-link {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  color: var(--agent);
+}
+
+/* ── TimelinePanel ────────────────────────────────── */
+.v-archive--canon .rpt-tl-switch {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-65);
+  padding: 3px 8px;
+  border: 1px solid var(--ink-08);
+  border-radius: 6px;
+  background: var(--chalk);
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 200ms;
+}
+.v-archive--canon .rpt-tl-switch:hover {
+  border-color: color-mix(in srgb, var(--agent) 32%, var(--ink-14));
+}
+.v-archive--canon .rpt-tl-body {
+  padding: 8px 10px 14px;
+}
+.v-archive--canon .rpt-tl-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.v-archive--canon .rpt-tl-ev {
+  position: relative;
+  padding: 7px 8px 7px 14px;
+  border-radius: 7px;
+  transition: background 180ms;
+}
+.v-archive--canon .rpt-tl-ev:hover {
+  background: color-mix(in srgb, var(--agent) 5%, transparent);
+}
+.v-archive--canon .rpt-tl-bar {
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  bottom: 9px;
+  width: 2.5px;
+  border-radius: 2px;
+}
+/* canon A.4 · priority left-bar · p0 红 / p1 橙 / p2 灰 / done 绿 */
+.v-archive--canon .rpt-tl-ev[data-prio="p0"] .rpt-tl-bar {
+  background: var(--t-alert, #C85A3C);
+}
+.v-archive--canon .rpt-tl-ev[data-prio="p1"] .rpt-tl-bar {
+  background: var(--t-report, #B08640);
+}
+.v-archive--canon .rpt-tl-ev[data-prio="p2"] .rpt-tl-bar {
+  background: var(--ink-28);
+}
+.v-archive--canon .rpt-tl-ev[data-prio="done"] .rpt-tl-bar {
+  background: var(--safe, #3AB27C);
+}
+.v-archive--canon .rpt-tl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.v-archive--canon .rpt-tl-kind {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+}
+.v-archive--canon .rpt-tl-at {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-48);
+}
+.v-archive--canon .rpt-tl-label {
+  font-size: 11.5px;
+  color: var(--ink);
+  font-weight: 500;
+  line-height: 1.35;
+}
+.v-archive--canon .rpt-tl-detail {
+  font-size: 10px;
+  color: var(--ink-65);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+/* ═══ P3 · 中栏对话 + Composer ═══ */
+
+/* ── Conversation list ──────────────────────────────── */
+.v-archive--canon .rpt-conv-body {
+  padding: 16px 20px 20px;
+}
+.v-archive--canon .rpt-conv-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Message base */
+.v-archive--canon .rpt-msg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  /* MessagePinHandle 靠此定位 · 抓手仅 hover 可见，不影响现有布局。 */
+  position: relative;
+}
+
+/* ── MessagePinHandle · 对话消息拖柄（Task 2） ──────────────
+   绝对定位在 .rpt-msg 右上（AI 左对齐 / User 右对齐消息皆适用）；
+   默认 opacity:0 完全透明，hover 时 .72 浮现。拖拽中 cursor:grabbing。
+   位于 z-index 3 盖住 avatar 顶层，但避开 card 主体。
+   极简：14px 圆点抓手，不占位、不压文本。 */
+.v-archive--canon .mp-grip {
+  all: unset; cursor: grab;
+  /* 同 .pp-grip · all:unset 会清掉 Chromium 的 -webkit-user-drag，补回。 */
+  -webkit-user-drag: element;
+  user-select: none;
+  position: absolute; top: 4px; right: 6px; z-index: 3;
+  --mp-grip-accent: var(--ink-48);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mp-grip-accent) 22%, var(--ink-14));
+  color: var(--mp-grip-accent);
+  /* 2026-04-22 · 同 .pp-grip 改常显低透明。消息右上圆点原 opacity:0 纯 hover
+     出现，用户根本没发现 → 拖不起。0.28 常显不吵，hover 父消息 0.78 凸显。 */
+  opacity: .28;
+  transition: opacity .2s, border-color .2s, background .2s, transform .12s;
+}
+.v-archive--canon .rpt-msg:hover > .mp-grip,
+.v-archive--canon .rpt-msg:focus-within > .mp-grip { opacity: .78; }
+.v-archive--canon .mp-grip:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--mp-grip-accent) 14%, var(--chalk));
+  border-color: color-mix(in srgb, var(--mp-grip-accent) 44%, var(--ink-14));
+  transform: scale(1.06);
+}
+.v-archive--canon .mp-grip:active { cursor: grabbing; transform: scale(.94); }
+.v-archive--canon .mp-grip:focus-visible {
+  opacity: 1;
+  outline: 2px solid color-mix(in srgb, var(--mp-grip-accent) 50%, transparent);
+  outline-offset: 2px;
+}
+.v-archive--canon .mp-grip-dots {
+  font-family: var(--mono); font-size: 10px; line-height: 1;
+  letter-spacing: -.05em;
+}
+.v-archive--canon .rpt-msg-avatar {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+}
+.v-archive--canon .rpt-msg-avatar--user {
+  background: var(--ink);
+  color: var(--chalk);
+  font-family: var(--cjk);
+  font-size: 13px;
+}
+.v-archive--canon .rpt-msg-avatar--thinking {
+  background: color-mix(in srgb, var(--agent) 14%, transparent);
+  animation: blip 2.2s ease-in-out infinite;
+}
+.v-archive--canon .rpt-msg-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon .rpt-msg-body--user {
+  align-items: flex-end;
+}
+.v-archive--canon .rpt-msg-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-msg-meta--user {
+  justify-content: flex-end;
+}
+.v-archive--canon .rpt-msg-who {
+  color: var(--ink-65);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-msg-fieldref {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+  color: var(--agent);
+}
+.v-archive--canon .rpt-msg-at {
+  color: var(--ink-48);
+}
+
+/* Card base */
+.v-archive--canon .rpt-msg-card {
+  padding: 11px 14px;
+  border: 1px solid var(--ink-08);
+  border-radius: 12px;
+  background: var(--chalk);
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.6;
+  max-width: 90%;
+}
+.v-archive--canon .rpt-msg-card--ask {
+  position: relative;
+  padding-left: 42px;
+  border-color: color-mix(in srgb, var(--agent) 22%, var(--ink-14));
+  background: color-mix(in srgb, var(--agent) 4%, var(--chalk));
+}
+.v-archive--canon .rpt-msg-card-ic {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+}
+.v-archive--canon .rpt-msg-card--user {
+  background: color-mix(in srgb, var(--ink) 7%, var(--chalk));
+  border-color: color-mix(in srgb, var(--ink) 14%, var(--ink-14));
+  border-radius: 14px 14px 4px 14px;
+}
+.v-archive--canon .rpt-msg-card--cmd {
+  background: color-mix(in srgb, var(--safe, #3AB27C) 6%, var(--chalk));
+  border-color: color-mix(in srgb, var(--safe, #3AB27C) 28%, var(--ink-14));
+  font-family: var(--mono);
+  font-size: 11.5px;
+  border-radius: 10px 10px 4px 10px;
+}
+.v-archive--canon .rpt-msg-card--cmd code {
+  font-family: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+/* Diff in ai-response */
+.v-archive--canon .rpt-msg-diff {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--ink-14);
+}
+.v-archive--canon .rpt-msg-diff-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--agent);
+  margin-bottom: 4px;
+}
+.v-archive--canon .rpt-msg-diff-after {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-80);
+  padding: 9px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--agent) 55%, transparent);
+  background: color-mix(in srgb, var(--agent) 3%, transparent);
+  border-radius: 4px;
+}
+
+/* System event (centered chip) */
+.v-archive--canon .rpt-msg--sys {
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+.v-archive--canon .rpt-msg-sys-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--ink-04);
+  border: 1px solid var(--ink-08);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-65);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-msg--sys .rpt-msg-at {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+}
+
+/* AI thinking expandable */
+.v-archive--canon .rpt-msg-think {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1px dashed var(--ink-14);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--agent) 3%, transparent);
+  font-size: 11.5px;
+  color: var(--ink-65);
+  transition: border-color 200ms, background 200ms, color 200ms;
+  max-width: 90%;
+}
+.v-archive--canon .rpt-msg-think:hover {
+  border-color: color-mix(in srgb, var(--agent) 42%, var(--ink-14));
+  background: color-mix(in srgb, var(--agent) 6%, transparent);
+  color: var(--ink-80);
+}
+.v-archive--canon .rpt-msg-think-caret {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--agent);
+}
+.v-archive--canon .rpt-msg-steps {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--agent) 35%, transparent);
+  padding-left: 14px;
+  max-width: 90%;
+}
+.v-archive--canon .rpt-msg-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.v-archive--canon .rpt-msg-step-lbl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.v-archive--canon .rpt-msg-step-n {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  background: color-mix(in srgb, var(--agent) 18%, transparent);
+  color: var(--agent);
+  flex-shrink: 0;
+}
+.v-archive--canon .rpt-msg-step-evs {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.v-archive--canon .rpt-msg-step-ev {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-65);
+  line-height: 1.5;
+}
+.v-archive--canon .rpt-msg-step-ev::before {
+  content: "·";
+  color: var(--agent);
+  margin-right: 6px;
+}
+
+/* ── Composer ─────────────────────────────────────── */
+.v-archive--canon .rpt-composer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 14px 10px;
+  min-height: 72px;
+}
+/* 2026-04-22 UI bug#4 · 送键移至右下角（ChatGPT 风），textarea 全宽占满 */
+.v-archive--canon .rpt-composer-bar {
+  position: relative;
+  display: block;
+  min-height: 56px;
+}
+.v-archive--canon .rpt-composer-ta {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding-right: 82px;
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.6;
+  min-height: 24px;
+  max-height: 180px;
+  overflow-y: auto;
+  resize: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.v-archive--canon .rpt-composer-ta::placeholder {
+  color: var(--ink-48);
+}
+.v-archive--canon .rpt-composer-send {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--agent) 90%, var(--ink));
+  color: var(--chalk);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  transition: background 200ms, opacity 200ms;
+  z-index: 2;
+}
+.v-archive--canon .rpt-composer-send:hover:not(:disabled) {
+  background: var(--agent);
+}
+.v-archive--canon .rpt-composer-send:disabled {
+  background: var(--ink-28);
+  color: color-mix(in srgb, var(--chalk) 70%, transparent);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.v-archive--canon .rpt-composer-send kbd {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  font-weight: normal;
+  letter-spacing: 0.06em;
+}
+.v-archive--canon .rpt-composer-hints {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-composer-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  letter-spacing: 0.04em;
+  transition: color 200ms;
+}
+.v-archive--canon .rpt-composer-hint[data-active="true"] {
+  color: var(--agent);
+}
+.v-archive--canon .rpt-composer-hint kbd {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--ink-04);
+  border: 1px solid var(--ink-08);
+  color: var(--ink-65);
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+.v-archive--canon .rpt-composer-hint[data-active="true"] kbd {
+  background: color-mix(in srgb, var(--agent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 32%, transparent);
+  color: var(--agent);
+}
+
+/* ═══ P4 · 右栏预览 · PreviewPanel ═══ */
+
+/* 覆盖率 %（panel-meta 扩展） */
+.v-archive--canon .rpt-pv-pct {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--agent);
+  font-weight: 600;
+}
+
+/* ── Toolbar · 5 按钮（下载/导出/分享/版本/打印） ────── */
+.v-archive--canon .rpt-pv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ink-08);
+  background: color-mix(in srgb, var(--agent) 2%, var(--chalk));
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-pv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-65);
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease-smooth),
+    border-color 200ms,
+    color 200ms;
+}
+.v-archive--canon .rpt-pv-btn .ic {
+  font-family: var(--display);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-48);
+  transition: color 200ms;
+}
+.v-archive--canon .rpt-pv-btn:hover {
+  background: color-mix(in srgb, var(--agent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-btn:hover .ic { color: var(--agent); }
+.v-archive--canon .rpt-pv-btn:active {
+  transform: translateY(0.5px);
+}
+
+/* ── TOC · 章节锚点横条 ───────────────────────────── */
+.v-archive--canon .rpt-pv-toc {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ink-08);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.v-archive--canon .rpt-pv-toc::-webkit-scrollbar { display: none; }
+.v-archive--canon .rpt-pv-toc button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 9px;
+  border: 1px solid var(--ink-08);
+  border-radius: 999px;
+  background: var(--chalk);
+  color: var(--ink-65);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    background 220ms var(--ease-smooth),
+    border-color 220ms,
+    color 220ms;
+}
+.v-archive--canon .rpt-pv-toc button .a {
+  font-family: var(--cjkserif);
+  font-size: 10.5px;
+  color: var(--agent);
+  font-weight: 500;
+}
+.v-archive--canon .rpt-pv-toc button .t {
+  font-family: var(--cjk);
+  font-size: 10.5px;
+}
+.v-archive--canon .rpt-pv-toc button:hover {
+  border-color: color-mix(in srgb, var(--agent) 28%, var(--ink-14));
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-toc button.on {
+  background: color-mix(in srgb, var(--agent) 12%, var(--chalk));
+  border-color: color-mix(in srgb, var(--agent) 40%, transparent);
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-toc button[data-status="running"] .a::after,
+.v-archive--canon .rpt-pv-toc button[data-status="pending"] .a::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--agent);
+  vertical-align: middle;
+  animation: blip 1.6s ease-in-out infinite;
+}
+.v-archive--canon .rpt-pv-toc button[data-status="needs-review"] .a::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--t-report, #B08640);
+  vertical-align: middle;
+}
+
+/* ── A4 阅读区 ───────────────────────────────────── */
+.v-archive--canon .rpt-pv-paper-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 14px 18px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.v-archive--canon .rpt-pv-paper {
+  background: var(--chalk);
+  border: 1px solid var(--ink-08);
+  border-radius: 10px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 6px 22px -18px color-mix(in srgb, var(--ink) 45%, transparent);
+  font-family: var(--cjkserif);
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-paper-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink-08);
+  margin-bottom: 14px;
+}
+.v-archive--canon .rpt-pv-paper-head .doc-title {
+  font-family: var(--cjkserif);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-paper-head .doc-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-48);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-pv-paper-foot {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-14);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  color: var(--ink-48);
+  text-align: center;
+}
+
+/* ── Section 块 ───────────────────────────────────── */
+.v-archive--canon .rpt-pv-sec {
+  padding: 12px 0 14px;
+  border-bottom: 1px dashed var(--ink-08);
+}
+.v-archive--canon .rpt-pv-sec:last-of-type { border-bottom: none; padding-bottom: 8px; }
+.v-archive--canon .rpt-pv-sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.v-archive--canon .rpt-pv-sec-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--cjkserif);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.v-archive--canon .rpt-pv-anchor {
+  font-family: var(--cjkserif);
+  font-size: 12.5px;
+  color: var(--agent);
+  font-weight: 500;
+}
+.v-archive--canon .rpt-pv-sec-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+.v-archive--canon .rpt-pv-sec-dot[data-s="ok"] { background: var(--safe, #3AB27C); }
+.v-archive--canon .rpt-pv-sec-dot[data-s="needs-review"] { background: var(--t-report, #B08640); }
+.v-archive--canon .rpt-pv-sec-dot[data-s="running"] {
+  background: var(--agent);
+  animation: blip 1.6s ease-in-out infinite;
+}
+.v-archive--canon .rpt-pv-sec-dot[data-s="pending"] { background: var(--ink-28); }
+
+.v-archive--canon .rpt-pv-sec-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-pv-sec-stats b {
+  color: var(--ink-65);
+  font-weight: 500;
+}
+.v-archive--canon .rpt-pv-sec-stats .stat.warn {
+  color: var(--t-report, #B08640);
+}
+.v-archive--canon .rpt-pv-sec-stats .sep { color: var(--ink-18); }
+.v-archive--canon .rpt-pv-sec-content {
+  font-family: var(--cjkserif);
+  font-size: 11.5px;
+  line-height: 1.85;
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
+  margin: 0 0 10px;
+  text-indent: 2em;
+}
+
+/* ── Field chips · 三态高亮 ───────────────────────── */
+.v-archive--canon .rpt-pv-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+.v-archive--canon .rpt-pv-fc {
+  position: relative;
+  padding: 6px 8px 7px;
+  border: 1px solid var(--ink-08);
+  border-radius: 8px;
+  background: var(--chalk);
+  transition:
+    background 220ms var(--ease-smooth),
+    border-color 220ms;
+}
+.v-archive--canon .rpt-pv-fc:hover {
+  border-color: color-mix(in srgb, var(--agent) 28%, var(--ink-14));
+}
+.v-archive--canon .rpt-pv-fc-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--ink-48);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.v-archive--canon .rpt-pv-fc-val {
+  font-family: var(--cjkserif);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink);
+  word-break: break-all;
+}
+.v-archive--canon .rpt-pv-fc-val .unfilled {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-48);
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon .rpt-pv-fc-src {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-48);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 三态底色 + 描边 */
+.v-archive--canon .rpt-pv-fc[data-state="filled"] {
+  background: var(--chalk);
+}
+.v-archive--canon .rpt-pv-fc[data-state="uncertain"] {
+  background: color-mix(in srgb, var(--t-report, #B08640) 8%, var(--chalk));
+  border-color: color-mix(in srgb, var(--t-report, #B08640) 36%, var(--ink-14));
+  border-style: dashed;
+}
+.v-archive--canon .rpt-pv-fc[data-state="unfilled"] {
+  background: color-mix(in srgb, var(--ink) 4%, var(--chalk));
+  border-style: dashed;
+  border-color: var(--ink-14);
+}
+
+/* QC 描边优先级（block > warn > info > state） */
+.v-archive--canon .rpt-pv-fc[data-qc="block"] {
+  border-color: color-mix(in srgb, var(--t-alert, #C85A3C) 56%, transparent);
+  background: color-mix(in srgb, var(--t-alert, #C85A3C) 6%, var(--chalk));
+}
+.v-archive--canon .rpt-pv-fc[data-qc="warn"] {
+  border-color: color-mix(in srgb, var(--t-report, #B08640) 48%, transparent);
+  background: color-mix(in srgb, var(--t-report, #B08640) 6%, var(--chalk));
+}
+.v-archive--canon .rpt-pv-fc[data-qc="info"] {
+  border-color: color-mix(in srgb, var(--t-credit, #3E6292) 40%, transparent);
+}
+
+/* QC 角标 + hover tooltip */
+.v-archive--canon .rpt-pv-fc-qc {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--chalk);
+  cursor: help;
+  outline: none;
+}
+.v-archive--canon .rpt-pv-fc-qc[data-l="block"] { background: var(--t-alert, #C85A3C); }
+.v-archive--canon .rpt-pv-fc-qc[data-l="warn"]  { background: var(--t-report, #B08640); }
+.v-archive--canon .rpt-pv-fc-qc[data-l="info"]  { background: var(--t-credit, #3E6292); }
+.v-archive--canon .rpt-pv-fc-qc .g { display: block; transform: translateY(-0.5px); }
+.v-archive--canon .rpt-pv-fc-qc .tip {
+  position: absolute;
+  right: -4px;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  max-width: 260px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--chalk);
+  font-family: var(--cjk);
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 180ms var(--ease-smooth),
+    transform 180ms var(--ease-smooth);
+  z-index: 40;
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.v-archive--canon .rpt-pv-fc-qc .tip b {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--chalk) 78%, transparent);
+  font-weight: 600;
+  margin-right: 2px;
+}
+.v-archive--canon .rpt-pv-fc-qc:hover .tip,
+.v-archive--canon .rpt-pv-fc-qc:focus-visible .tip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Status bar · 页码 / 覆盖率 / QC 徽章 ─────────── */
+.v-archive--canon .rpt-pv-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ink-08);
+  background: color-mix(in srgb, var(--agent) 3%, var(--chalk));
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-48);
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v-archive--canon .rpt-pv-status::-webkit-scrollbar { display: none; }
+.v-archive--canon .rpt-pv-status .sep { color: var(--ink-18); }
+.v-archive--canon .rpt-pv-status .cov b { color: var(--ink-65); font-weight: 600; }
+.v-archive--canon .rpt-pv-status .cov .pct { color: var(--agent); }
+.v-archive--canon .rpt-pv-status .qc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.v-archive--canon .rpt-pv-status .qc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--chalk);
+}
+.v-archive--canon .rpt-pv-status .qc-chip[data-l="block"] { background: var(--t-alert, #C85A3C); }
+.v-archive--canon .rpt-pv-status .qc-chip[data-l="warn"]  { background: var(--t-report, #B08640); }
+.v-archive--canon .rpt-pv-status .qc-chip[data-l="info"]  { background: var(--t-credit, #3E6292); }
+
+/* ═══ v2 Hero Band · 文档解析 4 阶段流水线 ═══════════════════
+   Scope: [data-agent="report"] 专属 · mat → field → sec → QC
+   风格：阶段卡 + 箭头 + 内嵌进度条 + state 色阶（pending/running/done） */
+
+.v-archive--canon[data-agent="report"] .report-band {
+  padding: 12px 16px 14px;
+  margin-bottom: 12px;
+  min-height: 0;
+  resize: none;
+}
+.v-archive--canon[data-agent="report"] .report-band-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+  font-family: var(--mono);
+}
+.v-archive--canon[data-agent="report"] .report-band-head .eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="report"] .report-band-head .flow {
+  font-size: 11px;
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="report"] .report-band-head .flow b {
+  color: color-mix(in srgb, var(--agent) 80%, var(--ink));
+  font-weight: 600;
+  font-family: var(--display);
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="report"] .report-band-head .arr {
+  color: var(--ink-30);
+  margin: 0 5px;
+}
+.v-archive--canon[data-agent="report"] .report-band-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.v-archive--canon[data-agent="report"] .report-band-cell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--chalk) 46%, transparent);
+  border: 1px solid var(--ink-08);
+  transition: border-color 180ms var(--ease-smooth), background 180ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="report"] .report-band-cell:hover {
+  border-color: color-mix(in srgb, var(--agent) 28%, var(--ink-08));
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+}
+.v-archive--canon[data-agent="report"] .report-band-cell[data-state="done"] {
+  background: color-mix(in srgb, var(--agent) 8%, var(--chalk));
+  border-color: color-mix(in srgb, var(--agent) 30%, transparent);
+}
+.v-archive--canon[data-agent="report"] .report-band-cell[data-state="running"] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--agent) 40%, transparent);
+}
+.v-archive--canon[data-agent="report"] .report-band-cell[data-state="pending"] {
+  opacity: 0.72;
+}
+.v-archive--canon[data-agent="report"] .report-band-n {
+  align-self: center;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--agent) 68%, var(--ink));
+  line-height: 1;
+  text-align: center;
+}
+.v-archive--canon[data-agent="report"] .report-band-cell[data-state="done"] .report-band-n {
+  color: var(--agent);
+}
+.v-archive--canon[data-agent="report"] .report-band-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="report"] .report-band-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.v-archive--canon[data-agent="report"] .report-band-row .lbl {
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="report"] .report-band-row .pct {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--agent) 75%, var(--ink));
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="report"] .report-band-bar {
+  height: 3px;
+  background: var(--ink-08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="report"] .report-band-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--agent), color-mix(in srgb, var(--agent) 60%, transparent));
+  border-radius: 2px;
+  transition: width 500ms var(--ease-smooth);
+  animation: bar-in 600ms var(--ease-smooth);
+}
+.v-archive--canon[data-agent="report"] .report-band-caption {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-65);
+  letter-spacing: 0.02em;
+}
+.v-archive--canon[data-agent="report"] .report-band-detail {
+  font-size: 10px;
+  color: var(--ink-48);
+  font-style: italic;
+}
+.v-archive--canon[data-agent="report"] .report-band-arrow {
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--ink-30);
+  pointer-events: none;
+  z-index: 1;
+  font-family: var(--display);
+  line-height: 1;
+}
+@media (max-width: 1279px) {
+  .v-archive--canon[data-agent="report"] .report-band-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .v-archive--canon[data-agent="report"] .report-band-arrow {
+    display: none;
+  }
+}
+
+/* ══════ P1 visual-v3 · 杀 dash 体系 card-in-card (2026-04-23) ══════
+   外层 .rpt-msg (L162 border+bg+shadow) + 内层 .rpt-msg-card (L1139
+   border+bg+radius) 同时生效 → 卡中卡。思路：:has() 检测 dash card 存在时，
+   外层退化 transparent 容器，内层 card 独自承担气泡视觉；同时减弱 card 自身
+   死白边，向 channel .wc-msg-bubble 气质靠拢。
+   · credit/alert/compliance 用 BEM __body · 不含 rpt-msg-card · 不受影响
+   · channel 自己 override 为 .wc-msg-bubble · 不受影响
+   · 受益者：riskctrl / report · dash 体系 · 解除 6 层割裂 */
+
+.v-archive--canon .rpt-msg:has(.rpt-msg-card),
+[data-view^="archive-"] .rpt-msg:has(.rpt-msg-card) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  max-width: none;
+}
+
+/* 内层 .rpt-msg-card · 气泡化向 WeChat 语言对齐 */
+.v-archive--canon .rpt-msg-card,
+[data-view^="archive-"] .rpt-msg-card {
+  background: color-mix(in srgb, var(--chalk) 48%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 14%, transparent);
+  backdrop-filter: blur(8px) saturate(1.08);
+  -webkit-backdrop-filter: blur(8px) saturate(1.08);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+/* AI ask variant · agent tint 减饱和 */
+.v-archive--canon .rpt-msg-card--ask,
+[data-view^="archive-"] .rpt-msg-card--ask {
+  background: color-mix(in srgb, var(--agent) 7%, color-mix(in srgb, var(--chalk) 45%, transparent));
+  border-color: color-mix(in srgb, var(--agent) 18%, transparent);
+}
+
+/* User variant · 浅墨气泡 · 右下小尖 */
+.v-archive--canon .rpt-msg-card--user,
+[data-view^="archive-"] .rpt-msg-card--user {
+  background: color-mix(in srgb, var(--ink) 9%, color-mix(in srgb, var(--chalk) 50%, transparent));
+  border-color: color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 14px 4px 14px 14px;
+}
+
+/* Command variant · 保留 safe 绿但减边 */
+.v-archive--canon .rpt-msg-card--cmd,
+[data-view^="archive-"] .rpt-msg-card--cmd {
+  background: color-mix(in srgb, var(--safe, #3AB27C) 5%, color-mix(in srgb, var(--chalk) 48%, transparent));
+  border-color: color-mix(in srgb, var(--safe, #3AB27C) 20%, transparent);
+}
+
+/* avatar 垂直对齐 bubble 顶（meta 行占约 14px · avatar 下推等高对齐）
+   2026-04-23 · 换用直接 selector 规避 :has() 兼容性及 HMR 问题 ·
+   .rpt-msg-avatar 是 dash 体系专属（credit/alert/compliance BEM 不用），直接
+   给它加 margin-top 不会影响其他体系。
+   加 !important 是为了强压过 Turbopack HMR cache 下可能的 cascade 污染。*/
+.v-archive--canon .rpt-msg-avatar,
+[data-view^="archive-"] .rpt-msg-avatar {
+  margin-top: 14px !important;
+}
