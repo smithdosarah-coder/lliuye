@@ -18,8 +18,11 @@ Multi-project namespace (Y1):
 """
 from __future__ import annotations
 
+import os
 import re
+import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Strict format: "Signal: NAME" where NAME starts with uppercase
@@ -28,39 +31,84 @@ SIGNAL_LINE_RE = re.compile(
     re.MULTILINE,
 )
 
-# Known signal name patterns (warn-only; format is enforced strictly)
-KNOWN_SIGNAL_PATTERNS: List[re.Pattern] = [
-    # Phase-batch protocol
-    re.compile(r"^PHASE-\d+-(ONBOARDING|DISPATCHED|ACK|APPROVED|REJECTED|REVIEW)$"),
-    re.compile(r"^PHASE-\d+-BATCH-\d+-(DISPATCHED|ACK|REVIEW)$"),
-    re.compile(r"^READY-FOR-PHASE-\d+-REVIEW$"),
-    # Generic done markers
-    re.compile(r"^(TASK|OPTION)-[\w-]+-DONE$"),
-    re.compile(r"^[A-Z][\w-]*-DONE$"),
-    # Q/A protocol
-    re.compile(r"^Q-\d+-(RAISED|AMENDMENT)$"),
-    re.compile(r"^A-\d+-(RESOLVED|ACK)$"),
-    re.compile(r"^ROUTED-Q-\d+$"),
-    # RFC protocol
-    re.compile(r"^RFC-[\w-]+-(RAISED|APPROVED|REJECTED|HOLD)$"),
-    # Emergency / patch
-    re.compile(r"^EMERGENCY-[\w-]+-PATCHED$"),
-    # Orchestrator phases (P0-WT-LAUNCHER-UPGRADED, P1-FOUNDATION-LIB-READY etc.)
-    re.compile(r"^P\d+-[\w-]+$"),
-    # Window lifecycle
-    re.compile(r"^WINDOW-CLOSED(-CLEAN)?$"),
-    re.compile(r"^MAINTENANCE-(MODE|DELIVERABLE)$"),
-    # Mesh registry
-    re.compile(r"^MESH-[\w-]+$"),
-    # Pipeline checkpoints
-    re.compile(r"^RUNNER-CONSUMED$"),
-    re.compile(r"^RED-LINE-TRIGGERED$"),
-    re.compile(r"^BASELINE-ANCHORED$"),
-    # Review handoff
-    re.compile(r"^REVIEW-READY$"),
-    re.compile(r"^REBASED-CLEAN$"),
-    re.compile(r"^GO-\d+$"),
-]
+
+# ---- registry loading (Y4) --------------------------------------------------
+
+# Default registry ships alongside this module at orchestrator/commit-signal-registry.yaml.
+# Projects may override the path via $MESH_SIGNAL_REGISTRY.
+_DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "commit-signal-registry.yaml"
+
+# Minimal YAML-subset parser: understands `- pattern` list items under an
+# optional `patterns:` header, plus `#` comments and blank lines. Avoids a
+# hard dependency on PyYAML; real YAML files that stick to this subset load
+# identically with or without the library installed.
+_LIST_ITEM_RE = re.compile(r"^-\s+(.*)$")
+
+
+def _strip_quotes(s: str) -> str:
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+        return s[1:-1]
+    return s
+
+
+def _parse_registry_text(text: str) -> List[re.Pattern]:
+    out: List[re.Pattern] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.endswith(":") and not line.startswith("-"):
+            # Skip mapping keys like `patterns:`.
+            continue
+        m = _LIST_ITEM_RE.match(line)
+        if not m:
+            continue
+        pattern = _strip_quotes(m.group(1).strip())
+        if not pattern:
+            continue
+        try:
+            out.append(re.compile(pattern))
+        except re.error as exc:
+            warnings.warn(
+                f"commit-signal-registry: skipping invalid regex {pattern!r}: {exc}",
+                UserWarning,
+                stacklevel=3,
+            )
+    return out
+
+
+def load_registry(path: Optional[Path] = None) -> List[re.Pattern]:
+    """Load regex patterns from a registry file. Returns [] if file missing."""
+    if path is None:
+        env_override = os.environ.get("MESH_SIGNAL_REGISTRY")
+        path = Path(env_override) if env_override else _DEFAULT_REGISTRY
+    if not path.is_file():
+        return []
+    return _parse_registry_text(path.read_text(encoding="utf-8"))
+
+
+def _initial_patterns() -> List[re.Pattern]:
+    patterns = load_registry()
+    if not patterns:
+        warnings.warn(
+            f"commit-signal-registry not found at {_DEFAULT_REGISTRY} "
+            f"(and $MESH_SIGNAL_REGISTRY unset); `require_known=True` will "
+            f"reject every Signal name until the registry is restored.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return patterns
+
+
+# Known signal name patterns (loaded at import; reload via `reload_registry()`).
+KNOWN_SIGNAL_PATTERNS: List[re.Pattern] = _initial_patterns()
+
+
+def reload_registry(path: Optional[Path] = None) -> int:
+    """Reload the global registry from disk. Returns new pattern count."""
+    global KNOWN_SIGNAL_PATTERNS
+    KNOWN_SIGNAL_PATTERNS = load_registry(path)
+    return len(KNOWN_SIGNAL_PATTERNS)
 
 
 # Project-scoped pattern registries. Populated by downstream code or tests.

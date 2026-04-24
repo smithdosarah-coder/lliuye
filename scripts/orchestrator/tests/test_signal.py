@@ -1,8 +1,11 @@
 """Test Signal trailer parsing + validation."""
 from __future__ import annotations
 
+import os
 import re
 import sys
+import tempfile
+import warnings
 from pathlib import Path
 
 # Allow running as `py scripts/orchestrator/tests/test_signal.py` from project root
@@ -139,6 +142,91 @@ def test_global_patterns_still_match_without_project():
     assert ok, f"global pattern should match without project scope: {errs}"
 
 
+# ---------- Y4 · external registry file ----------
+
+def test_default_registry_is_loaded_at_import():
+    """The shipped commit-signal-registry.yaml should populate the global list."""
+    assert len(signal.KNOWN_SIGNAL_PATTERNS) > 0, \
+        "default registry should yield at least one pattern at import time"
+
+
+def test_load_registry_parses_minimal_yaml():
+    # Note: single-quoted YAML is literal (no escape processing). Our minimal
+    # parser strips the quotes and hands the raw string to re.compile(), which
+    # is exactly the "write regex source verbatim" contract we want.
+    body = (
+        "# comment line\n"
+        "patterns:\n"
+        "  - '^FOO-DONE$'\n"
+        "  - '^BAR-\\d+$'\n"
+        "  - ^BAZ-X$\n"
+        "\n"
+    )
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "reg.yaml"
+        p.write_text(body, encoding="utf-8")
+        patterns = signal.load_registry(p)
+    assert len(patterns) == 3
+    assert patterns[0].match("FOO-DONE")
+    assert patterns[1].match("BAR-42")
+    assert patterns[2].match("BAZ-X")
+
+
+def test_load_registry_skips_invalid_regex_with_warning():
+    body = "patterns:\n  - '[unterminated'\n  - '^OK$'\n"
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "reg.yaml"
+        p.write_text(body, encoding="utf-8")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            patterns = signal.load_registry(p)
+    assert len(patterns) == 1
+    assert patterns[0].match("OK")
+    assert any("invalid regex" in str(w.message) for w in caught)
+
+
+def test_load_registry_missing_file_returns_empty():
+    assert signal.load_registry(Path("/no/such/file.yaml")) == []
+
+
+def test_env_var_overrides_default_registry_path():
+    body = "patterns:\n  - '^CUSTOM-[\\w-]+$'\n"
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "override.yaml"
+        p.write_text(body, encoding="utf-8")
+        prev = os.environ.get("MESH_SIGNAL_REGISTRY")
+        os.environ["MESH_SIGNAL_REGISTRY"] = str(p)
+        try:
+            patterns = signal.load_registry()  # path=None -> read env
+        finally:
+            if prev is None:
+                os.environ.pop("MESH_SIGNAL_REGISTRY", None)
+            else:
+                os.environ["MESH_SIGNAL_REGISTRY"] = prev
+    assert len(patterns) == 1
+    assert patterns[0].match("CUSTOM-SHIPPED")
+
+
+def test_reload_registry_refreshes_global_list():
+    body = "patterns:\n  - '^ONLY-ME$'\n"
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "tiny.yaml"
+        p.write_text(body, encoding="utf-8")
+        original = list(signal.KNOWN_SIGNAL_PATTERNS)
+        try:
+            count = signal.reload_registry(p)
+            assert count == 1
+            assert len(signal.KNOWN_SIGNAL_PATTERNS) == 1
+            # Match logic still flows through reloaded list:
+            ok, _ = signal.validate(
+                "x\n\nSignal: ONLY-ME", require_known=True
+            )
+            assert ok
+        finally:
+            # Restore for the rest of the suite.
+            signal.KNOWN_SIGNAL_PATTERNS = original
+
+
 if __name__ == "__main__":
     tests = [
         test_basic_parse,
@@ -153,6 +241,12 @@ if __name__ == "__main__":
         test_project_scoped_pattern_makes_unknown_known,
         test_parse_carries_project_id_through,
         test_global_patterns_still_match_without_project,
+        test_default_registry_is_loaded_at_import,
+        test_load_registry_parses_minimal_yaml,
+        test_load_registry_skips_invalid_regex_with_warning,
+        test_load_registry_missing_file_returns_empty,
+        test_env_var_overrides_default_registry_path,
+        test_reload_registry_refreshes_global_list,
     ]
     for t in tests:
         try:

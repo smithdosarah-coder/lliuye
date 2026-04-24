@@ -1,0 +1,65 @@
+# Multi-CLI Mesh · known commit Signal registry
+#
+# This is the default registry that ships with the orchestrator skill. Patterns
+# listed here are considered "known" names and won't trigger the
+# `unknown Signal name` warning under `validator.py --check-known` /
+# `signal.validate(..., require_known=True)`.
+#
+# Format: YAML-compatible flat list. The built-in fallback parser understands:
+#   - lines starting with `- `  → regex literal (quotes optional)
+#   - bare `#` comments         → ignored
+#   - the `patterns:` header    → ignored
+# Real PyYAML (if installed) will also parse this file; there is no hard
+# dependency on any YAML library.
+#
+# Project override:
+#   Set the env var `MESH_SIGNAL_REGISTRY` to point at an alternate file to
+#   layer project-specific patterns on top of the defaults. The override file
+#   follows the same format.
+#
+# Mirrors the historical hard-coded list in lib/signal.py · Y4 extracted it
+# out so operators can extend without patching Python source.
+
+patterns:
+  # --- Phase / batch protocol ---
+  - '^PHASE-\d+-(ONBOARDING|DISPATCHED|ACK|APPROVED|REJECTED|REVIEW)$'
+  - '^PHASE-\d+-BATCH-\d+-(DISPATCHED|ACK|REVIEW)$'
+  - '^READY-FOR-PHASE-\d+-REVIEW$'
+
+  # --- Generic done markers ---
+  - '^(TASK|OPTION)-[\w-]+-DONE$'
+  - '^[A-Z][\w-]*-DONE$'
+
+  # --- Q/A protocol ---
+  - '^Q-\d+-(RAISED|AMENDMENT)$'
+  - '^A-\d+-(RESOLVED|ACK)$'
+  - '^ROUTED-Q-\d+$'
+
+  # --- RFC protocol ---
+  - '^RFC-[\w-]+-(RAISED|APPROVED|REJECTED|HOLD)$'
+
+  # --- Emergency / patch ---
+  - '^EMERGENCY-[\w-]+-PATCHED$'
+
+  # --- Orchestrator phases (P0-WT-LAUNCHER-UPGRADED, P1-FOUNDATION-LIB-READY, ...) ---
+  - '^P\d+-[\w-]+$'
+
+  # --- Window lifecycle ---
+  - '^WINDOW-CLOSED(-CLEAN)?$'
+  - '^MAINTENANCE-(MODE|DELIVERABLE)$'
+
+  # --- Mesh registry ---
+  - '^MESH-[\w-]+$'
+
+  # --- Pipeline checkpoints ---
+  - '^RUNNER-CONSUMED$'
+  - '^RED-LINE-TRIGGERED$'
+  - '^BASELINE-ANCHORED$'
+
+  # --- Review handoff ---
+  - '^REVIEW-READY$'
+  - '^REBASED-CLEAN$'
+  - '^GO-\d+$'
+
+  # --- Skill-upgrade lifecycle (2026-04 ship) ---
+  - '^SKILL-UPGRADE-[\w-]+$'
