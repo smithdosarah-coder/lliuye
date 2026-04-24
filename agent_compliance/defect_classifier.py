@@ -167,3 +167,56 @@ def generate_improvement_plan(defects: list[Defect]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Batch 2 · ConflictItem → Defect 映射(template-fill,不走 LLM)
+# ---------------------------------------------------------------------------
+
+# 从 ConflictItem.severity(high/medium/low) 映射到 Defect.severity(critical/major/minor)
+_CONFLICT_SEVERITY_MAP = {
+    "high": "critical",
+    "medium": "major",
+    "low": "minor",
+}
+
+# 从 conflict_type 映射到 Defect.category(人可读标签)
+_CONFLICT_TYPE_LABEL = {
+    "new_requirement": "新增要求",
+    "upgraded_requirement": "升级要求",
+    "revoked": "废止冲突",
+    "terminology_change": "术语变化",
+}
+
+
+def classify_conflict_item(item, start_index: int = 0):
+    """把一条 ConflictItem 映射成 Defect(不走 LLM,只做 template-fill)。
+
+    Args:
+        item: ConflictItem(延迟 import 避免循环依赖)
+        start_index: defect_id 起始索引(0 → DEF-CF-001)
+
+    Returns:
+        Defect
+    """
+    defect_id = f"DEF-CF-{start_index + 1:03d}"
+    severity = _CONFLICT_SEVERITY_MAP.get(item.severity, "major")
+    category = _CONFLICT_TYPE_LABEL.get(item.conflict_type, "冲突点")
+    description = (
+        f"[{category}] 新政策"
+        f"「{item.new_policy_ref.title[:50]}」"
+        f"与内部条款 {item.internal_clause_ref.clause_id} 冲突"
+    )
+    return Defect(
+        defect_id=defect_id,
+        description=description[:240],
+        severity=severity,
+        category=category,
+        recommendation=item.suggested_amendment or "未能自动建议",
+        deadline=DEADLINE_MAP.get(severity, DEADLINE_MAP["minor"]),
+    )
+
+
+def classify_conflict_items(items: list) -> list[Defect]:
+    """批量版本。"""
+    return [classify_conflict_item(item, i) for i, item in enumerate(items)]
