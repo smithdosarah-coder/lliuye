@@ -112,3 +112,31 @@ Batch 1 阶段严禁预制材料包，即使"顺手就做"也不做——避免�
   - Task E：发 `READY-FOR-DATA-FOUNDATION-B1-V2-REVIEW` 汇报主 CLI。
 
   Batch 2 触发条件：主 CLI APPROVE v2 · 方向一致则再启动 Phase 2 Agent4 / Phase 3 Agent2（见 A-028 分 Phase 计划）。
+
+---
+
+## Batch 2 · Phase 2（Agent4 预警 mock）
+
+- **2026-04-24 (B2-P2 ACK)**：收到主 CLI Phase 2 Agent4 mock onboarding（`docs/onboarding/batch-2-data-foundation-phase-2.md` · orchestrator 分支 `chore/l0-infra@e68f28e`）。准备开工：
+  - 新增唯一目录：`data/mock/alert-pool/`（clients.csv + transactions/ + external-signals/）
+  - 规模：100-200 家在贷客户 · 每家 ≥12 月流水 csv + 3-10 条外部信号 md
+  - 参考决策：Q-028/A-028（反 5 原则 + 环境边界 Agent4 全 mock 豁免）· Q-029/A-029（Batch 1 closeout · 测试阶段豁免 · Batch 2 四轨）
+  - commit 粒度：Task A → B → C 各一个 commit + 自检 final（或合入 Task C）
+  - Signal 映射：`ALERT-POOL-CLIENTS-DONE` → `ALERT-POOL-TRANSACTIONS-DONE` → `ALERT-POOL-SIGNALS-DONE` → `READY-FOR-DATA-FOUNDATION-B2-REVIEW`
+  - 本 ACK 即 `PRODUCT-HARDENING-BATCH-2-DF-P2-ACK`。下一步：强制 onboarding 读 Q-028/Q-029 + CLAUDE.md §3.5 + deep-pillar 流水形态锚定，然后开 Task A。
+
+- **2026-04-24 (B2-P2 三 Task 跑完)**：按 Phase 2 onboarding 一口气跑完 A→C 三 Task + final：
+  - Task A `cf7e4b1`：在贷客户池 clients.csv · 180 行薄画像 · 档位 20/100/40/20 PM 内部维护 · 零答案字段 → `ALERT-POOL-CLIENTS-DONE`
+  - Task B `5b0d17f`：内部流水时间序列 · 180 份 transactions/AP<id>.csv · 近 24 月 · 53465 行 · 4 种异常模式（inflow_drop 27 / concentration 16 / overdue 17 / spike-circular）· 3.9 MB · 零标注 → `ALERT-POOL-TRANSACTIONS-DONE`
+  - Task C `c910923`：外部信号时间线 · 180 份 external-signals/AP<id>.md · 近 12 月 · 800 事件 · 20/20 crisis 客户含失信/限消/冻结 · 12 家跨源矛盾样本 · 零元注释 → `ALERT-POOL-SIGNALS-DONE`
+  - 7 硬指标自检（onboarding §5）全过：
+    - [1] clients 数据行 180（100-200 ✓）
+    - [2] transactions min months 24（≥12 ✓ · 0 家 <12 月）
+    - [3] external-signals 事件数 3-9（3-10 ✓ · 0 家越界）
+    - [4] client_id 三处一致 180/180/180 ✓
+    - [5] `grep -rEi 'risk_level|alert_flag|red_flag|risk_score|difficulty|expected_color'` = 0 hit ✓
+    - [6] 难度档位 20/100/40/20 ✓ · 合理矛盾 12 家（≥10 ✓）
+    - [7] `git diff --stat` 只出现 `data/mock/alert-pool/**` + 本 runbook ✓
+  - Final commit 即 `READY-FOR-DATA-FOUNDATION-B2-REVIEW`，停下等主 CLI 复核。
+
+  Batch 2 其余轨（code-urgent / code-arch / evaluation）与本轨独立 · 见 `docs/handoff/batch-2-kickoffs.md`。
