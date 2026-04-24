@@ -11,6 +11,13 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
+import {
   ALERT_GLOBAL_STATS,
   ALERT_SESSION,
   type AlertPipelineStep,
@@ -33,6 +40,10 @@ export default function AlertWorkspace() {
   const [scanned, setScanned] = useState(false);
 
   return (
+    <EvidenceProvider
+      items={ALERT_EVIDENCE.items}
+      unfilledFields={ALERT_EVIDENCE.unfilledFields}
+    >
     <div className="rpt-workspace" data-scanned={scanned ? "yes" : "no"}>
       <HeroSection
         weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
@@ -90,7 +101,14 @@ export default function AlertWorkspace() {
           />
         </section>
       </div>
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={ALERT_EVIDENCE.summary} />
+      </section>
+      <UnfilledFields />
+      <EvidenceTrail agentTone="alert" />
     </div>
+    </EvidenceProvider>
   );
 }
 

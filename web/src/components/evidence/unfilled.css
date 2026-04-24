@@ -1,0 +1,133 @@
+/*
+ * unfilled.css — UnfilledMarker 样式 (Task C)
+ *
+ * CLAUDE.md §12 硬红线视觉语言:
+ *   字段填不了 → 灰色占位条 + "未能自动填写" 文案 + 小问号 icon(hover 出 tooltip)
+ *   绝不 fallback 成 "0" / "" / "-" —— 与正常字段值区分度必须明显。
+ */
+
+.ev-unfilled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #e8e4dc,
+    #e8e4dc 6px,
+    #dcd6cc 6px,
+    #dcd6cc 12px
+  );
+  border: 1px dashed #b0a89e;
+  color: #6a6760;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  cursor: help;
+  min-height: 28px;
+  min-width: 120px;
+}
+
+.ev-unfilled[data-reason="qc_blocked"] {
+  border-color: #c48a7a;
+  color: #8a4a3a;
+}
+
+.ev-unfilled[data-reason="conflict"] {
+  border-color: #c4a25a;
+  color: #8a6a2a;
+}
+
+.ev-unfilled[data-reason="no_evidence"] {
+  border-color: #a09585;
+  color: #5a5548;
+}
+
+.ev-unfilled--inline {
+  display: inline-flex;
+  padding: 2px 8px;
+  min-height: 20px;
+  min-width: auto;
+  font-size: 11.5px;
+  border-radius: 6px;
+  vertical-align: baseline;
+}
+
+.ev-unfilled-bar {
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.5;
+  border-radius: 2px;
+}
+
+.ev-unfilled--inline .ev-unfilled-bar {
+  width: 12px;
+  height: 2px;
+}
+
+.ev-unfilled-label {
+  font-weight: 500;
+}
+
+.ev-unfilled-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  border-radius: 999px;
+  background: color-mix(in oklab, currentColor 18%, transparent);
+  color: currentColor;
+  opacity: 0.75;
+}
+
+.ev-unfilled--inline .ev-unfilled-help {
+  width: 12px;
+  height: 12px;
+  font-size: 9px;
+}
+
+.ev-unfilled:hover,
+.ev-unfilled:focus-visible {
+  background: repeating-linear-gradient(
+    -45deg,
+    #ece8e0,
+    #ece8e0 6px,
+    #d8d2c6 6px,
+    #d8d2c6 12px
+  );
+}
+
+/* 分析结论段内出现的 unfilled(正文级替换)不要独占一行 */
+.ev-claim-summary .ev-unfilled {
+  display: inline-flex;
+  padding: 2px 8px;
+  min-height: 20px;
+  min-width: auto;
+  font-size: 11.5px;
+  border-radius: 6px;
+  vertical-align: baseline;
+}
+
+/* 字段值旁 unfilled · demo 用占位 */
+.ev-unfilled-list {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.ev-unfilled-list-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6a665c;
+}

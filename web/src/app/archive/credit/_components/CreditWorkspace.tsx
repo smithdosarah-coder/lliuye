@@ -16,6 +16,13 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
+import {
   Radar,
   RadarChart,
   PolarGrid,
@@ -115,6 +122,10 @@ export default function CreditWorkspace() {
   }
 
   return (
+    <EvidenceProvider
+      items={CREDIT_EVIDENCE.items}
+      unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+    >
     <div className="rpt-workspace" data-credit-mode={mode} data-scanned={scanned ? "yes" : "no"}>
       <TopBar
         mode={mode}
@@ -168,7 +179,14 @@ export default function CreditWorkspace() {
         generateSteps={session.generateSteps}
         progress={progress}
       />
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={CREDIT_EVIDENCE.summary} />
+      </section>
+      <UnfilledFields />
+      <EvidenceTrail agentTone="credit" />
     </div>
+    </EvidenceProvider>
   );
 }
 

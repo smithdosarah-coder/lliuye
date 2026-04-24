@@ -41,6 +41,13 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { RefCardMessage } from "./RefCardMessage";
+import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
 function msgTitle(raw: string): string {
@@ -131,27 +138,38 @@ export default function ChannelWorkspace() {
   }, []);
 
   return (
-    <div data-view="archive-channel" className="ch-v2" data-scanned={scanned ? "yes" : "no"}>
-      <ChannelHero topSim={topSim} />
-      <QueryBar onComplete={() => setScanned(true)} />
-      <FunnelStrip />
-      <div className="ch-cross">
-        <div className="ch-canvas">
-          <div className="ch-canvas-top">
-            <RadarPanel />
-            <CandidatesPanel />
+    <EvidenceProvider
+      items={CHANNEL_EVIDENCE.items}
+      unfilledFields={CHANNEL_EVIDENCE.unfilledFields}
+    >
+      <div data-view="archive-channel" className="ch-v2" data-scanned={scanned ? "yes" : "no"}>
+        <ChannelHero topSim={topSim} />
+        <QueryBar onComplete={() => setScanned(true)} />
+        <FunnelStrip />
+        <div className="ch-cross">
+          <div className="ch-canvas">
+            <div className="ch-canvas-top">
+              <RadarPanel />
+              <CandidatesPanel />
+            </div>
+            {/* 2026-04-23 · 删 ScanCTA · channel 原生 ch-querybar-btn "扫描"按钮
+                即是 look-alike 入口 CTA · 两个扫描按钮冗余 · 保留 ch-querybar 唯一 */}
+            <ConversationPanel messages={messages}>
+              <ChannelComposer onSubmit={submit} onRefCardDrop={handleRefCardDrop} />
+            </ConversationPanel>
           </div>
-          {/* 2026-04-23 · 删 ScanCTA · channel 原生 ch-querybar-btn "扫描"按钮
-              即是 look-alike 入口 CTA · 两个扫描按钮冗余 · 保留 ch-querybar 唯一 */}
-          <ConversationPanel messages={messages}>
-            <ChannelComposer onSubmit={submit} onRefCardDrop={handleRefCardDrop} />
-          </ConversationPanel>
+          <aside className="ch-aside">
+            <SignalTimelinePanel />
+          </aside>
         </div>
-        <aside className="ch-aside">
-          <SignalTimelinePanel />
-        </aside>
+        <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+          <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+          <ClaimText text={CHANNEL_EVIDENCE.summary} />
+        </section>
+        <UnfilledFields />
+        <EvidenceTrail agentTone="channel" />
       </div>
-    </div>
+    </EvidenceProvider>
   );
 }
 

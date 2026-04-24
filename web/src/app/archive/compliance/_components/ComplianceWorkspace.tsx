@@ -12,6 +12,13 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
+import {
   COMPLIANCE_GLOBAL_STATS,
   COMPLIANCE_SESSION,
   type ComplianceQuery,
@@ -35,6 +42,10 @@ export default function ComplianceWorkspace() {
   const [scanned, setScanned] = useState(false);
 
   return (
+    <EvidenceProvider
+      items={COMPLIANCE_EVIDENCE.items}
+      unfilledFields={COMPLIANCE_EVIDENCE.unfilledFields}
+    >
     <div className="rpt-workspace" data-scanned={scanned ? "yes" : "no"}>
       <HeroSection
         weeklyProcessed={COMPLIANCE_GLOBAL_STATS.weeklyProcessed}
@@ -92,7 +103,14 @@ export default function ComplianceWorkspace() {
           />
         </section>
       </div>
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
+      </section>
+      <UnfilledFields />
+      <EvidenceTrail agentTone="compliance" />
     </div>
+    </EvidenceProvider>
   );
 }
 

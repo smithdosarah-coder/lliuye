@@ -21,6 +21,13 @@ import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { REPORT_EVIDENCE } from "@/components/evidence/fixtures";
+import {
   REPORT_GLOBAL_STATS,
   REPORT_SESSION,
   type ConversationMessage,
@@ -40,37 +47,48 @@ export function ReportWorkspace() {
   const [scanned, setScanned] = useState(false);
 
   return (
-    <div data-view="archive-report" data-scanned={scanned ? "yes" : "no"}>
-      <ReportHero coverPct={coverPct} />
-      <ReportPipelineBand />
-      <div className="rpt-body">
-        <aside className="rpt-side">
-          <TemplatePanel />
-          <MaterialPanel />
-          <TimelinePanel />
-        </aside>
-        <main className="rpt-main">
-          <ScanCTA
-            label="生成报告"
-            tone="report"
-            onDone={() => setScanned(true)}
-            steps={[
-              { label: "解析企业材料 · OCR 识别", pct: 18 },
-              { label: "字段结构化预填", pct: 42 },
-              { label: "段落 Evidence-First 生成", pct: 66 },
-              { label: "QC 终审 · 占位符检查", pct: 88 },
-              { label: "导出 Word · 完成", pct: 100 },
-            ]}
-          />
-          <ConversationPanel>
-            <ReportComposer />
-          </ConversationPanel>
-        </main>
-        <aside className="rpt-aux">
-          <PreviewPanel coverPct={coverPct} />
-        </aside>
+    <EvidenceProvider
+      items={REPORT_EVIDENCE.items}
+      unfilledFields={REPORT_EVIDENCE.unfilledFields}
+    >
+      <div data-view="archive-report" data-scanned={scanned ? "yes" : "no"}>
+        <ReportHero coverPct={coverPct} />
+        <ReportPipelineBand />
+        <div className="rpt-body">
+          <aside className="rpt-side">
+            <TemplatePanel />
+            <MaterialPanel />
+            <TimelinePanel />
+          </aside>
+          <main className="rpt-main">
+            <ScanCTA
+              label="生成报告"
+              tone="report"
+              onDone={() => setScanned(true)}
+              steps={[
+                { label: "解析企业材料 · OCR 识别", pct: 18 },
+                { label: "字段结构化预填", pct: 42 },
+                { label: "段落 Evidence-First 生成", pct: 66 },
+                { label: "QC 终审 · 占位符检查", pct: 88 },
+                { label: "导出 Word · 完成", pct: 100 },
+              ]}
+            />
+            <ConversationPanel>
+              <ReportComposer />
+            </ConversationPanel>
+          </main>
+          <aside className="rpt-aux">
+            <PreviewPanel coverPct={coverPct} />
+          </aside>
+        </div>
+        <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+          <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+          <ClaimText text={REPORT_EVIDENCE.summary} />
+        </section>
+        <UnfilledFields />
+        <EvidenceTrail agentTone="report" />
       </div>
-    </div>
+    </EvidenceProvider>
   );
 }
 
