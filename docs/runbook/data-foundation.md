@@ -103,3 +103,12 @@ Batch 1 阶段严禁预制材料包，即使"顺手就做"也不做——避免�
   - **Agent1/5 外部边界**：不 mock 外部搜索结果——只建 Agent1 内部 KB（历史客户 / 营销偏好 / 产品目录）+ Agent5 内部制度库
   - **v2 Task 清单**：A 删老产物+重建骨架 / B 深柱 5 家材料包 / C channel-kb / D compliance-kb / E 全轨 final signal
   - 本次 ACK 即发 `PRODUCT-HARDENING-BATCH-1-V2-ACK`，等读完 v2 onboarding + Q-028 后依序开干。
+
+- **2026-04-24 (B1-V2 跑完)**：按 v2 onboarding 一口气跑完 A→D 四 Task：
+  - Task A `4873bc4`：v1 4 项 + pit-template.md（超字面清单 · 理由已在 commit message 说明）purge + README v2 重写 + 3 组空骨架 → `DATA-LEGACY-PURGED` (embedded) + `DATA-SCHEMA-V2-DONE`
+  - Task B `df70f38`：5 家客户材料包 270 份异构文件（DP001 43 / DP002 46 / DP003 61 / DP004 60 / DP005 60）· 扩展名分布 pdf 83 / xlsx 63 / xls 118 / docx 6 · binary 四检全通过（pdf 头 / xlsx sheets / xls OLE2 / docx 段落）· 生成脚本 `_gen/generate_dp.py` 入 commit → `DATA-DEEP-PILLAR-5-DONE`
+  - Task C `a42f432`：Agent1 channel-kb 17 份（historical-clients 12 + marketing-preferences 4 + product-catalog 1）· md 与 docx 混格式 · 严守"不 mock 外部候选池" → `CHANNEL-KB-DONE`
+  - Task D `50cdbb1`：Agent5 compliance-kb 15 份 docx（credit-sop 5 / customer-admission 3 / kyc-aml 3 / risk-preference 1 / review-checklists 3）· 仿银行 SOP 体例（文号/版本/章节编号/密级）· 严守"不 mock 外部政策" → `COMPLIANCE-KB-DONE`
+  - Task E：发 `READY-FOR-DATA-FOUNDATION-B1-V2-REVIEW` 汇报主 CLI。
+
+  Batch 2 触发条件：主 CLI APPROVE v2 · 方向一致则再启动 Phase 2 Agent4 / Phase 3 Agent2（见 A-028 分 Phase 计划）。
