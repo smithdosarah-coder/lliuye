@@ -1,36 +1,91 @@
 # Agent1 全渠道获客 评估配置
+# schema: A-025 · 双字段（老 desc/target 保留 + 新 description/method/baseline_target/blocker_threshold）
 agent: channel
 version: v4.0
-updated: 2026-04-15
+updated: 2026-04-24
 
 metrics:
   common:
-    - name: task_completion_rate
-      desc: 给定画像能否产出 ≥ Top_N 候选清单
-      target: ">= 0.95"
+    - name: field_completeness
+      desc: 候选企业结构化字段填充率（法人/注册资本/行业/地址/联系方式）
+      description: 候选企业结构化字段填充率（法人/注册资本/行业/地址/联系方式）
+      method: filled_fields_total / expected_fields_total
+      target: ">= 0.85"
+      baseline_target: 0.85
+      blocker_threshold: 0.60
+
     - name: evidence_rate
       desc: 候选企业的匹配理由是否带证据（URL / 原文片段）
+      description: 候选企业的匹配理由是否带证据（URL / 原文片段）
+      method: candidates_with_evidence / candidates_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: hallucination_rate
       desc: 候选清单中幻觉企业（搜不到实体）的占比
+      description: 候选清单中幻觉企业（搜不到实体）的占比
+      method: unresolvable_candidates / candidates_total
       target: "<= 0.02"
+      baseline_target: 0.02
+      blocker_threshold: 0.05
+
     - name: tool_success_rate
       desc: Tavily 5 路搜索 + 企查查二次查询的工具调用成功率
+      description: Tavily 5 路搜索 + 企查查二次查询的工具调用成功率
+      method: tool_calls_success / tool_calls_total
       target: ">= 0.90"
+      baseline_target: 0.90
+      blocker_threshold: 0.70
+
+    - name: task_completion_rate
+      desc: 给定画像能否产出 ≥ Top_N 候选清单
+      description: 给定画像能否产出 ≥ Top_N 候选清单
+      method: runs_with_topN_list / runs_total
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.75
 
   domain:
+    - name: portrait_match_precision
+      desc: Top10 候选中匹配画像条件的比例
+      description: Top10 候选中匹配画像条件的比例（行业/规模/地域 3 维判定）
+      method: top10_matches_criteria / 10
+      target: ">= 0.70"
+      baseline_target: 0.70
+      blocker_threshold: 0.50
+
     - name: signal_diversity
       desc: 每候选至少 2 种不同信号类型（中标/专精特新/专利/扩产/获奖）
+      description: 每候选平均信号类型数（≥ 2 视为达标）；全量候选中≥2 种信号的占比
+      method: candidates_with_ge2_signal_types / candidates_total
       target: ">= 0.70"
-    - name: qcc_info_fill_rate
-      desc: 企查查二次查询补全的字段占比（法人/注册资本/成立年份等）
-      target: ">= 0.50"
-    - name: lookalike_precision
-      desc: 候选企业与种子画像的相似度人工评估均值（1-5 分）
-      target: ">= 4.0"
-    - name: product_match_relevance
-      desc: 推荐产品 Top3 与候选画像的匹配相关性
-      target: ">= 0.80"
+      baseline_target: 0.70
+      blocker_threshold: 0.50
+
+    - name: ndcg_at_10
+      desc: Top10 候选相对人工排序的 NDCG 得分
+      description: Top10 候选相对人工 gold 排序的归一化折损累积增益
+      method: ndcg_over_manual_gold_ranking_top10
+      target: ">= 0.75"
+      baseline_target: 0.75
+      blocker_threshold: 0.55
+
+    - name: retrieval_recall
+      desc: 已知种子企业圈（look-alike 真值）被召回的比例
+      description: 已知 look-alike 真值集（人工预圈）被召回的比例
+      method: lookalike_truth_retrieved / lookalike_truth_total
+      target: ">= 0.60"
+      baseline_target: 0.60
+      blocker_threshold: 0.40
+
+    - name: candidate_dedup_rate
+      desc: 候选清单内实体级去重率（同一法人/同一注册号视作重复）
+      description: 去重后唯一实体数 / 原始候选数；1.0 表示全部独立
+      method: unique_entities / raw_candidates
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.85
 
 baseline:
   last_run: null

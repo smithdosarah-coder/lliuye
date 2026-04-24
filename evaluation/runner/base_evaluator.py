@@ -11,6 +11,11 @@ value=None / passed=None / method="manual", 保证 result 结构不缺失.
 
 target 解析支持:
   ">= 0.9"  "<= 0.02"  "> 0"  "< 1"  "== true"  "!= false"  "in [PASS,PARTIAL]"
+
+A-025 · YAML schema 兼容层:
+  每条指标支持新老双字段 (desc/target/description/method/baseline_target/blocker_threshold).
+  _lookup_target 优先读老 target 字符串 (向后兼容), 无则从 baseline_target + name 方向推导.
+  _normalize_metric 统一视图供 adapter / report 消费.
 """
 
 from __future__ import annotations
@@ -165,10 +170,85 @@ class BaseEvaluator(ABC):
         )
 
     def _lookup_target(self, name: str, kind: str) -> str | None:
+        """查某条指标的 target 字符串.
+
+        A-025 fallback 顺序:
+          1. 老 `target` 字符串字段 (向后兼容, agent2/4/6 adapter 零改动)
+          2. 从 `baseline_target` (数字) + name 推导方向生成 ">= X" / "<= X"
+             - name 命中 _LOWER_IS_BETTER_HINTS → "<= baseline_target"
+             - 否则默认 ">= baseline_target"
+          3. 返回 None (adapter 侧做 stub)
+        """
         for m in self._metrics_config(kind):
             if m.get("name") == name:
-                return m.get("target")
+                legacy = m.get("target")
+                if isinstance(legacy, str) and legacy.strip():
+                    return legacy
+                return _derive_target_from_new_schema(m)
         return None
+
+    @staticmethod
+    def _normalize_metric(m: dict) -> dict:
+        """A-025 §3 · 指标双字段归一化视图.
+
+        返回 dict 同时带新字段, 供 rubric 渲染 / report 消费.
+        老 YAML 无新字段时 fallback 到老字段.
+        """
+        return {
+            "name": m["name"],
+            "description": m.get("description") or m.get("desc") or "",
+            "method": m.get("method") or "",
+            "baseline_target": (
+                m.get("baseline_target")
+                if "baseline_target" in m
+                else _parse_legacy_target_to_float(m.get("target", ""))
+            ),
+            "blocker_threshold": m.get("blocker_threshold"),
+            "target": m.get("target") or _derive_target_from_new_schema(m) or "n/a",
+        }
+
+
+# --- A-025 helpers (module-level, 无状态, 便于测试) --- #
+
+# 命中任一子串 → 该指标"越小越好", 推导 "<= baseline_target"
+_LOWER_IS_BETTER_HINTS = (
+    "hallucination",
+    "leakage",
+    "false_positive",
+    "fpr_spread",
+    "spread",
+    "deviation",
+    "latency",
+    "unresolvable",
+    "defect_rate",
+)
+
+
+def _parse_legacy_target_to_float(target: str) -> float | None:
+    """把老 target 字符串 (\">= 0.9\" / \"<= 0.02\" / \"pass\") 解析为 float 或 None."""
+    if not isinstance(target, str):
+        return None
+    m = _TARGET_RE.match(target.strip())
+    if not m:
+        return None
+    op, rhs_raw = m.group(1), m.group(2).strip()
+    if op == "in":
+        return None
+    try:
+        return float(rhs_raw)
+    except ValueError:
+        return None
+
+
+def _derive_target_from_new_schema(m: dict) -> str | None:
+    """无老 target 字段时, 用 baseline_target + name 推导 target 字符串."""
+    bt = m.get("baseline_target")
+    if not isinstance(bt, (int, float)):
+        return None
+    name = str(m.get("name", ""))
+    if any(h in name for h in _LOWER_IS_BETTER_HINTS):
+        return f"<= {bt}"
+    return f">= {bt}"
 
 
 def load_baseline_artifacts(path: str | Path) -> dict[str, Any]:

@@ -1,53 +1,111 @@
 # Agent2 风控策略 评估配置
+# schema: A-025 · 双字段（老 desc/target 保留 + 新 description/method/baseline_target/blocker_threshold）
+# 注意: Phase 1 Task C @ 8ec4283 已落 baseline.results（PASS 判定），domain name 保持 A-025 前不变
 agent: riskctrl
 version: v3.1
-updated: 2026-04-15
+updated: 2026-04-24
 
 metrics:
   common:
+    - name: field_completeness
+      desc: DSL 规则结构化字段完整率（rule_id/conditions/action/backtest 四要素）
+      description: DSL 规则结构化字段完整率（rule_id/conditions/action/backtest 四要素）
+      method: rules_with_4keys / rules_total
+      target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
+
     - name: task_completion_rate
       desc: 从策略诉求到 DSL 规则的生成成功率
+      description: 从策略诉求到 DSL 规则的生成成功率
+      method: outputs_successful / inputs_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.75
+
     - name: evidence_rate
       desc: 每条 DSL 规则附回测指标（KS / 通过率 / 坏账率）
+      description: 每条 DSL 规则附回测指标（ks/approve_rate/bad_rate 至少 1 项）
+      method: rules_with_backtest_keys / rules_total
       target: ">= 0.98"
+      baseline_target: 0.98
+      blocker_threshold: 0.90
+
     - name: hallucination_rate
       desc: DSL 中出现样本里不存在的字段名
+      description: DSL 条件中引用 schema.columns 外字段的占比
+      method: conditions_field_not_in_schema / conditions_total
       target: "<= 0.01"
+      baseline_target: 0.01
+      blocker_threshold: 0.05
+
     - name: tool_success_rate
       desc: 回测工具 / 指标计算工具调用成功率
+      description: 回测/指标计算工具调用 success/total
+      method: tool_calls_status_eq_success / tool_calls_total
       target: ">= 0.95"
+      baseline_target: 0.95
+      blocker_threshold: 0.80
 
   domain:
     - name: ks_improvement
       desc: 生成策略 KS 相对人工基线的提升
+      description: 生成策略 KS 相对人工 baseline_ruleset 的提升值（pending · A-013 kernel 白名单）
+      method: ks_generated - ks_human_baseline  # Phase 2 runtime 对照组接入
       target: ">= 0.02"
+      baseline_target: 0.02
+      blocker_threshold: 0.00
+
     - name: false_positive_rate
       desc: 坏账识别误报率
+      description: 混淆矩阵 FP / (FP + TN)
+      method: FP / (FP + TN)
       target: "<= 0.15"
+      baseline_target: 0.15
+      blocker_threshold: 0.25
+
     - name: rule_interpretability
       desc: DSL 规则可读性评分（1-5 分）
+      description: DSL 规则可读性评分 1-5（pending · LLM-judge / 人工评分未实装）
+      method: mean_score_over_rules_1to5_scale
       target: ">= 4.0"
+      baseline_target: 4.0
+      blocker_threshold: 3.0
+
     # Phase 1 Task C (A-019 @ c947906): 单条 reject 规则 FPR 的总体方差，警戒"整体绿 + 单条偏激"
     # 公式：σ² = Σ(x - mean)² / n over [rule.FP/(rule.FP+rule.TN) for rule in reject-rules with FP+TN>0]
     # 0.03 为 Phase 1 草案阈值，Phase 2 Batch 2 基于真 baseline 分布 P90/P95 重锚
     - name: per_rule_fpr_spread
       desc: 单规则误拒率的总体方差（仅 reject 规则，N/A 规则跳过）
+      description: 单规则误拒率的总体方差 σ²（仅 reject 规则，FP+TN=0 跳过）
+      method: variance(rule.FP / (rule.FP + rule.TN)) over reject-rules
       target: "<= 0.03"
+      baseline_target: 0.03
+      blocker_threshold: 0.08
+
+    - name: dsl_syntax_correctness
+      desc: DSL 规则通过 schema 语法校验的比例（parser round-trip 无错）
+      description: DSL 规则通过 parser 语法校验 + 字段类型匹配的比例
+      method: rules_parseable_and_typed / rules_total
+      target: ">= 0.98"
+      baseline_target: 0.98
+      blocker_threshold: 0.90
 
 baseline:
   # Phase 1 Task A (2026-04-19): fixture baseline_v1 降级为回归锚，当期基线来自 runtime
   # source: py scripts/run_agent2_baseline.py → evaluation/runtime/2_latest/
   # 产物 gitignored (reproducible from seed=42 + LLM disk cache)
   # Phase 1 Task C (2026-04-19): merge --no-ff @ 8ec4283 拿 A-012.E + A-019；新增 per_rule_fpr_spread
+  # B1 (2026-04-24): schema 升 A-025 双字段；pending_metrics 白名单 + verdict 不变；
+  #   新加 field_completeness / dsl_syntax_correctness 两条未进本次 runtime, 暂 pending
   last_run: 2026-04-19T09:40:32+00:00
   commit: 8ec428363bd82b16db0e7ee4a2ad98e44a2c391c
   fixture_dir: evaluation/runtime/2_latest/
   fallback_anchor: agent_riskctrl/tests/fixtures/baseline_v1/      # adapter 3 级 fallback 末级
   # Phase 1 Task B (2026-04-19): 两 Phase C stub 走 A-013 kernel 白名单
   # base_evaluator._verdict() 消费本字段，effective=metrics-pending；kernel 改动见 7e6438d（主 CLI 已锁）
-  pending_metrics: [ks_improvement, rule_interpretability]
-  pending_reason: "Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装"
+  pending_metrics: [ks_improvement, rule_interpretability, field_completeness, dsl_syntax_correctness]
+  pending_reason: "ks_improvement/rule_interpretability: Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装; field_completeness/dsl_syntax_correctness: B1 新加指标, adapter 未实装 runtime 探针"
   verdict: PASS                       # Task C 后：6 deterministic green + 2 pending 豁免 → PASS
   results:
     task_completion_rate: 1.0000      # target >= 0.95   PASS  (flow_1 + flow_2 LLM 均产出合法 ruleset)
@@ -58,6 +116,8 @@ baseline:
     per_rule_fpr_spread: 0.0002       # target <= 0.03   PASS  (σ² over reject rules {R001 FPR=0.0351, R002 FPR=0.0088}, 5 N/A 规则跳过)
     ks_improvement: null              # pending per baseline.pending_metrics (A-013 白名单豁免)
     rule_interpretability: null       # pending per baseline.pending_metrics (A-013 白名单豁免)
+    field_completeness: null          # pending · B1 新加, adapter 未实装
+    dsl_syntax_correctness: null      # pending · B1 新加, adapter 未实装
   red_lines: PASS                     # halluc≤0.01 / evidence≥0.98 / task_completion≥0.95 三闸门全绿
   runtime_vs_fixture:                 # Phase 1 Task A runtime 相对 Phase 0 fixture 对比（不允许倒退）
     task_completion_rate: "1.0000 == 1.0000 (持平)"
