@@ -1501,3 +1501,61 @@ worker resume 完 onboarding 会看到 "新建 evaluation/base_evaluator.py" 这
 - Preflight `docs/handoff/batch-1-review-preflight.md` §4.1 / §4.2 / §4.5 同步更新（去掉"[主 CLI 补]"标记，改为 A-025 判决内容）
 
 ---
+
+## [Q-028] 2026-04-24 · main CLI (self) · data-foundation Batch 1 REJECT-V2（形态错 · 把答案喂到模型嘴边）
+
+**CLI**: main (self-Q/A)
+**Priority**: P0
+**Blocking**: **yes** — data-foundation 返工；其他 3 worker（code-urgent / code-arch / evaluation）APPROVE 不阻塞
+**Related**: Q-023/A-023 · Q-024/A-024 + Q-025/A-025 · Preflight §2 原版 · 用户 4 次 ultrathink 纠偏 · ground-truth 中锐网络续贷包（用户本地 D:/刘野/众安/新建文件夹/2026.3.25续贷材料 · 21 份异构文件 + 5 银行流水子目录）
+
+### 背景
+
+Batch 1 review 发现 worker 100 家 yaml + 15 家 shortlist + 15 pits 模板。Preflight §2 DF-1~13 硬指标全通过，**但 yaml 形态本身错**：
+
+- Agent6/3 真实输入 = 客户完整材料包文件夹（pdf/xlsx/docx/扫描件混合），不是 yaml
+- Agent1 核心能力 = 从内部 KB 出发实搜外部企业（外部候选**不能 mock**）
+- Agent5 核心能力 = 从内部制度库出发实搜外部政策比对（外部政策**不能 mock**）
+- Agent4/2 独立本 v2 不覆盖
+
+worker yaml 把材料解析/外搜/比对核心能力全部 bypass，答案字段（difficulty/tags/benchmark_ref）直接喂到 key-value = 把饭喂到模型嘴边。
+
+**定责**：(1) Q-023 决策就错 · 上任主 CLI 没贯彻 §3.1 形态约束；(2) Preflight §2 没检查形态是否对 · 本任主 CLI 盲点；(3) CLAUDE.md §3.1-3.3 没条款化 mock 数据归属原则。
+
+### 选项
+
+- A REJECT-V2 完全重做
+- B 保留 yaml 删答案 + 另起深柱
+- C 实质 REJECT-V2 + 范围重划 · 推翻老 · 新建 3 组 mock（deep-pillar 5 家 + channel-kb + compliance-kb）· 保留 yaml 文字迁入 channel-kb/historical-clients
+
+### 推荐
+
+**C**。演化出形态矩阵 + 元规则（反结果导向第 5 条环境边界：mock 给 Agent 稳态内部 context 不替它外搜）· 分 Phase（Phase 1 Agent6/3/1/5 · Phase 2 Agent4 · Phase 3 Agent2）
+
+### [A-028] 2026-04-24 · 主 CLI 自定
+
+**Decision**: C（REJECT-V2 + 范围重划 + 反结果导向 5 原则首入 CLAUDE.md §3.5）
+
+**Phase 1 Mock 矩阵**：
+
+| Agent | mock 形态 | 位置 | 外搜 |
+|---|---|---|---|
+| Agent6 + Agent3 | 5 家深柱完整材料包（中锐形态） | data/mock/deep-pillar/DP001~005/ | — |
+| Agent1 | 内部 KB：历史画像 + 营销倾向 + 产品目录 | data/mock/channel-kb/{historical-clients, marketing-preferences, product-catalog}/ | 实搜 |
+| Agent5 | 内部制度库 5 子目录 | data/mock/compliance-kb/{credit-sop, customer-admission, kyc-aml, risk-preference, review-checklists}/ | 实搜 |
+
+**v2 产物**：docs/onboarding/data-foundation-phase-1-v2.md + docs/handoff/data-foundation-v2-kickoff.md
+
+**对其他 3 worker**：
+- code-urgent 🟢 CONDITIONAL-APPROVE → merge + holding task W1/W2 清
+- code-arch 🟢 APPROVE → merge（Agent6 v16 bit-identical）+ holding task W1 清
+- evaluation 🟡 APPROVE → merge · 首轮 baseline 暂估数 · holding task W1 清（Batch 2 等 Phase 1 真 mock 重跑）
+
+**Follow-up**:
+- CLAUDE.md §3.5 反结果导向 5 原则（已落）
+- Preflight §2 重写 v2 版
+- Commit 拆：(a) Q-028/A-028 Signal: A-028-RESOLVED (b) v2 onboarding + kickoff + §3.5 + Preflight §2 v2 Signal: PHASE-1-DATA-FOUNDATION-REJECTED-V2-DISPATCHED
+- 汇报时贴 v2 kickoff + 3 worker holding kickoff 给用户一并粘贴
+- Batch 2 规划等 4 全 APPROVE + Phase 1 落地再正式启动
+
+---
