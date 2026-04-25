@@ -1853,3 +1853,53 @@ worker 在 closeout body 主动 disclose 缺件 + 提议 main CLI 二选一：(a
 - frontend-integration worker 解 RiskRadar 后 Signal: FRONTEND-RISK-RADAR-LANDED (单独 stage 2 sub-signal · 折叠进 FE-STAGE-2-AGENT-WORKSPACE-DONE)
 
 ---
+
+## [Q-034] 2026-04-25 · main CLI (self) · data-foundation V2 history leak compromise
+
+**CLI**: main (self-Q/A · post-V2-merge resolution)
+**Priority**: P2
+**Blocking**: no
+**Related**: V1 d868550 (含 _gen leak) · V2 07a52be (修复) · merge commit DATA-FOUNDATION-AGENT2-MERGED-APPROVED · CLAUDE.md §3.5 反结果导向 #1 盲测
+
+### 背景
+
+data-agent2-foundation V1（commit `d868550 · Signal: READY-FOR-DATA-FOUNDATION-AGENT2-REVIEW`）被主 CLI REJECT-V2 · 因 `_gen/generate_loans.py` leak PM-private 难度分层（60/20/15/5 + tier 名 A_clean/B_marginal/C_hard/D_extreme）入 worker-visible tree。
+
+worker V2 修复（commit `07a52be · Signal: READY-FOR-DATA-FOUNDATION-AGENT2-REVIEW (re-issued)`）：
+1. `git rm data/mock/agent2-samples/_gen/generate_loans.py`（HEAD tree clean）
+2. `data/mock/agent2-samples/.gitignore` 加 `_gen/` sentinel + PM-private 注释 + §3.5 cite
+3. `README.md` 加 substantive 段落解释 `_gen` 已私化
+
+V2 review 验过 (subagent CONDITIONAL-APPROVE)：所有 V2 fix step 落实。但有一个 residual：
+
+**git history 仍含 V1 leak commit `f2b04c9`（含 _gen 全文）**。worker 用了 `git rm + new commit` 路径 · NOT `git commit --amend + force-push` · 所以 history 中 V1 commit 没被 rewrite。merge 进 chore/l0-infra 后 · main 历史也保留这个 V1 commit 的 _gen content（虽然 deleted on HEAD）。
+
+### Decision (A-034)
+
+**接受 history leak compromise · merge as-is · 不做 history rewrite**。
+
+**理由**：
+- HEAD clean = Agent2 runtime 永远看不到 _gen（agent_riskctrl 不读 git log · 只读 HEAD tree）
+- V1 leak commit 在 git history 但需主动 `git log --all -- _gen/` 才能找到 · Agent2 训练 / 评估正常路径不触
+- history-rewrite 路径（`git filter-repo` / BFG）需要：
+  1. 协调全 mesh 让所有 worker pull --rebase（worker 当前可能 stale）
+  2. force-push chore/l0-infra（破坏其他 worker 的 fork point · 大破坏）
+  3. 重 review 所有 affected worker 后续 commit（链式影响）
+  代价 >> residual leak 的实际风险
+- §3.5 反 5 原则 #1 盲测的核心是"worker-visible runtime data"——HEAD clean 满足精神 · git history 是 audit-only
+
+### Follow-up
+
+- 不立即做 history rewrite · 留窗口给"未来必须 history clean 的合规审计"场景（如银行 SOC 审计要求 git history 内审）
+- 若未来需 rewrite · 单独立 task：
+  1. 锁 chore/l0-infra（不接新 merge）
+  2. 跑 `git filter-repo --path data/mock/agent2-samples/_gen/ --invert-paths`
+  3. force-push + 通知所有 worker re-fork
+  4. 验所有 mesh worker 历史一致
+- 本 Q/A 入 audit log · 作为"已知 history residue"声明
+
+### Signals
+
+- 本 commit Signal: P3F-Q034-RESOLVED
+
+---
