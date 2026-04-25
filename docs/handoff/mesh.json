@@ -57,7 +57,10 @@
       "path": "D:/claude code/data-agent2-foundation",
       "branch": "feat/data-agent2-foundation",
       "role": "worker",
-      "description": "Agent2 风控 · P3F 轨 8a · 历史贷款样本 CSV + 字段字典 + README · 反 5 原则 + 环境边界 · 不动代码（轨 8b code-arch / 轨 8c evaluation 接力）",
+      "description": "Agent2 风控 · P3F 轨 8a · MERGED V2 · loans.csv 7500 行 / 29 列 + field_dictionary 328 行 + README + .gitignore（_gen 私化）· REJECT-V2 修过一轮（_gen leak per Q-034）· 反 5 原则全守 · history compromise 接受",
+      "merged": true,
+      "merged_signal": "DATA-FOUNDATION-AGENT2-MERGED-APPROVED",
+      "merged_v2": true,
       "phase_3_final_track": "8a",
       "onboarding": "docs/onboarding/batch-3-data-foundation-agent2-samples.md"
     }
