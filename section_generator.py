@@ -980,6 +980,17 @@ def generate_all_sections(
             if len(response) < before_len:
                 _log(f"  [去重] 子标题级合并: {before_len}→{len(response)}字")
 
+        # ── Phase 3.7: QC Blocker 四维(soft per-section log) ──
+        if response and len(response) > 80:
+            try:
+                from agent_report.quality_blocker import run_blocker
+                _v = run_blocker(response, financial_anchor=None, expect_evidence=True)
+                if _v.blocked:
+                    _log(f"  [QC-Blocker] {_v.summary} dims={_v.fail_dimensions}")
+            except Exception as _e:
+                logger.warning("QC Blocker soft check failed for %s: %s",
+                               section.section_id, _e)
+
         content_indices = section.content_para_indices
         para_texts = _distribute_to_paragraphs(response, content_indices, section)
 

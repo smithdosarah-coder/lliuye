@@ -1,0 +1,44 @@
+# -*- coding: utf-8 -*-
+# Agent6 · 反馈飞轮 bootstrap 样本 · 科创贷场景
+# 用途：业务方二审前，worker 先过一版 few-shot 示例；进 prompts.py 哨兵块
+# 数据来源：虚构（desensitized）审贷员修改示例，语义风格贴近科创贷审批口径
+# 对应 DoD：L3-8（反馈飞轮闭环） + L2 CLAUDE.md §6 第 3 环
+
+scenario: 科创贷
+agent: report
+chapter: 3_finance
+field_path: chapter_3_finance.rd_intensity
+
+# 审贷员看到的 Agent 原始输出（常见幻觉：用营收比研发费用得出的比率是错的）
+original_output: |
+  公司 2024 年度研发费用投入强度较高,研发费用占营业收入比例为 8.5%,
+  远超行业平均水平 3%,体现高新技术企业属性。
+
+# 审贷员手工改正的版本（基于材料实际数字 + 科创贷认定口径）
+corrected_output: |
+  公司 2024 年度研发费用 1,260 万元,占营业收入 15,800 万元的 7.97%,
+  符合科创贷研发投入强度≥5% 的认定口径(出处:审计报告附注七-16)。
+  对照同行业(软件信息服务)平均 7.2% 略高,口径内可认定为科创型企业。
+
+correction_reason: |
+  原输出存在两处问题:
+  1. 比率计算口径不对 - 审贷员核对了审计报告原始数字,8.5% 是 Agent 现算的错值;
+  2. 未引用材料出处 - 科创贷审批要求研发强度必须挂具体附注位置,否则合规官打回;
+  3. 行业对比基准错 - 高新技术企业≠软件信息服务,行业均值 3% 是错误锚点。
+
+# 注入提示:告诉 prompts.py 这条样本应被注入到哪一章的 prompt 末尾
+injection_hint:
+  target_chapter: 3
+  anchor: 财务风险分析
+  pattern_tags:
+    - 研发强度计算
+    - 材料证据引用
+    - 科创贷认定口径
+  priority: high
+
+# 元信息
+metadata:
+  source: manual_desensitized
+  created_at: "2026-04-19"
+  reviewer: pending_business_review
+  signal: AGENT6-PHASE-2-TASK-A-BOOTSTRAP

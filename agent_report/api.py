@@ -40,7 +40,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  # noqa: E402
-from agent_report.session_store import store  # noqa: E402
+from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
 
 # Tiered data sources bootstrap (feat/tiered-search); fail-safe on missing deps
@@ -642,16 +642,45 @@ async def report_fill(
         # 只有在 preset 仍是默认值时才按业务线覆盖,避免显式传 preset 被吞
         effective_preset = BUSINESS_LINE_TO_PRESET[business_line]
 
+    # 审计上下文 — DoD L2-12:endpoint / user_id / input_hash / latency_ms 落 data/audit/
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/fill",
+        "mock": int(mock),
+        "preset": effective_preset,
+        "business_line": business_line,
+        "files": [os.path.basename(f.filename or "") for f in files],
+    })
+
+    def _emit_audit(status: str) -> None:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/fill",
+            "input_hash": _audit_input,
+            "output_status": status,
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+        })
+
     if mock == 1:
         async def gen():
-            async for evt in _mock_stream(effective_preset, business_line):
-                yield evt
+            status = "ok"
+            try:
+                async for evt in _mock_stream(effective_preset, business_line):
+                    yield evt
+            except Exception:
+                status = "error"
+                raise
+            finally:
+                _emit_audit(status)
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache",
                                           "X-Accel-Buffering": "no"})
 
     # 真 pipeline:先把上传文件落盘到 session 目录(outputs/sessions/<random>)
     if not files:
+        _emit_audit("error")
         raise HTTPException(400, "真模式需要上传至少一个材料文件")
 
     # 预创建 session 工作目录(30min TTL 清理)
@@ -678,8 +707,15 @@ async def report_fill(
         raise HTTPException(500, f"默认模板不存在: {template}")
 
     async def gen():
-        async for evt in _real_stream(saved, template, session_dir, business_line):
-            yield evt
+        status = "ok"
+        try:
+            async for evt in _real_stream(saved, template, session_dir, business_line):
+                yield evt
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            _emit_audit(status)
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
@@ -696,7 +732,7 @@ class RefineRequest(BaseModel):
 
 
 @app.post("/api/report/refine")
-async def report_refine(req: RefineRequest):
+async def report_refine(req: RefineRequest, request: Request):
     """基于 session_id 的外因续跑.
 
     当前版本为 stub:
@@ -705,46 +741,79 @@ async def report_refine(req: RefineRequest):
       - done 事件回传相同 session_id 与(可能更新后的) enterprise_profile
     真正的 section 重跑由 V14-C Agent 负责接入 section_generator。
     """
+    # 审计上下文 — DoD L2-12
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/refine",
+        "session_id": req.session_id,
+        "answer_ids": [a.id for a in (req.answers or [])],
+    })
+
+    def _emit_audit(status: str) -> None:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/refine",
+            "input_hash": _audit_input,
+            "output_status": status,
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+        })
+
     sess = store.get(req.session_id)
     if sess is None:
+        _emit_audit("error")
         raise HTTPException(404, f"session {req.session_id} 不存在或已过期")
 
     async def gen():
-        # 模拟"只重跑外因相关 section"
-        yield _sse("stage", {"stage": STAGE_WRITE, "progress": 0.5,
-                             "message": f"基于 {len(req.answers)} 条外因答案重写相关 section..."})
-        await asyncio.sleep(0.3)
-        yield _sse("stage", {"stage": STAGE_AUDIT, "progress": 1.0,
-                             "message": "校验完成"})
-
-        profile = sess.get("enterprise_profile") or {}
-        pending = sess.get("pending_questions") or []
-        # 标记已回答的问题
-        answered_ids = {a.id for a in req.answers}
-        remaining = [q for q in pending if q.get("id") not in answered_ids]
-
-        store.update(req.session_id, {
-            "pending_questions": remaining,
-            "last_refine_answers": [a.model_dump() for a in req.answers],
-        })
-
-        report_url = None
-        docx_path = sess.get("report_docx_path")
-        if docx_path and os.path.exists(docx_path):
-            report_url = f"/downloads/{os.path.basename(docx_path)}"
-
-        yield _sse("done", {
-            "session_id": req.session_id,
-            "report_docx_url": report_url,
-            "enterprise_profile": profile,
-            "pending_questions": remaining,
-            "downstream_handoff": mock_fixtures.downstream_handoff(
-                (profile.get("profile_id") or "dingsheng_trade")),
-        })
+        status = "ok"
+        try:
+            async for evt in _refine_stream(req, sess):
+                yield evt
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            _emit_audit(status)
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
+
+
+async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]:
+    """外因续跑 SSE 流(模块级),供 /api/report/refine 的 gen() 包装调用。"""
+    # 模拟"只重跑外因相关 section"
+    yield _sse("stage", {"stage": STAGE_WRITE, "progress": 0.5,
+                         "message": f"基于 {len(req.answers)} 条外因答案重写相关 section..."})
+    await asyncio.sleep(0.3)
+    yield _sse("stage", {"stage": STAGE_AUDIT, "progress": 1.0,
+                         "message": "校验完成"})
+
+    profile = sess.get("enterprise_profile") or {}
+    pending = sess.get("pending_questions") or []
+    # 标记已回答的问题
+    answered_ids = {a.id for a in req.answers}
+    remaining = [q for q in pending if q.get("id") not in answered_ids]
+
+    store.update(req.session_id, {
+        "pending_questions": remaining,
+        "last_refine_answers": [a.model_dump() for a in req.answers],
+    })
+
+    report_url = None
+    docx_path = sess.get("report_docx_path")
+    if docx_path and os.path.exists(docx_path):
+        report_url = f"/downloads/{os.path.basename(docx_path)}"
+
+    yield _sse("done", {
+        "session_id": req.session_id,
+        "report_docx_url": report_url,
+        "enterprise_profile": profile,
+        "pending_questions": remaining,
+        "downstream_handoff": mock_fixtures.downstream_handoff(
+            (profile.get("profile_id") or "dingsheng_trade")),
+    })
 
 
 @app.get("/downloads/{fname}")

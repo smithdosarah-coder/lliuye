@@ -60,6 +60,56 @@ AGENT_SYSTEM_PROMPT = """你是一名资深商业银行信贷分析师 Agent，�
 """
 
 
+# <AGENT6_FEEDBACK_FEWSHOT:BEGIN>
+# 反馈飞轮第 4 环:从 data/feedback/extracted/6_YYYYMMDD.yaml 注入 few-shot 示例。
+# 哨兵块内容由 scripts/feedback_extract_agent6.py 生成,不要手工修改。
+# 加载失败(文件缺失/解析失败)时静默走空列表,保证 prompt 渲染可降级。
+# 对应 DoD:L3-8 + CLAUDE.md §6 第 4 环。
+import os as _os_feedback
+from pathlib import Path as _Path_feedback
+
+_FEEDBACK_FEWSHOT: list[dict] = []
+try:
+    import yaml as _yaml_feedback  # 运行时可选,缺失则走空
+    _fb_root = _Path_feedback(__file__).resolve().parent / "data" / "feedback" / "extracted"
+    if _fb_root.is_dir():
+        _candidates = sorted(_fb_root.glob("6_*.yaml"), reverse=True)
+        if _candidates:
+            _data = _yaml_feedback.safe_load(_candidates[0].read_text(encoding="utf-8"))
+            if isinstance(_data, dict):
+                _items = _data.get("items") or []
+                if isinstance(_items, list):
+                    _FEEDBACK_FEWSHOT = [x for x in _items if isinstance(x, dict)]
+except Exception:
+    _FEEDBACK_FEWSHOT = []
+
+
+def get_feedback_fewshot_block(chapter: int) -> str:
+    """返回对应章节的 few-shot 示例文本(可空),供 CHAPTER_PROMPTS 末尾追加。"""
+    if not _FEEDBACK_FEWSHOT:
+        return ""
+    picked: list[dict] = []
+    for item in _FEEDBACK_FEWSHOT:
+        try:
+            tgt = item.get("injection_hint", {}).get("target_chapter")
+            if tgt == chapter or str(tgt) == str(chapter):
+                picked.append(item)
+        except Exception:
+            continue
+    if not picked:
+        return ""
+    lines: list[str] = ["", "【审贷员反馈修正示例(仅参考口径,不复制措辞)】"]
+    for i, it in enumerate(picked[:3], 1):
+        scenario = it.get("scenario") or "general"
+        reason = (it.get("correction_reason") or "").strip().splitlines()[0:3]
+        reason_text = " ".join(s.strip() for s in reason) or "(reason unspecified)"
+        lines.append(f"示例{i}({scenario}):{reason_text}")
+    return "\n".join(lines)
+
+
+# <AGENT6_FEEDBACK_FEWSHOT:END>
+
+
 # ===== 章节 Prompt（保留子节结构，按新范式执行） =====
 
 CHAPTER_PROMPTS = {

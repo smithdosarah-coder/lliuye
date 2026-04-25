@@ -1,0 +1,46 @@
+# -*- coding: utf-8 -*-
+# Agent6 · 反馈飞轮 bootstrap 样本 · 对私场景
+# 用途：业务方二审前 worker 样本；进 prompts.py 哨兵块
+# 对应 DoD：L3-8（反馈飞轮闭环）
+
+scenario: 对私
+agent: report
+chapter: 1_background
+field_path: chapter_1_background.credit_history
+
+original_output: |
+  借款人近 2 年内征信报告显示信用卡查询次数 8 次,贷款审批查询次数 5 次,
+  查询频率较高,建议关注。
+
+corrected_output: |
+  借款人近 2 年征信报告查询统计(出处:个人征信报告 第 2-3 页):
+  - 本人查询:3 次(2024-07/2025-02/2026-01)
+  - 贷款审批查询:5 次(分布于 2024-09 至 2025-12)
+  - 信用卡审批查询:4 次(分布于 2024-05 至 2025-08)
+  - 贷款审批+信用卡审批合计 9 次,其中近 3 个月 0 次、近 6 个月 1 次
+  按对私信贷征信查询频次内控口径(近 6 个月硬查询≥6 次需预警),
+  当前查询密度不构成预警;本人查询不计入硬查询分子,不需特别说明。
+
+correction_reason: |
+  原输出三处错误:
+  1. 查询次数口径混淆 - 信用卡查询 8 次混淆了"本人查询"和"机构审批查询",
+     审贷员指出征信原报告明细区分了"本人"/"贷款审批"/"信用卡审批"三类,
+     "本人查询"不计入硬查询分子;
+  2. "近 2 年 5 次贷款审批查询"不是高频,对私内控口径看"近 6 个月硬查询次数",
+     原输出直接下"查询频率较高"结论是臆断;
+  3. 未引用征信报告页码出处 - 对私征信复核必须挂页码,合规硬要求。
+
+injection_hint:
+  target_chapter: 1
+  anchor: 授信客户风险信息
+  pattern_tags:
+    - 征信查询口径
+    - 本人查询vs硬查询
+    - 对私复核内控
+  priority: high
+
+metadata:
+  source: manual_desensitized
+  created_at: "2026-04-19"
+  reviewer: pending_business_review
+  signal: AGENT6-PHASE-2-TASK-A-BOOTSTRAP

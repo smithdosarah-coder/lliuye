@@ -1,0 +1,44 @@
+# -*- coding: utf-8 -*-
+# Agent6 · 反馈飞轮 bootstrap 样本 · 小微对公场景
+# 用途：业务方二审前 worker 样本；进 prompts.py 哨兵块
+# 对应 DoD：L3-8（反馈飞轮闭环）
+
+scenario: 小微
+agent: report
+chapter: 4_credit_decision
+field_path: chapter_4_credit_decision.collateral_coverage
+
+original_output: |
+  申请人提供厂房抵押,评估价值 800 万元,覆盖申请授信额度 500 万元,
+  抵押率 62.5%,风险可控,建议核准。
+
+corrected_output: |
+  申请人提供工业厂房抵押,评估价值 800 万元(出处:评估报告 第 3 页);
+  本次申请综合授信 500 万元(敞口 500 万元),按评估值计抵押率 62.5%,
+  低于小微抵押贷抵押率内控上限 70%。需补充核实:
+  1. 评估报告出具日期及评估机构是否在行内合作清单(评估有效期 1 年);
+  2. 厂房是否为自有产权、有无在先抵押登记(需调取不动产登记查询结果);
+  3. 抵押率计算应以"授信敞口/评估价值"口径,非"授信总额/评估价值"。
+  建议在上述 3 项材料齐备后复核,当前条件下暂无法直接建议核准。
+
+correction_reason: |
+  原输出直接下"风险可控、建议核准"结论跳过了三项关键核查;
+  1. 审贷员反馈:小微抵押贷的抵押率必须挂内控上限做对比,不能只报比率;
+  2. 评估报告未核 → 合规官二审会直接打回;
+  3. 在先抵押 / 产权状态未查 → 是实际操作中最高频的事故点;
+  4. 结论必须给"核准前提"而非直接"建议核准" - copilot 不越位。
+
+injection_hint:
+  target_chapter: 4
+  anchor: 担保分析
+  pattern_tags:
+    - 抵押率口径
+    - 核准前提
+    - 小微内控红线
+  priority: high
+
+metadata:
+  source: manual_desensitized
+  created_at: "2026-04-19"
+  reviewer: pending_business_review
+  signal: AGENT6-PHASE-2-TASK-A-BOOTSTRAP

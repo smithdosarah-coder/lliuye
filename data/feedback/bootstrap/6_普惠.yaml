@@ -1,0 +1,46 @@
+# -*- coding: utf-8 -*-
+# Agent6 · 反馈飞轮 bootstrap 样本 · 普惠场景
+# 用途：业务方二审前 worker 样本；进 prompts.py 哨兵块
+# 对应 DoD：L3-8（反馈飞轮闭环）
+
+scenario: 普惠
+agent: report
+chapter: 4_credit_decision
+field_path: chapter_4_credit_decision.guarantee_coverage
+
+original_output: |
+  申请人拟由第三方 XX 担保公司提供连带责任担保,担保金额 300 万元,
+  覆盖本次申请 200 万元,担保倍数 1.5 倍,担保措施充分。
+
+corrected_output: |
+  申请人拟由第三方融资担保公司(XX 融资担保有限公司,出处:担保承诺函)
+  提供连带责任保证担保,保证金额 300 万元,覆盖本次申请 200 万元(敞口 200 万元),
+  保证覆盖倍数 1.5 倍。担保合规性补充核查:
+  1. 担保机构需为地方政府性融资担保体系内机构,需核查是否在省级/市级合作清单;
+  2. 担保机构代偿率、放大倍数、自身资本充足率(普惠担保贷准入门槛);
+  3. 再担保安排(若有国担或省担再担保,可进一步降低保证金门槛);
+  4. 保证合同生效条件及解除条款(防范空头担保)。
+  结论:在上述材料核实后,担保措施可认定为充分;当前条件下担保"形式充分"
+  但"实质合规性待确认",不宜直接下"担保措施充分"结论。
+
+correction_reason: |
+  原输出两处问题:
+  1. 普惠担保贷担保合规性必须穿透核查 - 审贷员反馈:普惠担保贷最大的事故点是
+     担保机构本身出问题,所以不能只看金额倍数;
+  2. 结论下得过早 - copilot 应给"形式充分+实质待查",不能直接"担保措施充分";
+  3. 未区分"形式覆盖"与"实质合规" - 这是普惠担保贷合规官最关注的维度。
+
+injection_hint:
+  target_chapter: 4
+  anchor: 担保分析
+  pattern_tags:
+    - 融资担保机构准入
+    - 形式vs实质覆盖
+    - 普惠担保贷合规
+  priority: high
+
+metadata:
+  source: manual_desensitized
+  created_at: "2026-04-19"
+  reviewer: pending_business_review
+  signal: AGENT6-PHASE-2-TASK-A-BOOTSTRAP

@@ -86,3 +86,49 @@ baseline:
     field_completeness: 0.935
     unfilled_count: 32
     total_filled: 460
+
+  # A-013 对齐:声明本期暂未跑批的 metric 名,runner 应在 _verdict 中跳过这些指标的判定;
+  # 否则 PASS 永远卡在 task_completion_rate 等待端到端 LLM 跑通(Phase 3 才做)。
+  pending_metrics:
+    - task_completion_rate
+    - field_completeness
+    - evidence_rate
+    - hallucination_rate
+    - tool_success_rate
+    - financial_ratio_consistency
+    - template_leakage_rate
+    - section_length_calibration
+    - quality_score_total
+  pending_reason: |
+    Phase 2 Task A/B/C 仅产出代码层基线(反馈飞轮闭环 + QC Blocker 4 维 + 模板 adapter)。
+    runner 端到端 LLM 跑批属 Phase 3 任务,需:
+      1. DEEPSEEK_API_KEY 配置 + 真模式连通
+      2. samples/ 下 5 模板有真材料包(当前 tech_credit / micro_personal 是脱敏结构)
+      3. evaluation/runner/adapters/agent6_report.py 端到端 hook 跑 5 模板回归
+    在上述前置完成前,这 9 项 metric 由 baseline.pending_metrics 标黑名单,
+    保证 runner verdict 不被 N/A 误判为 PARTIAL/FAIL。当前明确通过的 1 项:
+      - unfilled_marker_accuracy (Phase A `94c04f5` 1.0000 锚点保留)
+
+# Phase 2 Task C · 模板覆盖度(L3-12)
+# 模板识别由 agent_report/template_adapter.py 提供;预期 qc_floor 为单模板回归基线下限。
+coverage_by_template:
+  total_templates: 5
+  by_scenario:
+    inclusive_skeleton: 1   # 普惠申报书_骨架型.docx (v7.23 基线)
+    corporate_long_form: 2  # 兴业资管_对公成稿B.docx + 经纬测绘_对公成稿A.docx
+    tech_credit: 1          # 科创贷申报书_模板.docx (Phase 2 新增)
+    micro_personal: 1       # 小微对私授信申报书_模板.docx (Phase 2 新增)
+  by_business_line:
+    inclusive: 1
+    corporate: 3
+    personal: 1
+  qc_floor_by_scenario:
+    inclusive_skeleton: 88.5
+    corporate_long_form: 88.0
+    tech_credit: 86.0
+    micro_personal: 82.0
+  per_template_baseline_runs:
+    pending_business_data: true
+    note: "新增 tech_credit / micro_personal 待业务方提供真材料后跑全量回归;
+           当前 baseline 为脱敏模板结构性基线,未做端到端 LLM 跑批"
+
