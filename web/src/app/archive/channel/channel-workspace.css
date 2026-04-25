@@ -1547,3 +1547,84 @@
   /* .ch-cd-card 原已有 transform translateY · 保留 · 只加 shadow */
   box-shadow: var(--obj-shadow-hover);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   L1-11 / L1-4 · Agent1→Agent3 handoff + xlsx export · cherry-pick 0b6eca4
+   reroute from legacy /channel/page.tsx 的 ActionBanner / 移交授信 link
+   styling · 复用 rpt-pv-toolbar/rpt-pv-btn primitive · 仅加 ch-cand-* 状态语义
+   ══════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="channel"] .ch-cand-actions {
+  margin: 0 0 8px 0;
+  padding: 0 12px 6px 12px;
+  border-bottom: 1px dashed var(--obj-line, currentColor);
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner {
+  margin: 0 12px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid;
+  background: color-mix(in oklab, var(--agent, currentColor) 4%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-row--ok {
+  border-color: color-mix(in oklab, var(--agent, currentColor) 36%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-row--err {
+  border-color: color-mix(in oklab, #c0392b 50%, transparent);
+  background: color-mix(in oklab, #c0392b 6%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-row .ic {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  font-weight: 600;
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-title {
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="channel"] .ch-cand-banner-sub {
+  font-size: 11px;
+  opacity: .68;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-handoff {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-family: var(--font-tabular, ui-monospace, monospace);
+  border: 1px solid var(--obj-line, currentColor);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-handoff:hover {
+  border-color: var(--agent, currentColor);
+  color: var(--agent, currentColor);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-handoff[data-state="busy"] {
+  cursor: wait;
+  opacity: .6;
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-handoff[data-state="done"] {
+  border-color: color-mix(in oklab, var(--agent, currentColor) 60%, transparent);
+  color: var(--agent, currentColor);
+  background: color-mix(in oklab, var(--agent, currentColor) 8%, transparent);
+}
+.v-archive--canon[data-agent="channel"] .ch-cd-handoff:disabled {
+  pointer-events: none;
+}

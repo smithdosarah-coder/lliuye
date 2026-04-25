@@ -48,6 +48,26 @@ import {
   UnfilledFields,
 } from "@/components/evidence";
 import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
+import {
+  handoffToCredit,
+  exportChannelXlsx,
+  type ChannelHandoffResponse,
+} from "@/lib/api";
+
+/* L1-11 / L1-4 · Agent1→Agent3 handoff + xlsx export · cherry-picked from 0b6eca4
+   原 commit 落 web/src/app/channel/page.tsx (legacy)；P3F 轨 3 reroute 至本 archive
+   workspace · 保 EvidenceTrail 挂载点（line 170）+ 复用既有 ch-out-toolbar 风格。 */
+type HandoffState =
+  | { status: "idle" }
+  | { status: "busy"; scope: "batch" | number }
+  | { status: "done"; scope: "batch" | number; result: ChannelHandoffResponse }
+  | { status: "error"; scope: "batch" | number; error: string };
+
+type ExportState =
+  | { status: "idle" }
+  | { status: "busy" }
+  | { status: "done"; rows: number; filename: string }
+  | { status: "error"; error: string };
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
 function msgTitle(raw: string): string {
@@ -79,6 +99,47 @@ export default function ChannelWorkspace() {
   /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
   const [scanned, setScanned] = useState(false);
   const seq = useRef(0);
+
+  /* L1-11 / L1-4 · Agent1→Agent3 handoff + xlsx export 状态 (cherry-pick 0b6eca4) */
+  const [handoff, setHandoff] = useState<HandoffState>({ status: "idle" });
+  const [exportState, setExportState] = useState<ExportState>({ status: "idle" });
+
+  const doExport = useCallback(async () => {
+    if (s.candidates.length === 0) return;
+    setExportState({ status: "busy" });
+    try {
+      const r = await exportChannelXlsx({
+        candidates: s.candidates as unknown[],
+        business_line: "corporate",
+      });
+      setExportState({ status: "done", rows: r.rows, filename: r.filename });
+    } catch (e) {
+      setExportState({ status: "error", error: (e as Error).message ?? String(e) });
+    }
+  }, [s.candidates]);
+
+  const doHandoff = useCallback(
+    async (scope: "batch" | number) => {
+      if (s.candidates.length === 0) return;
+      const payload =
+        scope === "batch" ? s.candidates : [s.candidates[scope]];
+      setHandoff({ status: "busy", scope });
+      try {
+        const r = await handoffToCredit({
+          candidates: payload as unknown[],
+          business_line: "corporate",
+        });
+        setHandoff({ status: "done", scope, result: r });
+      } catch (e) {
+        setHandoff({
+          status: "error",
+          scope,
+          error: (e as Error).message ?? String(e),
+        });
+      }
+    },
+    [s.candidates],
+  );
 
   const submit = useCallback((raw: string) => {
     const text = raw.trim();
@@ -150,7 +211,12 @@ export default function ChannelWorkspace() {
           <div className="ch-canvas">
             <div className="ch-canvas-top">
               <RadarPanel />
-              <CandidatesPanel />
+              <CandidatesPanel
+                handoff={handoff}
+                exportState={exportState}
+                onHandoff={doHandoff}
+                onExport={doExport}
+              />
             </div>
             {/* 2026-04-23 · 删 ScanCTA · channel 原生 ch-querybar-btn "扫描"按钮
                 即是 look-alike 入口 CTA · 两个扫描按钮冗余 · 保留 ch-querybar 唯一 */}
@@ -995,8 +1061,20 @@ function RadarPanel() {
 
 /* ── 区域 2 右 · 候选企业列表 ────────────────────────── */
 
-function CandidatesPanel() {
+function CandidatesPanel({
+  handoff,
+  exportState,
+  onHandoff,
+  onExport,
+}: {
+  handoff: HandoffState;
+  exportState: ExportState;
+  onHandoff: (scope: "batch" | number) => void;
+  onExport: () => void;
+}) {
   const s = CHANNEL_SESSION;
+  const batchBusy = handoff.status === "busy" && handoff.scope === "batch";
+  const exportBusy = exportState.status === "busy";
   return (
     <section className="rpt-panel ch-cand-panel">
       <PanelPinHandle
@@ -1019,10 +1097,90 @@ function CandidatesPanel() {
           阈值 {(s.match.similarity * 100).toFixed(0)}%
         </div>
       </div>
+      <div className="rpt-pv-toolbar ch-cand-actions" role="toolbar" aria-label="导出 / 移交授信">
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          onClick={onExport}
+          disabled={exportBusy}
+          title="导出候选池为 xlsx · 解 L1-4"
+        >
+          <span className="ic" aria-hidden>
+            {exportBusy ? "⏳" : "⇩"}
+          </span>
+          <span>{exportBusy ? "导出中" : "导出 .xlsx"}</span>
+        </button>
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          onClick={() => onHandoff("batch")}
+          disabled={batchBusy}
+          title="批量移交至 Agent3 授信评估 · 解 L1-11"
+        >
+          <span className="ic" aria-hidden>
+            {batchBusy ? "⏳" : "→"}
+          </span>
+          <span>{batchBusy ? "移交中" : "移交授信评估"}</span>
+        </button>
+      </div>
+      <CandidateActionBanner handoff={handoff} exportState={exportState} />
       <div className="rpt-panel-body">
-        <CandidatesView candidates={s.candidates} />
+        <CandidatesView
+          candidates={s.candidates}
+          onHandoff={onHandoff}
+          handoff={handoff}
+        />
       </div>
     </section>
+  );
+}
+
+/** Cherry-pick 0b6eca4 · ActionBanner 等价物 · 显示 handoff/export 状态 */
+function CandidateActionBanner({
+  handoff,
+  exportState,
+}: {
+  handoff: HandoffState;
+  exportState: ExportState;
+}) {
+  if (handoff.status === "idle" && exportState.status === "idle") return null;
+  return (
+    <div className="ch-cand-banner" role="status" aria-live="polite">
+      {handoff.status === "done" && (
+        <div className="ch-cand-banner-row ch-cand-banner-row--ok">
+          <span className="ic" aria-hidden>✓</span>
+          <div className="ch-cand-banner-body">
+            <div className="ch-cand-banner-title">
+              已移交 {handoff.result.count} 个候选至 Agent3 授信队列
+            </div>
+            <div className="ch-cand-banner-sub font-tabular">
+              session_id: <span>{handoff.result.session_id}</span>
+            </div>
+            <div className="ch-cand-banner-sub font-tabular">
+              profile_ids: {handoff.result.profile_ids.map((p) => p.slice(0, 8)).join(" · ")}
+            </div>
+          </div>
+        </div>
+      )}
+      {handoff.status === "error" && (
+        <div className="ch-cand-banner-row ch-cand-banner-row--err">
+          <span className="ic" aria-hidden>✕</span>
+          <span>移交失败：{handoff.error}</span>
+        </div>
+      )}
+      {exportState.status === "done" && (
+        <div className="ch-cand-banner-row ch-cand-banner-row--ok">
+          <span className="ic" aria-hidden>✓</span>
+          <span>已导出 {exportState.rows} 行 · {exportState.filename}</span>
+        </div>
+      )}
+      {exportState.status === "error" && (
+        <div className="ch-cand-banner-row ch-cand-banner-row--err">
+          <span className="ic" aria-hidden>✕</span>
+          <span>导出失败：{exportState.error}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1253,7 +1411,15 @@ function FunnelView({ funnel }: { funnel: FunnelStage[] }) {
   );
 }
 
-function CandidatesView({ candidates }: { candidates: Candidate[] }) {
+function CandidatesView({
+  candidates,
+  onHandoff,
+  handoff,
+}: {
+  candidates: Candidate[];
+  onHandoff?: (scope: "batch" | number) => void;
+  handoff?: HandoffState;
+}) {
   return (
     <section className="ch-cd-sec">
       <header className="ch-out-sec-head">
@@ -1263,9 +1429,23 @@ function CandidatesView({ candidates }: { candidates: Candidate[] }) {
         </h4>
       </header>
       <ol className="ch-cd-list">
-        {candidates.map((c, i) => (
-          <CandidateCard key={c.id} rank={i + 1} c={c} />
-        ))}
+        {candidates.map((c, i) => {
+          const cardHandoffBusy =
+            handoff?.status === "busy" && handoff.scope === i;
+          const cardHandoffDone =
+            handoff?.status === "done" &&
+            (handoff.scope === i || handoff.scope === "batch");
+          return (
+            <CandidateCard
+              key={c.id}
+              rank={i + 1}
+              c={c}
+              onHandoff={onHandoff ? () => onHandoff(i) : undefined}
+              handoffBusy={cardHandoffBusy}
+              handoffDone={cardHandoffDone}
+            />
+          );
+        })}
       </ol>
     </section>
   );
@@ -1373,7 +1553,19 @@ function TimelineEvent({ ev }: { ev: SignalEvent }) {
   );
 }
 
-function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
+function CandidateCard({
+  rank,
+  c,
+  onHandoff,
+  handoffBusy,
+  handoffDone,
+}: {
+  rank: number;
+  c: Candidate;
+  onHandoff?: () => void;
+  handoffBusy?: boolean;
+  handoffDone?: boolean;
+}) {
   const simPct = Math.round(c.similarity * 100);
   const hasRisk = c.riskTags.length > 0;
   return (
@@ -1393,6 +1585,21 @@ function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
           </div>
           <div className="ch-cd-sim-lbl">相似度</div>
         </div>
+        {onHandoff && (
+          <button
+            type="button"
+            className="ch-cd-handoff"
+            data-state={handoffDone ? "done" : handoffBusy ? "busy" : "idle"}
+            disabled={handoffBusy}
+            onClick={onHandoff}
+            aria-label={`移交本企业 (#${rank} ${c.name}) 至 Agent3 授信评估`}
+          >
+            <span className="ic" aria-hidden>
+              {handoffBusy ? "⏳" : handoffDone ? "✓" : "→"}
+            </span>
+            <span>{handoffDone ? "已移交" : handoffBusy ? "移交中" : "移交授信"}</span>
+          </button>
+        )}
       </header>
       <div className="ch-cd-body">
         <div className="ch-cd-sigs">

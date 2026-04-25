@@ -18,6 +18,7 @@ from agent_channel.scoring import rank_recommendations, ChannelRecommendation
 from agent_channel.prompts import (
     PITCH_GEN_SYSTEM, PITCH_GEN_PROMPT,
     BATCH_PITCH_SYSTEM, BATCH_PITCH_PROMPT,
+    render_fewshot_block,
 )
 
 
@@ -190,6 +191,7 @@ class ProductRecommender:
             tags="/".join((payload.get("tags") or [])[:5]),
             products=products_str,
             policy_ctx=ideal.policy_context or "（无政策语境）",
+            fewshot_block=render_fewshot_block(),
         )
         try:
             out = self.llm_chat(PITCH_GEN_SYSTEM, user)

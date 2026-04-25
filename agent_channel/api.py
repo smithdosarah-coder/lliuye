@@ -4,6 +4,8 @@
 端点：
   GET  /api/channel/scenarios   — 列出预置场景元数据
   POST /api/channel/run         — 流式跑 look-alike 搜索 (SSE)
+  POST /api/channel/export_xlsx — 候选企业清单导出为 xlsx（本地 openpyxl，禁止境外 API）
+  POST /api/channel/handoff     — 移交选中候选给 Agent3 授信决策引擎
 
 设计：
 - 独立 FastAPI app，由 api_server.py 通过 routes 合并模式装载
@@ -14,13 +16,16 @@
 """
 from __future__ import annotations
 
+import io
 import json
+import re
 import sys
 import traceback
+import uuid
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -139,3 +144,209 @@ async def channel_run(req: ChannelRunRequest):
             "Connection": "keep-alive",
         },
     )
+
+
+# ============================================================================
+# POST /api/channel/export_xlsx
+# 本地 openpyxl 生成候选企业 xlsx，不走境外 API（合规见 data_classification/agent1.md）
+# 表头字段严格按 docs/contracts/field-naming.md（snake_case + _yuan 后缀 + business_line 枚举）
+# ============================================================================
+
+
+class ChannelExportRequest(BaseModel):
+    session_id: str = ""
+    candidates: list[dict]
+    business_line: str = "corporate"  # 导出场景默认，单候选可在 dict 内 override
+
+
+# 导出列顺序与字段映射（表头 → candidate/EnterpriseProfile 取值路径）
+_EXPORT_COLUMNS: list[tuple[str, str]] = [
+    ("enterprise_name", "company_name"),              # ← EnterpriseProfile.company_name
+    ("unified_social_credit_code", "uscc"),            # ← candidate.uscc / EP.unified_credit_code
+    ("business_line", "business_line"),
+    ("match_score", "match_score"),
+    ("signal_count", "signal_count"),
+    ("signal_types", "signal_types"),
+    ("approved_amount_yuan", "approved_amount_yuan"),
+    ("source_urls", "source_urls"),
+    ("region", "region"),
+    ("industry", "industry"),
+    ("recommended_products", "recommended_products"),
+    ("data_sources", "data_sources"),
+]
+
+
+@app.post("/api/channel/export_xlsx")
+async def channel_export_xlsx(req: ChannelExportRequest):
+    """将候选企业清单导出为 xlsx（本地生成，禁止境外传输）。
+
+    输入 candidates 是 /api/channel/run done 事件的 candidates 数组（带 camelCase 字段）。
+    通过 CandidateProfile 做规范化，再按 field-naming.md 的 snake_case 表头落盘。
+    """
+    if not req.candidates:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "candidates must not be empty",
+                    "details": {"field": "candidates"},
+                }
+            },
+        )
+
+    try:
+        from openpyxl import Workbook
+
+        from agent_channel.candidate_profile import CandidateProfile
+    except Exception as e:  # noqa: BLE001 — import error surfaces to client
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"export deps unavailable: {e}",
+                }
+            },
+        ) from e
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "candidates"
+    ws.append([col for col, _ in _EXPORT_COLUMNS])
+
+    for raw in req.candidates:
+        profile = CandidateProfile.from_candidate_dict(
+            raw, session_id=req.session_id, business_line=req.business_line,  # type: ignore[arg-type]
+        )
+        ep = profile.enterprise_profile
+        row_values: list[str | int] = []
+        for header, _ in _EXPORT_COLUMNS:
+            row_values.append(_pick_export_value(header, profile, ep))
+        ws.append(row_values)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"agent1_candidates_{req.session_id or 'export'}.xlsx"
+    return Response(
+        content=buf.read(),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Agent1-Export-Rows": str(len(req.candidates)),
+        },
+    )
+
+
+# ============================================================================
+# POST /api/channel/handoff — 移交候选到 Agent3 授信决策引擎
+# 契约见 docs/contracts/channel_to_credit_handoff.md
+# ============================================================================
+
+_UUID_V4_RE = re.compile(
+    r"^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+)
+_HANDOFF_ROOT = PROJECT_ROOT / "data" / "handoff" / "channel_to_credit"
+
+
+class ChannelHandoffRequest(BaseModel):
+    session_id: str = ""  # 空串时服务端自动生成 UUID v4
+    candidates: list[dict]
+    business_line: str = "corporate"
+
+
+@app.post("/api/channel/handoff")
+async def channel_handoff(req: ChannelHandoffRequest):
+    """将候选企业 dict 转为 CandidateProfile，按契约写入本地 handoff JSON。
+
+    返回各 profile_id + 相对路径，供 Agent3 按 profile_id 拉取。
+    """
+    if not req.candidates:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "candidates must not be empty",
+                    "details": {"field": "candidates"},
+                }
+            },
+        )
+
+    session_id = req.session_id.strip() or str(uuid.uuid4())
+    if not _UUID_V4_RE.match(session_id):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "session_id must be UUID v4 (per field-naming.md §4)",
+                    "details": {"field": "session_id", "got": session_id},
+                }
+            },
+        )
+
+    from agent_channel.candidate_profile import CandidateProfile
+
+    session_dir = _HANDOFF_ROOT / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    profile_ids: list[str] = []
+    relative_paths: list[str] = []
+    for raw in req.candidates:
+        profile = CandidateProfile.from_candidate_dict(
+            raw, session_id=session_id, business_line=req.business_line,  # type: ignore[arg-type]
+        )
+        out_path = session_dir / f"{profile.profile_id}.json"
+        out_path.write_text(
+            json.dumps(profile.to_handoff_json(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        profile_ids.append(profile.profile_id)
+        relative_paths.append(
+            f"data/handoff/channel_to_credit/{session_id}/{profile.profile_id}.json"
+        )
+
+    return {
+        "session_id": session_id,
+        "profile_ids": profile_ids,
+        "paths": relative_paths,
+        "count": len(profile_ids),
+        "schema_version": "1.0",
+    }
+
+
+def _pick_export_value(header, profile, ep) -> str | int:
+    """按表头取值，统一序列化 list/None。"""
+    # EnterpriseProfile 字段
+    if header == "enterprise_name":
+        return ep.company_name or ""
+    if header == "unified_social_credit_code":
+        return ep.unified_credit_code or ""
+    if header == "region":
+        return ep.region or ""
+    if header == "industry":
+        return ep.industry or ""
+
+    # CandidateProfile 字段
+    if header == "business_line":
+        return profile.business_line
+    if header == "match_score":
+        return int(profile.match_score)
+    if header == "signal_count":
+        return int(profile.signal_count)
+    if header == "signal_types":
+        return ", ".join(profile.signal_types)
+    if header == "approved_amount_yuan":
+        return int(profile.approved_amount_yuan)
+    if header == "source_urls":
+        return "\n".join(profile.source_urls)
+    if header == "recommended_products":
+        return ", ".join(profile.recommended_products)
+    if header == "data_sources":
+        return ", ".join(profile.data_sources)
+    return ""

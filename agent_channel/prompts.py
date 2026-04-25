@@ -77,7 +77,36 @@ PITCH_GEN_PROMPT = """请为以下潜在客户生成一段电话首访切入话�
 7. 不要出现任何解释/括号/引号，只输出话术正文
 
 只输出话术文本。
+
+{fewshot_block}
 """
+
+
+# ---------------------------------------------------------------------------
+# Few-shot 经验沉淀（数据飞轮第 4 环）
+# 从 data/feedback/*.jsonl 的审贷员修改提取，用 scripts/extract_feedback_fewshots.py
+# 生成。手改只会被下次脚本覆盖——别手改。
+# ---------------------------------------------------------------------------
+# BEGIN AUTO-GENERATED FEW-SHOT EXAMPLES (do not edit manually)
+PITCH_FEWSHOT_EXAMPLES: list[dict] = [
+    {"bad": "您好，我们银行有贷款产品，利率很低，可以了解一下。", "good": "王总您好，注意到贵司刚拿了专精特新，我行配套科创贷最高 3000 万、LPR 减点 30bp，这两周新批的客户平均 5 个工作日放款。想请教您近期研发资金节奏？", "reason": "原话术客套冗长、无具体产品、无数字锚点、无政策切入点"},
+]
+# END AUTO-GENERATED FEW-SHOT EXAMPLES
+
+
+def render_fewshot_block(examples: list[dict] | None = None, max_n: int = 3) -> str:
+    """把 PITCH_FEWSHOT_EXAMPLES 渲染成 prompt 可插入的字符串。无示例返回空串。"""
+    items = (examples if examples is not None else PITCH_FEWSHOT_EXAMPLES)[:max_n]
+    if not items:
+        return ""
+    lines = ["【参考修正示例（审贷员历史修改）】"]
+    for i, ex in enumerate(items, start=1):
+        lines.append(f"示例{i}")
+        lines.append(f"  原始：{ex.get('bad', '')}")
+        lines.append(f"  更优：{ex.get('good', '')}")
+        if ex.get("reason"):
+            lines.append(f"  原因：{ex['reason']}")
+    return "\n".join(lines)
 
 
 # 批量话术（Top10 一次生成，省 LLM 调用数）
