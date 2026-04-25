@@ -51,6 +51,23 @@ worker CLI 收到后会自动跑 `resume-agent` skill · 读 worktree 本地 AGE
 
 ---
 
+### §1.1 ⚠️ Askout 红线（2026-04-25 加 · Q-035 教训）
+
+任何 worker 遇到 blocker / spec gap / red-line conflict / 等裁决 · **必走 commit trailer · 禁止 chat 输出**：
+
+```
+git commit -m "ask(<worker>): <主题>" -m "<background + data + 候选方案 + 推荐>" \
+  --trailer "Signal: Q-NNN-RAISED"
+```
+
+详见 `docs/process/worker-askout-protocol.md`（含 commit body 模板 + 编号约定 + main CLI 响应周转）。
+
+**反例**：agent6 worker 在 chat 输出 "Q-033 candidate" + 等用户截图转发主 CLI · 60min+ 阻塞 · main CLI patrol 看不见。
+
+**正例**：worker `git commit ... --trailer "Signal: Q-035-RAISED"` · main CLI patrol ≤ 5min 内 surface · 立即裁决。
+
+---
+
 ## §2. Wave 1 Kickoffs（4 个 · 现在粘）
 
 ### §2.1 · 轨 1 · agent6-unfreeze 
