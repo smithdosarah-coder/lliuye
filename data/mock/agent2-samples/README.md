@@ -2,13 +2,15 @@
 
 **消费方**：Agent2 riskctrl 引擎 DSL 规则回测 + KS / FPR / 通过率 / 坏账率统计；以及 `evaluation/runner/adapters/agent2_riskctrl.py` 跑 5 项 pending 指标的真 baseline。
 
-**产物**：
+**产物**（本 deliverable 含 3 件）：
 
 | 文件 | 内容 |
 |---|---|
 | `loans.csv` | 7500 行 + 1 表头 · 29 字段 · 单表平面结构 |
 | `field_dictionary.md` | 29 段字段字典（与 csv 字段一一对应） |
-| `_gen/generate_loans.py` | 确定性生成器 · `random.seed=42` · 可重跑 |
+| `README.md` | 本说明 |
+
+**`_gen/` 已私化**：确定性生成器（`random.seed=42` · 可重跑）含 PM 内部难度分层信息，已迁出本 repo 到 PM 私库。worker-visible tree 严格不进 `_gen/`（`.gitignore` 哨兵防再入库）。如需重新生成或复核数据，详见 PM 私库。
 
 **字段总览**：8 分组——样本 ID / 申请人基础 / 企业基础 / 财务指标 / 贷款结构 / 征信信号 / 行为信号 / 结果列。**唯一答案列是 `days_past_due`**（最长逾期天数），其他字段全部为特征侧。
 

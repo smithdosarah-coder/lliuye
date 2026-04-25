@@ -1,0 +1,4 @@
+# PM 私库哨兵 · 防止 generator 类 PM 内部产物再次入库
+# 反结果导向第 1 条盲测 (CLAUDE.md §3.5)
+# generate_loans.py 等内含难度分层 / tier 名 / 比例的脚本严禁入 worker-visible tree
+_gen/
