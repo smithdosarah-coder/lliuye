@@ -25,8 +25,9 @@
       "path": "D:/claude code/demo-agent3",
       "branch": "feat/agent3-productize",
       "role": "worker",
-      "description": "授信决策 Agent · P3F 轨 2 · 11 commit rebase + merge（解 L2-7/L2-8 reason codes + L1-4 docx 导出 + L1-3 RiskRadar + L1-11 Agent6→Agent3 handoff button）· tip backed up at docs/handoff/agent3-pre-rebase-tip.txt",
-      "unfreeze_in_progress": true,
+      "description": "授信决策 Agent · P3F 轨 2 · MERGED · 12 commit 串行 rebase 合到 chore/l0-infra · 4/5 DoD 解（L2-7/L2-8 + L1-4 + L1-11）· L1-3 RiskRadar 缺件由 Q-033 路由到 Wave 2 轨 4 frontend-integration · pytest 16/16 PASS · ruff 净增 0 · Batch 1 financial_analyzer 注入保留",
+      "merged": true,
+      "merged_signal": "AGENT3-UNFREEZE-MERGED-APPROVED",
       "phase_3_final_track": 2,
       "onboarding": "docs/onboarding/p3f-agent3-unfreeze.md"
     },
@@ -45,7 +46,9 @@
       "path": "D:/claude code/code-agent1-cherry",
       "branch": "feat/agent1-cherry-pick",
       "role": "worker",
-      "description": "Agent1 获客 · P3F 轨 3 · cherry-pick 3 必带 + 0-2 选择性（不整体 rebase agent1 30 commit · fork chore/l0-infra）· 解 L3-8 + L1-4 + L1-11",
+      "description": "Agent1 获客 · P3F 轨 3 · MERGED · cherry-pick 3 必带 + 1 选择性（c408b3a 飞轮 + dc4c148 export_xlsx + 0b6eca4 handoff + f430e7f data-classification）+ 25 显式 SKIP · 解 L3-8 + L1-4 + L1-11 + L2-14（bonus）· pytest 19/19 PASS · 0b6eca4 reroute 到 canon ChannelWorkspace.tsx · EvidenceTrail Batch 2 挂载保留",
+      "merged": true,
+      "merged_signal": "AGENT1-CHERRY-PICK-MERGED-APPROVED",
       "phase_3_final_track": 3,
       "onboarding": "docs/onboarding/p3f-agent1-cherry.md"
     },
