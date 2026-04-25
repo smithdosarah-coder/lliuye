@@ -409,6 +409,76 @@ async function* mockRefineStream(
 
 import type { ChannelSearchEvent } from "./channel-types";
 
+export interface ChannelHandoffResponse {
+  session_id: string;
+  profile_ids: string[];
+  paths: string[];
+  count: number;
+  schema_version: string;
+}
+
+/** 调 POST /api/channel/handoff：候选企业 → Agent3 授信队列。 */
+export async function handoffToCredit(body: {
+  candidates: unknown[];
+  session_id?: string;
+  business_line?: string;
+}): Promise<ChannelHandoffResponse> {
+  const res = await fetch(`${API_BASE}/api/channel/handoff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `handoff ${res.status}`;
+    try {
+      const err = await res.json();
+      msg = err?.detail?.error?.message ?? msg;
+    } catch {
+      /* noop */
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()) as ChannelHandoffResponse;
+}
+
+/** 调 POST /api/channel/export_xlsx：触发浏览器下载 xlsx。 */
+export async function exportChannelXlsx(body: {
+  candidates: unknown[];
+  session_id?: string;
+  business_line?: string;
+}): Promise<{ rows: number; filename: string }> {
+  const res = await fetch(`${API_BASE}/api/channel/export_xlsx`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let msg = `export ${res.status}`;
+    try {
+      const err = await res.json();
+      msg = err?.detail?.error?.message ?? msg;
+    } catch {
+      /* noop */
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const cd = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename="?([^"]+)"?/.exec(cd);
+  const filename = match?.[1] ?? `agent1_candidates_${Date.now()}.xlsx`;
+  const rows = parseInt(res.headers.get("X-Agent1-Export-Rows") ?? "0", 10);
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return { rows, filename };
+}
+
 export async function* streamChannelSearch(
   req: { query: string; provider?: string; api_key?: string; top_n?: number },
   signal?: AbortSignal
