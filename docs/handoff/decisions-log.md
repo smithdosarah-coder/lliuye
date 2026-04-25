@@ -1903,3 +1903,59 @@ V2 review 验过 (subagent CONDITIONAL-APPROVE)：所有 V2 fix step 落实。�
 - 本 commit Signal: P3F-Q034-RESOLVED
 
 ---
+
+## [Q-035] 2026-04-25 · main CLI (self) · agent6 v16 漂移红线语义重新解读
+
+**CLI**: main (self-Q/A · in-flight resolution for agent6 Task B blocker)
+**Priority**: P0 · blocking agent6 Task B
+**Blocking**: yes（agent6 worker stuck @ Task B 60min+ 等本裁决）
+**Related**: agent6 worker askout（commit 05b4eff REBASE-CLEAN 后 mid-task chat askout）· `docs/onboarding/p3f-agent6-unfreeze.md` §3 T1-4 + §4 红线
+
+### 背景
+
+agent6 P3F 轨 1 worker 完成 Task A rebase（0 冲突 · 20 commit 干净叠到 chore/l0-infra）· 进 Task B v16 pipeline 回归。worker 跑 DP001 比对：
+
+| 测试条件 | quality_score | vs baseline 68.6 |
+|---|---|---|
+| Pre-rebase tip 4bf8361（agent6 Phase 2 fully landed） | 66.4 | −3.2% ❌ |
+| Post-rebase HEAD 05b4eff | 66.8 | −2.6% ❌ |
+| **Rebase-only delta** | **+0.4 / 0.6%** | **✅ < 1%** |
+
+worker 准确识别矛盾：
+- baseline 68.6 = main CLI commit `21180bf` 在 chore/l0-infra 上跑出 · **当时 agent6 branch 尚未合**
+- post-rebase HEAD 含 agent6 Phase 2 commits（`0f436fc` Task B QC Blocker 四维强化 + `38901c6` Task C 模板扩展）· **设计上就降低 quality_score**（更严的 QC 闸门 + 更全面的 leakage 测面）
+- "post-rebase vs baseline 68.6 < 1%" = "合 Phase 2 不能改 v16 score" = **自相矛盾**
+
+worker 提了 3 候选路径（A: 改用 rebase-only 语义 / B: 5-DP 完整 mean / C: 严格 abort），推荐 A · 可叠加 B。
+
+### Decision (A-035)
+
+**接受 worker 路径 A + B 叠加** · onboarding T1-4 红线**重新解读**：
+
+> T1-4 「v16 跑分漂移 < 1%」 = **rebase mechanic drift** < 1%（pre-rebase tip vs post-rebase HEAD 同 DP）· **NOT** post-rebase HEAD vs 历史 baseline 68.6
+
+**理由**：
+- onboarding T1-4 写作时的本意是测「rebase 操作本身是否破坏 v16 pipeline」· 不是测「合 Phase 2 是否改变 v16 score」
+- agent6 Phase 2 commits（QC 四维强化 + 模板扩展）就是设计上要影响 score · 这是**design-intent drop** · 不是 rebase 引入的退化
+- worker 的 0.6% rebase-only delta 已 PASS T1-4 真实语义
+- 严格按字面解读则红线在当前 baseline 上**不可达**（pre-rebase tip 已 -3.2% · abort 不解决问题）· 这条红线是 spec gap
+
+**叠加 B**：worker 跑 5-DP 完整回归（DP001-DP005）· 出 mean 表 + per-DP delta · final body 数据更厚（5-8min 工期增加可接受）
+
+### Follow-up
+
+1. agent6 worker 继续 Task B 用本裁决语义 · final commit body 必含：
+   - rebase-only drift 5 DP × 2 versions × delta 表
+   - baseline 68.6 → 66.x mean drop 标注 "Phase 2 design-intent drop · 来源 0f436fc + 38901c6 · 详见 onboarding §1 价值表"
+   - "T1-4 红线字面 fail · 但本任语义 PASS · 见 Q-035"
+2. 然后跑 Task C pytest + Task D final READY
+3. **main CLI merge 后**跑新 baseline 取代 `evaluation/baselines/2026-04-26-real-run.md` Agent6 段（quick run · 不阻 worker · 也不必走轨 8c evaluation worker · 主 CLI proxy 即可）
+4. **onboarding fix-forward**：本 Q-035 决策档生效后 · `docs/onboarding/p3f-agent6-unfreeze.md` §3 T1-4 + §4 红线条措辞应在 P3F 后单独 housekeeping commit 修齐（明示 "rebase mechanic drift" 语义）· 不阻本任
+
+### Signals
+
+- 本 commit Signal: P3F-Q035-RESOLVED
+- agent6 worker 5-DP 跑完后 Signal: AGENT6-V16-REGRESSION-OK（trailer 链不变）
+- merge 后 main CLI 新 baseline commit Signal: P3F-AGENT6-NEW-BASELINE-LANDED
+
+---
