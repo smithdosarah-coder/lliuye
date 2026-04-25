@@ -64,36 +64,46 @@
       "merged_v2": true,
       "phase_3_final_track": "8a",
       "onboarding": "docs/onboarding/batch-3-data-foundation-agent2-samples.md"
+    },
+    {
+      "name": "code-frontend-integration",
+      "path": "D:/claude code/code-frontend-integration",
+      "branch": "feat/frontend-integration",
+      "role": "worker",
+      "description": "前端整合 · P3F 轨 4 · Wave 2 · 7 frozen branch 融合（shell-free-drag / canvas-mode-toggle Stage 1 · alert-codex-fusion / compliance-codex-fusion / credit-mock-endpoint Stage 2 · chat-wechat-style Stage 3 · agent-workspaces-v2 Stage 4 · 跨 browser 32 截屏 Stage 5）+ Q-033 RiskRadar backlog (cherry-pick 596283f patch 到 canon /archive/credit/) + Batch 2 EvidenceTrail 兼容硬保 · 5 stage 7-8 天工期 · 允许 REJECT-V2 一轮",
+      "phase_3_final_track": 4,
+      "phase_3_final_wave": 2,
+      "onboarding": "docs/onboarding/p3f-frontend-integration.md"
     }
   ],
   "frozen_branches_no_worktree": [
     {
       "branch": "feat/agent-workspaces-v2",
-      "note": "5 agent archive hero redesign (riskctrl KS×AUC / compliance policy ticker / alert traffic light / credit dashboard / report pipeline) · net -126 行 replace 视觉 · Phase 4 决策合否"
+      "note": "5 agent archive hero redesign (riskctrl KS×AUC / compliance policy ticker / alert traffic light / credit dashboard / report pipeline) · net -126 行 replace 视觉 · Wave 2 轨 4 Stage 4 融合"
     },
     {
       "branch": "feat/alert-codex-fusion",
-      "note": "alert workspace Codex 融合 6 step: 扩 mock shape + shell drop zone + CTA 5 步进度 + 左栏扫描范围/知识库/监测源 + queue + heat + ConversationPanel + pin · REVIEW-READY"
+      "note": "alert workspace Codex 融合 6 step: 扩 mock shape + shell drop zone + CTA 5 步进度 + 左栏扫描范围/知识库/监测源 + queue + heat + ConversationPanel + pin · REVIEW-READY · Wave 2 轨 4 Stage 2 融合"
     },
     {
       "branch": "feat/compliance-codex-fusion",
-      "note": "compliance workspace Codex 融合 6 step: mock + shell drop zone + matrix drawer 左右对照 + 底部修订意见栏 + pin · REVIEW-READY"
+      "note": "compliance workspace Codex 融合 6 step: mock + shell drop zone + matrix drawer 左右对照 + 底部修订意见栏 + pin · REVIEW-READY · Wave 2 轨 4 Stage 2 融合"
     },
     {
       "branch": "feat/credit-mock-endpoint",
-      "note": "/api/credit/mock-session corp/small/retail 三板块 · main 当前 0 mock-session 端点"
+      "note": "/api/credit/mock-session corp/small/retail 三板块 · main 当前 0 mock-session 端点 · Wave 2 轨 4 Stage 2 融合"
     },
     {
       "branch": "feat/canvas-mode-toggle",
-      "note": "⌘⇧F hotkey + CanvasModeToggle 组件 + panel-layout-store clearAgent action · main 当前 CanvasModeToggle 0 存在"
+      "note": "⌘⇧F hotkey + CanvasModeToggle 组件 + panel-layout-store clearAgent action · main 当前 CanvasModeToggle 0 存在 · Wave 2 轨 4 Stage 1 融合"
     },
     {
       "branch": "feat/shell-free-drag",
-      "note": "PanelCanvas.tsx + Whiteboard.tsx 组件本体 · main 当前有 store 但组件缺"
+      "note": "PanelCanvas.tsx + Whiteboard.tsx 组件本体 · main 当前有 store 但组件缺 · Wave 2 轨 4 Stage 1 融合"
     },
     {
       "branch": "feat/chat-wechat-style",
-      "note": "dispatch 左侧线程分群组/私聊 + ConversationPanel 类微信气泡 + demo 假聊天"
+      "note": "dispatch 左侧线程分群组/私聊 + ConversationPanel 类微信气泡 + demo 假聊天 · Wave 2 轨 4 Stage 3 融合"
     }
   ],
   "upstream_remote": "D:/claude code/credit_report_agent_work",
@@ -106,7 +116,9 @@
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
   "wave_1_completion_commit_signal": "P3F-WAVE-1-COMPLETE-DOD-L1-L3-PARTIAL",
-  "next_phase_step": "wave-2-prep · 起 Wave 2 dispatch 轨 4 frontend-integration（含 Q-033 RiskRadar backlog） + 主 CLI 并行起 commercial-readiness.md",
+  "wave_2_status": "in-progress · 1/1 worker dispatched · 2026-04-25 night",
+  "wave_2_dispatch_commit_signal": "PHASE-3-FINAL-WAVE-2-DISPATCHED",
+  "next_phase_step": "wave-2-execution · frontend-integration worker 跑 5 stage (Stage 1-5 · 7-8d) · 主 CLI 并行写 commercial-readiness.md (L4 framework · §3.A) · 等 READY-FOR-FRONTEND-INTEGRATION-REVIEW · 然后 housekeeping batch 清 + Wave 3 dispatch (轨 5/6/7/8b/8c)",
   "cleanup_log": [
     {
       "date": "2026-04-25",
