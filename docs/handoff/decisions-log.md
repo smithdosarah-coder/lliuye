@@ -1815,3 +1815,41 @@ Batch 2 closeout + mesh cleanup 后用户要求"PM 视角审视产品 · 不在�
 - 用户启动新主 CLI：双击桌面 `start_claude.bat`（已存在 · 单主 CLI 启动器 · 无需修改）
 
 ---
+
+## [Q-033] 2026-04-25 · main CLI (self) · Agent3 L1-3 RiskRadar 路由决策
+
+**CLI**: main (self-Q/A · post-merge resolution)
+**Priority**: P1
+**Blocking**: no
+**Related**: Q-032 (P3F 8 轨规划) · agent3 merge commit (AGENT3-UNFREEZE-MERGED-APPROVED) · subagent pre-review verdict CONDITIONAL-APPROVE on 63996b5
+
+### 背景
+
+agent3 worker 在 P3F 轨 2 unfreeze rebase 时 · 596283f (RiskRadar L1-3) commit 内容 100% 在 `web/src/app/credit/components/RiskRadar.tsx` (48 行前端) + `web/src/app/credit/page.tsx` (6 行 wiring)。按 onboarding §4 红线 "❌ 不动 web/" + AGENT_IDENTITY 接管须知 #2 (in-place worktree · 不开新 worktree)，rebase 时 596283f auto-dropped empty。
+
+后端 `agent_credit/risk_radar.py` 不存在 (596283f 原 commit 本就未创建 backend wrapper · 是纯前端组件)。
+
+worker 在 closeout body 主动 disclose 缺件 + 提议 main CLI 二选一：(a) 接受作为 web/ 红线代价 + 路由到 frontend-integration (b) 另开 commit 写后端 thin wrapper。
+
+### Decision (A-033)
+
+**选 (a)**：接受 L1-3 RiskRadar 缺件作为 web/ 红线代价 · 596283f 内容（前端 RiskRadar.tsx + page.tsx wiring）路由到 **Wave 2 轨 4 frontend-integration**。
+
+**理由**：
+- L1-3 RiskRadar 本质是前端可视化层 (DoD §2.2 L1-3 "核心可视化" · 在 web/ 域)。worker 把它切到 web/ 是对的，符合架构分层
+- 后端 thin wrapper (agent_credit/risk_radar.py) 不解原 DoD ·只是 satisfy onboarding spec 的强 typo
+- frontend-integration 轨 4 已规划处理 5 agent workspace + agent-workspaces-v2 hero redesign · 加 RiskRadar 是顺手
+- worker 不返工 · 节省一轮 REJECT-V2 周期
+
+### Follow-up
+
+- frontend-integration onboarding (`docs/onboarding/p3f-frontend-integration.md`) Stage 2 Task B 加 backlog 条目：cherry-pick 596283f from `feat/agent3-productize` pre-rebase tip (= `6c5820a`) into `feat/frontend-integration` branch · 注意原 SHA 已被 agent3 rebase 失效 · 改用 `git show 596283f` 取 patch · 应用到新 worktree
+- frontend-integration worker 在 Stage 2 Task B 收尾 · 验证 RiskRadar 组件渲染正常 · spec test `web/tests/risk-radar.spec.ts` 新增
+- agent3 docx 模块名 housekeeping (T2-8 ⚠️ · `docx_export.py` → `decision_letter_docx.py` + `render_decision_letter` → `export`) 也作为 frontend-integration 或单独 housekeeping commit 后续做 · 不阻 P3F
+
+### Signals
+
+- 本 commit Signal: P3F-Q033-RESOLVED
+- frontend-integration worker 解 RiskRadar 后 Signal: FRONTEND-RISK-RADAR-LANDED (单独 stage 2 sub-signal · 折叠进 FE-STAGE-2-AGENT-WORKSPACE-DONE)
+
+---

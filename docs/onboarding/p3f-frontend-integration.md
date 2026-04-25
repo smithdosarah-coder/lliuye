@@ -99,6 +99,16 @@ CLAUDE.md §7 platform shell v2 spec 明文 · 任何偏离立即 REJECT-V2：
 3. cherry-pick / merge `feat/credit-mock-endpoint`
    - 新建 `web/src/app/api/credit/mock-session/route.ts` corp/small/retail 三板块
    - CreditWorkspace 消费 mock-session 端点
+3a. **agent3 RiskRadar 补 (Q-033 backlog · 2026-04-25 加)**：
+   - 来源：原 commit `596283f feat(agent_credit): L1-3 RiskRadar thin wrapper` from
+     `feat/agent3-productize` pre-rebase tip (= `6c5820a`)
+   - 内容：`web/src/app/credit/components/RiskRadar.tsx` (48 行) + `web/src/app/credit/page.tsx` (6 行 wiring)
+   - 注意：原 SHA 596283f 已被 agent3 P3F rebase 时 auto-dropped empty (web/ 红线触发) ·
+     但内容应被本轨 Stage 2 吸收 · 用 `git show 596283f` 取 patch 应用
+   - 路径迁移：原文件在 `web/src/app/credit/` (legacy 路由) · 本轨需改路由到
+     `web/src/app/archive/credit/_components/RiskRadar.tsx` (canon `/archive/[agent]` 路径)
+   - 解 DoD: L1-3 Agent3 RiskRadar (合本轨后 closes Q-033 follow-up)
+   - 测试：新增 `web/tests/risk-radar.spec.ts` 验渲染 + 4 维度入参
 4. **每 rebase 必须保留 Batch 2 EvidenceTrail 挂载**：
    - `<EvidenceTrail>` 在 6 个 `/archive/*/_components/*Workspace.tsx` 的挂载点不能丢
    - 冲突时**双方共存**：保留 EvidenceTrail + 吸收 Codex 融合新功能
