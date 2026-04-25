@@ -36,8 +36,9 @@
       "path": "D:/claude code/demo-agent6",
       "branch": "feat/agent6-v16",
       "role": "worker",
-      "description": "报告助手 · P3F 轨 1 · 20 commit rebase + merge（解 L2-12 审计日志 + L2-13 合作机构 + L2-14 数据分级 + L3-8 飞轮 + L3-11 模型卡 + L3-12 演示脚本 + Phase 2 QC 四维 + 模板扩展）· tip backed up at docs/handoff/agent6-pre-rebase-tip.txt · v16 跑分漂移 < 1% 闸门",
-      "unfreeze_in_progress": true,
+      "description": "报告助手 · P3F 轨 1 · MERGED · 20 commit 串行 rebase 合到 chore/l0-infra · 6/6 DoD 解（L2-12/13/14 + L3-8/11/12）· pytest 22/22 PASS · v16 漂移 0.602% (Q-035 rebase mechanic semantics) · template_leakage 0.775→1.000 (sample expansion 3→5 · honest caveat) · EvidenceFirstPipeline 基类继承保留 · 红区 0 漂移",
+      "merged": true,
+      "merged_signal": "AGENT6-UNFREEZE-MERGED-APPROVED",
       "phase_3_final_track": 1,
       "onboarding": "docs/onboarding/p3f-agent6-unfreeze.md"
     },
@@ -103,6 +104,9 @@
   "last_updated": "2026-04-25",
   "current_phase": "phase-3-final",
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
+  "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
+  "wave_1_completion_commit_signal": "P3F-WAVE-1-COMPLETE-DOD-L1-L3-PARTIAL",
+  "next_phase_step": "wave-2-prep · 起 Wave 2 dispatch 轨 4 frontend-integration（含 Q-033 RiskRadar backlog） + 主 CLI 并行起 commercial-readiness.md",
   "cleanup_log": [
     {
       "date": "2026-04-25",
