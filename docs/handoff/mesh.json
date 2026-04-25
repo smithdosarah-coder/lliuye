@@ -25,16 +25,38 @@
       "path": "D:/claude code/demo-agent3",
       "branch": "feat/agent3-productize",
       "role": "worker",
-      "description": "授信决策 Agent · 11 commit 未合（Phase 2 Batch 1 · L2-7/L2-8 reason codes + L1-4 docx 导出 + RiskRadar + Agent6→Agent3 handoff button）· Phase 4 前 review + merge",
-      "frozen": true
+      "description": "授信决策 Agent · P3F 轨 2 · 11 commit rebase + merge（解 L2-7/L2-8 reason codes + L1-4 docx 导出 + L1-3 RiskRadar + L1-11 Agent6→Agent3 handoff button）· tip backed up at docs/handoff/agent3-pre-rebase-tip.txt",
+      "unfreeze_in_progress": true,
+      "phase_3_final_track": 2,
+      "onboarding": "docs/onboarding/p3f-agent3-unfreeze.md"
     },
     {
       "name": "agent6",
       "path": "D:/claude code/demo-agent6",
       "branch": "feat/agent6-v16",
       "role": "worker",
-      "description": "报告助手 · 20 commit 未合（Phase 1 finalize: 模型卡 L3-11/12 + 反馈飞轮 E2E L3-8 + 审计日志 + 数据分级 L2-13/14 · Phase 2: QC 四维强化 + 模板扩展 + pending_metrics）· Phase 4 前 review + merge",
-      "frozen": true
+      "description": "报告助手 · P3F 轨 1 · 20 commit rebase + merge（解 L2-12 审计日志 + L2-13 合作机构 + L2-14 数据分级 + L3-8 飞轮 + L3-11 模型卡 + L3-12 演示脚本 + Phase 2 QC 四维 + 模板扩展）· tip backed up at docs/handoff/agent6-pre-rebase-tip.txt · v16 跑分漂移 < 1% 闸门",
+      "unfreeze_in_progress": true,
+      "phase_3_final_track": 1,
+      "onboarding": "docs/onboarding/p3f-agent6-unfreeze.md"
+    },
+    {
+      "name": "code-agent1-cherry",
+      "path": "D:/claude code/code-agent1-cherry",
+      "branch": "feat/agent1-cherry-pick",
+      "role": "worker",
+      "description": "Agent1 获客 · P3F 轨 3 · cherry-pick 3 必带 + 0-2 选择性（不整体 rebase agent1 30 commit · fork chore/l0-infra）· 解 L3-8 + L1-4 + L1-11",
+      "phase_3_final_track": 3,
+      "onboarding": "docs/onboarding/p3f-agent1-cherry.md"
+    },
+    {
+      "name": "data-agent2-foundation",
+      "path": "D:/claude code/data-agent2-foundation",
+      "branch": "feat/data-agent2-foundation",
+      "role": "worker",
+      "description": "Agent2 风控 · P3F 轨 8a · 历史贷款样本 CSV + 字段字典 + README · 反 5 原则 + 环境边界 · 不动代码（轨 8b code-arch / 轨 8c evaluation 接力）",
+      "phase_3_final_track": "8a",
+      "onboarding": "docs/onboarding/batch-3-data-foundation-agent2-samples.md"
     }
   ],
   "frozen_branches_no_worktree": [
@@ -73,6 +95,8 @@
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
   "last_updated": "2026-04-25",
+  "current_phase": "phase-3-final",
+  "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "cleanup_log": [
     {
       "date": "2026-04-25",
