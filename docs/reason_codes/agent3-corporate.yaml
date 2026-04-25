@@ -1,0 +1,115 @@
+schema_version: "1.0"
+segment: corporate
+updated: "2026-04-18"
+description: |
+  Agent3 对公授信决策标准理由码字典。
+  severity 采用 field-naming v1.0：red（硬红线/拒绝级）/ yellow（软告警/条件级）/ green（利好/批准级）。
+  decision_hint 标注该码通常出现在哪种决策路径下；不限制实际决策走向，仅用于排序。
+  evidence_path 指向 DecisionAdvice.features_snapshot 里的点路径，用于前端「证据跳转」。
+
+codes:
+  # ---- 拒绝级（红灯硬红线） ----
+  - code: R_CORP_DEBT_HIGH
+    title: 资产负债率过高
+    severity: red
+    decision_hint: [拒绝, 有条件批准]
+    evidence_path: financial.debt_ratio
+    threshold: 0.70
+    description: 资产负债率超过 70% 硬红线，杠杆风险突出。
+  - code: R_CORP_LOSS_CONTINUOUS
+    title: 连续亏损
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: financial.consecutive_loss_years
+    threshold: 2
+    description: 连续亏损 ≥ 2 期，经营造血能力丧失。
+  - code: R_CORP_BLACKLIST
+    title: 征信黑名单
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: external.in_dishonest_list
+    description: 企业或法人在失信被执行人名单或反欺诈黑名单内。
+  - code: R_CORP_OVERDUE_MATERIAL
+    title: 重大逾期
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: external.serious_overdue_count
+    threshold: 1
+    description: 出现 M3+ 逾期、代偿、强制执行等重大征信瑕疵。
+  - code: R_CORP_OPERATION_ABNORMAL
+    title: 经营异常
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: external.has_industrial_abnormal
+    description: 被列入经营异常名录 / 吊销 / 注销状态。
+
+  # ---- 条件批准级（黄灯软告警） ----
+  - code: R_CORP_CUSTOMER_CONCENTRATION
+    title: 客户集中度偏高
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: operational.customer_concentration
+    threshold: 0.40
+    description: 客户集中度 ≥ 40%，存在下游断链风险。
+  - code: R_CORP_CASHFLOW_TIGHT
+    title: 经营现金流紧张
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: operational.cashflow_coverage
+    threshold: 1.0
+    description: 经营活动现金流覆盖倍数 < 1，回款紧张。
+  - code: R_CORP_INDUSTRY_DECLINE
+    title: 行业下行周期
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: industry.prosperity_index
+    description: 行业景气指数偏低或处下行周期。
+  - code: R_CORP_GUARANTEE_WEAK
+    title: 担保措施偏弱
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: guarantee.coverage_ratio
+    description: 抵质押覆盖率不足或担保方式单一。
+  - code: R_CORP_RELATED_PARTY_HIGH
+    title: 关联交易占比高
+    severity: yellow
+    decision_hint: [有条件批准]
+    evidence_path: external.related_party_pct
+    threshold: 0.30
+    description: 关联交易占营收比 ≥ 30%，信息披露风险。
+
+  # ---- 批准利好（绿灯信息提示） ----
+  - code: R_CORP_FINANCIAL_STRONG
+    title: 财务健康
+    severity: green
+    decision_hint: [批准]
+    evidence_path: scoring.financial_score
+    threshold: 80
+    description: 四维评分中财务维度 ≥ 80，偿债能力良好。
+  - code: R_CORP_INDUSTRY_PROSPERITY
+    title: 行业景气
+    severity: green
+    decision_hint: [批准]
+    evidence_path: scoring.industry_score
+    threshold: 75
+    description: 行业评分 ≥ 75，处上行或高景气度周期。
+  - code: R_CORP_OPERATION_STABLE
+    title: 经营稳健
+    severity: green
+    decision_hint: [批准]
+    evidence_path: scoring.operational_score
+    threshold: 75
+    description: 经营维度评分 ≥ 75，主业清晰、客户分散。
+  - code: R_CORP_COLLATERAL_SUFFICIENT
+    title: 担保充足
+    severity: green
+    decision_hint: [批准]
+    evidence_path: scoring.guarantee_score
+    threshold: 75
+    description: 担保维度评分 ≥ 75，抵质押覆盖率达标。
+  - code: R_CORP_CREDIT_CLEAN
+    title: 征信清洁
+    severity: green
+    decision_hint: [批准]
+    evidence_path: credit_report.overdue_history
+    description: 近 24 月无逾期、无代偿、无查询异常。

@@ -21,6 +21,7 @@ from .prompts import (
     RETAIL_DECISION_SYSTEM,
     RETAIL_DECISION_USER,
 )
+from .reason_codes import derive_top_reason_codes
 from .risk_appetite_config import RiskAppetiteConfig
 
 
@@ -46,6 +47,8 @@ class DecisionAdvice:
 
     decision_reason: str = ""
     similar_cases_summary: str = ""
+
+    top_reason_codes: list = field(default_factory=list)  # list[dict]
 
     features_snapshot: dict = field(default_factory=dict)
     scoring_snapshot: dict = field(default_factory=dict)
@@ -87,8 +90,8 @@ class DecisionAdvice:
 
 def _decide_corporate(scoring, rule_hits, features, appetite: RiskAppetiteConfig):
     """返回 (decision, amount, term, rate, rate_benchmark, conditions)"""
-    hard_hit = any(h.is_hard for h in rule_hits)
-    soft_hits = [h for h in rule_hits if not h.is_hard]
+    hard_hit = any(h.severity == "red" for h in rule_hits)
+    soft_hits = [h for h in rule_hits if h.severity != "red"]
 
     requested = float(features.get("request.amount", 0) or 0)
     term = int(features.get("request.term_months", 12) or 12)
@@ -136,7 +139,7 @@ def _parse_rate_benchmark(bench: str, lpr: float) -> float:
 
 
 def _decide_retail(scoring, rule_hits, features, appetite: RiskAppetiteConfig):
-    hard_hit = any(h.is_hard for h in rule_hits)
+    hard_hit = any(h.severity == "red" for h in rule_hits)
     if hard_hit or scoring.grade == "拒绝":
         return ("拒绝", 0, 0, 0.0, "-", [])
 
@@ -260,6 +263,15 @@ class AdvisorFormatter:
                 "waiver_advice": "；".join(h.waiver_conditions) if h.waiver_conditions else "不可豁免",
             } for h in rule_hits]
 
+        features_snapshot = {k: v for k, v in features.items()
+                             if not k.startswith("chapters") and not k.startswith("_")}
+        top_reason_codes = derive_top_reason_codes(
+            segment="corporate",
+            decision=decision,
+            rule_hits=rule_hits,
+            features=features_snapshot,
+            top_n=5,
+        )
         advice = DecisionAdvice(
             advice_id=str(uuid.uuid4())[:12],
             segment="corporate",
@@ -277,8 +289,8 @@ class AdvisorFormatter:
             red_line_explanations=red_line_explanations,
             decision_reason=decision_reason,
             similar_cases_summary=cases_summary,
-            features_snapshot={k: v for k, v in features.items()
-                               if not k.startswith("chapters") and not k.startswith("_")},
+            top_reason_codes=top_reason_codes,
+            features_snapshot=features_snapshot,
             scoring_snapshot=scoring.to_dict(),
             amount_methods=scoring.amount_methods or {},
         )
@@ -339,6 +351,14 @@ class AdvisorFormatter:
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
                 pass
 
+        features_snapshot = dict(features)
+        top_reason_codes = derive_top_reason_codes(
+            segment="retail",
+            decision=decision,
+            rule_hits=rule_hits,
+            features=features_snapshot,
+            top_n=5,
+        )
         advice = DecisionAdvice(
             advice_id=str(uuid.uuid4())[:12],
             segment="retail",
@@ -362,7 +382,8 @@ class AdvisorFormatter:
             } for h in rule_hits],
             decision_reason=decision_reason,
             similar_cases_summary=cases_summary,
-            features_snapshot=dict(features),
+            top_reason_codes=top_reason_codes,
+            features_snapshot=features_snapshot,
             scoring_snapshot=scoring.to_dict(),
             amount_methods={},
         )
@@ -440,10 +461,11 @@ def _format_redlines_for_prompt(rule_hits) -> str:
     if not rule_hits:
         return "无"
     lines = []
+    sev_label = {"red": "红灯-硬红线", "yellow": "黄灯-软告警", "green": "绿灯-信息提示"}
     for h in rule_hits:
         lines.append(
             f"- {h.rule_id} {h.rule_name}: 实际值 {h.actual_value}，阈值 {h.threshold}，"
-            f"严重度 {h.severity}，{'硬红线' if h.is_hard else '软红线'}。{h.description}"
+            f"严重度 {sev_label.get(h.severity, h.severity)}。{h.description}"
         )
     return "\n".join(lines)
 

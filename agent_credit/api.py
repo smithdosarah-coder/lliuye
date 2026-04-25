@@ -13,12 +13,14 @@
 """
 from __future__ import annotations
 
+import json
 import sys
 import traceback
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -29,6 +31,8 @@ from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 app = FastAPI(title="Agent3 Credit Decision API", version="3.1")
+
+_HANDOFF_DIR = PROJECT_ROOT / "demo_data" / "agent_credit"
 
 
 def _qc_scrub(payload):
@@ -70,6 +74,47 @@ async def list_credit_presets(segment: str):
         raise HTTPException(500, f"load presets failed: {e}") from e
 
 
+@app.get("/api/credit/handoff/demo/{segment}")
+async def get_handoff_demo(segment: str):
+    """返回 demo_data/agent_credit/ 下 Agent6→Agent3 handoff 样本画像。
+
+    响应：{ segment, profile, preset_name }。前端 HandoffButton 消费后
+    写入 sessionStorage.enterprise_profile 触发现有 applyProfile 流程。
+    """
+    if segment not in ("corporate", "retail"):
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED",
+                      "message": "segment must be corporate or retail",
+                      "details": {"field": "segment", "got": segment}}
+        })
+    prefix = "corp_" if segment == "corporate" else "retail_"
+    if not _HANDOFF_DIR.exists():
+        raise HTTPException(404, detail={
+            "error": {"code": "NOT_FOUND",
+                      "message": f"handoff demo dir missing: {_HANDOFF_DIR}"}
+        })
+    candidates = sorted(_HANDOFF_DIR.glob(f"{prefix}*.json"))
+    if not candidates:
+        raise HTTPException(404, detail={
+            "error": {"code": "NOT_FOUND",
+                      "message": f"no handoff demo for segment={segment}"}
+        })
+    try:
+        profile = json.loads(candidates[0].read_text(encoding="utf-8"))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(500, detail={
+            "error": {"code": "INTERNAL_ERROR",
+                      "message": f"load handoff demo failed: {e}"}
+        }) from e
+    return {
+        "segment": segment,
+        "profile": profile,
+        "preset_name": profile.get("preset_name", ""),
+        "source_file": candidates[0].name,
+    }
+
+
 def _decision_event_stream(req: DecisionRequest):
     """生成器 — yield SSE-encoded lines."""
     try:
@@ -105,6 +150,48 @@ def _decision_event_stream(req: DecisionRequest):
             "message": f"{type(e).__name__}: {e}",
             "traceback": traceback.format_exc()[-2000:],
         })
+
+
+class ExportDocxRequest(BaseModel):
+    advice: dict
+
+
+@app.post("/api/credit/export_docx")
+async def export_decision_docx(req: ExportDocxRequest):
+    """本地 python-docx 渲染决策意见书。
+
+    监管底线：禁用海外 API，全部本地计算；仅消费前端回传的 advice dict。
+    响应：application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    """
+    advice = req.advice or {}
+    if not advice.get("subject_name") and not advice.get("decision"):
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED",
+                      "message": "advice payload empty or missing subject_name/decision",
+                      "details": {"keys": list(advice.keys())}}
+        })
+    try:
+        from agent_credit.docx_export import build_filename, render_decision_letter
+        data = render_decision_letter(advice)
+        filename = build_filename(advice)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(500, detail={
+            "error": {"code": "INTERNAL_ERROR",
+                      "message": f"docx render failed: {e}"}
+        }) from e
+
+    # RFC 5987 中文文件名
+    encoded = quote(filename)
+    return Response(
+        content=data,
+        media_type=("application/vnd.openxmlformats-officedocument"
+                    ".wordprocessingml.document"),
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded}",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.post("/api/credit/decision")
