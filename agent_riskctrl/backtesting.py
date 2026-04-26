@@ -259,6 +259,28 @@ def run_backtest(
 # 策略对比
 # ======================================================================
 
+# ======================================================================
+# P3F 轨 8b Task B · baseline_ruleset 对照组 (KS comparator)
+# 形态: 薄包装 · 实现在 baseline_ruleset.py · 此处仅暴露 backtesting 命名空间
+# 集成入口: scripts / CLI / adapter 调 backtesting.compare_with_baseline(df, current)
+# ======================================================================
+
+
+def compare_with_baseline(
+    df: pd.DataFrame,
+    current_ruleset: RuleSet,
+    label_column: str = "days_past_due",
+    bad_threshold: int = 30,
+) -> dict:
+    """跑 baseline_ruleset + current_ruleset · 返回 ks_baseline / ks_current / ks_improvement.
+
+    入口对应 onboarding "--compare-baseline 标志"; 调用方/CLI/adapter 通过本函数获得对照.
+    具体实现 (5 条硬编规则 + KS 公式) 在 agent_riskctrl.baseline_ruleset 模块.
+    """
+    from .baseline_ruleset import compare_with_baseline as _impl
+    return _impl(df, current_ruleset, label_column, bad_threshold)
+
+
 def compare_strategies(
     result_before: BacktestResult,
     result_after: BacktestResult,

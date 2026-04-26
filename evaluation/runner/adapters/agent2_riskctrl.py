@@ -75,6 +75,7 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
         rules_path = fx_dir / "rules.json"
         schema_path = fx_dir / "sample_schema.json"
         backtest_path = fx_dir / "backtest.json"
+        baseline_compare_path = fx_dir / "baseline_compare.json"  # P3F 轨 8b Task B sidecar
 
         artifacts: dict[str, Any] = {
             "fixture_dir": str(fx_dir),
@@ -82,6 +83,7 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
             "rules_path": str(rules_path),
             "schema_path": str(schema_path),
             "backtest_path": str(backtest_path),
+            "baseline_compare_path": str(baseline_compare_path),
             "errors": [],
         }
 
@@ -99,6 +101,16 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
             except (json.JSONDecodeError, OSError) as e:
                 artifacts["errors"].append(f"{key} load error: {e}")
                 artifacts[key] = None
+
+        # baseline_compare 是可选 sidecar · 缺失不报错 (legacy fixture path 不会有)
+        if baseline_compare_path.exists():
+            try:
+                artifacts["baseline_compare"] = _read_json(baseline_compare_path)
+            except (json.JSONDecodeError, OSError) as e:
+                artifacts["errors"].append(f"baseline_compare load error: {e}")
+                artifacts["baseline_compare"] = None
+        else:
+            artifacts["baseline_compare"] = None
         return artifacts
 
     def compute_common_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
@@ -346,18 +358,56 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- pending (A-013 白名单) · ks_improvement ---
-        # note 字段与 yaml baseline.pending_reason 一字节级同义（便于 grep 追溯）
-        out.append(
-            MetricOutcome(
-                name="ks_improvement",
-                value=None,
-                target=self._lookup_target("ks_improvement", "domain") or "n/a",
-                passed=None,
-                method="manual",
-                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
+        # --- ks_improvement (P3F 轨 8b Task B · baseline_compare sidecar 消费) ---
+        baseline_compare = artifacts.get("baseline_compare")
+        baseline_compare_path = artifacts.get("baseline_compare_path")
+        if isinstance(baseline_compare, dict) and "ks_improvement" in baseline_compare:
+            ks_imp = baseline_compare.get("ks_improvement")
+            ks_base = baseline_compare.get("ks_baseline")
+            ks_curr = baseline_compare.get("ks_current")
+            bl_ver = baseline_compare.get("baseline_version", "?")
+            label_col = baseline_compare.get("label_column", "?")
+            bad_thr = baseline_compare.get("bad_threshold", "?")
+            if isinstance(ks_imp, (int, float)):
+                out.append(
+                    self.mark(
+                        "ks_improvement",
+                        float(ks_imp),
+                        method="deterministic",
+                        evidence=[baseline_compare_path] if baseline_compare_path else [],
+                        note=(
+                            f"ks_current={ks_curr} - ks_baseline={ks_base} = {ks_imp} "
+                            f"(baseline_ruleset {bl_ver} · 5 hardcoded rules · "
+                            f"label={label_col} · bad_threshold={bad_thr} DPD)"
+                        ),
+                    )
+                )
+            else:
+                out.append(
+                    MetricOutcome(
+                        name="ks_improvement",
+                        value=None,
+                        target=self._lookup_target("ks_improvement", "domain") or "n/a",
+                        passed=None,
+                        method="deterministic",
+                        note=f"baseline_compare.json 字段类型异常: ks_improvement={ks_imp!r}",
+                    )
+                )
+        else:
+            out.append(
+                MetricOutcome(
+                    name="ks_improvement",
+                    value=None,
+                    target=self._lookup_target("ks_improvement", "domain") or "n/a",
+                    passed=None,
+                    method="manual",
+                    note=(
+                        "baseline_compare.json 缺失 · 待 runtime 跑 "
+                        "agent_riskctrl.backtesting.compare_with_baseline(df, current) "
+                        "产 sidecar artifact (P3F 轨 8b Task B)"
+                    ),
+                )
             )
-        )
 
         # --- pending (A-013 白名单) · rule_interpretability ---
         out.append(
