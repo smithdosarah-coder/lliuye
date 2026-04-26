@@ -38,6 +38,10 @@ RUNTIME_LATEST_DIR = REPO_ROOT / "evaluation" / "runtime" / "2_latest"
 FIXTURE_BASELINE_V1_DIR = REPO_ROOT / "agent_riskctrl" / "tests" / "fixtures" / "baseline_v1"
 EVIDENCE_KEYS = ("ks", "approve_rate", "bad_rate")
 
+# P3F 轨 8b Task A · adapter runtime 探针(field_completeness + dsl_syntax_correctness)
+# 所需四要素 — yaml method: rules_with_4keys / rules_total
+FIELD_COMPLETENESS_KEYS = ("rule_id", "conditions", "action", "backtest")
+
 
 def _read_json(p: Path) -> dict[str, Any]:
     return json.loads(p.read_text(encoding="utf-8"))
@@ -71,6 +75,7 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
         rules_path = fx_dir / "rules.json"
         schema_path = fx_dir / "sample_schema.json"
         backtest_path = fx_dir / "backtest.json"
+        baseline_compare_path = fx_dir / "baseline_compare.json"  # P3F 轨 8b Task B sidecar
 
         artifacts: dict[str, Any] = {
             "fixture_dir": str(fx_dir),
@@ -78,6 +83,7 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
             "rules_path": str(rules_path),
             "schema_path": str(schema_path),
             "backtest_path": str(backtest_path),
+            "baseline_compare_path": str(baseline_compare_path),
             "errors": [],
         }
 
@@ -95,6 +101,16 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
             except (json.JSONDecodeError, OSError) as e:
                 artifacts["errors"].append(f"{key} load error: {e}")
                 artifacts[key] = None
+
+        # baseline_compare 是可选 sidecar · 缺失不报错 (legacy fixture path 不会有)
+        if baseline_compare_path.exists():
+            try:
+                artifacts["baseline_compare"] = _read_json(baseline_compare_path)
+            except (json.JSONDecodeError, OSError) as e:
+                artifacts["errors"].append(f"baseline_compare load error: {e}")
+                artifacts["baseline_compare"] = None
+        else:
+            artifacts["baseline_compare"] = None
         return artifacts
 
     def compute_common_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
@@ -110,17 +126,34 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
 
         out: list[MetricOutcome] = []
 
-        # --- field_completeness (B1 新加, pending per yaml.baseline.pending_metrics) ---
-        out.append(
-            MetricOutcome(
-                name="field_completeness",
-                value=None,
-                target=self._lookup_target("field_completeness", "common") or "n/a",
-                passed=None,
-                method="manual",
-                note="pending: B1 新加, adapter 未实装 runtime 探针 (yaml baseline.pending_metrics)",
+        # --- field_completeness (P3F 轨 8b Task A · 四要素齐) ---
+        if rules:
+            rate, fc_meta = compute_field_completeness_rate(rules)
+            out.append(
+                self.mark(
+                    "field_completeness",
+                    rate,
+                    method="deterministic",
+                    evidence=[rules_path] if rules_path else [],
+                    note=(
+                        f"{fc_meta['complete']}/{fc_meta['total']} 规则四要素齐 "
+                        f"(rule_id+conditions+action+backtest); "
+                        f"missing_breakdown={fc_meta['missing_breakdown']}"
+                    ),
+                    kind="common",
+                )
             )
-        )
+        else:
+            out.append(
+                MetricOutcome(
+                    name="field_completeness",
+                    value=None,
+                    target=self._lookup_target("field_completeness", "common") or "n/a",
+                    passed=None,
+                    method="deterministic",
+                    note="rules.json 无 rules · 探针 N/A",
+                )
+            )
 
         # --- task_completion_rate ---
         inputs_total = rules_doc.get("inputs_total")
@@ -244,6 +277,82 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
 
         return out
 
+    def _compute_rule_interpretability(
+        self, rules: list[dict], rules_path: str | None
+    ) -> MetricOutcome:
+        """LLM-judge 失败降级闸门 · onboarding §2 Task C 约束 · 不 crash.
+
+        无 key / judge 异常 / 全部规则失败 → method=manual value=None
+        全部 ok → method=llm-judge value=mean_score
+        部分 ok → method=llm-judge value=部分均值 note 标 partial
+        """
+        target_str = self._lookup_target("rule_interpretability", "domain") or "n/a"
+        if not rules:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note="rules.json 无 rules · judge 跳过",
+            )
+        try:
+            from agent_riskctrl.llm_judge import compute_rule_interpretability
+        except ImportError as e:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=f"judge module unavailable: {e}",
+            )
+        try:
+            score, meta = compute_rule_interpretability(rules)
+        except Exception as e:  # 兜底 · 任何 judge 异常不 crash adapter
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=f"judge call exception: {type(e).__name__}: {str(e)[:120]}",
+            )
+
+        overall = meta.get("overall_status", "unknown")
+        n_judged = meta.get("n_judged", 0)
+        n_total = meta.get("n_total", 0)
+        breakdown = meta.get("status_breakdown", {})
+        judge_ver = meta.get("judge_version", "?")
+        dims = meta.get("dimensions", [])
+
+        if score is None or n_judged == 0:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=(
+                    f"judge unavailable/all-failed · status={overall} "
+                    f"breakdown={breakdown} · {meta.get('reason', '')}"
+                ),
+            )
+
+        return MetricOutcome(
+            name="rule_interpretability",
+            value=float(score),
+            target=target_str,
+            passed=self.evaluate_target(float(score), target_str),
+            method="llm-judge",
+            evidence=[rules_path] if rules_path else [],
+            note=(
+                f"mean={score} over {n_judged}/{n_total} rules · "
+                f"3 dims ({','.join(dims)}) · judge={judge_ver} · status={overall} · "
+                f"breakdown={breakdown}"
+            ),
+        )
+
     def compute_domain_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
         backtest_doc = artifacts.get("backtest") or {}
         rules_doc = artifacts.get("rules") or {}
@@ -325,41 +434,228 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- pending (A-013 白名单) · ks_improvement ---
-        # note 字段与 yaml baseline.pending_reason 一字节级同义（便于 grep 追溯）
-        out.append(
-            MetricOutcome(
-                name="ks_improvement",
-                value=None,
-                target=self._lookup_target("ks_improvement", "domain") or "n/a",
-                passed=None,
-                method="manual",
-                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
+        # --- ks_improvement (P3F 轨 8b Task B · baseline_compare sidecar 消费) ---
+        baseline_compare = artifacts.get("baseline_compare")
+        baseline_compare_path = artifacts.get("baseline_compare_path")
+        if isinstance(baseline_compare, dict) and "ks_improvement" in baseline_compare:
+            ks_imp = baseline_compare.get("ks_improvement")
+            ks_base = baseline_compare.get("ks_baseline")
+            ks_curr = baseline_compare.get("ks_current")
+            bl_ver = baseline_compare.get("baseline_version", "?")
+            label_col = baseline_compare.get("label_column", "?")
+            bad_thr = baseline_compare.get("bad_threshold", "?")
+            if isinstance(ks_imp, (int, float)):
+                out.append(
+                    self.mark(
+                        "ks_improvement",
+                        float(ks_imp),
+                        method="deterministic",
+                        evidence=[baseline_compare_path] if baseline_compare_path else [],
+                        note=(
+                            f"ks_current={ks_curr} - ks_baseline={ks_base} = {ks_imp} "
+                            f"(baseline_ruleset {bl_ver} · 5 hardcoded rules · "
+                            f"label={label_col} · bad_threshold={bad_thr} DPD)"
+                        ),
+                    )
+                )
+            else:
+                out.append(
+                    MetricOutcome(
+                        name="ks_improvement",
+                        value=None,
+                        target=self._lookup_target("ks_improvement", "domain") or "n/a",
+                        passed=None,
+                        method="deterministic",
+                        note=f"baseline_compare.json 字段类型异常: ks_improvement={ks_imp!r}",
+                    )
+                )
+        else:
+            out.append(
+                MetricOutcome(
+                    name="ks_improvement",
+                    value=None,
+                    target=self._lookup_target("ks_improvement", "domain") or "n/a",
+                    passed=None,
+                    method="manual",
+                    note=(
+                        "baseline_compare.json 缺失 · 待 runtime 跑 "
+                        "agent_riskctrl.backtesting.compare_with_baseline(df, current) "
+                        "产 sidecar artifact (P3F 轨 8b Task B)"
+                    ),
+                )
             )
-        )
 
-        # --- pending (A-013 白名单) · rule_interpretability ---
-        out.append(
-            MetricOutcome(
-                name="rule_interpretability",
-                value=None,
-                target=self._lookup_target("rule_interpretability", "domain") or "n/a",
-                passed=None,
-                method="manual",
-                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
-            )
-        )
+        # --- rule_interpretability (P3F 轨 8b Task C · LLM-judge) ---
+        # judge 失败 / 无 key → 降级 method=manual value=None · adapter 不 crash
+        # judge 成功 → method=llm-judge value=mean_score (1-5)
+        out.append(self._compute_rule_interpretability(rules, rules_path))
 
-        # --- dsl_syntax_correctness (B1 新加, pending) ---
-        out.append(
-            MetricOutcome(
-                name="dsl_syntax_correctness",
-                value=None,
-                target=self._lookup_target("dsl_syntax_correctness", "domain") or "n/a",
-                passed=None,
-                method="manual",
-                note="pending: B1 新加, adapter 未实装 parser round-trip 校验 (yaml baseline.pending_metrics)",
+        # --- dsl_syntax_correctness (P3F 轨 8b Task A · parser round-trip) ---
+        if rules:
+            rate, dsl_meta = compute_dsl_syntax_correctness_rate(rules)
+            out.append(
+                self.mark(
+                    "dsl_syntax_correctness",
+                    rate,
+                    method="deterministic",
+                    evidence=[rules_path] if rules_path else [],
+                    note=(
+                        f"{dsl_meta['parseable']}/{dsl_meta['total']} 规则 parser round-trip 通过 "
+                        f"(rule_id+conditions数+action 等价); "
+                        f"failures={dsl_meta['failure_breakdown']}"
+                    ),
+                )
             )
-        )
+        else:
+            out.append(
+                MetricOutcome(
+                    name="dsl_syntax_correctness",
+                    value=None,
+                    target=self._lookup_target("dsl_syntax_correctness", "domain") or "n/a",
+                    passed=None,
+                    method="deterministic",
+                    note="rules.json 无 rules · 探针 N/A",
+                )
+            )
 
         return out
+
+
+# ---------------------------------------------------------------------------
+# P3F 轨 8b Task A · adapter runtime 探针
+#   compute_field_completeness_rate / compute_dsl_syntax_correctness_rate
+# 形态对齐 Batch 2 compute_external_search_metrics: module-level, deterministic, 不抛异常
+# ---------------------------------------------------------------------------
+
+
+def _is_filled(value: Any, key: str) -> bool:
+    """四要素填充判定. conditions/backtest 要求结构而非仅非空."""
+    if value is None:
+        return False
+    if key == "rule_id":
+        return isinstance(value, str) and bool(value.strip())
+    if key == "action":
+        return isinstance(value, str) and bool(value.strip())
+    if key == "conditions":
+        if not isinstance(value, list) or not value:
+            return False
+        for c in value:
+            if not isinstance(c, dict):
+                return False
+            if not str(c.get("field") or "").strip():
+                return False
+            if not str(c.get("operator") or "").strip():
+                return False
+            if "value" not in c:
+                return False
+        return True
+    if key == "backtest":
+        if not isinstance(value, dict) or not value:
+            return False
+        return any(k in value for k in EVIDENCE_KEYS)
+    return False
+
+
+def compute_field_completeness_rate(
+    rules: list[dict],
+) -> tuple[float, dict[str, Any]]:
+    """每条 rule 是否含四要素(rule_id/conditions/action/backtest) → 比例.
+
+    Returns:
+        (rate, meta) ·
+            rate ∈ [0,1] · rules 为空时返回 (0.0, {total:0,...})
+            meta = {total, complete, missing_breakdown: {key: missing_count}}
+    """
+    if not rules:
+        return 0.0, {"total": 0, "complete": 0, "missing_breakdown": {}}
+
+    total = len(rules)
+    complete = 0
+    missing: dict[str, int] = {k: 0 for k in FIELD_COMPLETENESS_KEYS}
+
+    for r in rules:
+        all_filled = True
+        for key in FIELD_COMPLETENESS_KEYS:
+            if not _is_filled(r.get(key), key):
+                missing[key] += 1
+                all_filled = False
+        if all_filled:
+            complete += 1
+
+    rate = complete / total
+    return rate, {
+        "total": total,
+        "complete": complete,
+        "missing_breakdown": {k: v for k, v in missing.items() if v > 0},
+    }
+
+
+def _round_trip_rule(rule: dict) -> tuple[bool, str]:
+    """单条 rule round-trip: dict → parser → RuleSet → 等价比对.
+
+    Returns:
+        (ok, reason) · ok=False 时 reason 标失败维度
+    """
+    try:
+        from agent_riskctrl.rule_engine import parse_natural_language_rules
+    except ImportError as e:
+        return False, f"import_error:{e}"
+
+    if not isinstance(rule, dict):
+        return False, "not_a_dict"
+
+    try:
+        parsed = parse_natural_language_rules({"rules": [rule]})
+    except (TypeError, ValueError, KeyError, AttributeError) as e:
+        return False, f"parse_exception:{type(e).__name__}"
+
+    if len(parsed.rules) != 1:
+        return False, f"rule_count_mismatch:{len(parsed.rules)}"
+
+    pr = parsed.rules[0]
+    orig_rule_id = str(rule.get("rule_id") or "").strip()
+    if orig_rule_id and pr.rule_id != orig_rule_id:
+        return False, "rule_id_mismatch"
+
+    orig_conditions = rule.get("conditions") or []
+    if not isinstance(orig_conditions, list):
+        return False, "conditions_not_list"
+    if len(pr.conditions) != len(orig_conditions):
+        return False, "conditions_count_mismatch"
+
+    orig_action = str(rule.get("action") or "").strip()
+    if orig_action and pr.action != orig_action:
+        return False, "action_mismatch"
+
+    return True, "ok"
+
+
+def compute_dsl_syntax_correctness_rate(
+    rules: list[dict],
+) -> tuple[float, dict[str, Any]]:
+    """每条 rule 经 rule_engine.parse_natural_language_rules round-trip 是否等价 → 比例.
+
+    Returns:
+        (rate, meta) · rules 为空时 (0.0, {total:0,...})
+        meta = {total, parseable, failure_breakdown: {reason: count}}
+    """
+    if not rules:
+        return 0.0, {"total": 0, "parseable": 0, "failure_breakdown": {}}
+
+    total = len(rules)
+    parseable = 0
+    failures: dict[str, int] = {}
+
+    for r in rules:
+        ok, reason = _round_trip_rule(r)
+        if ok:
+            parseable += 1
+        else:
+            failures[reason] = failures.get(reason, 0) + 1
+
+    rate = parseable / total
+    return rate, {
+        "total": total,
+        "parseable": parseable,
+        "failure_breakdown": failures,
+    }
