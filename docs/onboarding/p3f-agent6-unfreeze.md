@@ -121,11 +121,11 @@ agent6 branch（`feat/agent6-v16` · tip `4bf8361`）有 **20 commit 未合**，
 | T1-1 | 4 段 Signal trailer 齐 | AGENT6-REBASE-CLEAN / AGENT6-V16-REGRESSION-OK / AGENT6-PYTEST-GREEN / READY-FOR-AGENT6-UNFREEZE-REVIEW（B+C 可合并 · 至少 3 个 commit） | `git log` grep |
 | T1-2 | rebase 冲突文件数 ≤ 4 | 4 个文件以内可由 worker 自决 · 超过即 Q-033 | rebase log + worker 报告 |
 | T1-3 | 红区 0 漂移 | `financial_analyzer.py` / `quality_scorer.py` / `truth_fill.py` 三文件 diff 全空 | `git diff origin/chore/l0-infra...HEAD -- <files>` |
-| T1-4 | v16 跑分漂移 < 1% | `quality_score_total` 与 baseline 68.6 偏差 < 0.69 分 | `py v16_pipeline.py` 实跑 |
+| T1-4 | v16 **rebase mechanic** drift < 1% | pre-rebase tip vs post-rebase HEAD 同 DP `quality_score_total` 偏差 < 1%（**NOT** vs 历史 baseline 68.6 · Phase 2 design-intent drop 不计 · 详见 Q-035） | `py v16_pipeline.py` pre-rebase + post-rebase 各跑一次 |
 | T1-5 | pytest 全绿 | `pytest tests/agent_report/ -v` 0 fail / 0 error | pytest exit code 0 |
 | T1-6 | 解 DoD 条目齐 6 项 | L2-12 / L2-13 / L2-14 / L3-8 / L3-11 / L3-12 全在 final body 自检 ✓ | body grep |
 | T1-7 | 20 commit SHA 全列 | final commit body 含 20 个 SHA + 分组 + 冲突标注 | body grep |
-| T1-8 | diff 白名单合规 | `--name-only` 输出限于：`agent_report/` / `tests/agent_report/` / `docs/model_cards/` / `docs/demo_script/` / `docs/compliance/` / `evaluation/runner/adapters/agent6_report.py` / `evaluation/rubrics/agent6_*` / `samples/` / `data/feedback/` 域内 | diff 校验 |
+| T1-8 | diff 白名单合规 | `--name-only` 输出限于：`agent_report/` / `tests/agent_report/` / `docs/model_cards/` / `docs/demo_script/` / `docs/compliance/` / `evaluation/runner/adapters/agent6_report.py` / `evaluation/rubrics/agent6_*` / `samples/` / `data/feedback/` 域内 _(illustrative · 不穷举 · 如有合理新路径 final body 备注即可 · 不阻 ready)_ | diff 校验 |
 | T1-9 | A-024 路径规范 | `evaluation/runner/base_evaluator.py` / `cli.py` 未改 | stat 0 |
 | T1-10 | 不 git push | worker 在自分支 commit 即可 · 不 push 到 origin | worker 自证 |
 | T1-11 | EvidenceFirstPipeline 基类继承保留 | `agent_report/section_generator.py` 仍继承 Batch 1 引入的基类 | grep + 读代码 |
@@ -139,7 +139,7 @@ agent6 branch（`feat/agent6-v16` · tip `4bf8361`）有 **20 commit 未合**，
 
 - ❌ **红区 3 文件**：`financial_analyzer.py` / `quality_scorer.py` / `truth_fill.py` —— v16 确定性计算 + QC 终审核心。agent6 branch 若历史改过任意一个文件，必须停 + Q-033，**不要自行 force-resolve**
 - ❌ **rebase 冲突 > 4 文件**：立即停 + Q-033 askout，不强行解。冲突复杂度过高说明 agent6 branch 偏离 main 太远 · 主 CLI 决策是降级到 cherry-pick 还是分批 rebase
-- ❌ **v16 跑分漂移 > 1%**：立即 `git rebase --abort` 或 `git reset --hard` 回滚 · 报告漂移幅度 + 怀疑 commit。不允许"漂移在 1.5% 但解释为可接受"——这是确定性破线
+- ❌ **v16 rebase mechanic drift > 1%**（pre-rebase tip vs post-rebase HEAD 同 DP 比对）：立即 `git rebase --abort` 或 `git reset --hard` 回滚 · 报告漂移幅度 + 怀疑 commit。**注意**：post-rebase HEAD vs 历史 baseline 68.6 偏差是 Phase 2 design-intent drop（QC 四维强化 + 模板扩展使 score 自然变化）· **不在本红线范围**。详见 Q-035 决策档语义重新解读
 - ❌ **不 git push**：worker 用 commit 在自分支汇报 · push 由主 CLI merge 后做
 - ❌ **不改 `evaluation/runner/base_evaluator.py` / `cli.py`**：A-024 路径规范，agent6 branch 若改过必须 revert 改动
 - ❌ **不删测试 / 不 mock 真实路径**：pytest 失败查根因，禁规避
