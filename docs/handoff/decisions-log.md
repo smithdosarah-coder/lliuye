@@ -2025,3 +2025,60 @@ worker 自检：4 个目标文件全在 onboarding §1.3 硬边界允许列（`w
 - worker Stage 1 完工 Signal: FE-STAGE-1-SHELL-BASE-DONE（不变 · 走 file snapshot 法不影响 stage signal 链）
 
 ---
+
+## [Q-037] 2026-04-26 · main CLI (self · post worker commit-askout) · Stage 3 chat-wechat-style 撞 web/src/lib/store/types.ts 红线
+
+**CLI**: main (self-Q/A · **worker 严守协议 走 commit trailer · 非 chat-askout** · Q-035/036 lesson 内化成功)
+**Priority**: P0 · blocking frontend-integration Stage 3
+**Blocking**: yes（worker 等本裁决进 Stage 3）
+**Related**: Q-036（file-snapshot 法 + chat-askout 协议代 commit）+ `docs/onboarding/p3f-frontend-integration.md` §1.3 红区 + `docs/process/worker-askout-protocol.md`（dd42fa3）+ panel-layout-store.clearAgent 例外允许（onboarding §1.3）
+
+### 背景
+
+frontend-integration worker 在 Stage 3 audit `feat/chat-wechat-style` 4 unique commit 时发现 `418ccf4 dispatch 群组分段` 含 `web/src/lib/store/types.ts` +3 行 · 触 onboarding §1.3 红线 ❌ "web/src/lib/store/* 除 panel-layout-store.clearAgent 外其余 store"。
+
+**协议合规**：worker 走 `git commit ... --trailer "Signal: Q-037-RAISED"`（commit `8f30527`）· **不走 chat askout** · Q-035/036 lesson 内化成功（vs Q-036 时 worker chat-only 后 main CLI 代 commit）。
+
+### Worker 自查 + 分析
+
+`418ccf4 · web/src/lib/store/types.ts +3 行`：纯 additive optional `kind?: "group" | "dm"` 字段（"group" = 含 agent 的协作群 / "dm" = 客户经理 ↔ 同事纯人际私聊 · 仅 ThreadList 视觉分类）。
+
+特性（worker 主动 verify）：
+- ✅ **纯 additive** optional · backward compat 100%
+- ✅ **0 后端契约影响** · 仅前端 ThreadList 视觉分类
+- ✅ **无 store 行为 / state shape / action 改动** · types.ts 是 type 声明 · 非 store 文件本身
+- ⚠️ 字面触 §1.3 "store/*" 文件路径红线（store/types.ts 在 store/ 目录）
+
+dispatch group/dm split 业务需求：seedThreads 加 3 条 dm + ThreadList 拆 GROUPS/DIRECT 两段 + ThreadRow dm 视觉差异化（mono uppercase header + 中性墨底 + subtitle "私聊"）。
+
+Worker 3 候选方案：A 接受 deviation / B 砍 dispatch split / C 等 RFC。Worker 推 A（理由 4 条：panel-layout-store 例外精神延伸 + L1-3 完整 + 风险极低 + Q-036 spec gap 类比）。
+
+### Decision (A-037)
+
+**选 A · 接受 types.ts 3 行 additive deviation · 进 Stage 3 完整**
+
+理由：
+1. **风险显著低于已批例外**：`panel-layout-store.clearAgent` 是 store 真行为改动（action 扩展） · onboarding §1.3 已允许；本 `types.ts.kind?` 是 type 声明纯加 optional · 0 行为 / 0 state shape · 风险更低
+2. **守 L1-3 dispatch IM 完整化**：handoff §3.1 chat-wechat-style 明文 scope 含 dispatch 左侧线程分群组/私聊 · 砍掉损 DoD
+3. **types.ts 非 store state/action 文件**：红线"store/*" 字面扫到但精神"store 行为不动"不破
+4. **Q-036 file-snapshot + Q-035 spec gap 类比**：spec 字面 vs 精神不符 = spec gap · 取精神 + fix-forward
+5. **协议合规正反馈**：worker 严守 commit-askout（vs Q-036 chat）· 内化 Q-035/036 lesson 成功 · 值得正反馈
+
+### Follow-up
+
+1. **worker 进 Stage 3 完整**（4 commit unique scope · file-snapshot 法 + Evidence re-inject · types.ts 3 行 additive）：
+   - Stage 3 commit body 必含：4 commit SHA + 处理决策（pick / file-snapshot / SKIP）+ types.ts +3 行 deviation 显式声明 + 引用本 Q-037
+   - 编译闸门 0 error · Signal: `FE-STAGE-3-DISPATCH-IM-DONE`（不变 · 走本 deviation 不影响 stage signal 链）
+
+2. **onboarding §1.3 fix-forward**（Wave 2 完后 batch housekeeping · 不阻本任）：
+   - 旧："web/src/lib/store/* 除 panel-layout-store.clearAgent 外其余 store"
+   - 新："web/src/lib/store/* state/action 行为禁动 · 仅 panel-layout-store.clearAgent action 扩展 + types.ts additive optional 字段例外允许（必须 backward compat 100% + 0 行为影响）"
+
+3. **协议合规反馈**：本 Q-037 worker 走 commit trailer · 内化 Q-035/036 lesson 成功 · main CLI 不再 lenient 接受 chat-only askout（如未来再现 chat-only · main CLI REJECT-V2 让 worker 撤回 + commit trailer 重新 askout）
+
+### Signals
+
+- 本 commit Signal: `P3F-Q037-RESOLVED`
+- worker Stage 3 完工 Signal: `FE-STAGE-3-DISPATCH-IM-DONE`（不变）
+
+---
