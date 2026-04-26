@@ -18,8 +18,11 @@ from pydantic import BaseModel, Field
 from .rule_engine import RuleSet, apply_rule, apply_ruleset
 
 
-# 数据行数上限（MVP降级策略）
-MAX_ROWS = 500
+# 数据行数上限（Q-040 fix-forward 2026-04-26 · 客户走访前 demo-blocker 修复）
+# 50000 行覆盖中型银行月度 2-5 万笔放贷量级 · KS 计算统计稳定 (≥ 1000 行才有意义)
+# 超 50000 行 P1 完整化 chunk read + stratified sampling（Wave 5 mock-realism-upgrade · 见 Q-040 A-040.2）
+# Pre-Q-040: MAX_ROWS=500 (注释自承 "MVP降级策略" · 真实风控样本 5-50 万行 · 500 行 KS 不可信 · mock loans.csv 7500 行被浪费 93%)
+MAX_ROWS = 50000
 
 
 # ======================================================================
@@ -41,7 +44,7 @@ class BacktestResult(BaseModel):
 # ======================================================================
 
 def load_csv_data(file_path: str) -> pd.DataFrame:
-    """读取CSV文件，自动检测编码和分隔符，限制最多500行。
+    """读取CSV文件，自动检测编码和分隔符，限制最多 50000 行（Q-040 fix · 详见 :21 注释）。
 
     支持编码: utf-8-sig, utf-8, gbk, gb2312
     支持分隔符: 逗号, 制表符, 分号
