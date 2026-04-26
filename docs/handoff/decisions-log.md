@@ -2082,3 +2082,77 @@ Worker 3 候选方案：A 接受 deviation / B 砍 dispatch split / C 等 RFC。
 - worker Stage 3 完工 Signal: `FE-STAGE-3-DISPATCH-IM-DONE`（不变）
 
 ---
+
+## [Q-038] 2026-04-26 · main CLI (self · post 8b worker final READY + subagent pre-review CONDITIONAL-APPROVE) · 3 conditional 收尾
+
+**CLI**: main (self-Q/A · post subagent pre-review verdict)
+**Priority**: P0 · merge 前必固化 traceability
+**Blocking**: yes（subagent verdict 等本 Q-038/A-038 写 trail）
+**Related**: 8b worker final READY commit `b641e59` · subagent pre-review (id `aa5d14fc70310d03d`) verdict CONDITIONAL-APPROVE · CA-B3-8 / CA-B3-10 / CA-B3-12 锚点 · Q-030 follow-up（Agent1/5 stub→deterministic）
+
+### 背景
+
+8b worker（P3F 轨 8b code-arch hardening）完成 4 task（Task A/B/C/D · 1017+ LOC / 4 file）· final commit `b641e59 Signal: READY-FOR-CODE-ARCH-AGENT2-REVIEW`。subagent pre-review 13 项硬指标全 OK · 3 项 conditional 需主 CLI 在 decisions-log 固化 traceability：
+
+1. **CA-B3-8 spec 分歧**（worker §9 inline 申明 verdict (a) APPROVED · 需正式编号）：
+   - AGENT_IDENTITY + GO 信令 → `agent_riskctrl/llm_judge.py`（worker 实装位置）
+   - onboarding §2/§3 CA-B3-8 verbatim → `shared/llm_judge/base.py`
+   - main CLI Patrol 阶段已 inline 选 (a)（留原位 + onboarding fix-forward 推迟）
+
+2. **CA-B3-10 DEFER**（Agent1/5 stub→deterministic + integration test · onboarding Task D 原始 scope）：
+   - worker 标 DEFER 引主 CLI 收尾指引
+   - Agent1/5 adapter 0 改动 一致 (verifiable)
+
+3. **CA-B3-12 ruff clean**（worker §8 留 main CLI 决议）：
+   - 项目无 ruff 配置（`pyproject.toml` 无 `[tool.ruff]` section）
+   - 接受跳过 / 要求 fix-forward 加配置
+
+### Decision (A-038)
+
+**整批 APPROVE 进 merge** · 3 conditional 在本 Q-038 一并固化：
+
+#### A-038.1 · CA-B3-8 spec 分歧 verdict (a) 正式编号
+
+接受 worker §9 inline APPROVED：
+- `agent_riskctrl/llm_judge.py` 留原位（Agent2 specific · 非跨 Agent 通用）
+- `shared/` 留给真跨 Agent 共用底座（SearchProvider / kb_scan 等）
+- onboarding §2/§3 CA-B3-8 措辞 fix-forward 推迟 Wave 2 完后 batch housekeeping
+
+理由：
+- llm_judge.py 3 维度 Likert 是 Agent2 风控规则评判 specific · LLMJudge 基类有泛型潜力但当前只 Agent2 用 · 不需提前 abstract
+- 镜像 = 双副本维护成本翻倍 / 移动 = 多 1 层依赖
+- onboarding 措辞调整是 housekeeping 类小改（类似 Q-035 措辞修齐）
+
+#### A-038.2 · CA-B3-10 DEFER 接受 + Wave 3 follow-up batch 立项
+
+接受 worker DEFER：
+- Agent1/5 stub → deterministic upgrade（Q-030 已记 follow-up · Wave 3 evaluation worker 处理）
+- integration test（Task D 原始 scope 子任 · 移到 Wave 3 8c evaluation worker）
+- 8b worker 不返工 · merge as-is
+
+理由：Agent1/5 stub→deterministic 涉及 evaluation adapter 升级 · 不是 8b worker scope（8b 是 Agent2 code-arch hardening · 8c 才是 evaluation）。Q-030 已记 follow-up · 路由到 Wave 3 轨 8c 自然处理。integration test 同样 Wave 3 8c scope（跨 Agent2 引擎 + adapter + baseline + judge end-to-end）。
+
+#### A-038.3 · CA-B3-12 ruff 决议接受跳过
+
+- 项目当前无 ruff 配置（`pyproject.toml` 无 `[tool.ruff]` section）
+- 8b worker scope 不含"加 ruff 配置"
+- onboarding §3 标注"项目暂无 ruff baseline · CA-B3-12 不阻 ready"（Wave 2 完后 batch housekeeping 时由主 CLI 决定是否加）
+- 不阻本任 merge
+
+### Follow-up
+
+1. 立即 git merge `feat/agent2-hardening` → `chore/l0-infra`（Signal: `AGENT2-HARDENING-MERGED-APPROVED`）
+2. mesh.json update `code-agent2-hardening` worker merged + Signal: `P3F-WAVE-2-TRACK-8B-MERGED`
+3. Wave 2 完后 batch housekeeping：
+   - onboarding §2/§3 CA-B3-8 措辞 fix-forward（与 Q-037 onboarding §1.3 fix-forward 同 batch）
+   - 决定是否加项目 ruff baseline（CA-B3-12）
+4. Wave 3 dispatch 时：
+   - 轨 8c evaluation worker 接 Agent1/5 stub→deterministic + integration test（Q-030 + CA-B3-10 follow-up）
+
+### Signals
+
+- 本 commit Signal: `P3F-Q038-RESOLVED`
+- merge commit Signal: `AGENT2-HARDENING-MERGED-APPROVED`
+- mesh closeout Signal: `P3F-WAVE-2-TRACK-8B-MERGED`
+
+---
