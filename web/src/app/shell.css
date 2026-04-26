@@ -27,7 +27,10 @@
     );
   background-attachment: fixed;
   transition: background .9s cubic-bezier(.2,.8,.25,1);
-  animation: bodyBreath 22s ease-in-out infinite;
+  /* NOTE: bodyBreath animation **不得**挂在 .shell-root 上 —— filter 非 none 会让
+     position:fixed 的子元素（.wb-fab / .pc-fab / .theme-sw / Desk / Whiteboard
+     面板）以 .shell-root 为容器而非 viewport。现挂到 ::after 的噪声层上，只影
+     响背景，不打破 fixed 定位语义。 */
   overflow-x: hidden;
 }
 .shell-root::before {
@@ -45,6 +48,8 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
   mix-blend-mode: multiply; opacity: .28;
   pointer-events: none; z-index: 0;
+  /* bodyBreath 下沉到 ::after ——伪元素无子孙，filter 不会影响任何 fixed 子元素 */
+  animation: bodyBreath 22s ease-in-out infinite;
 }
 
 .shell-stage {
@@ -664,3 +669,516 @@ body[data-desk-pinned="true"] .shell-views {
   color: color-mix(in srgb, var(--accent) 80%, var(--ink));
   border-bottom-color: var(--accent);
 }
+
+/* ═══ WHITEBOARD (左侧白板 · pinboard) ═══
+   与 Desk 并列但不冲突：z-index 44（Desk=45 永远在白板之上），
+   触发靠 FAB + ⌘B，不用 hover-from-edge（避免 22px 冲突）。 */
+.wb {
+  position: fixed; top: 0; left: 0; height: 100vh;
+  z-index: 44; pointer-events: none;
+}
+/* 2026-04-22 · Whiteboard 回全高 overlay（undo floating-card）。
+   用户判"右边大画布不要小的"，对称把左板也回全高。overlay 语义保留：
+   不再推挤 .shell-views —— 叠在主内容上方，下层仍透 blur 可感知。 */
+.wb-panel {
+  position: fixed; top: 88px; bottom: 16px; left: 16px;
+  width: 340px;
+  background: linear-gradient(172deg,
+    color-mix(in srgb, var(--chalk) 92%, transparent) 0%,
+    color-mix(in srgb, var(--g0b) 78%, transparent) 58%,
+    color-mix(in srgb, var(--g2) 52%, transparent) 100%);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 0 rgba(255,255,255,.65) inset, 0 24px 60px -20px rgba(15,26,18,.35);
+  padding: 18px 14px 12px;
+  overflow: hidden;
+  transform: translateX(-125%);
+  transition: transform .5s cubic-bezier(.2,.85,.25,1);
+  pointer-events: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.wb.open .wb-panel { transform: translateX(0); }
+
+.wb-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid var(--ink-14);
+}
+.wb-head .t {
+  font-family: var(--display); font-weight: 600; font-size: 15px;
+  letter-spacing: -.015em;
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.wb-head .t em {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  color: var(--accent); font-size: 13.5px;
+}
+.wb-head .t .cn { font-family: var(--cjk); font-weight: 700; }
+.wb-close {
+  all: unset; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1px solid var(--ink-14);
+  color: var(--ink-48);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1;
+  transition: background .2s, color .2s;
+}
+.wb-close:hover { background: var(--ink-08); color: var(--ink); }
+
+.wb-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.wb-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--ink-48);
+}
+.wb-empty-ic {
+  font-family: var(--mono); font-size: 28px; color: var(--ink-28);
+  margin-bottom: 4px;
+}
+.wb-empty-cn { font-family: var(--cjk); font-size: 13px; color: var(--ink-65); }
+.wb-empty-sub { font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48); }
+
+.wb-list { all: unset; display: flex; flex-direction: column; gap: 6px; list-style: none; }
+.wb-pin {
+  position: relative;
+  --wb-pin-accent: var(--ink-48);
+}
+.wb-pin-main {
+  all: unset; cursor: pointer; display: grid;
+  grid-template-columns: 4px 22px 1fr auto;
+  align-items: center; gap: 10px;
+  padding: 8px 10px 8px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.wb-pin-main:hover {
+  background: color-mix(in srgb, var(--chalk) 85%, transparent);
+  border-color: var(--ink-28);
+  transform: translateX(1px);
+}
+.wb-pin-rail {
+  display: block; width: 3px; height: 26px;
+  background: var(--wb-pin-accent);
+  border-radius: 2px;
+}
+.wb-pin-ic {
+  font-family: var(--mono); font-size: 12px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: color-mix(in srgb, var(--wb-pin-accent) 18%, transparent);
+  color: var(--wb-pin-accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.wb-pin-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wb-pin-title {
+  font-family: var(--cjk); font-weight: 500; font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wb-pin-sub {
+  font-family: var(--cjk); font-size: 10.5px; color: var(--ink-48);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wb-pin-kind {
+  font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-48);
+  padding: 2px 6px; border-radius: 4px;
+  background: var(--ink-04);
+}
+.wb-pin-x {
+  all: unset; cursor: pointer;
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--chalk); color: var(--ink-48);
+  border: 1px solid var(--ink-14);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1;
+  opacity: 0; transform: scale(.8);
+  transition: opacity .15s, transform .15s, color .15s, background .15s;
+}
+.wb-pin:hover .wb-pin-x { opacity: 1; transform: scale(1); }
+.wb-pin-x:hover { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.wb-pin-x:focus-visible { opacity: 1; transform: scale(1); outline: 2px solid var(--ink-28); outline-offset: 1px; }
+
+.wb-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--ink-14);
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-48); letter-spacing: .08em;
+}
+.wb-foot-n em { font-style: normal; color: var(--ink); font-weight: 600; margin-left: 4px; }
+
+/* 白板作为 drop target 高亮（通过 :has/:focus-within 暂难匹配 drag state，
+   用 open 时加粗 border 给视觉提示） */
+.wb.open .wb-panel { border-color: color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.5)); }
+
+/* WHITEBOARD FAB 已移除（2026-04-22 · UI bug#1）——触发仅 ⌘B / drop-to-edge。 */
+
+/* ═══ PANEL CANVAS (右侧画布 · panel thumbnails) ═══
+   与 Whiteboard 并列对称：白板钉 entity 列，画布钉 panel 气泡缩略。
+   panel z-index 44（同白板层），FAB z-index 42（ThemeSwitch 40 之上）。
+   FAB 落在 ThemeSwitch 正上方（right:22, bottom:88）。 */
+.pc {
+  position: fixed; top: 0; right: 0; height: 100vh;
+  z-index: 44; pointer-events: none;
+}
+/* 2026-04-22 · PanelCanvas 回全高 overlay。用户判"右边大画布不要小的，
+   只要弹出时不过度挤压其他板块"。保留 Bug#2 的 overlay 不挤压 .shell-views
+   语义，只把高度从 floating card 回到全列，让气泡拖入的 drop zone 恢复
+   整个右列——顺带解 #6 "气泡钉不到画布"（前一版 drop 区域缩成 360×220
+   小角，用户拖到右侧中央空白区没 hit）。 */
+.pc-panel {
+  position: fixed; top: 88px; bottom: 16px; right: 16px;
+  width: 360px;
+  background: linear-gradient(188deg,
+    color-mix(in srgb, var(--chalk) 92%, transparent) 0%,
+    color-mix(in srgb, var(--g0b) 78%, transparent) 58%,
+    color-mix(in srgb, var(--g2) 52%, transparent) 100%);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 0 rgba(255,255,255,.65) inset, 0 24px 60px -20px rgba(15,26,18,.35);
+  padding: 18px 14px 12px;
+  overflow: hidden;
+  transform: translateX(125%);
+  transition: transform .5s cubic-bezier(.2,.85,.25,1);
+  pointer-events: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.pc.open .pc-panel { transform: translateX(0); }
+
+.pc-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid var(--ink-14);
+}
+.pc-head .t {
+  font-family: var(--display); font-weight: 600; font-size: 15px;
+  letter-spacing: -.015em;
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.pc-head .t em {
+  font-family: var(--italic); font-style: italic; font-weight: 400;
+  color: var(--accent); font-size: 13.5px;
+}
+.pc-head .t .cn { font-family: var(--cjk); font-weight: 700; }
+.pc-close {
+  all: unset; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1px solid var(--ink-14);
+  color: var(--ink-48);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1;
+  transition: background .2s, color .2s;
+}
+.pc-close:hover { background: var(--ink-08); color: var(--ink); }
+
+.pc-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.pc-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--ink-48);
+}
+.pc-empty-ic {
+  font-family: var(--mono); font-size: 28px; color: var(--ink-28);
+  margin-bottom: 4px;
+}
+.pc-empty-cn { font-family: var(--cjk); font-size: 13px; color: var(--ink-65); }
+.pc-empty-sub { font-family: var(--cjk); font-size: 11.5px; color: var(--ink-48); }
+
+/* 缩略图网格 —— 2 列，让每个 thumb 有足够宽度显示标题 + 摘要 */
+.pc-grid {
+  all: unset; list-style: none;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.pc-thumb {
+  position: relative;
+  --pc-pin-accent: var(--ink-48);
+}
+.pc-thumb-main {
+  all: unset; cursor: pointer; display: grid;
+  grid-template-columns: 3px 1fr;
+  grid-template-rows: auto auto;
+  gap: 6px 8px;
+  padding: 10px 10px 10px 8px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  min-height: 88px;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.pc-thumb-main:hover {
+  background: color-mix(in srgb, var(--chalk) 85%, transparent);
+  border-color: var(--ink-28);
+  transform: translateY(-1px);
+}
+.pc-thumb-rail {
+  grid-row: 1 / span 2; grid-column: 1;
+  display: block; width: 3px;
+  background: var(--pc-pin-accent); border-radius: 2px;
+}
+.pc-thumb-head {
+  grid-column: 2; grid-row: 1;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+/* agent 名 eyebrow（2026-04-22 · 用户要"上 agent 名下缩略内容"） */
+.pc-thumb-agent {
+  font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--pc-pin-accent) 72%, var(--ink-48));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pc-thumb-title {
+  font-family: var(--cjk); font-weight: 600; font-size: 12.5px;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 保留 .pc-thumb-sub 类以便旧 pin 数据兼容，语义改为"副标题可选" */
+.pc-thumb-sub {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .06em; color: var(--ink-48);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pc-thumb-blurb {
+  grid-column: 2; grid-row: 2;
+  font-family: var(--cjk); font-size: 11px; line-height: 1.5;
+  color: var(--ink-65);
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.pc-thumb-blurb.muted { color: var(--ink-28); font-style: italic; }
+.pc-thumb-x {
+  all: unset; cursor: pointer;
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--chalk); color: var(--ink-48);
+  border: 1px solid var(--ink-14);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1;
+  opacity: 0; transform: scale(.8);
+  transition: opacity .15s, transform .15s, color .15s, background .15s;
+}
+.pc-thumb:hover .pc-thumb-x { opacity: 1; transform: scale(1); }
+.pc-thumb-x:hover { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.pc-thumb-x:focus-visible { opacity: 1; transform: scale(1); outline: 2px solid var(--ink-28); outline-offset: 1px; }
+
+.pc-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 4px 2px;
+  border-top: 1px solid var(--ink-14);
+  font-family: var(--mono); font-size: 10.5px;
+  color: var(--ink-48); letter-spacing: .08em;
+}
+.pc-foot-n em { font-style: normal; color: var(--ink); font-weight: 600; margin-left: 4px; }
+
+.pc.open .pc-panel { border-color: color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.5)); }
+
+/* ═══ PANEL CANVAS FAB ═══
+   位置：右侧（右下角 ThemeSwitch right:38 bottom:38 之上，错开 bottom:88）。 */
+.pc-fab {
+  all: unset; cursor: pointer;
+  position: fixed; right: 22px; bottom: 88px; z-index: 42;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px 7px 10px;
+  background: var(--ch-82);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  box-shadow: 0 16px 36px -20px rgba(0,0,0,.4);
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-65);
+  transition: color .2s, border-color .2s, transform .2s;
+}
+.pc-fab:hover { color: var(--ink); border-color: var(--ink-28); transform: translateY(-1px); }
+.pc-fab:focus-visible { outline: 2px solid var(--ink-28); outline-offset: 2px; }
+.pc-fab[aria-pressed="true"] { background: var(--ink); color: var(--chalk); border-color: var(--ink); }
+.pc-fab[aria-pressed="true"] .pc-fab-kbd { color: var(--ch-55); border-color: var(--ch-22); }
+/* 画布展开时 FAB 滑到画布左侧，避免被 .pc-panel 遮挡；与 panel 动画同步缓动 */
+body[data-panel-canvas-open="true"] .pc-fab {
+  right: 400px;
+  transition: right .5s cubic-bezier(.2,.85,.25,1), color .2s, border-color .2s, transform .2s;
+}
+.pc-fab-ic { font-family: var(--mono); font-size: 13px; color: inherit; }
+.pc-fab-lbl { font-family: var(--cjk); font-weight: 500; letter-spacing: .06em; }
+.pc-fab-kbd {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
+  color: var(--ink-48); padding: 2px 5px;
+  border: 1px solid var(--ink-14); border-radius: 4px;
+}
+.pc-fab-count {
+  font-family: var(--mono); font-size: 10px;
+  background: var(--accent); color: var(--chalk);
+  min-width: 18px; height: 18px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 5px;
+}
+
+/* 窄 viewport（<1280px）→ 单列避免缩略图变得太窄难读。 */
+@media (max-width: 1280px) {
+  .pc-grid { grid-template-columns: 1fr; }
+  .pc-panel { width: 320px; }
+  body[data-panel-canvas-open="true"] .shell-views { padding-right: 336px; }
+  body[data-panel-canvas-open="true"] .pc-fab { right: 360px; }
+}
+
+/* ═══ PANEL PIN HANDLE (气泡钉选抓手 · 绝对定位在 .rpt-panel 右上) ═══
+   父级（.rpt-panel）需 position:relative（P1 已确保）。抓手只在 hover 时可见，
+   避免打扰默认阅读。drag 中 cursor:grabbing；非 hover 时极低透明度，几乎隐形。 */
+.pp-grip {
+  all: unset; cursor: grab;
+  /* Chromium 坑：<button> + all:unset 会清掉 -webkit-user-drag 导致
+     draggable 属性失效，显式 element 强制走 HTML5 drag 链路。 */
+  -webkit-user-drag: element;
+  user-select: none;
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  --pp-grip-accent: var(--ink-48);
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chalk) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pp-grip-accent) 22%, var(--ink-14));
+  color: var(--pp-grip-accent);
+  font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+  /* 2026-04-22 · 从 opacity:0 改常显低透明（0.32），避免用户"看不见 = 不会用"。
+     Hover 父级时升 0.82，自身 hover 1.0 —— 渐进显著但始终可发现。 */
+  opacity: .32;
+  transform: translateY(-1px);
+  transition: opacity .2s, border-color .2s, background .2s, transform .12s;
+}
+.rpt-panel:hover > .pp-grip,
+.rpt-panel:focus-within > .pp-grip {
+  opacity: .82;
+}
+.pp-grip:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--pp-grip-accent) 10%, var(--chalk));
+  border-color: color-mix(in srgb, var(--pp-grip-accent) 42%, var(--ink-14));
+  transform: translateY(0);
+}
+.pp-grip:active { cursor: grabbing; transform: translateY(0) scale(.96); }
+.pp-grip:focus-visible {
+  opacity: 1;
+  outline: 2px solid color-mix(in srgb, var(--pp-grip-accent) 50%, transparent);
+  outline-offset: 2px;
+}
+.pp-grip-dots {
+  font-family: var(--mono); font-size: 11px; line-height: 1;
+  letter-spacing: -.05em;
+  color: color-mix(in srgb, var(--pp-grip-accent) 70%, transparent);
+}
+.pp-grip-lbl { font-family: var(--cjk); font-size: 10px; letter-spacing: .08em; }
+
+/* ═══ COMPOSER DROP TARGET (Task 3) ═══
+   .rpt-composer 接 PANEL_PIN / CARD_PIN 拖入时加 .rpt-composer--drop-hover
+   高亮外轮廓，提示用户「松手在这儿插入 @引用」。
+   用 outline 代替 border 以避免撑开 layout；
+   过渡平滑，保持 shell v2 呼吸节奏。 */
+.rpt-composer--drop-hover {
+  outline: 2px dashed color-mix(in srgb, var(--agent, var(--ink-65)) 58%, transparent);
+  outline-offset: 4px;
+  background: color-mix(in srgb, var(--agent, var(--ink-14)) 6%, var(--chalk));
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--agent, var(--ink-14)) 6%, transparent);
+  transition: outline-color .2s, background .2s, box-shadow .2s;
+}
+.rpt-composer--drop-hover::before {
+  content: "松开以 @引用";
+  position: absolute; top: -22px; left: 12px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agent, var(--ink)) 82%, transparent);
+  color: var(--chalk);
+  pointer-events: none;
+}
+/* 让伪元素相对 slot 定位 */
+.rpt-composer { position: relative; }
+
+/* ═══ FREE-PANELS MODE (Task 3b · body[data-free-panels="true"]) ═══
+   opt-in 自由拖排：panel 变 position:absolute，panel-head 成为拖柄，
+   店点击置顶、双击 head 回位。inline style 由 FreePanelLayer.tsx 写入，
+   CSS 只负责语义切换（position + cursor + 初始 z-index）。
+   默认不开；UI toggle 待主 CLI 规划 · 现以 body dataset 调试。 */
+body[data-free-panels="true"] .v-archive--canon {
+  /* absolute 定位父锚点。保留 min-height 0 避免 grid 压缩。 */
+  position: relative;
+}
+body[data-free-panels="true"] .rpt-panel--free {
+  position: absolute !important;
+  /* 初始 z 基线 · 点击后由 store.bringToFront 写更大 inline z-index。 */
+  z-index: 10;
+  /* 拖拽中 will-change 提示浏览器 · 防闪烁 */
+  will-change: transform, left, top;
+  /* 提示用户这是自由 panel：底 shadow 加重一度，与网格 panel 区分开 */
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent),
+    0 2px 6px color-mix(in srgb, var(--ink) 8%, transparent),
+    0 18px 38px -14px color-mix(in srgb, var(--ink) 32%, transparent);
+}
+body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head {
+  cursor: move;
+  user-select: none;
+}
+body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head:active {
+  cursor: grabbing;
+}
+/* 双击 head 提示（仅悬停 head 时显示小 tip · 让用户知道能回位） */
+body[data-free-panels="true"] .rpt-panel--free .rpt-panel-head:hover::after {
+  content: "双击回位";
+  position: absolute; right: 6px; bottom: -18px;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .08em;
+  color: var(--ink-48);
+  pointer-events: none;
+  opacity: .72;
+}
+
+/* ═══ CANVAS MODE TOGGLE (2026-04-22) ═══
+   挂 Masthead shell-op · persona 左侧 · 与 theme-sw dot 风格呼应。
+   on 态：填充 ink 底 · icon 翻 chalk；off 态：透明底 · ink-65 文字。
+   disabled：非 /archive/** 路由下 fade + cursor:not-allowed。 */
+.canvas-mode-toggle {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-14);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-65);
+  transition: color .2s, background .2s, border-color .2s;
+}
+.canvas-mode-toggle:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-40, var(--ink-48));
+}
+.canvas-mode-toggle.on {
+  background: var(--ink);
+  color: var(--chalk);
+  border-color: var(--ink);
+}
+.canvas-mode-toggle.on:hover { background: var(--ink); }
+.canvas-mode-toggle:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+.canvas-mode-toggle .ic {
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.canvas-mode-toggle .lbl { font-family: var(--cjk); letter-spacing: .08em; }
