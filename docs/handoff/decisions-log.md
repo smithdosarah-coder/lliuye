@@ -2221,3 +2221,96 @@ worker Q-035/036 askout 协议合规 ✅ · Q-037 commit-trailer askout 协议�
 - mesh closeout Signal: `P3F-WAVE-2-TRACK-4-MERGED` + `P3F-WAVE-2-COMPLETE`
 
 ---
+
+## [Q-040] 2026-04-26 · main CLI (self · post Wave 2 COMPLETE + read-only diagnostic CLI 报告) · Agent2 demo-blocker + 5 Agent mock 量级不足 + Wave 5 立项
+
+**CLI**: main (self-Q/A · 整合另开窗口 read-only diagnostic CLI 报告 + 用户客户走访 5d 倒计时)
+**Priority**: P0 · 客户走访前必修
+**Blocking**: yes（Agent2 MAX_ROWS 不修 · 客户走访演示当场翻车）
+**Related**: Wave 2 完结后 P3F-WAVE-2-COMPLETE · diagnostic CLI 报告（read-only mode · 2026-04-26）· 用户提供真材料路径 `D:\刘野\众安\新建文件夹\2026.3.25续贷材料`（中锐网络续贷 90 文件 158MB）· Q-030 follow-up · CA-B3-10 DEFER
+
+### 背景
+
+用户起 read-only diagnostic CLI 横向 audit 6 Agent 代码架构 + Mock 数据。报告抓出我前轮 A/B/C/D 全漏的 5 处真信号：
+
+1. **🔴 Agent2 `backtesting.py:22` `MAX_ROWS=500` 硬 cap** · 注释自承"MVP降级策略"· 真实风控样本 5-50 万行 · 500 行 KS 不可信 · mock 已有 7500 行 · 代码只读 500 = 浪费 93% · 客户走访演示翻车风险高
+2. **🔴 5 Agent Mock 量级全 30-2000× 不足**（不只 Agent6）· 真材料对照: 中锐网络续贷 90 文件 158MB · vs Agent6 mock 5 DP × 75KB = 2000× 差距
+3. **🔴 下周客户走访 · 5 天倒计时**（用户向 diagnostic CLI 透露 · 我前轮不知道）
+4. **🟡 中锐网络真材料 D:\刘野\众安\新建文件夹\2026.3.25续贷材料**（90 文件 / 71 银行流水 / 78MB 审计 PDF / 业务上下文 docx）· 可作 Agent6 dry-run baseline · 我前轮不知道
+5. **🟡 evidence_rate=0.333 真根因**: evaluation adapter 解析 v16 输出 *_v16_qc.md · 9 维度 6 miss = 3/9 · 不是异常吞 bug
+
+### Decision (A-040)
+
+整批立项 · 6 决策问题答：
+
+#### A-040.1 · Agent2 MAX_ROWS 修复（Q-040 核心 · P0 立修）
+
+**主 CLI 自做 0.5d 立修**（不派 worker · worker dispatch 30min overhead vs 0.5d 修活 不值）:
+- `agent_riskctrl/backtesting.py:22, 67, 84` 改 `MAX_ROWS=500` → `MAX_ROWS=50000`
+- 加 chunk read（`chunksize=10000` + 累计统计）防 OOM
+- 加 sampling 策略（超 50000 行 stratified sample）
+- 跑 pytest agent_riskctrl/tests/ 全绿
+- Signal: `AGENT2-MAX-ROWS-FIX` · commit body 引本 Q-040
+
+理由：客户走访 5d 倒计时 · worker dispatch + ACK + onboarding 流程过长 · 主 CLI 自做最快。
+
+#### A-040.2 · Mock 数据补足立 Wave 5「mock-realism-upgrade」一轨（推迟客户走访后）
+
+P0/P1 立修 · P2 推迟:
+- **P0 客户走访前**: Agent2 MAX_ROWS（A-040.1）+ Agent3 case 库 5→50（主 CLI 派生脚本 0.5d）
+- **P1 PoC 启动前 4 周**: Agent4 规则 11→50+（业务专家 review · 1 周）+ Agent5 SOP 169→1000+（1-2 周）+ Agent2 chunk read 完整化（1 周）
+- **P2 Wave 5 长期**: Agent1 历史客户 10→200+（1 周）+ Agent6 真材料解析层（OCR + 大 PDF + 银行流水 + 业务上下文 · 2-4 周）+ Agent5 监管新政 ingestion（1-2 周）
+
+立 Wave 5「mock-realism-upgrade」一轨（housekeeping batch 之后 · Wave 3 dispatch 之后 · 不阻当前流程）。
+
+#### A-040.3 · codex-ui-bundle.zip 处置 = C 选项
+
+Wave 2 frontend-integration 已完 · 现在做 diff:
+- 整体过时（API contract / 三板块定义 / 缺 EvidenceTrail）· 不全合
+- 单挑 BlackHole R3F (`CosmicStageR3F.tsx`) cherry-pick · 10min 工期 · 替换当前 login 静态星云
+- 其他文件按需挑（看 Wave 2 frontend-integration 是否已含）
+- 推迟到客户走访后 housekeeping batch 时一并 done
+
+#### A-040.4 · 异常处理 sprint = 不做
+
+实际 30-50 真问题（diagnostic CLI 自我纠错: 441 沉默异常被夸大 · 5 个热点文件 logger.warning / except: continue 是合理 design pattern）· 不投入 sprint · 改投 mock 数据补足。
+
+#### A-040.5 · Agent2 backtesting.py:22 known issue 记入 decisions-log
+
+本 Q-040 即记 · 不再拖。
+
+#### A-040.6 · diagnostic CLI 报告持久化
+
+诊断报告内容含 §1-7 完整结构 · 通过本 Q-040 决策档持久化关键 finding（不再保留 chat-only · 可追溯）。原 CLI session 是 read-only 待命 · 不动 git。
+
+### Follow-up
+
+1. 立即（本 commit 后）:
+   - 主 CLI Read agent_riskctrl/backtesting.py 看 MAX_ROWS 上下文
+   - Edit MAX_ROWS=500 → 50000 + chunk read
+   - pytest 验
+   - commit Signal: `AGENT2-MAX-ROWS-FIX` 引本 Q-040
+2. 0.5d 内（A-040.1 完后）:
+   - Agent3 case 库 5→50（主 CLI 派生脚本）
+   - Signal: `AGENT3-CASES-EXPANSION-50`
+3. 1-2h（你方便时）:
+   - 真 LLM key 切换 `.env`（DEEPSEEK + TAVILY · 你做）
+   - 真验 demo 跑 6 Agent 端到端（你 + 主 CLI 监 log · 录屏 backup）
+4. 0.5d（你方便时）:
+   - 中锐网络真材料 dry-run（你授权路径 + Agent6 跑 · dry-run 报告产 docs/diagnostic/）
+5. 客户走访后（housekeeping batch · 已立 6 项 + 加新项）:
+   - 原 housekeeping 6 项（Q-037/038/039 fix-forward + worker cleanup + 路由 banner + demo source chip）
+   - codex-ui-bundle BlackHole R3F cherry-pick
+6. Wave 3 dispatch（housekeeping 完后 · 客户走访后）:
+   - 轨 6 POC evidence（Playwright E2E × 3 + 截屏 + P95 + 运维 · 解 L3-9/10 + L0-12/13）· 必须在 Agent2 MAX_ROWS fix 后跑（否则 POC KS 不可信）
+   - 轨 8c evaluation（Q-030 follow-up + CA-B3-10 DEFER + Agent1/5 deterministic）
+7. Wave 5 dispatch（mock-realism-upgrade · Wave 3 后）:
+   - Agent4 规则 11→50+ / Agent5 SOP 169→1000+ / Agent1 客户 10→200+ / Agent6 真材料解析层
+
+### Signals
+
+- 本 commit Signal: `P3F-Q040-RESOLVED`
+- Agent2 fix commit Signal: `AGENT2-MAX-ROWS-FIX`（紧接本 commit）
+- Agent3 case 扩 commit Signal: `AGENT3-CASES-EXPANSION-50`
+
+---
