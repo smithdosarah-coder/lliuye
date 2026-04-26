@@ -2,11 +2,19 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import {
+  CARD_PIN_MIME,
+  type CardPinPayload,
+} from "@/lib/store/whiteboard-store";
+import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
 import { AuthGate } from "./AuthGate";
 import { CustomerDrawer } from "./CustomerDrawer";
 import { Desk } from "./Desk";
+import { FreePanelLayer } from "./FreePanelLayer";
 import { Masthead } from "./Masthead";
+import { PanelCanvas } from "./PanelCanvas";
 import { ThemeSwitch } from "./ThemeSwitch";
+import { Whiteboard } from "./Whiteboard";
 
 const DESK_MIME = "application/x-desk-row";
 
@@ -38,7 +46,17 @@ function ShellChrome({ children }: { children: ReactNode }) {
     return Array.from(e.dataTransfer.types).includes(DESK_MIME);
   }
 
+  function hasCardPinPayload(e: DragEvent<HTMLElement>): boolean {
+    return Array.from(e.dataTransfer.types).includes(CARD_PIN_MIME);
+  }
+
+  function hasPanelPinPayload(e: DragEvent<HTMLElement>): boolean {
+    return Array.from(e.dataTransfer.types).includes(PANEL_PIN_MIME);
+  }
+
   function onDragEnter(e: DragEvent<HTMLElement>) {
+    // Desk row drop hover label only —— card-pin payload doesn't need the
+    // 「释放即可打开 …」hint on shell-views（拖到中央就走 navigate 路径，不提示）
     if (!hasDeskPayload(e)) return;
     e.preventDefault();
     depth.current += 1;
@@ -50,7 +68,10 @@ function ShellChrome({ children }: { children: ReactNode }) {
   }
 
   function onDragOver(e: DragEvent<HTMLElement>) {
-    if (!hasDeskPayload(e)) return;
+    // 接受任一 MIME 都允许 drop（preventDefault 是必要的）
+    // panel-pin 路过中央 → 允许 drag（让 ghost 不闪烁），但 onDrop 不消费 —
+    // 真正的落点是右侧 PanelCanvas；落在中央属「误操作」，默默 noop。
+    if (!hasDeskPayload(e) && !hasCardPinPayload(e) && !hasPanelPinPayload(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
   }
@@ -62,22 +83,39 @@ function ShellChrome({ children }: { children: ReactNode }) {
   }
 
   function onDrop(e: DragEvent<HTMLElement>) {
-    const raw = e.dataTransfer.getData(DESK_MIME);
-    if (!raw) return;
-    e.preventDefault();
-    depth.current = 0;
-    setDropHover(null);
-    try {
-      const data = JSON.parse(raw) as DropPayload;
-      if (data?.href) router.push(data.href);
-    } catch {
-      /* ignore malformed payloads */
+    // 优先消费 desk row（既有路径不变 · 拖客户行到 views 中心 → 跳客户页）
+    const deskRaw = e.dataTransfer.getData(DESK_MIME);
+    if (deskRaw) {
+      e.preventDefault();
+      depth.current = 0;
+      setDropHover(null);
+      try {
+        const data = JSON.parse(deskRaw) as DropPayload;
+        if (data?.href) router.push(data.href);
+      } catch {
+        /* ignore malformed payloads */
+      }
+      return;
+    }
+    // 次选：card-pin payload。落在 views 中心而不是白板 →
+    // 行为约定：跳到 href（与 desk row 行为一致，符合 "拖到中央 = 打开" 的直觉）
+    const pinRaw = e.dataTransfer.getData(CARD_PIN_MIME);
+    if (pinRaw) {
+      e.preventDefault();
+      try {
+        const data = JSON.parse(pinRaw) as CardPinPayload;
+        if (data?.href) router.push(data.href);
+      } catch {
+        /* ignore malformed payloads */
+      }
     }
   }
 
   return (
     <div className="shell-root">
       <Desk />
+      <Whiteboard />
+      <PanelCanvas />
       <main className="shell-stage">
         <Masthead />
         <section
@@ -93,6 +131,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
       </main>
       <ThemeSwitch />
       <CustomerDrawer />
+      <FreePanelLayer />
     </div>
   );
 }

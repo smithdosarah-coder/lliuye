@@ -13,7 +13,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
     ignoreHTTPSErrors: true,
@@ -25,6 +25,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+    },
+    /* P3F 轨 4 Stage 5 跨 browser smoke · Edge 111+ 银行内网兼容主线
+       (per CLAUDE.md §7 "color-mix() 要求 Chrome/Edge 111+") */
+    {
+      name: "edge",
+      use: { ...devices["Desktop Edge"], channel: "msedge" },
     },
   ],
 });

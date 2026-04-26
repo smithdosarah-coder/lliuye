@@ -144,6 +144,9 @@ export interface ImThread {
   participants: string[]; // User.id[]
   lastMessageAt: string;
   unreadCount: number;
+  /** "group" = 含 agent 的协作群；"dm" = 客户经理 ↔ 同事的纯人际私聊。
+   *  仅用于 ThreadList 视觉分类，不影响后端契约。Optional 兼容旧数据。 */
+  kind?: "group" | "dm";
 }
 
 /**

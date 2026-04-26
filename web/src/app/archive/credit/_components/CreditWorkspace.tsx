@@ -33,6 +33,7 @@ import {
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
+import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
 import {
   CREDIT_GLOBAL_STATS,
   CREDIT_MODE_LABEL,
@@ -148,6 +149,13 @@ export default function CreditWorkspace() {
         onGenerate={startGenerate}
       />
 
+      <DashboardBand
+        radar={session.radar}
+        overall={session.overallScore}
+        limit={session.limit}
+        redLines={session.redLines}
+      />
+
       <div className="rpt-grid">
         <aside className="rpt-col rpt-col--left">
           <QueryPanel q={session.query} />
@@ -184,9 +192,68 @@ export default function CreditWorkspace() {
         <ClaimText text={CREDIT_EVIDENCE.summary} />
       </section>
       <UnfilledFields />
+      <RiskRadarPreview mode={mode} session={session} />
       <EvidenceTrail agentTone="credit" />
     </div>
     </EvidenceProvider>
+  );
+}
+
+/* ─────────── Q-033 · RiskRadar Preview · L1-3 ─────────── */
+/* 596283f wrapper · 复用 ScoreRadar · 与既有 session.radar (CreditRadarDim) 并存 ·
+   提供四维 segment 派发 (corp/sme: 财务/行业/经营/担保 · retail: 还款能力/还款
+   意愿/稳定性/担保)，从 session.radar 抽 score 拼 ScoringPayload-shape 子集 ·
+   仅可视 demo · 不替代既有 RadarChart。 */
+function RiskRadarPreview({
+  mode,
+  session,
+}: {
+  mode: CreditMode;
+  session: CreditSession;
+}) {
+  const segment: RiskRadarSegment =
+    mode === "corp" ? "corporate" : mode === "small" ? "sme" : "retail";
+  const corpKeys = [
+    "financial_score",
+    "industry_score",
+    "operational_score",
+    "guarantee_score",
+  ] as const;
+  const retailKeys = [
+    "repayment_capacity",
+    "repayment_willingness",
+    "stability",
+    "collateral",
+  ] as const;
+  const radarByKey: Record<string, number> = {};
+  for (const dim of session.radar) {
+    radarByKey[dim.key] = dim.score;
+  }
+  const flat = {
+    financial_score: radarByKey["fin"],
+    industry_score: radarByKey["ind"] ?? radarByKey["ops"],
+    operational_score: radarByKey["ops"],
+    guarantee_score: radarByKey["guar"],
+  };
+  const cat = {
+    repayment_capacity: radarByKey["repay"] ?? radarByKey["fin"],
+    repayment_willingness: radarByKey["will"] ?? radarByKey["comp"],
+    stability: radarByKey["stab"] ?? radarByKey["ops"],
+    collateral: radarByKey["coll"] ?? radarByKey["guar"],
+  };
+  const scoring = segment === "corporate" ? flat : { category_scores: cat };
+  return (
+    <section
+      className="rpt-panel risk-radar-preview"
+      aria-label="L1-3 RiskRadar (Q-033)"
+      data-testid="risk-radar-preview"
+    >
+      <header className="risk-radar-preview-head">
+        <span className="risk-radar-preview-eyebrow">L1-3 · 四维风险雷达</span>
+        <span className="risk-radar-preview-segment">segment: {segment}</span>
+      </header>
+      <RiskRadar scoring={scoring} segment={segment} />
+    </section>
   );
 }
 
@@ -232,6 +299,114 @@ function TopBar({
         <span className="credit-topbar__stat-l">本周已决</span>
       </div>
     </div>
+  );
+}
+
+/* ─────────────── v2 Hero Band · 四维评分仪表盘 ─────────────── */
+/* Stage 4 · b6f9ef9 patch · DashboardBand 4 圆环 (综合评分 / 建议额度 /
+   建议期限 / 红线检查) + 4 维权重 chip · tone 色阶走 --safe / --t-report /
+   --t-alert · CSS .credit-band-* 已在 main credit-workspace.css。 */
+
+function DashboardBand(p: {
+  radar: CreditRadarDim[];
+  overall: number;
+  limit: LimitSuggestion;
+  redLines: RedLine[];
+}) {
+  const dims = p.radar;
+  const overall = p.overall;
+  const cutPct = Math.round((p.limit.suggested / p.limit.applied) * 100);
+  const redFail = p.redLines.filter((r) => r.status === "fail").length;
+  const redWarn = p.redLines.filter((r) => r.status === "warn").length;
+
+  const cards = [
+    {
+      key: "overall",
+      label: "综合评分",
+      value: overall,
+      unit: "分",
+      caption: "综合 4 维 × 权重",
+      detail: overall >= 75 ? "绿区" : overall >= 60 ? "关注区" : "红区",
+      pct: overall,
+      tone: overall >= 75 ? "good" : overall >= 60 ? "warn" : "bad",
+    },
+    {
+      key: "limit",
+      label: "建议额度",
+      value: p.limit.suggested,
+      unit: "万",
+      caption: `申请 ${p.limit.applied} 万`,
+      detail: cutPct < 100 ? `打折 ${cutPct}%` : "足额批",
+      pct: Math.min(cutPct, 100),
+      tone: cutPct >= 90 ? "good" : cutPct >= 70 ? "warn" : "bad",
+    },
+    {
+      key: "tenor",
+      label: "建议期限",
+      value: p.limit.tenorMonths,
+      unit: "月",
+      caption: `利率 ${(p.limit.rateBps / 100).toFixed(2)}%`,
+      detail: `区间 ${p.limit.tenorRange[0]}–${p.limit.tenorRange[1]} 月`,
+      pct: Math.round((p.limit.tenorMonths / p.limit.tenorRange[1]) * 100),
+      tone: "neutral",
+    },
+    {
+      key: "red",
+      label: "红线检查",
+      value: p.redLines.length - redFail - redWarn,
+      unit: `/ ${p.redLines.length}`,
+      caption: `${redFail} 触发 · ${redWarn} 预警`,
+      detail: redFail === 0 ? "无阻断" : "阻断",
+      pct: Math.round(
+        ((p.redLines.length - redFail - redWarn) / Math.max(p.redLines.length, 1)) * 100,
+      ),
+      tone: redFail === 0 ? "good" : "bad",
+    },
+  ] as const;
+
+  return (
+    <section className="rpt-panel credit-band" aria-label="四维评分仪表盘">
+      <div className="credit-band-head">
+        <span className="eyebrow">DASHBOARD · 四维评分 × 额度 × 红线</span>
+        <div className="dims">
+          {dims.map((d) => (
+            <span key={d.key} className="dim" title={d.note}>
+              <span className="k">{d.label}</span>
+              <span className="v">{d.score}</span>
+              <span className="w">× {Math.round(d.weight * 100)}%</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <ol className="credit-band-list">
+        {cards.map((c) => (
+          <li key={c.key} className="credit-band-card" data-tone={c.tone}>
+            <div className="credit-band-dial" aria-hidden>
+              <svg width="64" height="64" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" className="track" />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="26"
+                  className="fill"
+                  strokeDasharray={`${(c.pct / 100) * 163.36} 163.36`}
+                  transform="rotate(-90 32 32)"
+                />
+              </svg>
+              <div className="credit-band-val">
+                <span className="num">{c.value}</span>
+                <span className="unit">{c.unit}</span>
+              </div>
+            </div>
+            <div className="credit-band-body">
+              <div className="lbl">{c.label}</div>
+              <div className="caption">{c.caption}</div>
+              <div className="detail">{c.detail}</div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

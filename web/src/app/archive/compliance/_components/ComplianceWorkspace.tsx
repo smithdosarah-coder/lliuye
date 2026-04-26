@@ -9,18 +9,11 @@
  */
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ScanCTA } from "@/components/shared/ScanCTA";
-import { CustomerSelector } from "@/components/shared/CustomerSelector";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
-import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   COMPLIANCE_GLOBAL_STATS,
   COMPLIANCE_SESSION,
+  type CellDetail,
+  type ClauseMapRow,
   type ComplianceQuery,
   type ComplianceRecentSession,
   type Conflict,
@@ -31,22 +24,49 @@ import {
   type PipelineStep,
   type PolicyRef,
   type PolicyTimelineItem,
+  type PolicyUpload,
+  type RevisionAdvice,
 } from "@/lib/mock/agent-compliance-session";
+import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
+import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
+import {
+  ClaimText,
+  EvidenceProvider,
+  EvidenceTrail,
+  UnfilledFields,
+} from "@/components/evidence";
+import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
+
+/** 截断消息文本作 pin title · 尾部加 …（与 channel 同构） */
+function msgTitle(raw: string): string {
+  const flat = raw.replace(/\s+/g, " ").trim();
+  return flat.length > 42 ? `${flat.slice(0, 40)}…` : flat;
+}
+
+function msgPinProps(msg: ConversationMessage, speaker: string) {
+  return {
+    id: `compliance:msg:${msg.id}`,
+    title: msgTitle(msg.content),
+    subtitle: `${speaker} · ${msg.at}`,
+    accentVar: "--t-compli",
+    agentKey: "compliance",
+    href: "/archive/compliance",
+    fullText: msg.content,
+  };
+}
 
 type OutputTab = "matrix" | "funnel" | "timeline";
 
 export default function ComplianceWorkspace() {
   const session = COMPLIANCE_SESSION;
   const [tab, setTab] = useState<OutputTab>("matrix");
-  /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
-  const [scanned, setScanned] = useState(false);
 
   return (
     <EvidenceProvider
       items={COMPLIANCE_EVIDENCE.items}
       unfilledFields={COMPLIANCE_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace" data-scanned={scanned ? "yes" : "no"}>
+    <div className="rpt-workspace">
       <HeroSection
         weeklyProcessed={COMPLIANCE_GLOBAL_STATS.weeklyProcessed}
         conflictRate={COMPLIANCE_GLOBAL_STATS.conflictRate}
@@ -55,6 +75,11 @@ export default function ComplianceWorkspace() {
         stage={session.stage}
         updated={session.updated}
         qcCounts={session.qcCounts}
+      />
+
+      <UploadRail
+        innerUploads={session.innerPolicyUploads}
+        outerUploads={session.outerPolicyUploads}
       />
 
       <PolicyTicker
@@ -73,21 +98,8 @@ export default function ComplianceWorkspace() {
         </aside>
 
         <section className="rpt-col rpt-col--mid">
-          <ScanCTA
-            label="政策核查"
-            tone="compli"
-            onDone={() => setScanned(true)}
-            steps={[
-              { label: "抓取最新政策 · 3 渠道", pct: 18 },
-              { label: "解析政策条款 · 实体抽取", pct: 42 },
-              { label: "比对业务矩阵 · 逐条扫", pct: 66 },
-              { label: "违规判定 · 缺陷分类", pct: 86 },
-              { label: "生成冲突清单 · 完成", pct: 100 },
-            ]}
-          />
-          <ConversationPanel msgs={session.conversation}>
-            <ComplianceComposer />
-          </ConversationPanel>
+          <ConversationPanel msgs={session.conversation} />
+          <ComplianceComposer />
         </section>
 
         <section className="rpt-col rpt-col--right">
@@ -100,9 +112,13 @@ export default function ComplianceWorkspace() {
             conflicts={session.conflicts}
             funnel={session.funnel}
             timeline={session.timeline}
+            cellDetails={session.cellDetails}
           />
         </section>
       </div>
+
+      <RevisionPanel advices={session.revisionAdvices} />
+
       <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
         <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
         <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
@@ -111,6 +127,176 @@ export default function ComplianceWorkspace() {
       <EvidenceTrail agentTone="compliance" />
     </div>
     </EvidenceProvider>
+  );
+}
+
+/* ────────────────────── UPLOAD RAIL · Codex 融合头部 ────────────────────── */
+
+const COMPARE_STEPS: { label: string; pct: number }[] = [
+  { label: "解析行内政策 · 匹配版本", pct: 22 },
+  { label: "解析外部政策 · 抽取条款", pct: 46 },
+  { label: "映射条款关系 · 对齐字段", pct: 70 },
+  { label: "识别冲突与差异 · 生成建议", pct: 92 },
+  { label: "比对完成 · 可查看对照纸", pct: 100 },
+];
+
+function UploadRail(p: {
+  innerUploads: PolicyUpload[];
+  outerUploads: PolicyUpload[];
+}) {
+  const [running, setRunning] = useState(false);
+  const [stepIdx, setStepIdx] = useState<number>(-1); // -1 = 未开始；4 = 完成
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  function startCompare() {
+    if (running) return;
+    setRunning(true);
+    setStepIdx(0);
+    let i = 0;
+    timerRef.current = setInterval(() => {
+      i += 1;
+      if (i >= COMPARE_STEPS.length) {
+        setStepIdx(COMPARE_STEPS.length - 1);
+        setRunning(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+      } else {
+        setStepIdx(i);
+      }
+    }, 520);
+  }
+
+  const done = stepIdx === COMPARE_STEPS.length - 1 && !running;
+  const pct = stepIdx >= 0 ? COMPARE_STEPS[stepIdx].pct : 0;
+  const flowText =
+    stepIdx < 0
+      ? "点击按钮开始新一轮政策比对"
+      : COMPARE_STEPS[stepIdx].label;
+
+  return (
+    <section className="rpt-panel compliance-upload" aria-label="政策上传与比对">
+      <PanelPinHandle
+        id="compliance:upload-rail"
+        title="政策上传与比对"
+        subtitle="行内 + 外部 · CTA 启动 5 步比对"
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`行内 ${p.innerUploads.length} 份 · 外部 ${p.outerUploads.length} 份 · 点击「开始政策比对」`}
+      />
+      <div className="compliance-upload-head">
+        <div>
+          <div className="compliance-upload-eyebrow">POLICY INSPECTION DESK</div>
+          <h3 className="compliance-upload-title">上传政策材料 · 启动条款对比</h3>
+          <p className="compliance-upload-sub">
+            同时维护行内口径与外部监管口径，版本可追溯；点击"开始政策比对"触发 5 步异步流程。
+          </p>
+        </div>
+        <div className="compliance-upload-cta">
+          <button
+            type="button"
+            className="compliance-upload-btn"
+            onClick={startCompare}
+            disabled={running}
+            data-state={running ? "running" : done ? "done" : "idle"}
+          >
+            {running ? "比对中…" : done ? "重新比对" : "开始政策比对"}
+          </button>
+          <div className="compliance-upload-btn-sub">
+            {done ? "已完成 · 可在矩阵 tab 查看对照" : "Cmd/Ctrl ↵ 触发"}
+          </div>
+        </div>
+      </div>
+
+      <div className="compliance-upload-zones">
+        <DropZoneCard
+          title="行内政策"
+          hint="制度文档 · 审批办法 · 业务细则"
+          uploads={p.innerUploads}
+          side="inner"
+        />
+        <DropZoneCard
+          title="外部政策"
+          hint="监管规定 · 通知 · 指引 · 公开规范"
+          uploads={p.outerUploads}
+          side="outer"
+        />
+      </div>
+
+      <div className="compliance-upload-flow" data-running={running ? "yes" : "no"}>
+        <div className="compliance-upload-flow-head">
+          <span className="compliance-upload-flow-label">比对流程</span>
+          <span className="compliance-upload-flow-text">{flowText}</span>
+        </div>
+        <div className="compliance-upload-prog" aria-hidden>
+          <div
+            className="compliance-upload-prog-bar"
+            style={{ width: `${pct}%` } as CSSProperties}
+          />
+        </div>
+        <ol className="compliance-upload-steps">
+          {COMPARE_STEPS.map((s, i) => {
+            const state =
+              i < stepIdx ? "done" : i === stepIdx ? (running || i === COMPARE_STEPS.length - 1 ? (running ? "active" : "done") : "active") : "pending";
+            return (
+              <li key={s.label} className="compliance-upload-step" data-state={state}>
+                <span className="compliance-upload-step-idx">{String(i + 1).padStart(2, "0")}</span>
+                <span className="compliance-upload-step-label">{s.label}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function DropZoneCard(p: {
+  title: string;
+  hint: string;
+  uploads: PolicyUpload[];
+  side: "inner" | "outer";
+}) {
+  const count = p.uploads.length;
+  return (
+    <div className="compliance-drop-card" data-side={p.side}>
+      <div className="compliance-drop-head">
+        <div className="compliance-drop-title">{p.title}</div>
+        <span className="compliance-drop-count">{count} 份</span>
+      </div>
+      <label className="compliance-drop-zone">
+        <span className="compliance-drop-plus" aria-hidden>＋</span>
+        <span className="compliance-drop-label">拖拽文件到此处 · 或点击选择</span>
+        <span className="compliance-drop-hint">{p.hint}</span>
+        <input type="file" multiple hidden aria-label={`上传${p.title}`} />
+      </label>
+      <ul className="compliance-drop-list">
+        {p.uploads.slice(0, 3).map((u) => (
+          <li key={u.id} className="compliance-drop-item" data-status={u.status}>
+            <span className="compliance-drop-item-ico" aria-hidden>
+              {u.status === "synced" ? "✓" : u.status === "parsing" ? "◐" : "◌"}
+            </span>
+            <div className="compliance-drop-item-body">
+              <div className="compliance-drop-item-name">{u.name}</div>
+              <div className="compliance-drop-item-meta">
+                {u.version} · {u.size}
+              </div>
+            </div>
+            <span className="compliance-drop-item-status">
+              {u.status === "synced" ? "已同步" : u.status === "parsing" ? "解析中" : "待处理"}
+            </span>
+          </li>
+        ))}
+        {count > 3 ? (
+          <li className="compliance-drop-more">+ {count - 3} 份更早版本</li>
+        ) : null}
+      </ul>
+    </div>
   );
 }
 
@@ -133,8 +319,6 @@ function HeroSection(p: {
         <span className="rpt-hero__sep">·</span>
         <span>合规扫描引擎</span>
       </div>
-      {/* 2026-04-23 · 业务逻辑: compliance 是政策事件驱动 · 批量比对内部制度 · 不选客户
-          输入是政策源 + 制度库 · 触发"政策核查"即可 · CustomerSelector 不适用 */}
       <h1 className="rpt-hero__title">{p.objective}</h1>
       <p className="rpt-hero__sub">{p.stage} · {p.updated}</p>
       <dl className="rpt-hero__stats">
@@ -188,6 +372,15 @@ function PolicyTicker(p: {
 
   return (
     <section className="rpt-panel compliance-ticker" aria-label="政策事件时间线">
+      <PanelPinHandle
+        id="compliance:policy-ticker"
+        title="政策 Ticker"
+        subtitle="最新 3 条政策 · 发布/扫描状态"
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`冲突 ${totalBlock} 阻断 · ${totalWarn} 警告 · 最新 ${tlHead?.date ?? "—"}`}
+      />
       <div className="compliance-ticker-head">
         <span className="eyebrow">POLICY TICKER · 最新政策 3 条</span>
         <span className="meta">
@@ -242,6 +435,15 @@ function PolicyTicker(p: {
 function QueryPanel({ q }: { q: ComplianceQuery }) {
   return (
     <div className="rpt-panel cp-q">
+      <PanelPinHandle
+        id="compliance:query"
+        title="新规概要"
+        subtitle={q.policyCode}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`${q.policyTitle} · ${q.clauseCount} 条 · 生效 ${q.effectiveDate}`}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">新规概要</div>
         <div className="rpt-panel__updated">更新 {q.updated}</div>
@@ -273,8 +475,18 @@ function QueryPanel({ q }: { q: ComplianceQuery }) {
 }
 
 function PoliciesPanel({ policies }: { policies: PolicyRef[] }) {
+  const totalConflicts = policies.reduce((n, p) => n + p.conflicts, 0);
   return (
     <div className="rpt-panel cp-pol">
+      <PanelPinHandle
+        id="compliance:policies"
+        title="近期政策"
+        subtitle={`${policies.length} 份 · 冲突合计 ${totalConflicts}`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`最新：${policies[0]?.title ?? "—"}`}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">近期政策</div>
         <div className="rpt-panel__counter">{policies.length}</div>
@@ -306,8 +518,18 @@ function PoliciesPanel({ policies }: { policies: PolicyRef[] }) {
 }
 
 function DocsPanel({ docs }: { docs: InternalDoc[] }) {
+  const avgCov = Math.round(docs.reduce((n, d) => n + d.coverage, 0) / (docs.length || 1));
   return (
     <div className="rpt-panel cp-doc">
+      <PanelPinHandle
+        id="compliance:docs"
+        title="内部制度"
+        subtitle={`${docs.length} 份 · 覆盖均值 ${avgCov}%`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb="行内条款 / 办法 / 规程 / 标准 全量清单"
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">内部制度</div>
         <div className="rpt-panel__counter">{docs.length}</div>
@@ -336,12 +558,22 @@ function DocsPanel({ docs }: { docs: InternalDoc[] }) {
 }
 
 function PipelinePanel({ steps }: { steps: PipelineStep[] }) {
+  const done = steps.filter((s) => s.status === "done").length;
   return (
     <div className="rpt-panel cp-pl">
+      <PanelPinHandle
+        id="compliance:pipeline"
+        title="扫描流水"
+        subtitle={`${done}/${steps.length} 步完成`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`活跃：${steps.find((s) => s.status === "active")?.label ?? "已全部完成"}`}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">扫描流水</div>
         <div className="rpt-panel__counter">
-          {steps.filter((s) => s.status === "done").length}/{steps.length}
+          {done}/{steps.length}
         </div>
       </div>
       <div className="rpt-panel__body">
@@ -367,6 +599,15 @@ function PipelinePanel({ steps }: { steps: PipelineStep[] }) {
 function RecentPanel({ recent }: { recent: ComplianceRecentSession[] }) {
   return (
     <div className="rpt-panel cp-rc">
+      <PanelPinHandle
+        id="compliance:recent"
+        title="近期扫描"
+        subtitle={`${recent.length} 次会话`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`最近：${recent[0]?.policy ?? "—"} · 冲突 ${recent[0]?.conflicts ?? 0}`}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">近期</div>
         <div className="rpt-panel__counter">{recent.length}</div>
@@ -393,13 +634,7 @@ function RecentPanel({ recent }: { recent: ComplianceRecentSession[] }) {
 
 /* ────────────────────── MID ────────────────────── */
 
-function ConversationPanel({
-  msgs,
-  children,
-}: {
-  msgs: ConversationMessage[];
-  children?: React.ReactNode;
-}) {
+function ConversationPanel({ msgs }: { msgs: ConversationMessage[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = scrollRef.current;
@@ -407,15 +642,25 @@ function ConversationPanel({
     el.scrollTop = el.scrollHeight;
   }, [msgs.length]);
 
+  const blurb = `${msgs.length} 条对话 · LEDGER ↔ 合规办`;
+
   return (
-    <div className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
+    <section className="rpt-panel rpt-panel--conv cp-conv">
+      <PanelPinHandle
+        id="compliance:conversation"
+        title="合规对话"
+        subtitle={`${msgs.length} 条消息`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={blurb}
+      />
       <div className="rpt-conv" ref={scrollRef}>
         {msgs.map((m) => (
           <ConversationMsg key={m.id} m={m} />
         ))}
       </div>
-      {children}
-    </div>
+    </section>
   );
 }
 
@@ -423,6 +668,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   if (m.kind === "system-event") {
     return (
       <div className="rpt-msg rpt-msg--sys">
+        <MessagePinHandle {...msgPinProps(m, "系统事件")} />
         <span className="rpt-msg__dot" aria-hidden>◈</span>
         <span className="rpt-msg__sys-txt">{m.content}</span>
         <span className="rpt-msg__at">{m.at}</span>
@@ -433,6 +679,9 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
     const isCmd = m.kind === "user-command";
     return (
       <div className="rpt-msg rpt-msg--user" data-cmd={isCmd ? "yes" : "no"}>
+        <MessagePinHandle
+          {...msgPinProps(m, isCmd ? "合规办 · /command" : "合规办 · 王哲")}
+        />
         <div className="rpt-msg__head">
           <span className="rpt-msg__who">{isCmd ? "指令" : "我"}</span>
           <span className="rpt-msg__at">{m.at}</span>
@@ -444,6 +693,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   if (m.kind === "ai-thinking") {
     return (
       <div className="rpt-msg rpt-msg--ai rpt-msg--thinking">
+        <MessagePinHandle {...msgPinProps(m, "LEDGER · 推理")} />
         <div className="rpt-msg__head">
           <span className="rpt-msg__who">LEDGER · 推理</span>
           <span className="rpt-msg__at">{m.at}</span>
@@ -477,6 +727,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   const who = m.kind === "ai-question" ? "LEDGER · 问" : "LEDGER";
   return (
     <div className="rpt-msg rpt-msg--ai" data-q={m.kind === "ai-question" ? "yes" : "no"}>
+      <MessagePinHandle {...msgPinProps(m, who)} />
       <div className="rpt-msg__head">
         <span className="rpt-msg__who">{who}</span>
         <span className="rpt-msg__at">{m.at}</span>
@@ -538,9 +789,20 @@ function OutputPanel(p: {
   conflicts: Conflict[];
   funnel: FunnelStage[];
   timeline: PolicyTimelineItem[];
+  cellDetails: Record<string, CellDetail>;
 }) {
+  const blurb = `矩阵 / 漏斗 / Timeline · ${p.conflicts.length} 条冲突 · ${p.docs.length} 份制度`;
   return (
     <div className="rpt-panel cp-out">
+      <PanelPinHandle
+        id="compliance:output"
+        title="合规看板"
+        subtitle={`tab · ${p.tab}`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={blurb}
+      />
       <div className="rpt-panel__head cp-out__head">
         <div className="rpt-panel__eyebrow">合规看板</div>
         <div className="cp-out__tabs" role="tablist">
@@ -551,7 +813,13 @@ function OutputPanel(p: {
       </div>
       <div className="rpt-panel__body cp-out__body">
         {p.tab === "matrix" ? (
-          <MatrixView matrix={p.matrix} docs={p.docs} clauses={p.clauses} conflicts={p.conflicts} />
+          <MatrixView
+            matrix={p.matrix}
+            docs={p.docs}
+            clauses={p.clauses}
+            conflicts={p.conflicts}
+            cellDetails={p.cellDetails}
+          />
         ) : null}
         {p.tab === "funnel" ? <FunnelView funnel={p.funnel} conflicts={p.conflicts} /> : null}
         {p.tab === "timeline" ? <TimelineView timeline={p.timeline} /> : null}
@@ -583,11 +851,13 @@ function MatrixView({
   docs,
   clauses,
   conflicts,
+  cellDetails,
 }: {
   matrix: MatrixCell[];
   docs: InternalDoc[];
   clauses: { id: string; label: string }[];
   conflicts: Conflict[];
+  cellDetails: Record<string, CellDetail>;
 }) {
   const [sel, setSel] = useState<{ docId: string; clauseId: string } | null>(null);
   const lookup = new Map<string, MatrixCell>();
@@ -653,31 +923,125 @@ function MatrixView({
       </div>
 
       {sel && selCell ? (
-        <div className="cp-mx__detail" data-severity={selCell.severity}>
-          <div className="cp-mx__d-head">
-            <span className="cp-mx__d-doc">{selDoc?.title}</span>
-            <span className="cp-mx__d-sep">·</span>
-            <span className="cp-mx__d-cl">{selClause?.label}</span>
-          </div>
-          <div className="cp-mx__d-note">
-            {selCell.note ?? "通过 · 无需整改"}
-          </div>
-          {selConflict ? (
-            <>
-              <div className="cp-mx__d-row">
-                <span className="cp-mx__d-lbl">出处</span>
-                <span className="cp-mx__d-val">{selConflict.cite}</span>
-              </div>
-              <div className="cp-mx__d-row">
-                <span className="cp-mx__d-lbl">整改建议</span>
-                <span className="cp-mx__d-val">{selConflict.advice}</span>
-              </div>
-            </>
-          ) : null}
-        </div>
+        <CellDrawer
+          cell={selCell}
+          doc={selDoc}
+          clause={selClause}
+          conflict={selConflict}
+          detail={cellDetails[`${sel.docId}-${sel.clauseId}`]}
+        />
       ) : (
-        <div className="cp-mx__hint">点击矩阵单元格查看冲突详情与整改建议</div>
+        <div className="cp-mx__hint">点击矩阵单元格 · 下方展开左右对照纸 + 条款映射</div>
       )}
+    </div>
+  );
+}
+
+/* ── 矩阵 drawer · 左右对照"纸" + 条款映射表 ── */
+
+function CellDrawer({
+  cell,
+  doc,
+  clause,
+  conflict,
+  detail,
+}: {
+  cell: MatrixCell;
+  doc: InternalDoc | null | undefined;
+  clause: { id: string; label: string } | null | undefined;
+  conflict: Conflict | null | undefined;
+  detail: CellDetail | undefined;
+}) {
+  const sevLabel =
+    cell.severity === "block"
+      ? "强冲突"
+      : cell.severity === "warn"
+      ? "口径差异"
+      : cell.severity === "info"
+      ? "提示"
+      : "通过";
+
+  return (
+    <div className="cp-drawer" data-severity={cell.severity}>
+      <div className="cp-drawer__head">
+        <span className="cp-drawer__sev" data-severity={cell.severity}>
+          {sevLabel}
+        </span>
+        <span className="cp-drawer__doc">{doc?.title}</span>
+        <span className="cp-drawer__sep">·</span>
+        <span className="cp-drawer__cl">{clause?.label}</span>
+      </div>
+
+      {cell.note ? (
+        <div className="cp-drawer__note">{cell.note}</div>
+      ) : null}
+
+      {detail ? (
+        <>
+          <div className="cp-drawer__papers">
+            <article className="cp-paper" data-side="inner">
+              <div className="cp-paper__tag">行内政策条款</div>
+              <div className="cp-paper__meta">{detail.paper.innerDocVersion}</div>
+              <div
+                className="cp-paper__body"
+                dangerouslySetInnerHTML={{ __html: detail.paper.innerHtml }}
+              />
+            </article>
+            <article className="cp-paper" data-side="outer">
+              <div className="cp-paper__tag">外部政策条款</div>
+              <div className="cp-paper__meta">{detail.paper.outerDocVersion}</div>
+              <div
+                className="cp-paper__body"
+                dangerouslySetInnerHTML={{ __html: detail.paper.outerHtml }}
+              />
+            </article>
+          </div>
+
+          <div className="cp-mapping">
+            <div className="cp-mapping__title">条款映射</div>
+            <div className="cp-mapping__list">
+              {detail.clauseMapping.map((row, i) => (
+                <ClauseMapRowItem key={i} row={row} />
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="cp-drawer__empty">
+          {cell.severity === "pass"
+            ? "此单元格通过 · 无差异 · 无需整改"
+            : "此单元格暂无对照原文 · 详情补齐中"}
+        </div>
+      )}
+
+      {conflict ? (
+        <div className="cp-drawer__advice">
+          <div className="cp-drawer__advice-head">
+            <span className="cp-drawer__advice-tag">整改建议</span>
+            <span className="cp-drawer__advice-cite">{conflict.cite}</span>
+          </div>
+          <div className="cp-drawer__advice-body">{conflict.advice}</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ClauseMapRowItem({ row }: { row: ClauseMapRow }) {
+  const DIFF_LABEL: Record<ClauseMapRow["diff"], string> = {
+    bad: "冲突",
+    warn: "差异",
+    info: "提示",
+  };
+  return (
+    <div className="cp-mapping__row" data-diff={row.diff}>
+      <span className="cp-mapping__field">{row.field}</span>
+      <span className="cp-mapping__inner">{row.inner}</span>
+      <span className="cp-mapping__arrow" aria-hidden>→</span>
+      <span className="cp-mapping__outer">{row.outer}</span>
+      <span className="cp-mapping__diff" data-diff={row.diff}>
+        {DIFF_LABEL[row.diff]}
+      </span>
     </div>
   );
 }
@@ -755,3 +1119,90 @@ const TL_KIND_LABEL: Record<string, string> = {
   scanned: "扫描完成",
   resolved: "整改完成",
 };
+
+/* ────────────────────── REVISION PANEL · 底部修订意见 ────────────────────── */
+
+const KIND_LABEL: Record<RevisionAdvice["kind"], string> = {
+  fix: "改",
+  add: "补",
+  strengthen: "强",
+};
+const KIND_SUB: Record<RevisionAdvice["kind"], string> = {
+  fix: "冲突条款需调整",
+  add: "缺失条款需新增",
+  strengthen: "措辞需强化",
+};
+
+function RevisionPanel({ advices }: { advices: RevisionAdvice[] }) {
+  if (!advices.length) return null;
+
+  const groups: Record<RevisionAdvice["kind"], RevisionAdvice[]> = {
+    fix: [],
+    add: [],
+    strengthen: [],
+  };
+  advices.forEach((a) => groups[a.kind].push(a));
+
+  return (
+    <section className="rpt-panel compliance-bottom-revise" aria-label="修订意见">
+      <PanelPinHandle
+        id="compliance:revision"
+        title="修订意见"
+        subtitle={`改 ${groups.fix.length} · 补 ${groups.add.length} · 强 ${groups.strengthen.length}`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb="改/补/强 三类建议 · 可派工单进入修订流程"
+      />
+      <div className="compliance-revise-head">
+        <div>
+          <div className="compliance-revise-eyebrow">REVISION ADVICES · 改 / 补 / 强</div>
+          <h3 className="compliance-revise-title">修订意见与审阅说明</h3>
+          <p className="compliance-revise-sub">
+            不仅提示冲突，还给出可直接进入修订流程的建议语句；合规办可将任一条派成工单。
+          </p>
+        </div>
+        <div className="compliance-revise-count">
+          <span data-kind="fix">改 <b>{groups.fix.length}</b></span>
+          <span data-kind="add">补 <b>{groups.add.length}</b></span>
+          <span data-kind="strengthen">强 <b>{groups.strengthen.length}</b></span>
+        </div>
+      </div>
+
+      <div className="compliance-revise-grid">
+        {(["fix", "add", "strengthen"] as const).map((kind) => (
+          <div key={kind} className="compliance-revise-col" data-kind={kind}>
+            <div className="compliance-revise-col-head">
+              <span className="compliance-revise-chip" data-kind={kind}>
+                {KIND_LABEL[kind]}
+              </span>
+              <span className="compliance-revise-col-ttl">{KIND_SUB[kind]}</span>
+              <span className="compliance-revise-col-count">{groups[kind].length}</span>
+            </div>
+            <ul className="compliance-revise-list">
+              {groups[kind].map((a) => (
+                <li key={a.id} className="compliance-revise-item">
+                  <div className="compliance-revise-item-head">
+                    <span className="compliance-revise-item-title">{a.title}</span>
+                    {a.due ? (
+                      <span className="compliance-revise-item-due">截止 {a.due}</span>
+                    ) : null}
+                  </div>
+                  <div className="compliance-revise-item-body">{a.body}</div>
+                  {a.docTitle ? (
+                    <div className="compliance-revise-item-doc">对应制度 · {a.docTitle}</div>
+                  ) : null}
+                </li>
+              ))}
+              {!groups[kind].length ? (
+                <li className="compliance-revise-empty">
+                  暂无此类建议
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

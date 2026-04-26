@@ -108,6 +108,43 @@
 .dpx-row-avatar.stage-alert { background: var(--t-alert); }
 .dpx-row-avatar.stage-monitoring { background: var(--t-compli); }
 .dpx-row-avatar.stage-closed { background: var(--ink-48); }
+/* Step 3 · DM 私聊：中性墨色（无 stage 概念，不染功能色） */
+.dpx-row-avatar.stage-dm {
+  background: color-mix(in srgb, var(--ink) 65%, var(--chalk));
+  color: var(--chalk);
+}
+
+/* Step 3 · GROUPS / DIRECT 分段 ───────────────────────── */
+.dpx-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dpx-list-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 10px 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-48);
+}
+.dpx-list-section-head .lbl {
+  font-weight: 600;
+}
+.dpx-list-section-head .num {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-48);
+}
+/* 段间分隔：1px 虚线 + 4px gap */
+.dpx-list-sep {
+  border: none;
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 22%, transparent);
+  margin: 4px 8px;
+  height: 0;
+}
 
 .dpx-row-body {
   display: flex;
