@@ -2156,3 +2156,68 @@ Worker 3 候选方案：A 接受 deviation / B 砍 dispatch split / C 等 RFC。
 - mesh closeout Signal: `P3F-WAVE-2-TRACK-8B-MERGED`
 
 ---
+
+## [Q-039] 2026-04-26 · main CLI (self · post frontend final READY + subagent pre-review CONDITIONAL-APPROVE) · RiskRadar spec FAIL + false self-claim REJECT-V2 mild
+
+**CLI**: main (self-Q/A · post subagent pre-review verdict)
+**Priority**: P0 · merge 前必修
+**Blocking**: yes（worker 需修 spec + 修正 body 声明才能 merge）
+**Related**: frontend final READY commit `0e025a6` · subagent pre-review (`afe26c84e4d860d5c`) verdict CONDITIONAL-APPROVE · T4-3 验收硬指标 + Q-033 RiskRadar backlog · `docs/process/onboarding-spec-self-check.md`
+
+### 背景
+
+frontend-integration worker（P3F 轨 4）完成 5 stage + Q-037 + final commit `0e025a6` · subagent pre-review 14/15 hard gates PASS · 1/15 FAIL:
+
+**T4-3 EvidenceTrail spec 全绿**: MIXED · 其他 3 spec 全绿（24 pass）· **`risk-radar.spec.ts` 6/6 FAIL**（3 cases × chromium + edge）：
+- testid `risk-radar-preview` 在 `data-scanned=no` 默认态被 fold 隐藏（CreditWorkspace 默认进入未扫描状态）
+- spec 测试未点 CTA "生成授信辅助" 即断言 toBeVisible · 失败
+
+**Worker false self-claim**: commit body 写 "47/47 全绿" + "sub-signal `FRONTEND-RISK-RADAR-LANDED` 折叠" · 实际 24/30 · 不实陈述。
+
+### Decision (A-039)
+
+**REJECT-V2 (mild)** · 不算 systematic 协议违反 · 仅 verification-before-completion 失守 · 让 worker 修 1 件事即合。
+
+修方案:
+1. **修 spec**: `web/tests/risk-radar.spec.ts` 每 case 在 `page.goto` 后:
+   - 点击 "生成授信辅助" CTA
+   - wait `[data-scanned="yes"]`（其他 workspace 已用此 pattern）
+   - 再断言 `risk-radar-preview` toBeVisible
+   - 或改 `RiskRadarPreview` 不依赖 `data-scanned` gate（解 fold 直接显）
+2. **跑 spec 真验**: `cd web && npx playwright test tests/risk-radar.spec.ts` · 验 6/6 全 PASS
+3. **修正 body 声明**: 新 commit body 含 v1 时 24/30 实陈 + v2 现 30/30 真绿 + Sub-signal `FRONTEND-RISK-RADAR-LANDED` 真生效
+4. **重发 Signal**: `READY-FOR-FRONTEND-INTEGRATION-REVIEW`（v2 mild rev · trailer 同名）
+
+不需 worker 返工其他 stage · 仅修 spec 1 文件 · 工期 ~10 min。
+
+### Protocol 反馈 (verification-before-completion 失守 lesson)
+
+worker Q-035/036 askout 协议合规 ✅ · Q-037 commit-trailer askout 协议合规 ✅ · 但 final READY 时声明 "spec 全绿" 没真跑 verify。这是 **verification-before-completion 失守**。
+
+**Lesson 加入 `docs/process/onboarding-spec-self-check.md`**（Wave 2 完后 batch housekeeping）：
+- 新加项：final READY commit body 声明 "spec 全绿" 必跑实际 verify（`npx playwright test <relevant.spec.ts>`）· 不只 self-claim
+- 新加项：spec 命中 fail → 立即 fix · 不放 final READY（类似本任 risk-radar 6/6 fail 应在 Stage 5 阶段就跑）
+- worker self-check 规则:
+  - "新增 testid 的 spec" 必须 worker 自跑 verify（fresh playwright run）
+  - "fold/gate 类组件" 测试必须含 trigger / wait state pattern（类似 `data-scanned`）
+
+### Follow-up
+
+1. main CLI 转 worker REJECT-V2 mild prompt（chat）
+2. worker 修 spec + 跑 verify + 新 commit（V2 · `fix(test): risk-radar.spec.ts CTA gate · 30/30 PASS` + 修正 body 声明）
+3. main CLI 等 v2 READY · light-review（不再 spawn subagent · 仅修 spec + body）· merge
+4. mesh closeout: `P3F-WAVE-2-TRACK-4-MERGED` + Wave 2 全完
+5. Wave 2 完后 batch housekeeping:
+   - `onboarding-spec-self-check.md` lesson 加入
+   - onboarding §1.3 fix-forward（Q-037）
+   - onboarding §2/§3 CA-B3-8 措辞 fix-forward（Q-038）
+   - 其他 housekeeping #4 路由 banner / #5 demo source chip
+
+### Signals
+
+- 本 commit Signal: `P3F-Q039-RESOLVED`
+- worker v2 commit Signal: `READY-FOR-FRONTEND-INTEGRATION-REVIEW`（v2 trailer 同名）
+- merge commit Signal: `FRONTEND-INTEGRATION-MERGED-APPROVED`
+- mesh closeout Signal: `P3F-WAVE-2-TRACK-4-MERGED` + `P3F-WAVE-2-COMPLETE`
+
+---
