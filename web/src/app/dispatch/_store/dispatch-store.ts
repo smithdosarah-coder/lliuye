@@ -19,6 +19,7 @@ import type { ImMessage, ImThread } from "@/lib/store";
 const ISO_NOW = "2026-04-20T09:30:00+08:00";
 
 const seedThreads: ImThread[] = [
+  /* === GROUPS · 含 agent 的协作群 ============================ */
   {
     id: "thr_zrgs",
     title: "中锐工商 · 尽调与授信",
@@ -26,6 +27,7 @@ const seedThreads: ImThread[] = [
     participants: ["u_wangzhe", "u_lihua"],
     lastMessageAt: "2026-04-20T09:18:00+08:00",
     unreadCount: 2,
+    kind: "group",
   },
   {
     id: "thr_dingchuan",
@@ -34,6 +36,7 @@ const seedThreads: ImThread[] = [
     participants: ["u_wangzhe", "u_lihua"],
     lastMessageAt: "2026-04-20T08:52:00+08:00",
     unreadCount: 1,
+    kind: "group",
   },
   {
     id: "thr_yunrong",
@@ -42,6 +45,7 @@ const seedThreads: ImThread[] = [
     participants: ["u_wangzhe", "u_chenkai"],
     lastMessageAt: "2026-04-20T09:02:00+08:00",
     unreadCount: 3,
+    kind: "group",
   },
   {
     id: "thr_haiyuan",
@@ -50,6 +54,7 @@ const seedThreads: ImThread[] = [
     participants: ["u_wangzhe"],
     lastMessageAt: "2026-04-20T07:46:00+08:00",
     unreadCount: 0,
+    kind: "group",
   },
   {
     id: "thr_tongxin",
@@ -58,6 +63,33 @@ const seedThreads: ImThread[] = [
     participants: ["u_wangzhe", "u_zhoumin"],
     lastMessageAt: "2026-04-19T17:24:00+08:00",
     unreadCount: 0,
+    kind: "group",
+  },
+
+  /* === DIRECT · 客户经理 ↔ 同事的纯人际私聊（无 agent，无 customer） == */
+  {
+    id: "dm_lihua",
+    title: "李华 · 授信审贷",
+    participants: ["u_wangzhe", "u_lihua"],
+    lastMessageAt: "2026-04-20T09:25:00+08:00",
+    unreadCount: 1,
+    kind: "dm",
+  },
+  {
+    id: "dm_chenkai",
+    title: "陈凯 · 风险经理",
+    participants: ["u_wangzhe", "u_chenkai"],
+    lastMessageAt: "2026-04-20T08:40:00+08:00",
+    unreadCount: 0,
+    kind: "dm",
+  },
+  {
+    id: "dm_zhoumin",
+    title: "周敏 · 合规官",
+    participants: ["u_wangzhe", "u_zhoumin"],
+    lastMessageAt: "2026-04-19T18:10:00+08:00",
+    unreadCount: 0,
+    kind: "dm",
   },
 ];
 
@@ -155,6 +187,53 @@ const seedMessages: Record<string, ImMessage[]> = {
       content: "Agent5 合规复核完成 · 无新增冲突点，沿用 Q1 制度版本。",
       refs: { eventId: "evt_seed_compli" },
       createdAt: "2026-04-19T17:24:00+08:00",
+    },
+  ],
+  /* === DM seeds === */
+  dm_lihua: [
+    {
+      id: "msg_dm_lh_1",
+      threadId: "dm_lihua",
+      from: "u_lihua",
+      kind: "text",
+      content: "下午上会顺序你定一下，我这边四维评分都看完了。",
+      createdAt: "2026-04-20T09:20:00+08:00",
+    },
+    {
+      id: "msg_dm_lh_2",
+      threadId: "dm_lihua",
+      from: "u_wangzhe",
+      kind: "text",
+      content: "中锐先讲，鼎川续贷放第二个，云融预警最后留时间讨论。",
+      createdAt: "2026-04-20T09:25:00+08:00",
+    },
+  ],
+  dm_chenkai: [
+    {
+      id: "msg_dm_ck_1",
+      threadId: "dm_chenkai",
+      from: "u_wangzhe",
+      kind: "text",
+      content: "云融那单 Agent4 黄色预警，你看转合规复核合不合适？",
+      createdAt: "2026-04-20T08:35:00+08:00",
+    },
+    {
+      id: "msg_dm_ck_2",
+      threadId: "dm_chenkai",
+      from: "u_chenkai",
+      kind: "text",
+      content: "可以转，先在 dispatch 里 @周敏 一下，我同步把贷后清单更进去。",
+      createdAt: "2026-04-20T08:40:00+08:00",
+    },
+  ],
+  dm_zhoumin: [
+    {
+      id: "msg_dm_zm_1",
+      threadId: "dm_zhoumin",
+      from: "u_zhoumin",
+      kind: "text",
+      content: "Q1 制度版本已经在合规库里同步完了，新单一律走 v2026Q1。",
+      createdAt: "2026-04-19T18:10:00+08:00",
     },
   ],
 };

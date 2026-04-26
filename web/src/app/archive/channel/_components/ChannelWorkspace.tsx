@@ -32,15 +32,11 @@ import {
   type FunnelStage,
   type RadarDimension,
   type RecentScoutSession,
-  type RefCardPayload,
   type SignalEvent,
   type SignalSource,
 } from "@/lib/mock/agent-channel-session";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import { ScanCTA } from "@/components/shared/ScanCTA";
-import { CustomerSelector } from "@/components/shared/CustomerSelector";
-import { RefCardMessage } from "./RefCardMessage";
 import {
   ClaimText,
   EvidenceProvider,
@@ -48,26 +44,6 @@ import {
   UnfilledFields,
 } from "@/components/evidence";
 import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
-import {
-  handoffToCredit,
-  exportChannelXlsx,
-  type ChannelHandoffResponse,
-} from "@/lib/api";
-
-/* L1-11 / L1-4 · Agent1→Agent3 handoff + xlsx export · cherry-picked from 0b6eca4
-   原 commit 落 web/src/app/channel/page.tsx (legacy)；P3F 轨 3 reroute 至本 archive
-   workspace · 保 EvidenceTrail 挂载点（line 170）+ 复用既有 ch-out-toolbar 风格。 */
-type HandoffState =
-  | { status: "idle" }
-  | { status: "busy"; scope: "batch" | number }
-  | { status: "done"; scope: "batch" | number; result: ChannelHandoffResponse }
-  | { status: "error"; scope: "batch" | number; error: string };
-
-type ExportState =
-  | { status: "idle" }
-  | { status: "busy" }
-  | { status: "done"; rows: number; filename: string }
-  | { status: "error"; error: string };
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
 function msgTitle(raw: string): string {
@@ -92,54 +68,11 @@ export default function ChannelWorkspace() {
   const s = CHANNEL_SESSION;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
-  /* 2026-04-22 合并 · CLI-C (类微信假聊天) + CLI-D (ref-card 拖入)
-     单一 messages state · 所有 append 操作（发消息 / AI 思考 / AI 回复 / 拖入 ref-card）
-     都走它。pickReply + nextThinkDelayMs 来自 _mock/canned-replies.ts。 */
+  /* Step 2 · 2026-04-22 CLI-C
+     conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
+     纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
-  /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
-  const [scanned, setScanned] = useState(false);
   const seq = useRef(0);
-
-  /* L1-11 / L1-4 · Agent1→Agent3 handoff + xlsx export 状态 (cherry-pick 0b6eca4) */
-  const [handoff, setHandoff] = useState<HandoffState>({ status: "idle" });
-  const [exportState, setExportState] = useState<ExportState>({ status: "idle" });
-
-  const doExport = useCallback(async () => {
-    if (s.candidates.length === 0) return;
-    setExportState({ status: "busy" });
-    try {
-      const r = await exportChannelXlsx({
-        candidates: s.candidates as unknown[],
-        business_line: "corporate",
-      });
-      setExportState({ status: "done", rows: r.rows, filename: r.filename });
-    } catch (e) {
-      setExportState({ status: "error", error: (e as Error).message ?? String(e) });
-    }
-  }, [s.candidates]);
-
-  const doHandoff = useCallback(
-    async (scope: "batch" | number) => {
-      if (s.candidates.length === 0) return;
-      const payload =
-        scope === "batch" ? s.candidates : [s.candidates[scope]];
-      setHandoff({ status: "busy", scope });
-      try {
-        const r = await handoffToCredit({
-          candidates: payload as unknown[],
-          business_line: "corporate",
-        });
-        setHandoff({ status: "done", scope, result: r });
-      } catch (e) {
-        setHandoff({
-          status: "error",
-          scope,
-          error: (e as Error).message ?? String(e),
-        });
-      }
-    },
-    [s.candidates],
-  );
 
   const submit = useCallback((raw: string) => {
     const text = raw.trim();
@@ -153,6 +86,11 @@ export default function ChannelWorkspace() {
       kind: isCmd ? "user-command" : "user-reply",
       content: text,
     };
+    setMessages((prev) => [...prev, userMsg]);
+
+    /* 假聊天 demo pickReply · 仅 dev mode 挂 (per onboarding kickoff Stage 3 #4)
+       生产环境此分支被 NODE_ENV 静态替换 tree-shaken · 真接 API 走 SSE 路径。 */
+    if (process.env.NODE_ENV !== "development") return;
     const thinkingId = `t-${ts}`;
     const thinkingMsg: ConversationMessage = {
       id: thinkingId,
@@ -161,8 +99,7 @@ export default function ChannelWorkspace() {
       content: "思考中…",
       thinking: { steps: [] },
     };
-    setMessages((prev) => [...prev, userMsg, thinkingMsg]);
-
+    setMessages((prev) => [...prev, thinkingMsg]);
     const delay = nextThinkDelayMs();
     window.setTimeout(() => {
       const reply = pickReply(text);
@@ -180,61 +117,36 @@ export default function ChannelWorkspace() {
     }, delay);
   }, []);
 
-  /* CLI-D · ref-card 拖入对话框：push 到同一条 messages，ConversationPanel
-     按 kind=="ref-card" 分支渲染 RefCardMessage 卡片（展开 / 跳转两按钮）。 */
-  const handleRefCardDrop = useCallback((payload: RefCardPayload) => {
-    const now = new Date();
-    const at = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `ref-${now.getTime()}`,
-        at,
-        kind: "ref-card",
-        content: payload.title,
-        refPayload: payload,
-        speaker: "客户经理 · 王哲",
-      },
-    ]);
-  }, []);
-
   return (
     <EvidenceProvider
       items={CHANNEL_EVIDENCE.items}
       unfilledFields={CHANNEL_EVIDENCE.unfilledFields}
     >
-      <div data-view="archive-channel" className="ch-v2" data-scanned={scanned ? "yes" : "no"}>
-        <ChannelHero topSim={topSim} />
-        <QueryBar onComplete={() => setScanned(true)} />
-        <FunnelStrip />
-        <div className="ch-cross">
-          <div className="ch-canvas">
-            <div className="ch-canvas-top">
-              <RadarPanel />
-              <CandidatesPanel
-                handoff={handoff}
-                exportState={exportState}
-                onHandoff={doHandoff}
-                onExport={doExport}
-              />
-            </div>
-            {/* 2026-04-23 · 删 ScanCTA · channel 原生 ch-querybar-btn "扫描"按钮
-                即是 look-alike 入口 CTA · 两个扫描按钮冗余 · 保留 ch-querybar 唯一 */}
-            <ConversationPanel messages={messages}>
-              <ChannelComposer onSubmit={submit} onRefCardDrop={handleRefCardDrop} />
-            </ConversationPanel>
+    <div data-view="archive-channel" className="ch-v2">
+      <ChannelHero topSim={topSim} />
+      <QueryBar />
+      <FunnelStrip />
+      <div className="ch-cross">
+        <div className="ch-canvas">
+          <div className="ch-canvas-top">
+            <RadarPanel />
+            <CandidatesPanel />
           </div>
-          <aside className="ch-aside">
-            <SignalTimelinePanel />
-          </aside>
+          <ConversationPanel messages={messages} />
         </div>
-        <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-          <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-          <ClaimText text={CHANNEL_EVIDENCE.summary} />
-        </section>
-        <UnfilledFields />
-        <EvidenceTrail agentTone="channel" />
+        <aside className="ch-aside">
+          <SignalTimelinePanel />
+        </aside>
       </div>
+      <ChannelComposer onSubmit={submit} />
+
+      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+        <ClaimText text={CHANNEL_EVIDENCE.summary} />
+      </section>
+      <UnfilledFields />
+      <EvidenceTrail agentTone="channel" />
+    </div>
     </EvidenceProvider>
   );
 }
@@ -252,8 +164,6 @@ function ChannelHero({ topSim }: { topSim: number }) {
           <h1 className="rpt-hero-title">
             获客 <em>Scout.</em>
           </h1>
-          {/* 2026-04-23 · 删 CustomerSelector · channel 是 look-alike 找相似企业 ·
-              Query 画像 textarea 已是唯一业务入口 · CustomerSelector 冗余 */}
           <div className="rpt-hero-sub">
             {s.benchmarkName} · {s.candidateCount} 家候选 · {s.stage} · 首推相似度 {topSim}%
           </div>
@@ -455,13 +365,7 @@ function RecentRow({ row }: { row: RecentScoutSession }) {
 
 /* ── 中栏 · Conversation ────────────────────────────── */
 
-function ConversationPanel({
-  messages,
-  children,
-}: {
-  messages: ConversationMessage[];
-  children?: React.ReactNode;
-}) {
+function ConversationPanel({ messages }: { messages: ConversationMessage[] }) {
   const s = CHANNEL_SESSION;
   const blurb = `${messages.length} 条对话 · 候选 ${s.candidateCount} · 阻断 ${s.qcCounts.block}`;
   /* 新消息进来自动滚到底部（Composer 提交后看到自己的话） */
@@ -472,7 +376,7 @@ function ConversationPanel({
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
   return (
-    <section className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
+    <section className="rpt-panel rpt-panel--conv">
       <PanelPinHandle
         id="channel:conversation"
         title="获客对话"
@@ -500,7 +404,6 @@ function ConversationPanel({
           ))}
         </ol>
       </div>
-      {children}
     </section>
   );
 }
@@ -519,8 +422,6 @@ function ConversationItem({ msg }: { msg: ConversationMessage }) {
       return <UserReplyMsg msg={msg} />;
     case "user-command":
       return <UserCommandMsg msg={msg} />;
-    case "ref-card":
-      return <RefCardMessage msg={msg} />;
     default:
       return null;
   }
@@ -673,18 +574,10 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "industry";
 
-function ChannelComposer({
-  onSubmit,
-  onRefCardDrop,
-}: {
-  onSubmit: (text: string) => void;
-  onRefCardDrop?: (payload: RefCardPayload) => void;
-}) {
+function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const [dropHover, setDropHover] = useState(false);
-  /* 2026-04-22 · 拖入的 ref-card 不再立即发送，改为 staging chip，点发送才提交 */
-  const [pendingCards, setPendingCards] = useState<RefCardPayload[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -714,18 +607,10 @@ function ChannelComposer({
 
   function submit() {
     const text = value.trim();
-    const hasCards = pendingCards.length > 0;
-    if (!text && !hasCards) return;
-    // 先 emit 所有待发 ref-card，再发文本（文本作为最后一条消息）
-    pendingCards.forEach((card) => onRefCardDrop?.(card));
-    if (text) onSubmit(text);
+    if (!text) return;
+    onSubmit(text);
     setValue("");
-    setPendingCards([]);
     setHint("idle");
-  }
-
-  function removeCard(idx: number) {
-    setPendingCards((prev) => prev.filter((_, i) => i !== idx));
   }
 
   /* ── Drop target：接 PANEL_PIN / CARD_PIN / text/plain ──
@@ -759,55 +644,36 @@ function ChannelComposer({
     e.preventDefault();
     e.stopPropagation();
     setDropHover(false);
-    // 拖入对话框 · 不再直接插入 textarea，而是 emit 一条 ref-card 消息
-    // （由上层 ChannelWorkspace 追加到 conversation · 渲染成卡片气泡）
+    let title = "";
     const rawPanel = e.dataTransfer.getData(PANEL_PIN_MIME);
     const rawCard = e.dataTransfer.getData(CARD_PIN_MIME);
-    let payload: RefCardPayload | null = null;
     try {
-      if (rawPanel) {
-        const p = JSON.parse(rawPanel) as {
-          title?: string;
-          subtitle?: string;
-          blurb?: string;
-          href?: string;
-          agentKey?: string;
-          accentVar?: string;
-        };
-        if (p.title)
-          payload = {
-            title: p.title,
-            subtitle: p.subtitle,
-            blurb: p.blurb,
-            href: p.href,
-            agentKey: p.agentKey,
-            accentVar: p.accentVar,
-          };
-      } else if (rawCard) {
-        const p = JSON.parse(rawCard) as {
-          title?: string;
-          subtitle?: string;
-          href?: string;
-          accentVar?: string;
-        };
-        if (p.title)
-          payload = {
-            title: p.title,
-            subtitle: p.subtitle,
-            href: p.href,
-            accentVar: p.accentVar,
-          };
-      }
+      if (rawPanel) title = (JSON.parse(rawPanel) as { title?: string }).title ?? "";
+      else if (rawCard) title = (JSON.parse(rawCard) as { title?: string }).title ?? "";
     } catch {
-      /* malformed · fall through to text/plain */
+      title = e.dataTransfer.getData("text/plain");
     }
-    if (!payload) {
-      const fallbackTitle = e.dataTransfer.getData("text/plain");
-      if (!fallbackTitle) return;
-      payload = { title: fallbackTitle };
+    if (!title) return;
+    insertAtCursor(`@引用:${title} `);
+  }
+
+  function insertAtCursor(fragment: string) {
+    const ta = taRef.current;
+    if (!ta) {
+      setValue((v) => v + fragment);
+      return;
     }
-    // 2026-04-22 修 · 不再立即 emit · 压入 pending，等用户按发送才真正 push 到对话
-    setPendingCards((prev) => [...prev, payload!]);
+    const start = ta.selectionStart ?? value.length;
+    const end = ta.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + fragment + value.slice(end);
+    setValue(next);
+    // 光标移到插入片段之后
+    requestAnimationFrame(() => {
+      if (!taRef.current) return;
+      const pos = start + fragment.length;
+      taRef.current.focus();
+      taRef.current.setSelectionRange(pos, pos);
+    });
   }
 
   const sigCount = CHANNEL_SESSION.signals.length;
@@ -830,32 +696,6 @@ function ChannelComposer({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {pendingCards.length > 0 ? (
-        <div className="rpt-composer-attach" role="list" aria-label="待发送引用">
-          {pendingCards.map((card, idx) => (
-            <span
-              key={`${card.title}-${idx}`}
-              className="rpt-composer-chip"
-              data-agent={card.agentKey}
-              role="listitem"
-            >
-              <span className="rpt-composer-chip-dot" aria-hidden />
-              <span className="rpt-composer-chip-title" title={card.title}>
-                {card.title}
-              </span>
-              <button
-                type="button"
-                className="rpt-composer-chip-x"
-                onClick={() => removeCard(idx)}
-                aria-label={`移除 ${card.title}`}
-                title="移除"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
       <div className="rpt-composer-bar">
         <textarea
           ref={taRef}
@@ -870,7 +710,7 @@ function ChannelComposer({
           type="button"
           className="rpt-composer-send"
           onClick={submit}
-          disabled={!value.trim() && pendingCards.length === 0}
+          disabled={!value.trim()}
         >
           <span>发送</span>
           <kbd>↩</kbd>
@@ -893,45 +733,14 @@ function ChannelComposer({
 
 /* ── 区域 1 · Query 输入条（顶部全宽） ───────────────── */
 
-const CHANNEL_SCAN_STEPS = [
-  "解析画像描述…",
-  "全网搜索相似企业…",
-  "信号源匹配（工商 / 招投标 / 专利）…",
-  "Look-alike 相似度打分…",
-  "产品适配推荐…",
-] as const;
-
-function QueryBar({ onComplete }: { onComplete: () => void }) {
+function QueryBar() {
   const q = CHANNEL_SESSION.query;
   const recent = CHANNEL_SESSION.recentSessions;
-  /* 2026-04-23 · 空态不预填 mock 画像·让 placeholder "输入标杆客户名·或描述画像..."引导 */
-  const [input, setInput] = useState("");
-  /* 2026-04-23 · 扫描按钮 5 步假进度 + 后端 POST · 空 input 点击自动填标杆名 */
-  const [scanning, setScanning] = useState(false);
-  const [step, setStep] = useState(0);
-
-  const runScan = async () => {
-    if (scanning) return;
-    if (!input.trim()) setInput(q.benchmark);
-    setScanning(true);
-    setStep(0);
-    for (let i = 0; i < CHANNEL_SCAN_STEPS.length; i++) {
-      setStep(i);
-      await new Promise((r) => setTimeout(r, 450));
-    }
-    /* B+ backend · 非阻塞 · fail silent（demo 环境后端可缺） */
-    void fetch("http://localhost:8000/api/run/channel", { method: "POST" }).catch(
-      () => void 0
-    );
-    setScanning(false);
-    onComplete();
-  };
-
+  const [input, setInput] = useState(
+    `${q.benchmark} · ${q.industry} · ${q.geo} · ${q.scaleRange}`
+  );
   return (
-    <section
-      className="rpt-panel ch-querybar"
-      data-scanning={scanning ? "yes" : "no"}
-    >
+    <section className="rpt-panel ch-querybar">
       <div className="ch-querybar-head">
         <div>
           <div className="rpt-panel-eyebrow">QUERY · 标杆画像</div>
@@ -957,28 +766,10 @@ function QueryBar({ onComplete }: { onComplete: () => void }) {
           placeholder="输入标杆客户名 · 或描述画像（行业 / 规模 / 地域 / 渠道 / 阶段）"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={scanning}
-          onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runScan();
-          }}
         />
-        <button
-          type="button"
-          className="ch-querybar-btn"
-          disabled={scanning}
-          onClick={runScan}
-        >
-          {scanning ? (
-            <>
-              <span>{CHANNEL_SCAN_STEPS[step]}</span>
-              <span className="kbd">{step + 1}/5</span>
-            </>
-          ) : (
-            <>
-              <span>扫描</span>
-              <span className="kbd">⌘↩</span>
-            </>
-          )}
+        <button type="button" className="ch-querybar-btn" disabled={!input.trim()}>
+          <span>扫描</span>
+          <span className="kbd">⌘↩</span>
         </button>
       </div>
       <div className="ch-querybar-tags">
@@ -1061,20 +852,8 @@ function RadarPanel() {
 
 /* ── 区域 2 右 · 候选企业列表 ────────────────────────── */
 
-function CandidatesPanel({
-  handoff,
-  exportState,
-  onHandoff,
-  onExport,
-}: {
-  handoff: HandoffState;
-  exportState: ExportState;
-  onHandoff: (scope: "batch" | number) => void;
-  onExport: () => void;
-}) {
+function CandidatesPanel() {
   const s = CHANNEL_SESSION;
-  const batchBusy = handoff.status === "busy" && handoff.scope === "batch";
-  const exportBusy = exportState.status === "busy";
   return (
     <section className="rpt-panel ch-cand-panel">
       <PanelPinHandle
@@ -1097,90 +876,10 @@ function CandidatesPanel({
           阈值 {(s.match.similarity * 100).toFixed(0)}%
         </div>
       </div>
-      <div className="rpt-pv-toolbar ch-cand-actions" role="toolbar" aria-label="导出 / 移交授信">
-        <button
-          type="button"
-          className="rpt-pv-btn"
-          onClick={onExport}
-          disabled={exportBusy}
-          title="导出候选池为 xlsx · 解 L1-4"
-        >
-          <span className="ic" aria-hidden>
-            {exportBusy ? "⏳" : "⇩"}
-          </span>
-          <span>{exportBusy ? "导出中" : "导出 .xlsx"}</span>
-        </button>
-        <button
-          type="button"
-          className="rpt-pv-btn"
-          onClick={() => onHandoff("batch")}
-          disabled={batchBusy}
-          title="批量移交至 Agent3 授信评估 · 解 L1-11"
-        >
-          <span className="ic" aria-hidden>
-            {batchBusy ? "⏳" : "→"}
-          </span>
-          <span>{batchBusy ? "移交中" : "移交授信评估"}</span>
-        </button>
-      </div>
-      <CandidateActionBanner handoff={handoff} exportState={exportState} />
       <div className="rpt-panel-body">
-        <CandidatesView
-          candidates={s.candidates}
-          onHandoff={onHandoff}
-          handoff={handoff}
-        />
+        <CandidatesView candidates={s.candidates} />
       </div>
     </section>
-  );
-}
-
-/** Cherry-pick 0b6eca4 · ActionBanner 等价物 · 显示 handoff/export 状态 */
-function CandidateActionBanner({
-  handoff,
-  exportState,
-}: {
-  handoff: HandoffState;
-  exportState: ExportState;
-}) {
-  if (handoff.status === "idle" && exportState.status === "idle") return null;
-  return (
-    <div className="ch-cand-banner" role="status" aria-live="polite">
-      {handoff.status === "done" && (
-        <div className="ch-cand-banner-row ch-cand-banner-row--ok">
-          <span className="ic" aria-hidden>✓</span>
-          <div className="ch-cand-banner-body">
-            <div className="ch-cand-banner-title">
-              已移交 {handoff.result.count} 个候选至 Agent3 授信队列
-            </div>
-            <div className="ch-cand-banner-sub font-tabular">
-              session_id: <span>{handoff.result.session_id}</span>
-            </div>
-            <div className="ch-cand-banner-sub font-tabular">
-              profile_ids: {handoff.result.profile_ids.map((p) => p.slice(0, 8)).join(" · ")}
-            </div>
-          </div>
-        </div>
-      )}
-      {handoff.status === "error" && (
-        <div className="ch-cand-banner-row ch-cand-banner-row--err">
-          <span className="ic" aria-hidden>✕</span>
-          <span>移交失败：{handoff.error}</span>
-        </div>
-      )}
-      {exportState.status === "done" && (
-        <div className="ch-cand-banner-row ch-cand-banner-row--ok">
-          <span className="ic" aria-hidden>✓</span>
-          <span>已导出 {exportState.rows} 行 · {exportState.filename}</span>
-        </div>
-      )}
-      {exportState.status === "error" && (
-        <div className="ch-cand-banner-row ch-cand-banner-row--err">
-          <span className="ic" aria-hidden>✕</span>
-          <span>导出失败：{exportState.error}</span>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1411,15 +1110,7 @@ function FunnelView({ funnel }: { funnel: FunnelStage[] }) {
   );
 }
 
-function CandidatesView({
-  candidates,
-  onHandoff,
-  handoff,
-}: {
-  candidates: Candidate[];
-  onHandoff?: (scope: "batch" | number) => void;
-  handoff?: HandoffState;
-}) {
+function CandidatesView({ candidates }: { candidates: Candidate[] }) {
   return (
     <section className="ch-cd-sec">
       <header className="ch-out-sec-head">
@@ -1429,23 +1120,9 @@ function CandidatesView({
         </h4>
       </header>
       <ol className="ch-cd-list">
-        {candidates.map((c, i) => {
-          const cardHandoffBusy =
-            handoff?.status === "busy" && handoff.scope === i;
-          const cardHandoffDone =
-            handoff?.status === "done" &&
-            (handoff.scope === i || handoff.scope === "batch");
-          return (
-            <CandidateCard
-              key={c.id}
-              rank={i + 1}
-              c={c}
-              onHandoff={onHandoff ? () => onHandoff(i) : undefined}
-              handoffBusy={cardHandoffBusy}
-              handoffDone={cardHandoffDone}
-            />
-          );
-        })}
+        {candidates.map((c, i) => (
+          <CandidateCard key={c.id} rank={i + 1} c={c} />
+        ))}
       </ol>
     </section>
   );
@@ -1553,19 +1230,7 @@ function TimelineEvent({ ev }: { ev: SignalEvent }) {
   );
 }
 
-function CandidateCard({
-  rank,
-  c,
-  onHandoff,
-  handoffBusy,
-  handoffDone,
-}: {
-  rank: number;
-  c: Candidate;
-  onHandoff?: () => void;
-  handoffBusy?: boolean;
-  handoffDone?: boolean;
-}) {
+function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
   const simPct = Math.round(c.similarity * 100);
   const hasRisk = c.riskTags.length > 0;
   return (
@@ -1585,21 +1250,6 @@ function CandidateCard({
           </div>
           <div className="ch-cd-sim-lbl">相似度</div>
         </div>
-        {onHandoff && (
-          <button
-            type="button"
-            className="ch-cd-handoff"
-            data-state={handoffDone ? "done" : handoffBusy ? "busy" : "idle"}
-            disabled={handoffBusy}
-            onClick={onHandoff}
-            aria-label={`移交本企业 (#${rank} ${c.name}) 至 Agent3 授信评估`}
-          >
-            <span className="ic" aria-hidden>
-              {handoffBusy ? "⏳" : handoffDone ? "✓" : "→"}
-            </span>
-            <span>{handoffDone ? "已移交" : handoffBusy ? "移交中" : "移交授信"}</span>
-          </button>
-        )}
       </header>
       <div className="ch-cd-body">
         <div className="ch-cd-sigs">
