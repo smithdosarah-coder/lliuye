@@ -1,0 +1,79 @@
+# 对标 FCRA AAN（Fair Credit Reporting Act · Adverse Action Notice）
+# 译义：Agent1 获客 lookalike 匹配 reason_codes 占位字典。
+# 状态：pending_implementation · agent_channel/ 当前未派生 reason_codes 输出。
+# 当 Agent1 引入 reason_codes 派生时（计划 Wave 3 / Phase 4）·本字典扩展。
+
+schema_version: "1.0"
+agent: agent1_channel
+segment: lookalike_acquisition
+updated: "2026-04-26"
+pending_implementation: true
+
+description: |
+  Agent1 获客 lookalike 匹配 reason_codes 占位字典。
+  当前 agent_channel/ 仅产出匹配评分 + 信号时间线 · 未派生标准 reason_codes。
+  本字典 5 条占位 · 标准 schema 兼容 agent3/4/5 · 待 Wave 3+ 实现时填充实际触发逻辑。
+  category 业务域（参照 CLAUDE.md §3.2 Agent1）：信号搜索 / 企业画像 / 匹配评分 / 产品推荐。
+
+codes:
+  - code: CH-MATCH-001
+    title: 行业不匹配
+    category: 匹配评分
+    severity: yellow
+    decision_hint: [筛除]
+    evidence_path: profile.industry_distance
+    description: 候选企业行业与锚点客户偏离过远（行业代码距离 ≥ 2 级）。
+    suggested_action:
+      - 调整 lookalike 行业权重
+      - 改用同行业精准匹配模式
+    pending: 等 Agent1 派生模块上线（Wave 3+）
+
+  - code: CH-MATCH-002
+    title: 规模差异过大
+    category: 匹配评分
+    severity: yellow
+    decision_hint: [筛除]
+    evidence_path: profile.scale_distance
+    description: 候选企业规模（注册资本 / 员工 / 营收）与锚点偏离 ≥ 1 个数量级。
+    suggested_action:
+      - 收紧规模筛选区间
+      - 改按区间分桶匹配
+    pending: 等 Agent1 派生模块上线（Wave 3+）
+
+  - code: CH-MATCH-003
+    title: 信号多样性不足
+    category: 信号搜索
+    severity: yellow
+    decision_hint: [筛除]
+    evidence_path: signals.diversity_count
+    threshold: 2
+    description: 候选企业信号多样性 < 2 种（违 CLAUDE.md §5.2 信贷专业评估）。
+    suggested_action:
+      - 扩展数据源（公开 + 商业 + 内部三类）
+      - 至少召回 ≥ 2 种独立信号源
+    pending: 等 Agent1 派生模块上线（Wave 3+）
+
+  - code: CH-MATCH-004
+    title: 反欺诈黑名单命中
+    category: 企业画像
+    severity: red
+    decision_hint: [拒绝]
+    evidence_path: profile.fraud_blacklist
+    description: 候选企业法人 / 关联方在反欺诈黑名单或失信被执行人名单。
+    suggested_action:
+      - 立即筛除候选
+      - 入档反欺诈库
+    pending: 等 Agent1 派生模块上线（Wave 3+）
+
+  - code: CH-PROD-001
+    title: 产品适配度低
+    category: 产品推荐
+    severity: yellow
+    decision_hint: [推荐降级]
+    evidence_path: product.fit_score
+    threshold: 0.5
+    description: 候选企业与可推荐产品的契合度 < 0.5（行业 / 规模 / 阶段不符）。
+    suggested_action:
+      - 改荐替代产品
+      - 标记为低优先级跟进
+    pending: 等 Agent1 派生模块上线（Wave 3+）

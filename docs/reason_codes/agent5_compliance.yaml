@@ -1,0 +1,129 @@
+# 对标 FCRA AAN（Fair Credit Reporting Act · Adverse Action Notice）
+# 译义：合规违规标准拒因字典 · 配合 CAC AI 治理 2.0 + 助贷新规 + 数安法 + 个保法。
+# 本文件为 Agent5 合规检查 4 大业务域（参照 CLAUDE.md §3.2）的违规码字典。
+# 维护：主 CLI · 修改走 RFC（Q-NNN-RAISED + A-NNN-RESOLVED）。
+
+schema_version: "1.0"
+agent: agent5_compliance
+segment: policy_event_driven
+updated: "2026-04-26"
+
+description: |
+  Agent5 合规违规标准码字典 · 政策事件驱动（vs 定期巡检）。
+  severity 采用 field-naming v1.0：red（硬违规·立即停）/ yellow（流程缺陷·整改）/ green（合规通过）。
+  category 业务域：政策解析冲突 / 业务矩阵违规 / 违规判定 / 缺陷分类。
+  reference_policy 必填 · 政策引用具体到文件名 + 条款。
+  evidence_path 指向 ConflictResult.findings 点路径。
+
+codes:
+  # ---- 政策解析冲突（3 条） ----
+  - code: CO-POL-001
+    title: 央行 / 金管总局新规冲突
+    category: 政策解析冲突
+    severity: red
+    decision_hint: [立即停]
+    evidence_path: conflict.cb_new_rule
+    description: 业务流程触碰央行 / 金管总局当年发布新规硬性条款（备案 / 名录 / 禁入等）。
+    reference_policy: 国家金融监督管理总局《关于加强商业银行互联网助贷业务管理的通知》2025-10 + 在岗当年新发文件
+    suggested_action:
+      - 立即暂停该业务流程 / 产品上线
+      - 修订内部 SOP 对齐新规
+      - 提交合规委员会专项审议 + 报告金管总局
+    evidence_template: 新政策原文 URL + 内部 SOP 对应章节
+
+  - code: CO-POL-002
+    title: CAC AI 治理框架冲突
+    category: 政策解析冲突
+    severity: red
+    decision_hint: [立即停]
+    evidence_path: conflict.cac_ai_governance
+    description: AI 应用未满足《人工智能安全治理框架 2.0》强制条款（可解释性 / 偏见测试 / 内嵌安全 / 信息披露）。
+    reference_policy: 中央网信办《人工智能安全治理框架》2.0 · 2025-09
+    suggested_action:
+      - 启动 AI 模型披露材料补齐
+      - 偏见测试报告补做
+      - 全产品 AI 流程合规自查
+    evidence_template: AI 模型卡 + 偏见测试报告 + 内部审计 log
+
+  - code: CO-POL-003
+    title: 行业自律新规冲突
+    category: 政策解析冲突
+    severity: yellow
+    decision_hint: [整改]
+    evidence_path: conflict.industry_self_rule
+    description: 业务流程与行业协会自律规则冲突（互联网金融协会 / 银行业协会 / 证券业协会 等）。
+    reference_policy: 中国互联网金融协会 / 中国银行业协会 当年自律公约
+    suggested_action:
+      - 修订内部业务规则
+      - 行业协会备案沟通
+      - 同业互查协调
+
+  # ---- 业务矩阵违规（3 条） ----
+  - code: CO-MAT-001
+    title: 准入违规
+    category: 业务矩阵违规
+    severity: red
+    decision_hint: [立即停]
+    evidence_path: matrix.access_violation
+    description: 业务对象（客户 / 担保人 / 关联方）触碰行内黑名单 / 监管禁入名单。
+    reference_policy: 内部《业务准入管理办法》v3.X + 监管禁入名单
+    suggested_action:
+      - 拒绝业务办理
+      - 入档 + 报告合规部
+      - 客户经理 / 营销部 培训提示
+
+  - code: CO-MAT-002
+    title: KYC 缺陷
+    category: 业务矩阵违规
+    severity: yellow
+    decision_hint: [整改]
+    evidence_path: matrix.kyc_defect
+    description: 客户身份识别（KYC）存在缺漏 · 未达到反洗钱 / 个保法 双合规要求。
+    reference_policy: 《反洗钱法》+《个人信息保护法》2021 · KYC 部分
+    suggested_action:
+      - 补齐客户身份证件 + 受益所有人信息
+      - 复核高风险客户尽调档案
+      - 立即触发反洗钱 STR/SAR 流程（如适用）
+    evidence_template: KYC 档案完整性 checklist + 缺漏说明
+
+  - code: CO-MAT-003
+    title: 风险偏好不一致
+    category: 业务矩阵违规
+    severity: yellow
+    decision_hint: [整改]
+    evidence_path: matrix.risk_appetite_misalign
+    description: 业务实际风险敞口与行内风险偏好声明不一致（如低风险偏好行做高风险产品）。
+    reference_policy: 内部《风险偏好声明》当年版 + 商业银行《风险管理指引》
+    suggested_action:
+      - 风险委员会专项审议
+      - 业务流程调整或限额管控
+      - 风险偏好声明同步更新
+
+  # ---- 违规判定（1 条） ----
+  - code: CO-RUL-001
+    title: 硬违规命中
+    category: 违规判定
+    severity: red
+    decision_hint: [立即停]
+    evidence_path: rule.hard_violation
+    description: 一票否决型硬违规（如《商业银行法》直接禁止条款 / 反洗钱法重大义务缺失）。
+    reference_policy: 《商业银行法》+《反洗钱法》直接禁止条款
+    suggested_action:
+      - 立即停止业务 + 留存全部证据
+      - 24 小时内向董事会 / 监管 报告
+      - 启动法律 + 合规联合调查
+
+  # ---- 缺陷分类（1 条） ----
+  - code: CO-DEF-001
+    title: 流程缺陷
+    category: 缺陷分类
+    severity: yellow
+    decision_hint: [整改]
+    evidence_path: defect.process_gap
+    description: 业务流程存在合规盲区（如审批环节缺签字 / 审计 trail 不完整 / 留痕不规范）。
+    reference_policy: 内部《业务流程管理办法》+ 等保 2.0 三级
+    suggested_action:
+      - 补齐流程缺漏环节
+      - 内部审计 follow-up
+      - 流程版本升级 + 培训
+    evidence_template: 流程图 + 缺陷标注 + 补救方案

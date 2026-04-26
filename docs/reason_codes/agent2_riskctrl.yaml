@@ -1,0 +1,50 @@
+# 对标 FCRA AAN（Fair Credit Reporting Act · Adverse Action Notice）
+# 译义：Agent2 风控 DSL 规则解释字典占位。
+# 状态：pending_dsl_alignment · Agent2 reason_codes 形态待 P3F 轨 8b code-arch 后明确。
+# Agent2 reason_codes 形态可能是"哪条 DSL 规则触发 + 业务含义"而非通用 code · 等 schema 对齐再扩。
+
+schema_version: "1.0"
+agent: agent2_riskctrl
+segment: dsl_rule_explain
+updated: "2026-04-26"
+pending_dsl_alignment: true
+
+description: |
+  Agent2 风控 DSL 规则解释字典占位。
+  Agent2 是规则引擎 · reason_codes 实际形态等 P3F 轨 8b code-arch 后明确（baseline_ruleset + LLM-judge 后）。
+  本字典 3 条占位 · schema 框架与 agent3/4/5 兼容 · 待 8b 完成后 fix-forward 扩展。
+
+codes:
+  - code: RC-DSL-001
+    title: DSL 规则命中（占位）
+    category: DSL 规则
+    severity: red
+    decision_hint: [拒绝, 有条件批准]
+    evidence_path: dsl.rule_hit
+    description: DSL 规则 ID = X · 触发条件 / 业务含义 / 阈值 待 8b 后填充。
+    suggested_action:
+      - 待 8b 后填充
+    pending: 等 P3F 轨 8b code-arch 完成 + DSL 规则系统稳定
+
+  - code: RC-DSL-002
+    title: DSL 规则触发（占位）
+    category: DSL 规则
+    severity: yellow
+    decision_hint: [复核]
+    evidence_path: dsl.rule_trigger
+    description: DSL 规则 ID = Y · 触发条件 / 业务含义 待 8b 后填充。
+    suggested_action:
+      - 待 8b 后填充
+    pending: 等 P3F 轨 8b code-arch 完成 + DSL 规则系统稳定
+
+  - code: RC-RUNTIME-001
+    title: 规则引擎降级（占位）
+    category: 运行时
+    severity: yellow
+    decision_hint: [复核, 降级]
+    evidence_path: runtime.degrade
+    description: DSL 规则引擎降级或失效 · 触发降级路径（fallback rule）。
+    suggested_action:
+      - 检查规则引擎健康状态
+      - 联系 Agent2 团队
+    pending: 等 P3F 轨 8b code-arch 完成 + DSL 规则系统稳定

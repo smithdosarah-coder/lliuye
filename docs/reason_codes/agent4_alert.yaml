@@ -1,0 +1,124 @@
+# 对标 FCRA AAN（Fair Credit Reporting Act · Adverse Action Notice）
+# 译义：Adverse Action Notice 要求金融机构对客户作出"不利决定"时给出可枚举的原因码。
+# 本文件为 Agent4 贷中预警的标准拒因 / 告警字典，覆盖 CLAUDE.md §3.2 Agent4 三大业务域。
+# 维护：主 CLI · 修改走 RFC（Q-NNN-RAISED + A-NNN-RESOLVED）。
+
+schema_version: "1.0"
+agent: agent4_alert
+segment: in_loan_alert
+updated: "2026-04-26"
+
+description: |
+  Agent4 贷中预警标准拒因 / 告警字典。
+  severity 采用 field-naming v1.0：red（红灯·立即处置）/ yellow（黄灯·复核）/ green（绿灯·正常）。
+  category 标注业务域（参照 CLAUDE.md §3.2 Agent4）：外部扫描 / 内部交易 / 双路交叉。
+  evidence_path 指向 ScanResult.signals 点路径，供前端"证据跳转"。
+  suggested_action 为审贷员 / 风险经理可参考的处置步骤（不强制执行）。
+
+codes:
+  # ---- 外部信号扫描（4 条） ----
+  - code: AL-EXT-001
+    title: 工商变更
+    category: 外部扫描
+    severity: yellow
+    decision_hint: [复核, 跟进]
+    evidence_path: external.industrial_change
+    description: 30 天内法人 / 股东 / 经营范围 / 注册资本发生关键字段变更，需复核经营稳定性。
+    suggested_action:
+      - 调取国家企业信用信息公示系统最新工商档案
+      - 客户经理现场或电话回访确认变更原因
+      - 评估变更对授信结构、还款能力的影响
+    evidence_template: 工商变更记录截图 + 国家企业信用信息公示系统 URL
+
+  - code: AL-EXT-002
+    title: 司法诉讼涉及
+    category: 外部扫描
+    severity: red
+    decision_hint: [立即处置]
+    evidence_path: external.lawsuit_count
+    threshold: 1
+    description: 客户企业或法人作为被告涉及实质性诉讼（金额 > 100 万 或 经济类一审败诉）。
+    suggested_action:
+      - 调取裁判文书全文 + 涉案金额评估
+      - 风险经理评估对授信偿付的影响（封冻 / 减值 / 止损）
+      - 对接合规部判断是否触发助贷新规备案
+    evidence_template: 中国裁判文书网 URL + 案号
+
+  - code: AL-EXT-003
+    title: 经营异常名录
+    category: 外部扫描
+    severity: red
+    decision_hint: [立即处置]
+    evidence_path: external.business_abnormal
+    description: 客户被列入经营异常名录 / 严重违法失信名录 / 吊销 / 注销状态。
+    suggested_action:
+      - 立即冻结后续放款 + 启动清收预案
+      - 现场尽职调查（如客户经理可触达）
+      - 法务部启动诉讼准备
+    evidence_template: 国家企业信用信息公示系统截图
+
+  - code: AL-EXT-004
+    title: 行政处罚命中
+    category: 外部扫描
+    severity: yellow
+    decision_hint: [复核, 跟进]
+    evidence_path: external.admin_penalty
+    description: 客户最近 90 天内被行政机关公开处罚（罚款 / 没收 / 吊销许可证 等）。
+    suggested_action:
+      - 调取处罚决定书 + 评估处罚类型与金额
+      - 客户经理回访 + 判断是否影响业务连续性
+      - 合规部判断是否影响合作机构备案
+
+  # ---- 内部交易监控（3 条） ----
+  - code: AL-INT-001
+    title: 流水异动
+    category: 内部交易
+    severity: yellow
+    decision_hint: [复核]
+    evidence_path: internal.flow_anomaly
+    description: 30 天日均交易笔数 / 金额突增 100% 以上 或 突降 50% 以上 · 业务异常波动。
+    suggested_action:
+      - 比对历史 6 个月基线 · 排除季节性
+      - 客户经理回访经营状况
+      - 判断是否需调整授信结构
+    evidence_template: 银行流水明细 + 异动统计图
+
+  - code: AL-INT-002
+    title: 大额支取异常
+    category: 内部交易
+    severity: red
+    decision_hint: [立即处置]
+    evidence_path: internal.large_withdrawal
+    threshold: 500000
+    description: 单笔支取 ≥ 50 万元 且 用途不明 / 与正常经营无关 · 可能涉及违规挪用授信资金。
+    suggested_action:
+      - 立即触发银行反洗钱 STR/SAR 流程（如适用）
+      - 客户经理现场调查资金用途
+      - 风险经理判断是否提前到期 / 收贷
+    evidence_template: 大额支取记录 + 客户用途说明
+
+  - code: AL-INT-003
+    title: 跨省高频流水
+    category: 内部交易
+    severity: yellow
+    decision_hint: [复核]
+    evidence_path: internal.cross_province_freq
+    description: 跨省转账笔数 30 天内 ≥ 20 笔 · 或 跨省总金额占比 ≥ 60% · 经营地点真实性存疑。
+    suggested_action:
+      - 比对客户备案经营地址
+      - 客户经理实地核查经营场所
+      - 排查是否涉及空壳公司 / 资金过桥
+
+  # ---- 双路交叉（1 条） ----
+  - code: AL-CROSS-001
+    title: 外部 + 内部信号叠加
+    category: 双路交叉
+    severity: red
+    decision_hint: [立即处置]
+    evidence_path: cross.combined_signal
+    description: 同一客户在外部信号（工商 / 诉讼 / 异常）和内部信号（流水异动 / 大额异常）30 天内同时触发 · 复合风险显著。
+    suggested_action:
+      - 立即升级到风险经理 + 合规部联动
+      - 启动专项尽调（双盲多源核实）
+      - 评估提前到期 / 收贷 / 增信 / 报告监管 等处置方案
+    evidence_template: 外部信号 + 内部信号 双路证据汇总报告
