@@ -1959,3 +1959,69 @@ worker 提了 3 候选路径（A: 改用 rebase-only 语义 / B: 5-DP 完整 mea
 - merge 后 main CLI 新 baseline commit Signal: P3F-AGENT6-NEW-BASELINE-LANDED
 
 ---
+
+## [Q-036] 2026-04-26 · main CLI (self · post worker chat-askout) · frontend-integration Stage 1 cherry-pick scope 与 §7 spec 红线冲突
+
+**CLI**: main (self-Q/A · post worker chat-askout resolution)
+**Priority**: P0 · blocking frontend-integration Stage 1
+**Blocking**: yes（worker 等本裁决进 Stage 1）
+**Related**: Q-031（7 frozen branch 冻结 · Q-032 推翻）/ Q-032（P3F 8 轨规划）/ `docs/onboarding/p3f-frontend-integration.md` §2 Task A / CLAUDE.md §7（4 主题 Canvas/Matcha/Dusk/Ink）
+
+### 背景
+
+frontend-integration worker 在 Stage 1 启动后发现 spec gap（chat askout · body 完整）：
+
+- **onboarding §2 Task A 文本**："cherry-pick 或 merge `feat/shell-free-drag` + `feat/canvas-mode-toggle`"（含两 branch tip 全部 commit）
+- **实际现状**：两 branch tip 含 Stage 1 范围**之外**的大量无关变更：
+  - Nebula 5 主题（main 当前 4 主题 Canvas/Matcha/Dusk/Ink · 引入 = 直接违 §7 红线 "Letterpress / crimson / 老 tokens 一律 REJECT" · Nebula 是另一时代实验产物）
+  - login R3F shader（Stage 1 不动 login）
+  - 6 agent v2 hero redesign（Stage 4 才动 · 提前合 = scope creep）
+- **矛盾**：整链 cherry-pick 60+ commit = 必拖入 Nebula 主题 = 触 §7 红线 = 立即 REJECT-V2 + Stage 1 scope creep + 引入未 review 中间态
+
+### Worker 提议（chat 报告 · 应走 commit trailer · 见 Follow-up #4）
+
+**文件 snapshot 法**（精确取 specific 文件 · 不整链 cherry-pick）：
+
+1. `git checkout feat/shell-free-drag -- web/src/components/shell/{PanelCanvas,Whiteboard}.tsx`
+2. `git checkout feat/canvas-mode-toggle -- web/src/components/shell/CanvasModeToggle.tsx web/src/lib/store/panel-layout-store.ts`
+3. Masthead.tsx 挂 CanvasModeToggle（diff 提取自原 commit `1f32b7d` 或类似 · worker 自决取 patch 路径）
+4. 不动 ThemeSwitch / globals.css 主题 / archive workspaces / login（守 Stage 1 scope + §7 4 主题）
+
+worker 自检：4 个目标文件全在 onboarding §1.3 硬边界允许列（`web/src/components/shell/` + `web/src/lib/store/panel-layout-store.ts` 仅 clearAgent 扩展）· Masthead 改动在 shell/ 域允许。
+
+### Decision (A-036)
+
+**接受 worker 文件 snapshot 法 · 直接进 Stage 1**
+
+理由：
+1. **守 §7 4 主题红线**：Nebula 主题不引入 = 不触红线 = 不返工
+2. **守 Stage 1 scope**：login shader / v2 hero 不提前 = Stage 4 来时再处理（v2 hero 是 Stage 4 范围）
+3. **守 EvidenceTrail 兼容**：snapshot 法只取 4 specific files · 不动 archive workspaces · Batch 2 EvidenceTrail 挂载点 0 风险
+4. **架构合理**：4 文件 + Masthead 全在硬边界允许列 + shell/ 域 · 无红区 / 后端 / red zone 改动
+5. **commit history 可追**：worker final body 注明 source SHA + 文件 list + 显式 SKIP 项（Nebula / login / v2 hero 等）= 替代 git history 精细度
+
+代价（接受）：
+- 丢 frozen branch git history 精细（但本来就不打算合）
+- worker commit message 自写含 source SHA attribution（worker 已自检承诺）
+
+### Follow-up
+
+1. **worker 进 Stage 1**：用 file snapshot 法 · 不整链 cherry-pick · final commit body 必含：
+   - 4 文件 source SHA + branch 引用（`feat/shell-free-drag` / `feat/canvas-mode-toggle`）
+   - Masthead.tsx patch source SHA
+   - **显式 SKIP 列表**（Nebula 主题 commit / login shader commit / v2 hero commit · 至少 3 类 commit SHA 标 SKIP + 1 句理由）
+   - 编译闸门 `cd web && npx tsc --noEmit && npm run build` 0 error 自检
+   - Stage 1 完工 commit `Signal: FE-STAGE-1-SHELL-BASE-DONE`
+
+2. **onboarding §2 Task A 措辞 fix-forward**："cherry-pick 或 merge" 改成 "取 specific 文件 (file snapshot)"· 措辞改在 Wave 2 完后 batch 清 housekeeping（不阻本任 · 减少同时改动）
+
+3. **Stage 2-5 同 spec gap 预防**：worker 在 Stage 2-5 进入前各自 audit branch tip 含什么 · 若发现同类 scope creep 立即 Q-NNN-RAISED askout（**走 commit trailer · 不走 chat**）
+
+4. **worker chat askout 协议违反**：本任 worker 走 chat askout 而非 commit trailer · main CLI 自代 commit Q-036/A-036（同 Q-035 precedent）· 但 worker 下次必须走 commit trailer · 见 `docs/process/worker-askout-protocol.md` · 重申 dd42fa3。
+
+### Signals
+
+- 本 commit Signal: P3F-Q036-RESOLVED
+- worker Stage 1 完工 Signal: FE-STAGE-1-SHELL-BASE-DONE（不变 · 走 file snapshot 法不影响 stage signal 链）
+
+---
