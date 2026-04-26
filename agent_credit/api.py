@@ -171,8 +171,8 @@ async def export_decision_docx(req: ExportDocxRequest):
                       "details": {"keys": list(advice.keys())}}
         })
     try:
-        from agent_credit.docx_export import build_filename, render_decision_letter
-        data = render_decision_letter(advice)
+        from agent_credit.decision_letter_docx import build_filename, export
+        data = export(advice)
         filename = build_filename(advice)
     except Exception as e:
         traceback.print_exc()

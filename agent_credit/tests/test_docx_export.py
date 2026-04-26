@@ -1,10 +1,10 @@
-"""docx_export 本地渲染测试。"""
+"""decision_letter_docx 本地渲染测试 (旧名 docx_export · rename per Wave 2 housekeeping #2 · Q-033 follow-up)。"""
 from __future__ import annotations
 
 import io
 import zipfile
 
-from agent_credit.docx_export import build_filename, render_decision_letter
+from agent_credit.decision_letter_docx import build_filename, export
 
 
 def _make_advice() -> dict:
@@ -38,7 +38,7 @@ def _make_advice() -> dict:
 
 
 def test_render_produces_valid_docx_zip():
-    data = render_decision_letter(_make_advice())
+    data = export(_make_advice())
     assert len(data) > 3000
     # docx 本质是 zip
     with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -61,5 +61,5 @@ def test_filename_strips_illegal_chars():
 
 
 def test_render_tolerates_minimal_payload():
-    data = render_decision_letter({"subject_name": "X", "decision": "拒绝"})
+    data = export({"subject_name": "X", "decision": "拒绝"})
     assert len(data) > 2000

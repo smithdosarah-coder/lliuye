@@ -1,4 +1,4 @@
-"""agent_credit.docx_export — 决策意见书本地 docx 导出（python-docx）。
+"""agent_credit.decision_letter_docx — 决策意见书本地 docx 导出（python-docx）。
 
 监管底线：按银行业私有化部署要求，禁止调用海外 API 渲染文档。全部渲染在本地
 完成，产物落 `data/exports/agent3_credit/` 目录，由 FastAPI 作为文件下载返回。
@@ -81,7 +81,7 @@ def _format_rate(v: Any) -> str:
     return f"{f * 100:.2f}%"
 
 
-def render_decision_letter(advice: dict, output_path: str | Path | None = None) -> bytes:
+def export(advice: dict, output_path: str | Path | None = None) -> bytes:
     """渲染决策意见书。
 
     Args:
