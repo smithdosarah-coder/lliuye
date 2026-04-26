@@ -277,6 +277,82 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
 
         return out
 
+    def _compute_rule_interpretability(
+        self, rules: list[dict], rules_path: str | None
+    ) -> MetricOutcome:
+        """LLM-judge 失败降级闸门 · onboarding §2 Task C 约束 · 不 crash.
+
+        无 key / judge 异常 / 全部规则失败 → method=manual value=None
+        全部 ok → method=llm-judge value=mean_score
+        部分 ok → method=llm-judge value=部分均值 note 标 partial
+        """
+        target_str = self._lookup_target("rule_interpretability", "domain") or "n/a"
+        if not rules:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note="rules.json 无 rules · judge 跳过",
+            )
+        try:
+            from agent_riskctrl.llm_judge import compute_rule_interpretability
+        except ImportError as e:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=f"judge module unavailable: {e}",
+            )
+        try:
+            score, meta = compute_rule_interpretability(rules)
+        except Exception as e:  # 兜底 · 任何 judge 异常不 crash adapter
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=f"judge call exception: {type(e).__name__}: {str(e)[:120]}",
+            )
+
+        overall = meta.get("overall_status", "unknown")
+        n_judged = meta.get("n_judged", 0)
+        n_total = meta.get("n_total", 0)
+        breakdown = meta.get("status_breakdown", {})
+        judge_ver = meta.get("judge_version", "?")
+        dims = meta.get("dimensions", [])
+
+        if score is None or n_judged == 0:
+            return MetricOutcome(
+                name="rule_interpretability",
+                value=None,
+                target=target_str,
+                passed=None,
+                method="manual",
+                note=(
+                    f"judge unavailable/all-failed · status={overall} "
+                    f"breakdown={breakdown} · {meta.get('reason', '')}"
+                ),
+            )
+
+        return MetricOutcome(
+            name="rule_interpretability",
+            value=float(score),
+            target=target_str,
+            passed=self.evaluate_target(float(score), target_str),
+            method="llm-judge",
+            evidence=[rules_path] if rules_path else [],
+            note=(
+                f"mean={score} over {n_judged}/{n_total} rules · "
+                f"3 dims ({','.join(dims)}) · judge={judge_ver} · status={overall} · "
+                f"breakdown={breakdown}"
+            ),
+        )
+
     def compute_domain_metrics(self, artifacts: dict[str, Any]) -> list[MetricOutcome]:
         backtest_doc = artifacts.get("backtest") or {}
         rules_doc = artifacts.get("rules") or {}
@@ -409,17 +485,10 @@ class Agent2RiskCtrlEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- pending (A-013 白名单) · rule_interpretability ---
-        out.append(
-            MetricOutcome(
-                name="rule_interpretability",
-                value=None,
-                target=self._lookup_target("rule_interpretability", "domain") or "n/a",
-                passed=None,
-                method="manual",
-                note="Phase-2 runtime baseline_ruleset 对照组依赖 + LLM-judge 未实装",
-            )
-        )
+        # --- rule_interpretability (P3F 轨 8b Task C · LLM-judge) ---
+        # judge 失败 / 无 key → 降级 method=manual value=None · adapter 不 crash
+        # judge 成功 → method=llm-judge value=mean_score (1-5)
+        out.append(self._compute_rule_interpretability(rules, rules_path))
 
         # --- dsl_syntax_correctness (P3F 轨 8b Task A · parser round-trip) ---
         if rules:
