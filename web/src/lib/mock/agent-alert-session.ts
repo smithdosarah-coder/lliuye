@@ -85,6 +85,67 @@ export type AlertRecentSession = {
   redCount: number;
 };
 
+/* ── 融合字段（Codex 扫描办事台 workflow） ────────────── */
+
+/** 顶部扫描范围 segment · 全部/重点/制造/零售等切片 */
+export type ScanRangeOption = {
+  id: string;
+  label: string;
+  coverage: number;
+  hint?: string;
+};
+
+/** 左栏监测源（外部舆情/司法/内部规则/流水模型 · 在线/升级） */
+export type KnowledgeSource = {
+  id: string;
+  label: string;
+  desc: string;
+  status: "online" | "upgrading" | "offline";
+  statusLabel: string;
+};
+
+/** 中栏预警客户队列（按 tier desc → 更新时间 desc 预排序） */
+export type ScanQueueCase = {
+  id: string;
+  customer: string;
+  tier: "red" | "yellow";
+  reason: string;
+  updated: string;
+};
+
+/** 底部风险信号热区 · 5 条 horizontal mini bars（百分制） */
+export type SignalHeatBar = {
+  id: string;
+  label: string;
+  score: number;
+  desc?: string;
+};
+
+/** CTA "启动风险扫描" 后切换到的 after 快照（对比 before） */
+export type ScanSnapshot = {
+  summary: string;
+  warnCount: number;
+  warnDelta: string;
+  kbState: string;
+  tiers: { tier: "red" | "yellow" | "green"; count: number; caption: string }[];
+  signals: {
+    id: string;
+    label: string;
+    desc: string;
+    severity: "high" | "mid" | "low";
+  }[];
+  queue: ScanQueueCase[];
+  heat: SignalHeatBar[];
+  sources: KnowledgeSource[];
+};
+
+/** CTA 5 步进度条文本 + pct 节拍 */
+export type ScanStep = {
+  id: string;
+  text: string;
+  pct: number;
+};
+
 export type AlertSession = {
   id: string;
   objective: string;
@@ -101,6 +162,18 @@ export type AlertSession = {
   conversation: ConversationMessage[];
   qcCounts: { block: number; warn: number; info: number };
   recentSessions: AlertRecentSession[];
+  /** 顶部扫描范围 4 切片（融合 Codex segment） */
+  scanRange: ScanRangeOption[];
+  /** 左栏监测源 list（融合 Codex sourceList） */
+  knowledgeBaseSources: KnowledgeSource[];
+  /** 预警客户队列（中栏 hero 右侧 sub-panel · before 状态） */
+  scanQueueCases: ScanQueueCase[];
+  /** 底部风险信号热区（5 条 · before 状态） */
+  signalHeatmap: SignalHeatBar[];
+  /** CTA 5 步节拍 */
+  scanSteps: ScanStep[];
+  /** 扫描完成后切换的 after 快照 */
+  scanSnapshotAfter: ScanSnapshot;
 };
 
 /* ── 常量 ─────────────────────────────────────────────── */
@@ -320,6 +393,124 @@ const CONVERSATION: ConversationMessage[] = [
   },
 ];
 
+/* ── 融合字段值 ─────────────────────────────────────── */
+
+const SCAN_RANGE: ScanRangeOption[] = [
+  { id: "sr-all", label: "全部客户", coverage: 3200, hint: "在贷客户池 · 对公 + 普惠" },
+  { id: "sr-key", label: "重点客户", coverage: 1120, hint: "额度 ≥ 500 万 + 主办行" },
+  { id: "sr-mfg", label: "制造业", coverage: 749, hint: "行业专项扫描" },
+  { id: "sr-retail", label: "零售客群", coverage: 830, hint: "批发零售 + 餐饮住宿" },
+];
+
+const KNOWLEDGE_SOURCES: KnowledgeSource[] = [
+  {
+    id: "ks-ext-news",
+    label: "外部舆情源",
+    desc: "新闻、公告、公开媒体链接扫描",
+    status: "online",
+    statusLabel: "在线",
+  },
+  {
+    id: "ks-judicial",
+    label: "司法与处罚链接",
+    desc: "诉讼、被执行、行政处罚命中",
+    status: "online",
+    statusLabel: "在线",
+  },
+  {
+    id: "ks-int-rule",
+    label: "内部风险信号",
+    desc: "逾期苗头、名单规则、审批备注联动",
+    status: "online",
+    statusLabel: "在线",
+  },
+  {
+    id: "ks-flow",
+    label: "流水识别模型",
+    desc: "异常波动、断流、回款周期识别",
+    status: "online",
+    statusLabel: "在线",
+  },
+  {
+    id: "ks-guarantee",
+    label: "担保链关联库",
+    desc: "关联担保、互保圈、上下游传导",
+    status: "online",
+    statusLabel: "在线",
+  },
+  {
+    id: "ks-industry",
+    label: "行业黑白名单",
+    desc: "高压行业清单、重点观察名录",
+    status: "upgrading",
+    statusLabel: "升级",
+  },
+];
+
+const SCAN_QUEUE_BEFORE: ScanQueueCase[] = [
+  { id: "sq-1", customer: "泉州联泰建材", tier: "red", reason: "新增被执行 + 流水 ↓ 62%", updated: "18 分钟前" },
+  { id: "sq-2", customer: "厦门宏福贸易", tier: "red", reason: "征信 M3+ + 股东频变", updated: "42 分钟前" },
+  { id: "sq-3", customer: "漳州丰联机械", tier: "red", reason: "税务降级 + 抵押贬值", updated: "1 小时前" },
+  { id: "sq-4", customer: "福州兴达建材", tier: "yellow", reason: "卡额度使用率 92% 持续 9 天", updated: "2 小时前" },
+  { id: "sq-5", customer: "宁德海源电子", tier: "yellow", reason: "流水 ↓ 41% · 集中度 63%", updated: "3 小时前" },
+];
+
+const SCAN_QUEUE_AFTER: ScanQueueCase[] = [
+  { id: "sq-1", customer: "泉州联泰建材", tier: "red", reason: "司法立案 + 回款断层", updated: "刚刚" },
+  { id: "sq-2", customer: "厦门宏福贸易", tier: "red", reason: "热搜舆情 + 流水骤降", updated: "2 分钟前" },
+  { id: "sq-6", customer: "云樾材料科技", tier: "red", reason: "关联担保链扩散 · 新晋红档", updated: "5 分钟前" },
+  { id: "sq-7", customer: "广州瑞河商贸", tier: "red", reason: "区域舆情爆发 · 新晋红档", updated: "7 分钟前" },
+  { id: "sq-4", customer: "福州兴达建材", tier: "yellow", reason: "回款周期 +22 天", updated: "12 分钟前" },
+];
+
+const SIGNAL_HEAT_BEFORE: SignalHeatBar[] = [
+  { id: "sh-legal", label: "外部司法命中", score: 78, desc: "12 户客户出现诉讼/被执行动态" },
+  { id: "sh-flow", label: "流水骤降", score: 69, desc: "近 30 日回款下降超过 35%" },
+  { id: "sh-public", label: "舆情负面", score: 61, desc: "负面新闻集中在两家区域核心客户" },
+  { id: "sh-guarantee", label: "担保链扩散", score: 57, desc: "担保链与高压行业客户重叠" },
+  { id: "sh-internal", label: "内部名单交叉", score: 48, desc: "名单规则与审批备注多点联动" },
+];
+
+const SIGNAL_HEAT_AFTER: SignalHeatBar[] = [
+  { id: "sh-legal", label: "外部司法命中", score: 84, desc: "司法立案新增 4 户" },
+  { id: "sh-flow", label: "流水骤降", score: 76, desc: "双击穿 · 诉讼 + 断流 2 户" },
+  { id: "sh-public", label: "舆情负面", score: 72, desc: "区域舆情集中冲击商贸客群" },
+  { id: "sh-guarantee", label: "担保链扩散", score: 64, desc: "上游关联企业负面传导" },
+  { id: "sh-internal", label: "内部名单交叉", score: 53, desc: "名单与审批备注联动抬升" },
+];
+
+const SCAN_STEPS: ScanStep[] = [
+  { id: "st-1", text: "正在抓取外部链接", pct: 18 },
+  { id: "st-2", text: "正在识别内部风险信号", pct: 43 },
+  { id: "st-3", text: "正在分析客户流水", pct: 71 },
+  { id: "st-4", text: "正在合成风险分级", pct: 93 },
+  { id: "st-5", text: "扫描完成", pct: 100 },
+];
+
+const SCAN_SNAPSHOT_AFTER: ScanSnapshot = {
+  summary:
+    "最新扫描新增 4 户高风险客户，风险集中在制造与商贸链条；两户客户外部司法与流水断层同时命中，需立即转入人工复核。",
+  warnCount: 45,
+  warnDelta: "较扫描前 +6",
+  kbState: "7 项联机中",
+  tiers: [
+    { tier: "red", count: 15, caption: "双重及以上强信号命中" },
+    { tier: "yellow", count: 30, caption: "出现持续性弱风险组合" },
+    { tier: "green", count: 58, caption: "部分客户信号已缓和" },
+  ],
+  signals: [
+    { id: "sg-1", label: "司法+流水双击穿", desc: "2 户客户同时出现诉讼与断流", severity: "high" },
+    { id: "sg-2", label: "核心客户回款拉长", desc: "5 户账期拉长超过 22 天", severity: "mid" },
+    { id: "sg-3", label: "行业链条传导", desc: "上游关联企业负面扩散到授信客户", severity: "mid" },
+    { id: "sg-4", label: "外部负面热度爆发", desc: "区域舆情集中冲击商贸客群", severity: "high" },
+  ],
+  queue: SCAN_QUEUE_AFTER,
+  heat: SIGNAL_HEAT_AFTER,
+  sources: KNOWLEDGE_SOURCES.map((s) =>
+    s.id === "ks-flow" ? { ...s, status: "upgrading", statusLabel: "升级" } : s,
+  ),
+};
+
 const RECENT: AlertRecentSession[] = [
   { id: "alr-1", objective: "2026-04-21 周度扫描（当前）", updated: "刚刚", pool: 3200, redCount: 131 },
   { id: "alr-2", objective: "2026-04-14 周度扫描", updated: "7 天前", pool: 3180, redCount: 116 },
@@ -347,4 +538,10 @@ export const ALERT_SESSION: AlertSession = {
   conversation: CONVERSATION,
   qcCounts: { block: 0, warn: 2, info: 4 },
   recentSessions: RECENT,
+  scanRange: SCAN_RANGE,
+  knowledgeBaseSources: KNOWLEDGE_SOURCES,
+  scanQueueCases: SCAN_QUEUE_BEFORE,
+  signalHeatmap: SIGNAL_HEAT_BEFORE,
+  scanSteps: SCAN_STEPS,
+  scanSnapshotAfter: SCAN_SNAPSHOT_AFTER,
 };

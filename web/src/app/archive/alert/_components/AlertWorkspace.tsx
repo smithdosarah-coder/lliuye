@@ -7,9 +7,26 @@
  * 壳类：.v-archive--canon[data-agent="alert"] → --agent = var(--t-alert) 赭红
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { ScanCTA } from "@/components/shared/ScanCTA";
-import { CustomerSelector } from "@/components/shared/CustomerSelector";
+import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import {
+  ALERT_GLOBAL_STATS,
+  ALERT_SESSION,
+  type AlertPipelineStep,
+  type AlertRecentSession,
+  type AlertRule,
+  type ConversationMessage,
+  type HeatCell,
+  type IndustryDistribution,
+  type KnowledgeSource,
+  type ReachRate,
+  type ScanQueueCase,
+  type ScanRangeOption,
+  type ScanStep,
+  type SignalHeatBar,
+  type TopCase,
+} from "@/lib/mock/agent-alert-session";
+import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
+import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import {
   ClaimText,
   EvidenceProvider,
@@ -17,34 +34,104 @@ import {
   UnfilledFields,
 } from "@/components/evidence";
 import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
-import {
-  ALERT_GLOBAL_STATS,
-  ALERT_SESSION,
-  type AlertPipelineStep,
-  type AlertQuery,
-  type AlertRecentSession,
-  type AlertRule,
-  type ConversationMessage,
-  type HeatCell,
-  type IndustryDistribution,
-  type ReachRate,
-  type TopCase,
-} from "@/lib/mock/agent-alert-session";
+
+/** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
+function msgTitle(raw: string): string {
+  const flat = raw.replace(/\s+/g, " ").trim();
+  return flat.length > 42 ? `${flat.slice(0, 40)}…` : flat;
+}
+
+/** 统一消息 PinHandle props 生成（alert agent tint）。 */
+function msgPinProps(msg: ConversationMessage, speaker: string) {
+  return {
+    id: `alert:msg:${msg.id}`,
+    title: msgTitle(msg.content),
+    subtitle: `${speaker} · ${msg.at}`,
+    accentVar: "--t-alert",
+    agentKey: "alert",
+    href: "/archive/alert",
+    fullText: msg.content,
+  };
+}
+
+/** 面板 PanelPinHandle 一键 factory · 默认 href/agentKey/accentVar */
+function panelPin(id: string, title: string, subtitle: string, blurb: string) {
+  return {
+    id: `alert:${id}`,
+    title,
+    subtitle,
+    accentVar: "--t-alert",
+    agentKey: "alert",
+    href: "/archive/alert",
+    blurb,
+  };
+}
 
 type OutputTab = "dist" | "heat" | "reach";
+type ScanPhase = "before" | "scanning" | "after";
 
 export default function AlertWorkspace() {
   const session = ALERT_SESSION;
   const [tab, setTab] = useState<OutputTab>("dist");
-  /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
-  const [scanned, setScanned] = useState(false);
+  const [rangeId, setRangeId] = useState<string>(session.scanRange[0]?.id ?? "");
+
+  const [phase, setPhase] = useState<ScanPhase>("before");
+  const [stepIdx, setStepIdx] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  const steps = session.scanSteps;
+  const after = session.scanSnapshotAfter;
+
+  /** paint：phase=after 时切换 source list / hero summary / kb state / queue / heat */
+  const currentSources = phase === "after" ? after.sources : session.knowledgeBaseSources;
+  const currentQueue = phase === "after" ? after.queue : session.scanQueueCases;
+  const currentHeat = phase === "after" ? after.heat : session.signalHeatmap;
+  const kbState = phase === "after" ? after.kbState : `${session.knowledgeBaseSources.filter((s) => s.status === "online").length} 项联机中`;
+  const currentSummary =
+    phase === "after"
+      ? after.summary
+      : `${session.stage} · 红 ${session.totals.red} / 黄 ${session.totals.yellow} / 绿 ${session.totals.green} · ${session.updated}`;
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current != null) window.clearInterval(timerRef.current);
+    };
+  }, []);
+
+  function startScan() {
+    if (phase === "scanning") return;
+    setPhase("scanning");
+    setStepIdx(0);
+    if (timerRef.current != null) window.clearInterval(timerRef.current);
+    let i = 0;
+    timerRef.current = window.setInterval(() => {
+      i += 1;
+      if (i >= steps.length) {
+        if (timerRef.current != null) window.clearInterval(timerRef.current);
+        timerRef.current = null;
+        setStepIdx(steps.length - 1);
+        setPhase("after");
+        return;
+      }
+      setStepIdx(i);
+    }, 500);
+  }
+
+  function resetScan() {
+    if (timerRef.current != null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setStepIdx(0);
+    setPhase("before");
+  }
 
   return (
     <EvidenceProvider
       items={ALERT_EVIDENCE.items}
       unfilledFields={ALERT_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace" data-scanned={scanned ? "yes" : "no"}>
+    <div className="rpt-workspace">
       <HeroSection
         weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
         redRate={ALERT_GLOBAL_STATS.redRate}
@@ -54,6 +141,19 @@ export default function AlertWorkspace() {
         updated={session.updated}
         totals={session.totals}
         qcCounts={session.qcCounts}
+        phase={phase}
+        summary={currentSummary}
+        afterDelta={phase === "after" ? after.warnDelta : undefined}
+        afterWarn={phase === "after" ? after.warnCount : undefined}
+        kbState={kbState}
+        onScan={startScan}
+        onReset={resetScan}
+      />
+
+      <ScanProgressStrip
+        phase={phase}
+        steps={steps}
+        stepIdx={stepIdx}
       />
 
       <TrafficLightWall
@@ -63,30 +163,25 @@ export default function AlertWorkspace() {
         topCases={session.topCases}
       />
 
+      <ScanQueuePanel queue={currentQueue} phase={phase} />
+
       <div className="rpt-grid">
         <aside className="rpt-col rpt-col--left">
-          <QueryPanel q={session.query} />
+          <ScanRangePanel
+            options={session.scanRange}
+            selected={rangeId}
+            onSelect={setRangeId}
+          />
+          <KnowledgeUploadPanel />
+          <SourceListPanel sources={currentSources} />
           <RulesPanel rules={session.rules} />
           <PipelinePanel steps={session.pipeline} />
           <RecentPanel recent={session.recentSessions} />
         </aside>
 
         <section className="rpt-col rpt-col--mid">
-          <ScanCTA
-            label="全客户巡检"
-            tone="alert"
-            onDone={() => setScanned(true)}
-            steps={[
-              { label: "加载在贷客户池", pct: 16 },
-              { label: "外部扫描 · 政策 / 诉讼 / 舆情", pct: 40 },
-              { label: "内部交易 · 账户流水异动", pct: 64 },
-              { label: "双路交叉命中分级", pct: 86 },
-              { label: "生成处置建议 · 完成", pct: 100 },
-            ]}
-          />
-          <ConversationPanel msgs={session.conversation}>
-            <AlertComposer />
-          </ConversationPanel>
+          <ConversationPanel msgs={session.conversation} />
+          <AlertComposer />
         </section>
 
         <section className="rpt-col rpt-col--right">
@@ -101,6 +196,9 @@ export default function AlertWorkspace() {
           />
         </section>
       </div>
+
+      <SignalHeatmapPanel bars={currentHeat} phase={phase} />
+
       <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
         <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
         <ClaimText text={ALERT_EVIDENCE.summary} />
@@ -123,44 +221,143 @@ function HeroSection(p: {
   updated: string;
   totals: { red: number; yellow: number; green: number };
   qcCounts: { block: number; warn: number; info: number };
+  phase: ScanPhase;
+  summary: string;
+  afterDelta?: string;
+  afterWarn?: number;
+  kbState: string;
+  onScan: () => void;
+  onReset: () => void;
 }) {
+  const isScanning = p.phase === "scanning";
+  const isAfter = p.phase === "after";
+  const btnLabel = isScanning ? "扫描中…" : isAfter ? "重新扫描" : "启动风险扫描";
   return (
-    <header className="rpt-hero">
+    <header className="rpt-hero al-hero">
       <div className="rpt-hero__eyebrow">
         <span className="rpt-hero__badge" aria-hidden>◉</span>
         <span>AGENT · 04 · TOWER</span>
         <span className="rpt-hero__sep">·</span>
         <span>贷中预警引擎</span>
+        <span className="al-hero__kb" data-phase={p.phase}>
+          <span className="al-hero__kb-dot" aria-hidden />
+          {p.kbState}
+        </span>
       </div>
-      {/* 2026-04-23 · 业务逻辑: alert 是在贷客户池批量扫描 · 不选单客户
-          输入是知识库（规则库 / 外部信号源）· 触发"全客户巡检"即可 · CustomerSelector 不适用 */}
       <h1 className="rpt-hero__title">{p.objective}</h1>
-      <p className="rpt-hero__sub">
-        {p.stage} · 红 {p.totals.red} / 黄 {p.totals.yellow} / 绿 {p.totals.green} · {p.updated}
-      </p>
-      <dl className="rpt-hero__stats">
-        <div className="rpt-hero__stat">
-          <dt>本周已扫</dt>
-          <dd>{p.weeklyProcessed}</dd>
+      <p className="rpt-hero__sub">{p.summary}</p>
+
+      <div className="al-hero__row">
+        <dl className="rpt-hero__stats al-hero__stats">
+          <div className="rpt-hero__stat">
+            <dt>本周已扫</dt>
+            <dd>{p.weeklyProcessed}</dd>
+          </div>
+          <div className="rpt-hero__stat">
+            <dt>红档占比</dt>
+            <dd>{p.redRate}</dd>
+          </div>
+          <div className="rpt-hero__stat">
+            <dt>平均耗时</dt>
+            <dd>{p.avgDuration}</dd>
+          </div>
+          <div className="rpt-hero__stat">
+            <dt>质检</dt>
+            <dd className="rpt-hero__qc">
+              <span className="rpt-hero__qc-chip" data-tone="block">{p.qcCounts.block}</span>
+              <span className="rpt-hero__qc-chip" data-tone="warn">{p.qcCounts.warn}</span>
+              <span className="rpt-hero__qc-chip" data-tone="info">{p.qcCounts.info}</span>
+            </dd>
+          </div>
+          {isAfter ? (
+            <div className="rpt-hero__stat al-hero__stat--delta">
+              <dt>最新扫描</dt>
+              <dd>
+                <span className="al-hero__delta-num">{p.afterWarn}</span>
+                <span className="al-hero__delta-tag">{p.afterDelta}</span>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+
+        <div className="al-hero__cta-wrap">
+          <button
+            type="button"
+            className="al-hero__cta"
+            data-phase={p.phase}
+            disabled={isScanning}
+            onClick={isAfter ? p.onReset : p.onScan}
+          >
+            <span className="al-hero__cta-ic" aria-hidden>◈</span>
+            <span className="al-hero__cta-lbl">{btnLabel}</span>
+            {!isScanning ? <kbd className="al-hero__cta-kbd">⌘R</kbd> : null}
+          </button>
+          <div className="al-hero__cta-hint">
+            {isScanning
+              ? "扫描进行中 · 约 2.5 秒"
+              : isAfter
+                ? "已完成扫描 · 点击可回到扫描前基线"
+                : "5 步 pipeline · 外链 → 内部 → 流水 → 分级 → 完成"}
+          </div>
         </div>
-        <div className="rpt-hero__stat">
-          <dt>红档占比</dt>
-          <dd>{p.redRate}</dd>
-        </div>
-        <div className="rpt-hero__stat">
-          <dt>平均耗时</dt>
-          <dd>{p.avgDuration}</dd>
-        </div>
-        <div className="rpt-hero__stat">
-          <dt>质检</dt>
-          <dd className="rpt-hero__qc">
-            <span className="rpt-hero__qc-chip" data-tone="block">{p.qcCounts.block}</span>
-            <span className="rpt-hero__qc-chip" data-tone="warn">{p.qcCounts.warn}</span>
-            <span className="rpt-hero__qc-chip" data-tone="info">{p.qcCounts.info}</span>
-          </dd>
-        </div>
-      </dl>
+      </div>
     </header>
+  );
+}
+
+function ScanProgressStrip(p: {
+  phase: ScanPhase;
+  steps: ScanStep[];
+  stepIdx: number;
+}) {
+  if (p.phase === "before") return null;
+  const current = p.steps[Math.min(p.stepIdx, p.steps.length - 1)] ?? p.steps[0];
+  return (
+    <section
+      className="rpt-panel al-prog"
+      data-phase={p.phase}
+      aria-label="风险扫描进度"
+    >
+      <PanelPinHandle
+        {...panelPin(
+          "scan-progress",
+          "风险扫描进度",
+          p.phase === "scanning" ? "扫描中 · 5 步" : "扫描完成",
+          `${current?.text ?? "扫描完成"} · ${current?.pct ?? 100}%`,
+        )}
+      />
+      <div className="al-prog__head">
+        <div className="al-prog__eyebrow">SCAN · 扫描流程</div>
+        <div className="al-prog__text">
+          {current?.text ?? "扫描完成"}
+          <span className="al-prog__pct">{current?.pct ?? 100}%</span>
+        </div>
+      </div>
+      <div className="al-prog__bar" aria-hidden>
+        <div
+          className="al-prog__fill"
+          style={{ width: `${current?.pct ?? 100}%` } as CSSProperties}
+        />
+      </div>
+      <ol className="al-prog__steps">
+        {p.steps.map((s, i) => (
+          <li
+            key={s.id}
+            className="al-prog__step"
+            data-status={
+              i < p.stepIdx || p.phase === "after"
+                ? "done"
+                : i === p.stepIdx
+                  ? "active"
+                  : "pending"
+            }
+          >
+            <span className="al-prog__step-idx">{String(i + 1).padStart(2, "0")}</span>
+            <span className="al-prog__step-lbl">{s.text}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -214,6 +411,14 @@ function TrafficLightWall(p: {
 
   return (
     <section className="rpt-panel alert-wall" aria-label="红黄绿三灯状态墙">
+      <PanelPinHandle
+        {...panelPin(
+          "traffic-wall",
+          "红黄绿三灯状态墙",
+          `贷中预警 · 命中 ${total.toLocaleString()} 户`,
+          `红 ${red} · 黄 ${yellow} · 绿 ${green} · ${activeRules} 条规则活跃`,
+        )}
+      />
       <div className="alert-wall-head">
         <span className="eyebrow">TRAFFIC · 红黄绿三灯 · 命中 {total.toLocaleString()} 户</span>
         <span className="meta">
@@ -249,40 +454,252 @@ function TrafficLightWall(p: {
   );
 }
 
+/* ─── 融合 · 预警客户队列（中栏 hero 下方 sub-panel） ─── */
+
+function ScanQueuePanel(p: { queue: ScanQueueCase[]; phase: ScanPhase }) {
+  const red = p.queue.filter((c) => c.tier === "red").length;
+  const yel = p.queue.filter((c) => c.tier === "yellow").length;
+  return (
+    <section className="rpt-panel al-queue" aria-label="预警客户队列">
+      <PanelPinHandle
+        {...panelPin(
+          "scan-queue",
+          "预警客户队列",
+          `贷中预警 · 红 ${red} · 黄 ${yel}`,
+          `按风险等级 desc → 最新命中时间 desc · ${p.queue.length} 户`,
+        )}
+      />
+      <div className="al-queue__head">
+        <div className="al-queue__ey">
+          <span className="eyebrow">QUEUE · 预警客户队列</span>
+          <span className="sub">按风险等级 desc → 最新命中时间 desc 排序</span>
+        </div>
+        <div className="al-queue__stat">
+          <span className="al-queue__chip" data-tier="red">红 {red}</span>
+          <span className="al-queue__chip" data-tier="yellow">黄 {yel}</span>
+          {p.phase === "after" ? (
+            <span className="al-queue__chip" data-tier="delta">
+              最新扫描更新
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <ul className="al-queue__list">
+        {p.queue.map((c) => (
+          <li key={c.id} className="al-queue__item" data-tier={c.tier}>
+            <span className="al-queue__ico" aria-hidden>客</span>
+            <div className="al-queue__body">
+              <div className="al-queue__name">{c.customer}</div>
+              <div className="al-queue__reason">{c.reason}</div>
+            </div>
+            <div className="al-queue__meta">
+              <span className="al-queue__tag" data-tier={c.tier}>
+                {c.tier === "red" ? "高风险" : "中风险"}
+              </span>
+              <span className="al-queue__time">{c.updated}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/* ─── 融合 · 底部风险信号热区 horizontal bars（Codex #heat） ─── */
+
+function SignalHeatmapPanel(p: { bars: SignalHeatBar[]; phase: ScanPhase }) {
+  const max = Math.max(...p.bars.map((b) => b.score), 1);
+  const top = p.bars[0];
+  return (
+    <section className="rpt-panel al-heatbars" aria-label="风险信号热区">
+      <PanelPinHandle
+        {...panelPin(
+          "signal-heatmap",
+          "风险信号热区",
+          "贷中预警 · 5 信号百分制",
+          `最强信号「${top?.label ?? "—"}」${top?.score ?? 0} 分 · ${p.bars.length} 条`,
+        )}
+      />
+      <div className="al-heatbars__head">
+        <div>
+          <span className="eyebrow">SIGNAL · 风险信号热区</span>
+          <div className="sub">
+            识别外部链接、内部规则与流水异常在客户池中的聚集位置 · 最强信号「{top?.label ?? "—"}」{top?.score ?? 0} 分
+          </div>
+        </div>
+        {p.phase === "after" ? (
+          <span className="al-heatbars__delta">本轮扫描已刷新</span>
+        ) : null}
+      </div>
+      <ul className="al-heatbars__list">
+        {p.bars.map((b) => {
+          const pct = Math.round((b.score / max) * 100);
+          return (
+            <li key={b.id} className="al-heatbars__row">
+              <div className="al-heatbars__lbl">
+                <span className="al-heatbars__name">{b.label}</span>
+                {b.desc ? <span className="al-heatbars__desc">{b.desc}</span> : null}
+              </div>
+              <div className="al-heatbars__bar" aria-hidden>
+                <div
+                  className="al-heatbars__fill"
+                  style={{ width: `${pct}%` } as CSSProperties}
+                />
+              </div>
+              <span className="al-heatbars__score">{b.score}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /* ────────────────────── LEFT ────────────────────── */
 
-function QueryPanel({ q }: { q: AlertQuery }) {
+function ScanRangePanel(p: {
+  options: ScanRangeOption[];
+  selected: string;
+  onSelect: (id: string) => void;
+}) {
+  const cur = p.options.find((o) => o.id === p.selected) ?? p.options[0];
   return (
-    <div className="rpt-panel al-q">
+    <div className="rpt-panel al-sr">
+      <PanelPinHandle
+        {...panelPin(
+          "scan-range",
+          "扫描范围",
+          `贷中预警 · ${cur?.label ?? "全部客户"}`,
+          `${cur?.coverage?.toLocaleString() ?? 0} 户 · ${cur?.hint ?? ""}`,
+        )}
+      />
       <div className="rpt-panel__head">
-        <div className="rpt-panel__eyebrow">扫描配置</div>
-        <div className="rpt-panel__updated">更新 {q.updated}</div>
+        <div className="rpt-panel__eyebrow">扫描范围</div>
+        <div className="rpt-panel__counter">
+          {cur?.coverage?.toLocaleString() ?? 0} 户
+        </div>
       </div>
       <div className="rpt-panel__body">
-        <div className="al-q__obj">{q.objective}</div>
-        <dl className="al-q__dl">
-          <div className="al-q__row">
-            <dt>客户池</dt>
-            <dd>
-              <span className="al-q__pool">{q.poolLabel}</span>
-              <span className="al-q__count">{q.poolSize.toLocaleString()}</span>
-            </dd>
+        <div className="al-sr__seg" role="tablist">
+          {p.options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className="al-sr__seg-btn"
+              data-active={o.id === p.selected ? "yes" : "no"}
+              onClick={() => p.onSelect(o.id)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {cur ? (
+          <div className="al-sr__hint">
+            本次覆盖 <b>{cur.coverage.toLocaleString()}</b> 户 · {cur.hint}
           </div>
-          <div className="al-q__row">
-            <dt>时间窗</dt>
-            <dd>{q.windowLabel}</dd>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeUploadPanel() {
+  const [count, setCount] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  function onChange(e: ChangeEvent<HTMLInputElement>) {
+    setCount(e.target.files?.length ?? 0);
+  }
+  const hint =
+    count > 0
+      ? `已导入 ${count} 份知识库文件，下一次扫描将纳入规则`
+      : "支持 Excel、PDF、名单库、规则文档";
+  return (
+    <div className="rpt-panel al-up">
+      <PanelPinHandle
+        {...panelPin(
+          "knowledge-upload",
+          "知识库上传",
+          "贷中预警 · 风险规则/名单",
+          count > 0
+            ? `已导入 ${count} 份 · 下轮扫描纳入`
+            : "支持 Excel / PDF / 名单库 / 规则文档",
+        )}
+      />
+      <div className="rpt-panel__head">
+        <div className="rpt-panel__eyebrow">知识库上传</div>
+        <div className="rpt-panel__counter">{count > 0 ? `+${count}` : "未导入"}</div>
+      </div>
+      <div className="rpt-panel__body">
+        <label
+          className="al-up__drop"
+          onClick={(e) => {
+            e.preventDefault();
+            inputRef.current?.click();
+          }}
+        >
+          <div className="al-up__plus" aria-hidden>
+            +
           </div>
-          <div className="al-q__row">
-            <dt>规则版本</dt>
-            <dd>
-              <span className="al-q__ver">{q.ruleVersion}</span>
-            </dd>
-          </div>
-          <div className="al-q__row">
-            <dt>触发源</dt>
-            <dd>{q.triggerSource}</dd>
-          </div>
-        </dl>
+          <div className="al-up__ttl">上传风险知识库</div>
+          <div className="al-up__hint">{hint}</div>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            className="al-up__input"
+            onChange={onChange}
+            aria-label="上传风险知识库"
+          />
+        </label>
+        <div className="al-up__thr">
+          <span className="al-up__thr-lbl">监测阈值</span>
+          <span className="al-up__thr-body">
+            外部负面命中 1 次即预警；流水异常连续 2 周升级中高风险
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SourceListPanel({ sources }: { sources: KnowledgeSource[] }) {
+  const online = sources.filter((s) => s.status === "online").length;
+  return (
+    <div className="rpt-panel al-src">
+      <PanelPinHandle
+        {...panelPin(
+          "source-list",
+          "监测源",
+          `贷中预警 · ${online}/${sources.length} 在线`,
+          sources
+            .slice(0, 4)
+            .map((s) => s.label)
+            .join(" · "),
+        )}
+      />
+      <div className="rpt-panel__head">
+        <div className="rpt-panel__eyebrow">监测源</div>
+        <div className="rpt-panel__counter">
+          {online}/{sources.length} 在线
+        </div>
+      </div>
+      <div className="rpt-panel__body">
+        <ul className="al-src__list">
+          {sources.map((s) => (
+            <li key={s.id} className="al-src__item" data-status={s.status}>
+              <span className="al-src__ico" aria-hidden>
+                源
+              </span>
+              <div className="al-src__body">
+                <div className="al-src__lbl">{s.label}</div>
+                <div className="al-src__desc">{s.desc}</div>
+              </div>
+              <span className="al-src__tag" data-status={s.status}>
+                {s.statusLabel}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
@@ -293,6 +710,14 @@ function RulesPanel({ rules }: { rules: AlertRule[] }) {
   const totalHit = rules.reduce((s, r) => s + (r.enabled ? r.hit : 0), 0);
   return (
     <div className="rpt-panel al-rl">
+      <PanelPinHandle
+        {...panelPin(
+          "rules",
+          "扫描规则",
+          `贷中预警 · ${enabled}/${rules.length} 启用`,
+          `命中 ${totalHit} · 外部 / 内部 / 交叉 三类`,
+        )}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">规则</div>
         <div className="rpt-panel__counter">
@@ -331,8 +756,17 @@ const CAT_LABEL: Record<string, string> = { external: "外部", internal: "内�
 const SEV_LABEL: Record<string, string> = { high: "高危", mid: "中危", low: "低危" };
 
 function PipelinePanel({ steps }: { steps: AlertPipelineStep[] }) {
+  const done = steps.filter((s) => s.status === "done").length;
   return (
     <div className="rpt-panel al-pl">
+      <PanelPinHandle
+        {...panelPin(
+          "pipeline",
+          "扫描流水",
+          `贷中预警 · ${done}/${steps.length} 完成`,
+          steps.find((s) => s.status === "active")?.label ?? "流程完成",
+        )}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">扫描流水</div>
         <div className="rpt-panel__counter">
@@ -361,7 +795,15 @@ function PipelinePanel({ steps }: { steps: AlertPipelineStep[] }) {
 
 function RecentPanel({ recent }: { recent: AlertRecentSession[] }) {
   return (
-    <div className="rpt-panel al-rc">
+    <div className="rpt-panel al-rc al-rc--lite">
+      <PanelPinHandle
+        {...panelPin(
+          "recent",
+          "近期扫描",
+          `贷中预警 · ${recent.length} 次`,
+          recent[0]?.objective ?? "无",
+        )}
+      />
       <div className="rpt-panel__head">
         <div className="rpt-panel__eyebrow">近期</div>
         <div className="rpt-panel__counter">{recent.length}</div>
@@ -369,15 +811,10 @@ function RecentPanel({ recent }: { recent: AlertRecentSession[] }) {
       <div className="rpt-panel__body">
         <ul className="al-rc__list">
           {recent.map((r) => (
-            <li key={r.id} className="al-rc__item">
-              <div className="al-rc__head">
-                <div className="al-rc__name">{r.objective}</div>
-                <span className="al-rc__red">红 {r.redCount}</span>
-              </div>
-              <div className="al-rc__meta">
-                <span>{r.pool.toLocaleString()} 户</span>
-                <span className="al-rc__time">{r.updated}</span>
-              </div>
+            <li key={r.id} className="al-rc__row">
+              <span className="al-rc__name">{r.objective}</span>
+              <span className="al-rc__red">红 {r.redCount}</span>
+              <span className="al-rc__time">{r.updated}</span>
             </li>
           ))}
         </ul>
@@ -388,29 +825,32 @@ function RecentPanel({ recent }: { recent: AlertRecentSession[] }) {
 
 /* ────────────────────── MID ────────────────────── */
 
-function ConversationPanel({
-  msgs,
-  children,
-}: {
-  msgs: ConversationMessage[];
-  children?: React.ReactNode;
-}) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+function ConversationPanel({ msgs }: { msgs: ConversationMessage[] }) {
+  const scrollRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [msgs.length]);
 
+  const lastAi = [...msgs].reverse().find((m) => m.kind === "ai-response" || m.kind === "ai-question");
   return (
-    <div className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
-      <div className="rpt-conv" ref={scrollRef}>
-        {msgs.map((m) => (
-          <ConversationMsg key={m.id} m={m} />
-        ))}
-      </div>
-      {children}
-    </div>
+    <section
+      className="rpt-panel rpt-panel--conv al-conv rpt-conv"
+      ref={scrollRef}
+    >
+      <PanelPinHandle
+        {...panelPin(
+          "conversation",
+          "预警对话",
+          `贷中预警 · ${msgs.length} 条`,
+          lastAi ? msgTitle(lastAi.content) : "等待对话开始",
+        )}
+      />
+      {msgs.map((m) => (
+        <ConversationMsg key={m.id} m={m} />
+      ))}
+    </section>
   );
 }
 
@@ -418,6 +858,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   if (m.kind === "system-event") {
     return (
       <div className="rpt-msg rpt-msg--sys">
+        <MessagePinHandle {...msgPinProps(m, "系统事件")} />
         <span className="rpt-msg__dot" aria-hidden>◈</span>
         <span className="rpt-msg__sys-txt">{m.content}</span>
         <span className="rpt-msg__at">{m.at}</span>
@@ -428,6 +869,9 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
     const isCmd = m.kind === "user-command";
     return (
       <div className="rpt-msg rpt-msg--user" data-cmd={isCmd ? "yes" : "no"}>
+        <MessagePinHandle
+          {...msgPinProps(m, isCmd ? "客户经理 · /command" : "客户经理 · 王哲")}
+        />
         <div className="rpt-msg__head">
           <span className="rpt-msg__who">{isCmd ? "指令" : "我"}</span>
           <span className="rpt-msg__at">{m.at}</span>
@@ -439,6 +883,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   if (m.kind === "ai-thinking") {
     return (
       <div className="rpt-msg rpt-msg--ai rpt-msg--thinking">
+        <MessagePinHandle {...msgPinProps(m, "TOWER · 推理")} />
         <div className="rpt-msg__head">
           <span className="rpt-msg__who">TOWER · 推理</span>
           <span className="rpt-msg__at">{m.at}</span>
@@ -472,6 +917,7 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   const who = m.kind === "ai-question" ? "TOWER · 问" : "TOWER";
   return (
     <div className="rpt-msg rpt-msg--ai" data-q={m.kind === "ai-question" ? "yes" : "no"}>
+      <MessagePinHandle {...msgPinProps(m, who)} />
       <div className="rpt-msg__head">
         <span className="rpt-msg__who">{who}</span>
         <span className="rpt-msg__at">{m.at}</span>
@@ -533,8 +979,21 @@ function OutputPanel(p: {
   topCases: TopCase[];
   totals: { red: number; yellow: number; green: number };
 }) {
+  const tabLabel = p.tab === "dist" ? "分档分布" : p.tab === "heat" ? "30 天热力" : "触达率";
   return (
     <div className="rpt-panel al-out">
+      <PanelPinHandle
+        {...panelPin(
+          "output",
+          "预警看板",
+          `贷中预警 · ${tabLabel}`,
+          p.tab === "dist"
+            ? `行业切片 ${p.distribution.length} 类 · 红 ${p.totals.red}`
+            : p.tab === "heat"
+              ? `30 天累计 ${p.heat.reduce((s, c) => s + c.count, 0)} 次`
+              : `红档触达率 ${p.reach.find((r) => r.tier === "red")?.reachedPct.toFixed(1) ?? "—"}%`,
+        )}
+      />
       <div className="rpt-panel__head al-out__head">
         <div className="rpt-panel__eyebrow">预警看板</div>
         <div className="al-out__tabs" role="tablist">

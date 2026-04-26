@@ -1026,3 +1026,922 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ═══ Codex 融合 · UploadRail 顶部双 drop zone + CTA + 进度条（2026-04-22） ══════════
+   色全走 --agent = var(--t-compli) 墨绿 · 不硬编 · 不改 tokens.css
+   ─────────────────────────────────────────────────────────────────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .compliance-upload {
+  padding: 16px 18px 18px;
+  margin-bottom: 12px;
+  resize: none;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: flex-end;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-title {
+  margin: 6px 0 4px;
+  font-family: var(--cjkserif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-sub {
+  margin: 0;
+  color: var(--ink-65);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-btn {
+  min-width: 160px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    var(--agent),
+    color-mix(in srgb, var(--agent) 70%, var(--ink))
+  );
+  color: #fff;
+  font-family: var(--cjk);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--agent) 55%, transparent);
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px -10px color-mix(in srgb, var(--agent) 70%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-btn[data-state="running"] {
+  opacity: 0.78;
+  cursor: progress;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-btn[data-state="done"] {
+  background: color-mix(in srgb, var(--agent) 16%, transparent);
+  color: var(--agent);
+  border: 1px solid color-mix(in srgb, var(--agent) 30%, transparent);
+  box-shadow: none;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-btn-sub {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-55);
+}
+
+/* ── 双 drop zone ──────────────────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .compliance-upload-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-card {
+  padding: 12px 14px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--chalk) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-card[data-side="outer"] {
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 16%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-title {
+  color: var(--ink);
+  font-family: var(--cjkserif);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--agent);
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 62%, transparent),
+    color-mix(in srgb, var(--chalk) 30%, transparent)
+  );
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-zone:hover {
+  border-color: color-mix(in srgb, var(--agent) 40%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--agent) 6%, transparent),
+    color-mix(in srgb, var(--chalk) 40%, transparent)
+  );
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-plus {
+  font-size: 22px;
+  color: var(--agent);
+  line-height: 1;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-label {
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-hint {
+  color: var(--ink-55);
+  font-size: 10.8px;
+  letter-spacing: 0.02em;
+}
+
+.v-archive--canon[data-agent="compliance"] .compliance-drop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chalk) 56%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item-ico {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--agent);
+  text-align: center;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item[data-status="parsing"] .compliance-drop-item-ico {
+  color: var(--cp-warn);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item[data-status="pending"] .compliance-drop-item-ico {
+  color: var(--ink-48);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item-name {
+  color: var(--ink);
+  font-size: 11.8px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item-meta {
+  margin-top: 1px;
+  color: var(--ink-55);
+  font-family: var(--mono);
+  font-size: 10.4px;
+  letter-spacing: 0.03em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--agent);
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item[data-status="parsing"] .compliance-drop-item-status {
+  color: var(--cp-warn);
+  background: color-mix(in srgb, var(--cp-warn) 12%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-item[data-status="pending"] .compliance-drop-item-status {
+  color: var(--ink-55);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-drop-more {
+  padding: 4px 8px;
+  color: var(--ink-55);
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+}
+
+/* ── 比对流程 · 5 步动态进度条 ──────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .compliance-upload-flow {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 36%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-flow-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-flow-label {
+  color: var(--agent);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-flow-text {
+  color: var(--ink);
+  font-family: var(--cjk);
+  font-size: 12px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-prog {
+  height: 6px;
+  border-radius: 999px;
+  margin: 10px 0 12px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-prog-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--agent),
+    color-mix(in srgb, var(--agent) 60%, var(--cp-warn))
+  );
+  transition: width 320ms ease-out;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-flow[data-running="yes"] .compliance-upload-prog-bar {
+  background: linear-gradient(
+    90deg,
+    var(--agent),
+    color-mix(in srgb, var(--agent) 40%, var(--cp-info))
+  );
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  min-width: 0;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step[data-state="done"] {
+  background: color-mix(in srgb, var(--agent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 24%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step[data-state="active"] {
+  background: color-mix(in srgb, var(--agent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 46%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--agent) 22%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step-idx {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-55);
+  flex: none;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step[data-state="done"] .compliance-upload-step-idx,
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step[data-state="active"] .compliance-upload-step-idx {
+  color: var(--agent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step-label {
+  font-size: 11px;
+  color: var(--ink);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-upload-step[data-state="pending"] .compliance-upload-step-label {
+  color: var(--ink-55);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ═══ Codex 融合 · MatrixView drawer · 左右对照"纸" + 条款映射 ══════════
+   drawer 展开动画：max-height + opacity 280ms · mark-r/mark-g 用 color-mix 软高亮
+   ─────────────────────────────────────────────────────────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .cp-drawer {
+  padding: 14px 16px 16px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chalk) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  animation: drawer-rise 280ms ease-out both;
+  overflow: hidden;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer[data-severity="block"] {
+  border-left-color: var(--cp-block);
+  background: color-mix(in srgb, var(--cp-block) 3%, var(--chalk));
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer[data-severity="warn"] {
+  border-left-color: var(--cp-warn);
+  background: color-mix(in srgb, var(--cp-warn) 3%, var(--chalk));
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer[data-severity="info"] {
+  border-left-color: var(--cp-info);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer[data-severity="pass"] {
+  border-left-color: color-mix(in srgb, var(--cp-pass) 50%, transparent);
+}
+
+@keyframes drawer-rise {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    max-height: 1200px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.v-archive--canon[data-agent="compliance"] .cp-drawer__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sev {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: #fff;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sev[data-severity="block"] { background: var(--cp-block); }
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sev[data-severity="warn"] { background: var(--cp-warn); }
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sev[data-severity="info"] {
+  background: color-mix(in srgb, var(--cp-info) 85%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sev[data-severity="pass"] {
+  background: color-mix(in srgb, var(--cp-pass) 85%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__doc {
+  color: var(--ink);
+  font-family: var(--cjkserif);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__sep {
+  color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__cl {
+  color: var(--ink-65);
+  font-size: 12.5px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__note {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* ── 左右对照纸 ──────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .cp-drawer__papers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper {
+  position: relative;
+  padding: 14px 14px 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chalk) 88%, transparent),
+    color-mix(in srgb, var(--chalk) 64%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="inner"] {
+  border-left: 2px solid color-mix(in srgb, var(--agent) 40%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="outer"] {
+  border-left: 2px solid color-mix(in srgb, var(--cp-warn) 50%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 44px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ink) 14%, transparent),
+    transparent
+  );
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper__tag {
+  font-family: var(--cjkserif);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="outer"] .cp-paper__tag {
+  color: var(--cp-warn);
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="inner"] .cp-paper__tag {
+  color: var(--agent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper__meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-55);
+  padding-bottom: 2px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper__body {
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 12.8px;
+  line-height: 1.75;
+}
+/* 行内纸 · 宋体；外部纸 · 仿宋 · 两者略分感 */
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="inner"] .cp-paper__body {
+  font-family: var(--cjk);
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper[data-side="outer"] .cp-paper__body {
+  font-family: var(--cjkserif);
+}
+
+.v-archive--canon[data-agent="compliance"] .cp-paper__body .mark-r {
+  background: color-mix(in srgb, var(--cp-block) 18%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: color-mix(in srgb, var(--cp-block) 70%, var(--ink));
+  font-weight: 500;
+}
+.v-archive--canon[data-agent="compliance"] .cp-paper__body .mark-g {
+  background: color-mix(in srgb, var(--cp-pass) 18%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: color-mix(in srgb, var(--cp-pass) 70%, var(--ink));
+  font-weight: 500;
+}
+
+/* ── 条款映射表 ──────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .cp-mapping {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chalk) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  margin-bottom: 10px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__title {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--agent);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__list {
+  display: grid;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__row {
+  display: grid;
+  grid-template-columns: 96px 1fr 20px 1fr 64px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__row[data-diff="bad"] {
+  background: color-mix(in srgb, var(--cp-block) 6%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__row[data-diff="warn"] {
+  background: color-mix(in srgb, var(--cp-warn) 6%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__row[data-diff="info"] {
+  background: color-mix(in srgb, var(--cp-info) 4%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__field {
+  color: var(--ink-65);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__inner,
+.v-archive--canon[data-agent="compliance"] .cp-mapping__outer {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__arrow {
+  text-align: center;
+  color: var(--ink-55);
+  font-family: var(--mono);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__diff {
+  text-align: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__diff[data-diff="bad"] {
+  color: var(--cp-block);
+  background: color-mix(in srgb, var(--cp-block) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-block) 30%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__diff[data-diff="warn"] {
+  color: var(--cp-warn);
+  background: color-mix(in srgb, var(--cp-warn) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-warn) 30%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-mapping__diff[data-diff="info"] {
+  color: var(--cp-info);
+  background: color-mix(in srgb, var(--cp-info) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-info) 30%, transparent);
+}
+
+.v-archive--canon[data-agent="compliance"] .cp-drawer__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--ink-55);
+  font-size: 12px;
+  font-style: italic;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--ink) 12%, transparent);
+  margin-bottom: 10px;
+}
+
+/* ── 整改建议 ──────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .cp-drawer__advice {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--agent) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 20%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__advice-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__advice-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--agent);
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 24%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__advice-cite {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-55);
+}
+.v-archive--canon[data-agent="compliance"] .cp-drawer__advice-body {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1279px) {
+  .v-archive--canon[data-agent="compliance"] .cp-drawer__papers {
+    grid-template-columns: 1fr;
+  }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__row {
+    grid-template-columns: 88px 1fr 52px;
+    grid-template-areas:
+      "field inner diff"
+      "field outer diff";
+  }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__field { grid-area: field; }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__inner { grid-area: inner; }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__arrow { display: none; }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__outer { grid-area: outer; color: var(--ink-65); }
+  .v-archive--canon[data-agent="compliance"] .cp-mapping__diff { grid-area: diff; align-self: center; }
+}
+
+/* ═══ Codex 融合 · 底部修订意见栏 · 改 / 补 / 强 三列 ══════════
+   独立 .compliance-bottom-revise · 置于 rpt-grid 之下
+   改: --cp-block 赭红 · 补: --cp-warn 金棕 · 强: --cp-pass 墨绿
+   ─────────────────────────────────────────────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .compliance-bottom-revise {
+  padding: 16px 18px 18px;
+  margin-top: 12px;
+  resize: none;
+  min-height: 0;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: flex-end;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-title {
+  margin: 6px 0 4px;
+  font-family: var(--cjkserif);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-sub {
+  margin: 0;
+  color: var(--ink-65);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count span[data-kind="fix"] {
+  color: var(--cp-block);
+  background: color-mix(in srgb, var(--cp-block) 8%, transparent);
+  border-color: color-mix(in srgb, var(--cp-block) 24%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count span[data-kind="add"] {
+  color: var(--cp-warn);
+  background: color-mix(in srgb, var(--cp-warn) 8%, transparent);
+  border-color: color-mix(in srgb, var(--cp-warn) 24%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count span[data-kind="strengthen"] {
+  color: var(--cp-pass);
+  background: color-mix(in srgb, var(--cp-pass) 10%, transparent);
+  border-color: color-mix(in srgb, var(--cp-pass) 26%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-count span b {
+  color: currentColor;
+  font-weight: 700;
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+/* ── 3 列网格 ──────────────────── */
+
+.v-archive--canon[data-agent="compliance"] .compliance-revise-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col {
+  padding: 12px 14px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--chalk) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col[data-kind="fix"] {
+  border-top: 2px solid color-mix(in srgb, var(--cp-block) 50%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col[data-kind="add"] {
+  border-top: 2px solid color-mix(in srgb, var(--cp-warn) 50%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col[data-kind="strengthen"] {
+  border-top: 2px solid color-mix(in srgb, var(--cp-pass) 50%, transparent);
+}
+
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-chip {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--cjkserif);
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-chip[data-kind="fix"] {
+  background: linear-gradient(135deg, var(--cp-block), color-mix(in srgb, var(--cp-block) 70%, var(--ink)));
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-chip[data-kind="add"] {
+  background: linear-gradient(135deg, var(--cp-warn), color-mix(in srgb, var(--cp-warn) 70%, var(--ink)));
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-chip[data-kind="strengthen"] {
+  background: linear-gradient(135deg, var(--cp-pass), color-mix(in srgb, var(--cp-pass) 70%, var(--ink)));
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col-ttl {
+  flex: 1;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-col-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  letter-spacing: 0.03em;
+}
+
+.v-archive--canon[data-agent="compliance"] .compliance-revise-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chalk) 62%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item:hover {
+  border-color: color-mix(in srgb, var(--agent) 26%, var(--ink-08));
+  background: color-mix(in srgb, var(--chalk) 80%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item-title {
+  color: var(--ink);
+  font-size: 12.8px;
+  font-weight: 500;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item-due {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--cp-warn);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cp-warn) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cp-warn) 22%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item-body {
+  color: var(--ink);
+  font-size: 11.8px;
+  line-height: 1.6;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-item-doc {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--ink-55);
+  padding-top: 4px;
+  border-top: 1px dotted color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.v-archive--canon[data-agent="compliance"] .compliance-revise-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--ink-48);
+  font-size: 11.5px;
+  font-style: italic;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+@media (max-width: 1279px) {
+  .v-archive--canon[data-agent="compliance"] .compliance-revise-head {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+  .v-archive--canon[data-agent="compliance"] .compliance-revise-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1279px) {
+  .v-archive--canon[data-agent="compliance"] .compliance-upload-head {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+  .v-archive--canon[data-agent="compliance"] .compliance-upload-cta {
+    align-items: flex-start;
+  }
+  .v-archive--canon[data-agent="compliance"] .compliance-upload-zones {
+    grid-template-columns: 1fr;
+  }
+  .v-archive--canon[data-agent="compliance"] .compliance-upload-steps {
+    grid-template-columns: 1fr;
+  }
+}

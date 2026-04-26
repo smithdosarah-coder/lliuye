@@ -63,6 +63,48 @@ export type Conflict = {
   advice: string;
 };
 
+/**
+ * 左右对照"纸"：内部制度条款原文 vs 外部政策条款原文
+ * innerHtml / outerHtml 支持 `<span class="mark-r">…</span>` / `<span class="mark-g">…</span>`
+ * 高亮冲突/差异关键词；由 React dangerouslySetInnerHTML 渲染。
+ */
+export type PaperContrast = {
+  innerDocVersion: string;
+  outerDocVersion: string;
+  innerHtml: string;
+  outerHtml: string;
+};
+
+/**
+ * 条款映射表一行 · 字段 / 行内值 / 外部值 / 差异等级
+ * diff: bad = 强冲突 · warn = 口径差异 · info = 提示
+ */
+export type ClauseMapRow = {
+  field: string;
+  inner: string;
+  outer: string;
+  diff: "bad" | "warn" | "info";
+};
+
+/** 修订意见 · 三分类：改 / 补 / 强 */
+export type RevisionAdvice = {
+  id: string;
+  kind: "fix" | "add" | "strengthen";
+  title: string;
+  body: string;
+  docTitle?: string;
+  due?: string;
+};
+
+/** 上传队列项 · drop zone 下方已导入清单的 mock */
+export type PolicyUpload = {
+  id: string;
+  name: string;
+  version: string;
+  size: string;
+  status: "synced" | "parsing" | "pending";
+};
+
 export type FunnelStage = {
   key: "clauses" | "scanned" | "hit" | "resolved";
   label: string;
@@ -94,6 +136,16 @@ export type ComplianceRecentSession = {
   resolved: number;
 };
 
+/**
+ * 矩阵 cell 对应的对照详情（paper + clauseMapping）
+ * 挂在 matrix cell 上而非 Conflict 上，因为 pass/info 的单元格
+ * 也要能展开 drawer（显示"通过，无差异"）。
+ */
+export type CellDetail = {
+  paper: PaperContrast;
+  clauseMapping: ClauseMapRow[];
+};
+
 export type ComplianceSession = {
   id: string;
   objective: string;
@@ -111,6 +163,14 @@ export type ComplianceSession = {
   conversation: ConversationMessage[];
   qcCounts: { block: number; warn: number; info: number };
   recentSessions: ComplianceRecentSession[];
+
+  /** 顶部双 drop zone 用 · 行内/外部政策上传队列 */
+  innerPolicyUploads: PolicyUpload[];
+  outerPolicyUploads: PolicyUpload[];
+  /** 底部修订意见（改/补/强 三类） */
+  revisionAdvices: RevisionAdvice[];
+  /** 点击矩阵 cell 展开 drawer 的对照详情 · key = `${docId}-${clauseId}` */
+  cellDetails: Record<string, CellDetail>;
 };
 
 /* ── 常量 ─────────────────────────────────────────────── */
@@ -432,6 +492,210 @@ const CONVERSATION: ConversationMessage[] = [
   },
 ];
 
+/* ── 顶部双 drop zone · 上传队列 mock ──────────────────── */
+
+const INNER_UPLOADS: PolicyUpload[] = [
+  { id: "iu-1", name: "授信审批管理办法 · §4 阈值章节", version: "2026.03", size: "312 KB", status: "synced" },
+  { id: "iu-2", name: "信用卡章程 · 2025 版 §4.3 披露", version: "2025.09", size: "248 KB", status: "synced" },
+  { id: "iu-3", name: "催收操作规程 · 2025 Q4", version: "2025.12", size: "186 KB", status: "synced" },
+  { id: "iu-4", name: "合作方接入标准 · v2.7", version: "2026.01", size: "204 KB", status: "parsing" },
+];
+
+const OUTER_UPLOADS: PolicyUpload[] = [
+  { id: "ou-1", name: "消费金融公司管理办法 · 修订版", version: "2026.04", size: "420 KB", status: "synced" },
+  { id: "ou-2", name: "商业银行授信风险管理指引", version: "2026.04", size: "356 KB", status: "synced" },
+  { id: "ou-3", name: "个保法实施细则 · 2026 Q2", version: "2026.03", size: "288 KB", status: "synced" },
+  { id: "ou-4", name: "征信业务管理办法修正通知", version: "2026.02", size: "142 KB", status: "pending" },
+];
+
+/* ── 底部修订意见 · 改 / 补 / 强 ─────────────────────── */
+
+const REVISION_ADVICES: RevisionAdvice[] = [
+  {
+    id: "ra-1",
+    kind: "fix",
+    title: "统一审批阈值 · 24% → 23.9%",
+    body: "重定价引擎统一将综合年化利率封顶值由 24.0% 下调至 23.9%，消除与新规第 12 条的 0.1 pp 差距；新发放合同 2026-05-15 起切换，存量下次重定价生效。",
+    docTitle: "消费贷办法 v4.2",
+    due: "2026-05-15",
+  },
+  {
+    id: "ra-2",
+    kind: "fix",
+    title: "通讯录催收口径收窄",
+    body: "催收系统下线通讯录字段全量读取，紧急联系人栏目需用户授权后重新采集；同步更新隐私政策与催收剧本。",
+    docTitle: "催收操作规程 2025 Q4",
+    due: "2026-05-10",
+  },
+  {
+    id: "ra-3",
+    kind: "add",
+    title: "补充逾期违约金阶梯披露",
+    body: "信用卡章程 §4.3 增补逾期违约金阶梯计算公式，满足「可量化可复算」要求；存量合同逐户增补披露附件。",
+    docTitle: "信用卡章程 2025 版",
+    due: "2026-05-20",
+  },
+  {
+    id: "ra-4",
+    kind: "add",
+    title: "新增合作方 5 年业绩 + 穿透尽调",
+    body: "合作方准入表单新增两项强制字段：5 年合规业绩证明 + 最终受益人穿透声明；已签约合作方 90 天内补充。",
+    docTitle: "合作方接入标准 v2.7",
+    due: "2026-07-31",
+  },
+  {
+    id: "ra-5",
+    kind: "strengthen",
+    title: "贷后检查频率措辞强化",
+    body: '将"定期开展"改为"至少按季度开展"，并明确归档时点与责任岗位。',
+    docTitle: "贷后管理细则",
+    due: "2026-06-01",
+  },
+  {
+    id: "ra-6",
+    kind: "strengthen",
+    title: "利率披露位置前置",
+    body: "合同排版模板首页增加「APR 公示卡」样式，确保利率披露位于显著位置；同步更新客户经理销售话术。",
+    docTitle: "信用卡章程 2025 版",
+    due: "2026-05-25",
+  },
+];
+
+/* ── 矩阵 cell drawer · 对照纸 + 条款映射 mock ─────────── */
+
+const CELL_DETAILS: Record<string, CellDetail> = {
+  "d-2-c-12": {
+    paper: {
+      innerDocVersion: "制度版本 2025.11 / 消费贷办法 v4.2",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '第 12 条　本办法所涉消费贷款综合年化利率（APR）<span class="mark-r">上限为 24.0%</span>，对特殊客群或长期稳定合作客户可在风险可控的前提下适度放宽。',
+      outerHtml:
+        '第 12 条第 1 款　消费金融公司各类消费贷款综合年化利率（APR）<span class="mark-g">不得高于 23.9%</span>，不得因客户类型或合作关系设置例外条款。',
+    },
+    clauseMapping: [
+      { field: "利率上限", inner: "24.0%", outer: "23.9%", diff: "bad" },
+      { field: "客群例外", inner: "特殊客群可放宽", outer: "不得设置例外", diff: "bad" },
+      { field: "影响范围", inner: "消费贷全品类", outer: "监管统一要求", diff: "warn" },
+    ],
+  },
+  "d-1-c-23": {
+    paper: {
+      innerDocVersion: "制度版本 2025.09 / 信用卡章程 §4.3",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '§4.3 持卡人逾期还款的，本行按<span class="mark-r">约定标准计收违约金</span>，具体金额按章程附录披露。',
+      outerHtml:
+        '第 23 条第 2 款　消费金融机构应披露<span class="mark-g">逾期违约金阶梯计算公式</span>，确保持卡人可量化可复算，披露位置不得仅限于附录。',
+    },
+    clauseMapping: [
+      { field: "披露方式", inner: "按约定标准", outer: "阶梯公式", diff: "bad" },
+      { field: "披露位置", inner: "章程附录", outer: "显著位置", diff: "warn" },
+      { field: "可复算性", inner: "未要求", outer: "要求", diff: "bad" },
+    ],
+  },
+  "d-3-c-31": {
+    paper: {
+      innerDocVersion: "制度版本 2025.12 / 催收操作规程 2025 Q4",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '第 31 条　催收过程中可在合同授权范围内<span class="mark-r">使用持卡人通讯录联系人</span>进行提醒；必要时可联系其工作单位。',
+      outerHtml:
+        '第 31 条第 3 款　催收对象仅限于<span class="mark-g">借款人授权的紧急联系人</span>，不得使用通讯录全量信息，不得联系工作单位除非经法院裁定。',
+    },
+    clauseMapping: [
+      { field: "联系范围", inner: "通讯录全量", outer: "紧急联系人", diff: "bad" },
+      { field: "工作单位触达", inner: "允许", outer: "原则禁止", diff: "bad" },
+      { field: "授权要求", inner: "合同授权", outer: "单独明示授权", diff: "warn" },
+    ],
+  },
+  "d-4-c-42": {
+    paper: {
+      innerDocVersion: "制度版本 2026.01 / 合作方接入标准 v2.7",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '第 42 条　合作方应提供营业执照、近 3 年财务报告及主要股东信息；<span class="mark-r">未强制要求最终受益人穿透</span>。',
+      outerHtml:
+        '第 42 条　合作方尽调应包含<span class="mark-g">5 年合规业绩记录 + 最终受益人穿透至自然人</span>，不得以股权结构复杂为由免除。',
+    },
+    clauseMapping: [
+      { field: "业绩年限", inner: "3 年", outer: "5 年", diff: "bad" },
+      { field: "受益人穿透", inner: "未要求", outer: "必须穿透到自然人", diff: "bad" },
+      { field: "复杂股权豁免", inner: "未约定", outer: "不得豁免", diff: "warn" },
+    ],
+  },
+  "d-2-c-23": {
+    paper: {
+      innerDocVersion: "制度版本 2025.11 / 消费贷办法 v4.2",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '第 23 条　借款人可查询<span class="mark-r">按月还款计划</span>，含本金、利息与手续费明细。',
+      outerHtml:
+        '第 23 条第 4 款　应向借款人提供<span class="mark-g">按日还款计划明细</span>，支持提前还款/展期等场景复算。',
+    },
+    clauseMapping: [
+      { field: "披露粒度", inner: "按月", outer: "按日", diff: "warn" },
+      { field: "复算支持", inner: "不支持", outer: "必须支持", diff: "warn" },
+    ],
+  },
+  "d-1-c-12": {
+    paper: {
+      innerDocVersion: "制度版本 2025.09 / 信用卡章程 §2.1",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '§2.1 本卡适用年化利率及费率详见<span class="mark-r">合同附件一《费率表》</span>。',
+      outerHtml:
+        '第 12 条第 2 款　利率与费率应在<span class="mark-g">合同首页显著位置</span>以"APR 公示卡"形式披露。',
+    },
+    clauseMapping: [
+      { field: "披露位置", inner: "合同附件", outer: "合同首页", diff: "warn" },
+      { field: "披露形式", inner: "表格", outer: "APR 公示卡", diff: "warn" },
+    ],
+  },
+  "d-1-c-56": {
+    paper: {
+      innerDocVersion: "制度版本 2025.09 / 信用卡章程 §7 跨境数据",
+      outerDocVersion: "监管版本 2026.03 / 个保法实施细则 2026 Q2",
+      innerHtml:
+        '§7 本行可在合规前提下将数据共享至<span class="mark-r">境内外合作机构</span>，用于产品服务。',
+      outerHtml:
+        '第 56 条　数据出境须<span class="mark-g">完成 CAC 安全评估或标准合同备案</span>，并向个人再次告知。',
+    },
+    clauseMapping: [
+      { field: "出境条件", inner: "合规前提", outer: "CAC 评估/备案", diff: "warn" },
+      { field: "二次告知", inner: "未约定", outer: "必须", diff: "warn" },
+    ],
+  },
+  "d-4-c-56": {
+    paper: {
+      innerDocVersion: "制度版本 2026.01 / 合作方接入标准 v2.7",
+      outerDocVersion: "监管版本 2026.03 / 个保法实施细则 2026 Q2",
+      innerHtml:
+        '合作方接入后数据与本行主库<span class="mark-r">共享存储、统一加密</span>。',
+      outerHtml:
+        '第 56 条　合作方数据<span class="mark-g">独立加密存储</span>，密钥不得与本行主库共享。',
+    },
+    clauseMapping: [
+      { field: "存储方式", inner: "共享存储", outer: "独立存储", diff: "warn" },
+      { field: "密钥管理", inner: "统一", outer: "隔离", diff: "warn" },
+    ],
+  },
+  "d-3-c-67": {
+    paper: {
+      innerDocVersion: "制度版本 2025.12 / 催收操作规程 2025 Q4",
+      outerDocVersion: "监管版本 2026.04 / 消费金融公司管理办法 修订版",
+      innerHtml:
+        '第 67 条　延期还款客户每月触达<span class="mark-r">不超过 5 次</span>。',
+      outerHtml:
+        '第 67 条　延期还款客户每月触达<span class="mark-g">不超过 3 次</span>，夜间（22:00-08:00）不得主动触达。',
+    },
+    clauseMapping: [
+      { field: "触达次数", inner: "5 次", outer: "3 次", diff: "warn" },
+      { field: "时段限制", inner: "未约定", outer: "夜间禁止", diff: "warn" },
+    ],
+  },
+};
+
 const RECENT: ComplianceRecentSession[] = [
   { id: "cpr-1", policy: "消费金融公司管理办法（当前）", updated: "刚刚", conflicts: 11, resolved: 3 },
   { id: "cpr-2", policy: "个保法实施细则 2026 Q2", updated: "2 天前", conflicts: 4, resolved: 3 },
@@ -456,4 +720,8 @@ export const COMPLIANCE_SESSION: ComplianceSession = {
   conversation: CONVERSATION,
   qcCounts: { block: 4, warn: 5, info: 2 },
   recentSessions: RECENT,
+  innerPolicyUploads: INNER_UPLOADS,
+  outerPolicyUploads: OUTER_UPLOADS,
+  revisionAdvices: REVISION_ADVICES,
+  cellDetails: CELL_DETAILS,
 };

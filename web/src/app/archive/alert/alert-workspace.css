@@ -8,10 +8,12 @@
   --agent: var(--t-alert);
 }
 
-/* 红黄绿三色 token（避免散落 magic） */
+/* 红黄绿三色 token（避免散落 magic） · 全部走主题 token 避免换主题失配
+   2026-04-22 REVIEW-READY：--al-yel 从 #c78413 改为 var(--t-report) 棕赭，
+   对齐 TrafficLightWall 的 "yellow" bulb 已走 --t-report 规则。 */
 .v-archive--canon[data-agent="alert"] {
   --al-red: var(--t-alert);
-  --al-yel: #c78413;
+  --al-yel: var(--t-report);
   --al-grn: var(--t-compli);
 }
 
@@ -957,4 +959,820 @@
   .v-archive--canon[data-agent="alert"] .alert-wall-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* ═══ 融合 · Hero CTA + kb state + delta（Codex .btn #scanBtn） ═══════════ */
+
+.al-hero__kb {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 10.8px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+.al-hero__kb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--agent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 18%, transparent);
+  animation: al-kb-pulse 2.4s var(--ease-smooth, ease) infinite;
+}
+.al-hero__kb[data-phase="scanning"] .al-hero__kb-dot {
+  background: var(--al-yel);
+}
+.al-hero__kb[data-phase="after"] .al-hero__kb-dot {
+  background: var(--al-grn);
+}
+@keyframes al-kb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.al-hero__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: end;
+}
+.al-hero__stats {
+  margin: 0;
+}
+.al-hero__stat--delta dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.al-hero__delta-num {
+  color: var(--al-red);
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.al-hero__delta-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--al-red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-red) 28%, transparent);
+  color: var(--al-red);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.al-hero__cta-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 220px;
+}
+.al-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--agent) 48%, transparent);
+  background: linear-gradient(
+    135deg,
+    var(--agent),
+    color-mix(in srgb, var(--agent) 70%, var(--al-red))
+  );
+  color: #fff;
+  font-family: var(--cjk);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 180ms var(--ease-smooth, ease);
+  box-shadow:
+    0 8px 22px -8px color-mix(in srgb, var(--agent) 55%, transparent),
+    0 2px 4px -1px color-mix(in srgb, var(--agent) 30%, transparent);
+}
+.al-hero__cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 28px -6px color-mix(in srgb, var(--agent) 60%, transparent),
+    0 3px 6px -1px color-mix(in srgb, var(--agent) 35%, transparent);
+}
+.al-hero__cta:active:not(:disabled) {
+  transform: translateY(0);
+}
+.al-hero__cta:disabled {
+  cursor: progress;
+  opacity: 0.88;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--agent) 80%, transparent),
+    color-mix(in srgb, var(--agent) 60%, var(--al-yel))
+  );
+}
+.al-hero__cta[data-phase="after"] {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--agent) 75%, var(--ink)),
+    var(--agent)
+  );
+}
+.al-hero__cta-ic {
+  font-size: 14px;
+  line-height: 1;
+}
+.al-hero__cta-lbl {
+  line-height: 1;
+}
+.al-hero__cta-kbd {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #fff 22%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 26%, transparent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+.al-hero__cta-hint {
+  color: var(--ink-65);
+  font-size: 11px;
+  text-align: right;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+@media (max-width: 1023px) {
+  .al-hero__row {
+    grid-template-columns: 1fr;
+  }
+  .al-hero__cta-wrap {
+    align-items: flex-start;
+  }
+  .al-hero__cta-hint {
+    text-align: left;
+  }
+}
+
+/* ═══ 融合 · 扫描进度条（Codex .scan .prog） ═══════════ */
+
+.al-prog {
+  padding: 12px 16px 14px;
+  margin-bottom: 12px;
+  resize: none;
+  min-height: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--agent) 4%, transparent),
+    color-mix(in srgb, var(--agent) 1%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, transparent);
+}
+.al-prog__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.al-prog__eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--agent);
+}
+.al-prog__text {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.al-prog__pct {
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.al-prog__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.al-prog__fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--agent) 70%, var(--al-yel)),
+    var(--agent)
+  );
+  border-radius: 999px;
+  transition: width 260ms var(--ease-smooth, ease);
+}
+.al-prog[data-phase="scanning"] .al-prog__fill {
+  animation: al-prog-shimmer 1.2s linear infinite;
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--agent) 70%, transparent),
+    var(--agent),
+    color-mix(in srgb, var(--agent) 70%, transparent)
+  );
+}
+@keyframes al-prog-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: 0 0; }
+}
+
+.al-prog__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.al-prog__step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  transition: all 200ms var(--ease-smooth, ease);
+  min-width: 0;
+}
+.al-prog__step[data-status="done"] {
+  background: color-mix(in srgb, var(--agent) 8%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 24%, transparent);
+}
+.al-prog__step[data-status="active"] {
+  background: color-mix(in srgb, var(--agent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 42%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--agent) 22%, transparent);
+}
+.al-prog__step[data-status="pending"] {
+  opacity: 0.52;
+}
+.al-prog__step-idx {
+  flex: none;
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.al-prog__step[data-status="pending"] .al-prog__step-idx {
+  color: var(--ink-55);
+}
+.al-prog__step-lbl {
+  color: var(--ink-65);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-prog__step[data-status="done"] .al-prog__step-lbl,
+.al-prog__step[data-status="active"] .al-prog__step-lbl {
+  color: var(--ink);
+}
+
+@media (max-width: 1023px) {
+  .al-prog__steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ═══ 融合 · ConversationPanel 升级为 rpt-panel 后的内边距 ═══
+   .rpt-conv 原先是裸 div，迁到 rpt-panel 后需要自有 padding 避免
+   消息紧贴边框；同时 gap 由消息父级接管。 */
+.v-archive--canon[data-agent="alert"] .al-conv {
+  padding: 14px 16px 16px;
+  gap: 14px;
+  min-height: 360px;
+}
+.v-archive--canon[data-agent="alert"] .al-conv > .rpt-msg {
+  margin: 0;
+}
+
+/* ═══ 融合 · 预警客户队列（Codex .queue） ══════════════ */
+
+.al-queue {
+  padding: 14px 18px 16px;
+  margin-bottom: 12px;
+  resize: none;
+  min-height: 0;
+}
+.al-queue__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.al-queue__ey .eyebrow {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.al-queue__ey .sub {
+  color: var(--ink-65);
+  font-size: 11.5px;
+  margin-top: 3px;
+}
+.al-queue__stat {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.al-queue__chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.al-queue__chip[data-tier="red"] {
+  color: var(--al-red);
+  background: color-mix(in srgb, var(--al-red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-red) 28%, transparent);
+}
+.al-queue__chip[data-tier="yellow"] {
+  color: var(--al-yel);
+  background: color-mix(in srgb, var(--al-yel) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-yel) 28%, transparent);
+}
+.al-queue__chip[data-tier="delta"] {
+  color: var(--agent);
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 28%, transparent);
+}
+
+.al-queue__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+.al-queue__item {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-left: 3px solid transparent;
+  transition: all 200ms var(--ease-smooth, ease);
+}
+.al-queue__item[data-tier="red"] {
+  border-left-color: var(--al-red);
+  background: color-mix(in srgb, var(--al-red) 4%, transparent);
+}
+.al-queue__item[data-tier="yellow"] {
+  border-left-color: var(--al-yel);
+  background: color-mix(in srgb, var(--al-yel) 4%, transparent);
+}
+.al-queue__item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--agent) 28%, transparent);
+}
+.al-queue__ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 600;
+}
+.al-queue__item[data-tier="red"] .al-queue__ico {
+  background: linear-gradient(
+    135deg,
+    var(--al-red),
+    color-mix(in srgb, var(--al-red) 70%, var(--agent))
+  );
+}
+.al-queue__item[data-tier="yellow"] .al-queue__ico {
+  background: linear-gradient(
+    135deg,
+    var(--al-yel),
+    color-mix(in srgb, var(--al-yel) 70%, var(--agent))
+  );
+}
+.al-queue__body {
+  min-width: 0;
+}
+.al-queue__name {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-queue__reason {
+  margin-top: 2px;
+  color: var(--ink-65);
+  font-size: 11.2px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-queue__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.al-queue__tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.al-queue__tag[data-tier="red"] { background: var(--al-red); }
+.al-queue__tag[data-tier="yellow"] { background: var(--al-yel); }
+.al-queue__time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-55);
+}
+
+/* ═══ 融合 · 底部风险信号热区 mini bars（Codex #heat .mini） ══ */
+
+.al-heatbars {
+  padding: 14px 18px 16px;
+  margin-top: 12px;
+  resize: none;
+  min-height: 0;
+}
+.al-heatbars__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.al-heatbars__head .eyebrow {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--agent);
+  text-transform: uppercase;
+}
+.al-heatbars__head .sub {
+  color: var(--ink-65);
+  font-size: 11.5px;
+  margin-top: 4px;
+  line-height: 1.5;
+  max-width: 720px;
+}
+.al-heatbars__delta {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 28%, transparent);
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.al-heatbars__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.al-heatbars__row {
+  display: grid;
+  grid-template-columns: 220px 1fr 48px;
+  gap: 14px;
+  align-items: center;
+}
+.al-heatbars__lbl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.al-heatbars__name {
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.al-heatbars__desc {
+  color: var(--ink-65);
+  font-size: 10.8px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-heatbars__bar {
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
+}
+.al-heatbars__fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--agent) 60%, transparent),
+    var(--agent),
+    color-mix(in srgb, var(--agent) 80%, var(--al-red))
+  );
+  border-radius: 999px;
+  animation: bar-flow 380ms var(--ease-smooth, ease);
+  transition: width 260ms var(--ease-smooth, ease);
+}
+.al-heatbars__score {
+  color: var(--agent);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 1023px) {
+  .al-heatbars__row {
+    grid-template-columns: 1fr 40px;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "lbl   score"
+      "bar   bar";
+  }
+  .al-heatbars__lbl { grid-area: lbl; }
+  .al-heatbars__score { grid-area: score; }
+  .al-heatbars__bar { grid-area: bar; }
+}
+
+/* ═══ 融合 · 左栏扫描范围 segment（Codex .seg） ═══════════ */
+
+.al-sr__seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.al-sr__seg-btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink-65);
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 180ms var(--ease-smooth, ease);
+}
+.al-sr__seg-btn:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--agent) 28%, transparent);
+}
+.al-sr__seg-btn[data-active="yes"] {
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 42%, transparent);
+  color: var(--agent);
+  box-shadow: 0 1px 4px -1px color-mix(in srgb, var(--agent) 30%, transparent);
+}
+.al-sr__hint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 14%, transparent);
+  color: var(--ink-65);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.al-sr__hint b {
+  color: var(--agent);
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+/* ═══ 融合 · 左栏知识库上传 drop zone ══════════════════════ */
+
+.al-up__drop {
+  display: block;
+  padding: 18px 14px 16px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--agent) 32%, transparent);
+  background: color-mix(in srgb, var(--agent) 3%, transparent);
+  text-align: center;
+  cursor: pointer;
+  transition: all 200ms var(--ease-smooth, ease);
+}
+.al-up__drop:hover {
+  border-color: color-mix(in srgb, var(--agent) 55%, transparent);
+  background: color-mix(in srgb, var(--agent) 6%, transparent);
+}
+.al-up__plus {
+  color: var(--agent);
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.al-up__ttl {
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.al-up__hint {
+  color: var(--ink-55);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.al-up__input {
+  display: none;
+}
+.al-up__thr {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  display: grid;
+  gap: 4px;
+}
+.al-up__thr-lbl {
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.al-up__thr-body {
+  color: var(--ink-65);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ═══ 融合 · 左栏监测源 list（Codex #sourceList） ═════════ */
+
+.al-src__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.al-src__item {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.al-src__item[data-status="upgrading"] {
+  background: color-mix(in srgb, var(--al-yel) 4%, transparent);
+  border-color: color-mix(in srgb, var(--al-yel) 22%, transparent);
+}
+.al-src__item[data-status="offline"] {
+  opacity: 0.55;
+}
+.al-src__ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--agent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agent) 22%, transparent);
+  color: var(--agent);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.al-src__body {
+  min-width: 0;
+}
+.al-src__lbl {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.al-src__desc {
+  margin-top: 2px;
+  color: var(--ink-65);
+  font-size: 10.8px;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.al-src__tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.al-src__tag[data-status="online"] {
+  color: var(--al-grn);
+  background: color-mix(in srgb, var(--al-grn) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-grn) 30%, transparent);
+}
+.al-src__tag[data-status="upgrading"] {
+  color: var(--al-yel);
+  background: color-mix(in srgb, var(--al-yel) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-yel) 32%, transparent);
+}
+.al-src__tag[data-status="offline"] {
+  color: var(--ink-55);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+}
+
+/* ═══ 融合 · 左栏 Recent 压缩版（单行 list） ═══════════════ */
+
+.al-rc--lite .al-rc__list {
+  display: grid;
+  gap: 4px;
+}
+.al-rc--lite .al-rc__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+  font-size: 11.5px;
+  color: var(--ink-65);
+}
+.al-rc--lite .al-rc__row:hover {
+  background: color-mix(in srgb, var(--agent) 5%, transparent);
+}
+.al-rc--lite .al-rc__name {
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+}
+.al-rc--lite .al-rc__red {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--al-red);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--al-red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--al-red) 22%, transparent);
+}
+.al-rc--lite .al-rc__time {
+  color: var(--ink-55);
+  font-family: var(--mono);
+  font-size: 10.5px;
 }

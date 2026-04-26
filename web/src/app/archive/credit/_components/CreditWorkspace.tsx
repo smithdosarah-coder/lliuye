@@ -33,6 +33,7 @@ import {
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
+import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
 import {
   CREDIT_GLOBAL_STATS,
   CREDIT_MODE_LABEL,
@@ -184,9 +185,68 @@ export default function CreditWorkspace() {
         <ClaimText text={CREDIT_EVIDENCE.summary} />
       </section>
       <UnfilledFields />
+      <RiskRadarPreview mode={mode} session={session} />
       <EvidenceTrail agentTone="credit" />
     </div>
     </EvidenceProvider>
+  );
+}
+
+/* ─────────── Q-033 · RiskRadar Preview · L1-3 ─────────── */
+/* 596283f wrapper · 复用 ScoreRadar · 与既有 session.radar (CreditRadarDim) 并存 ·
+   提供四维 segment 派发 (corp/sme: 财务/行业/经营/担保 · retail: 还款能力/还款
+   意愿/稳定性/担保)，从 session.radar 抽 score 拼 ScoringPayload-shape 子集 ·
+   仅可视 demo · 不替代既有 RadarChart。 */
+function RiskRadarPreview({
+  mode,
+  session,
+}: {
+  mode: CreditMode;
+  session: CreditSession;
+}) {
+  const segment: RiskRadarSegment =
+    mode === "corp" ? "corporate" : mode === "small" ? "sme" : "retail";
+  const corpKeys = [
+    "financial_score",
+    "industry_score",
+    "operational_score",
+    "guarantee_score",
+  ] as const;
+  const retailKeys = [
+    "repayment_capacity",
+    "repayment_willingness",
+    "stability",
+    "collateral",
+  ] as const;
+  const radarByKey: Record<string, number> = {};
+  for (const dim of session.radar) {
+    radarByKey[dim.key] = dim.score;
+  }
+  const flat = {
+    financial_score: radarByKey["fin"],
+    industry_score: radarByKey["ind"] ?? radarByKey["ops"],
+    operational_score: radarByKey["ops"],
+    guarantee_score: radarByKey["guar"],
+  };
+  const cat = {
+    repayment_capacity: radarByKey["repay"] ?? radarByKey["fin"],
+    repayment_willingness: radarByKey["will"] ?? radarByKey["comp"],
+    stability: radarByKey["stab"] ?? radarByKey["ops"],
+    collateral: radarByKey["coll"] ?? radarByKey["guar"],
+  };
+  const scoring = segment === "corporate" ? flat : { category_scores: cat };
+  return (
+    <section
+      className="rpt-panel risk-radar-preview"
+      aria-label="L1-3 RiskRadar (Q-033)"
+      data-testid="risk-radar-preview"
+    >
+      <header className="risk-radar-preview-head">
+        <span className="risk-radar-preview-eyebrow">L1-3 · 四维风险雷达</span>
+        <span className="risk-radar-preview-segment">segment: {segment}</span>
+      </header>
+      <RiskRadar scoring={scoring} segment={segment} />
+    </section>
   );
 }
 
