@@ -70,7 +70,10 @@
       "path": "D:/claude code/code-frontend-integration",
       "branch": "feat/frontend-integration",
       "role": "worker",
-      "description": "前端整合 · P3F 轨 4 · Wave 2 · 7 frozen branch 融合（shell-free-drag / canvas-mode-toggle Stage 1 · alert-codex-fusion / compliance-codex-fusion / credit-mock-endpoint Stage 2 · chat-wechat-style Stage 3 · agent-workspaces-v2 Stage 4 · 跨 browser 32 截屏 Stage 5）+ Q-033 RiskRadar backlog (cherry-pick 596283f patch 到 canon /archive/credit/) + Batch 2 EvidenceTrail 兼容硬保 · 5 stage 7-8 天工期 · 允许 REJECT-V2 一轮 · Stage 1 done (63107fb · file-snapshot 8 文件 per Q-036) · Stage 2 进行中",
+      "description": "前端整合 · P3F 轨 4 · Wave 2 · MERGED · 5 stage + Q-037 + V2 fix · 58 files / 5572+ insertions / 974 deletions · 32 截屏 (chrome 16 + edge 16) · 解 L1-3 6 项 (Agent4 红黄绿 + Agent5 政策矩阵 + Agent2 KS 图表 + Agent3 RiskRadar canon path Q-033 closes sub-signal FRONTEND-RISK-RADAR-LANDED + shell 交互基础 PanelCanvas/Whiteboard/CanvasModeToggle + dispatch IM ConversationPanel 微信气泡 group/dm split) · spec V2 30/30 真跑 (chromium + edge × evidence-trail 5 + highlight-card 3 + unfilled-marker 4 + risk-radar 3) · Q-037 types.ts 3 行 additive 例外 + Q-039 spec verify lesson · 红区 0 漂移 · Batch 2 EvidenceTrail 全保 · 协议合规 Q-035/036/037/038/039 全 commit-trailer · merged_v2 (V1 false self-claim REJECT-V2 mild · V2 真跑 30/30)",
+      "merged": true,
+      "merged_v2": true,
+      "merged_signal": "FRONTEND-INTEGRATION-MERGED-APPROVED",
       "phase_3_final_track": 4,
       "phase_3_final_wave": 2,
       "onboarding": "docs/onboarding/p3f-frontend-integration.md"
@@ -128,12 +131,14 @@
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
   "wave_1_completion_commit_signal": "P3F-WAVE-1-COMPLETE-DOD-L1-L3-PARTIAL",
-  "wave_2_status": "in-progress · 2/2 worker dispatched · 1/2 MERGED (轨 8b agent2-hardening AGENT2-HARDENING-MERGED-APPROVED · 等 frontend Stage 5 + READY-FOR-FRONTEND-INTEGRATION-REVIEW) · 2026-04-26",
+  "wave_2_status": "COMPLETE · 2/2 worker MERGED (轨 4 frontend-integration FRONTEND-INTEGRATION-MERGED-APPROVED + 轨 8b agent2-hardening AGENT2-HARDENING-MERGED-APPROVED) · 2026-04-26 🎉",
   "wave_2_dispatch_commit_signal": "PHASE-3-FINAL-WAVE-2-DISPATCHED",
+  "wave_2_track_4_merged_signal": "FRONTEND-INTEGRATION-MERGED-APPROVED",
   "wave_2_track_8b_dispatch_commit_signal": "PHASE-3-FINAL-WAVE-2-TRACK-8B-DISPATCHED",
   "wave_2_track_8b_merged_signal": "AGENT2-HARDENING-MERGED-APPROVED",
   "wave_2_track_8b_closeout_commit_signal": "P3F-WAVE-2-TRACK-8B-MERGED",
-  "next_phase_step": "wave-2-execution · 1/2 worker MERGED (轨 8b 闭环 · DoD L3 Agent2 5→7) · 等 frontend Stage 4 done → Stage 5 (32 截屏) → READY-FOR-FRONTEND-INTEGRATION-REVIEW final · spawn subagent pre-review · 然后 Wave 2 全合 closeout · housekeeping batch 清 (CA-B3-8 + onboarding §1.3 fix-forward) · Wave 3 dispatch (轨 6 POC evidence + 轨 8c evaluation 接 Q-030 follow-up + CA-B3-10 DEFER)",
+  "wave_2_completion_commit_signal": "P3F-WAVE-2-COMPLETE",
+  "next_phase_step": "wave-2-complete · 主 CLI batch housekeeping (1) Wave 1 4 worker + Wave 2 2 worker worktree cleanup · git worktree remove + branch -d (2) onboarding §1.3 types.ts additive 例外 fix-forward (Q-037) (3) onboarding §2/§3 + CA-B3-8 措辞 fix-forward (Q-038) (4) onboarding-spec-self-check.md verification-before-completion lesson (Q-039) (5) #4 路由 banner (legacy 6 页 deprecation) (6) #5 demo source chip · 然后 Wave 3 dispatch (轨 6 POC evidence + 轨 8c evaluation 接 Q-030 follow-up + CA-B3-10 DEFER + Agent1/5 stub→deterministic upgrade)",
   "cleanup_log": [
     {
       "date": "2026-04-25",
