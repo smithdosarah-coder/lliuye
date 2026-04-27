@@ -1392,3 +1392,15 @@
   color: var(--t-channel);
   z-index: 2;
 }
+
+/* F-005 follow-up · 2026-04-27 · 搜索按钮调小 (user 反馈太大) */
+.ch-querybar .ch-querybar-btn {
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: .04em;
+  min-height: auto;
+}
+.ch-querybar .ch-querybar-btn .kbd {
+  font-size: 10px;
+  opacity: 0.7;
+}

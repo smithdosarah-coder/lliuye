@@ -70,9 +70,10 @@ export function ScanCTA({
     /* 2026-04-23 · B+ · 真 fetch Python 后端 · /api/run/{agent_id}
        · 后端 asyncio.sleep 2.2s 模拟 AI · 前端同时播 progress（UI 流畅不等）
        · fetch 失败 console.warn 后回退 mock · demo 不崩（Python 没启也能跑） */
+    // prod: 相对 path 走 nginx · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-      "http://localhost:8000";
+      "";
     const agentKey = tone === "compli" ? "compliance" : tone ?? "channel";
     fetch(`${apiBase}/api/run/${agentKey}`, { method: "POST" })
       .then((r) => r.json())
