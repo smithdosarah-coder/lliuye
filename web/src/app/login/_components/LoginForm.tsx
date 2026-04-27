@@ -108,17 +108,6 @@ export function LoginForm() {
             if (authError) setAuthError(null);
           }}
         />
-        <div
-          style={{
-            fontSize: 11,
-            color: "rgba(180, 200, 230, 0.45)",
-            fontFamily: "var(--mono)",
-            marginTop: 4,
-            letterSpacing: ".04em",
-          }}
-        >
-          demo · 密码 = persona 拼音小写 (wangzhe / lihua / zhoumin / chenkai / liuye)
-        </div>
         {authError && (
           <div
             role="alert"

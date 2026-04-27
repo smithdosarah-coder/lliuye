@@ -68,10 +68,13 @@ export default function ChannelWorkspace() {
   const s = CHANNEL_SESSION;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
-  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
-     QueryBar SSE done → setLive(evt.candidates) · CandidatesPanel 优先 live
-     历史 session 下拉 → setLive(null) 切回 CHANNEL_SESSION.candidates mock */
+  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist */
   const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
+
+  /* #3 · 2026-04-27 · 功能页面真初始化 · 默认 started=false 只渲染 Hero + QueryBar + 空白提示
+     QueryBar select 历史 OR submit textbox 触发 setStarted(true) · panel 数据才填入
+     user 反馈 "默认显示 mock 数据 · 跟用户输入没关联" · 加交互门槛 */
+  const [started, setStarted] = useState(false);
 
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
@@ -171,30 +174,80 @@ export default function ChannelWorkspace() {
       items={CHANNEL_EVIDENCE.items}
       unfilledFields={CHANNEL_EVIDENCE.unfilledFields}
     >
-    <div data-view="archive-channel" className="ch-v2">
+    <div
+      data-view="archive-channel"
+      className="ch-v2"
+      data-started={started ? "yes" : "no"}
+    >
       <ChannelHero topSim={topSim} />
-      <QueryBar setLive={setLive} />
-      <FunnelStrip />
-      <div className="ch-cross">
-        <div className="ch-canvas">
-          <div className="ch-canvas-top">
-            <RadarPanel />
-            <CandidatesPanel liveCandidates={liveCandidates} />
+      <QueryBar setLive={setLive} setStarted={setStarted} />
+      {started ? (
+        <>
+          <FunnelStrip />
+          <div className="ch-cross">
+            <div className="ch-canvas">
+              <div className="ch-canvas-top">
+                <RadarPanel />
+                <CandidatesPanel liveCandidates={liveCandidates} />
+              </div>
+              <ConversationPanel messages={messages} />
+            </div>
+            <aside className="ch-aside">
+              <SignalTimelinePanel />
+            </aside>
           </div>
-          <ConversationPanel messages={messages} />
-        </div>
-        <aside className="ch-aside">
-          <SignalTimelinePanel />
-        </aside>
-      </div>
-      <ChannelComposer onSubmit={submit} />
+          <ChannelComposer onSubmit={submit} />
 
-      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-        <ClaimText text={CHANNEL_EVIDENCE.summary} />
-      </section>
-      <UnfilledFields />
-      <EvidenceTrail agentTone="channel" />
+          <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+            <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+            <ClaimText text={CHANNEL_EVIDENCE.summary} />
+          </section>
+          <UnfilledFields />
+          <EvidenceTrail agentTone="channel" />
+        </>
+      ) : (
+        <section
+          aria-label="等待触发"
+          style={{
+            padding: "64px 24px",
+            textAlign: "center",
+            background:
+              "color-mix(in srgb, var(--chalk) 50%, transparent)",
+            borderRadius: "var(--r-md)",
+            border: "1px dashed var(--ink-14)",
+            margin: "24px 0",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "var(--display)",
+              fontSize: 20,
+              color: "var(--ink)",
+              fontWeight: 500,
+              margin: "0 0 14px 0",
+              letterSpacing: ".02em",
+            }}
+          >
+            等待触发
+          </h3>
+          <p
+            style={{
+              fontFamily: "var(--cjk)",
+              fontSize: 14,
+              color: "var(--ink-65)",
+              lineHeight: 1.7,
+              maxWidth: 480,
+              margin: "0 auto",
+            }}
+          >
+            上方
+            <strong style={{ color: "var(--t-channel)" }}>下拉选择历史 session</strong>
+            看 mock 演示数据 · 或
+            <strong style={{ color: "var(--accent)" }}>自由输入</strong>
+            真接 AI 解析 + 真候选企业搜索
+          </p>
+        </section>
+      )}
     </div>
     </EvidenceProvider>
   );
@@ -863,7 +916,13 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
   return { stage: baseStage, msg: String(evt.message ?? "进行中…") };
 }
 
-function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
+function QueryBar({
+  setLive,
+  setStarted,
+}: {
+  setLive: (c: Candidate[] | null) => void;
+  setStarted: (v: boolean) => void;
+}) {
   const q = CHANNEL_SESSION.query;
   const recent = CHANNEL_SESSION.recentSessions;
   /* F-005 · 2026-04-27 双模式实装:
@@ -878,6 +937,7 @@ function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
 
   async function runRealSearch() {
     if (!input.trim() || streaming) return;
+    setStarted(true); // #3 · 触发 ChannelWorkspace render 完整 panel
     setStreaming(true);
     setStreamEvents([]);
     setStreamError(null);
@@ -962,7 +1022,8 @@ function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
   }
 
   function onSelectSession() {
-    /* 选下拉历史 session = 切回 mock · 清 stream 残留 + setLive(null) */
+    /* 选下拉历史 session = mock 模式 · 清 stream 残留 + setLive(null) + 触发 panel 渲染 */
+    setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
     setLive(null);
