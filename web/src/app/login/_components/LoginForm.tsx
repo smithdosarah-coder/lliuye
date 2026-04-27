@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { DEMO_USERS, useAuthStore } from "@/lib/store";
@@ -14,29 +14,23 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: "平台管理员",
 };
 
-/**
- * 右侧登录表单 · Demo 期用 persona 下拉直接登录
- *
- * 保留"主流登录"视觉骨架（字段 + 主按钮 + 辅助链接），但字段换成 persona 下拉；
- * 密码 / SSO / 验证码走 disabled 装饰态，说明"本地演示"即可。
- */
 export function LoginForm() {
   const login = useAuthStore((s) => s.login);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
   const [userId, setUserId] = useState<string>(DEMO_USERS[0].id);
-  const [submitting, setSubmitting] = useState(false);
 
   const current = DEMO_USERS.find((u) => u.id === userId);
 
+  useEffect(() => {
+    if (currentUser) {
+      router.replace("/today");
+    }
+  }, [currentUser, router]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    if (login(userId)) {
-      router.replace("/today");
-    } else {
-      setSubmitting(false);
-    }
+    login(userId);
   }
 
   return (
@@ -108,7 +102,6 @@ export function LoginForm() {
       <button
         type="submit"
         className="lf-submit"
-        disabled={submitting}
         data-role={current?.role}
       >
         <span className="cn">进入 {current?.name ?? ""}</span>
