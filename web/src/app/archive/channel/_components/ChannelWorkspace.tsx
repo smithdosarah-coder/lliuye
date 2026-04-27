@@ -68,6 +68,11 @@ export default function ChannelWorkspace() {
   const s = CHANNEL_SESSION;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
+  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
+     QueryBar SSE done → setLive(evt.candidates) · CandidatesPanel 优先 live
+     历史 session 下拉 → setLive(null) 切回 CHANNEL_SESSION.candidates mock */
+  const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
+
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
@@ -124,13 +129,13 @@ export default function ChannelWorkspace() {
     >
     <div data-view="archive-channel" className="ch-v2">
       <ChannelHero topSim={topSim} />
-      <QueryBar />
+      <QueryBar setLive={setLive} />
       <FunnelStrip />
       <div className="ch-cross">
         <div className="ch-canvas">
           <div className="ch-canvas-top">
             <RadarPanel />
-            <CandidatesPanel />
+            <CandidatesPanel liveCandidates={liveCandidates} />
           </div>
           <ConversationPanel messages={messages} />
         </div>
@@ -742,7 +747,7 @@ type ChannelStreamEvent = {
   [k: string]: unknown;
 };
 
-function QueryBar() {
+function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
   const q = CHANNEL_SESSION.query;
   const recent = CHANNEL_SESSION.recentSessions;
   /* F-005 · 2026-04-27 双模式实装:
@@ -790,6 +795,10 @@ function QueryBar() {
           try {
             const evt = JSON.parse(dataLine.slice(5).trim()) as ChannelStreamEvent;
             setStreamEvents((prev) => [...prev, evt]);
+            // F-005 Phase 2 · 提取 final candidates 注入 ChannelWorkspace 让 CandidatesPanel 渲染 live
+            if (evt.event === "done" && Array.isArray(evt.candidates)) {
+              setLive(evt.candidates as unknown as Candidate[]);
+            }
           } catch {
             /* skip malformed line */
           }
@@ -803,9 +812,10 @@ function QueryBar() {
   }
 
   function onSelectSession() {
-    /* 选下拉历史 session = 切回 mock 模式 · 清掉 live stream 残留 */
+    /* 选下拉历史 session = 切回 mock · 清 stream 残留 + setLive(null) */
     setStreamEvents([]);
     setStreamError(null);
+    setLive(null);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -969,24 +979,29 @@ function RadarPanel() {
 
 /* ── 区域 2 右 · 候选企业列表 ────────────────────────── */
 
-function CandidatesPanel() {
+function CandidatesPanel({ liveCandidates }: { liveCandidates: Candidate[] | null }) {
   const s = CHANNEL_SESSION;
+  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 CHANNEL_SESSION.candidates mock */
+  const cs = liveCandidates ?? s.candidates;
+  const isLive = liveCandidates !== null;
   return (
-    <section className="rpt-panel ch-cand-panel">
+    <section className="rpt-panel ch-cand-panel" data-mode={isLive ? "live" : "mock"}>
       <PanelPinHandle
         id="channel:candidates"
         title="候选企业 Top 推荐"
-        subtitle={`获客 · 共 ${s.candidateCount} 家`}
+        subtitle={`获客 · 共 ${cs.length} 家${isLive ? " · live" : ""}`}
         accentVar="--t-channel"
         agentKey="channel"
         href="/archive/channel"
-        blurb={`Top ${s.candidates.length} · 阈值 ${(s.match.similarity * 100).toFixed(0)}% · 首推 ${s.candidates[0]?.name ?? "—"}`}
+        blurb={`Top ${cs.length} · 阈值 ${(s.match.similarity * 100).toFixed(0)}% · 首推 ${cs[0]?.name ?? "—"}`}
       />
       <div className="rpt-panel-head">
         <div>
-          <div className="rpt-panel-eyebrow">CANDIDATES · Top 推荐</div>
+          <div className="rpt-panel-eyebrow">
+            CANDIDATES · Top 推荐{isLive ? " · LIVE" : ""}
+          </div>
           <h3 className="rpt-panel-title">
-            Top {s.candidates.length} · 共 {s.candidateCount} 家
+            Top {cs.length} · 共 {isLive ? cs.length : s.candidateCount} 家
           </h3>
         </div>
         <div className="rpt-panel-meta">
@@ -994,7 +1009,7 @@ function CandidatesPanel() {
         </div>
       </div>
       <div className="rpt-panel-body">
-        <CandidatesView candidates={s.candidates} />
+        <CandidatesView candidates={cs} />
       </div>
     </section>
   );
