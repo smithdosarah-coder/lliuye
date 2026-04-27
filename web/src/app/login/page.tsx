@@ -1,4 +1,4 @@
-import { CosmicStage } from "./_components/CosmicStage";
+import { CosmicStageGate } from "./_components/CosmicStageGate";
 import { LoginForm } from "./_components/LoginForm";
 import "./login.css";
 
@@ -14,7 +14,7 @@ export default function LoginPage() {
         <div className="login-sky__stars" />
       </div>
       <section className="login-stage" aria-hidden>
-        <CosmicStage />
+        <CosmicStageGate />
       </section>
       <aside className="login-aside">
         <LoginForm />

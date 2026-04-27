@@ -10,12 +10,10 @@
   height: 100vh;
   font-family: var(--sans);
   color: #e6edf7;
-  display: grid;
-  grid-template-columns: minmax(0, 1.85fr) minmax(380px, 0.95fr);
+  /* BH 全屏居中为主视觉 · glass card 改为浮动 absolute-positioned，不再抢栅格列 */
+  display: block;
   overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 18% 12%, #0f1d3c 0%, #050811 55%, #02030a 100%),
-    #02030a;
+  background: #02030a;
   isolation: isolate;
 }
 
@@ -28,11 +26,14 @@
   overflow: hidden;
 }
 
+/* Gargantua 场景 · 拉出 grid 变成全屏绝对 · 让 login-aside 浮在它之上 */
 .login-stage {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
   overflow: hidden;
   background: transparent;
+  pointer-events: none;
 }
 
 .cosmic {
@@ -71,98 +72,15 @@
   opacity: 0.88;
 }
 
-/* 星系容器 · 不旋转，只是作 flex 居中的锚 */
-.cosmic__system {
+/* Gargantua R3F Canvas · 全屏 ray-march black hole */
+.cosmic__r3f-stage {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-
-/* 星系盒子 · 承载 backdrop + SVG 环流 + 行星前景 + 自转层 */
-.cosmic__img {
-  position: relative;
-  width: 62%;
-  aspect-ratio: 1 / 1;
-}
-
-/* 底层：cosmic.png 全图（星云+星环基底） · 边缘 radial mask 溶入星空 */
-.cosmic__backdrop {
-  position: absolute;
-  inset: 0;
-  background: url("/login/cosmic.png") center center / contain no-repeat;
-  filter: brightness(1) saturate(1.08);
-  -webkit-mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
-  mask-image: radial-gradient(ellipse 58% 44% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.72) 80%, transparent 96%);
-  animation: cosmicBreath 22s ease-in-out infinite alternate;
-  will-change: transform, filter;
-  pointer-events: none;
-}
-
-/* 前景行星盘面 · scripts/extract_planet_disk.py 从 cosmic.png 抠出的透明 PNG
-   叠在背面粒子之上以制造"被行星挡住"的遮挡；保持和 backdrop 一致的 contain 定位 */
-.cosmic__planet {
-  position: absolute;
-  inset: 0;
-  background: url("/login/planet-disk.png") center center / contain no-repeat;
-  pointer-events: none;
-}
-
-/* SVG 粒子层 · 背面与正面两层夹住行星 */
-.cosmic__ring {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
-/* 行星自转伪装 · 一条漂移亮带在行星盘面内横扫
-   cosmic.png 910x811 contain 居中：图实际填 89.1% 高度，上下各留 5.45% 空
-   行星中心在图内 (46.2%, 51.4%) → 容器坐标 (46.2%, 51.25%)；半径 19.1% 容器宽 */
-.cosmic__planet-spin {
-  position: absolute;
-  top: 32%;
-  left: 27%;
-  width: 38%;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  overflow: hidden;
-  mix-blend-mode: screen;
-  opacity: 0.32;
-  pointer-events: none;
-}
-.cosmic__planet-spin::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    102deg,
-    transparent 28%,
-    rgba(255, 215, 160, 0.55) 48%,
-    rgba(255, 180, 120, 0.35) 56%,
-    transparent 74%
-  );
-  animation: planetSpin 38s linear infinite;
-}
-
-/* 行星背后的暖色 halo · 让星体更"发光"，椭圆形匹配星环展开方向 */
-.cosmic__halo {
-  position: absolute;
-  width: 78%;
-  aspect-ratio: 1 / 1;
-  background:
-    radial-gradient(ellipse 56% 34% at 50% 50%,
-      rgba(255, 180, 100, 0.32) 0%,
-      rgba(230, 130, 70, 0.18) 22%,
-      rgba(120, 60, 30, 0.08) 48%,
-      transparent 72%);
-  filter: blur(28px);
-  mix-blend-mode: screen;
-  animation: haloPulse 9s ease-in-out infinite;
-  pointer-events: none;
+.cosmic__r3f-stage > canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
 
 /* 前景星尘 twinkle 层 · 根级跨栏，覆盖整个 .login-root */
@@ -206,25 +124,10 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* 右侧更深的渐暗 · 为浮动 glass card 垫暗幕，让卡片内文字对比更高 */
   background:
-    radial-gradient(130% 95% at 50% 50%, transparent 58%, rgba(2, 3, 10, 0.55) 100%),
-    linear-gradient(90deg, transparent 70%, rgba(2, 3, 10, 0.6) 100%);
-}
-
-@keyframes planetSpin {
-  from { transform: translateX(-130%); }
-  to   { transform: translateX(130%); }
-}
-
-@keyframes cosmicBreath {
-  0%   { transform: scale(1);      filter: brightness(0.96) saturate(1.04) drop-shadow(0 0 38px rgba(255, 150, 80, 0.13)); }
-  50%  { transform: scale(1.015);  filter: brightness(1.02) saturate(1.1)  drop-shadow(0 0 48px rgba(255, 150, 80, 0.2)); }
-  100% { transform: scale(1.028);  filter: brightness(0.99) saturate(1.06) drop-shadow(0 0 42px rgba(255, 150, 80, 0.15)); }
-}
-
-@keyframes haloPulse {
-  0%, 100% { opacity: 0.75; transform: scale(0.97); }
-  50%      { opacity: 1;    transform: scale(1.04); }
+    radial-gradient(130% 95% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.6) 100%),
+    linear-gradient(90deg, transparent 55%, rgba(2, 3, 10, 0.72) 100%);
 }
 
 @keyframes twinkle {
@@ -232,36 +135,42 @@
   50%      { opacity: 1; }
 }
 
-/* ═══ 右侧容器 · 透明壳，让星空穿过整屏 ════════════════════════════ */
+/* ═══ 右侧浮动玻璃卡容器 · 绝对定位在右侧，不再占 grid 列 ═══════════ */
+/* 构图原则：BH 居中，glass card 作为右侧浮动 lens，吸积盘从卡片背后穿过 */
 .login-aside {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  padding: clamp(28px, 5vh, 56px) clamp(28px, 3vw, 48px);
+  top: 50%;
+  right: clamp(24px, 5vw, 80px);
+  transform: translateY(-50%);
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
+  pointer-events: auto;
 }
 
-/* ═══ Form · 玻璃卡片 · 自身一层 blur 让文字可读，星空在卡片边缘可见 ═ */
+/* ═══ Form · 玻璃卡片 · 浮动透镜感，盘面在其背后流动可见 ═══════════ */
 .login-form {
   position: relative;
-  width: min(380px, 100%);
+  width: min(380px, 92vw);
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: clamp(28px, 3vh, 40px) clamp(26px, 2.4vw, 36px);
+  /* 更透的背景 + 更强的 blur = 真实的 frosted-glass lens 感 · 不再是墙 */
   background:
     linear-gradient(180deg,
-      rgba(8, 12, 24, 0.62) 0%,
-      rgba(6, 9, 18, 0.78) 100%);
-  backdrop-filter: blur(12px) saturate(1.15);
-  -webkit-backdrop-filter: blur(12px) saturate(1.15);
-  border: 1px solid rgba(120, 155, 210, 0.18);
+      rgba(8, 12, 24, 0.48) 0%,
+      rgba(6, 9, 18, 0.62) 100%);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid rgba(120, 155, 210, 0.22);
   border-radius: 20px;
   box-shadow:
-    0 30px 80px -30px rgba(0, 0, 0, 0.75),
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    0 30px 80px -30px rgba(0, 0, 0, 0.78),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
 .login-form::before {
@@ -559,18 +468,26 @@
 /* ═══ Responsive ═══════════════════════════════════════════════════ */
 @media (max-width: 880px) {
   .login-root {
-    grid-template-columns: 1fr;
-    grid-template-rows: 45vh 1fr;
-    position: relative;
-    height: auto;
-    min-height: 100vh;
+    position: fixed;
+    height: 100vh;
   }
+  /* 窄屏下 glass card 回到下半屏居中 · BH 仍然屏幕居中 */
   .login-aside {
-    padding: 32px 24px;
+    position: absolute;
+    top: auto;
+    bottom: 24px;
+    right: 50%;
+    transform: translateX(50%);
+    padding: 0 16px;
+    width: 100%;
+    box-sizing: border-box;
   }
-  .login-stage__vignette {
+  .login-form {
+    width: min(380px, calc(100vw - 32px));
+  }
+  .cosmic__vignette {
     background:
-      radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.55) 100%),
-      linear-gradient(180deg, transparent 65%, rgba(2, 3, 10, 0.7) 100%);
+      radial-gradient(130% 95% at 50% 30%, transparent 55%, rgba(2, 3, 10, 0.7) 100%),
+      linear-gradient(180deg, transparent 45%, rgba(2, 3, 10, 0.85) 100%);
   }
 }
