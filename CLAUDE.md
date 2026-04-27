@@ -210,3 +210,25 @@ production = ECS（IP 139.196.30.69）跑 `main` 分支 · **single source of tr
 6. **Inventory 源**：`docs/features-inventory.md` 是 worker 改 `web/` 前必读 contract · 破坏已列 feature 视作 regression · 主 CLI 阻断 commit / 阻断 deploy
 
 违反任意条 = 回档源责任人 · 主 CLI / dispatcher 必须立刻 stop the line。
+
+### 13.1 main CLI 默认行为 · 改完即部署 (不等 user 触发)
+
+main CLI 改 `web/` + commit 后**自动**跑完整 push → ECS pull → build → restart 流程。**不要每次问 user "要不要 push / 要不要部署"** — 默认开干 · user 只在出错时介入。
+
+**触发判断**:
+- 改 `web/` (任何 .tsx / .ts / .css) → 完整流程 (含 npm build · 5-10 min)
+- 改 `.py` / `api_server.py` / `agent_*/` → `--skip-build` (仅 backend restart)
+- 改仅 `docs/` / `CLAUDE.md` / `scripts/` → push GitHub 即可 · 不需 ECS 部署
+
+**执行**:
+```bash
+bash scripts/deploy_to_ecs.sh           # 完整 (含 build)
+bash scripts/deploy_to_ecs.sh --skip-build  # 后端改 · 跳 build
+```
+
+脚本封装 stash + pull + build + restart + healthcheck 全流程 · 失败 abort 不 silent fail。
+
+**例外** (必须问 user):
+- production hot-fix 影响线上演示 (客户走访期间 / user 在演示)
+- 涉及 ECS systemd service 配置 / cloudflared tunnel / nginx vhost 改动
+- 涉及 LLM key / .env / 凭证类改动
