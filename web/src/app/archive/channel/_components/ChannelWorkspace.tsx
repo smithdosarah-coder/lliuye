@@ -991,7 +991,16 @@ function QueryBar({
                   geo: String(c.geo ?? c.region ?? "—"),
                   scale: String(c.scale ?? c.scale_band ?? "—"),
                   signals: Array.isArray(c.signals)
-                    ? (c.signals as unknown[]).map(String)
+                    ? (c.signals as Array<unknown>).map((s) => {
+                        if (typeof s === "string") return s;
+                        if (s && typeof s === "object") {
+                          const r = s as Record<string, unknown>;
+                          return String(
+                            r.title ?? r.label ?? r.type ?? r.kind ?? "",
+                          );
+                        }
+                        return String(s);
+                      }).filter(Boolean)
                     : Array.isArray(c.signal_types)
                     ? (c.signal_types as unknown[]).map(String)
                     : [],
