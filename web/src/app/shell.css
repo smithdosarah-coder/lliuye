@@ -1368,9 +1368,9 @@ body[data-free-panels="locked"] .v-archive--canon[data-agent]::before {
 
 /* ═══ SHARED · ScanCTA 通用进度按钮 (CSS 重写 2026-04-27 · ffc60ca 时代 CSS 在 token 重构误删 · F-004 RESTORED · 5 agent workspace 共用) ═══ */
 .scan-cta {
-  display: flex; align-items: center; gap: 16px;
-  padding: 14px 18px;
-  border-radius: 16px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--chalk) 84%, transparent);
   backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
@@ -1381,16 +1381,16 @@ body[data-free-panels="locked"] .v-archive--canon[data-agent]::before {
 .scan-cta-btn {
   all: unset;
   cursor: pointer;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 11px 22px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--ink)));
   color: var(--chalk);
-  font-family: var(--cjk); font-size: 13px; font-weight: 600;
-  letter-spacing: .08em;
+  font-family: var(--cjk); font-size: 12px; font-weight: 600;
+  letter-spacing: .04em;
   flex-shrink: 0;
   transition: transform .18s ease, box-shadow .25s, opacity .18s;
-  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 .scan-cta-btn:hover:not(:disabled) {
   transform: translateY(-1px);
@@ -1408,11 +1408,11 @@ body[data-free-panels="locked"] .v-archive--canon[data-agent]::before {
 
 .scan-cta-bar {
   flex: 1;
-  height: 6px;
+  height: 4px;
   border-radius: 999px;
   background: var(--ink-08);
   overflow: hidden;
-  min-width: 80px;
+  min-width: 60px;
 }
 .scan-cta-fill {
   height: 100%;
