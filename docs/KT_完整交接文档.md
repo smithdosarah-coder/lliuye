@@ -105,10 +105,14 @@ python test_run.py deepseek   # 或 minimax
 
 ### 2.8 API 密钥
 
-| 模型 | Key |
-|------|-----|
-| DeepSeek | sk-175ec8d4075a4de695c25177cbac83db |
-| MiniMax (NVIDIA) | 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 |
+⚠️ **API key 不入库**。从项目根 `.env` 文件读取（`.env` 已 gitignore，参考 `.env.example` 模板）：
+
+```bash
+DEEPSEEK_API_KEY=sk-***   # https://platform.deepseek.com/api_keys
+NVIDIA_NIM_API_KEY=nvapi-*** # https://build.nvidia.com/  (MiniMax / Kimi-K2.5 共用)
+```
+
+**历史 key 已禁用**（2026-04-27 安全审计）：旧 DeepSeek `sk-175ec8d4...` 与 NVIDIA NIM `nvapi-voZGZRw2...` 已在控制台失效；如发现历史 commit 出现请勿复用。
 
 ---
 

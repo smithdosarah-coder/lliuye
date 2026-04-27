@@ -17,12 +17,19 @@ def main():
 
     import sys as _sys
     provider = _sys.argv[1] if len(_sys.argv) > 1 else "deepseek"
-    api_keys = {
-        "deepseek": "sk-175ec8d4075a4de695c25177cbac83db",
-        "minimax": "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",
-        "kimi-k2.5": "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",
+    # API keys 从环境变量读取（项目根 .env 文件 · 见 .env.example）
+    # 禁止硬编码 key 入库
+    _env_var_map = {
+        "deepseek": "DEEPSEEK_API_KEY",
+        "minimax": "NVIDIA_NIM_API_KEY",
+        "kimi-k2.5": "NVIDIA_NIM_API_KEY",
     }
-    api_key = api_keys.get(provider, "")
+    env_var = _env_var_map.get(provider)
+    api_key = os.getenv(env_var, "") if env_var else ""
+    if not api_key:
+        raise RuntimeError(
+            f"环境变量 {env_var} 未设置。请在项目根目录 .env 文件中配置（参考 .env.example）"
+        )
     llm_client = LLMClient(provider=provider, api_key=api_key)
     print(f"使用模型: {provider} ({llm_client.model})")
 
