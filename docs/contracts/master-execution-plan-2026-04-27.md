@@ -196,7 +196,13 @@ Stage A 立刻 deliver:
 
 ## 7. Session Log
 
-- 2026-04-27 Session 1 (本): write plan doc + Stage A.1-A.2
-- next: A.3-A.5
-- next+: B (Channel architecture refactor)
-- ...
+- **2026-04-27 Session 1 (上轮 main CLI · pre-compact)**: 写 plan doc · Stage A.1 (features-inventory.md F-001~F-008 · 6 bug 反推) + A.2 (anti-regression skill protocol)
+- **2026-04-27 Session 1 close-out (本 · post-compact)**:
+  - A.3-A.5 dispatched: 3 worker registered (A1-inventory + A2-contracts + A3-prd) · 各自 worktree + branch + onboarding doc + AGENT_IDENTITY
+  - Plan 补 4 漏 step: B.4b (匹配维度明细) · B.4c (产品推荐+话术) · B.5b (前端真 wire SSE) · B.6b (IdealProfile LLM 抽画像)
+  - Handoff doc · main CLI + 3 worker AGENT_IDENTITY (per-worktree local)
+  - Close-out fix: worker worktree ff merge to chore/l0-infra HEAD (修 onboarding doc 缺失) · AGENT_IDENTITY 简化为指向 onboarding 单一 truth (修双 source 漂移)
+  - chore/l0-infra push GitHub origin (防 close-out commit 在本地 D 盘丢)
+- **next**: user 关 session → 双击桌面 start-mesh.bat → 4 CLI 各 paste 万能指令「读 AGENT_IDENTITY.md ...」→ 新主 CLI 等 3 worker push signal commit → review (acceptance 在 onboarding doc) → cherry-pick / merge 到 chore/l0-infra
+- **next+**: Stage B (Channel architecture refactor · 9 step · B.1~B.9 含 4 patch step)
+- **next++**: Stage C (5 Agent 复制 Channel pattern · C.1~C.7) · Stage D (RBAC + WebSocket IM + shared 底座 + 走访 dry run · D.1~D.8)
