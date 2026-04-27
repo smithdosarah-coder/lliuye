@@ -93,9 +93,10 @@ export default function ChannelWorkspace() {
     };
     setMessages((prev) => [...prev, userMsg]);
 
-    /* 假聊天 demo pickReply · 仅 dev mode 挂 (per onboarding kickoff Stage 3 #4)
-       生产环境此分支被 NODE_ENV 静态替换 tree-shaken · 真接 API 走 SSE 路径。 */
-    if (process.env.NODE_ENV !== "development") return;
+    /* 2026-04-27 · archive ConversationPanel 真接 LLM (替代 canned-replies mock)
+       fetch /api/im/send · target_agent="channel" · 后端用 Agent1 Scout 角色 prompt
+       prod 相对 path 走 nginx · dev NEXT_PUBLIC_API_BASE=http://localhost:8000
+       fetch fail 在 dev 时 fallback canned · prod 时显占位错误 */
     const thinkingId = `t-${ts}`;
     const thinkingMsg: ConversationMessage = {
       id: thinkingId,
@@ -105,21 +106,64 @@ export default function ChannelWorkspace() {
       thinking: { steps: [] },
     };
     setMessages((prev) => [...prev, thinkingMsg]);
-    const delay = nextThinkDelayMs();
-    window.setTimeout(() => {
-      const reply = pickReply(text);
-      const aiMsg: ConversationMessage = {
-        id: `a-${ts}`,
-        at: "刚刚",
-        kind: "ai-response",
-        content: reply.content,
-        fieldRef: reply.fieldRef,
-        sectionDiff: reply.sectionDiff,
-      };
-      setMessages((prev) =>
-        prev.map((m) => (m.id === thinkingId ? aiMsg : m))
-      );
-    }, delay);
+
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
+    fetch(`${apiBase}/api/im/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        thread_id: "archive:channel",
+        target_agent: "channel",
+      }),
+    })
+      .then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)),
+      )
+      .then((data: { reply: string; agent: string }) => {
+        const reply = (data.reply || "").trim();
+        const aiMsg: ConversationMessage = {
+          id: `a-${ts}`,
+          at: "刚刚",
+          kind: "ai-response",
+          content: reply || "(AI 无响应 · 请重试)",
+        };
+        setMessages((prev) =>
+          prev.map((m) => (m.id === thinkingId ? aiMsg : m)),
+        );
+      })
+      .catch((err) => {
+        console.warn("[ChannelComposer] LLM fetch failed:", err);
+        if (process.env.NODE_ENV !== "development") {
+          const errMsg: ConversationMessage = {
+            id: `a-${ts}`,
+            at: "刚刚",
+            kind: "ai-response",
+            content: "(AI 暂时不可用 · 请稍后重试)",
+          };
+          setMessages((prev) =>
+            prev.map((m) => (m.id === thinkingId ? errMsg : m)),
+          );
+          return;
+        }
+        const delay = nextThinkDelayMs();
+        window.setTimeout(() => {
+          const reply = pickReply(text);
+          const aiMsg: ConversationMessage = {
+            id: `a-${ts}`,
+            at: "刚刚",
+            kind: "ai-response",
+            content: reply.content,
+            fieldRef: reply.fieldRef,
+            sectionDiff: reply.sectionDiff,
+          };
+          setMessages((prev) =>
+            prev.map((m) => (m.id === thinkingId ? aiMsg : m)),
+          );
+        }, delay);
+      });
   }, []);
 
   return (
@@ -869,8 +913,41 @@ function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
             const evt = JSON.parse(dataLine.slice(5).trim()) as ChannelStreamEvent;
             setStreamEvents((prev) => [...prev, evt]);
             // F-005 Phase 2 · 提取 final candidates 注入 ChannelWorkspace 让 CandidatesPanel 渲染 live
+            // #1 crash fix (2026-04-27): 后端 SSE candidates shape 跟前端 Candidate type 不一致 ·
+            //   render 时 signals/riskTags/products .length on undefined 抛 TypeError ·
+            //   "This page couldn't load" · 这里 normalize 一遍 · 兼容 backend snake_case + camelCase
             if (evt.event === "done" && Array.isArray(evt.candidates)) {
-              setLive(evt.candidates as unknown as Candidate[]);
+              const norm = (evt.candidates as Array<Record<string, unknown>>).map(
+                (c, i) => ({
+                  id: String(c.id ?? c.uscc ?? `live-${i}`),
+                  name: String(c.name ?? c.company_name ?? "(未命名)"),
+                  similarity:
+                    typeof c.similarity === "number"
+                      ? c.similarity
+                      : typeof c.match_score === "number"
+                      ? c.match_score
+                      : 0,
+                  industry: String(c.industry ?? "—"),
+                  geo: String(c.geo ?? c.region ?? "—"),
+                  scale: String(c.scale ?? c.scale_band ?? "—"),
+                  signals: Array.isArray(c.signals)
+                    ? (c.signals as unknown[]).map(String)
+                    : Array.isArray(c.signal_types)
+                    ? (c.signal_types as unknown[]).map(String)
+                    : [],
+                  riskTags: Array.isArray(c.riskTags)
+                    ? (c.riskTags as unknown[]).map(String)
+                    : Array.isArray(c.risk_tags)
+                    ? (c.risk_tags as unknown[]).map(String)
+                    : [],
+                  products: Array.isArray(c.products)
+                    ? (c.products as unknown[]).map(String)
+                    : Array.isArray(c.recommended_products)
+                    ? (c.recommended_products as unknown[]).map(String)
+                    : [],
+                }),
+              ) as unknown as Candidate[];
+              setLive(norm);
             }
           } catch {
             /* skip malformed line */

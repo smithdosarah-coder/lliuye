@@ -134,8 +134,22 @@ export function ComposerBar() {
     });
     setText("");
 
-    /* #5 · 2026-04-27 IM 实装 · 后端 /api/im/send 真 DeepSeek reply
-       prod: 相对 path 走 nginx · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000 */
+    /* #5 + @agent 路由 · 2026-04-27 · IM 真接 DeepSeek + 解析 @智能体 名 */
+    const AT_PATTERN =
+      /@(报告|授信|获客|预警|合规|风控|agent6|agent3|agent1|agent4|agent5|agent2|report|credit|channel|alert|compli|compliance|riskctrl)/i;
+    const AGENT_NAME_TO_ID: Record<string, string> = {
+      报告: "report", agent6: "report", report: "report",
+      授信: "credit", agent3: "credit", credit: "credit",
+      获客: "channel", agent1: "channel", channel: "channel",
+      预警: "alert", agent4: "alert", alert: "alert",
+      合规: "compli", agent5: "compli", compli: "compli", compliance: "compli",
+      风控: "riskctrl", agent2: "riskctrl", riskctrl: "riskctrl",
+    };
+    const atMatch = value.match(AT_PATTERN);
+    const targetAgent = atMatch
+      ? AGENT_NAME_TO_ID[atMatch[1].toLowerCase()] ?? ""
+      : "";
+
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
       "";
@@ -146,6 +160,7 @@ export function ComposerBar() {
         message: value,
         thread_id: thread.id,
         customer_id: thread.customerId ?? "",
+        target_agent: targetAgent,
       }),
     })
       .then((r) =>

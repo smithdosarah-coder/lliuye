@@ -19,6 +19,8 @@ export function LoginForm() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const router = useRouter();
   const [userId, setUserId] = useState<string>(DEMO_USERS[0].id);
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const current = DEMO_USERS.find((u) => u.id === userId);
 
@@ -28,8 +30,24 @@ export function LoginForm() {
     }
   }, [currentUser, router]);
 
+  /* 5 user demo 密码 (前端校验 · prod 阶段接 backend /api/auth/login 替换)
+     2026-04-27 user 要"真密码" · password = user 名拼音小写 · 5 固定账号 */
+  const PASSWORD_MAP: Record<string, string> = {
+    u_wangzhe: "wangzhe",
+    u_lihua: "lihua",
+    u_zhoumin: "zhoumin",
+    u_chenkai: "chenkai",
+    u_liuye: "liuye",
+  };
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setAuthError(null);
+    const expected = PASSWORD_MAP[userId];
+    if (!expected || expected !== password) {
+      setAuthError("账号或密码错误");
+      return;
+    }
     login(userId);
   }
 
@@ -82,11 +100,42 @@ export function LoginForm() {
           id="lf-pass"
           className="lf-input"
           type="password"
-          placeholder="本地演示 · 留空即可"
+          placeholder="输入密码 · 见下方提示"
           autoComplete="off"
-          defaultValue="demo"
-          disabled
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (authError) setAuthError(null);
+          }}
         />
+        <div
+          style={{
+            fontSize: 11,
+            color: "rgba(180, 200, 230, 0.45)",
+            fontFamily: "var(--mono)",
+            marginTop: 4,
+            letterSpacing: ".04em",
+          }}
+        >
+          demo · 密码 = persona 拼音小写 (wangzhe / lihua / zhoumin / chenkai / liuye)
+        </div>
+        {authError && (
+          <div
+            role="alert"
+            style={{
+              fontSize: 12,
+              color: "#E89B91",
+              fontFamily: "var(--cjk)",
+              marginTop: 8,
+              padding: "6px 10px",
+              background: "rgba(215, 83, 74, 0.12)",
+              border: "1px solid rgba(215, 83, 74, 0.32)",
+              borderRadius: 8,
+            }}
+          >
+            ⚠ {authError}
+          </div>
+        )}
       </div>
 
       <div className="lf-row">

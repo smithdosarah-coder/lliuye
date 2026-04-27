@@ -197,14 +197,40 @@ class ImSendRequest(BaseModel):
     message: str
     thread_id: str = ""
     customer_id: str = ""
+    target_agent: str = ""  # "" / "channel" / "credit" / "alert" / "compli" / "report" / "riskctrl"
+
+
+# 6 Agent 角色 system prompt (2026-04-27 · 加 @agent 路由支持 + archive 内 ConversationPanel 真接)
+_AGENT_SYSTEMS = {
+    "channel": "你是 Agent1 获客 (Scout) · 根据客户经理描述生成获客线索 / look-alike 推荐。回复 1-3 句·不编造数字 / 客户名 · 没有依据时显式说「需要查询」。",
+    "report": "你是 Agent6 报告 · 辅助客户经理 / 审贷员处理材料 → 报告生成。回复 1-3 句·不编造内容。",
+    "credit": "你是 Agent3 授信 · 辅助审贷员评分 / 红线判定。回复 1-3 句·不编造决策结果。",
+    "alert": "你是 Agent4 预警 · 分析在贷客户行为信号 + 红/黄/绿榜单。回复 1-3 句·不编造预警事件。",
+    "compli": "你是 Agent5 合规 · 解析新政策与业务制度冲突点。回复 1-3 句·不编造政策条款。",
+    "riskctrl": "你是 Agent2 风控 · 辅助策略经理写 DSL + 回测。回复 1-3 句·不编造样本数。",
+}
+_AGENT_TO_ID = {
+    "channel": "agent_channel",
+    "report": "agent_report",
+    "credit": "agent_credit",
+    "alert": "agent_alert",
+    "compli": "agent_compliance",
+    "riskctrl": "agent_riskctrl",
+}
+_DEFAULT_SYSTEM = (
+    "你是信贷 AI 助手·在客户经理 / 审贷员 / 合规官的协作 IM 工作台。"
+    "回复简短·直接·1-3 句。"
+    "涉及信贷决策时建议用户调相应 Agent (Agent1 获客 / Agent3 授信 / Agent4 预警 / Agent5 合规 / Agent6 报告)。"
+    "不编造数字 / 政策 / 客户资料 · 没有依据时显式说「需要查询」。"
+)
 
 
 @app.post("/api/im/send")
 async def im_send(req: ImSendRequest):
-    """IM 对话 · 客户经理在 dispatch view 输入 → DeepSeek 简短回复 (信贷助手角色)。
+    """IM 对话 · DeepSeek + agent routing (target_agent 选不同 system prompt)。
 
-    最小实装: 单 turn LLM call · 无 thread persistence · 无 SSE。
-    后续可扩 history-aware + SSE stream + agent routing (基于 message 路由到 Agent1/3/4/5/6)。
+    单 turn · 无 thread persistence · 无 SSE。后续扩 history + SSE + workflow。
+    archive 内 ConversationPanel 通过 target_agent="channel/report/..." 调对应 agent prompt。
     """
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
@@ -214,16 +240,17 @@ async def im_send(req: ImSendRequest):
     try:
         from llm import LLMClient
         llm = LLMClient(provider="deepseek", api_key=api_key)
-        system = (
-            "你是信贷 AI 助手·在客户经理 / 审贷员 / 合规官的协作 IM 工作台。"
-            "回复简短·直接·1-3 句。"
-            "涉及信贷决策时建议用户调相应 Agent (Agent1 获客 / Agent3 授信 / Agent4 预警 / Agent5 合规 / Agent6 报告)。"
-            "不编造数字 / 政策 / 客户资料 · 没有依据时显式说「需要查询」。"
-        )
+        if req.target_agent and req.target_agent in _AGENT_SYSTEMS:
+            system = _AGENT_SYSTEMS[req.target_agent]
+            agent_id = _AGENT_TO_ID[req.target_agent]
+        else:
+            system = _DEFAULT_SYSTEM
+            agent_id = "agent_report"
         reply = llm.simple_chat(system, req.message, temperature=0.4)
         return {
             "reply": (reply or "").strip(),
-            "agent": "agent_report",  # 默认归 Agent6 · 后续按 message 路由到不同 Agent
+            "agent": agent_id,
+            "target_agent": req.target_agent,
             "thread_id": req.thread_id,
         }
     except (RuntimeError, ValueError, OSError, AttributeError) as e:
