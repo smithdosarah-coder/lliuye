@@ -733,25 +733,100 @@ function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
 
 /* ── 区域 1 · Query 输入条（顶部全宽） ───────────────── */
 
+type ChannelStreamEvent = {
+  event?: string;
+  stage?: string;
+  pct?: number;
+  message?: string;
+  candidates?: unknown[];
+  [k: string]: unknown;
+};
+
 function QueryBar() {
   const q = CHANNEL_SESSION.query;
   const recent = CHANNEL_SESSION.recentSessions;
-  /* F-005 · 2026-04-27 RESTORED · 自由搜索 (LLM 自解析) · 替代旧 look-alike 思路 */
+  /* F-005 · 2026-04-27 双模式实装:
+     · 历史 session select onChange → 切到对应 mock CHANNEL_SESSION (现状已是 mock 渲染)
+     · 自由 textbox onSubmit → fetch /api/channel/run SSE · 真调 DeepSeek + Tavily */
   const [input, setInput] = useState(
     "找做工业软件的 SaaS 公司 · B 轮后 · 华东 · 年营收 1-3 亿"
   );
+  const [streaming, setStreaming] = useState(false);
+  const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
+  const [streamError, setStreamError] = useState<string | null>(null);
+
+  async function runRealSearch() {
+    if (!input.trim() || streaming) return;
+    setStreaming(true);
+    setStreamEvents([]);
+    setStreamError(null);
+    try {
+      const apiBase =
+        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+        "http://localhost:8000";
+      const res = await fetch(`${apiBase}/api/channel/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: input, mock: false, top_n: 8 }),
+      });
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      // Read SSE 流到 done · 累积 events 给下方 stream panel 渲染
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const blocks = buf.split("\n\n");
+        buf = blocks.pop() ?? "";
+        for (const block of blocks) {
+          const dataLine = block
+            .split("\n")
+            .find((line) => line.startsWith("data:"));
+          if (!dataLine) continue;
+          try {
+            const evt = JSON.parse(dataLine.slice(5).trim()) as ChannelStreamEvent;
+            setStreamEvents((prev) => [...prev, evt]);
+          } catch {
+            /* skip malformed line */
+          }
+        }
+      }
+    } catch (err) {
+      setStreamError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStreaming(false);
+    }
+  }
+
+  function onSelectSession() {
+    /* 选下拉历史 session = 切回 mock 模式 · 清掉 live stream 残留 */
+    setStreamEvents([]);
+    setStreamError(null);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void runRealSearch();
+    }
+  }
+
   return (
     <section className="rpt-panel ch-querybar">
       <div className="ch-querybar-head">
         <div>
-          <div className="rpt-panel-eyebrow">QUERY · 自由搜索</div>
+          <div className="rpt-panel-eyebrow">QUERY · 双模式</div>
           <h3 className="rpt-panel-title ch-querybar-title">
-            一句话描述你想找的企业 · <em>AI 自动解析意图</em>
+            一句话描述要找的企业 · <em>AI 解析 (textbox)</em> 或选历史 (mock)
           </h3>
         </div>
         <div className="ch-querybar-recent">
-          <label>历史 session</label>
-          <select defaultValue={CHANNEL_SESSION.id}>
+          <label>历史 session (mock)</label>
+          <select defaultValue={CHANNEL_SESSION.id} onChange={onSelectSession}>
             {recent.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.benchmark}
@@ -764,28 +839,64 @@ function QueryBar() {
         <input
           type="text"
           className="ch-querybar-input"
-          placeholder="自然语言描述 (行业 / 阶段 / 地域 / 营收 / 任意特征 都能写) · LLM 解析后返回候选"
+          placeholder="自然语言描述 · 自由输入 → 真接 /api/channel/run (DeepSeek + Tavily) · 或选下拉看 mock"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
+          disabled={streaming}
         />
         <button
           type="button"
           className="ch-querybar-btn"
           data-testid="scout-search"
-          disabled={!input.trim()}
+          onClick={() => void runRealSearch()}
+          disabled={!input.trim() || streaming}
         >
-          <span>AI 搜索</span>
-          <span className="kbd">⌘↩</span>
+          <span>{streaming ? "AI 解析中…" : "AI 搜索"}</span>
+          <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
         </button>
       </div>
       <div className="ch-querybar-tags">
-        <span className="lbl">AI 解析的特征 · 12 维</span>
+        <span className="lbl">AI 解析的特征 · 12 维 (mock 默认)</span>
         <div className="tags">
           {q.featureTags.map((t) => (
-            <span key={t} className="tag">{t}</span>
+            <span key={t} className="tag">
+              {t}
+            </span>
           ))}
         </div>
       </div>
+      {(streamEvents.length > 0 || streamError) && (
+        <div className="ch-querybar-stream" data-testid="scout-live-stream">
+          <div className="ch-querybar-stream-head">
+            ▶ AI 实时流 · /api/channel/run SSE
+          </div>
+          {streamError ? (
+            <div className="ch-querybar-stream-error">⚠ {streamError}</div>
+          ) : (
+            <ul className="ch-querybar-stream-list">
+              {streamEvents.map((evt, i) => (
+                <li key={i} className="ch-querybar-stream-row">
+                  <span className="stage">
+                    {String(evt.stage ?? evt.event ?? "·")}
+                  </span>
+                  <span className="msg">
+                    {String(
+                      evt.message ??
+                        (evt.candidates
+                          ? `候选 ${(evt.candidates as unknown[]).length} 家`
+                          : JSON.stringify(evt).slice(0, 100)),
+                    )}
+                  </span>
+                  {typeof evt.pct === "number" && (
+                    <span className="pct">{Math.round(evt.pct)}%</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }
