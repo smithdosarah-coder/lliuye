@@ -296,6 +296,126 @@
   grid-template-columns: 36px 1fr;
   gap: 10px;
 }
+
+/* ═══ #2 · 2026-04-27 · dispatch 微信气泡 (复用 archive .wc-msg 设计)
+   archive (channel/report) 的 .wc-msg CSS 用 .v-archive--canon prefix 高 specificity ·
+   此处 global .wc-msg 仅 dispatch view 生效 (archive 内 prefix rule 赢) ═══ */
+.wc-msg {
+  display: grid;
+  grid-template-columns: minmax(40px, max-content) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "avatar bubble"
+    ".      foot";
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: stretch;
+  position: relative;
+  margin-bottom: 14px;
+}
+.wc-msg--user {
+  grid-template-columns: minmax(0, 1fr) minmax(40px, max-content);
+  grid-template-areas:
+    "bubble avatar"
+    "foot   .";
+  justify-items: end;
+}
+.wc-msg--ai {
+  justify-items: start;
+}
+.wc-msg--system {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "bubble"
+    "foot";
+  justify-items: center;
+}
+.wc-msg-avatar {
+  grid-area: avatar;
+  align-self: stretch;
+  aspect-ratio: 1 / 1;
+  width: auto;
+  min-height: 40px;
+  max-height: 64px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  background: color-mix(in srgb, var(--ink) 12%, var(--chalk));
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 16px;
+  user-select: none;
+  overflow: hidden;
+}
+.wc-msg-avatar--user {
+  border-color: color-mix(in srgb, var(--ink) 50%, transparent);
+  background: var(--ink);
+  color: var(--chalk);
+  font-family: var(--cjk);
+  font-size: 14px;
+  font-weight: 500;
+}
+.wc-msg-avatar--system {
+  display: none;
+}
+.wc-msg-bubble {
+  grid-area: bubble;
+  position: relative;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  max-width: min(620px, 100%);
+  border: 1px solid var(--ink-08);
+  background: var(--chalk);
+  word-break: break-word;
+  align-self: start;
+}
+.wc-msg-bubble--ai {
+  border-radius: 4px 14px 14px 14px;
+  background: color-mix(in srgb, var(--ink) 4%, var(--chalk));
+  border-color: color-mix(in srgb, var(--ink) 14%, var(--ink-14));
+}
+.wc-msg-bubble--user {
+  border-radius: 14px 4px 14px 14px;
+  background: color-mix(in srgb, var(--ink) 8%, var(--chalk));
+  border-color: color-mix(in srgb, var(--ink) 18%, var(--ink-14));
+  justify-self: end;
+}
+.wc-msg-bubble--system {
+  background: transparent;
+  border-color: transparent;
+  font-style: italic;
+  color: var(--ink-65);
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 12px;
+}
+.wc-msg-bubble-text { display: block; }
+.wc-msg-foot {
+  grid-area: foot;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--ink-48);
+}
+.wc-msg-foot--user { justify-self: end; }
+.wc-msg-foot--system { display: none; }
+.wc-msg-author-name {
+  font-family: var(--cjk);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--ink-65);
+}
+.wc-msg-author-role { color: var(--ink-48); }
+.wc-msg-at { font-variant-numeric: tabular-nums; }
 .dpx-msg-avatar {
   width: 32px;
   height: 32px;

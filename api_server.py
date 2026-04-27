@@ -190,6 +190,47 @@ _mount_agent_routes("agent_riskctrl.api", "Agent2 RiskCtrl")
 
 
 # ---------------------------------------------------------------------------
+# IM dispatch send · 客户经理 / 审贷员 / 合规官 IM 协作 (2026-04-27 #5 实装)
+# ---------------------------------------------------------------------------
+
+class ImSendRequest(BaseModel):
+    message: str
+    thread_id: str = ""
+    customer_id: str = ""
+
+
+@app.post("/api/im/send")
+async def im_send(req: ImSendRequest):
+    """IM 对话 · 客户经理在 dispatch view 输入 → DeepSeek 简短回复 (信贷助手角色)。
+
+    最小实装: 单 turn LLM call · 无 thread persistence · 无 SSE。
+    后续可扩 history-aware + SSE stream + agent routing (基于 message 路由到 Agent1/3/4/5/6)。
+    """
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if not api_key:
+        raise HTTPException(503, "DEEPSEEK_API_KEY 未配置 · IM 后端不可用")
+    if not req.message.strip():
+        raise HTTPException(400, "message 不能为空")
+    try:
+        from llm import LLMClient
+        llm = LLMClient(provider="deepseek", api_key=api_key)
+        system = (
+            "你是信贷 AI 助手·在客户经理 / 审贷员 / 合规官的协作 IM 工作台。"
+            "回复简短·直接·1-3 句。"
+            "涉及信贷决策时建议用户调相应 Agent (Agent1 获客 / Agent3 授信 / Agent4 预警 / Agent5 合规 / Agent6 报告)。"
+            "不编造数字 / 政策 / 客户资料 · 没有依据时显式说「需要查询」。"
+        )
+        reply = llm.simple_chat(system, req.message, temperature=0.4)
+        return {
+            "reply": (reply or "").strip(),
+            "agent": "agent_report",  # 默认归 Agent6 · 后续按 message 路由到不同 Agent
+            "thread_id": req.thread_id,
+        }
+    except (RuntimeError, ValueError, OSError, AttributeError) as e:
+        raise HTTPException(500, f"IM call failed: {type(e).__name__}: {e}") from e
+
+
+# ---------------------------------------------------------------------------
 # Dev entrypoint
 # ---------------------------------------------------------------------------
 

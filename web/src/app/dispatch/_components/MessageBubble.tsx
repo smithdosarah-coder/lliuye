@@ -12,26 +12,41 @@ function truncate(s: string, n: number): string {
   return flat.length > n ? `${flat.slice(0, n - 1)}…` : flat;
 }
 
+/* #2 · 2026-04-27 · 复用 archive wc-msg 微信气泡样式 (channel/report 已用此设计 · dispatch 之前用 dpx-msg 老 grid · 不一致)
+   author.kind: user/agent/system → wc-msg variant: user/ai/system
+   CSS 在 dispatch-im.css (global · archive 已有 .v-archive scope 高 specificity 不冲突) */
+const KIND_TO_WC: Record<"user" | "agent" | "system", string> = {
+  user: "user",
+  agent: "ai",
+  system: "system",
+};
+
 export function MessageBubble({ message }: { message: ImMessage }) {
   const author = resolveAuthor(message.from);
   const isAgent = isAgentId(message.from);
+  const wc = KIND_TO_WC[author.kind];
   return (
-    <article className={`dpx-msg ${author.kind}`}>
-      <span
-        className="dpx-msg-avatar"
-        style={author.tint ? { backgroundColor: author.tint } : undefined}
+    <div className={`wc-msg wc-msg--${wc}`}>
+      <div
+        className={`wc-msg-avatar wc-msg-avatar--${wc}`}
+        style={
+          author.tint
+            ? { backgroundColor: author.tint, borderColor: author.tint }
+            : undefined
+        }
+        aria-hidden
       >
         {author.glyph}
-      </span>
-      <div className="dpx-msg-body">
-        <header className="dpx-msg-meta">
-          <span className="nm">{author.name}</span>
-          <span className="role">{author.role}</span>
-          <span className="ts">{formatTimestamp(message.createdAt)}</span>
-        </header>
-        <div className="dpx-msg-text">{message.content}</div>
       </div>
-      {/* F-008 · 拖柄 hover 浮现 · 拖到画布 = 缩略图卡片 (PANEL_PIN_MIME) · 不是 url 链接 */}
+      <div className={`wc-msg-bubble wc-msg-bubble--${wc}`}>
+        <span className="wc-msg-bubble-text">{message.content}</span>
+      </div>
+      <div className={`wc-msg-foot wc-msg-foot--${wc}`}>
+        <span className="wc-msg-author-name">{author.name}</span>
+        <span className="wc-msg-author-role">{author.role}</span>
+        <span className="wc-msg-at">{formatTimestamp(message.createdAt)}</span>
+      </div>
+      {/* F-008 · 拖柄 hover 浮现 · 拖到画布 = 缩略图卡片 (PANEL_PIN_MIME) */}
       <MessagePinHandle
         id={`dispatch:msg:${message.id}`}
         title={truncate(message.content, 42)}
@@ -40,7 +55,7 @@ export function MessageBubble({ message }: { message: ImMessage }) {
         href="/dispatch"
         fullText={message.content}
       />
-    </article>
+    </div>
   );
 }
 

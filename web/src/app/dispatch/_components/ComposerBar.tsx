@@ -124,6 +124,36 @@ export function ComposerBar() {
       payload: { messageId: msg.id, threadId: thread.id, text: value },
     });
     setText("");
+
+    /* #5 · 2026-04-27 IM 实装 · 后端 /api/im/send 真 DeepSeek reply
+       prod: 相对 path 走 nginx · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000 */
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
+    fetch(`${apiBase}/api/im/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: value,
+        thread_id: thread.id,
+        customer_id: thread.customerId ?? "",
+      }),
+    })
+      .then((r) =>
+        r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)),
+      )
+      .then((data: { reply: string; agent: string; thread_id: string }) => {
+        const reply = (data.reply || "").trim();
+        if (!reply) return;
+        addMessage(thread.id, {
+          from: data.agent || "agent_report",
+          kind: "text",
+          content: reply,
+        });
+      })
+      .catch((err) => {
+        console.warn("[ComposerBar] IM send failed · silent fallback:", err);
+      });
   }
 
   function runCommand(cmd: string, args: string[], raw: string) {
