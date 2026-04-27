@@ -33,14 +33,18 @@ Master plan: `docs/contracts/master-execution-plan-2026-04-27.md`
 
 ### Stage B · Channel Workspace 完整 architecture (3 worker 完成 Stage A 后启动)
 
-- B.1 mock_sessions.ts 扩 3-5 mock 标杆企业 (各自完整 ChannelSession · radar/signals/candidates/funnel 都不同)
-- B.2 panel state hoist (Hero/Funnel/Radar/Candidates/SignalTimeline 全接 sessionData props · 删 import CHANNEL_SESSION)
-- B.3 下拉切 session 真切全 panel (onSelectSession setSelectedSession(id) · 全 panel 跟着切)
-- B.4 候选 click → candidate detail drawer (右抽屉 · radar 切到该候选 · signal timeline 切到该候选 · Top3 产品 · 话术 · 匹配明细)
-- B.5 后端 SSE 扩 radar/signals/funnel (`/api/channel/run` done event 加这 3 字段)
-- B.6 文件上传 KB (PRD v2 必须 · ChannelHero 加 3 类文件上传区 · 后端 `/api/channel/upload_kb`)
-- B.7 Word 导出 (后端 `/api/channel/export_docx` · python-docx)
-- B.8 Channel 5 Playwright smoke
+- B.1 mock_sessions.ts 扩 3-5 mock 标杆企业 (各自完整 ChannelSession)
+- B.2 panel state hoist (5 panel 接 props · 删 CHANNEL_SESSION import)
+- B.3 下拉切 session 真切全 panel
+- B.4 候选 click → candidate detail drawer (radar / signal timeline 切到该候选)
+- **B.4b 候选 detail · "为什么像" 匹配维度明细** (gap 4 漏的) — drawer 内 chip 列 · 各维度命中 + 证据
+- **B.4c 候选 detail · Top3 产品推荐 + 切入话术** (gap 5 漏的) — 复用 v1 scoring · 客户经理"打开电话即用"
+- B.5 后端 SSE 扩 radar/signals/funnel/match_dimensions/product_recommendations/pitch_scripts
+- **B.5b 前端 wire 真 SSE 全字段** (gap 3 漏的) — Radar/Candidates/SignalTimeline/FunnelStrip 都消费 live · 不只 candidates name
+- B.6 文件上传 KB 3 类 (gap 1)
+- **B.6b IdealProfile LLM 抽画像** (gap 2 漏的) — 后端 `/api/channel/profile` · 前端"理想客户画像卡" + user 确认后才扫描
+- B.7 Word 导出 (gap 6)
+- B.8 Channel 5+ Playwright smoke
 - B.9 features-inventory enrich F-channel-* 全 entries
 
 ### Stage C · 5 Agent 复制 Channel pattern (各 1 worker)

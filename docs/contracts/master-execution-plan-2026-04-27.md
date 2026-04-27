@@ -61,11 +61,15 @@ PRD 期望 = 6 Agent 各按 v2 PRD-grade 实装 · 共享 KB/Search/Matcher 底�
 - [ ] **B.1 mock_sessions.ts** — 扩 3-5 个 mock 标杆企业 · 各自完整 ChannelSession (radar / signals / candidates / funnel 都不同)
 - [ ] **B.2 panel state hoist** — ChannelWorkspace 加 useState selectedSession + selectedCandidate · 5 panel function 接 props (Hero/Funnel/Radar/Candidates/SignalTimeline) · 删 import CHANNEL_SESSION
 - [ ] **B.3 下拉切 session 真切全 panel** — onSelectSession setSelectedSession(id) · panel 全跟着切
-- [ ] **B.4 候选 click → candidate detail drawer** — 右抽屉展开 · 该候选的 derive radar (8 维) + 该候选的 signal timeline + 该候选的 Top3 产品推荐 + 话术 + 匹配维度明细 ("为什么像")
-- [ ] **B.5 后端 SSE 扩** — `/api/channel/run` done event 加 `radar` `signals` `funnel` 字段 · 让前端真填全 panel (不只 candidates)
-- [ ] **B.6 文件上传 KB** (PRD v2 必须) — ChannelHero 加 3 类文件上传区 · 后端 `/api/channel/upload_kb` + IdealProfile 抽取 endpoint
-- [ ] **B.7 Word 导出** — 后端 `/api/channel/export_docx` (python-docx) · 前端 button click 下载
-- [ ] **B.8 5 Playwright smoke** — channel-mock-switch / channel-live-search / candidate-detail-drawer / channel-upload-kb / channel-export-docx
+- [ ] **B.4 候选 click → candidate detail drawer** — 右抽屉展开 · 该候选的 derive radar (8 维) + 该候选的 signal timeline
+- [ ] **B.4b 候选 detail · "为什么像" 匹配维度明细** (gap 4 · PRD 1.2 用户故事核心) — drawer 内独立区 chip 列表 · 显示该候选 vs IdealProfile 各维度匹配 (e.g. "营收 5000 万 ✓ 匹配 P50 ±20% / 行业 SaaS ✓ 命中标杆 / 地域华东 ✓ / 阶段 B 轮后 ✓") · 每 chip 含命中证据来源 (signal id / KB ref)
+- [ ] **B.4c 候选 detail · Top3 产品推荐 + 切入话术** (gap 5 · 客户经理"打开电话即用") — drawer 内独立区 · 3 张产品卡 · 每卡 含 (产品名 / 适配评分 / 切入话术 1-2 句 · 含客户姓名占位 + 关键卖点) · 复用 v1 channel_rules + scoring 评分逻辑
+- [ ] **B.5 后端 SSE 扩** — `/api/channel/run` done event 加 `radar` `signals` `funnel` `match_dimensions` `product_recommendations` `pitch_scripts` 字段 · 让前端真填全 panel
+- [ ] **B.5b 前端 wire 真 SSE 全字段** (gap 3 · 不只 candidates name) — Radar/Candidates/SignalTimeline/FunnelStrip 都消费 live SSE 数据 · livePayload 完整覆盖 mock · live mode 时 panel 全切到真后端数据
+- [ ] **B.6 文件上传 KB** (PRD v2 必须 · gap 1) — ChannelHero 加 3 类文件上传区 (客户名录 / 政策 / 行业指引) · 后端 `/api/channel/upload_kb` 存 + 解析 · 返 KB id
+- [ ] **B.6b IdealProfile 画像抽取** (gap 2) — 上传完成后 · 前端 call `/api/channel/profile` POST {kb_id} → LLM 解析 KB 抽 IdealProfile (industry / scale / geo / stage / 12 维特征) → 前端显示"理想客户画像卡" → user 确认后才"开始扫描" → 走 `/api/channel/run` SSE
+- [ ] **B.7 Word 导出** (gap 6) — 后端 `/api/channel/export_docx` (python-docx) · 前端 button click 下载 · 含 Top10 候选 + 匹配明细 + 产品 + 话术 全套
+- [ ] **B.8 5 Playwright smoke** — channel-mock-switch / channel-live-search / candidate-detail-drawer (含匹配明细 + 产品话术) / channel-upload-kb-profile / channel-export-docx
 - [ ] **B.9 features-inventory enrich** — F-channel-* 全 entries
 
 ### Stage C · 5 Agent 复制 Channel pattern (5-7 sessions · 各 Agent 1 session)
