@@ -766,9 +766,10 @@ function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
     setStreamEvents([]);
     setStreamError(null);
     try {
+      // prod: 相对 path 走 nginx proxy → :8000 · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000
       const apiBase =
         (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-        "http://localhost:8000";
+        "";
       const res = await fetch(`${apiBase}/api/channel/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
