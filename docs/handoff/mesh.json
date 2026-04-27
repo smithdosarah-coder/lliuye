@@ -89,6 +89,30 @@
       "phase_3_final_track": "8b",
       "phase_3_final_wave": 2,
       "onboarding": "docs/onboarding/batch-3-code-arch-agent2-hardening.md"
+    },
+    {
+      "name": "A1-inventory",
+      "path": "D:/claude code/work-A1-inventory",
+      "branch": "feat/inventory-expand-A1",
+      "role": "worker",
+      "description": "Stage A.3 · features-inventory.md F-009~F-040 expand (32 new entries · 6 Workspace + IM + Auth + Layout)",
+      "onboarding": "docs/onboarding/W-A1-inventory-expand.md"
+    },
+    {
+      "name": "A2-contracts",
+      "path": "D:/claude code/work-A2-contracts",
+      "branch": "feat/contracts-bootstrap-A2",
+      "role": "worker",
+      "description": "Stage A.4 · workspace-state-protocol + im-protocol + auth-protocol contracts",
+      "onboarding": "docs/onboarding/W-A2-contracts-bootstrap.md"
+    },
+    {
+      "name": "A3-prd",
+      "path": "D:/claude code/work-A3-prd",
+      "branch": "feat/prd-summaries-A3",
+      "role": "worker",
+      "description": "Stage A.5 · 6 agent PRD summary specs (channel/report/credit/alert/compli/forge)",
+      "onboarding": "docs/onboarding/W-A3-prd-summaries.md"
     }
   ],
   "frozen_branches_no_worktree": [
@@ -126,7 +150,7 @@
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
-  "last_updated": "2026-04-25",
+  "last_updated": "2026-04-27",
   "current_phase": "phase-3-final",
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
@@ -157,10 +181,19 @@
         "demo-data-foundation (close-marker only · feat/data-foundation Batch 2 APPROVED-MERGED)",
         "demo-evaluation (close-marker only · feat/evaluation Batch 2 APPROVED-MERGED · physical dir 手动删等文件解锁)"
       ],
-      "kept_frozen_worktrees": ["demo-agent1", "demo-agent3", "demo-agent6"],
+      "kept_frozen_worktrees": [
+        "demo-agent1",
+        "demo-agent3",
+        "demo-agent6"
+      ],
       "kept_frozen_branches_no_worktree": [
-        "feat/agent-workspaces-v2", "feat/alert-codex-fusion", "feat/compliance-codex-fusion",
-        "feat/credit-mock-endpoint", "feat/canvas-mode-toggle", "feat/shell-free-drag", "feat/chat-wechat-style"
+        "feat/agent-workspaces-v2",
+        "feat/alert-codex-fusion",
+        "feat/compliance-codex-fusion",
+        "feat/credit-mock-endpoint",
+        "feat/canvas-mode-toggle",
+        "feat/shell-free-drag",
+        "feat/chat-wechat-style"
       ],
       "reason": "Batch 2 closeout + Phase 4 前端整合规划 · 见 decisions-log Q-031"
     }
