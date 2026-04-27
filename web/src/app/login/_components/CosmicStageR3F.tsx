@@ -19,9 +19,10 @@
  *   · 事件视界 r_h = 1 rs
  *   · 吸积盘 3 rs → 15 rs（物理上 ISCO = 3 rs；DNEG paint-swatch 9.26 M→18.70 M）
  *   · 盘温 6500 K（D65 近纯白 · DNEG 论文 James et al. 2015 原版 Gargantua · 非金非橙）
- *   · 盘色处理 = base blackbody × FBM dust-lane × 象牙 ecru 偏色 → 读作 sepia 白而非金
- *   · MAX_REVS 3.5 · 足以出现 2 阶 photon ring（黑球左右两道薄白弧）
+ *   · 盘色处理 = 纯 blackbody × FBM dust-lane（2026-04-21 去 ecru tint · 用户"半成品"判）
+ *   · MAX_REVS 3.5 / uSteps 280 · 足以出现 2 阶 photon ring 无层切割
  *   · 相机距 16 rs · 倾角 2.5°（Gargantua 近 edge-on · 盘成水平扁带 + 上方薄帽 + 下方 Einstein 月牙）
+ *   · 背景：near-black + 稀疏星场（haze 压到 0.001，去银河尘带 sin 带感）
  *   · BH 屏幕正中 · 右侧 aside 改为浮动 glass card，让盘从卡片背后流过（不再硬偏左）
  */
 
@@ -104,72 +105,83 @@ const FRAG = /* glsl */ `
     return v;
   }
 
-  // ── 程序化星场（equirectangular + 2 层网格）────────────────────────
+  // ── 程序化星场 · 深空近黑底 · 稀疏星点（2026-04-21 用户要"真实宇宙的深邃"） ──
   vec3 starfield(vec3 dir) {
     vec2 uv = vec2(atan(dir.y, dir.x) / (2.0 * PI) + 0.5,
                    asin(clamp(dir.z, -1.0, 1.0)) / PI + 0.5);
     vec3 col = vec3(0.0);
     for (int L = 0; L < 2; L++) {
-      float scale = 260.0 + float(L) * 180.0;
+      float scale = 380.0 + float(L) * 220.0;
       vec2 g    = uv * scale;
       vec2 cell = floor(g);
       float h   = hash21(cell + float(L) * 17.19);
-      float th  = 0.9968 - float(L) * 0.0008;
+      // 阈值调高 → 星点密度降一半（0.9968 → 0.9986 / 0.9978）
+      float th  = 0.9986 - float(L) * 0.0008;
       if (h > th) {
         vec2 local = fract(g) - 0.5 -
           (vec2(hash21(cell + 3.7), hash21(cell + 7.1)) - 0.5) * 0.5;
         float d = length(local);
-        float b = smoothstep(0.12, 0.0, d) * (0.4 + 0.6 * hash21(cell + 11.3));
+        float b = smoothstep(0.10, 0.0, d) * (0.4 + 0.6 * hash21(cell + 11.3));
         float T = 3000.0 + hash21(cell + 13.7) * 9000.0;
         col += temp2rgb(T) * b * (1.0 - float(L) * 0.3);
       }
     }
-    // 极淡的银河尘带背景
-    float haze = 0.5 + 0.5 * sin(uv.x * 6.3) * cos(uv.y * 3.7 + 1.0);
-    col += vec3(0.006, 0.008, 0.015) * (0.4 + 0.6 * haze);
+    // 去银河尘带 sin 带（老版带来灰雾感）· 只保留极暗 ambient，读作黑
+    col += vec3(0.0008, 0.001, 0.0022);
     return col;
   }
 
   // ── 程序化吸积盘（盘面 z=0）· FBM 湍流 + dust-lane · Hubble 摄影风 ──
+  //
+  // v7（2026-04-22）· 根治 atan phi branch-cut seam：
+  //   旧版用 phi = atan(y, x) 作为 uv 坐标 → phi 在 -x 轴从 +π 跳 -π，
+  //   fbm(ustreak, r) 沿 -x 径向产生不连续"割裂光带"。
+  //   改法：把湍流采样坐标整体搬到 Keplerian 反卷 q-frame
+  //         q(x,y,t) = rot(-omega(r)) · (x,y)
+  //   q 是 (x,y,t) 的 C¹ 连续函数（omega 只依赖 r，rotation matrix 连续），
+  //   丝状感由 omega(r) ∝ r^(-3/2) 的径向强剪切自然浮现（相邻 r 反卷角不同
+  //   → 切线向拉伸 noise 特征），不再需要 phi。
   vec3 disk_emission(vec3 p) {
-    float r   = length(p.xy);
-    float phi = atan(p.y, p.x);
+    float r = length(p.xy);
 
-    // Shakura-Sunyaev 径向温度 T ∝ r^(-3/4)
-    float ts   = pow(R_INNER / max(r, R_INNER), 0.75);
-    float temp = DISK_T * ts;
-    vec3  base = temp2rgb(temp);
+    // ── v9.3（2026-04-23）色调：warm champagne 回归 · 匹配参考图（Interstellar
+    // Gargantua warm gold）· 用户发图要求 · 用银冷色 silver 换掉太冷学术感 ·
+    // 改 champagne (0.96, 0.82, 0.56) 暖金黄 · Bloom intensity 0.22 适度暖光 ·
+    // 保留 v6 phi-seam Keplerian q-frame · 不回退 bug 修复。
+    vec3  champagne = vec3(0.96, 0.82, 0.56);  // warm gold · 参考图黄昏色调
+    float tsRaw  = pow(R_INNER / max(r, R_INNER), 0.75);
+    // 径向亮度 0.45→1.18：外缘 champagne×0.45=(0.43,0.37,0.25) 暗暖棕，
+    // 内边 champagne×1.18=(1.13,0.97,0.66) 亮金近白 → HDR 源头，Bloom 拾暖光晕。
+    float tintLift = mix(0.45, 1.18, tsRaw);
+    vec3  tint     = champagne * tintLift;
 
-    // 象牙 ecru 偏色 · 往暖灰白靠，避免纯 blackbody 出金橙
-    vec3 ecru = vec3(1.0, 0.93, 0.80);
-    vec3 tint = mix(ecru, base, 0.35);
+    // Keplerian 反卷：omega 只依赖 r，rotation matrix 全处处连续
+    float omega = uTime * 0.35 * pow(R_INNER / max(r, R_INNER), 1.5);
+    float co    = cos(-omega);
+    float so    = sin(-omega);
+    vec2  q     = vec2(co * p.x - so * p.y, so * p.x + co * p.y);
 
-    // Keplerian rotation Ω ∝ r^(-3/2) · 流体向前 shear 的 uv 坐标
-    float omega   = uTime * 0.35 * pow(R_INNER / max(r, R_INNER), 1.5);
-    float ustreak = phi + omega;
+    // ── BRIGHT 湍流：scale 2.4→1.6 让斑块更大，配合 omega 剪切拉成丝 ──
+    vec2  uv_bright = q * 1.6 + vec2(uTime * 0.08, uTime * 0.05);
+    float turb      = fbm(uv_bright);
+    float bright    = mix(0.5, 1.25, smoothstep(0.2, 0.85, turb));
 
-    // ── BRIGHT 湍流：高频 FBM · 顺流方向（ustreak）高频、径向（r）低频 → 丝状 ──
-    // x 轴 = 流向（高频摆动），y 轴 = 半径（慢变） → 细丝顺着转圈方向拉长
-    vec2 uv_bright = vec2(ustreak * 2.0 + r * 0.6, r * 1.8 + uTime * 0.2);
-    float turb = fbm(uv_bright);
-    // smoothstep 拉对比 · 让亮丝更立体而非糊平
-    float bright = mix(0.5, 1.25, smoothstep(0.2, 0.85, turb));
+    // ── DUST LANE 锐化（v9）：阈值 (0.35,0.62)→(0.40,0.55) 暗带锐利，
+    //    暗区最暗 0.18→0.08 更深 → 参考图 dust 明显分层 ──
+    vec2  uv_dust   = q * 0.55 + vec2(3.7 + uTime * 0.015, uTime * 0.012);
+    float dust_raw  = fbm(uv_dust);
+    float dust      = smoothstep(0.40, 0.55, dust_raw);
 
-    // ── DUST LANE：慢频率 FBM + smoothstep 锐化 · 与流向错位造成垂直切割感 ──
-    // 第二层 uv 故意相位偏移 + 频率更低 + 方向微调，和 bright 纹理不重合
-    vec2 uv_dust = vec2(ustreak * 0.9 - r * 0.25 + 3.7, r * 0.55 + uTime * 0.05);
-    float dust_raw = fbm(uv_dust);
-    // 锐化边缘 · 尘带要有明确的暗区轮廓，不是渐灰
-    float dust = smoothstep(0.35, 0.62, dust_raw);
-
-    float inner_mask = smoothstep(R_INNER,         R_INNER + 0.6, r);
-    float outer_mask = smoothstep(R_OUTER,         R_OUTER - 3.0, r);
+    // 软边 mask · 内外各拉宽（2026-04-21 修红框右上"层切"）
+    // 内边 0.6 → 1.4 rs，外边 3.0 → 5.0 rs，消除 photon ring 与直接像 R_OUTER 硬切
+    float inner_mask = smoothstep(R_INNER,         R_INNER + 1.4, r);
+    float outer_mask = smoothstep(R_OUTER,         R_OUTER - 5.0, r);
     float mask       = inner_mask * outer_mask;
 
-    float lum = ts * ts * 2.0; // HDR · 白色本身能量密 · 由 bloom 负责发光
+    float lum = tsRaw * tsRaw * 2.0; // HDR · 亮度能量密 · 由 bloom 负责发光
 
-    // dust = 1 亮 / 0 暗 · 暗区压到 0.22，亮区保持 1.0
-    return tint * bright * mix(0.22, 1.0, dust) * mask * lum;
+    // dust = 1 亮 / 0 暗 · 暗区从 0.18 压至 0.08（更接近参考图深黑褐 dust lane）
+    return tint * bright * mix(0.08, 1.0, dust) * mask * lum;
   }
 
   // ── main ────────────────────────────────────────────────────────────
@@ -241,7 +253,7 @@ const BlackHoleMaterial = shaderMaterial(
     uResolution: new THREE.Vector2(1, 1),
     uCamPos: new THREE.Vector3(15.985, 0, 0.698),
     uCamTarget: new THREE.Vector3(0, 0, 0),
-    uSteps: 200,
+    uSteps: 280,
   },
   VERT,
   FRAG,
@@ -268,8 +280,10 @@ function BlackHoleQuad() {
 
   const camConfig = useMemo(
     () => ({
-      rxy: 15.985, // 16 · cos(2.5°) · 近 edge-on 视角
-      z: 0.698,    // 16 · sin(2.5°)
+      /* 2026-04-23 · visual-v3/P7 · Codex "更大" 指令 · 相机拉近 16 → 14.5 rs
+         视觉占比 ~+10% · 仍在 3-15 rs 盘面外安全距离 · 倾角保持 2.5° */
+      rxy: 14.5 * Math.cos((2.5 * Math.PI) / 180), // ≈ 14.486
+      z:   14.5 * Math.sin((2.5 * Math.PI) / 180), // ≈ 0.633
       period: 480, // 轨道周期 · 秒
     }),
     [],
@@ -316,17 +330,22 @@ export function CosmicStageR3F() {
             alpha: false,
             antialias: false,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.9,
+            /* 2026-04-23 · visual-v3/P7 · Codex 电影化指令
+               toneMappingExposure 0.82 → 0.74 · 亮部更锐 · 深处更深 · 不发雾 */
+            toneMappingExposure: 0.74,
             powerPreference: "high-performance",
           }}
         >
-          <color attach="background" args={["#02030a"]} />
+          <color attach="background" args={["#010106"]} />
           <BlackHoleQuad />
           <EffectComposer multisampling={0}>
+            {/* 2026-04-23 · visual-v3/P7 · Bloom 再收一档 · Codex "吞噬空间"方向
+                threshold 0.96 → 0.97（只拾取最亮盘内缘）
+                intensity 0.25 → 0.18（halo 外溢再降 · 让黑洞看起来更锋利） */}
             <Bloom
-              luminanceThreshold={0.85}
+              luminanceThreshold={0.95}
               luminanceSmoothing={0.9}
-              intensity={0.85}
+              intensity={0.26}
               mipmapBlur
             />
           </EffectComposer>

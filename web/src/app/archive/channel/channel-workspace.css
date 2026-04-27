@@ -870,17 +870,19 @@
   background: color-mix(in srgb, var(--chalk) 80%, transparent);
 }
 .v-archive--canon[data-agent="channel"] .ch-querybar-btn {
-  padding: 0 18px;
-  border-radius: 14px;
+  padding: 8px 14px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--agent) 88%, var(--ink));
   color: var(--chalk);
   font-weight: 600;
-  font-size: 13px;
-  display: flex;
+  font-size: 12px;
+  letter-spacing: .04em;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   border: none;
+  flex-shrink: 0;
   transition: transform 120ms var(--ease-spring), box-shadow 160ms;
   box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--agent) 50%, transparent);
 }
@@ -1393,14 +1395,4 @@
   z-index: 2;
 }
 
-/* F-005 follow-up · 2026-04-27 · 搜索按钮调小 (user 反馈太大) */
-.ch-querybar .ch-querybar-btn {
-  padding: 8px 16px;
-  font-size: 12px;
-  letter-spacing: .04em;
-  min-height: auto;
-}
-.ch-querybar .ch-querybar-btn .kbd {
-  font-size: 10px;
-  opacity: 0.7;
-}
+/* override block 已 fold 进 base rule line 872 (specificity 不够 · 直接改 base 解决) */
