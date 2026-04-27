@@ -126,17 +126,17 @@ export function CanvasModeToggle() {
       title={
         inArchive
           ? active
-            ? "退出画布模式 (⌘⇧F)"
-            : "整页画布模式 (⌘⇧F)"
-          : "在 AI 助手工作区启用画布模式"
+            ? "退出编辑模式 (⌘⇧F)"
+            : "进入编辑模式 · panel 自由拖拽 (⌘⇧F)"
+          : "在 AI 助手工作区启用编辑模式"
       }
       aria-pressed={active}
-      aria-label="切换画布模式"
+      aria-label="切换编辑模式"
     >
       <span className="ic" aria-hidden>
-        ▦
+        ✎
       </span>
-      <span className="lbl">画布</span>
+      <span className="lbl">编辑</span>
     </button>
   );
 }

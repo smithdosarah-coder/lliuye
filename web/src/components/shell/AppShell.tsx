@@ -130,11 +130,10 @@ function ShellChrome({ children }: { children: ReactNode }) {
           {children}
         </section>
       </main>
-      {/* 2026-04-23 · 右下角双 pill 操作组 · CanvasModeToggle + ThemeSwitch
-          CanvasModeToggle 从 Masthead 移到这里，和主题切换同位，用 shell-tools 容器
-          统一气泡 pill 视觉 */}
+      {/* 2026-04-27 · 右下角只剩主题 pill · CanvasModeToggle (改名"编辑")
+          挪到 Masthead 上方 (user 反馈底部 popup overlap + 命名混乱)
+          shell-tools 容器保留以维持 ThemeSwitch 浮动定位 */}
       <div className="shell-tools" aria-label="工具栏">
-        <CanvasModeToggle />
         <ThemeSwitch />
       </div>
       <CustomerDrawer />
