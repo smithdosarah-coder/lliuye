@@ -113,6 +113,7 @@ export function ScanCTA({
       <button
         type="button"
         className="scan-cta-btn"
+        data-testid="scan-trigger"
         onClick={start}
         disabled={progress.running}
       >
@@ -123,7 +124,7 @@ export function ScanCTA({
           {progress.running ? "◌" : "▸"}
         </span>
       </button>
-      <div className="scan-cta-bar">
+      <div className="scan-cta-bar" data-testid="scan-progress">
         <div
           className="scan-cta-fill"
           style={{ width: `${progress.pct}%` }}

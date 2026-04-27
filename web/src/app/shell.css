@@ -1365,3 +1365,100 @@ body[data-free-panels="locked"] .v-archive--canon[data-agent]::before {
   background: color-mix(in srgb, var(--t-alert) 8%, var(--chalk));
 }
 .canvas-mode-reset .lbl { font-family: var(--cjk); letter-spacing: .08em; }
+
+/* ═══ SHARED · ScanCTA 通用进度按钮 (CSS 重写 2026-04-27 · ffc60ca 时代 CSS 在 token 重构误删 · F-004 RESTORED · 5 agent workspace 共用) ═══ */
+.scan-cta {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--chalk) 84%, transparent);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid var(--ink-08);
+  box-shadow: 0 4px 14px -8px rgba(0,0,0,.14),
+              inset 0 1px 0 color-mix(in srgb, var(--chalk) 50%, transparent);
+}
+.scan-cta-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--ink)));
+  color: var(--chalk);
+  font-family: var(--cjk); font-size: 13px; font-weight: 600;
+  letter-spacing: .08em;
+  flex-shrink: 0;
+  transition: transform .18s ease, box-shadow .25s, opacity .18s;
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.scan-cta-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.scan-cta-btn:active:not(:disabled) { transform: translateY(0); }
+.scan-cta-btn:disabled { opacity: .5; cursor: not-allowed; }
+.scan-cta-btn-lbl { font-family: var(--cjk); }
+.scan-cta-btn-ic {
+  font-family: var(--mono); font-size: 14px; line-height: 1; letter-spacing: 0;
+  display: inline-block;
+}
+.scan-cta[data-running="yes"] .scan-cta-btn-ic { animation: scanCtaSpin 1s linear infinite; }
+@keyframes scanCtaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.scan-cta-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink-08);
+  overflow: hidden;
+  min-width: 80px;
+}
+.scan-cta-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--chalk)));
+  border-radius: 999px;
+  transition: width .35s cubic-bezier(.2,.8,.25,1);
+}
+
+.scan-cta-label {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  color: var(--ink-65);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.scan-cta-step { font-weight: 600; color: var(--ink); letter-spacing: .14em; }
+.scan-cta-pct { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+.scan-cta-txt { font-family: var(--cjk); letter-spacing: .04em; color: var(--ink-65); }
+
+/* tone-specific accent override · 6 Agent --t-* tokens */
+.scan-cta[data-tone="channel"]   .scan-cta-btn { background: linear-gradient(135deg, var(--t-channel),  color-mix(in srgb, var(--t-channel) 65%,  var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-channel) 60%,  transparent); }
+.scan-cta[data-tone="alert"]     .scan-cta-btn { background: linear-gradient(135deg, var(--t-alert),    color-mix(in srgb, var(--t-alert) 65%,    var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-alert) 60%,    transparent); }
+.scan-cta[data-tone="compli"]    .scan-cta-btn { background: linear-gradient(135deg, var(--t-compli),   color-mix(in srgb, var(--t-compli) 65%,   var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-compli) 60%,   transparent); }
+.scan-cta[data-tone="report"]    .scan-cta-btn { background: linear-gradient(135deg, var(--t-report),   color-mix(in srgb, var(--t-report) 65%,   var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-report) 60%,   transparent); }
+.scan-cta[data-tone="credit"]    .scan-cta-btn { background: linear-gradient(135deg, var(--t-credit),   color-mix(in srgb, var(--t-credit) 65%,   var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-credit) 60%,   transparent); }
+.scan-cta[data-tone="riskctrl"]  .scan-cta-btn { background: linear-gradient(135deg, var(--t-riskctrl), color-mix(in srgb, var(--t-riskctrl) 65%, var(--ink))); box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--t-riskctrl) 60%, transparent); }
+.scan-cta[data-tone="channel"]   .scan-cta-fill { background: linear-gradient(90deg, var(--t-channel),  color-mix(in srgb, var(--t-channel) 60%,  var(--chalk))); }
+.scan-cta[data-tone="alert"]     .scan-cta-fill { background: linear-gradient(90deg, var(--t-alert),    color-mix(in srgb, var(--t-alert) 60%,    var(--chalk))); }
+.scan-cta[data-tone="compli"]    .scan-cta-fill { background: linear-gradient(90deg, var(--t-compli),   color-mix(in srgb, var(--t-compli) 60%,   var(--chalk))); }
+.scan-cta[data-tone="report"]    .scan-cta-fill { background: linear-gradient(90deg, var(--t-report),   color-mix(in srgb, var(--t-report) 60%,   var(--chalk))); }
+.scan-cta[data-tone="credit"]    .scan-cta-fill { background: linear-gradient(90deg, var(--t-credit),   color-mix(in srgb, var(--t-credit) 60%,   var(--chalk))); }
+.scan-cta[data-tone="riskctrl"]  .scan-cta-fill { background: linear-gradient(90deg, var(--t-riskctrl), color-mix(in srgb, var(--t-riskctrl) 60%, var(--chalk))); }
+.scan-cta[data-tone="channel"]   .scan-cta-pct { color: var(--t-channel); }
+.scan-cta[data-tone="alert"]     .scan-cta-pct { color: var(--t-alert); }
+.scan-cta[data-tone="compli"]    .scan-cta-pct { color: var(--t-compli); }
+.scan-cta[data-tone="report"]    .scan-cta-pct { color: var(--t-report); }
+.scan-cta[data-tone="credit"]    .scan-cta-pct { color: var(--t-credit); }
+.scan-cta[data-tone="riskctrl"]  .scan-cta-pct { color: var(--t-riskctrl); }
+
+/* ═══ ScoreRadar wrap · 毛玻璃容器 (F-006 重画 2026-04-27 · ScoreRadar.tsx 同 commit · agent-built) ═══ */
+.score-radar-wrap {
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  border: 1px solid var(--ink-08);
+  padding: 8px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--chalk) 40%, transparent);
+}
