@@ -124,10 +124,9 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 **交付约束**：**视觉 1:1 复刻 + 实际对应**——CSS tokens / DOM 结构 / 动画 keyframe / SVG 符号 / JS 交互必须与 mockup 逐像素一致；端口 / 路由 / 实时时钟 / mock 数据 shape 按实际前端实现对齐，不硬编 mockup 里的字面值。
 
 - **信息架构**：4 view——**今日**(`/today`) / **对话**(`/dispatch` · Slack 风 IM) / **AI 助手**(`/archive` · 6 Agent tile 聚合) / **任务**(`/warroom` · 4 列 kanban)。Agent 不在顶栏，是 Archive view 内 6 tile；tile 点击跳转既有 `/archive/[agent]` workspace
-- **路由拓扑**（canon vs legacy · 并存是 deferred cleanup，不是 by design）：
+- **路由拓扑**（legacy 顶层 6 路由已于 2026-04 清完 · git history 可查）：
   - **canon**（shell v2 唯一入口）：`/today` / `/dispatch` / `/archive` + `/archive/[agent]` 动态路由（`archive/[agent]/page.tsx` + `WORKSPACES` map 覆盖 6 Agent）/ `/warroom`；辅助 `/login` / `/audit` / `/customer` / `/design`
-  - **legacy**（shell v1 Letterpress 时代遗留 · 待清理）：顶层 `/channel` / `/credit` / `/alert` / `/compliance` / `/report` / `/riskctrl` 6 个页面，硬写 `--color-brass` / `--color-ink` / `ink-brush-hr` 等老 tokens，与新 `--g0..g7` / `--t-*` 渐变壳不兼容
-  - **前端改动红线**：所有 Agent workspace 只走 `/archive/[agent]` 下的 `_components/*Workspace.tsx`，不要改顶层 legacy 6 页；路由收敛（删 legacy 顶层）须单独立 task 全链路扫查 Masthead tab / Whiteboard pin href / Desk 历史会话 href 等所有引用点后再动
+  - **前端改动红线**：所有 Agent workspace 只走 `/archive/[agent]` 下的 `_components/*Workspace.tsx`·**不允许重新引入顶层 `/channel` `/credit` 等 legacy 路由**·Letterpress / crimson / `--color-brass` / `--color-ink` / `ink-brush-hr` 等老 tokens 已下架·不允许复活
 - **共享壳**：左抽屉 Desk（客户 / 进行中 / 最近 / 新建 · hover-from-edge < 22px 触发 · pin / Esc / ⌘K）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东 + live clock 20s tick） + 右下 Float-badge（4 主题各一 SVG 符号） + 主题切换器（4 按钮全部可见）
 - **主题**：`data-theme` 4 套——**Canvas**（默认，米黄→橙红→墨绿） / **Matcha**（抹茶） / **Dusk**（暮粉桃花） / **Ink**（水墨 · 宣纸→深墨 · 2026-04-20 替换 v1 Letterpress 黑红方案，用户判"黑红读老 DEMO"），每主题 8 档渐变 `--g0..--g7` + `--g0b` + ink/chalk opacity ramps + `--accent` 功能色
 - **6 Agent 功能色**：`--t-report` 棕赭 / `--t-alert` 赭红 / `--t-compli` 墨绿 / `--t-credit` 青蓝 / `--t-riskctrl` 绛紫 / `--t-channel` 青绿
@@ -167,7 +166,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `material_kb.py` — 材料解析与 KB 构建
 - `evaluation/` — 评估配置（每 Agent 一份 YAML）
 - `data/feedback/` — 动态经验沉淀（审贷员修改 JSONL）
-- `app.py` — 旧版 Gradio 报告助手（Gradio v9.0 + 引擎 `agent.py` v7.5 · Agent6 单机版 · 与 v16 管线并存逐步淘汰）
+- `app.py` / `portal_app.py` — 旧版 Gradio Agent6 单机版 + 6 Agent 统一 portal（v9.0 + 引擎 `agent.py` v7.5 · 客户走访期间作为 fallback 演示备份保留 · 走访后归档到 `legacy_gradio/`）
 - `v16_pipeline.py` / `v16_generator.py` / `v16_classifier.py` + 其他 7 个 `v16_*.py` — **Agent6 主管线 v16**（classifier → generator → QC gate · CLI 入口 `py v16_pipeline.py`）
 - `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md` / `20260418-evaluation-runner.md` — v16 LLM 抽象层 + evaluation runner 两份 RFC
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
@@ -182,7 +181,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - Agent3 授信 v3.1（对公 / 普惠 / 对私三板块）
 - Agent4 预警 v3.1（知识库驱动批量扫描）
 - Agent5 合规 v3.1（政策事件驱动）
-- Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 并存逐步淘汰）
+- Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 留作 fallback 演示备份 · 走访后归档）
 - Agent2 风控 v3.1（DSL + 回测）
 
 ## 12. 开发约束
@@ -192,3 +191,22 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - 字段填不了就标「未能自动填写」，绝不编
 - 新工具必须归入某个业务域（第 3.2 条）
 - 新维度先定评估指标再改代码（第 5 节）
+
+## 13. ECS / Production 同步纪律（防回档强约束）
+
+production = ECS（IP 139.196.30.69）跑 `main` 分支 · **single source of truth**。任何改动必须遵守：
+
+1. **禁 scp 直接编辑 ECS 文件** — 前任 CLI 直接 scp 修复 LoginForm 是回档隐患源 · 一律禁止
+2. **改动流程**：本地 commit → push GitHub `main` → ECS `git pull origin main` → restart systemd service
+3. **ECS git tree 必须 clean** — 任何 modified / untracked 文件视作 dirty · 立刻 fix-forward 或 commit · 不允许长期脏
+4. **每天 morning sync**：dev 分支（`chore/l0-infra`）首次开工前 · `git fetch && git diff main` 看有无未同步 commit · 有则 push / pull 对齐
+5. **回档防护 trailer**：worker 改 `web/` 必须 attach trailer 列保留的 inventory features：
+   ```
+   PRESERVES: F-001, F-005, F-012     ← 列保留 id
+   NEW-DOM: data-testid="..."         ← 新增 selector
+   SMOKE-PASS: <spec>.spec.ts         ← 跑通的 smoke test
+   ```
+   缺 trailer 视作未读 inventory · review 阻断 · merge 阻断
+6. **Inventory 源**：`docs/features-inventory.md` 是 worker 改 `web/` 前必读 contract · 破坏已列 feature 视作 regression · 主 CLI 阻断 commit / 阻断 deploy
+
+违反任意条 = 回档源责任人 · 主 CLI / dispatcher 必须立刻 stop the line。
