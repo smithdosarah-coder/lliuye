@@ -741,11 +741,83 @@ function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
 type ChannelStreamEvent = {
   event?: string;
   stage?: string;
+  status?: string;
   pct?: number;
   message?: string;
   candidates?: unknown[];
+  tags?: unknown[];
+  count?: number;
+  total?: number;
+  route?: string;
+  routes_done?: number;
+  routes_total?: number;
+  metrics?: { signalTotal?: number; companiesFound?: number; final?: number };
+  data_source?: string;
   [k: string]: unknown;
 };
+
+/* F-005 Phase 3 · 2026-04-27 · friendly stream event formatter
+   替代 raw JSON dump · 让 user 看人话 (PARSE/SIGNAL_SCAN/AGGREGATE/ENRICH/PITCH/RANK/DONE/ERROR) */
+function formatChannelEvent(evt: ChannelStreamEvent): {
+  stage: string;
+  msg: string;
+  pct?: number;
+} {
+  const baseStage = String(evt.stage ?? evt.event ?? "·").toUpperCase();
+  if (evt.event === "stage") {
+    const status = evt.status;
+    if (evt.stage === "parse") {
+      if (status === "running") return { stage: baseStage, msg: "解析用户意图..." };
+      if (status === "done") {
+        const tags = (evt.tags as unknown[] | undefined) ?? [];
+        return { stage: baseStage, msg: `已解析 ${tags.length} 个特征标签` };
+      }
+    }
+    if (evt.stage === "signal_scan") {
+      if (status === "running") return { stage: baseStage, msg: "并行扫描 5 路信号源 (中标 / 认可 / 技术 / 增长 / 获奖)..." };
+      if (status === "done") {
+        const count = evt.count;
+        const ds = evt.data_source;
+        return { stage: baseStage, msg: `扫描完 · ${count ?? "?"} 条信号 · 来源 ${ds ?? "mock"}` };
+      }
+    }
+    if (evt.stage === "aggregate") {
+      if (status === "running") return { stage: baseStage, msg: "实体聚合去重..." };
+      if (status === "done") return { stage: baseStage, msg: `聚合完 · ${evt.total ?? "?"} 个实体` };
+    }
+    if (evt.stage === "enrich") {
+      if (status === "running") return { stage: baseStage, msg: "企查查补全工商信息 + 产品匹配..." };
+      if (status === "done") return { stage: baseStage, msg: "工商 + 产品匹配完成" };
+    }
+    if (evt.stage === "pitch") {
+      if (status === "running") return { stage: baseStage, msg: "推荐配比生成..." };
+      if (status === "done") return { stage: baseStage, msg: "推荐生成完" };
+    }
+    if (evt.stage === "rank") {
+      if (status === "running") return { stage: baseStage, msg: "信号密度排序..." };
+      if (status === "done") return { stage: baseStage, msg: "排序完成" };
+    }
+  }
+  if (evt.event === "progress") {
+    const route = String(evt.route ?? "?");
+    const done = evt.routes_done;
+    const total = evt.routes_total;
+    return {
+      stage: "PROGRESS",
+      msg: `${route} · ${done ?? 0}/${total ?? 0}`,
+      pct: total ? Math.round(((done ?? 0) / total) * 100) : undefined,
+    };
+  }
+  if (evt.event === "done") {
+    const cs = (evt.candidates as unknown[] | undefined) ?? [];
+    const m = evt.metrics;
+    return { stage: "DONE", msg: `完成 · ${cs.length} 候选 · ${m?.companiesFound ?? "?"} 命中` };
+  }
+  if (evt.event === "error") {
+    return { stage: "ERROR", msg: String(evt.message ?? "AI 解析失败 · 请重试") };
+  }
+  return { stage: baseStage, msg: String(evt.message ?? "进行中…") };
+}
 
 function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
   const q = CHANNEL_SESSION.query;
@@ -886,24 +958,18 @@ function QueryBar({ setLive }: { setLive: (c: Candidate[] | null) => void }) {
             <div className="ch-querybar-stream-error">⚠ {streamError}</div>
           ) : (
             <ul className="ch-querybar-stream-list">
-              {streamEvents.map((evt, i) => (
-                <li key={i} className="ch-querybar-stream-row">
-                  <span className="stage">
-                    {String(evt.stage ?? evt.event ?? "·")}
-                  </span>
-                  <span className="msg">
-                    {String(
-                      evt.message ??
-                        (evt.candidates
-                          ? `候选 ${(evt.candidates as unknown[]).length} 家`
-                          : JSON.stringify(evt).slice(0, 100)),
+              {streamEvents.map((evt, i) => {
+                const f = formatChannelEvent(evt);
+                return (
+                  <li key={i} className="ch-querybar-stream-row">
+                    <span className="stage">{f.stage}</span>
+                    <span className="msg">{f.msg}</span>
+                    {typeof f.pct === "number" && (
+                      <span className="pct">{f.pct}%</span>
                     )}
-                  </span>
-                  {typeof evt.pct === "number" && (
-                    <span className="pct">{Math.round(evt.pct)}%</span>
-                  )}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

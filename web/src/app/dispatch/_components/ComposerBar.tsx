@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -15,6 +16,14 @@ import {
   useAuthStore,
   useCustomerStore,
 } from "@/lib/store";
+import {
+  CARD_PIN_MIME,
+  type CardPinPayload,
+} from "@/lib/store/whiteboard-store";
+import {
+  PANEL_PIN_MIME,
+  type PanelPinPayload,
+} from "@/lib/store/panel-canvas-store";
 
 import { findRecipeById } from "@/lib/store";
 
@@ -242,8 +251,60 @@ export function ComposerBar() {
     }
   }
 
+  /* #3 · 2026-04-27 · 画布 / 白板拖到 composer 显示 thumbnail marker · 不显示 url 链接
+     dragOver: 接受 PANEL_PIN_MIME / CARD_PIN_MIME · drop: 解 payload + setText 加 reference marker
+     minimal: setText "📎 ${title}" · 不 url · 后续可扩 message kind="agent_output" 渲染缩略卡 */
+  function handleDragOver(e: DragEvent<HTMLFormElement>) {
+    if (
+      e.dataTransfer.types.includes(PANEL_PIN_MIME) ||
+      e.dataTransfer.types.includes(CARD_PIN_MIME)
+    ) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }
+
+  function handleDrop(e: DragEvent<HTMLFormElement>) {
+    const panelRaw = e.dataTransfer.getData(PANEL_PIN_MIME);
+    const cardRaw = e.dataTransfer.getData(CARD_PIN_MIME);
+    if (!panelRaw && !cardRaw) return;
+    e.preventDefault();
+    let title = "";
+    let subtitle: string | undefined;
+    let kind: "panel" | "card" = "panel";
+    if (panelRaw) {
+      try {
+        const p = JSON.parse(panelRaw) as PanelPinPayload;
+        title = p.title;
+        subtitle = p.subtitle;
+        kind = "panel";
+      } catch {
+        return;
+      }
+    } else if (cardRaw) {
+      try {
+        const c = JSON.parse(cardRaw) as CardPinPayload;
+        title = c.title;
+        subtitle = c.subtitle;
+        kind = "card";
+      } catch {
+        return;
+      }
+    }
+    if (!title) return;
+    const marker = kind === "panel" ? "📎" : "📌";
+    const ref = subtitle ? `${marker} ${title} · ${subtitle}` : `${marker} ${title}`;
+    setText((prev) => (prev ? `${prev}\n${ref}` : ref));
+    inputRef.current?.focus();
+  }
+
   return (
-    <form className="dpx-composer" onSubmit={handleSubmit}>
+    <form
+      className="dpx-composer"
+      onSubmit={handleSubmit}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {showMenu && (
         <SlashMenu
           query={text}
