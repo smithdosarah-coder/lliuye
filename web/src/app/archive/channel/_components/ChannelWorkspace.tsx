@@ -736,16 +736,17 @@ function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
 function QueryBar() {
   const q = CHANNEL_SESSION.query;
   const recent = CHANNEL_SESSION.recentSessions;
+  /* F-005 · 2026-04-27 RESTORED · 自由搜索 (LLM 自解析) · 替代旧 look-alike 思路 */
   const [input, setInput] = useState(
-    `${q.benchmark} · ${q.industry} · ${q.geo} · ${q.scaleRange}`
+    "找做工业软件的 SaaS 公司 · B 轮后 · 华东 · 年营收 1-3 亿"
   );
   return (
     <section className="rpt-panel ch-querybar">
       <div className="ch-querybar-head">
         <div>
-          <div className="rpt-panel-eyebrow">QUERY · 标杆画像</div>
+          <div className="rpt-panel-eyebrow">QUERY · 自由搜索</div>
           <h3 className="rpt-panel-title ch-querybar-title">
-            描述你要像谁 · <em>look-alike</em>
+            一句话描述你想找的企业 · <em>AI 自动解析意图</em>
           </h3>
         </div>
         <div className="ch-querybar-recent">
@@ -763,17 +764,22 @@ function QueryBar() {
         <input
           type="text"
           className="ch-querybar-input"
-          placeholder="输入标杆客户名 · 或描述画像（行业 / 规模 / 地域 / 渠道 / 阶段）"
+          placeholder="自然语言描述 (行业 / 阶段 / 地域 / 营收 / 任意特征 都能写) · LLM 解析后返回候选"
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
-        <button type="button" className="ch-querybar-btn" disabled={!input.trim()}>
-          <span>扫描</span>
+        <button
+          type="button"
+          className="ch-querybar-btn"
+          data-testid="scout-search"
+          disabled={!input.trim()}
+        >
+          <span>AI 搜索</span>
           <span className="kbd">⌘↩</span>
         </button>
       </div>
       <div className="ch-querybar-tags">
-        <span className="lbl">12 维特征</span>
+        <span className="lbl">AI 解析的特征 · 12 维</span>
         <div className="tags">
           {q.featureTags.map((t) => (
             <span key={t} className="tag">{t}</span>
