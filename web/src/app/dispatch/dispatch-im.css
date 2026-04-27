@@ -291,6 +291,7 @@
 
 /* —— Message bubble —— */
 .dpx-msg {
+  position: relative; /* F-008 · mp-grip 拖柄绝对定位 anchor (2026-04-27 RESTORED) */
   display: grid;
   grid-template-columns: 36px 1fr;
   gap: 10px;

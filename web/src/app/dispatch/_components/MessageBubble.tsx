@@ -2,12 +2,19 @@
 
 import { byUserId } from "@/lib/store";
 import type { ImMessage } from "@/lib/store";
+import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 
 import { agentMeta, isAgentId } from "./agent-meta";
 import { formatTimestamp } from "./time";
 
+function truncate(s: string, n: number): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  return flat.length > n ? `${flat.slice(0, n - 1)}…` : flat;
+}
+
 export function MessageBubble({ message }: { message: ImMessage }) {
   const author = resolveAuthor(message.from);
+  const isAgent = isAgentId(message.from);
   return (
     <article className={`dpx-msg ${author.kind}`}>
       <span
@@ -24,6 +31,15 @@ export function MessageBubble({ message }: { message: ImMessage }) {
         </header>
         <div className="dpx-msg-text">{message.content}</div>
       </div>
+      {/* F-008 · 拖柄 hover 浮现 · 拖到画布 = 缩略图卡片 (PANEL_PIN_MIME) · 不是 url 链接 */}
+      <MessagePinHandle
+        id={`dispatch:msg:${message.id}`}
+        title={truncate(message.content, 42)}
+        subtitle={`${author.name} · ${author.role} · ${formatTimestamp(message.createdAt)}`}
+        agentKey={isAgent ? message.from : undefined}
+        href="/dispatch"
+        fullText={message.content}
+      />
     </article>
   );
 }
