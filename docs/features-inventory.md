@@ -775,6 +775,16 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
   - LiveFailError 含 status / endpoint / bodyExcerpt 三字段 · banner 渲染 detail · 帮 ops 一眼看根因
   - export_docx 404 (后端未上线) 显式视为 pending · 不弹 banner · 走原 exportInfo error 状态
 
+## F-059 · Report Live-Fallback Banner + UI fix · 模板真 wire / button 不溢出 / mock-banner align
+
+- **location**: `web/src/app/archive/report/_components/ReportWorkspace.tsx` 内 `ReportLiveFailBanner` + `ReportMockBanner` 新组件 + `TemplatePanel` 加 `tplInputRef` + ScanCTA wrapper
+- **selector**: `[data-testid="report-live-fail-banner"]` (live mode 失败顶部 alarm) · `[data-testid="report-live-fail-retry"]` + `[data-testid="report-live-fail-dismiss"]` · `[data-testid="report-mock-banner"]` (root-level role=status margin 16px 0 与 hero 对齐) · `[data-testid="report-upload-template-cta"]` (TemplatePanel 真 wire) + 跟随 `<input type="file" hidden accept=".docx,.doc">` · `[data-testid="report-scancta-wrapper"]` (max-width 480 px) · `[data-testid="report-uploaded-template-name"]`
+- **interaction**: live mode 调 `/api/report/v16/fill` 或 `/api/report/upload` 4xx/5xx/network err → setLiveFailErr → 顶部 alarm 显 endpoint + status + message · 重试按钮触发 triggerV16Fill · dismiss 关闭 · "上传模板" button 真 wire hidden file input → onChange POST /api/report/upload · "模板库" button disabled + tooltip (规则 3 不允许摆设) · "生成报告" ScanCTA wrapper max-width 480 px (规则 §3 不允许 100% panel) · mock-banner 提为 root-level component · 跟 LiveFailBanner / Hero 同 margin
+- **introduce**: 本批 W-FIX-A1 commit (per docs/contracts/live-fallback-banner-spec.md v1.0)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/report-fix.spec.ts` (6 case · chromium + edge 双 browser PASS · 11/11 cross-browser)
+
 ---
 
 ## 维护规则
