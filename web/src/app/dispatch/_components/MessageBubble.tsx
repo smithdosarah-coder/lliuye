@@ -39,7 +39,11 @@ export function MessageBubble({ message }: { message: ImMessage }) {
         {author.glyph}
       </div>
       <div className={`wc-msg-bubble wc-msg-bubble--${wc}`}>
-        <span className="wc-msg-bubble-text">{message.content}</span>
+        {message.kind === "pin_ref" ? (
+          <PinRefThumbnail message={message} />
+        ) : (
+          <span className="wc-msg-bubble-text">{message.content}</span>
+        )}
       </div>
       <div className={`wc-msg-foot wc-msg-foot--${wc}`}>
         <span className="wc-msg-author-name">{author.name}</span>
@@ -58,6 +62,40 @@ export function MessageBubble({ message }: { message: ImMessage }) {
     </div>
   );
 }
+
+/* Stage D.2F · pin_ref kind · 画布 → composer drop 形成的缩略图卡 (im-protocol §7.2)
+   显示 缩略图 + 标题 + agent 标签 · 不显 raw URL · href 用 hover tooltip */
+function PinRefThumbnail({ message }: { message: ImMessage }) {
+  const refs = message.refs ?? {};
+  const agentId = (refs.agentId as string) ?? "";
+  const href = (refs.href as string) ?? "";
+  const fullText = (refs.fullText as string) ?? "";
+  const thumb = (refs.thumbDataUrl as string) ?? "";
+  return (
+    <a
+      className="wc-msg-pin-ref"
+      href={href || "#"}
+      title={fullText || message.content}
+      data-testid="im-pin-ref-thumbnail"
+      data-agent={agentId}
+    >
+      {thumb ? (
+        <img className="wc-msg-pin-ref-thumb" src={thumb} alt="" />
+      ) : (
+        <span className="wc-msg-pin-ref-icon" aria-hidden>
+          ◈
+        </span>
+      )}
+      <span className="wc-msg-pin-ref-body">
+        <span className="wc-msg-pin-ref-title">{message.content}</span>
+        {agentId ? (
+          <span className="wc-msg-pin-ref-tag">{agentId}</span>
+        ) : null}
+      </span>
+    </a>
+  );
+}
+
 
 type AuthorView = {
   kind: "user" | "agent" | "system";
