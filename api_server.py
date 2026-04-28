@@ -50,7 +50,14 @@ try:
 except Exception:
     pass
 
-app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.1")
+# Stage E.2 · Sentry init (env DSN · 缺 silent skip · 必须在 add_middleware 前)
+try:
+    from monitoring_service.sentry_init import init_sentry as _init_sentry
+    _init_sentry()
+except Exception:  # noqa: BLE001
+    pass
+
+app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,7 +79,52 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "2.1"}
+    return {"status": "ok", "version": "2.2"}
+
+
+# ---------------------------------------------------------------------------
+# Stage E.2 · Monitoring endpoints (Prometheus /metrics + extended /health)
+# ---------------------------------------------------------------------------
+
+try:
+    from monitoring_service.health import run_extended_health
+    from monitoring_service.metrics import (
+        install_metrics_middleware as _install_metrics,
+        metrics_response as _metrics_response,
+    )
+    _install_metrics(app)
+    _MONITORING_OK = True
+except ImportError as _e:
+    _MONITORING_OK = False
+    print(f"[portal] monitoring_service unavailable: {_e}", file=sys.stderr)
+
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus exposition format · text/plain · 不可用时返 stub 提示."""
+    if not _MONITORING_OK:
+        from fastapi.responses import Response as _R
+        return _R(content=b"# monitoring_service unavailable\n",
+                  media_type="text/plain; charset=utf-8")
+    return _metrics_response()
+
+
+@app.get("/health/extended")
+async def extended_health(ping: int = 0, timeout: float = 5.0):
+    """Component-level health check (Stage E.2 · onboarding W-E2-A3).
+
+    Query:
+      ping=1: 真打 DeepSeek + Tavily (默认 0 · 省 quota)
+      timeout=N: 单 ping 超时 (默认 5s)
+    """
+    if not _MONITORING_OK:
+        return {"status": "degraded", "reason": "monitoring_service unavailable",
+                "components": []}
+    return await run_extended_health(
+        app=app,
+        ping_external=bool(int(ping or 0)),
+        timeout_s=float(timeout or 5.0),
+    )
 
 
 # ---------------------------------------------------------------------------
