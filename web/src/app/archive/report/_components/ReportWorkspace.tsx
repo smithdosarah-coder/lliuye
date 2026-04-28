@@ -14,12 +14,25 @@
  * Agent tint 注入：.v-archive--canon[data-agent="report"] { --agent: var(--t-report) }
  */
 
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
+import {
+  exportReportDocx,
+  refineReportSection,
+  streamReportV16Fill,
+  triggerDownloadBlob,
+  uploadReportMaterials,
+  type ReportExportPayload,
+  type ReportV16DoneEvent,
+  type ReportV16ErrorEvent,
+  type ReportV16Event,
+  type ReportV16Section,
+  type ReportV16StageEvent,
+} from "@/lib/api/report";
 import {
   ClaimText,
   EvidenceProvider,
@@ -43,50 +56,303 @@ const AGENT_ACCENT = "--t-report";
 export function ReportWorkspace() {
   const s = REPORT_SESSION;
   const coverPct = Math.round((s.coverage.filled / s.coverage.total) * 100);
-  /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
-  const [scanned, setScanned] = useState(false);
+
+  /* W-CF-A1 · empty-state-design-protocol §3 · default false · DO NOT auto-fire LLM。
+     之前 `scanned` 也是 false 但被 ScanCTA onDone 解锁 · 现按规范升级:
+     started 由 user-trigger 改 · 3 CTA (上传 / 模板 / 历史) 显式控制。 */
+  const [started, setStarted] = useState(false);
+  const [reportId, setReportId] = useState<string>("");
+  const [mode, setMode] = useState<"mock" | "live">("mock");
+  const [businessLine, setBusinessLine] = useState<string>("corporate");
+  const [templateChoice, setTemplateChoice] = useState<string>("");
+  const [historyChoice, setHistoryChoice] = useState<string>("");
+
+  // v16 fill 流式状态
+  const [liveStages, setLiveStages] = useState<ReportV16StageEvent[]>([]);
+  const [livePayload, setLivePayload] = useState<ReportV16DoneEvent | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // status pill · GET /api/report/health (轻量·非 LLM 调用·empty-state §3 不违)
+  useEffect(() => {
+    let cancelled = false;
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    fetch(`${apiBase}/api/report/health`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return;
+        if (j && typeof j.llm_connected === "boolean") {
+          setLlmConnected(j.llm_connected);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLlmConnected(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // cleanup on unmount · 中断未完成 SSE
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  /* ── handlers ───────────────────────────────────────────────────── */
+
+  const triggerV16Fill = useCallback(
+    (opts?: { reportIdOverride?: string; explicitMock?: boolean }) => {
+      if (generating) return;
+      setGenerating(true);
+      setLiveStages([]);
+      setLivePayload(null);
+      setErrMsg(null);
+
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
+      const useMock = opts?.explicitMock ?? mode === "mock";
+      streamReportV16Fill(
+        {
+          report_id: opts?.reportIdOverride ?? reportId ?? "",
+          business_line: businessLine,
+          mock: useMock,
+        },
+        {
+          signal: ac.signal,
+          onEvent: (evt: ReportV16Event) => {
+            if (evt.event === "stage") {
+              setLiveStages((prev) => [...prev, evt as ReportV16StageEvent]);
+            } else if (evt.event === "done") {
+              setLivePayload(evt as ReportV16DoneEvent);
+            } else if (evt.event === "error") {
+              setErrMsg((evt as ReportV16ErrorEvent).message);
+            }
+          },
+          onClose: () => setGenerating(false),
+          onError: (e) => {
+            setErrMsg(e.message);
+            setGenerating(false);
+          },
+        },
+      );
+    },
+    [generating, reportId, businessLine, mode],
+  );
+
+  const handleUpload = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setErrMsg(null);
+      try {
+        const resp = await uploadReportMaterials(files, businessLine);
+        setReportId(resp.report_id);
+        setUploadedFiles(resp.file_summary.map((fs) => fs.name));
+        setMode("live");
+        setStarted(true);
+        // 不自动触发 fill · 用户须显式点 "开始生成" CTA (empty-state §3)
+      } catch (e) {
+        setErrMsg(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [businessLine],
+  );
+
+  const handleSelectHistory = useCallback((key: string) => {
+    if (!key) return;
+    setHistoryChoice(key);
+    setMode("mock");
+    setStarted(true);
+    setReportId(`mock-${key}-${Date.now()}`);
+    // 不自动 fill · 用户可继续点 "开始生成" 看 mock 流
+  }, []);
+
+  const handleSelectTemplate = useCallback((tpl: string) => {
+    setTemplateChoice(tpl);
+    if (tpl) {
+      setMode("live");
+      setStarted(true);
+    }
+  }, []);
+
+  const handleRefineSection = useCallback(
+    async (sectionId: string, userEdit: string) => {
+      const sid = livePayload?.session_id;
+      if (!sid) {
+        setErrMsg("未拿到 session_id · 请先生成报告");
+        return;
+      }
+      try {
+        const resp = await refineReportSection({
+          session_id: sid,
+          section_id: sectionId,
+          user_edit: userEdit,
+        });
+        setLivePayload((prev) => {
+          if (!prev) return prev;
+          const sections: ReportV16Section[] = prev.sections ?? [];
+          const idx = sections.findIndex((sec) => sec.id === sectionId);
+          const newSections =
+            idx >= 0
+              ? sections.map((sec, i) => (i === idx ? resp.section : sec))
+              : [...sections, resp.section];
+          return { ...prev, sections: newSections };
+        });
+      } catch (e) {
+        setErrMsg(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [livePayload],
+  );
+
+  const handleExportDocx = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    setErrMsg(null);
+    try {
+      const payload: ReportExportPayload = livePayload
+        ? {
+            session_id: livePayload.session_id,
+            sections: livePayload.sections,
+            pending_questions: livePayload.pending_questions,
+            stats: (livePayload.stats ?? {}) as Record<string, unknown>,
+            qc: (livePayload.qc ?? {}) as Record<string, unknown>,
+            business_line: businessLine,
+            client_manager: "客户经理",
+          }
+        : {
+            // 还没拿到 livePayload · 用 REPORT_SESSION mock 兜底 export demo
+            report_id: reportId || `demo-${Date.now()}`,
+            profile: { company_name: REPORT_SESSION.clientName },
+            sections: REPORT_SESSION.preview.map((p) => ({
+              id: p.id,
+              title: `${p.anchor} ${p.title}`,
+              content: p.content || "(暂无内容)",
+              status: "done" as const,
+              word_count: (p.content ?? "").length,
+            })),
+            business_line: businessLine,
+            client_manager: "客户经理 (示例)",
+          };
+      const { blob, filename } = await exportReportDocx(payload);
+      triggerDownloadBlob(blob, filename);
+    } catch (e) {
+      setErrMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, livePayload, businessLine, reportId]);
+
+  const lastStage = liveStages.length
+    ? liveStages[liveStages.length - 1]
+    : null;
 
   return (
     <EvidenceProvider
       items={REPORT_EVIDENCE.items}
       unfilledFields={REPORT_EVIDENCE.unfilledFields}
     >
-      <div data-view="archive-report" data-scanned={scanned ? "yes" : "no"}>
+      <div
+        data-view="archive-report"
+        data-started={started ? "yes" : "no"}
+        data-mode={mode}
+        data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
+      >
         <ReportHero coverPct={coverPct} />
-        <ReportPipelineBand />
-        <div className="rpt-body">
-          <aside className="rpt-side">
-            <TemplatePanel />
-            <MaterialPanel />
-            <TimelinePanel />
-          </aside>
-          <main className="rpt-main">
-            <ScanCTA
-              label="生成报告"
-              tone="report"
-              onDone={() => setScanned(true)}
-              steps={[
-                { label: "解析企业材料 · OCR 识别", pct: 18 },
-                { label: "字段结构化预填", pct: 42 },
-                { label: "段落 Evidence-First 生成", pct: 66 },
-                { label: "QC 终审 · 占位符检查", pct: 88 },
-                { label: "导出 Word · 完成", pct: 100 },
-              ]}
-            />
-            <ConversationPanel>
-              <ReportComposer />
-            </ConversationPanel>
-          </main>
-          <aside className="rpt-aux">
-            <PreviewPanel coverPct={coverPct} />
-          </aside>
-        </div>
-        <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-          <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-          <ClaimText text={REPORT_EVIDENCE.summary} />
-        </section>
-        <UnfilledFields />
-        <EvidenceTrail agentTone="report" />
+        <ReportLaunchBar
+          started={started}
+          mode={mode}
+          reportId={reportId}
+          businessLine={businessLine}
+          templateChoice={templateChoice}
+          historyChoice={historyChoice}
+          uploadedFiles={uploadedFiles}
+          generating={generating}
+          exporting={exporting}
+          errMsg={errMsg}
+          onUpload={handleUpload}
+          onSelectTemplate={handleSelectTemplate}
+          onSelectHistory={handleSelectHistory}
+          onBusinessLineChange={setBusinessLine}
+          onStartGenerate={() => triggerV16Fill()}
+          onExport={handleExportDocx}
+        />
+        {started ? (
+          <>
+            {liveStages.length > 0 || livePayload ? (
+              <ReportLiveStrip
+                stages={liveStages}
+                lastStage={lastStage}
+                done={livePayload}
+                generating={generating}
+                mode={mode}
+              />
+            ) : null}
+            <ReportPipelineBand />
+            <div className="rpt-body">
+              <aside className="rpt-side">
+                <TemplatePanel />
+                <MaterialPanel />
+                <TimelinePanel />
+              </aside>
+              <main className="rpt-main">
+                <ScanCTA
+                  label="生成报告 (mock 路径)"
+                  tone="report"
+                  onDone={() => triggerV16Fill({ explicitMock: true })}
+                  steps={[
+                    { label: "解析企业材料 · OCR 识别", pct: 18 },
+                    { label: "字段结构化预填", pct: 42 },
+                    { label: "段落 Evidence-First 生成", pct: 66 },
+                    { label: "QC 终审 · 占位符检查", pct: 88 },
+                    { label: "导出 Word · 完成", pct: 100 },
+                  ]}
+                />
+                <ConversationPanel>
+                  <ReportComposer />
+                </ConversationPanel>
+                {livePayload?.sections && livePayload.sections.length > 0 ? (
+                  <ReportLiveSections
+                    sections={livePayload.sections}
+                    onRefine={handleRefineSection}
+                    mode={mode}
+                  />
+                ) : null}
+              </main>
+              <aside className="rpt-aux">
+                <PreviewPanel coverPct={coverPct} />
+              </aside>
+            </div>
+            <section
+              className="ev-claim-summary"
+              aria-label="Evidence-grounded 分析结论"
+            >
+              <span className="ev-claim-summary-label">
+                分析结论 · Evidence-grounded
+              </span>
+              <ClaimText text={REPORT_EVIDENCE.summary} />
+            </section>
+            <UnfilledFields />
+            <EvidenceTrail agentTone="report" />
+          </>
+        ) : (
+          <ReportEmptySkeleton />
+        )}
+        <ReportStatusPill
+          llmConnected={llmConnected}
+          mode={mode}
+          reportId={reportId}
+          generating={generating}
+          stage={lastStage?.stage}
+        />
       </div>
     </EvidenceProvider>
   );
@@ -997,5 +1263,648 @@ function FieldChip({ field }: { field: PreviewField }) {
         </span>
       )}
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  W-CF-A1 · Stage C frontend · empty-state-design-protocol v1.0 兼容组件    */
+/*  ReportLaunchBar / ReportEmptySkeleton / ReportStatusPill / ReportLiveStrip */
+/*  ReportLiveSections                                                        */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const _LAUNCH_ROOT_STYLE: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 14,
+  alignItems: "flex-end",
+  padding: "16px 20px",
+  margin: "16px 0",
+  background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
+  border: "1px solid var(--ink-14)",
+  borderRadius: "var(--r-md)",
+};
+
+const _LAUNCH_GROUP_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  minWidth: 160,
+};
+
+const _LAUNCH_LABEL_STYLE: CSSProperties = {
+  fontFamily: "var(--cjk)",
+  fontSize: 11,
+  letterSpacing: ".04em",
+  color: "var(--ink-65)",
+  textTransform: "uppercase",
+};
+
+const _LAUNCH_HINT_STYLE: CSSProperties = {
+  fontFamily: "var(--cjk)",
+  fontSize: 11,
+  color: "var(--ink-65)",
+  marginTop: 2,
+};
+
+const _LAUNCH_BTN_PRIMARY: CSSProperties = {
+  fontFamily: "var(--cjk)",
+  fontSize: 14,
+  padding: "10px 18px",
+  background: "var(--t-report)",
+  color: "var(--chalk)",
+  border: "none",
+  borderRadius: "var(--r-md)",
+  cursor: "pointer",
+  fontWeight: 500,
+};
+
+const _LAUNCH_BTN_SECONDARY: CSSProperties = {
+  fontFamily: "var(--cjk)",
+  fontSize: 13,
+  padding: "8px 14px",
+  background: "transparent",
+  color: "var(--ink)",
+  border: "1px solid var(--ink-14)",
+  borderRadius: "var(--r-md)",
+  cursor: "pointer",
+};
+
+const _LAUNCH_SELECT_STYLE: CSSProperties = {
+  fontFamily: "var(--cjk)",
+  fontSize: 13,
+  padding: "7px 10px",
+  background: "var(--chalk)",
+  color: "var(--ink)",
+  border: "1px solid var(--ink-14)",
+  borderRadius: "var(--r-md)",
+  cursor: "pointer",
+};
+
+function ReportLaunchBar(p: {
+  started: boolean;
+  mode: "mock" | "live";
+  reportId: string;
+  businessLine: string;
+  templateChoice: string;
+  historyChoice: string;
+  uploadedFiles: string[];
+  generating: boolean;
+  exporting: boolean;
+  errMsg: string | null;
+  onUpload: (files: File[]) => void;
+  onSelectTemplate: (tpl: string) => void;
+  onSelectHistory: (key: string) => void;
+  onBusinessLineChange: (v: string) => void;
+  onStartGenerate: () => void;
+  onExport: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const histories = REPORT_SESSION.recentSessions;
+  const templates = REPORT_SESSION.availableTemplates;
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length) p.onUpload(files);
+    e.target.value = "";
+  }
+
+  return (
+    <section
+      data-testid="report-launch-bar"
+      style={_LAUNCH_ROOT_STYLE}
+      aria-label="报告生成 · 触发入口"
+    >
+      {/* Primary: 上传材料 */}
+      <div style={_LAUNCH_GROUP_STYLE}>
+        <span style={_LAUNCH_LABEL_STYLE}>主入口</span>
+        <button
+          type="button"
+          data-testid="report-upload-cta"
+          onClick={() => inputRef.current?.click()}
+          style={_LAUNCH_BTN_PRIMARY}
+        >
+          ⇪ 上传材料文件
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          hidden
+          accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.jpg,.jpeg,.png"
+          onChange={handleFileChange}
+        />
+        <span style={_LAUNCH_HINT_STYLE}>
+          {p.uploadedFiles.length > 0
+            ? `已上传 ${p.uploadedFiles.length} 份`
+            : "PDF / Word / Excel / 图片 · 多文件"}
+        </span>
+      </div>
+
+      {/* Secondary: 模板选择 */}
+      <div style={_LAUNCH_GROUP_STYLE}>
+        <span style={_LAUNCH_LABEL_STYLE}>模板</span>
+        <select
+          data-testid="report-template-select"
+          value={p.templateChoice}
+          onChange={(e) => p.onSelectTemplate(e.target.value)}
+          style={_LAUNCH_SELECT_STYLE}
+        >
+          <option value="">默认 (按业务线)</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} · {t.version}
+            </option>
+          ))}
+        </select>
+        <span style={_LAUNCH_HINT_STYLE}>选模板或留默认</span>
+      </div>
+
+      {/* Tertiary: 历史 dropdown · 标 (示例) */}
+      <div style={_LAUNCH_GROUP_STYLE}>
+        <span style={_LAUNCH_LABEL_STYLE}>
+          历史 (示例 · 仅培训演示)
+        </span>
+        <select
+          data-testid="report-history-dropdown"
+          value={p.historyChoice}
+          onChange={(e) => p.onSelectHistory(e.target.value)}
+          style={{
+            ..._LAUNCH_SELECT_STYLE,
+            color: "var(--ink-65)",
+            fontStyle: "italic",
+          }}
+        >
+          <option value="">— 选择 —</option>
+          {histories.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.clientName}（示例）
+            </option>
+          ))}
+        </select>
+        <span style={_LAUNCH_HINT_STYLE}>降级路径 · 显式 mock data</span>
+      </div>
+
+      {/* 业务线 segment */}
+      <div style={_LAUNCH_GROUP_STYLE}>
+        <span style={_LAUNCH_LABEL_STYLE}>业务线</span>
+        <select
+          data-testid="report-business-line-select"
+          value={p.businessLine}
+          onChange={(e) => p.onBusinessLineChange(e.target.value)}
+          style={_LAUNCH_SELECT_STYLE}
+        >
+          <option value="corporate">对公</option>
+          <option value="inclusive">普惠 / 个体</option>
+          <option value="reserved">预留</option>
+        </select>
+      </div>
+
+      {/* 操作 (started 时显) */}
+      {p.started ? (
+        <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
+          <button
+            type="button"
+            data-testid="report-generate-btn"
+            onClick={p.onStartGenerate}
+            disabled={p.generating}
+            style={{
+              ..._LAUNCH_BTN_SECONDARY,
+              borderColor: "var(--t-report)",
+              color: "var(--t-report)",
+              opacity: p.generating ? 0.6 : 1,
+            }}
+          >
+            {p.generating ? "生成中…" : "开始生成"}
+          </button>
+          <button
+            type="button"
+            data-testid="report-export-btn"
+            onClick={p.onExport}
+            disabled={p.exporting}
+            style={{
+              ..._LAUNCH_BTN_SECONDARY,
+              opacity: p.exporting ? 0.6 : 1,
+            }}
+          >
+            {p.exporting ? "导出中…" : "导出 Word"}
+          </button>
+        </div>
+      ) : null}
+
+      {/* 错误 banner */}
+      {p.errMsg ? (
+        <div
+          role="alert"
+          data-testid="report-error-banner"
+          style={{
+            flex: "1 0 100%",
+            fontFamily: "var(--cjk)",
+            fontSize: 12,
+            color: "#C85A3C",
+            padding: "8px 12px",
+            background: "rgba(200, 90, 60, 0.08)",
+            border: "1px solid rgba(200, 90, 60, 0.32)",
+            borderRadius: 8,
+          }}
+        >
+          ⚠ {p.errMsg}
+        </div>
+      ) : null}
+
+      {/* mock banner per empty-state-design-protocol §5 · started + mock 才显 */}
+      {p.started && p.mode === "mock" ? (
+        <div
+          data-testid="report-mock-banner"
+          style={{
+            flex: "1 0 100%",
+            fontFamily: "var(--cjk)",
+            fontSize: 12,
+            color: "var(--ink)",
+            padding: "8px 12px",
+            background: "rgba(180, 140, 60, 0.10)",
+            border: "1px dashed rgba(180, 140, 60, 0.45)",
+            borderRadius: 8,
+          }}
+        >
+          ⚠️ 您正在查看示例数据 (training mode) · 切真实路径请上传材料
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReportEmptySkeleton() {
+  return (
+    <section
+      data-testid="report-empty-skeleton"
+      aria-label="等待触发 · 报告生成"
+      style={{
+        padding: "64px 24px",
+        textAlign: "center",
+        background: "color-mix(in srgb, var(--chalk) 50%, transparent)",
+        borderRadius: "var(--r-md)",
+        border: "1px dashed var(--ink-14)",
+        margin: "24px 0",
+      }}
+    >
+      <h3
+        style={{
+          fontFamily: "var(--display)",
+          fontSize: 20,
+          color: "var(--ink)",
+          fontWeight: 500,
+          margin: "0 0 14px 0",
+          letterSpacing: ".02em",
+        }}
+      >
+        等待触发
+      </h3>
+      <p
+        style={{
+          fontFamily: "var(--cjk)",
+          fontSize: 14,
+          color: "var(--ink-65)",
+          lineHeight: 1.7,
+          maxWidth: 520,
+          margin: "0 auto 12px auto",
+        }}
+      >
+        上传客户
+        <strong style={{ color: "var(--t-report)" }}>原始材料</strong>
+        触发 v16 主管线（classifier → generator → QC gate）· 或选
+        <strong style={{ color: "var(--ink)" }}>历史会话</strong>
+        看示例演示。
+      </p>
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: "16px auto 0",
+          maxWidth: 520,
+          textAlign: "left",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          color: "var(--ink-65)",
+          lineHeight: 1.8,
+        }}
+      >
+        <li>· 材料解析后此处显示 5 类槽位计数</li>
+        <li>· 章节流式生成 · 4 chapter 渐进渲染</li>
+        <li>· QC 9 维评分 · 通过后可导出 Word</li>
+        <li>· 第 4 章「审批意见」预留 Agent3 决策回写</li>
+      </ul>
+    </section>
+  );
+}
+
+const _STAGE_CN: Record<string, string> = {
+  ingest: "材料解析",
+  extract: "字段抽取",
+  infer: "推断装载",
+  write: "段落生成",
+  audit: "QC 终审",
+};
+
+const _STATUS_PILL_STYLE: CSSProperties = {
+  position: "fixed",
+  right: 16,
+  bottom: 16,
+  zIndex: 30,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 14px",
+  background: "color-mix(in srgb, var(--chalk) 92%, transparent)",
+  border: "1px solid var(--ink-14)",
+  borderRadius: 999,
+  fontFamily: "var(--cjk)",
+  fontSize: 12,
+  color: "var(--ink)",
+  boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+  pointerEvents: "auto",
+};
+
+function ReportStatusPill(p: {
+  llmConnected: boolean | null;
+  mode: "mock" | "live";
+  reportId: string;
+  generating: boolean;
+  stage?: string;
+}) {
+  const llmDot =
+    p.llmConnected === null ? "🟡" : p.llmConnected ? "🟢" : "🔴";
+  const llmLbl =
+    p.llmConnected === null
+      ? "LLM 检测中"
+      : p.llmConnected
+        ? "LLM 已连"
+        : "LLM 未连";
+  const modeLbl = p.mode === "mock" ? "示例模式" : "真实模式";
+  const stageLbl = p.generating && p.stage ? _STAGE_CN[p.stage] ?? p.stage : "";
+
+  return (
+    <div
+      data-testid="report-status-pill"
+      data-mode={p.mode}
+      data-llm-connected={p.llmConnected ?? "unknown"}
+      style={_STATUS_PILL_STYLE}
+    >
+      <span aria-hidden>{llmDot}</span>
+      <span>{llmLbl}</span>
+      <span style={{ color: "var(--ink-14)" }} aria-hidden>·</span>
+      <span style={{ fontStyle: "italic" }}>{modeLbl}</span>
+      {p.reportId ? (
+        <>
+          <span style={{ color: "var(--ink-14)" }} aria-hidden>·</span>
+          <code
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: 11,
+              color: "var(--ink-65)",
+            }}
+          >
+            {p.reportId.slice(0, 8)}
+          </code>
+        </>
+      ) : null}
+      {p.generating ? (
+        <>
+          <span style={{ color: "var(--ink-14)" }} aria-hidden>·</span>
+          <span style={{ color: "var(--t-report)" }}>
+            ⏳ {stageLbl || "生成中"}
+          </span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ReportLiveStrip(p: {
+  stages: ReportV16StageEvent[];
+  lastStage: ReportV16StageEvent | null;
+  done: ReportV16DoneEvent | null;
+  generating: boolean;
+  mode: "mock" | "live";
+}) {
+  const allStages: ReportV16StageEvent["stage"][] = [
+    "ingest",
+    "extract",
+    "infer",
+    "write",
+    "audit",
+  ];
+  const seen = new Set<ReportV16StageEvent["stage"]>(
+    p.stages.map((s) => s.stage),
+  );
+  return (
+    <section
+      data-testid="report-live-strip"
+      data-generating={p.generating ? "yes" : "no"}
+      style={{
+        margin: "12px 0",
+        padding: "10px 16px",
+        background: "color-mix(in srgb, var(--chalk) 70%, transparent)",
+        border: "1px solid var(--ink-14)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        fontFamily: "var(--cjk)",
+        fontSize: 12,
+      }}
+    >
+      <span
+        style={{
+          color: "var(--ink-65)",
+          textTransform: "uppercase",
+          letterSpacing: ".04em",
+          fontSize: 10,
+        }}
+      >
+        v16 PIPELINE {p.mode === "mock" ? "· (mock)" : ""}
+      </span>
+      {allStages.map((st) => {
+        const isDone = seen.has(st);
+        const isActive = p.lastStage?.stage === st && p.generating;
+        return (
+          <span
+            key={st}
+            data-stage={st}
+            data-state={isDone ? (isActive ? "active" : "done") : "pending"}
+            style={{
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: isDone
+                ? isActive
+                  ? "var(--t-report)"
+                  : "color-mix(in srgb, var(--t-report) 25%, transparent)"
+                : "transparent",
+              color: isDone && isActive ? "var(--chalk)" : "var(--ink)",
+              border: "1px solid var(--ink-14)",
+              fontSize: 11,
+            }}
+          >
+            {_STAGE_CN[st] ?? st}
+          </span>
+        );
+      })}
+      {p.done ? (
+        <span
+          style={{
+            marginLeft: "auto",
+            color: p.done.qc?.passed
+              ? "var(--t-compli, #4A7A5E)"
+              : "var(--t-alert, #C85A3C)",
+          }}
+        >
+          QC {p.done.qc?.passed ? "✓ 通过" : "△ 阻断"}
+          {p.done.qc?.score !== undefined ? ` · ${p.done.qc.score}` : ""}
+          {p.done.mock_pipeline ? " (mock)" : ""}
+        </span>
+      ) : null}
+    </section>
+  );
+}
+
+function ReportLiveSections(p: {
+  sections: ReportV16Section[];
+  onRefine: (sectionId: string, userEdit: string) => void;
+  mode: "mock" | "live";
+}) {
+  const [activeId, setActiveId] = useState<string | null>(
+    p.sections[0]?.id ?? null,
+  );
+  const [draft, setDraft] = useState<string>("");
+  const active = p.sections.find((s) => s.id === activeId) ?? null;
+
+  return (
+    <section
+      data-testid="report-live-sections"
+      style={{
+        marginTop: 16,
+        padding: "12px 14px",
+        background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
+        border: "1px solid var(--ink-14)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "baseline",
+          marginBottom: 10,
+        }}
+      >
+        <strong
+          style={{
+            fontFamily: "var(--display)",
+            fontSize: 14,
+          }}
+        >
+          v16 章节流 · {p.sections.length} 章
+        </strong>
+        {p.mode === "mock" ? (
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--ink-65)",
+              fontStyle: "italic",
+            }}
+          >
+            (示例 · refine 走 fallback 拼接)
+          </span>
+        ) : null}
+      </header>
+      <nav
+        data-testid="report-section-nav"
+        style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}
+      >
+        {p.sections.map((sec) => (
+          <button
+            key={sec.id}
+            type="button"
+            onClick={() => setActiveId(sec.id)}
+            data-active={sec.id === activeId ? "yes" : "no"}
+            style={{
+              padding: "5px 10px",
+              borderRadius: 999,
+              border: "1px solid var(--ink-14)",
+              background:
+                sec.id === activeId
+                  ? "color-mix(in srgb, var(--t-report) 28%, transparent)"
+                  : "transparent",
+              fontFamily: "var(--cjk)",
+              fontSize: 11.5,
+              cursor: "pointer",
+            }}
+          >
+            {sec.title}
+            {sec.status !== "done" ? ` · ${sec.status}` : ""}
+          </button>
+        ))}
+      </nav>
+      {active ? (
+        <div
+          data-testid="report-section-active"
+          style={{
+            padding: "10px 12px",
+            background: "var(--chalk)",
+            border: "1px solid var(--ink-14)",
+            borderRadius: 6,
+            fontFamily: "var(--cjk)",
+            fontSize: 13,
+            lineHeight: 1.65,
+            whiteSpace: "pre-wrap",
+            color: "var(--ink)",
+          }}
+        >
+          {active.content}
+        </div>
+      ) : null}
+      <div style={{ marginTop: 10 }}>
+        <textarea
+          data-testid="report-refine-input"
+          rows={2}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="给客户经理引导 · LLM 重写本章 (示例: 强调财务比率 + 行业景气)"
+          style={{
+            width: "100%",
+            padding: 8,
+            border: "1px solid var(--ink-14)",
+            borderRadius: 6,
+            fontFamily: "var(--cjk)",
+            fontSize: 12,
+            background: "var(--chalk)",
+            resize: "vertical",
+          }}
+        />
+        <div style={{ marginTop: 6, textAlign: "right" }}>
+          <button
+            type="button"
+            data-testid="report-refine-btn"
+            disabled={!active || !draft.trim()}
+            onClick={() => {
+              if (!active || !draft.trim()) return;
+              p.onRefine(active.id, draft.trim());
+              setDraft("");
+            }}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid var(--ink-14)",
+              background: "transparent",
+              fontFamily: "var(--cjk)",
+              fontSize: 12,
+              cursor: "pointer",
+              opacity: active && draft.trim() ? 1 : 0.5,
+            }}
+          >
+            重写本章
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
