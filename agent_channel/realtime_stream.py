@@ -220,8 +220,9 @@ def run_channel_search_stream(
         # ===== Stage 6: rank — 最终排序输出 =====
         yield {"event": "stage", "stage": "rank", "status": "running",
                "message": "信号密度排序..."}
-        # 构建最终输出
-        candidates = _build_final_output(enriched, tags)
+        # 构建最终输出 (B.5: query + llm 透传给 sse_extras 做 industry/geo/scale 抽取
+        # + similarity 评分 + 8 维 radar + match_dimensions/products/pitch_scripts)
+        candidates = _build_final_output(enriched, tags, query=query, llm=llm)
         yield {"event": "stage", "stage": "rank", "status": "done"}
 
         yield {
@@ -904,12 +905,28 @@ def _fallback_pitch(item: dict) -> str:
 
 # ========== Stage 6: 构建最终输出 ==========
 
-def _build_final_output(enriched: list[dict], tags: list[dict]) -> list[dict]:
-    """将内部结构转为前端契约格式。"""
+def _build_final_output(
+    enriched: list[dict],
+    tags: list[dict],
+    query: str = "",
+    llm=None,
+) -> list[dict]:
+    """将内部结构转为前端契约格式。
+
+    Stage B.5 + Q-041 fix-forward (2026-04-28):
+      - 现有 camelCase 字段全部保留 (additive · 不破坏 production normalize)
+      - ``industry`` / ``region`` 不再硬编 "未获取" · 由 ``sse_extras.extract_metadata``
+        从 qcc + signal text 抽取 (Q-041 fix)
+      - 追加 snake_case 字段 (B.5 spec): ``score / geo / scale / similarity /
+        radar_8axis / match_dimensions / product_recommendations / pitch_scripts``
+      - ``query`` / ``llm`` 上游传入 · 用于关键词抽取 + 相似度评分 + LLM 兜底
+    """
+    from agent_channel.sse_extras import NA as EXTRAS_NA, enrich_candidate
+
     NA = "未获取"
     candidates = []
     for item in enriched:
-        qcc = item.get("qcc", {})
+        qcc = item.get("qcc", {}) or {}
         signals_out = []
         data_sources = []
         seen_sources = set()
@@ -929,27 +946,51 @@ def _build_final_output(enriched: list[dict], tags: list[dict]) -> list[dict]:
                 seen_sources.add(src)
                 data_sources.append({"label": src, "hint": url[:80] if url else ""})
 
+        # B.5 新字段 (snake_case · 见 sse_extras.enrich_candidate docstring)
+        extras = enrich_candidate(item, query=query, tags=tags, llm=llm)
+
+        # Q-041 fix:industry / region 从 extras 取真值;legacy "NA" 兜底
+        industry = extras["industry"]
+        # legacy region 字段沿用 qcc.region 或 extras.geo · 不留空 fallback NA
+        region = qcc.get("region") or extras["geo"] or NA
+        signal_score = item.get("signalScore", 0)
+
         candidates.append({
+            # ---- legacy camelCase (production 已消费 · 不动) ----
             "name": item["company_name"],
-            "signalScore": item.get("signalScore", 0),
+            "signalScore": signal_score,
             "signalCount": item.get("signalCount", 0),
             "source": "external",
             "signals": signals_out,
-            # 基础信息（企查查补全）
-            "region": qcc.get("region", NA),
-            "industry": NA,
+            # 基础信息(qcc / extras 补全)
+            "region": region,
+            "industry": industry,            # ← Q-041 fix · 不再硬编 NA
             "uscc": qcc.get("uscc", NA),
             "registeredCapital": qcc.get("registeredCapital", NA),
             "founded": qcc.get("founded", NA),
             "legalRep": qcc.get("legalRep", NA),
             "employees": qcc.get("employees", 0),
             "mainBusiness": NA,
-            # 匹配+营销
+            # 匹配+营销 (legacy)
             "matchTags": item.get("matchTags", []),
             "recommendedProducts": item.get("recommendedProducts", []),
             "pitch": item.get("pitch", ""),
             # 来源
             "dataSources": data_sources,
+
+            # ---- B.5 新增 snake_case (前端 b.5b 步消费 · 现 additive 输出) ----
+            # score: signalScore 别名 · 前端 ChannelWorkspace.tsx 候选卡 score 取此键
+            "score": int(signal_score) if signal_score else 0,
+            # Q-041 4 字段 fix-forward
+            "geo": extras["geo"],
+            "scale": extras["scale"],
+            "similarity": extras["similarity"],
+            # 8 维 radar (per-candidate · 与全局 radar 不同 · 给候选 detail drawer 用)
+            "radar_8axis": extras["radar_8axis"],
+            # PRD v2 "为什么像" + Top3 产品 + 话术 (struct)
+            "match_dimensions": extras["match_dimensions"],
+            "product_recommendations": extras["product_recommendations"],
+            "pitch_scripts": extras["pitch_scripts"],
         })
 
     return candidates
