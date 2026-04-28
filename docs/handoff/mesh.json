@@ -95,24 +95,39 @@
       "path": "D:/claude code/work-A1-inventory",
       "branch": "feat/inventory-expand-A1",
       "role": "worker",
-      "description": "Stage A.3 · features-inventory.md F-009~F-040 expand (32 new entries · 6 Workspace + IM + Auth + Layout)",
-      "onboarding": "docs/onboarding/W-A1-inventory-expand.md"
+      "description": "Stage A.3 · features-inventory.md F-009~F-040 expand (32 entries) · MERGED 2026-04-28 (cherry-pick 4bedee2)",
+      "onboarding": "docs/onboarding/W-A1-inventory-expand.md",
+      "merged": true,
+      "merged_signal": "WORKER-A1-INVENTORY-EXPAND-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "git_worktree_removed": true,
+      "physical_dir_cleanup_pending": "permission denied 2026-04-28 · worker CLI window 仍 locking · user 关 CLI 后 main 自动 rm"
     },
     {
       "name": "A2-contracts",
       "path": "D:/claude code/work-A2-contracts",
       "branch": "feat/contracts-bootstrap-A2",
       "role": "worker",
-      "description": "Stage A.4 · workspace-state-protocol + im-protocol + auth-protocol contracts",
-      "onboarding": "docs/onboarding/W-A2-contracts-bootstrap.md"
+      "description": "Stage A.4 · 3 protocol contracts (workspace-state + im + auth · 917 lines) · MERGED 2026-04-28 (cherry-pick a660019)",
+      "onboarding": "docs/onboarding/W-A2-contracts-bootstrap.md",
+      "merged": true,
+      "merged_signal": "WORKER-A2-CONTRACTS-BOOTSTRAP-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "git_worktree_removed": true,
+      "physical_dir_cleanup_pending": "permission denied 2026-04-28 · worker CLI window 仍 locking · user 关 CLI 后 main 自动 rm"
     },
     {
       "name": "A3-prd",
       "path": "D:/claude code/work-A3-prd",
       "branch": "feat/prd-summaries-A3",
       "role": "worker",
-      "description": "Stage A.5 · 6 agent PRD summary specs (channel/report/credit/alert/compli/forge)",
-      "onboarding": "docs/onboarding/W-A3-prd-summaries.md"
+      "description": "Stage A.5 · 6 agent PRD summary specs (2004 lines) · MERGED 2026-04-28 (cherry-pick bf5a7f1)",
+      "onboarding": "docs/onboarding/W-A3-prd-summaries.md",
+      "merged": true,
+      "merged_signal": "WORKER-A3-PRD-SUMMARIES-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "git_worktree_removed": true,
+      "physical_dir_cleanup_pending": "permission denied 2026-04-28 · worker CLI window 仍 locking · user 关 CLI 后 main 自动 rm"
     }
   ],
   "frozen_branches_no_worktree": [
@@ -150,7 +165,7 @@
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
-  "last_updated": "2026-04-27",
+  "last_updated": "2026-04-28",
   "current_phase": "phase-3-final",
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
