@@ -1,0 +1,74 @@
+# Monitoring alert rules · Stage E.2 (onboarding W-E2-A3)
+#
+# Schema: 兼容 Prometheus AlertManager + 简化版自检 (alerts.evaluate())
+# 三大核心规则 (per onboarding):
+#   1. llm_provider_down       · LLM 5min 0 success
+#   2. high_error_rate         · 5xx > 5% in 5min
+#   3. tavily_401_burst        · 10 fail in 1min
+#
+# Window: 5min / 1min · Severity: critical / warning · Notification: webhook (待 cron 接)
+
+groups:
+  - name: llm_provider_health
+    interval: 60s
+    rules:
+      - alert: llm_provider_down
+        expr: |
+          sum(rate(llm_calls_total{provider="deepseek"}[5m]))
+            - sum(rate(llm_errors_total{provider="deepseek"}[5m]))
+            == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: llm
+        annotations:
+          summary: "DeepSeek LLM 5 分钟 0 成功调用"
+          description: "近 5 分钟所有 DeepSeek 调用失败 · 检查 API key / 服务状态"
+          runbook: "docs/ops/runbook-llm-down.md"
+
+  - name: http_error_rate
+    interval: 60s
+    rules:
+      - alert: high_error_rate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m]))
+            > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "HTTP 5xx 错误率 > 5% (5min 窗口)"
+          description: "近 5 分钟 5xx 比例超 5% · 检查 traceback / Sentry 看根因"
+          runbook: "docs/ops/runbook-5xx-burst.md"
+
+  - name: external_provider_health
+    interval: 30s
+    rules:
+      - alert: tavily_401_burst
+        expr: |
+          increase(llm_errors_total{provider="tavily", error_type="401"}[1m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          component: external_api
+        annotations:
+          summary: "Tavily 401 1 分钟内 > 10 次"
+          description: "Tavily key 可能失效 / 配额耗尽 · 需轮换 / 充值 · backend 应已自动 fallback mock 但需人工确认"
+          runbook: "docs/ops/runbook-tavily-401.md"
+
+  - name: ws_connection_health
+    interval: 60s
+    rules:
+      - alert: im_ws_connections_drop
+        expr: |
+          im_ws_connections_active < 1
+        for: 5m
+        labels:
+          severity: warning
+          component: im
+        annotations:
+          summary: "IM WebSocket 5 分钟 0 活跃连接"
+          description: "可能 WS handler 崩 / nginx 阻 ws upgrade · 检查 backend ws.py 日志"
+          runbook: "docs/ops/runbook-ws-drop.md"
