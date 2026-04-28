@@ -277,6 +277,14 @@ interface DispatchState {
   /** Stage D.2F · 设 liveMode + wsState · UI 用 */
   setLiveMode: (mode: LiveMode) => void;
   setWsState: (state: DispatchState["wsState"]) => void;
+
+  /** W-FIX 2026-04-28 · live-fallback-banner-spec §1 规则 1
+     send fail · 触发 banner · null 表示无错 · UI 走 dismiss */
+  sendFailError: { message: string; code?: number; ts: number } | null;
+  setSendFailError: (err: { message: string; code?: number } | null) => void;
+
+  /** W-FIX · ws state !== "open" 持续起始时间 · UI 30s threshold check */
+  wsFailSince: number | null;
 }
 
 const genMsgId = () =>
@@ -294,6 +302,8 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
   liveMode: "seed",
   wsState: "idle",
   typingByThread: {},
+  sendFailError: null,
+  wsFailSince: null,
   selectThread: (id) => {
     set((s) => ({
       currentThreadId: id,
@@ -439,7 +449,30 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
   },
 
   setLiveMode: (mode) => set({ liveMode: mode }),
-  setWsState: (state) => set({ wsState: state }),
+  setWsState: (state) => {
+    /* W-FIX · ws state !== "open" 起始时间 · 用于 30s 持续 threshold banner */
+    const now = Date.now();
+    set((s) => {
+      if (state === "open") return { wsState: state, wsFailSince: null };
+      // 已经在 fail 态 · 保留原 since 时间戳 · 否则 mark now
+      const since = s.wsFailSince ?? now;
+      return { wsState: state, wsFailSince: since };
+    });
+  },
+
+  setSendFailError: (err) => {
+    if (err === null) {
+      set({ sendFailError: null });
+      return;
+    }
+    set({
+      sendFailError: {
+        message: err.message,
+        code: err.code,
+        ts: Date.now(),
+      },
+    });
+  },
 }));
 
 /** 通过 customerId 反查 thread（事件桥用） */

@@ -996,3 +996,58 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* ─── W-FIX · 2026-04-28 · live-fallback-banner-spec banners ─── */
+
+.dpx-stream-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+.dpx-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.dpx-banner--err {
+  background: color-mix(in srgb, #d7534a 14%, transparent);
+  border: 1px solid color-mix(in srgb, #d7534a 35%, transparent);
+  color: var(--ink);
+}
+.dpx-banner--warn {
+  background: color-mix(in srgb, #c69a3c 16%, transparent);
+  border: 1px solid color-mix(in srgb, #c69a3c 38%, transparent);
+  color: var(--ink);
+}
+.dpx-banner__icon {
+  font-size: 14px;
+}
+.dpx-banner__text {
+  flex: 1;
+}
+.dpx-banner__text code {
+  background: color-mix(in srgb, var(--ink-08) 50%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.dpx-banner__dismiss {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: #fff;
+  background: var(--ink-65);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.dpx-banner__dismiss:hover {
+  background: var(--ink);
+}
