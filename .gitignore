@@ -64,6 +64,9 @@ data/exports/
 data/alert/sessions/
 data/alert/latest.json
 !data/alert/.gitkeep
+data/compliance/sessions/
+data/compliance/latest.json
+!data/compliance/.gitkeep
 evaluation/results/*.yaml
 evaluation/results/**/*.json
 !evaluation/results/.gitkeep
