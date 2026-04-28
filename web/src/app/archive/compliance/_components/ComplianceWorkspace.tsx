@@ -8,7 +8,7 @@
  * 壳类：.v-archive--canon[data-agent="compliance"] → --agent = var(--t-compli) 墨绿
  */
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   COMPLIANCE_GLOBAL_STATS,
   COMPLIANCE_SESSION,
@@ -57,16 +57,189 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 
 type OutputTab = "matrix" | "funnel" | "timeline";
 
+type TriggerSource = "primary_scan" | "secondary_template" | "tertiary_history";
+
+type ExportInfo = {
+  status: "idle" | "running" | "done" | "error";
+  message?: string;
+};
+
+type RecentLabel = { value: string; label: string; demo?: boolean };
+
+const RECENT_DEMO_OPTIONS: RecentLabel[] = [
+  { value: "demo-online-loan", label: "互联网贷款 · 5 严重 / 8 一般 (示例)", demo: true },
+  { value: "demo-aml", label: "反洗钱合规 · 3 严重 / 7 一般 (示例)", demo: true },
+];
+
 export default function ComplianceWorkspace() {
   const session = COMPLIANCE_SESSION;
   const [tab, setTab] = useState<OutputTab>("matrix");
+
+  /* Stage CF · empty-state-design-protocol v1.0 默认 started=false ·
+     用户上传 / 起巡检 / 选历史 才 setStarted(true) · panel 真数据填入。
+     mock data 不 default load · 入口 dropdown 标「(示例)」与 production 路径分离。 */
+  const [started, setStarted] = useState(false);
+  const [trigger, setTrigger] = useState<TriggerSource | null>(null);
+  const [recent, setRecent] = useState<string>("");
+  const [scanId, setScanId] = useState<string>("");
+  const [scanRunning, setScanRunning] = useState(false);
+  const [scanError, setScanError] = useState<string>("");
+  const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
+
+  /* Primary CTA · 上传政策 + 业务制度 → POST /api/compliance/policy_scan SSE
+     UploadRail 内 "开始政策比对" 按钮 onClick 调用此 handler */
+  const triggerPolicyScan = useCallback(async () => {
+    setStarted(true);
+    setTrigger("primary_scan");
+    setScanRunning(true);
+    setScanError("");
+    setExportInfo({ status: "idle" });
+    try {
+      const resp = await fetch("/api/compliance/policy_scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          /* TODO Stage D.5 · 上传文件 → 真政策文本 · 当前用 mock session policy 触发 backend SSE */
+          policy_doc:
+            "第六条 个人消费贷款期限不得超过 12 个月。\n" +
+            "第三条 联合贷款本行出资比例不得低于 30%。",
+          business_docs: [
+            { event_id: "LN20251108", event_type: "loan",
+              fields: { months: 18, amount: 100000, purpose: "个人消费" } },
+            { event_id: "COOP202510007", event_type: "cooperation",
+              fields: { bank_share_ratio: 0.15, amount: 5000000 } },
+          ],
+          policy_meta: { title: session.objective, fetched_at: session.updated },
+          force_mock: true,
+        }),
+      });
+      if (!resp.ok || !resp.body) {
+        throw new Error(`scan failed: HTTP ${resp.status}`);
+      }
+      /* SSE 流读 · 找到 type=scan 事件取 scan_id */
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let captured = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          for (const line of part.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              const payload = data?.payload ?? {};
+              if (payload.type === "scan" && payload.scan_id) {
+                captured = payload.scan_id;
+              }
+            } catch {
+              /* ignore parse error · 不阻断流 */
+            }
+          }
+        }
+      }
+      if (captured) setScanId(captured);
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanRunning(false);
+    }
+  }, [session.objective, session.updated]);
+
+  /* Secondary CTA · 用模板快速比对 → POST /api/compliance/matrix_check */
+  const triggerTemplateCheck = useCallback(async () => {
+    setStarted(true);
+    setTrigger("secondary_template");
+    setScanRunning(true);
+    setScanError("");
+    try {
+      const resp = await fetch("/api/compliance/matrix_check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          policies: [
+            { rule_id: "POL-T-001", article: "模板 · 期限",
+              category: "期限", condition: "期限不超 12 月",
+              threshold: { max_months: 12 }, severity_hint: "critical" },
+          ],
+          business_lines: [
+            { event_id: "DEMO-LN", event_type: "loan",
+              fields: { months: 18, purpose: "consumer" } },
+          ],
+          use_llm: false,
+        }),
+      });
+      if (!resp.ok) {
+        throw new Error(`matrix_check failed: HTTP ${resp.status}`);
+      }
+      /* matrix_check 返同步 JSON · 不写 scanId · 仅 demo 触发 */
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanRunning(false);
+    }
+  }, []);
+
+  /* Tertiary CTA · 选历史 (mock) · 标「(示例)」与真实路径分离 */
+  const onSelectRecent = useCallback((value: string) => {
+    setRecent(value);
+    if (!value) return;
+    setStarted(true);
+    setTrigger("tertiary_history");
+  }, []);
+
+  /* Word 导出 · POST /api/compliance/export_docx */
+  const triggerExportDocx = useCallback(async () => {
+    if (!scanId) {
+      setExportInfo({
+        status: "error",
+        message: "尚无 scan_id · 先跑一次政策比对",
+      });
+      return;
+    }
+    setExportInfo({ status: "running" });
+    try {
+      const resp = await fetch("/api/compliance/export_docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scan_id: scanId, title: session.objective }),
+      });
+      if (!resp.ok) {
+        throw new Error(`export failed: HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `compliance_revision_${scanId}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportInfo({ status: "done" });
+    } catch (e) {
+      setExportInfo({
+        status: "error",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }, [scanId, session.objective]);
 
   return (
     <EvidenceProvider
       items={COMPLIANCE_EVIDENCE.items}
       unfilledFields={COMPLIANCE_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace">
+    <div
+      className="rpt-workspace"
+      data-testid="compli-workspace"
+      data-started={started ? "yes" : "no"}
+      data-trigger={trigger ?? "none"}
+    >
       <HeroSection
         weeklyProcessed={COMPLIANCE_GLOBAL_STATS.weeklyProcessed}
         conflictRate={COMPLIANCE_GLOBAL_STATS.conflictRate}
@@ -77,56 +250,190 @@ export default function ComplianceWorkspace() {
         qcCounts={session.qcCounts}
       />
 
+      <TriggerBar
+        recent={recent}
+        recentOptions={RECENT_DEMO_OPTIONS}
+        onSelectRecent={onSelectRecent}
+        onTemplateCheck={triggerTemplateCheck}
+        scanRunning={scanRunning}
+        trigger={trigger}
+      />
+
       <UploadRail
         innerUploads={session.innerPolicyUploads}
         outerUploads={session.outerPolicyUploads}
+        onScanStart={triggerPolicyScan}
+        scanRunning={scanRunning}
       />
 
-      <PolicyTicker
-        policies={session.policies}
-        timeline={session.timeline}
-        conflicts={session.conflicts}
-      />
+      {started ? (
+        <>
+          {trigger === "tertiary_history" ? (
+            <div
+              className="compliance-demo-banner"
+              role="note"
+              aria-label="示例数据 · 培训演示模式"
+              data-testid="compli-demo-banner"
+            >
+              <span className="compliance-demo-banner__icon" aria-hidden>⚠</span>
+              <span className="compliance-demo-banner__text">
+                您正在查看示例数据（training mode）· 切真实路径请上传政策文件 + 业务制度。
+              </span>
+            </div>
+          ) : null}
 
-      <div className="rpt-grid">
-        <aside className="rpt-col rpt-col--left">
-          <QueryPanel q={session.query} />
-          <PoliciesPanel policies={session.policies} />
-          <DocsPanel docs={session.docs} />
-          <PipelinePanel steps={session.pipeline} />
-          <RecentPanel recent={session.recentSessions} />
-        </aside>
+          {scanError ? (
+            <div
+              className="compliance-error-banner"
+              role="alert"
+              data-testid="compli-error-banner"
+            >
+              扫描调用失败：{scanError}
+            </div>
+          ) : null}
 
-        <section className="rpt-col rpt-col--mid">
-          <ConversationPanel msgs={session.conversation} />
-          <ComplianceComposer />
-        </section>
-
-        <section className="rpt-col rpt-col--right">
-          <OutputPanel
-            tab={tab}
-            onTabChange={setTab}
-            matrix={session.matrix}
-            docs={session.docs}
-            clauses={session.clauses}
-            conflicts={session.conflicts}
-            funnel={session.funnel}
+          <PolicyTicker
+            policies={session.policies}
             timeline={session.timeline}
-            cellDetails={session.cellDetails}
+            conflicts={session.conflicts}
           />
-        </section>
-      </div>
 
-      <RevisionPanel advices={session.revisionAdvices} />
+          <div className="rpt-grid">
+            <aside className="rpt-col rpt-col--left">
+              <QueryPanel q={session.query} />
+              <PoliciesPanel policies={session.policies} />
+              <DocsPanel docs={session.docs} />
+              <PipelinePanel steps={session.pipeline} />
+              <RecentPanel recent={session.recentSessions} />
+            </aside>
 
-      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-        <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
-      </section>
-      <UnfilledFields />
-      <EvidenceTrail agentTone="compliance" />
+            <section className="rpt-col rpt-col--mid">
+              <ConversationPanel msgs={session.conversation} />
+              <ComplianceComposer />
+            </section>
+
+            <section className="rpt-col rpt-col--right">
+              <OutputPanel
+                tab={tab}
+                onTabChange={setTab}
+                matrix={session.matrix}
+                docs={session.docs}
+                clauses={session.clauses}
+                conflicts={session.conflicts}
+                funnel={session.funnel}
+                timeline={session.timeline}
+                cellDetails={session.cellDetails}
+              />
+            </section>
+          </div>
+
+          <RevisionPanel
+            advices={session.revisionAdvices}
+            scanId={scanId}
+            exportInfo={exportInfo}
+            onExportDocx={triggerExportDocx}
+          />
+
+          <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+            <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+            <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
+          </section>
+          <UnfilledFields />
+          <EvidenceTrail agentTone="compliance" />
+        </>
+      ) : (
+        <EmptyStateSkeleton />
+      )}
     </div>
     </EvidenceProvider>
+  );
+}
+
+/* ── Tertiary + Secondary CTA bar ──────────────────────── */
+
+function TriggerBar(p: {
+  recent: string;
+  recentOptions: RecentLabel[];
+  onSelectRecent: (value: string) => void;
+  onTemplateCheck: () => void;
+  scanRunning: boolean;
+  trigger: TriggerSource | null;
+}) {
+  const recentLabel = "选择历史巡检 / 示例 · 培训演示";
+  const templateLabel = p.scanRunning ? "比对运行中…" : "用模板快速比对";
+  return (
+    <section
+      className="compliance-trigger-bar"
+      aria-label="次要触发入口 · 历史 / 模板"
+      data-testid="compli-trigger-bar"
+    >
+      <label className="compliance-trigger-bar__field">
+        <span className="compliance-trigger-bar__lbl">历史会话（示例 · 仅培训演示）</span>
+        <select
+          className="compliance-trigger-bar__select"
+          value={p.recent}
+          onChange={(e) => p.onSelectRecent(e.target.value)}
+          aria-label={recentLabel}
+          data-testid="compli-history-dropdown"
+        >
+          <option value="">— {recentLabel} —</option>
+          {p.recentOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        type="button"
+        className="compliance-trigger-bar__secondary"
+        onClick={p.onTemplateCheck}
+        disabled={p.scanRunning}
+        data-testid="compli-template-check-cta"
+      >
+        {templateLabel}
+      </button>
+    </section>
+  );
+}
+
+/* ── Empty-state skeleton (空骨架 · 不显示 mock 数据) ───── */
+
+function EmptyStateSkeleton() {
+  return (
+    <section
+      className="compliance-empty"
+      aria-label="尚未触发巡检 · 等待用户输入"
+      data-testid="compli-empty-skeleton"
+    >
+      <div className="compliance-empty__head">
+        <h3 className="compliance-empty__title">等待触发巡检</h3>
+        <p className="compliance-empty__hint">
+          上方
+          <strong>上传政策文件 + 业务制度</strong>
+          → 点击「开始政策比对」启动真扫描；或
+          <strong>用模板快速比对</strong>
+          一键演示；
+          <em>「历史会话（示例）」</em>
+          仅供培训演示。
+        </p>
+      </div>
+      <div className="compliance-empty__panels">
+        <div className="compliance-empty__panel" data-panel="ticker">
+          政策 Ticker · 扫描完成后此处显示最新 3 条事件
+        </div>
+        <div className="compliance-empty__panel" data-panel="matrix">
+          冲突矩阵 doc × clause · 扫描完成显示矩阵
+        </div>
+        <div className="compliance-empty__panel" data-panel="conflict">
+          冲突点列表 · 改 / 补 / 强 三类 chip
+        </div>
+        <div className="compliance-empty__panel" data-panel="revision">
+          修订意见草稿 · 完成后可一键导出 Word
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -143,6 +450,8 @@ const COMPARE_STEPS: { label: string; pct: number }[] = [
 function UploadRail(p: {
   innerUploads: PolicyUpload[];
   outerUploads: PolicyUpload[];
+  onScanStart?: () => void;
+  scanRunning?: boolean;
 }) {
   const [running, setRunning] = useState(false);
   const [stepIdx, setStepIdx] = useState<number>(-1); // -1 = 未开始；4 = 完成
@@ -156,6 +465,9 @@ function UploadRail(p: {
 
   function startCompare() {
     if (running) return;
+    /* Stage CF · 通知上层切 started=true 并 fire POST /api/compliance/policy_scan SSE
+       (上层 triggerPolicyScan 处理 fetch + SSE 解析 + scan_id 落 state) */
+    p.onScanStart?.();
     setRunning(true);
     setStepIdx(0);
     let i = 0;
@@ -204,6 +516,7 @@ function UploadRail(p: {
             onClick={startCompare}
             disabled={running}
             data-state={running ? "running" : done ? "done" : "idle"}
+            data-testid="compli-policy-scan-cta"
           >
             {running ? "比对中…" : done ? "重新比对" : "开始政策比对"}
           </button>
@@ -215,16 +528,18 @@ function UploadRail(p: {
 
       <div className="compliance-upload-zones">
         <DropZoneCard
-          title="行内政策"
-          hint="制度文档 · 审批办法 · 业务细则"
+          title="行内业务制度"
+          hint="本行制度 · 审批办法 · 业务细则"
           uploads={p.innerUploads}
           side="inner"
+          testId="compli-business-upload-cta"
         />
         <DropZoneCard
-          title="外部政策"
+          title="外部监管政策"
           hint="监管规定 · 通知 · 指引 · 公开规范"
           uploads={p.outerUploads}
           side="outer"
+          testId="compli-policy-upload-cta"
         />
       </div>
 
@@ -261,10 +576,15 @@ function DropZoneCard(p: {
   hint: string;
   uploads: PolicyUpload[];
   side: "inner" | "outer";
+  testId?: string;
 }) {
   const count = p.uploads.length;
   return (
-    <div className="compliance-drop-card" data-side={p.side}>
+    <div
+      className="compliance-drop-card"
+      data-side={p.side}
+      data-testid={p.testId}
+    >
       <div className="compliance-drop-head">
         <div className="compliance-drop-title">{p.title}</div>
         <span className="compliance-drop-count">{count} 份</span>
@@ -912,6 +1232,7 @@ function MatrixView({
                     data-active={active ? "yes" : "no"}
                     onClick={() => setSel({ docId: d.id, clauseId: cl.id })}
                     title={cell?.note ?? "通过"}
+                    data-testid="compli-matrix-cell"
                   >
                     {cell?.severity === "block" ? "✕" : cell?.severity === "warn" ? "!" : cell?.severity === "info" ? "i" : "✓"}
                   </button>
@@ -1133,7 +1454,13 @@ const KIND_SUB: Record<RevisionAdvice["kind"], string> = {
   strengthen: "措辞需强化",
 };
 
-function RevisionPanel({ advices }: { advices: RevisionAdvice[] }) {
+function RevisionPanel(p: {
+  advices: RevisionAdvice[];
+  scanId?: string;
+  exportInfo?: ExportInfo;
+  onExportDocx?: () => void;
+}) {
+  const { advices, scanId, exportInfo, onExportDocx } = p;
   if (!advices.length) return null;
 
   const groups: Record<RevisionAdvice["kind"], RevisionAdvice[]> = {
@@ -1143,8 +1470,23 @@ function RevisionPanel({ advices }: { advices: RevisionAdvice[] }) {
   };
   advices.forEach((a) => groups[a.kind].push(a));
 
+  const exportStatus = exportInfo?.status ?? "idle";
+  const exportLabel =
+    exportStatus === "running"
+      ? "导出中…"
+      : exportStatus === "done"
+      ? "重新导出 Word"
+      : exportStatus === "error"
+      ? "重试导出"
+      : "导出修订意见 Word";
+  const exportDisabled = exportStatus === "running" || !scanId;
+
   return (
-    <section className="rpt-panel compliance-bottom-revise" aria-label="修订意见">
+    <section
+      className="rpt-panel compliance-bottom-revise"
+      aria-label="修订意见"
+      data-testid="compli-revision-draft"
+    >
       <PanelPinHandle
         id="compliance:revision"
         title="修订意见"
@@ -1161,19 +1503,50 @@ function RevisionPanel({ advices }: { advices: RevisionAdvice[] }) {
           <p className="compliance-revise-sub">
             不仅提示冲突，还给出可直接进入修订流程的建议语句；合规办可将任一条派成工单。
           </p>
+          {scanId ? (
+            <p className="compliance-revise-sub" data-testid="compli-revision-scan-id">
+              当前扫描 ID · {scanId}
+            </p>
+          ) : null}
         </div>
         <div className="compliance-revise-count">
-          <span data-kind="fix">改 <b>{groups.fix.length}</b></span>
-          <span data-kind="add">补 <b>{groups.add.length}</b></span>
-          <span data-kind="strengthen">强 <b>{groups.strengthen.length}</b></span>
+          <span data-kind="fix" data-testid="compli-conflict-chip">
+            改 <b>{groups.fix.length}</b>
+          </span>
+          <span data-kind="add" data-testid="compli-conflict-chip">
+            补 <b>{groups.add.length}</b>
+          </span>
+          <span data-kind="strengthen" data-testid="compli-conflict-chip">
+            强 <b>{groups.strengthen.length}</b>
+          </span>
+          <button
+            type="button"
+            className="compliance-revise-export"
+            onClick={onExportDocx}
+            disabled={exportDisabled}
+            data-state={exportStatus}
+            data-testid="compli-export-docx-btn"
+          >
+            {exportLabel}
+          </button>
         </div>
       </div>
+
+      {exportStatus === "error" && exportInfo?.message ? (
+        <div className="compliance-revise-error" role="alert">
+          导出失败：{exportInfo.message}
+        </div>
+      ) : null}
 
       <div className="compliance-revise-grid">
         {(["fix", "add", "strengthen"] as const).map((kind) => (
           <div key={kind} className="compliance-revise-col" data-kind={kind}>
             <div className="compliance-revise-col-head">
-              <span className="compliance-revise-chip" data-kind={kind}>
+              <span
+                className="compliance-revise-chip"
+                data-kind={kind}
+                data-testid="compli-conflict-chip"
+              >
                 {KIND_LABEL[kind]}
               </span>
               <span className="compliance-revise-col-ttl">{KIND_SUB[kind]}</span>

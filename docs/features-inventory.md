@@ -537,6 +537,38 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## Compli Workspace · 空白启动 + 完整 production-grade pipeline · F-050 / F-054
+
+## F-050 · Compli Workspace · 空白启动 + 3 CTA 分级
+
+- **location**: `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`started` state + `TriggerBar` + `EmptyStateSkeleton`) + `compliance-workspace.css` 末尾 Stage CF 段
+- **selector**: `[data-testid="compli-workspace"][data-started="no"]` · `[data-testid="compli-empty-skeleton"]` · `[data-testid="compli-history-dropdown"]` · `[data-testid="compli-template-check-cta"]` · `[data-testid="compli-policy-scan-cta"]`
+- **interaction**:
+  - default `started=false` · 仅 Hero + UploadRail + TriggerBar + 空骨架
+  - Primary 上传 + 「开始政策比对」 → `setStarted(true)` + POST `/api/compliance/policy_scan` (SSE) → 落 `scanId`
+  - Secondary 「用模板快速比对」 → POST `/api/compliance/matrix_check` 同步 demo
+  - Tertiary 历史 dropdown 标 `(示例)` → demo banner 显示
+- **contract**: `docs/contracts/empty-state-design-protocol.md` v1.0 · production / mock 路径分离 · mock 不 default load
+- **introduce**: pending Stage CF 第 1 批 cherry-pick (c75488f → main · 2026-04-28)
+- **lost_at**: N/A (新 feature · 此前 ComplianceWorkspace 默认 load mock 数据 · 无 empty state)
+- **smoke_test**: `web/tests/regression/compli-empty-state.spec.ts` (5 case · 默认空 + dropdown 标 + 3 CTA 分级 + tertiary trigger + primary CTA mock SSE)
+
+## F-054 · Compli Workspace · 完整 production-grade pipeline (3 endpoints + Word 导出)
+
+- **location**: `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`triggerPolicyScan` / `triggerTemplateCheck` / `triggerExportDocx` handlers · `RevisionPanel` 接 `scanId/exportInfo/onExportDocx` props)
+- **selector**: `[data-testid="compli-policy-upload-cta"]` · `[data-testid="compli-business-upload-cta"]` · `[data-testid="compli-matrix-cell"]` · `[data-testid="compli-conflict-chip"]` · `[data-testid="compli-revision-draft"]` · `[data-testid="compli-export-docx-btn"]`
+- **interaction**:
+  - 上传政策 + 业务制度 → SSE 抽规则 → 抽事件 → N×M 矩阵 → 改/补/强 LLM 修订
+  - 矩阵 cell click 展开左右对照纸 + 条款映射
+  - RevisionPanel 改/补/强 三 chip + 展开建议列表
+  - 「导出修订意见 Word」 → POST `/api/compliance/export_docx` → blob → a.click() 触发下载
+- **backend wire**: Stage C.4 `agent_compliance/api.py` 3 endpoints (`a76cea2` → MERGED `fb78b85`)
+- **introduce**: pending Stage CF 第 1 批 cherry-pick (c75488f → main · 2026-04-28)
+- **lost_at**: N/A (新增 backend wiring · ComplianceWorkspace 既有 mock viz 转为 SSE 真接 + Word 导出)
+- **smoke_test**: `web/tests/regression/compli-empty-state.spec.ts` (部分覆盖 · 完整 SSE 解析跑通待 Stage D playwright)
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`
