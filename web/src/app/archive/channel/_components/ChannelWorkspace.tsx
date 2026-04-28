@@ -33,6 +33,9 @@ import {
   type ChannelSession,
   type ConversationMessage,
   type FunnelStage,
+  type MatchDimension,
+  type PitchScript,
+  type ProductRec,
   type RadarDimension,
   type RecentScoutSession,
   type SignalEvent,
@@ -85,13 +88,35 @@ export default function ChannelWorkspace() {
      user 反馈 "默认显示 mock 数据 · 跟用户输入没关联" · 加交互门槛 */
   const [started, setStarted] = useState(false);
 
+  /* F-042 · 2026-04-28 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer
+     候选 click → setSelectedCandidateId · drawer 4 区: header / radar+signals / 匹配明细 / 产品+话术
+     ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+
+  /* derive selected candidate (live 优先 · mock fallback) */
+  const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
+  const selectedCandidate: Candidate | null =
+    selectedCandidateId
+      ? candidatesPool.find((c) => c.id === selectedCandidateId) ?? null
+      : null;
+
+  /* ESC 关 drawer */
+  useEffect(() => {
+    if (!selectedCandidateId) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setSelectedCandidateId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedCandidateId]);
+
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
      切 session 时同步 reset 到该 session 的 mock conversation · live SSE 时由 submit append。
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
 
-  /* 切 session 时 reset conversation + 清 live candidates · 让 panel 全 swap 干净 */
+  /* 切 session 时 reset conversation + 清 live candidates + 关 drawer · 让 panel 全 swap 干净 */
   const handleSelectSession = useCallback(
     (id: string) => {
       const sess = MOCK_SESSIONS_MAP[id];
@@ -99,6 +124,7 @@ export default function ChannelWorkspace() {
       setSelectedSessionId(id);
       setMessages(sess.conversation);
       setLive(null);
+      setSelectedCandidateId(null);
     },
     [],
   );
@@ -219,6 +245,7 @@ export default function ChannelWorkspace() {
                 <CandidatesPanel
                   sessionData={s}
                   liveCandidates={liveCandidates}
+                  onSelectCandidate={setSelectedCandidateId}
                 />
               </div>
               <ConversationPanel sessionData={s} messages={messages} />
@@ -279,6 +306,12 @@ export default function ChannelWorkspace() {
           </p>
         </section>
       )}
+      {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
+      <CandidateDetailDrawer
+        candidate={selectedCandidate}
+        sessionData={s}
+        onClose={() => setSelectedCandidateId(null)}
+      />
     </div>
     </EvidenceProvider>
   );
@@ -1262,9 +1295,12 @@ function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
 function CandidatesPanel({
   sessionData,
   liveCandidates,
+  onSelectCandidate,
 }: {
   sessionData: ChannelSession;
   liveCandidates: Candidate[] | null;
+  /* F-042 · click 回调 · 父级 setSelectedCandidateId 触发 drawer */
+  onSelectCandidate?: (id: string) => void;
 }) {
   const s = sessionData;
   /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 sessionData.candidates mock */
@@ -1295,7 +1331,7 @@ function CandidatesPanel({
         </div>
       </div>
       <div className="rpt-panel-body">
-        <CandidatesView candidates={cs} />
+        <CandidatesView candidates={cs} onSelectCandidate={onSelectCandidate} />
       </div>
     </section>
   );
@@ -1528,7 +1564,13 @@ function FunnelView({ funnel }: { funnel: FunnelStage[] }) {
   );
 }
 
-function CandidatesView({ candidates }: { candidates: Candidate[] }) {
+function CandidatesView({
+  candidates,
+  onSelectCandidate,
+}: {
+  candidates: Candidate[];
+  onSelectCandidate?: (id: string) => void;
+}) {
   return (
     <section className="ch-cd-sec">
       <header className="ch-out-sec-head">
@@ -1539,7 +1581,12 @@ function CandidatesView({ candidates }: { candidates: Candidate[] }) {
       </header>
       <ol className="ch-cd-list">
         {candidates.map((c, i) => (
-          <CandidateCard key={c.id} rank={i + 1} c={c} />
+          <CandidateCard
+            key={c.id}
+            rank={i + 1}
+            c={c}
+            onSelect={onSelectCandidate}
+          />
         ))}
       </ol>
     </section>
@@ -1653,11 +1700,42 @@ function TimelineEvent({ ev }: { ev: SignalEvent }) {
   );
 }
 
-function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
+function CandidateCard({
+  rank,
+  c,
+  onSelect,
+}: {
+  rank: number;
+  c: Candidate;
+  onSelect?: (id: string) => void;
+}) {
   const simPct = Math.round(c.similarity * 100);
   const hasRisk = c.riskTags.length > 0;
+  /* F-042 · click → drawer · 仅当 onSelect 传了才作 button (a11y) */
+  const clickable = typeof onSelect === "function";
   return (
-    <li className="ch-cd-card" data-risk={hasRisk ? "yes" : "no"}>
+    <li
+      className="ch-cd-card"
+      data-risk={hasRisk ? "yes" : "no"}
+      data-testid="channel-candidate-card"
+      data-cand-id={c.id}
+      data-clickable={clickable ? "yes" : "no"}
+      onClick={clickable ? () => onSelect!(c.id) : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect!(c.id);
+              }
+            }
+          : undefined
+      }
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? `查看 ${c.name} 详情` : undefined}
+      style={clickable ? { cursor: "pointer" } : undefined}
+    >
       <header className="ch-cd-head">
         <div className="ch-cd-rank">#{rank}</div>
         <div className="ch-cd-title">
@@ -1704,5 +1782,225 @@ function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
         {c.note && <div className="ch-cd-note">{c.note}</div>}
       </div>
     </li>
+  );
+}
+
+/* ── F-042 · candidate detail drawer (master plan §B.4 + §B.4b + §B.4c) ─────
+   ESC 关 · backdrop click 关
+   4 区:
+     header  - 候选 name / similarity / industry / geo / scale
+     body 1  - radar 8 维 (该候选 vs P50 · 复用 sessionData.radar) + 该候选 signal timeline
+     body 2  - B.4b 匹配维度明细 chip 列表 (vs IdealProfile · 含命中证据 signal/KB ref)
+     body 3  - B.4c Top3 产品推荐 + 切入话术
+   ────────────────────────────────────────────────────────────────────── */
+
+function CandidateDetailDrawer({
+  candidate,
+  sessionData,
+  onClose,
+}: {
+  candidate: Candidate | null;
+  sessionData: ChannelSession;
+  onClose: () => void;
+}) {
+  if (!candidate) return null;
+  const simPct = Math.round(candidate.similarity * 100);
+  const matchDims: MatchDimension[] = candidate.match_dimensions ?? [];
+  const products: ProductRec[] = candidate.product_recommendations ?? [];
+  const pitches: PitchScript[] = candidate.pitch_scripts ?? [];
+  const events: SignalEvent[] = candidate.timeline ?? [];
+  return (
+    <div
+      className="ch-drawer-backdrop"
+      data-testid="channel-candidate-drawer-backdrop"
+      onClick={onClose}
+    >
+      <aside
+        className="ch-drawer"
+        data-testid="channel-candidate-drawer"
+        data-cand-id={candidate.id}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${candidate.name} 详情`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <header className="ch-drawer-head">
+          <div className="ch-drawer-head-left">
+            <div className="ch-drawer-eyebrow">CANDIDATE · 详情</div>
+            <h3
+              className="ch-drawer-title"
+              data-testid="channel-candidate-drawer-name"
+            >
+              {candidate.name}
+            </h3>
+            <div className="ch-drawer-sub">
+              {candidate.industry} · {candidate.geo} · {candidate.scale}
+            </div>
+          </div>
+          <div className="ch-drawer-head-right">
+            <div className="ch-drawer-sim">
+              <span className="num">{simPct}%</span>
+              <span className="lbl">相似度</span>
+            </div>
+            <button
+              type="button"
+              className="ch-drawer-close"
+              data-testid="channel-candidate-drawer-close"
+              onClick={onClose}
+              aria-label="关闭详情"
+            >
+              <span aria-hidden>×</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="ch-drawer-body">
+          {/* Region 1 · radar 8 维 + 候选 signal timeline */}
+          <section className="ch-drawer-sec ch-drawer-sec--radar">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§一</span>
+              <span>评分雷达 + 信号时间线</span>
+            </h4>
+            <div className="ch-drawer-radar-wrap">
+              <RadarView radar={sessionData.radar} />
+            </div>
+            <div className="ch-drawer-tl">
+              <div className="ch-drawer-tl-head">
+                信号时间线 · 共 {events.length} 条
+              </div>
+              {events.length === 0 ? (
+                <div className="ch-drawer-tl-empty">
+                  <span className="ic" aria-hidden>◌</span>
+                  <span>该候选暂无信号 · 将在下轮扫描后补全</span>
+                </div>
+              ) : (
+                <ol className="ch-drawer-tl-list">
+                  {events.map((ev) => (
+                    <TimelineEvent key={ev.id} ev={ev} />
+                  ))}
+                </ol>
+              )}
+            </div>
+          </section>
+
+          {/* Region 2 · B.4b 匹配维度明细 (chip 列表 vs IdealProfile) */}
+          <section className="ch-drawer-sec ch-drawer-sec--match">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§二</span>
+              <span>匹配维度明细 · 为什么像</span>
+            </h4>
+            {matchDims.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无匹配维度数据</span>
+              </div>
+            ) : (
+              <ul className="ch-drawer-md-list">
+                {matchDims.map((m) => (
+                  <li
+                    key={m.id}
+                    className="ch-drawer-md-chip"
+                    data-testid="candidate-match-dim-chip"
+                    data-md-id={m.id}
+                    data-score={m.score}
+                  >
+                    <div className="ch-drawer-md-row">
+                      <span className="dim">{m.dim_name}</span>
+                      <span className="score">{m.score}</span>
+                    </div>
+                    <div className="ch-drawer-md-display">{m.display}</div>
+                    <div className="ch-drawer-md-evi">
+                      <span className="ic" aria-hidden>◊</span>
+                      证据 · {m.hit_evidence}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Region 3 · B.4c Top3 产品推荐 + 切入话术 */}
+          <section className="ch-drawer-sec ch-drawer-sec--product">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§三</span>
+              <span>Top3 产品推荐</span>
+            </h4>
+            {products.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无产品推荐数据</span>
+              </div>
+            ) : (
+              <div className="ch-drawer-prod-grid">
+                {products.slice(0, 3).map((p) => (
+                  <article
+                    key={p.id}
+                    className="ch-drawer-prod-card"
+                    data-testid="candidate-product-card"
+                    data-product-id={p.id}
+                    data-fit-score={p.fit_score}
+                  >
+                    <header className="ch-drawer-prod-head">
+                      <div className="ch-drawer-prod-name">
+                        {p.product_name}
+                      </div>
+                      <div className="ch-drawer-prod-fit">
+                        <span className="num">{p.fit_score}</span>
+                        <span className="lbl">适配</span>
+                      </div>
+                    </header>
+                    <div className="ch-drawer-prod-intro">{p.intro}</div>
+                    <dl className="ch-drawer-prod-meta">
+                      {p.amount_range && (
+                        <div>
+                          <dt>额度</dt>
+                          <dd>{p.amount_range}</dd>
+                        </div>
+                      )}
+                      {p.rate_band && (
+                        <div>
+                          <dt>利率</dt>
+                          <dd>{p.rate_band}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="ch-drawer-sec ch-drawer-sec--pitch">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§四</span>
+              <span>切入话术 · 打开电话即用</span>
+            </h4>
+            {pitches.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无话术数据</span>
+              </div>
+            ) : (
+              <ol className="ch-drawer-pitch-list">
+                {pitches.map((p) => (
+                  <li
+                    key={p.id}
+                    className="ch-drawer-pitch-item"
+                    data-testid="candidate-pitch-script"
+                    data-pitch-id={p.id}
+                  >
+                    <div className="ch-drawer-pitch-head">
+                      <span className="who">致 {p.customer_name_placeholder}</span>
+                      {p.product_ref && (
+                        <span className="ref">关联 · {p.product_ref}</span>
+                      )}
+                    </div>
+                    <div className="ch-drawer-pitch-text">{p.script_text}</div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+      </aside>
+    </div>
   );
 }

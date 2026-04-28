@@ -1396,3 +1396,451 @@
 }
 
 /* override block 已 fold 进 base rule line 872 (specificity 不够 · 直接改 base 解决) */
+
+/* ══════ F-042 · Candidate Detail Drawer (master plan §B.4 + §B.4b + §B.4c) ══════
+   候选 click → 右抽屉 4 区: header / radar+timeline / 匹配明细 / 产品+话术
+   ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
+
+.ch-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 32%, transparent);
+  backdrop-filter: blur(2px);
+  z-index: 90;
+  display: flex;
+  justify-content: flex-end;
+  animation: ch-drawer-fade-in 180ms ease-out;
+}
+
+@keyframes ch-drawer-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ch-drawer {
+  width: min(720px, 92vw);
+  height: 100vh;
+  background: var(--chalk);
+  border-left: 1px solid var(--ink-14);
+  box-shadow: -8px 0 32px color-mix(in srgb, var(--ink) 18%, transparent);
+  display: flex;
+  flex-direction: column;
+  animation: ch-drawer-slide-in 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+@keyframes ch-drawer-slide-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.ch-drawer-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--ink-10);
+  background: color-mix(in srgb, var(--t-channel) 4%, var(--chalk));
+}
+
+.ch-drawer-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ch-drawer-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--t-channel) 60%, var(--ink-50));
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.ch-drawer-title {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.ch-drawer-sub {
+  font-size: 12.5px;
+  color: var(--ink-60);
+  font-family: var(--cjk);
+}
+
+.ch-drawer-head-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ch-drawer-sim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--t-channel) 8%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--t-channel) 24%, transparent);
+  border-radius: var(--r-md);
+}
+
+.ch-drawer-sim .num {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--t-channel) 80%, var(--ink));
+  line-height: 1;
+}
+
+.ch-drawer-sim .lbl {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.ch-drawer-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-60);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 160ms, color 160ms, border-color 160ms;
+}
+
+.ch-drawer-close:hover {
+  background: color-mix(in srgb, var(--t-channel) 8%, var(--chalk));
+  border-color: color-mix(in srgb, var(--t-channel) 36%, var(--ink-14));
+  color: var(--ink);
+}
+
+.ch-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ch-drawer-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ch-drawer-sec-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: var(--display);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+.ch-drawer-sec-title .anchor {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--t-channel) 65%, var(--ink-50));
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--t-channel) 30%, transparent);
+  border-radius: 999px;
+}
+
+/* ══════ Region 1 · Radar + Timeline ══════════════════════ */
+
+.ch-drawer-radar-wrap {
+  border: 1px solid var(--ink-10);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--chalk) 96%, var(--t-channel) 4%);
+  padding: 8px 12px;
+}
+
+.ch-drawer-tl {
+  border-top: 1px dashed var(--ink-14);
+  padding-top: 12px;
+}
+
+.ch-drawer-tl-head {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.ch-drawer-tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ch-drawer-tl-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  color: var(--ink-48);
+  font-size: 12px;
+  font-style: italic;
+  background: var(--ink-04);
+  border-radius: var(--r-md);
+}
+
+/* ══════ Region 2 · 匹配维度明细 chip 列表 ══════════════════ */
+
+.ch-drawer-md-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.ch-drawer-md-chip {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  background: var(--chalk);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 180ms, background 180ms;
+}
+
+.ch-drawer-md-chip:hover {
+  border-color: color-mix(in srgb, var(--t-channel) 40%, var(--ink-14));
+  background: color-mix(in srgb, var(--chalk) 96%, var(--t-channel) 4%);
+}
+
+.ch-drawer-md-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ch-drawer-md-row .dim {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--t-channel) 65%, var(--ink-50));
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.ch-drawer-md-row .score {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--t-channel) 75%, var(--ink));
+}
+
+.ch-drawer-md-display {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.ch-drawer-md-evi {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--ink-50);
+  font-family: var(--mono);
+}
+
+.ch-drawer-md-evi .ic {
+  color: color-mix(in srgb, var(--t-channel) 50%, var(--ink-50));
+}
+
+/* ══════ Region 3 · 产品推荐 grid ════════════════════════════ */
+
+.ch-drawer-prod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.ch-drawer-prod-card {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 14px 14px 12px;
+  background: var(--chalk);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 180ms, border-color 180ms, box-shadow 180ms;
+}
+
+.ch-drawer-prod-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--t-channel) 50%, var(--ink-14));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--t-channel) 12%, transparent);
+}
+
+.ch-drawer-prod-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ch-drawer-prod-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.ch-drawer-prod-fit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ch-drawer-prod-fit .num {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--t-channel) 78%, var(--ink));
+  line-height: 1;
+}
+
+.ch-drawer-prod-fit .lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.ch-drawer-prod-intro {
+  font-size: 12px;
+  color: var(--ink-70);
+  line-height: 1.55;
+  font-family: var(--cjk);
+}
+
+.ch-drawer-prod-meta {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px dotted var(--ink-10);
+  padding-top: 8px;
+}
+
+.ch-drawer-prod-meta > div {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+}
+
+.ch-drawer-prod-meta dt {
+  color: var(--ink-50);
+  font-weight: 500;
+}
+
+.ch-drawer-prod-meta dd {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
+/* ══════ Region 4 · 切入话术 list ═══════════════════════════ */
+
+.ch-drawer-pitch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  counter-reset: pitch;
+}
+
+.ch-drawer-pitch-item {
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--chalk) 96%, var(--t-channel) 4%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  counter-increment: pitch;
+}
+
+.ch-drawer-pitch-item::before {
+  content: counter(pitch);
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--t-channel) 25%, transparent);
+  line-height: 1;
+}
+
+.ch-drawer-pitch-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.ch-drawer-pitch-head .who {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--t-channel) 70%, var(--ink));
+}
+
+.ch-drawer-pitch-head .ref {
+  font-family: var(--mono);
+  color: var(--ink-50);
+}
+
+.ch-drawer-pitch-text {
+  font-family: var(--cjk);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.ch-drawer-empty {
+  padding: 14px;
+  font-size: 12px;
+  color: var(--ink-48);
+  font-style: italic;
+  background: var(--ink-04);
+  border-radius: var(--r-md);
+  text-align: center;
+}

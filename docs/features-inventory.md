@@ -470,6 +470,20 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **smoke_test**: `web/tests/regression/channel-mock-switch.spec.ts` (3 case · default render + zhirong panel 全切 + kangyuan 极端档)
 - **依赖**: `docs/contracts/workspace-state-protocol.md` (本 entry 是该协议的 Channel 第一波实装) · 后续 Stage C 5 Agent (Report/Credit/Alert/Compli/Riskctrl) 复制本 pattern · 各自加 F-XXX
 
+## F-042 · Channel Candidate Detail Drawer · radar / 匹配明细 / 产品 / 话术
+
+- **location**: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`selectedCandidateId` useState · ESC 关 hook · `CandidateDetailDrawer` inline component) + `web/src/lib/mock/agent-channel-sessions.ts` (3 新类型 `MatchDimension` / `ProductRec` / `PitchScript` · 5 mock session 各 candidate 都填) + `web/src/app/archive/channel/channel-workspace.css` (`.ch-drawer*` 50+ rules)
+- **selector**: `[data-testid="channel-candidate-drawer"]` 主容器 · `[data-testid="channel-candidate-drawer-backdrop"]` 半透蒙层 · `[data-testid="channel-candidate-drawer-name"]` 标题 · `[data-testid="channel-candidate-drawer-close"]` 关闭按钮 · `[data-testid="candidate-match-dim-chip"]` × 3-6 匹配维度 chip · `[data-testid="candidate-product-card"]` × 3 产品卡 · `[data-testid="candidate-pitch-script"]` × 3-5 话术 · `[data-testid="channel-candidate-card"][data-clickable="yes"]` 触发源
+- **interaction**: candidate card click → `setSelectedCandidateId(c.id)` → 右抽屉 220ms slide-in · 4 区: ① header (name + similarity + meta) · ② §一 RadarView 8 维 + 该候选 SignalTimeline · ③ §二 匹配维度明细 chip 列表 (B.4b · 每 chip 显 dim_name / display / score / hit_evidence 来源) · ④ §三 Top3 产品推荐卡 (B.4c · product_name + fit_score + intro + amount_range + rate_band) + §四 切入话术 list (B.4c · customer_name_placeholder + script_text 60-150 字 · 含产品 + 卖点 + 政策红利) · ESC / backdrop click / close button 任一关 drawer · 切 session / live SSE 重置时自动 reset selectedCandidateId
+- **introduce**: 2026-04-28 master plan §B.4 (gap #5 候选不可点 detail) + §B.4b (匹配维度明细 · "为什么像") + §B.4c (Top3 产品推荐 + 切入话术 · "打开电话即用") · PRD v2 用户故事核心
+- **fixes**: master plan gap #5 (候选无 detail drawer · 体验残缺) + PRD v2 客户经理"打开电话即用"诉求
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/channel-candidate-drawer.spec.ts` (4 case · default render 无 drawer / click 候选 4 区都渲染 / ESC + backdrop 关 / 切 session 自动关)
+- **数据契约 (反 5 原则 §3.5)**: 5 mock session × 5 candidate · 各 candidate 都有 `match_dimensions` (3-6 条 · score 0-100 · 不含 is_match 答案字段) + `product_recommendations` (3 条 · fit_score 0-100 + intro + 额度 + 利率) + `pitch_scripts` (3 条 · 60-150 字含 customer_name_placeholder + 关键卖点 + 不虚构数字) · 难度分层覆盖 简单 20% / 中等 50% / 困难 20% / 极端 10%
+- **依赖**: `docs/contracts/workspace-state-protocol.md` §2 (4) selectedCandidate gate + §5 candidate detail drawer pattern · `docs/contracts/agent-channel-spec.md` §2 C7/C8/C9 + §6.3 candidate 数据契约
+- **复用**: 后续 Stage C 5 Agent 复制本 pattern · drawer 4 区结构是跨 Workspace 模板
+
 ---
 
 ## 维护规则
