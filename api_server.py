@@ -31,7 +31,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -255,6 +255,178 @@ async def im_send(req: ImSendRequest):
         }
     except (RuntimeError, ValueError, OSError, AttributeError) as e:
         raise HTTPException(500, f"IM call failed: {type(e).__name__}: {e}") from e
+
+
+# ============================================================================
+# IM Stage D.2 + D.3 · Thread DB + WebSocket + REST
+# 按 docs/contracts/im-protocol.md v1.0
+# ============================================================================
+
+from im_service import threads as _im_threads  # noqa: E402
+from im_service.auth import TokenInvalidError, decode_token as _im_decode_token  # noqa: E402
+from im_service.schemas import (  # noqa: E402
+    CreateThreadRequest,
+    ImMessage,
+    SendMessageRequest,
+    SendMessageResponse,
+)
+from im_service.websocket import im_websocket_endpoint, manager as _im_ws_manager  # noqa: E402
+
+_im_threads.init_schema()
+
+
+def _resolve_im_user(authorization: str | None, token_q: str | None) -> str:
+    """从 Authorization 头 (Bearer ...) 或 ?token query 解析 user_id.
+
+    auth 优先级: Authorization Bearer > query token · 失败抛 401。
+    生产 (D.1 land 后) 走真 JWT · 当前 demo 路径接受 demo-<user_id>。
+    """
+    raw = ""
+    if authorization:
+        if authorization.lower().startswith("bearer "):
+            raw = authorization[7:].strip()
+        else:
+            raw = authorization.strip()
+    elif token_q:
+        raw = token_q.strip()
+
+    if not raw:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": {"code": "MISSING_TOKEN",
+                              "message": "请先登录 · 缺 token"}},
+        )
+    try:
+        return _im_decode_token(raw)
+    except TokenInvalidError as e:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": {"code": "TOKEN_INVALID", "message": str(e)}},
+        ) from e
+
+
+@app.get("/api/im/threads")
+async def im_list_threads(
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    """列 currentUser 在 participants 里的 thread (按 last_message_at desc)."""
+    user_id = _resolve_im_user(authorization, token)
+    items = _im_threads.list_threads_for_user(user_id)
+    return {"user_id": user_id, "threads": items}
+
+
+@app.get("/api/im/threads/{thread_id}/messages")
+async def im_list_messages(
+    thread_id: str,
+    before: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    """历史消息 paginated · before 是 created_at cursor (ASC) · 限 currentUser 在 thread."""
+    user_id = _resolve_im_user(authorization, token)
+    if not _im_threads.thread_has_participant(thread_id, user_id):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "NOT_IN_THREAD",
+                              "message": f"user {user_id} not in thread {thread_id}"}},
+        )
+    msgs = _im_threads.list_messages(thread_id, before=before, limit=limit)
+    return {"thread_id": thread_id, "messages": msgs, "limit": limit, "before": before}
+
+
+@app.post("/api/im/threads")
+async def im_create_thread(
+    req: CreateThreadRequest,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    """创建 thread · currentUser 自动加入 participants."""
+    user_id = _resolve_im_user(authorization, token)
+    parts = list({user_id, *(req.participants or [])})
+    try:
+        thread = _im_threads.create_thread(
+            title=req.title or "新会话",
+            participants=parts,
+            kind=req.kind,
+            customer_id=req.customer_id,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED", "message": str(e)}},
+        ) from e
+    return thread
+
+
+@app.post("/api/im/threads/{thread_id}/read")
+async def im_mark_thread_read(
+    thread_id: str,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    """标记 thread 已读 · currentUser 必须在 participants."""
+    user_id = _resolve_im_user(authorization, token)
+    try:
+        return _im_threads.mark_thread_read(thread_id, user_id)
+    except KeyError as e:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "THREAD_NOT_FOUND", "message": str(e)}},
+        ) from e
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "NOT_IN_THREAD", "message": str(e)}},
+        ) from e
+
+
+@app.post("/api/im/messages")
+async def im_send_message(
+    req: SendMessageRequest,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    """新 send 端点 · 持久化 + WebSocket broadcast · 替代 /api/im/send (后者保留向后兼容)."""
+    user_id = _resolve_im_user(authorization, token)
+    if not _im_threads.thread_has_participant(req.thread_id, user_id):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "NOT_IN_THREAD",
+                              "message": f"user {user_id} not in thread {req.thread_id}"}},
+        )
+    try:
+        msg = _im_threads.insert_message(
+            thread_id=req.thread_id,
+            from_id=user_id,
+            kind=req.kind or "text",
+            content=req.content or "",
+            refs=req.refs,
+        )
+    except (KeyError, ValueError) as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "INSERT_FAILED", "message": str(e)}},
+        ) from e
+
+    # WebSocket broadcast (异步 · 不阻塞 REST 响应)
+    try:
+        await _im_ws_manager.broadcast_to_thread(
+            req.thread_id,
+            {"type": "message", "thread_id": req.thread_id, "message": msg},
+        )
+    except (RuntimeError, ConnectionError, json.JSONDecodeError):
+        # broadcast 失败不阻断写入 · client 重连 resync 即可补
+        pass
+
+    return SendMessageResponse(message=ImMessage(**msg), ack="stored").model_dump()
+
+
+@app.websocket("/ws/im")
+async def im_websocket(websocket: WebSocket, token: str = Query(default="")):
+    """WebSocket 入口 · query param token=<jwt> · 业务逻辑全在 im_service.websocket."""
+    await im_websocket_endpoint(websocket, token=token)
 
 
 # ---------------------------------------------------------------------------
