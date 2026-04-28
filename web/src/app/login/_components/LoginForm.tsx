@@ -17,12 +17,15 @@ const ROLE_LABEL: Record<Role, string> = {
 export function LoginForm() {
   const login = useAuthStore((s) => s.login);
   const currentUser = useAuthStore((s) => s.currentUser);
+  const authBusy = useAuthStore((s) => s.authBusy);
+  const lastError = useAuthStore((s) => s.lastError);
   const router = useRouter();
   const [userId, setUserId] = useState<string>(DEMO_USERS[0].id);
   const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const current = DEMO_USERS.find((u) => u.id === userId);
+  const errorMessage = localError ?? lastError;
 
   useEffect(() => {
     if (currentUser) {
@@ -30,25 +33,24 @@ export function LoginForm() {
     }
   }, [currentUser, router]);
 
-  /* 5 user demo 密码 (前端校验 · prod 阶段接 backend /api/auth/login 替换)
-     2026-04-27 user 要"真密码" · password = user 名拼音小写 · 5 固定账号 */
-  const PASSWORD_MAP: Record<string, string> = {
-    u_wangzhe: "wangzhe",
-    u_lihua: "lihua",
-    u_zhoumin: "zhoumin",
-    u_chenkai: "chenkai",
-    u_liuye: "liuye",
-  };
+  /* W-D1F-A2 · 2026-04-28 · 前端 PASSWORD_MAP 已彻底移除
+     password 走 backend bcrypt verify (auth_service/users.py · auth_service/__init__.py)
+     login() 是 async · 调 POST /api/auth/login · cookie httpOnly 浏览器接管
+     失败 backend 返 401 + AUTH_FAILED · UI 拿 lastError 显错误条 */
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setAuthError(null);
-    const expected = PASSWORD_MAP[userId];
-    if (!expected || expected !== password) {
-      setAuthError("账号或密码错误");
+    setLocalError(null);
+    if (!userId || !password.trim()) {
+      setLocalError("请填写身份和密码");
       return;
     }
-    login(userId);
+    const ok = await login(userId, password);
+    if (!ok) {
+      // lastError 由 store 设置 · 不需要在这里重复设
+      return;
+    }
+    // 成功 redirect 由 useEffect 处理
   }
 
   return (
@@ -63,9 +65,7 @@ export function LoginForm() {
           <span className="cn">登 录</span>
           <span className="en">sign in</span>
         </h2>
-        <p className="lf-sub">
-          乾策 Studio · 信贷 AI 协作平台
-        </p>
+        <p className="lf-sub">乾策 Studio · 信贷 AI 协作平台</p>
       </header>
 
       <div className="lf-field">
@@ -77,8 +77,13 @@ export function LoginForm() {
             id="lf-persona"
             className="lf-select"
             value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            onChange={(e) => {
+              setUserId(e.target.value);
+              setLocalError(null);
+            }}
             data-role={current?.role}
+            data-testid="login-user-select"
+            disabled={authBusy}
           >
             {DEMO_USERS.map((u) => (
               <option key={u.id} value={u.id}>
@@ -105,12 +110,15 @@ export function LoginForm() {
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);
-            if (authError) setAuthError(null);
+            if (errorMessage) setLocalError(null);
           }}
+          data-testid="login-password-input"
+          disabled={authBusy}
         />
-        {authError && (
+        {errorMessage && (
           <div
             role="alert"
+            data-testid="login-error-banner"
             style={{
               fontSize: 12,
               color: "#E89B91",
@@ -122,7 +130,7 @@ export function LoginForm() {
               borderRadius: 8,
             }}
           >
-            ⚠ {authError}
+            ⚠ {errorMessage}
           </div>
         )}
       </div>
@@ -141,8 +149,10 @@ export function LoginForm() {
         type="submit"
         className="lf-submit"
         data-role={current?.role}
+        data-testid="login-submit"
+        disabled={authBusy}
       >
-        <span className="cn">进入 {current?.name ?? ""}</span>
+        <span className="cn">{authBusy ? "验证中…" : `进入 ${current?.name ?? ""}`}</span>
         <span className="en">
           <em>enter</em> ↘
         </span>
@@ -167,7 +177,7 @@ export function LoginForm() {
       </div>
 
       <footer className="lf-foot">
-        <span className="mono">platform.auth.v1</span>
+        <span className="mono">platform.auth.v1 · backend bcrypt</span>
         <span>© 2026 众安信科 · AI 中台</span>
       </footer>
     </form>

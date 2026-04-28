@@ -17,8 +17,10 @@ export function LogoutButton() {
   const router = useRouter();
   if (!user) return null;
 
-  function handleLogout() {
-    logout();
+  /* W-D1F-A2 · 2026-04-28 · logout 改 async backend call (POST /api/auth/logout 清 cookie)
+     即使 backend error · store 仍清前端 currentUser · UI 不阻 */
+  async function handleLogout() {
+    await logout();
     router.replace("/login");
   }
 

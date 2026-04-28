@@ -89,10 +89,9 @@ export function MorningBrief() {
     setMounted(true);
   }, []);
 
-  // AuthGate fallback: CLI-4 未就绪, 未登录 → 硬编 u_wangzhe
-  useEffect(() => {
-    if (mounted && !currentUser) login(FALLBACK_USER);
-  }, [mounted, currentUser, login]);
+  // W-D1F-A2 · 2026-04-28 · 移除 frontend fallback login(FALLBACK_USER)
+  // 改由 AuthGate (`/api/auth/me`) + LoginForm 真接 backend 处理未登录态
+  // (auth-protocol.md: cookie 是 source of truth · 前端不再自助硬编登录)
 
   // mockup staggerH1 — re-trigger glyph-rise
   useEffect(() => {

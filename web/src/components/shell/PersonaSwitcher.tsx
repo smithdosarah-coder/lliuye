@@ -75,7 +75,14 @@ export function PersonaSwitcher() {
                 aria-checked={active}
                 className={`persona-sw-item${active ? " on" : ""}`}
                 onClick={() => {
-                  if (!active) login(u.id);
+                  /* W-D1F-A2 · 2026-04-28 · login 改 backend bcrypt verify
+                     demo 期 password = userId 后缀 (u_wangzhe → wangzhe · per LoginForm.tsx:33 注释)
+                     production 期 PersonaSwitcher 应改"先 logout 再 redirect /login"流程
+                     · demo 期保留快速切换 UX */
+                  if (!active) {
+                    const demoPwd = u.id.replace(/^u_/, "");
+                    void login(u.id, demoPwd);
+                  }
                   setOpen(false);
                 }}
               >

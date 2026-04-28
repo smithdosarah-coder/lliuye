@@ -714,6 +714,23 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-057 · AuthGate enforce real backend · 5 user RBAC + httpOnly cookie + /403 redirect
+
+- **status**: live
+- **owner**: Worker A2 (W-D1F-A2 · 复用 W-D1-A2 backend `bd143b5`)
+- **goal**: 闭环 master plan §D.1 frontend (gap #10 5 user RBAC enforce 缺) · production-grade · 前端不再硬编 PASSWORD_MAP · 走 backend `auth_service/` (bcrypt + JWT + ACCESS matrix)
+- **location**: `web/src/lib/api/auth.ts` (3 endpoint client) · `web/src/lib/store/auth-store.ts` (refactor backend-driven · 移除 frontend PASSWORD_MAP · 加 `bootstrap()/login(uid,pwd)/logout()` async · `accessibleAgents` 从 /me 读) · `web/src/components/shell/AuthGate.tsx` (refactor `bootstrap()` GET /me + ACCESS matrix enforce + /403 redirect) · `web/src/app/login/_components/LoginForm.tsx` (移除 PASSWORD_MAP · 调 `login(userId, password)` 真接) · `web/src/app/403/page.tsx` (新建 friendly forbid 页) · `web/src/components/shell/LogoutButton.tsx` (logout async wait) · `web/src/components/shell/PersonaSwitcher.tsx` (demo 期 password = userId.replace("u_","")) · `web/src/app/today/_components/MorningBrief.tsx` (移除 fallback login(FALLBACK_USER)) · `web/next.config.ts` (`/api/auth/*` proxy 到 AUTH_BACKEND)
+- **selector**: `[data-testid="login-error-banner"]` 错误条 · `[data-testid="login-user-select"]` user 下拉 · `[data-testid="login-password-input"]` password input · `[data-testid="login-submit"]` 登录按钮 · `[data-testid="auth-403-page"]` 403 页 · `[data-testid="auth-403-back-today"]` 返 today link
+- **interaction**: 用户进 protected path (e.g. `/archive/credit`) → AuthGate `bootstrap()` GET `/api/auth/me` · 200 → 拿 user + accessibleAgents · 401 → router.replace("/login") · 已登录但访问无权 archive → router.replace("/403") · LoginForm 用户填 password → `login(userId, password)` async POST `/api/auth/login` · 成功 backend Set-Cookie zhongan_auth (httpOnly · 浏览器接管) · 失败 lastError 显错误条 · LogoutButton 点击 → `logout()` async POST `/api/auth/logout` 清 cookie + redirect `/login`
+- **introduce**: 2026-04-28 W-D1F-A2 worker · 配 W-D1-A2 backend `bd143b5` (auth_service/{users,jwt_util,rbac,dependencies}.py · POST /login + GET /me + POST /logout + Depends factory · 37 pytest PASS)
+- **fixes**: master plan gap #10 (5 user RBAC enforce 缺 · production 必修) full stack · auth-protocol.md v1.0 §1-§7 frontend 落地 · 前端不再 view-source 看见 password (`LoginForm.tsx:35-41` PASSWORD_MAP 彻底移除)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/auth-gate.spec.ts` (5 case · chromium 5/5 + edge 5/5 = 10/10 PASS · 未登录 redirect login + lihua credit_officer access 自身 + lihua blocked from channel + liuye admin full + logout 后 redirect)
+- **依赖**: backend `auth_service/` (W-D1-A2 `bd143b5` MERGED) · 3 endpoint live · `web/next.config.ts` 加 `/api/auth/*` rewrite 到 `AUTH_BACKEND` (默认 8000) · 安全: cookie httpOnly + SameSite=Lax + 24h exp · production https 加 Secure (`AUTH_COOKIE_SECURE=true`)
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`
