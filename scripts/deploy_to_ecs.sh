@@ -46,8 +46,23 @@ ssh_run "cd $ECS_REPO && \
   fi"
 
 echo ""
-echo "=== 3. pull origin main ==="
-ssh_run "cd $ECS_REPO && git pull origin main"
+echo "=== 3. pull origin main (6 retry × 30s · GitHub 网络抖兜底 · handoff §4 已知坑) ==="
+ssh_run "cd $ECS_REPO && for i in 1 2 3 4 5 6; do
+  if git pull origin main 2>&1; then
+    echo \"pull OK on attempt \$i\"
+    break
+  fi
+  if [ \"\$i\" -eq 6 ]; then
+    echo \"FATAL: pull failed after 6 retries\"
+    exit 1
+  fi
+  echo \"retry \$i/6 after 30s ...\"
+  sleep 30
+done"
+
+echo ""
+echo "=== 3.5 pip install -r requirements.txt (新依赖兜底 · PyJWT/bcrypt/sentry/etc) ==="
+ssh_run "cd $ECS_REPO && .venv/bin/pip install -r requirements.txt 2>&1 | tail -5"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo ""
@@ -61,6 +76,10 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
   echo ""
   echo "=== 6. start frontend service ==="
   ssh_run "sudo systemctl start lliuye-frontend"
+
+  echo ""
+  echo "=== 6.5 restart backend (full deploy 也要 · 新 Python module 加载) ==="
+  ssh_run "sudo systemctl restart lliuye-backend"
 else
   echo ""
   echo "=== 4-6 跳过 (--skip-build) · 仅 restart backend ==="
