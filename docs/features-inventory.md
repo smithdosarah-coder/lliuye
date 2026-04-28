@@ -456,6 +456,33 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## Report Workspace empty-state · F-047 ~ F-052
+
+> 本批由 W-CF-A1 worker 添加 (2026-04-28) · cross-link `docs/contracts/empty-state-design-protocol.md` v1.0
+> Channel 对应 F-046 由 Channel empty-state 后续 worker 添加 · 此处不预置占位
+
+## F-047 · Report Workspace 空白启动 · 3 CTA + empty skeleton + status pill
+
+- **location**: `web/src/app/archive/report/_components/ReportWorkspace.tsx` 主函数 + `ReportLaunchBar` / `ReportEmptySkeleton` / `ReportStatusPill` / `ReportLiveStrip` / `ReportLiveSections` 组件
+- **selector**: `[data-view="archive-report"][data-started="no"]` (default) · `[data-testid="report-launch-bar"]` · `[data-testid="report-upload-cta"]` (primary) · `[data-testid="report-template-select"]` (secondary) · `[data-testid="report-history-dropdown"]` (tertiary · 选项标 `(示例)`) · `[data-testid="report-empty-skeleton"]` · `[data-testid="report-status-pill"][data-mode="mock|live"][data-llm-connected]` · `[data-testid="report-mock-banner"]` (started+mock 才显)
+- **interaction**: empty-state-design-protocol §3 状态机 · `started` 默认 false · 不 auto-fire LLM · 上传材料 (primary) → POST `/api/report/upload` → setReportId + setStarted(true) + mode="live" · 选模板 (secondary) → setStarted(true) + mode="live" · 选历史 (tertiary) → setStarted(true) + mode="mock" · 操作按钮 (开始生成 / 导出 Word) 仅 started 时显
+- **introduce**: `b014813` 2026-04-28 backend C.1 (5 endpoint mount) + 本批 W-CF-A1 frontend 实装
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/report-empty-state.spec.ts` (5 case · chromium + edge 双 browser PASS)
+
+## F-052 · Report Workspace 完整 panel + v16 backend wire
+
+- **location**: `web/src/app/archive/report/_components/ReportWorkspace.tsx` (整体 1700+ lines) + `web/src/lib/api/report.ts` (4 endpoint client) + 既有 panel 函数 (`ReportHero` / `ReportPipelineBand` / `TemplatePanel` / `MaterialPanel` / `TimelinePanel` / `ConversationPanel` / `ReportComposer` / `PreviewPanel`) + 新组件 (`ReportLaunchBar` / `ReportEmptySkeleton` / `ReportStatusPill` / `ReportLiveStrip` / `ReportLiveSections`)
+- **selector**: 详见 F-047 testid · 加 `[data-testid="report-live-strip"][data-generating]` · `[data-testid="report-section-nav"]` · `[data-testid="report-section-active"]` · `[data-testid="report-refine-btn"]` · `[data-testid="report-generate-btn"]` · `[data-testid="report-export-btn"]`
+- **interaction**: full v16 wire · 上传 → POST `/api/report/upload` (multipart 落 `data/kb/report/{report_id}/`) · 触发生成 → POST `/api/report/v16/fill` SSE (5 stage `ingest/extract/infer/write/audit` + done event 含 sections / qc / stats / pending_questions · `mock_pipeline=true` 显式标 demo) · 章节重写 → POST `/api/report/refine_section` (LLM rewrite + session writeback · 无 key 走 fallback 拼接) · 导出 → POST `/api/report/export_docx` 返 docx blob + RFC 6266 中文文件名 → `triggerDownloadBlob` 触发浏览器下载 · status pill 轮询 `/api/report/health` 显 LLM 连接态
+- **introduce**: 同 F-047 (W-CF-A1 frontend) + backend `b014813` 2026-04-28 (5 endpoint)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/report-empty-state.spec.ts` (empty + 触发) · 完整 SSE / refine / export 真路径需 backend live 验 (deferred)
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`
