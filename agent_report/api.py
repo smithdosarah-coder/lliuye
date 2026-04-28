@@ -53,6 +53,15 @@ from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  
 from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
 
+# Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
+try:
+    from audit_service.decorators import audit_llm_call  # noqa: E402
+except ImportError:
+    def audit_llm_call(**_kwargs):  # type: ignore[no-redef]
+        def _passthrough(fn):
+            return fn
+        return _passthrough
+
 # Tiered data sources bootstrap (feat/tiered-search); fail-safe on missing deps
 try:
     from shared.sources import bootstrap as _sources_bootstrap; _sources_bootstrap()  # noqa: E402
@@ -990,6 +999,7 @@ class V16FillRequest(BaseModel):
 
 
 @app.post("/api/report/v16/fill")
+@audit_llm_call(agent_id="report", endpoint="/api/report/v16/fill", model="deepseek-chat")
 async def report_v16_fill(req: V16FillRequest, request: Request):
     """v16 主管线 SSE · classifier (复用) → generator → QC gate.
 

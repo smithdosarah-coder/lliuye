@@ -44,6 +44,12 @@ try:
 except Exception:
     pass
 
+# D.5 shared/kb_scan scanner registry bootstrap
+try:
+    from shared.kb_scan import bootstrap_scanners as _kb_bootstrap; _kb_bootstrap()
+except Exception:
+    pass
+
 app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.1")
 
 app.add_middleware(
@@ -165,6 +171,16 @@ async def auth_logout(response: Response, zhongan_auth: str | None = Cookie(defa
         secure=_COOKIE_SECURE,
     )
     return {"ok": True, "had_cookie": bool(zhongan_auth)}
+
+
+# ---------------------------------------------------------------------------
+# Stage E.1 · LLM Audit Log (银保监合规留痕 · admin /api/audit/llm_calls)
+# ---------------------------------------------------------------------------
+try:
+    from audit_service.api import register_audit_routes
+    register_audit_routes(app)
+except ImportError as _audit_import_err:
+    print(f"[api_server] audit_service unavailable: {_audit_import_err}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
