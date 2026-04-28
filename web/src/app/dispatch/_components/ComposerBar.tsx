@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,6 +11,8 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { sendMessage as sendMessageRest } from "@/lib/api/im";
+import { getImWsClient } from "@/lib/im/websocket";
 import {
   byUserId,
   publishEvent,
@@ -52,7 +55,29 @@ export function ComposerBar() {
   const addMessage = useDispatchStore((s) => s.addMessage);
   const appendSystemEvent = useDispatchStore((s) => s.appendSystemEvent);
   const clearThread = useDispatchStore((s) => s.clearThread);
+  const liveMode = useDispatchStore((s) => s.liveMode);
   const currentUser = useAuthStore((s) => s.currentUser);
+
+  /* Stage D.2F · typing debounce · 1s 内同 thread 只 emit 一次 typing */
+  const lastTypingAtRef = useRef<{ tid: string; at: number } | null>(null);
+  function maybeEmitTyping(tid: string) {
+    if (liveMode === "seed") return;
+    const now = Date.now();
+    const last = lastTypingAtRef.current;
+    if (last && last.tid === tid && now - last.at < 1000) return;
+    lastTypingAtRef.current = { tid, at: now };
+    try {
+      getImWsClient().sendTyping(tid);
+    } catch {
+      /* ws 未连 · 忽略 */
+    }
+  }
+
+  /* Stage D.2F · effect 在每次 thread 切换 reset typing 节流 */
+  const threadIdSnap = thread?.id ?? "";
+  useEffect(() => {
+    lastTypingAtRef.current = null;
+  }, [threadIdSnap]);
 
   const actorId = currentUser?.id ?? FALLBACK_USER_ID;
   const actor = byUserId(actorId);
@@ -133,6 +158,18 @@ export function ComposerBar() {
       payload: { messageId: msg.id, threadId: thread.id, text: value },
     });
     setText("");
+
+    /* Stage D.2F · 持久化到后端 + WebSocket broadcast 给其他 user
+       (live mode only · seed mode skip · 失败 silent · 本地已 optimistic) */
+    if (liveMode !== "seed" && thread) {
+      void sendMessageRest({
+        threadId: thread.id,
+        content: value,
+        kind: "text",
+      }).catch(() => {
+        /* 失败 keep optimistic local · WebSocket 重连后 resync */
+      });
+    }
 
     /* #5 + @agent 路由 · 2026-04-27 · IM 真接 DeepSeek + 解析 @智能体 名 */
     const AT_PATTERN =
@@ -342,6 +379,7 @@ export function ComposerBar() {
           rows={1}
           onChange={(e) => {
             setText(e.target.value);
+            if (thread) maybeEmitTyping(thread.id);
             setHighlight(0);
           }}
           onKeyDown={handleKeyDown}

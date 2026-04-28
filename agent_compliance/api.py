@@ -41,6 +41,15 @@ if str(PROJECT_ROOT) not in sys.path:
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
+# Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
+try:
+    from audit_service.decorators import audit_llm_call  # noqa: E402
+except ImportError:
+    def audit_llm_call(**_kwargs):  # type: ignore[no-redef]
+        def _passthrough(fn):
+            return fn
+        return _passthrough
+
 app = FastAPI(title="Agent5 Compliance Radar API", version="3.2")
 
 
@@ -106,6 +115,7 @@ async def compliance_health():
 
 
 @app.get("/api/compliance/policy_scan")
+@audit_llm_call(agent_id="compliance", endpoint="/api/compliance/policy_scan", model="deepseek-chat")
 async def compliance_policy_scan_get(query: str = "", limit: int = 10):
     """主动从政策源拉最新候选清单。失败优雅降级返回空 list + error，前端不崩。
 

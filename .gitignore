@@ -57,6 +57,8 @@ _screenshots/
 logs/
 fill_run_output.txt
 data/audit/*.jsonl
+data/audit/*.db
+data/audit/*.db-journal
 data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep
@@ -67,6 +69,9 @@ data/alert/latest.json
 data/compliance/sessions/
 data/compliance/latest.json
 !data/compliance/.gitkeep
+data/im/*.db
+data/im/*.db-*
+!data/im/.gitkeep
 evaluation/results/*.yaml
 evaluation/results/**/*.json
 !evaluation/results/.gitkeep

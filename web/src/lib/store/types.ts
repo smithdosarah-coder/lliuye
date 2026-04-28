@@ -127,12 +127,25 @@ export interface ImMessage {
   id: string;
   threadId: string; // 一般是 customerId 或 ticketId
   from: string; // User.id | "system" | AgentId
-  kind: "text" | "system_event" | "handoff_card" | "file" | "agent_output";
+  kind:
+    | "text"
+    | "system_event"
+    | "handoff_card"
+    | "file"
+    | "agent_output"
+    | "pin_ref"; // Stage D.2F · additive · Q-037 precedent · 与 backend insert_message kind 集合一致 (im-protocol §5.3)
   content: string; // 文本正文 or JSON 序列化
   refs?: {
     eventId?: string;
     ticketId?: string;
     fileUrl?: string;
+    /** Stage D.2F additive · pin_ref kind 用 · 画布 → composer drop 形成的缩略图卡 */
+    agentId?: string;
+    href?: string;
+    fullText?: string;
+    thumbDataUrl?: string;
+    /** Stage D.2F additive · agent_output kind 用 · 跨 agent run 引用 */
+    agentRunId?: string;
   };
   createdAt: string;
 }

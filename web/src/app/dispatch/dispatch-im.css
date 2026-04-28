@@ -840,3 +840,159 @@
     grid-template-columns: 240px minmax(0, 1fr) 280px;
   }
 }
+
+/* ────────────────────── Stage D.2F · IM WebSocket UI · 2026-04-28 ────────────────────── */
+
+/* WS 状态 pill (header 内 · ws live/closed/error 显式) */
+.dpx-stream-ws {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-48);
+}
+
+.dpx-stream-ws[data-state="open"] b {
+  color: #4a8c5e;
+}
+
+.dpx-stream-ws[data-state="connecting"] b {
+  color: var(--accent, #d4a04c);
+  animation: dpx-blink 1.4s ease-in-out infinite;
+}
+
+.dpx-stream-ws[data-state="error"] b,
+.dpx-stream-ws[data-state="closed"] b {
+  color: #c45a5a;
+}
+
+@keyframes dpx-blink {
+  50% { opacity: 0.45; }
+}
+
+/* History load button */
+.dpx-stream-history-load {
+  font-family: var(--cjk);
+  font-size: 11px;
+  color: var(--ink-65);
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  border: 1px solid var(--ink-12);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: opacity 0.18s ease, border-color 0.18s ease;
+}
+
+.dpx-stream-history-load:hover:not([disabled]) {
+  border-color: var(--ink-30);
+  color: var(--ink);
+}
+
+.dpx-stream-history-load[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Typing indicator (stream 底部 · composer 之上) */
+.dpx-stream-typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  font-family: var(--cjk);
+  font-size: 11.5px;
+  color: var(--ink-50);
+  border-top: 1px dashed var(--ink-08);
+}
+
+.dpx-stream-typing-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.dpx-stream-typing-dots em {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink-50);
+  animation: dpx-typing-pulse 1.2s ease-in-out infinite;
+}
+
+.dpx-stream-typing-dots em:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dpx-stream-typing-dots em:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dpx-typing-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* pin_ref thumbnail (MessageBubble 内 · im-protocol §7.2 缩略图卡 · 不显 url) */
+.wc-msg-pin-ref {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--g0b) 70%, transparent);
+  border: 1px solid var(--ink-12);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  min-width: 200px;
+  max-width: 320px;
+}
+
+.wc-msg-pin-ref:hover {
+  border-color: var(--ink-30);
+  background: color-mix(in srgb, var(--g0b) 90%, transparent);
+}
+
+.wc-msg-pin-ref-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.wc-msg-pin-ref-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: color-mix(in srgb, var(--ink-10) 60%, transparent);
+  color: var(--ink-65);
+  flex-shrink: 0;
+}
+
+.wc-msg-pin-ref-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wc-msg-pin-ref-title {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wc-msg-pin-ref-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-50);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

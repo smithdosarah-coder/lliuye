@@ -238,10 +238,19 @@ const seedMessages: Record<string, ImMessage[]> = {
   ],
 };
 
+/** Stage D.2F · live mode flags + typing presence (per im-protocol §4.1). */
+export type LiveMode = "seed" | "live" | "live_with_seed_fallback";
+
 interface DispatchState {
   threads: ImThread[];
   messages: Record<string, ImMessage[]>;
   currentThreadId: string | null;
+  /** Stage D.2F · "seed" 默认 · API fetch 成功后切 "live" · 失败保 "live_with_seed_fallback" */
+  liveMode: LiveMode;
+  /** Stage D.2F · WS 连接状态 (用于 UI status pill) */
+  wsState: "idle" | "connecting" | "open" | "closed" | "error";
+  /** Stage D.2F · per-thread { user_id: expire_ts } typing indicator */
+  typingByThread: Record<string, Record<string, number>>;
   selectThread: (id: string | null) => void;
   addMessage: (threadId: string, partial: Omit<ImMessage, "id" | "threadId" | "createdAt">) => ImMessage;
   appendSystemEvent: (
@@ -254,6 +263,20 @@ interface DispatchState {
     messageId: string,
     patch: Partial<Pick<ImMessage, "content" | "refs">>,
   ) => void;
+
+  /** Stage D.2F · 真后端推过来的消息 · 不重复插（按 id 去重） */
+  ingestRemoteMessage: (msg: ImMessage) => void;
+  /** Stage D.2F · API fetch 成功后批量替 thread list */
+  setRemoteThreads: (threads: ImThread[]) => void;
+  /** Stage D.2F · API fetch 历史消息 → 替 thread.messages */
+  setThreadMessages: (threadId: string, msgs: ImMessage[]) => void;
+  /** Stage D.2F · WebSocket typing 来 / 自维护 typing 用户表 (3s expire) */
+  noteTyping: (threadId: string, userId: string) => void;
+  /** Stage D.2F · 清过期的 typing presence (3s 后) */
+  pruneTyping: () => void;
+  /** Stage D.2F · 设 liveMode + wsState · UI 用 */
+  setLiveMode: (mode: LiveMode) => void;
+  setWsState: (state: DispatchState["wsState"]) => void;
 }
 
 const genMsgId = () =>
@@ -261,10 +284,16 @@ const genMsgId = () =>
 
 void ISO_NOW; // referenced by seed timestamps; keep symbol for future dynamic clock
 
+/** Stage D.2F · typing presence 过期时间 (per im-protocol §4.1 typing event 短暂) */
+const TYPING_EXPIRE_MS = 3_000;
+
 export const useDispatchStore = create<DispatchState>((set, get) => ({
   threads: seedThreads,
   messages: seedMessages,
   currentThreadId: null,
+  liveMode: "seed",
+  wsState: "idle",
+  typingByThread: {},
   selectThread: (id) => {
     set((s) => ({
       currentThreadId: id,
@@ -320,6 +349,97 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
         ),
       },
     })),
+
+  /** Stage D.2F · WebSocket 推消息进 store · 按 id 去重 (post-send 自己已 ingest 过) */
+  ingestRemoteMessage: (msg) => {
+    if (!msg || !msg.threadId) return;
+    set((s) => {
+      const existing = s.messages[msg.threadId] ?? [];
+      if (existing.some((m) => m.id === msg.id)) return s; // dedup
+      return {
+        messages: {
+          ...s.messages,
+          [msg.threadId]: [...existing, msg],
+        },
+        threads: s.threads.map((t) =>
+          t.id === msg.threadId
+            ? {
+                ...t,
+                lastMessageAt: msg.createdAt,
+                unreadCount:
+                  s.currentThreadId === msg.threadId
+                    ? 0
+                    : (t.unreadCount ?? 0) + (msg.kind === "system_event" ? 0 : 1),
+              }
+            : t,
+        ),
+      };
+    });
+  },
+
+  /** Stage D.2F · API fetch 成功后替 thread list (保留 currentThreadId 选中态) */
+  setRemoteThreads: (next) => {
+    set((s) => {
+      const stillExists = s.currentThreadId
+        ? next.some((t) => t.id === s.currentThreadId)
+        : false;
+      return {
+        threads: next,
+        currentThreadId: stillExists ? s.currentThreadId : s.currentThreadId,
+      };
+    });
+  },
+
+  /** Stage D.2F · 替单 thread 的 messages 列 (历史消息 / resync) */
+  setThreadMessages: (threadId, msgs) => {
+    if (!threadId) return;
+    set((s) => ({
+      messages: { ...s.messages, [threadId]: [...msgs] },
+    }));
+  },
+
+  /** Stage D.2F · 收 typing event · 记 user_id + expire_ts */
+  noteTyping: (threadId, userId) => {
+    if (!threadId || !userId) return;
+    const expireAt = Date.now() + TYPING_EXPIRE_MS;
+    set((s) => {
+      const cur = s.typingByThread[threadId] ?? {};
+      return {
+        typingByThread: {
+          ...s.typingByThread,
+          [threadId]: { ...cur, [userId]: expireAt },
+        },
+      };
+    });
+  },
+
+  /** Stage D.2F · 清过期 typing entry (UI useEffect 周期调用) */
+  pruneTyping: () => {
+    const now = Date.now();
+    set((s) => {
+      const next: Record<string, Record<string, number>> = {};
+      let changed = false;
+      for (const [tid, presence] of Object.entries(s.typingByThread)) {
+        const filtered: Record<string, number> = {};
+        for (const [uid, exp] of Object.entries(presence)) {
+          if (exp > now) {
+            filtered[uid] = exp;
+          } else {
+            changed = true;
+          }
+        }
+        if (Object.keys(filtered).length > 0) {
+          next[tid] = filtered;
+        } else if (presence && Object.keys(presence).length > 0) {
+          changed = true;
+        }
+      }
+      return changed ? { typingByThread: next } : s;
+    });
+  },
+
+  setLiveMode: (mode) => set({ liveMode: mode }),
+  setWsState: (state) => set({ wsState: state }),
 }));
 
 /** 通过 customerId 反查 thread（事件桥用） */

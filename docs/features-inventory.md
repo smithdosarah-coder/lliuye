@@ -729,6 +729,32 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **smoke_test**: `web/tests/regression/auth-gate.spec.ts` (5 case · chromium 5/5 + edge 5/5 = 10/10 PASS · 未登录 redirect login + lihua credit_officer access 自身 + lihua blocked from channel + liuye admin full + logout 后 redirect)
 - **依赖**: backend `auth_service/` (W-D1-A2 `bd143b5` MERGED) · 3 endpoint live · `web/next.config.ts` 加 `/api/auth/*` rewrite 到 `AUTH_BACKEND` (默认 8000) · 安全: cookie httpOnly + SameSite=Lax + 24h exp · production https 加 Secure (`AUTH_COOKIE_SECURE=true`)
 
+## F-058 · IM WebSocket 实时 + Thread 持久化 + 6 kind 渲染 (Stage D.2F frontend)
+
+- **location**:
+  - `web/src/lib/im/websocket.ts` (ImWebSocketClient · reconnect exponential backoff · heartbeat 30s)
+  - `web/src/lib/api/im.ts` (REST: listThreads / listMessages / sendMessage / markThreadRead / createThread)
+  - `web/src/app/dispatch/_components/ImLiveBridge.tsx` (mount-once · fetch threads + connect ws + subscribe + pruneTyping)
+  - `web/src/app/dispatch/_components/MessageStream.tsx` (WS state pill + typing indicator + history-load + mark-read)
+  - `web/src/app/dispatch/_components/MessageBubble.tsx` (PinRefThumbnail · pin_ref kind 渲染缩略图卡)
+  - `web/src/app/dispatch/_components/ComposerBar.tsx` (typing debounce 1s + sendMessage REST 持久化)
+  - `web/src/app/dispatch/_store/dispatch-store.ts` (ingestRemoteMessage / setRemoteThreads / noteTyping / pruneTyping / liveMode + wsState)
+  - `web/src/lib/store/types.ts` (ImMessage.kind 加 "pin_ref" · refs 加 agentId/href/fullText/thumbDataUrl/agentRunId · additive · Q-037 precedent)
+- **selector**: `[data-testid="dispatch-view"]` · `[data-testid="im-ws-state"]` · `[data-testid="im-typing-indicator"]` · `[data-testid="im-thread-history-load"]` · `[data-testid="im-pin-ref-thumbnail"]`
+- **interaction**:
+  - mount: ImLiveBridge listThreads → setRemoteThreads + connect ws · fallback `live_with_seed_fallback` 兜底
+  - switch thread: 自动 listMessages + ws.subscribe(tid) + markThreadRead
+  - send message: optimistic local + sendMessage REST 持久化 · WS broadcast 给其他 user · ingest 时 id dedup
+  - typing: ComposerBar input debounce 1s emit ws.sendTyping · 其他 user 收 → noteTyping → indicator 3s expire
+  - 重连: exponential backoff (1s→30s cap) · re-subscribe 历史 thread
+  - heartbeat: 30s · backend 60s timeout 安全 buffer
+- **backend wire**: Stage D.2 backend (ab59186 · 7c2afaf MERGED · 14d64e1 → main · 2026-04-28)
+- **contract**: `docs/contracts/im-protocol.md` v1.0 (§3 schema · §4 ws · §5 6 kind · §7 pin_ref · §10 migration)
+- **introduce**: 2026-04-28 W-D2F-A3 worker (`14d64e1` → main)
+- **lost_at**: N/A (新 feature · 此前 dispatch 走 polling fetch + seed only · 无 WebSocket / 无持久化)
+- **smoke_test**: `web/tests/regression/im-websocket.spec.ts` (5 case · route + WS state + history-load + pin_ref + typing indicator)
+- **NB**: seed 兜底 `live_with_seed_fallback` · D.1 frontend AuthGate (W-D1F-A2) 提供 cookie auth_token · 本批 fallback `getImToken()` 取 cookie/localStorage/demo
+
 ---
 
 ## 维护规则

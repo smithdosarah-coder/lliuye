@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { useCustomerStore } from "@/lib/store";
+import { byUserId, useCustomerStore } from "@/lib/store";
 import type { ImMessage } from "@/lib/store";
+import { listMessages, markThreadRead } from "@/lib/api/im";
 
 import { useDispatchStore } from "../_store/dispatch-store";
 import { ComposerBar } from "./ComposerBar";
@@ -12,6 +13,7 @@ import { MessageBubble } from "./MessageBubble";
 import { SystemEventCard } from "./SystemEventCard";
 
 const EMPTY_MESSAGES: ImMessage[] = [];
+const EMPTY_TYPING: Record<string, number> = {};
 
 export function MessageStream() {
   const currentId = useDispatchStore((s) => s.currentThreadId);
@@ -25,11 +27,43 @@ export function MessageStream() {
   const customer = useCustomerStore((s) =>
     thread?.customerId ? s.byId(thread.customerId) : undefined,
   );
+  const liveMode = useDispatchStore((s) => s.liveMode);
+  const wsState = useDispatchStore((s) => s.wsState);
+  const typingPresence = useDispatchStore((s) =>
+    s.currentThreadId ? s.typingByThread[s.currentThreadId] ?? EMPTY_TYPING : EMPTY_TYPING,
+  );
+  const setThreadMessages = useDispatchStore((s) => s.setThreadMessages);
+
   const tailRef = useRef<HTMLDivElement | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     tailRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, currentId]);
+
+  /* Stage D.2F · 切 thread 时 mark read (不阻塞 UI · 失败 silent · seed mode skip) */
+  useEffect(() => {
+    if (!currentId) return;
+    if (liveMode === "seed") return;
+    void markThreadRead(currentId).catch(() => {
+      /* ignore · UI 已经 selectThread reset unread */
+    });
+  }, [currentId, liveMode]);
+
+  async function handleHistoryLoad() {
+    if (!currentId || historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const more = await listMessages(currentId, { limit: 200 });
+      setThreadMessages(currentId, more);
+    } catch {
+      /* fallback: 保留 seed messages */
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  const typingUsers = Object.keys(typingPresence ?? {});
 
   if (!thread) {
     return (
@@ -47,7 +81,7 @@ export function MessageStream() {
   }
 
   return (
-    <section className="dpx-stream">
+    <section className="dpx-stream" data-live-mode={liveMode} data-ws-state={wsState}>
       <header className="dpx-stream-head">
         <div className="dpx-stream-title">
           <h2>{customer?.name ?? thread.title}</h2>
@@ -64,6 +98,26 @@ export function MessageStream() {
             <em>PARTICIPANTS</em>
             <b>{thread.participants.length}</b>
           </span>
+          <span
+            className="dpx-stream-ws"
+            data-state={wsState}
+            data-testid="im-ws-state"
+            title={`live mode · ${liveMode}`}
+          >
+            <em>WS</em>
+            <b>{wsState}</b>
+          </span>
+          <button
+            type="button"
+            className="dpx-stream-history-load"
+            onClick={handleHistoryLoad}
+            disabled={historyLoading}
+            data-testid="im-thread-history-load"
+            data-loading={historyLoading ? "yes" : "no"}
+            title="重新拉取历史消息"
+          >
+            {historyLoading ? "拉取中…" : "加载历史"}
+          </button>
         </div>
       </header>
       <div className="dpx-stream-body">
@@ -83,9 +137,41 @@ export function MessageStream() {
         })}
         <div ref={tailRef} />
       </div>
+      {typingUsers.length > 0 ? (
+        <div
+          className="dpx-stream-typing"
+          role="status"
+          aria-live="polite"
+          data-testid="im-typing-indicator"
+        >
+          <span className="dpx-stream-typing-dots" aria-hidden>
+            <em />
+            <em />
+            <em />
+          </span>
+          <span className="dpx-stream-typing-text">
+            {formatTypingUsers(typingUsers)}
+          </span>
+        </div>
+      ) : null}
       <ComposerBar />
     </section>
   );
+}
+
+/* Stage D.2F · 「李华 + 周敏 正在输入…」 / 「2 人正在输入…」 */
+function formatTypingUsers(userIds: string[]): string {
+  if (userIds.length === 0) return "";
+  if (userIds.length === 1) {
+    const u = byUserId(userIds[0]);
+    return `${u?.name ?? userIds[0]} 正在输入…`;
+  }
+  if (userIds.length === 2) {
+    const a = byUserId(userIds[0]);
+    const b = byUserId(userIds[1]);
+    return `${a?.name ?? userIds[0]} + ${b?.name ?? userIds[1]} 正在输入…`;
+  }
+  return `${userIds.length} 人正在输入…`;
 }
 
 function stageLabel(stage: string | undefined): string {
