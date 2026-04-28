@@ -9,6 +9,11 @@ fastapi>=0.115
 uvicorn[standard]>=0.32
 pydantic>=2.9
 
+# Stage E.2 monitoring (production 24/7 ops · graceful fallback if missing)
+prometheus_client>=0.20
+sentry-sdk[fastapi]>=2.0
+PyYAML>=6.0
+
 # HTTP 客户端
 httpx>=0.27
 
