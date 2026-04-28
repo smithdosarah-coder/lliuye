@@ -1,0 +1,401 @@
+# -*- coding: utf-8 -*-
+"""agent_report.v16_runner — Stage C.1 SSE wrapper for v16_pipeline.
+
+设计目的:
+  把项目根的 ``v16_pipeline.run_pipeline`` (sync 函数 · 返聚合 dict) 包成
+  generator yield SSE 事件的形态 · 让 ``/api/report/fill`` 可以流式推 stage 进度。
+
+5 阶段映射(per agent-report-spec.md §5.3):
+  1. ingest   — 读上传材料 + 校验 classifier 产物
+  2. extract  — classifier 复用(已存在的 v16_llm_classified.json)
+  3. infer    — generator 装载 KB / facts / templates
+  4. write    — generator 真跑 element-level 改写(主耗时)
+  5. audit    — quality_scorer 9 维 QC
+
+Mock 路径:
+  无 ``classified_json`` / 无 DEEPSEEK_API_KEY 时切 mock · 走假 stage 进度 + 加载
+  ``mock_fixtures`` 数据 · 与现有 _mock_stream 保持兼容 · empty-state-design-protocol
+  §5 显式 demo 标记 (mock_pipeline=True 落 done payload)
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import queue
+import sys
+import threading
+import time
+import traceback
+from pathlib import Path
+from typing import Any, AsyncIterator
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+logger = logging.getLogger(__name__)
+
+# 5 阶段(同 api.py STAGE_*)
+STAGE_INGEST = "ingest"
+STAGE_EXTRACT = "extract"
+STAGE_INFER = "infer"
+STAGE_WRITE = "write"
+STAGE_AUDIT = "audit"
+STAGE_ORDER = [STAGE_INGEST, STAGE_EXTRACT, STAGE_INFER, STAGE_WRITE, STAGE_AUDIT]
+
+
+def _sse(event: str, data: dict) -> str:
+    body = json.dumps(data, ensure_ascii=False, default=str)
+    return f"event: {event}\ndata: {body}\n\n"
+
+
+def _stage(stage: str, progress: float, message: str) -> str:
+    return _sse("stage", {
+        "stage": stage,
+        "progress": round(progress, 2),
+        "message": message,
+        "pipeline": "v16",
+    })
+
+
+# ============================================================================
+# Mock 路径(测试 + demo · 默认走 mock 不需 API key)
+# ============================================================================
+
+async def mock_v16_stream(
+    *,
+    report_id: str,
+    source_docx: str = "samples/经纬测绘_对公成稿A.docx",
+    pretend_pass: bool = True,
+) -> AsyncIterator[str]:
+    """v16 mock SSE 流 · 用于测试 + empty-state demo.
+
+    输出 5 阶段假进度 + 1 个假 done payload。**不**真跑 v16_pipeline。
+    empty-state-design-protocol 要求 demo 显式标 · done event 含 mock_pipeline=true。
+    """
+    messages = {
+        STAGE_INGEST: "材料解析(mock) · 0 / 0 真材料",
+        STAGE_EXTRACT: "v16_classifier 路由复用(mock 跳过 LLM)",
+        STAGE_INFER: "v16_generator 加载 facts / KB(mock fixture)",
+        STAGE_WRITE: "v16 element-level 改写(mock)",
+        STAGE_AUDIT: "quality_scorer 9 维 QC(mock pass)",
+    }
+    n = len(STAGE_ORDER)
+    for i, st in enumerate(STAGE_ORDER):
+        yield _stage(st, (i + 1) / n, messages[st])
+        await asyncio.sleep(0.15)
+
+    # mock done payload
+    done = {
+        "event": "done",
+        "report_id": report_id,
+        "session_id": report_id,
+        "pipeline": "v16",
+        "mock_pipeline": True,
+        "source_docx": source_docx,
+        "report_docx_url": None,
+        "qc": {
+            "passed": pretend_pass,
+            "score": 86.5 if pretend_pass else 64.2,
+            "fatal_fail": False,
+            "halluc_count": 0,
+        },
+        "stats": {
+            "handler": {"preserve": 120, "fill": 86, "rewrite": 12},
+            "apply": {"keep": 120, "fill": 86, "clear": 0},
+            "pending_count": 4,
+        },
+        "pending_questions": [
+            {"id": "ext_1", "label": "外因 · 行业景气度",
+             "recommended": "请补充近 6 个月行业关键变化",
+             "source_ref": "材料 · 行业研究.docx p3"},
+            {"id": "ext_2", "label": "外因 · 上下游集中度",
+             "recommended": "前五大客户占比 / 前五大供应商占比",
+             "source_ref": "材料 · 销售明细.xlsx Sheet1"},
+        ],
+        "sections": [
+            {
+                "id": "chapter_1_background",
+                "title": "一、企业背景",
+                "content": "（mock）测试样本有限公司成立于 2015 年 · 注册资本 5000 万 ...",
+                "status": "done",
+                "word_count": 1200,
+            },
+            {
+                "id": "chapter_2_operation",
+                "title": "二、经营情况",
+                "content": "（mock）主营精密零部件 · 近 3 年营收稳定增长 ...",
+                "status": "done",
+                "word_count": 1500,
+            },
+            {
+                "id": "chapter_3_finance",
+                "title": "三、财务分析",
+                "content": "（mock）资产负债率 45%（行业 P50 38%）· 流动比率 1.6 ...",
+                "status": "done",
+                "word_count": 2200,
+            },
+            {
+                "id": "chapter_4_conclusion",
+                "title": "四、审批意见",
+                "content": "（待 Agent3 决策回写）",
+                "status": "pending",
+                "word_count": 0,
+            },
+        ],
+    }
+    yield _sse("done", done)
+
+
+# ============================================================================
+# 真路径(后台 thread 跑 v16_pipeline · 主协程 yield 事件)
+# ============================================================================
+
+def _run_v16_in_thread(
+    *,
+    source_docx: Path,
+    material_dir: Path,
+    classified_json: Path,
+    output_dir: Path,
+    emit: "queue.Queue[str]",
+) -> None:
+    """工作线程 · 真跑 v16_pipeline.run_pipeline · 把 stage/done/error push 队列.
+
+    阶段映射:
+      run_pipeline 内部:classifier 已经预跑 → 我们 stage 1 (ingest) +
+      stage 2 (extract) 是元数据准备 · stage 3 (infer) 在 generator 内部 ·
+      stage 4 (write) 是 generator 主体耗时 · stage 5 (audit) 是 QC
+    """
+    try:
+        # Step 1: ingest — 校验输入
+        emit.put(_stage(STAGE_INGEST, 0.05, f"读模板 {source_docx.name}"))
+        if not source_docx.exists():
+            emit.put(_sse("error", {
+                "stage": STAGE_INGEST,
+                "message": f"模板 docx 不存在: {source_docx}",
+                "pipeline": "v16",
+            }))
+            emit.put("__END__")
+            return
+        if not material_dir.exists():
+            emit.put(_sse("error", {
+                "stage": STAGE_INGEST,
+                "message": f"材料目录不存在: {material_dir}",
+                "pipeline": "v16",
+            }))
+            emit.put("__END__")
+            return
+
+        # Step 2: extract — 校验 classifier 产物
+        emit.put(_stage(STAGE_EXTRACT, 0.18, "校验 v16_classifier 路由表"))
+        if not classified_json.exists():
+            emit.put(_sse("error", {
+                "stage": STAGE_EXTRACT,
+                "message": (
+                    f"classifier 产物缺失: {classified_json}\n"
+                    "请先运行 `py v16_classifier.py` 或上传分类结果。"
+                ),
+                "pipeline": "v16",
+            }))
+            emit.put("__END__")
+            return
+
+        # Step 3: infer — 装载 generator 依赖
+        emit.put(_stage(STAGE_INFER, 0.30, "v16_generator 装载 KB / facts / templates"))
+
+        # Step 4: write — 真跑 generate(主耗时 · 内部含 LLM 调用)
+        emit.put(_stage(STAGE_WRITE, 0.45, "v16 element-level 改写(generator 跑中)"))
+        try:
+            from v16_pipeline import run_pipeline
+        except ImportError as e:
+            emit.put(_sse("error", {
+                "stage": STAGE_WRITE,
+                "message": f"v16_pipeline import 失败: {e}",
+                "pipeline": "v16",
+            }))
+            emit.put("__END__")
+            return
+
+        try:
+            summary = run_pipeline(
+                source_docx=source_docx,
+                material_dir=material_dir,
+                classified_json=classified_json,
+                output_dir=output_dir,
+            )
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
+            traceback.print_exc()
+            emit.put(_sse("error", {
+                "stage": STAGE_WRITE,
+                "message": f"v16_pipeline 执行失败: {type(e).__name__}: {e}",
+                "pipeline": "v16",
+            }))
+            emit.put("__END__")
+            return
+
+        emit.put(_stage(STAGE_WRITE, 0.85, "generator 完成 · 产物落盘"))
+
+        # Step 5: audit — QC 已经在 run_pipeline 内跑过 · 这里 stage 透传结果
+        qc = summary.get("qc") or {}
+        passed = qc.get("passed")
+        score = qc.get("score")
+        emit.put(_stage(
+            STAGE_AUDIT, 1.0,
+            f"QC {('通过' if passed else '阻断')} · 分 {score}",
+        ))
+
+        # done 事件 · 聚合 summary
+        output_docx = summary.get("output_docx")
+        pending_path = summary.get("pending_json")
+        pending_questions: list[dict] = []
+        if pending_path and Path(pending_path).is_file():
+            try:
+                raw = json.loads(Path(pending_path).read_text(encoding="utf-8"))
+                if isinstance(raw, list):
+                    pending_questions = raw[:30]
+                elif isinstance(raw, dict):
+                    pending_questions = list(raw.values())[:30]
+            except (OSError, ValueError, TypeError):
+                pass
+
+        report_docx_url = None
+        if output_docx and Path(output_docx).is_file():
+            # 与 api.py downloads 端点契合: /api/report/downloads/v16/{filename}
+            report_docx_url = f"/api/report/downloads/v16/{Path(output_docx).name}"
+
+        emit.put(_sse("done", {
+            "report_id": str(source_docx.stem),
+            "session_id": str(source_docx.stem),
+            "pipeline": "v16",
+            "mock_pipeline": False,
+            "source_docx": str(source_docx),
+            "report_docx_url": report_docx_url,
+            "output_docx_path": output_docx,
+            "qc": {
+                "passed": qc.get("passed"),
+                "score": qc.get("score"),
+                "fatal_fail": qc.get("fatal_fail", False),
+                "halluc_count": qc.get("hallucinations", 0),
+            },
+            "stats": {
+                "handler": summary.get("handler_stats"),
+                "apply": summary.get("apply_stats"),
+                "pending_count": summary.get("pending_count"),
+            },
+            "pending_questions": pending_questions,
+        }))
+    except Exception as e:  # noqa: BLE001 — last-resort crash guard
+        traceback.print_exc()
+        emit.put(_sse("error", {
+            "stage": STAGE_WRITE,
+            "message": f"v16_runner 内部错误: {type(e).__name__}: {e}",
+            "pipeline": "v16",
+        }))
+    finally:
+        emit.put("__END__")
+
+
+async def real_v16_stream(
+    *,
+    source_docx: Path,
+    material_dir: Path,
+    classified_json: Path,
+    output_dir: Path,
+) -> AsyncIterator[str]:
+    """真路径 SSE 流 · 启动后台线程 · 主协程从队列消费."""
+    emit: "queue.Queue[str]" = queue.Queue()
+    worker = threading.Thread(
+        target=_run_v16_in_thread,
+        kwargs=dict(
+            source_docx=source_docx,
+            material_dir=material_dir,
+            classified_json=classified_json,
+            output_dir=output_dir,
+            emit=emit,
+        ),
+        daemon=True,
+    )
+    worker.start()
+
+    while True:
+        try:
+            item = await asyncio.get_event_loop().run_in_executor(
+                None, emit.get, True, 0.5,
+            )
+        except queue.Empty:
+            if not worker.is_alive():
+                break
+            continue
+        if item == "__END__":
+            break
+        yield item
+
+
+# ============================================================================
+# Decision: real or mock based on env + inputs
+# ============================================================================
+
+def should_use_mock_v16(
+    *,
+    classified_json: Path | None,
+    has_dee_pseek_key: bool,
+    explicit_mock: bool,
+) -> tuple[bool, str]:
+    """判断 v16 fill 应走 mock 还是 real · 返 (should_mock, reason)."""
+    if explicit_mock:
+        return True, "explicit_mock=true"
+    if not has_dee_pseek_key:
+        return True, "DEEPSEEK_API_KEY 未配置 · 切 mock"
+    if classified_json is None or not classified_json.exists():
+        return True, "v16_llm_classified.json 不存在 · 切 mock(请先跑 v16_classifier)"
+    return False, "real_v16"
+
+
+async def fill_stream(
+    *,
+    report_id: str,
+    source_docx: Path,
+    material_dir: Path,
+    classified_json: Path,
+    output_dir: Path,
+    explicit_mock: bool = False,
+) -> AsyncIterator[str]:
+    """v16 fill 主入口 · 自动选 mock / real."""
+    has_key = bool(os.environ.get("DEEPSEEK_API_KEY", "").strip())
+    use_mock, reason = should_use_mock_v16(
+        classified_json=classified_json,
+        has_dee_pseek_key=has_key,
+        explicit_mock=explicit_mock,
+    )
+    if use_mock:
+        logger.warning("[v16_runner] mock path: %s", reason)
+        async for evt in mock_v16_stream(
+            report_id=report_id,
+            source_docx=str(source_docx),
+        ):
+            yield evt
+    else:
+        logger.warning("[v16_runner] real path · classified=%s", classified_json)
+        async for evt in real_v16_stream(
+            source_docx=source_docx,
+            material_dir=material_dir,
+            classified_json=classified_json,
+            output_dir=output_dir,
+        ):
+            yield evt
+
+
+__all__ = [
+    "STAGE_AUDIT",
+    "STAGE_EXTRACT",
+    "STAGE_INFER",
+    "STAGE_INGEST",
+    "STAGE_ORDER",
+    "STAGE_WRITE",
+    "fill_stream",
+    "mock_v16_stream",
+    "real_v16_stream",
+    "should_use_mock_v16",
+]
