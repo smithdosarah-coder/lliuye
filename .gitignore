@@ -61,6 +61,9 @@ data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep
 data/exports/
+data/alert/sessions/
+data/alert/latest.json
+!data/alert/.gitkeep
 evaluation/results/*.yaml
 evaluation/results/**/*.json
 !evaluation/results/.gitkeep
