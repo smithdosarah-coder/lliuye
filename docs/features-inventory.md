@@ -456,6 +456,22 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## Channel Workspace · multi-session mock state · F-041
+
+## F-041 · Channel mock_sessions multi-pattern session select · panel state hoist
+
+- **location**: `web/src/lib/mock/agent-channel-sessions.ts` (新建 5 ChannelSession · MOCK_SESSIONS_MAP + DEFAULT_SESSION_ID export) + `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (selectedSessionId useState + handleSelectSession + 5 panel function 接 sessionData props)
+- **selector**: `[data-testid="channel-session-select"]` 下拉 · `[data-testid="channel-session-option"]` × 5 选项
+- **interaction**: 选下拉 → 切到 5 标杆 session 之一 (sess_haichao SaaS B 轮 / sess_zhirong 智能制造 A 轮 / sess_yuemao 跨境电商成长期 / sess_kangyuan 生物医药早期 / sess_jiarui 新消费成熟期) → 全 5 panel (Hero / Funnel / Radar / Candidates / SignalTimeline) 实质切换数据 (radar / signals / funnel / candidates / conversation 各 session 物理不同 · 反 5 原则 §3.5 难度分层)
+- **introduce**: 2026-04-28 master plan §B.1 (mock_sessions ≥ 3) + §B.2 (panel state hoist) · workspace-state-protocol.md §2 4-useState gate 框架 · agent-channel-spec.md §6 多 session 标杆数据要求
+- **fixes**: master plan gap #2 (mock 单 const 不切 session) + gap #3 (panel 全 import 不接 props · radar/timeline/funnel 永远 mock)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/channel-mock-switch.spec.ts` (3 case · default render + zhirong panel 全切 + kangyuan 极端档)
+- **依赖**: `docs/contracts/workspace-state-protocol.md` (本 entry 是该协议的 Channel 第一波实装) · 后续 Stage C 5 Agent (Report/Credit/Alert/Compli/Riskctrl) 复制本 pattern · 各自加 F-XXX
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`

@@ -26,15 +26,18 @@ import {
 } from "recharts";
 import {
   CHANNEL_GLOBAL_STATS,
-  CHANNEL_SESSION,
+  MOCK_SESSIONS_MAP,
+  MOCK_SESSIONS_LIST,
+  DEFAULT_SESSION_ID,
   type Candidate,
+  type ChannelSession,
   type ConversationMessage,
   type FunnelStage,
   type RadarDimension,
   type RecentScoutSession,
   type SignalEvent,
   type SignalSource,
-} from "@/lib/mock/agent-channel-session";
+} from "@/lib/mock/agent-channel-sessions";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import {
@@ -65,7 +68,13 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 }
 
 export default function ChannelWorkspace() {
-  const s = CHANNEL_SESSION;
+  /* F-041 · 2026-04-28 · master plan §B.1+§B.2 · multi-session select hoist
+     selectedSessionId 切下拉 · 全 5 panel 跟着切 (gap #2 + #3 修)
+     Workspace state protocol: docs/contracts/workspace-state-protocol.md §2 */
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_SESSION_ID);
+  const currentSession: ChannelSession =
+    MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  const s = currentSession;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
   /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist */
@@ -78,8 +87,21 @@ export default function ChannelWorkspace() {
 
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
+     切 session 时同步 reset 到该 session 的 mock conversation · live SSE 时由 submit append。
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
+
+  /* 切 session 时 reset conversation + 清 live candidates · 让 panel 全 swap 干净 */
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      const sess = MOCK_SESSIONS_MAP[id];
+      if (!sess) return;
+      setSelectedSessionId(id);
+      setMessages(sess.conversation);
+      setLive(null);
+    },
+    [],
+  );
   const seq = useRef(0);
 
   const submit = useCallback((raw: string) => {
@@ -179,24 +201,33 @@ export default function ChannelWorkspace() {
       className="ch-v2"
       data-started={started ? "yes" : "no"}
     >
-      <ChannelHero topSim={topSim} />
-      <QueryBar setLive={setLive} setStarted={setStarted} />
+      <ChannelHero sessionData={s} topSim={topSim} />
+      <QueryBar
+        sessionData={s}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSession}
+        setLive={setLive}
+        setStarted={setStarted}
+      />
       {started ? (
         <>
-          <FunnelStrip />
+          <FunnelStrip sessionData={s} />
           <div className="ch-cross">
             <div className="ch-canvas">
               <div className="ch-canvas-top">
-                <RadarPanel />
-                <CandidatesPanel liveCandidates={liveCandidates} />
+                <RadarPanel sessionData={s} />
+                <CandidatesPanel
+                  sessionData={s}
+                  liveCandidates={liveCandidates}
+                />
               </div>
-              <ConversationPanel messages={messages} />
+              <ConversationPanel sessionData={s} messages={messages} />
             </div>
             <aside className="ch-aside">
-              <SignalTimelinePanel />
+              <SignalTimelinePanel sessionData={s} />
             </aside>
           </div>
-          <ChannelComposer onSubmit={submit} />
+          <ChannelComposer sessionData={s} onSubmit={submit} />
 
           <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
@@ -255,8 +286,14 @@ export default function ChannelWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ChannelHero({ topSim }: { topSim: number }) {
-  const s = CHANNEL_SESSION;
+function ChannelHero({
+  sessionData,
+  topSim,
+}: {
+  sessionData: ChannelSession;
+  topSim: number;
+}) {
+  const s = sessionData;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -291,8 +328,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /* ── 左栏 · Query 画像 ──────────────────────────────── */
 
-function QueryPanel() {
-  const q = CHANNEL_SESSION.query;
+function QueryPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const q = sessionData.query;
   return (
     <section className="rpt-panel rpt-panel--tpl">
       <div className="rpt-panel-head">
@@ -349,8 +386,8 @@ const SIG_STATUS_LABEL: Record<SignalSource["status"], string> = {
   off: "关",
 };
 
-function SignalsPanel() {
-  const sigs = CHANNEL_SESSION.signals;
+function SignalsPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const sigs = sessionData.signals;
   const active = sigs.filter((x) => x.status === "active").length;
   const totalHits = sigs.reduce((a, b) => a + b.hits, 0);
   return (
@@ -412,8 +449,8 @@ function SignalsPanel() {
 
 /* ── 左栏 · Recent sessions ───────────────────────── */
 
-function RecentPanel() {
-  const recent = CHANNEL_SESSION.recentSessions;
+function RecentPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const recent = sessionData.recentSessions;
   return (
     <section className="rpt-panel rpt-panel--tl">
       <div className="rpt-panel-head">
@@ -424,7 +461,7 @@ function RecentPanel() {
         <select
           className="rpt-tl-switch"
           aria-label="切换 session"
-          defaultValue={CHANNEL_SESSION.id}
+          defaultValue={sessionData.id}
         >
           {recent.map((r) => (
             <option key={r.id} value={r.id}>
@@ -467,8 +504,14 @@ function RecentRow({ row }: { row: RecentScoutSession }) {
 
 /* ── 中栏 · Conversation ────────────────────────────── */
 
-function ConversationPanel({ messages }: { messages: ConversationMessage[] }) {
-  const s = CHANNEL_SESSION;
+function ConversationPanel({
+  sessionData,
+  messages,
+}: {
+  sessionData: ChannelSession;
+  messages: ConversationMessage[];
+}) {
+  const s = sessionData;
   const blurb = `${messages.length} 条对话 · 候选 ${s.candidateCount} · 阻断 ${s.qcCounts.block}`;
   /* 新消息进来自动滚到底部（Composer 提交后看到自己的话） */
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -676,7 +719,13 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "industry";
 
-function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
+function ChannelComposer({
+  sessionData,
+  onSubmit,
+}: {
+  sessionData: ChannelSession;
+  onSubmit: (text: string) => void;
+}) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const [dropHover, setDropHover] = useState(false);
@@ -778,8 +827,8 @@ function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
     });
   }
 
-  const sigCount = CHANNEL_SESSION.signals.length;
-  const tagCount = CHANNEL_SESSION.query.featureTags.length;
+  const sigCount = sessionData.signals.length;
+  const tagCount = sessionData.query.featureTags.length;
 
   const slotCls = [
     "rpt-composer-slot",
@@ -917,17 +966,23 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
 }
 
 function QueryBar({
+  sessionData,
+  selectedSessionId,
+  onSelectSession,
   setLive,
   setStarted,
 }: {
+  sessionData: ChannelSession;
+  selectedSessionId: string;
+  onSelectSession: (id: string) => void;
   setLive: (c: Candidate[] | null) => void;
   setStarted: (v: boolean) => void;
 }) {
-  const q = CHANNEL_SESSION.query;
-  const recent = CHANNEL_SESSION.recentSessions;
+  const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
-     · 历史 session select onChange → 切到对应 mock CHANNEL_SESSION (现状已是 mock 渲染)
-     · 自由 textbox onSubmit → fetch /api/channel/run SSE · 真调 DeepSeek + Tavily */
+     · 历史 session select onChange → 切到对应 mock session (parent ChannelWorkspace 切 sessionData)
+     · 自由 textbox onSubmit → fetch /api/channel/run SSE · 真调 DeepSeek + Tavily
+     F-041 · 2026-04-28 · master plan B.1+B.2 · 5 sessions select 真切全 panel */
   const [input, setInput] = useState(
     "找做工业软件的 SaaS 公司 · B 轮后 · 华东 · 年营收 1-3 亿"
   );
@@ -1030,12 +1085,14 @@ function QueryBar({
     }
   }
 
-  function onSelectSession() {
-    /* 选下拉历史 session = mock 模式 · 清 stream 残留 + setLive(null) + 触发 panel 渲染 */
+  function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
+    /* F-041 · 选下拉历史 session = mock 模式 · 切 parent state · 清 stream 残留
+       parent.handleSelectSession 会 reset conversation + setLive(null) */
+    const id = e.target.value;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
-    setLive(null);
+    onSelectSession(id);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -1055,10 +1112,19 @@ function QueryBar({
           </h3>
         </div>
         <div className="ch-querybar-recent">
-          <label>历史 session (mock)</label>
-          <select defaultValue={CHANNEL_SESSION.id} onChange={onSelectSession}>
-            {recent.map((r) => (
-              <option key={r.id} value={r.id}>
+          <label htmlFor="ch-session-select">历史 session (mock · 5 标杆)</label>
+          <select
+            id="ch-session-select"
+            data-testid="channel-session-select"
+            value={selectedSessionId}
+            onChange={onSessionSelectChange}
+          >
+            {MOCK_SESSIONS_LIST.map((r) => (
+              <option
+                key={r.id}
+                value={r.id}
+                data-testid="channel-session-option"
+              >
                 {r.benchmark}
               </option>
             ))}
@@ -1127,8 +1193,8 @@ function QueryBar({
 
 /* ── 顶栏 · Funnel 5 阶段横条 ───────────────────────── */
 
-function FunnelStrip() {
-  const s = CHANNEL_SESSION;
+function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const funnel = s.funnel;
   const max = Math.max(...funnel.map((f) => f.count));
   return (
@@ -1161,8 +1227,8 @@ function FunnelStrip() {
 
 /* ── 区域 2 左 · Radar 独立面板 ──────────────────────── */
 
-function RadarPanel() {
-  const s = CHANNEL_SESSION;
+function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const top = s.candidates[0];
   return (
     <section className="rpt-panel ch-radar-panel">
@@ -1193,9 +1259,15 @@ function RadarPanel() {
 
 /* ── 区域 2 右 · 候选企业列表 ────────────────────────── */
 
-function CandidatesPanel({ liveCandidates }: { liveCandidates: Candidate[] | null }) {
-  const s = CHANNEL_SESSION;
-  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 CHANNEL_SESSION.candidates mock */
+function CandidatesPanel({
+  sessionData,
+  liveCandidates,
+}: {
+  sessionData: ChannelSession;
+  liveCandidates: Candidate[] | null;
+}) {
+  const s = sessionData;
+  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 sessionData.candidates mock */
   const cs = liveCandidates ?? s.candidates;
   const isLive = liveCandidates !== null;
   return (
@@ -1238,8 +1310,8 @@ const OUTPUT_ACTIONS = [
   { key: "rerun",  glyph: "⟳", label: "重扫", title: "调参后重新扫描" },
 ] as const;
 
-function ScoutOutputPanel() {
-  const s = CHANNEL_SESSION;
+function ScoutOutputPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const [tab, setTab] = useState<"radar" | "funnel" | "cand">("radar");
 
   return (
@@ -1487,11 +1559,16 @@ const SIG_EVENT_LABEL: Record<SignalEvent["kind"], string> = {
   "news":       "舆情",
 };
 
-function SignalTimelinePanel() {
-  const s = CHANNEL_SESSION;
-  const [activeId, setActiveId] = useState<string>(
-    s.candidates.find((c) => c.timeline?.length)?.id ?? s.candidates[0]?.id ?? ""
-  );
+function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
+  /* F-041 · 切 session 时 reset activeId 到当前 session 候选第一个 (有 timeline 优先) */
+  const initialId =
+    s.candidates.find((c) => c.timeline?.length)?.id ?? s.candidates[0]?.id ?? "";
+  const [activeId, setActiveId] = useState<string>(initialId);
+  /* 当 session 切换 (s.id 变) 时 sync activeId 到当前 session 第一个候选 */
+  useEffect(() => {
+    setActiveId(initialId);
+  }, [s.id, initialId]);
   const active = s.candidates.find((c) => c.id === activeId) ?? s.candidates[0];
   const events = active?.timeline ?? [];
 
