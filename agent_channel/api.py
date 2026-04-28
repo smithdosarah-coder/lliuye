@@ -2,10 +2,11 @@
 """agent_channel.api — Agent1 全渠道获客 FastAPI 路由模块。
 
 端点：
-  GET  /api/channel/scenarios   — 列出预置场景元数据
-  POST /api/channel/run         — 流式跑 look-alike 搜索 (SSE)
-  POST /api/channel/export_xlsx — 候选企业清单导出为 xlsx（本地 openpyxl，禁止境外 API）
-  POST /api/channel/handoff     — 移交选中候选给 Agent3 授信决策引擎
+  GET  /api/channel/scenarios    — 列出预置场景元数据
+  POST /api/channel/run          — 流式跑 look-alike 搜索 (SSE)
+  POST /api/channel/export_xlsx  — 候选企业清单导出为 xlsx（本地 openpyxl，禁止境外 API）
+  POST /api/channel/export_docx  — 候选线索 Word 报告导出（本地 python-docx · §B.7）
+  POST /api/channel/handoff      — 移交选中候选给 Agent3 授信决策引擎
 
 设计：
 - 独立 FastAPI app，由 api_server.py 通过 routes 合并模式装载
@@ -243,6 +244,88 @@ async def channel_export_xlsx(req: ChannelExportRequest):
 
 
 # ============================================================================
+# POST /api/channel/export_docx — Word 报告导出（master plan §B.7 · gap #12）
+# 本地 python-docx 渲染，不走境外 API（合规见 data_classification/agent1.md）
+# 内容契约：见 agent_channel/export_docx.py 模块 docstring
+# ============================================================================
+
+
+class ChannelExportDocxRequest(BaseModel):
+    session_id: str = ""
+    ideal_profile: dict | None = None
+    candidates: list[dict]
+    business_line: str = "corporate"
+    client_manager: str = ""
+    query: str = ""
+
+
+@app.post("/api/channel/export_docx")
+async def channel_export_docx(req: ChannelExportDocxRequest):
+    """生成 Agent1 候选线索 Word 报告并作为 attachment 返回。
+
+    内容含: 客户经理 + 日期 / IdealProfile 12 维卡 / TopN 候选概览表 /
+    每候选明细 (radar 8 维表 + 信号 timeline + 匹配维度 + Top3 产品 + 切入话术)。
+    """
+    if not req.candidates:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "candidates must not be empty",
+                    "details": {"field": "candidates"},
+                }
+            },
+        )
+
+    try:
+        from agent_channel.export_docx import build_filename, export
+    except Exception as e:  # noqa: BLE001 — surface deps issue
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"export_docx deps unavailable: {e}",
+                }
+            },
+        ) from e
+
+    payload = req.model_dump()
+    try:
+        data = export(payload)
+        filename = build_filename(payload)
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"docx render failed: {type(e).__name__}: {e}",
+                }
+            },
+        ) from e
+
+    # RFC 6266 · 中文文件名 ASCII 兜底 + UTF-8 编码段
+    from urllib.parse import quote
+    filename_ascii = re.sub(r"[^A-Za-z0-9._-]+", "_", filename) or "agent1_export.docx"
+    return Response(
+        content=data,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename_ascii}"; '
+                f"filename*=UTF-8''{quote(filename)}"
+            ),
+            "X-Agent1-Export-Candidates": str(len(req.candidates)),
+            "X-Agent1-Export-Type": "docx",
+        },
+    )
+
+
+# ============================================================================
 # POST /api/channel/handoff — 移交候选到 Agent3 授信决策引擎
 # 契约见 docs/contracts/channel_to_credit_handoff.md
 # ============================================================================
@@ -376,3 +459,96 @@ async def channel_upload_kb(
     """
     from agent_channel.kb_upload import handle_upload
     return await handle_upload(kb_type, file)
+
+
+# ============================================================================
+# POST /api/channel/profile — 12 维 IdealProfile LLM 抽取 (master plan §B.6b · onboarding W-B-A3)
+# 消费 A2 worker 写出的 data/channel_kb/{kb_id}.json
+# ============================================================================
+
+
+class ChannelProfileRequest(BaseModel):
+    kb_id: str
+    kb_type: str = "customer_list"  # "customer_list" | "policy" | "industry_guide"
+
+
+@app.post("/api/channel/profile")
+async def channel_profile(req: ChannelProfileRequest):
+    """从 A2 上传的 KB blob 抽 12 维 IdealProfile.
+
+    错误处理:
+      - kb_id 不存在 → 404
+      - LLM 超时 → 504
+      - LLM 其他失败 → 200 + 降级空 profile + reasoning_text 标原因
+    """
+    kb_id = (req.kb_id or "").strip()
+    if not kb_id:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": {
+                    "code": "VALIDATION_FAILED",
+                    "message": "kb_id 不能为空",
+                    "details": {"field": "kb_id"},
+                }
+            },
+        )
+
+    try:
+        from agent_channel.ideal_profile import (
+            extract_ideal_profile,
+            load_kb_blob,
+            KBNotFoundError,
+            LLMTimeoutError,
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"ideal_profile module unavailable: {e}",
+                }
+            },
+        ) from e
+
+    try:
+        blob = load_kb_blob(kb_id)
+    except KBNotFoundError as e:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": {
+                    "code": "KB_NOT_FOUND",
+                    "message": str(e),
+                    "details": {"kb_id": kb_id},
+                }
+            },
+        ) from e
+
+    try:
+        result = extract_ideal_profile(blob, kb_type=req.kb_type)
+    except LLMTimeoutError as e:
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error": {
+                    "code": "LLM_TIMEOUT",
+                    "message": str(e),
+                    "details": {"kb_id": kb_id},
+                }
+            },
+        ) from e
+    except (RuntimeError, ValueError, TypeError) as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": f"extract_ideal_profile failed: {type(e).__name__}: {e}",
+                }
+            },
+        ) from e
+
+    return result.model_dump()

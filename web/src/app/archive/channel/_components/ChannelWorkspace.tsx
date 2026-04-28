@@ -26,15 +26,59 @@ import {
 } from "recharts";
 import {
   CHANNEL_GLOBAL_STATS,
-  CHANNEL_SESSION,
+  MOCK_SESSIONS_MAP,
+  MOCK_SESSIONS_LIST,
+  DEFAULT_SESSION_ID,
   type Candidate,
+  type ChannelSession,
   type ConversationMessage,
   type FunnelStage,
+  type MatchDimension,
+  type PitchScript,
+  type ProductRec,
   type RadarDimension,
   type RecentScoutSession,
   type SignalEvent,
   type SignalSource,
-} from "@/lib/mock/agent-channel-session";
+} from "@/lib/mock/agent-channel-sessions";
+
+/* B.6b · 12 维 IdealProfile (后端 agent_channel/ideal_profile.py · IdealProfile12 schema)
+   消费 /api/channel/profile 返回的 ideal_profile 字段 */
+type IdealProfile12 = {
+  industry_focus: string[];
+  scale_preference: string[];
+  geo_coverage: string[];
+  stage: string;
+  capital_relation: string;
+  business_size: string;
+  employee_size: string;
+  customer_type: string[];
+  product_keywords: string[];
+  value_chain_position: string;
+  growth_signals: string[];
+  risk_signals: string[];
+};
+
+type IdealProfileResponse = {
+  ideal_profile: IdealProfile12;
+  confidence_score: number;
+  reasoning_text: string;
+};
+
+/* B.6 · 3 类 KB type (per agent-channel-spec.md §C1) */
+type KbType = "customer_list" | "policy" | "industry_guide";
+
+type KbUploadResult = {
+  kb_id: string;
+  kb_type: KbType;
+  source_filename: string;
+  summary_text: string;
+  n_rows?: number;
+  n_pages?: number;
+  n_paragraphs?: number;
+};
+
+type KbUploadStatus = "idle" | "uploading" | "success" | "error";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import {
@@ -65,10 +109,18 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 }
 
 export default function ChannelWorkspace() {
-  const s = CHANNEL_SESSION;
+  /* F-041 · 2026-04-28 · master plan §B.1+§B.2 · multi-session select hoist
+     selectedSessionId 切下拉 · 全 5 panel 跟着切 (gap #2 + #3 修)
+     Workspace state protocol: docs/contracts/workspace-state-protocol.md §2 */
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_SESSION_ID);
+  const currentSession: ChannelSession =
+    MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  const s = currentSession;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
-  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist */
+  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
+     F-043 · 2026-04-28 · master plan §B.5b · live mode 不再仅 candidates · 整 session shape 注入
+     liveCandidates 仍保留作为 b.4 candidate drawer 的 live data path (drawer 直接读 candidatesPool) */
   const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
 
   /* #3 · 2026-04-27 · 功能页面真初始化 · 默认 started=false 只渲染 Hero + QueryBar + 空白提示
@@ -76,10 +128,144 @@ export default function ChannelWorkspace() {
      user 反馈 "默认显示 mock 数据 · 跟用户输入没关联" · 加交互门槛 */
   const [started, setStarted] = useState(false);
 
+  /* F-042 · 2026-04-28 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer
+     候选 click → setSelectedCandidateId · drawer 4 区: header / radar+signals / 匹配明细 / 产品+话术
+     ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+
+  /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
+     kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
+  const [kbIds, setKbIds] = useState<Record<KbType, string | null>>({
+    customer_list: null,
+    policy: null,
+    industry_guide: null,
+  });
+  const [kbSummaries, setKbSummaries] = useState<Record<KbType, KbUploadResult | null>>({
+    customer_list: null,
+    policy: null,
+    industry_guide: null,
+  });
+  const [kbStatus, setKbStatus] = useState<Record<KbType, KbUploadStatus>>({
+    customer_list: "idle",
+    policy: "idle",
+    industry_guide: "idle",
+  });
+  const [kbErrors, setKbErrors] = useState<Record<KbType, string>>({
+    customer_list: "",
+    policy: "",
+    industry_guide: "",
+  });
+
+  /* F-045 · 2026-04-28 · master plan §B.6b · IdealProfile 12 维画像卡 + 用户 confirm
+     customer_list 上传完成 → 自动 POST /api/channel/profile → 12 chip + reasoning
+     用户点 "开始扫描" → setStarted(true) → 走 /api/channel/run */
+  const [idealProfile, setIdealProfile] = useState<IdealProfileResponse | null>(null);
+  const [profileFetching, setProfileFetching] = useState(false);
+  const [profileError, setProfileError] = useState<string>("");
+
+  /* F-045 · external SSE trigger · profile card "开始扫描" 按钮发 nonce + query · QueryBar 自动 run */
+  const [externalTrigger, setExternalTrigger] = useState<{
+    input: string;
+    nonce: number;
+  } | null>(null);
+
+  /* derive selected candidate (live 优先 · mock fallback) */
+  const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
+  const selectedCandidate: Candidate | null =
+    selectedCandidateId
+      ? candidatesPool.find((c) => c.id === selectedCandidateId) ?? null
+      : null;
+
+  /* ESC 关 drawer */
+  useEffect(() => {
+    if (!selectedCandidateId) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setSelectedCandidateId(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedCandidateId]);
+
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
+     切 session 时同步 reset 到该 session 的 mock conversation · live SSE 时由 submit append。
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
+
+  /* 切 session 时 reset conversation + 清 live candidates + 关 drawer · 让 panel 全 swap 干净 */
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      const sess = MOCK_SESSIONS_MAP[id];
+      if (!sess) return;
+      setSelectedSessionId(id);
+      setMessages(sess.conversation);
+      setLive(null);
+      setSelectedCandidateId(null);
+    },
+    [],
+  );
+
+  /* F-044 · master plan §B.6 · 单文件 KB 上传 (multipart) → /api/channel/upload_kb
+     成功后写 kbIds[type] · customer_list 触发 IdealProfile 自动抽取 (B.6b) */
+  const handleKbUpload = useCallback(
+    async (kbType: KbType, file: File) => {
+      const apiBase =
+        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+        "";
+      setKbStatus((prev) => ({ ...prev, [kbType]: "uploading" }));
+      setKbErrors((prev) => ({ ...prev, [kbType]: "" }));
+      try {
+        const fd = new FormData();
+        fd.append("kb_type", kbType);
+        fd.append("file", file, file.name);
+        const res = await fetch(`${apiBase}/api/channel/upload_kb`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 120)}`);
+        }
+        const data = (await res.json()) as KbUploadResult;
+        setKbIds((prev) => ({ ...prev, [kbType]: data.kb_id }));
+        setKbSummaries((prev) => ({ ...prev, [kbType]: data }));
+        setKbStatus((prev) => ({ ...prev, [kbType]: "success" }));
+
+        /* B.6b · customer_list 上传成功 → 自动 POST /api/channel/profile 抽 12 维画像 */
+        if (kbType === "customer_list") {
+          setProfileFetching(true);
+          setProfileError("");
+          try {
+            const pres = await fetch(`${apiBase}/api/channel/profile`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kb_id: data.kb_id, kb_type: kbType }),
+            });
+            if (!pres.ok) {
+              const text = await pres.text().catch(() => "");
+              throw new Error(`HTTP ${pres.status}: ${text.slice(0, 120)}`);
+            }
+            const pdata = (await pres.json()) as IdealProfileResponse;
+            setIdealProfile(pdata);
+          } catch (err) {
+            setProfileError(
+              err instanceof Error ? err.message : String(err),
+            );
+          } finally {
+            setProfileFetching(false);
+          }
+        }
+      } catch (err) {
+        setKbStatus((prev) => ({ ...prev, [kbType]: "error" }));
+        setKbErrors((prev) => ({
+          ...prev,
+          [kbType]: err instanceof Error ? err.message : String(err),
+        }));
+      }
+    },
+    [],
+  );
+
   const seq = useRef(0);
 
   const submit = useCallback((raw: string) => {
@@ -179,24 +365,57 @@ export default function ChannelWorkspace() {
       className="ch-v2"
       data-started={started ? "yes" : "no"}
     >
-      <ChannelHero topSim={topSim} />
-      <QueryBar setLive={setLive} setStarted={setStarted} />
+      <ChannelHero sessionData={s} topSim={topSim} />
+      {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
+      <KbUploadStrip
+        kbIds={kbIds}
+        kbStatus={kbStatus}
+        kbSummaries={kbSummaries}
+        kbErrors={kbErrors}
+        onUpload={handleKbUpload}
+      />
+      {/* F-045 · master plan §B.6b · IdealProfile 12 维画像卡 + "开始扫描" CTA
+         显示条件: 正在抽取 · 已抽取 · 抽取失败 (任一即显) · null/false/empty 均不显 */}
+      {(profileFetching || idealProfile !== null || profileError !== "") && (
+        <IdealProfileCard
+          profile={idealProfile}
+          loading={profileFetching}
+          error={profileError}
+          onStartScan={() => {
+            const trig = idealProfileToQuery(idealProfile);
+            if (!trig) return;
+            setExternalTrigger({ input: trig, nonce: Date.now() });
+          }}
+        />
+      )}
+      <QueryBar
+        sessionData={s}
+        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSession}
+        setLive={setLive}
+        setStarted={setStarted}
+        externalTrigger={externalTrigger}
+      />
       {started ? (
         <>
-          <FunnelStrip />
+          <FunnelStrip sessionData={s} />
           <div className="ch-cross">
             <div className="ch-canvas">
               <div className="ch-canvas-top">
-                <RadarPanel />
-                <CandidatesPanel liveCandidates={liveCandidates} />
+                <RadarPanel sessionData={s} />
+                <CandidatesPanel
+                  sessionData={s}
+                  liveCandidates={liveCandidates}
+                  onSelectCandidate={setSelectedCandidateId}
+                />
               </div>
-              <ConversationPanel messages={messages} />
+              <ConversationPanel sessionData={s} messages={messages} />
             </div>
             <aside className="ch-aside">
-              <SignalTimelinePanel />
+              <SignalTimelinePanel sessionData={s} />
             </aside>
           </div>
-          <ChannelComposer onSubmit={submit} />
+          <ChannelComposer sessionData={s} onSubmit={submit} />
 
           <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
@@ -248,6 +467,12 @@ export default function ChannelWorkspace() {
           </p>
         </section>
       )}
+      {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
+      <CandidateDetailDrawer
+        candidate={selectedCandidate}
+        sessionData={s}
+        onClose={() => setSelectedCandidateId(null)}
+      />
     </div>
     </EvidenceProvider>
   );
@@ -255,8 +480,14 @@ export default function ChannelWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ChannelHero({ topSim }: { topSim: number }) {
-  const s = CHANNEL_SESSION;
+function ChannelHero({
+  sessionData,
+  topSim,
+}: {
+  sessionData: ChannelSession;
+  topSim: number;
+}) {
+  const s = sessionData;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -291,8 +522,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /* ── 左栏 · Query 画像 ──────────────────────────────── */
 
-function QueryPanel() {
-  const q = CHANNEL_SESSION.query;
+function QueryPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const q = sessionData.query;
   return (
     <section className="rpt-panel rpt-panel--tpl">
       <div className="rpt-panel-head">
@@ -349,8 +580,8 @@ const SIG_STATUS_LABEL: Record<SignalSource["status"], string> = {
   off: "关",
 };
 
-function SignalsPanel() {
-  const sigs = CHANNEL_SESSION.signals;
+function SignalsPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const sigs = sessionData.signals;
   const active = sigs.filter((x) => x.status === "active").length;
   const totalHits = sigs.reduce((a, b) => a + b.hits, 0);
   return (
@@ -412,8 +643,8 @@ function SignalsPanel() {
 
 /* ── 左栏 · Recent sessions ───────────────────────── */
 
-function RecentPanel() {
-  const recent = CHANNEL_SESSION.recentSessions;
+function RecentPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const recent = sessionData.recentSessions;
   return (
     <section className="rpt-panel rpt-panel--tl">
       <div className="rpt-panel-head">
@@ -424,7 +655,7 @@ function RecentPanel() {
         <select
           className="rpt-tl-switch"
           aria-label="切换 session"
-          defaultValue={CHANNEL_SESSION.id}
+          defaultValue={sessionData.id}
         >
           {recent.map((r) => (
             <option key={r.id} value={r.id}>
@@ -467,8 +698,14 @@ function RecentRow({ row }: { row: RecentScoutSession }) {
 
 /* ── 中栏 · Conversation ────────────────────────────── */
 
-function ConversationPanel({ messages }: { messages: ConversationMessage[] }) {
-  const s = CHANNEL_SESSION;
+function ConversationPanel({
+  sessionData,
+  messages,
+}: {
+  sessionData: ChannelSession;
+  messages: ConversationMessage[];
+}) {
+  const s = sessionData;
   const blurb = `${messages.length} 条对话 · 候选 ${s.candidateCount} · 阻断 ${s.qcCounts.block}`;
   /* 新消息进来自动滚到底部（Composer 提交后看到自己的话） */
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -676,7 +913,13 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "industry";
 
-function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
+function ChannelComposer({
+  sessionData,
+  onSubmit,
+}: {
+  sessionData: ChannelSession;
+  onSubmit: (text: string) => void;
+}) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const [dropHover, setDropHover] = useState(false);
@@ -778,8 +1021,8 @@ function ChannelComposer({ onSubmit }: { onSubmit: (text: string) => void }) {
     });
   }
 
-  const sigCount = CHANNEL_SESSION.signals.length;
-  const tagCount = CHANNEL_SESSION.query.featureTags.length;
+  const sigCount = sessionData.signals.length;
+  const tagCount = sessionData.query.featureTags.length;
 
   const slotCls = [
     "rpt-composer-slot",
@@ -916,18 +1159,179 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
   return { stage: baseStage, msg: String(evt.message ?? "进行中…") };
 }
 
+/* F-043 · master plan §B.5b · backend candidate (snake_case) → 前端 Candidate (含 drawer 三件套)
+   消费 agent_channel/sse_extras.py + realtime_stream._build_final_output 的 done event
+   - Q-041 fix: industry/geo/scale 不再 "—" fallback 而是用 backend 真值 (extras.industry 等)
+   - drawer 4 区数据: match_dimensions / product_recommendations / pitch_scripts / timeline */
+function normalizeBackendCandidate(
+  c: Record<string, unknown>,
+  index: number,
+): Candidate {
+  const id = String(c.id ?? c.uscc ?? `live-${index}`);
+  const name = String(c.name ?? c.company_name ?? "(未命名)");
+
+  /* signals · backend [{type, title, detail, date, source, url}] · 既给 timeline 也给 chip 列表 */
+  const rawSignals = Array.isArray(c.signals)
+    ? (c.signals as Array<unknown>)
+    : [];
+
+  /* signal chip list · CandidateCard 的命中信号 chip (字符串数组) */
+  const signalChips: string[] = rawSignals
+    .map((s) => {
+      if (typeof s === "string") return s;
+      if (s && typeof s === "object") {
+        const r = s as Record<string, unknown>;
+        return String(r.title ?? r.label ?? r.type ?? r.kind ?? "");
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  /* signal_types fallback (legacy snake_case · 当 signals 缺时) */
+  const fallbackSignalChips =
+    signalChips.length === 0 && Array.isArray(c.signal_types)
+      ? (c.signal_types as unknown[]).map(String)
+      : signalChips;
+
+  /* timeline · backend signals 转 SignalEvent[] (drawer §一 信号时间线 + Timeline panel) */
+  const timeline: SignalEvent[] = rawSignals
+    .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+    .map((s, j) => {
+      const type = String(s.type ?? s.kind ?? "news");
+      const kindMap: Record<string, SignalEvent["kind"]> = {
+        bidding: "bid-win",
+        recognition: "policy",
+        tech: "policy",
+        growth: "fund",
+        award: "policy",
+        news: "news",
+        biz: "biz-change",
+        legal: "legal",
+        tax: "tax",
+        recruit: "recruit",
+        fund: "fund",
+        policy: "policy",
+      };
+      const kind = (kindMap[type] ?? "news") as SignalEvent["kind"];
+      const url = String(s.url ?? "");
+      const sourceLabel = String(s.source ?? "外网");
+      return {
+        id: `live-${id}-tl-${j}`,
+        at: String(s.date ?? ""),
+        kind,
+        title: String(s.title ?? ""),
+        detail: String(s.detail ?? ""),
+        source: { label: sourceLabel, url: url || undefined },
+        severity: "neu" as SignalEvent["severity"],
+      };
+    });
+
+  /* 匹配维度 chip (B.4b · backend: [{dim_name, hit_evidence, score}]) */
+  const matchDimensions: MatchDimension[] = Array.isArray(c.match_dimensions)
+    ? (c.match_dimensions as Array<Record<string, unknown>>).map((m, j) => ({
+        id: String(m.id ?? `live-${id}-md-${j}`),
+        dim_name: String(m.dim_name ?? m.dim ?? ""),
+        display: String(
+          m.display ??
+            m.label ??
+            `${m.dim_name ?? ""} · ${m.hit_evidence ?? ""}`,
+        ),
+        hit_evidence: String(m.hit_evidence ?? m.evidence_source ?? ""),
+        score: typeof m.score === "number" ? (m.score as number) : 0,
+      }))
+    : [];
+
+  /* Top3 产品 (B.4c · backend: [{product_name, fit_score, intro, category}]) */
+  const productRecommendations: ProductRec[] = Array.isArray(
+    c.product_recommendations,
+  )
+    ? (c.product_recommendations as Array<Record<string, unknown>>).map(
+        (p, j) => ({
+          id: String(p.id ?? `live-${id}-prod-${j}`),
+          product_name: String(p.product_name ?? p.name ?? ""),
+          fit_score:
+            typeof p.fit_score === "number" ? (p.fit_score as number) : 0,
+          intro: String(p.intro ?? p.category ?? ""),
+          amount_range:
+            typeof p.amount_range === "string"
+              ? (p.amount_range as string)
+              : undefined,
+          rate_band:
+            typeof p.rate_band === "string"
+              ? (p.rate_band as string)
+              : undefined,
+        }),
+      )
+    : [];
+
+  /* 切入话术 (B.4c · backend: [{customer_name_placeholder, script_text, source}]) */
+  const pitchScripts: PitchScript[] = Array.isArray(c.pitch_scripts)
+    ? (c.pitch_scripts as Array<Record<string, unknown>>).map((p, j) => ({
+        id: String(p.id ?? `live-${id}-pitch-${j}`),
+        customer_name_placeholder: String(
+          p.customer_name_placeholder ?? "{客户名}",
+        ),
+        script_text: String(p.script_text ?? p.text ?? ""),
+        product_ref:
+          typeof p.product_ref === "string"
+            ? (p.product_ref as string)
+            : undefined,
+      }))
+    : [];
+
+  return {
+    id,
+    name,
+    similarity:
+      typeof c.similarity === "number"
+        ? (c.similarity as number)
+        : typeof c.match_score === "number"
+        ? (c.match_score as number)
+        : 0,
+    /* Q-041 fix · industry/geo/scale 用 backend 真值 (sse_extras.extract_metadata 返) */
+    industry: String(c.industry ?? "—"),
+    geo: String(c.geo ?? c.region ?? "—"),
+    scale: String(c.scale ?? c.scale_band ?? "—"),
+    signals: fallbackSignalChips,
+    riskTags: Array.isArray(c.riskTags)
+      ? (c.riskTags as unknown[]).map(String)
+      : Array.isArray(c.risk_tags)
+      ? (c.risk_tags as unknown[]).map(String)
+      : [],
+    products: Array.isArray(c.products)
+      ? (c.products as unknown[]).map(String)
+      : Array.isArray(c.recommended_products)
+      ? (c.recommended_products as unknown[]).map(String)
+      : productRecommendations.map((p) => p.product_name),
+    /* B.4 · drawer 三件套 + timeline */
+    timeline,
+    match_dimensions: matchDimensions,
+    product_recommendations: productRecommendations,
+    pitch_scripts: pitchScripts,
+  };
+}
+
 function QueryBar({
+  sessionData,
+  selectedSessionId,
+  onSelectSession,
   setLive,
   setStarted,
+  externalTrigger,
 }: {
+  sessionData: ChannelSession;
+  selectedSessionId: string;
+  onSelectSession: (id: string) => void;
   setLive: (c: Candidate[] | null) => void;
   setStarted: (v: boolean) => void;
+  /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
+  externalTrigger?: { input: string; nonce: number } | null;
 }) {
-  const q = CHANNEL_SESSION.query;
-  const recent = CHANNEL_SESSION.recentSessions;
+  const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
-     · 历史 session select onChange → 切到对应 mock CHANNEL_SESSION (现状已是 mock 渲染)
-     · 自由 textbox onSubmit → fetch /api/channel/run SSE · 真调 DeepSeek + Tavily */
+     · 历史 session select onChange → 切到对应 mock session (parent ChannelWorkspace 切 sessionData)
+     · 自由 textbox onSubmit → fetch /api/channel/run SSE · 真调 DeepSeek + Tavily
+     F-041 · 2026-04-28 · master plan B.1+B.2 · 5 sessions select 真切全 panel */
   const [input, setInput] = useState(
     "找做工业软件的 SaaS 公司 · B 轮后 · 华东 · 年营收 1-3 亿"
   );
@@ -935,8 +1339,9 @@ function QueryBar({
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
-  async function runRealSearch() {
-    if (!input.trim() || streaming) return;
+  async function runRealSearch(queryOverride?: string) {
+    const queryText = (queryOverride ?? input).trim();
+    if (!queryText || streaming) return;
     setStarted(true); // #3 · 触发 ChannelWorkspace render 完整 panel
     setStreaming(true);
     setStreamEvents([]);
@@ -949,7 +1354,7 @@ function QueryBar({
       const res = await fetch(`${apiBase}/api/channel/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: input, mock: false, top_n: 8 }),
+        body: JSON.stringify({ query: queryText, mock: false, top_n: 8 }),
       });
       if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status}`);
@@ -977,45 +1382,15 @@ function QueryBar({
             //   render 时 signals/riskTags/products .length on undefined 抛 TypeError ·
             //   "This page couldn't load" · 这里 normalize 一遍 · 兼容 backend snake_case + camelCase
             if (evt.event === "done" && Array.isArray(evt.candidates)) {
+              /* F-043 · master plan §B.5b · live mode 全字段 normalize
+                 backend candidate (per agent_channel/sse_extras.py + realtime_stream._build_final_output)
+                 含: industry / geo / scale / similarity / radar_8axis /
+                     match_dimensions / product_recommendations / pitch_scripts +
+                     legacy: signals (objects with type/title/detail/date/source/url)
+                 把 backend snake_case 全 wire 到前端 Candidate (含 timeline + drawer 三件套) */
               const norm = (evt.candidates as Array<Record<string, unknown>>).map(
-                (c, i) => ({
-                  id: String(c.id ?? c.uscc ?? `live-${i}`),
-                  name: String(c.name ?? c.company_name ?? "(未命名)"),
-                  similarity:
-                    typeof c.similarity === "number"
-                      ? c.similarity
-                      : typeof c.match_score === "number"
-                      ? c.match_score
-                      : 0,
-                  industry: String(c.industry ?? "—"),
-                  geo: String(c.geo ?? c.region ?? "—"),
-                  scale: String(c.scale ?? c.scale_band ?? "—"),
-                  signals: Array.isArray(c.signals)
-                    ? (c.signals as Array<unknown>).map((s) => {
-                        if (typeof s === "string") return s;
-                        if (s && typeof s === "object") {
-                          const r = s as Record<string, unknown>;
-                          return String(
-                            r.title ?? r.label ?? r.type ?? r.kind ?? "",
-                          );
-                        }
-                        return String(s);
-                      }).filter(Boolean)
-                    : Array.isArray(c.signal_types)
-                    ? (c.signal_types as unknown[]).map(String)
-                    : [],
-                  riskTags: Array.isArray(c.riskTags)
-                    ? (c.riskTags as unknown[]).map(String)
-                    : Array.isArray(c.risk_tags)
-                    ? (c.risk_tags as unknown[]).map(String)
-                    : [],
-                  products: Array.isArray(c.products)
-                    ? (c.products as unknown[]).map(String)
-                    : Array.isArray(c.recommended_products)
-                    ? (c.recommended_products as unknown[]).map(String)
-                    : [],
-                }),
-              ) as unknown as Candidate[];
+                (c, i) => normalizeBackendCandidate(c, i),
+              );
               setLive(norm);
             }
           } catch {
@@ -1030,12 +1405,14 @@ function QueryBar({
     }
   }
 
-  function onSelectSession() {
-    /* 选下拉历史 session = mock 模式 · 清 stream 残留 + setLive(null) + 触发 panel 渲染 */
+  function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
+    /* F-041 · 选下拉历史 session = mock 模式 · 切 parent state · 清 stream 残留
+       parent.handleSelectSession 会 reset conversation + setLive(null) */
+    const id = e.target.value;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
-    setLive(null);
+    onSelectSession(id);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -1044,6 +1421,18 @@ function QueryBar({
       void runRealSearch();
     }
   }
+
+  /* F-045 · external trigger: IdealProfile "开始扫描" button → 写 input + 自动 run
+     query 直接通过参数传 · 不依赖 setInput flush (避免 closure stale state) */
+  const lastNonceRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!externalTrigger) return;
+    if (externalTrigger.nonce === lastNonceRef.current) return;
+    lastNonceRef.current = externalTrigger.nonce;
+    setInput(externalTrigger.input);
+    void runRealSearch(externalTrigger.input);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [externalTrigger]);
 
   return (
     <section className="rpt-panel ch-querybar">
@@ -1055,10 +1444,19 @@ function QueryBar({
           </h3>
         </div>
         <div className="ch-querybar-recent">
-          <label>历史 session (mock)</label>
-          <select defaultValue={CHANNEL_SESSION.id} onChange={onSelectSession}>
-            {recent.map((r) => (
-              <option key={r.id} value={r.id}>
+          <label htmlFor="ch-session-select">历史 session (mock · 5 标杆)</label>
+          <select
+            id="ch-session-select"
+            data-testid="channel-session-select"
+            value={selectedSessionId}
+            onChange={onSessionSelectChange}
+          >
+            {MOCK_SESSIONS_LIST.map((r) => (
+              <option
+                key={r.id}
+                value={r.id}
+                data-testid="channel-session-option"
+              >
                 {r.benchmark}
               </option>
             ))}
@@ -1127,8 +1525,8 @@ function QueryBar({
 
 /* ── 顶栏 · Funnel 5 阶段横条 ───────────────────────── */
 
-function FunnelStrip() {
-  const s = CHANNEL_SESSION;
+function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const funnel = s.funnel;
   const max = Math.max(...funnel.map((f) => f.count));
   return (
@@ -1161,8 +1559,8 @@ function FunnelStrip() {
 
 /* ── 区域 2 左 · Radar 独立面板 ──────────────────────── */
 
-function RadarPanel() {
-  const s = CHANNEL_SESSION;
+function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const top = s.candidates[0];
   return (
     <section className="rpt-panel ch-radar-panel">
@@ -1193,9 +1591,18 @@ function RadarPanel() {
 
 /* ── 区域 2 右 · 候选企业列表 ────────────────────────── */
 
-function CandidatesPanel({ liveCandidates }: { liveCandidates: Candidate[] | null }) {
-  const s = CHANNEL_SESSION;
-  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 CHANNEL_SESSION.candidates mock */
+function CandidatesPanel({
+  sessionData,
+  liveCandidates,
+  onSelectCandidate,
+}: {
+  sessionData: ChannelSession;
+  liveCandidates: Candidate[] | null;
+  /* F-042 · click 回调 · 父级 setSelectedCandidateId 触发 drawer */
+  onSelectCandidate?: (id: string) => void;
+}) {
+  const s = sessionData;
+  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 sessionData.candidates mock */
   const cs = liveCandidates ?? s.candidates;
   const isLive = liveCandidates !== null;
   return (
@@ -1223,7 +1630,7 @@ function CandidatesPanel({ liveCandidates }: { liveCandidates: Candidate[] | nul
         </div>
       </div>
       <div className="rpt-panel-body">
-        <CandidatesView candidates={cs} />
+        <CandidatesView candidates={cs} onSelectCandidate={onSelectCandidate} />
       </div>
     </section>
   );
@@ -1238,8 +1645,8 @@ const OUTPUT_ACTIONS = [
   { key: "rerun",  glyph: "⟳", label: "重扫", title: "调参后重新扫描" },
 ] as const;
 
-function ScoutOutputPanel() {
-  const s = CHANNEL_SESSION;
+function ScoutOutputPanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
   const [tab, setTab] = useState<"radar" | "funnel" | "cand">("radar");
 
   return (
@@ -1456,7 +1863,13 @@ function FunnelView({ funnel }: { funnel: FunnelStage[] }) {
   );
 }
 
-function CandidatesView({ candidates }: { candidates: Candidate[] }) {
+function CandidatesView({
+  candidates,
+  onSelectCandidate,
+}: {
+  candidates: Candidate[];
+  onSelectCandidate?: (id: string) => void;
+}) {
   return (
     <section className="ch-cd-sec">
       <header className="ch-out-sec-head">
@@ -1467,7 +1880,12 @@ function CandidatesView({ candidates }: { candidates: Candidate[] }) {
       </header>
       <ol className="ch-cd-list">
         {candidates.map((c, i) => (
-          <CandidateCard key={c.id} rank={i + 1} c={c} />
+          <CandidateCard
+            key={c.id}
+            rank={i + 1}
+            c={c}
+            onSelect={onSelectCandidate}
+          />
         ))}
       </ol>
     </section>
@@ -1487,11 +1905,16 @@ const SIG_EVENT_LABEL: Record<SignalEvent["kind"], string> = {
   "news":       "舆情",
 };
 
-function SignalTimelinePanel() {
-  const s = CHANNEL_SESSION;
-  const [activeId, setActiveId] = useState<string>(
-    s.candidates.find((c) => c.timeline?.length)?.id ?? s.candidates[0]?.id ?? ""
-  );
+function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
+  const s = sessionData;
+  /* F-041 · 切 session 时 reset activeId 到当前 session 候选第一个 (有 timeline 优先) */
+  const initialId =
+    s.candidates.find((c) => c.timeline?.length)?.id ?? s.candidates[0]?.id ?? "";
+  const [activeId, setActiveId] = useState<string>(initialId);
+  /* 当 session 切换 (s.id 变) 时 sync activeId 到当前 session 第一个候选 */
+  useEffect(() => {
+    setActiveId(initialId);
+  }, [s.id, initialId]);
   const active = s.candidates.find((c) => c.id === activeId) ?? s.candidates[0];
   const events = active?.timeline ?? [];
 
@@ -1576,11 +1999,42 @@ function TimelineEvent({ ev }: { ev: SignalEvent }) {
   );
 }
 
-function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
+function CandidateCard({
+  rank,
+  c,
+  onSelect,
+}: {
+  rank: number;
+  c: Candidate;
+  onSelect?: (id: string) => void;
+}) {
   const simPct = Math.round(c.similarity * 100);
   const hasRisk = c.riskTags.length > 0;
+  /* F-042 · click → drawer · 仅当 onSelect 传了才作 button (a11y) */
+  const clickable = typeof onSelect === "function";
   return (
-    <li className="ch-cd-card" data-risk={hasRisk ? "yes" : "no"}>
+    <li
+      className="ch-cd-card"
+      data-risk={hasRisk ? "yes" : "no"}
+      data-testid="channel-candidate-card"
+      data-cand-id={c.id}
+      data-clickable={clickable ? "yes" : "no"}
+      onClick={clickable ? () => onSelect!(c.id) : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect!(c.id);
+              }
+            }
+          : undefined
+      }
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? `查看 ${c.name} 详情` : undefined}
+      style={clickable ? { cursor: "pointer" } : undefined}
+    >
       <header className="ch-cd-head">
         <div className="ch-cd-rank">#{rank}</div>
         <div className="ch-cd-title">
@@ -1627,5 +2081,604 @@ function CandidateCard({ rank, c }: { rank: number; c: Candidate }) {
         {c.note && <div className="ch-cd-note">{c.note}</div>}
       </div>
     </li>
+  );
+}
+
+/* ── F-042 · candidate detail drawer (master plan §B.4 + §B.4b + §B.4c) ─────
+   ESC 关 · backdrop click 关
+   4 区:
+     header  - 候选 name / similarity / industry / geo / scale
+     body 1  - radar 8 维 (该候选 vs P50 · 复用 sessionData.radar) + 该候选 signal timeline
+     body 2  - B.4b 匹配维度明细 chip 列表 (vs IdealProfile · 含命中证据 signal/KB ref)
+     body 3  - B.4c Top3 产品推荐 + 切入话术
+   ────────────────────────────────────────────────────────────────────── */
+
+function CandidateDetailDrawer({
+  candidate,
+  sessionData,
+  onClose,
+}: {
+  candidate: Candidate | null;
+  sessionData: ChannelSession;
+  onClose: () => void;
+}) {
+  if (!candidate) return null;
+  const simPct = Math.round(candidate.similarity * 100);
+  const matchDims: MatchDimension[] = candidate.match_dimensions ?? [];
+  const products: ProductRec[] = candidate.product_recommendations ?? [];
+  const pitches: PitchScript[] = candidate.pitch_scripts ?? [];
+  const events: SignalEvent[] = candidate.timeline ?? [];
+  return (
+    <div
+      className="ch-drawer-backdrop"
+      data-testid="channel-candidate-drawer-backdrop"
+      onClick={onClose}
+    >
+      <aside
+        className="ch-drawer"
+        data-testid="channel-candidate-drawer"
+        data-cand-id={candidate.id}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${candidate.name} 详情`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <header className="ch-drawer-head">
+          <div className="ch-drawer-head-left">
+            <div className="ch-drawer-eyebrow">CANDIDATE · 详情</div>
+            <h3
+              className="ch-drawer-title"
+              data-testid="channel-candidate-drawer-name"
+            >
+              {candidate.name}
+            </h3>
+            <div className="ch-drawer-sub">
+              {candidate.industry} · {candidate.geo} · {candidate.scale}
+            </div>
+          </div>
+          <div className="ch-drawer-head-right">
+            <div className="ch-drawer-sim">
+              <span className="num">{simPct}%</span>
+              <span className="lbl">相似度</span>
+            </div>
+            <button
+              type="button"
+              className="ch-drawer-close"
+              data-testid="channel-candidate-drawer-close"
+              onClick={onClose}
+              aria-label="关闭详情"
+            >
+              <span aria-hidden>×</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="ch-drawer-body">
+          {/* Region 1 · radar 8 维 + 候选 signal timeline */}
+          <section className="ch-drawer-sec ch-drawer-sec--radar">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§一</span>
+              <span>评分雷达 + 信号时间线</span>
+            </h4>
+            <div className="ch-drawer-radar-wrap">
+              <RadarView radar={sessionData.radar} />
+            </div>
+            <div className="ch-drawer-tl">
+              <div className="ch-drawer-tl-head">
+                信号时间线 · 共 {events.length} 条
+              </div>
+              {events.length === 0 ? (
+                <div className="ch-drawer-tl-empty">
+                  <span className="ic" aria-hidden>◌</span>
+                  <span>该候选暂无信号 · 将在下轮扫描后补全</span>
+                </div>
+              ) : (
+                <ol className="ch-drawer-tl-list">
+                  {events.map((ev) => (
+                    <TimelineEvent key={ev.id} ev={ev} />
+                  ))}
+                </ol>
+              )}
+            </div>
+          </section>
+
+          {/* Region 2 · B.4b 匹配维度明细 (chip 列表 vs IdealProfile) */}
+          <section className="ch-drawer-sec ch-drawer-sec--match">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§二</span>
+              <span>匹配维度明细 · 为什么像</span>
+            </h4>
+            {matchDims.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无匹配维度数据</span>
+              </div>
+            ) : (
+              <ul className="ch-drawer-md-list">
+                {matchDims.map((m) => (
+                  <li
+                    key={m.id}
+                    className="ch-drawer-md-chip"
+                    data-testid="candidate-match-dim-chip"
+                    data-md-id={m.id}
+                    data-score={m.score}
+                  >
+                    <div className="ch-drawer-md-row">
+                      <span className="dim">{m.dim_name}</span>
+                      <span className="score">{m.score}</span>
+                    </div>
+                    <div className="ch-drawer-md-display">{m.display}</div>
+                    <div className="ch-drawer-md-evi">
+                      <span className="ic" aria-hidden>◊</span>
+                      证据 · {m.hit_evidence}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Region 3 · B.4c Top3 产品推荐 + 切入话术 */}
+          <section className="ch-drawer-sec ch-drawer-sec--product">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§三</span>
+              <span>Top3 产品推荐</span>
+            </h4>
+            {products.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无产品推荐数据</span>
+              </div>
+            ) : (
+              <div className="ch-drawer-prod-grid">
+                {products.slice(0, 3).map((p) => (
+                  <article
+                    key={p.id}
+                    className="ch-drawer-prod-card"
+                    data-testid="candidate-product-card"
+                    data-product-id={p.id}
+                    data-fit-score={p.fit_score}
+                  >
+                    <header className="ch-drawer-prod-head">
+                      <div className="ch-drawer-prod-name">
+                        {p.product_name}
+                      </div>
+                      <div className="ch-drawer-prod-fit">
+                        <span className="num">{p.fit_score}</span>
+                        <span className="lbl">适配</span>
+                      </div>
+                    </header>
+                    <div className="ch-drawer-prod-intro">{p.intro}</div>
+                    <dl className="ch-drawer-prod-meta">
+                      {p.amount_range && (
+                        <div>
+                          <dt>额度</dt>
+                          <dd>{p.amount_range}</dd>
+                        </div>
+                      )}
+                      {p.rate_band && (
+                        <div>
+                          <dt>利率</dt>
+                          <dd>{p.rate_band}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="ch-drawer-sec ch-drawer-sec--pitch">
+            <h4 className="ch-drawer-sec-title">
+              <span className="anchor">§四</span>
+              <span>切入话术 · 打开电话即用</span>
+            </h4>
+            {pitches.length === 0 ? (
+              <div className="ch-drawer-empty">
+                <span>暂无话术数据</span>
+              </div>
+            ) : (
+              <ol className="ch-drawer-pitch-list">
+                {pitches.map((p) => (
+                  <li
+                    key={p.id}
+                    className="ch-drawer-pitch-item"
+                    data-testid="candidate-pitch-script"
+                    data-pitch-id={p.id}
+                  >
+                    <div className="ch-drawer-pitch-head">
+                      <span className="who">致 {p.customer_name_placeholder}</span>
+                      {p.product_ref && (
+                        <span className="ref">关联 · {p.product_ref}</span>
+                      )}
+                    </div>
+                    <div className="ch-drawer-pitch-text">{p.script_text}</div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   F-044 · master plan §B.6 · 3 类 KB upload UI (单文件 multipart upload)
+   3 dropzone: 客户名录 / 政策 / 行业指引
+   POST /api/channel/upload_kb · 返 kb_id + summary_text
+   customer_list 上传完成 → 父级 useEffect 触发 IdealProfile 自动抽取 (B.6b)
+   ────────────────────────────────────────────────────────────────────── */
+
+const KB_TYPE_META: Record<
+  KbType,
+  { label: string; desc: string; accept: string; testid: string; ic: string }
+> = {
+  customer_list: {
+    label: "客户名录",
+    desc: "xlsx / csv · 银行已成交客户基础特征",
+    accept: ".xlsx,.xls,.csv",
+    testid: "kb-dropzone-customer-list",
+    ic: "👥",
+  },
+  policy: {
+    label: "政策文件",
+    desc: "docx / pdf · 银保监 / 央行新政",
+    accept: ".docx,.pdf",
+    testid: "kb-dropzone-policy",
+    ic: "📋",
+  },
+  industry_guide: {
+    label: "行业指引",
+    desc: "docx / pdf · 行业研究报告 / 准入标准",
+    accept: ".docx,.pdf",
+    testid: "kb-dropzone-industry-guide",
+    ic: "📚",
+  },
+};
+
+const KB_TYPE_ORDER: KbType[] = ["customer_list", "policy", "industry_guide"];
+
+function KbUploadStrip({
+  kbIds,
+  kbStatus,
+  kbSummaries,
+  kbErrors,
+  onUpload,
+}: {
+  kbIds: Record<KbType, string | null>;
+  kbStatus: Record<KbType, KbUploadStatus>;
+  kbSummaries: Record<KbType, KbUploadResult | null>;
+  kbErrors: Record<KbType, string>;
+  onUpload: (type: KbType, file: File) => void;
+}) {
+  return (
+    <section
+      className="ch-kb-strip"
+      data-testid="kb-upload-strip"
+      aria-label="知识库上传区"
+    >
+      <header className="ch-kb-strip-head">
+        <div>
+          <div className="rpt-panel-eyebrow">KB · 知识库上传</div>
+          <h3 className="rpt-panel-title">
+            上传 3 类 KB · 抽 12 维理想客户画像 · 再扫
+          </h3>
+        </div>
+        <span className="rpt-panel-meta">客户名录必传 · 政策 / 行业可选</span>
+      </header>
+      <div className="ch-kb-strip-grid">
+        {KB_TYPE_ORDER.map((t) => (
+          <KbDropzone
+            key={t}
+            type={t}
+            kbId={kbIds[t]}
+            status={kbStatus[t]}
+            summary={kbSummaries[t]}
+            error={kbErrors[t]}
+            onUpload={onUpload}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function KbDropzone({
+  type,
+  kbId,
+  status,
+  summary,
+  error,
+  onUpload,
+}: {
+  type: KbType;
+  kbId: string | null;
+  status: KbUploadStatus;
+  summary: KbUploadResult | null;
+  error: string;
+  onUpload: (type: KbType, file: File) => void;
+}) {
+  const meta = KB_TYPE_META[type];
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  function pick(file: File | null | undefined) {
+    if (!file) return;
+    onUpload(type, file);
+  }
+
+  function handlePick(e: ChangeEvent<HTMLInputElement>) {
+    pick(e.target.files?.[0]);
+    /* reset input · 让用户能上传同一 file 重复 */
+    if (e.target) e.target.value = "";
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    pick(e.dataTransfer.files?.[0]);
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!dragOver) setDragOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+  }
+
+  const hasUpload = kbId !== null && status === "success";
+  const isUploading = status === "uploading";
+  const isError = status === "error";
+
+  return (
+    <article
+      className="ch-kb-zone"
+      data-testid={meta.testid}
+      data-status={status}
+      data-has-upload={hasUpload ? "yes" : "no"}
+      data-drag-over={dragOver ? "yes" : "no"}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className="ch-kb-zone-head">
+        <span className="ic" aria-hidden>
+          {meta.ic}
+        </span>
+        <div className="ch-kb-zone-title-wrap">
+          <h4 className="ch-kb-zone-title">{meta.label}</h4>
+          <div className="ch-kb-zone-desc">{meta.desc}</div>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={meta.accept}
+        className="ch-kb-zone-input"
+        data-testid={`${meta.testid}-input`}
+        onChange={handlePick}
+        disabled={isUploading}
+      />
+      <div className="ch-kb-zone-action">
+        <button
+          type="button"
+          className="ch-kb-zone-btn"
+          data-testid={`${meta.testid}-btn`}
+          onClick={() => inputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading
+            ? `上传中…`
+            : hasUpload
+            ? `重新上传`
+            : `选择文件`}
+        </button>
+        <span className="ch-kb-zone-hint">或拖拽文件到此区</span>
+      </div>
+      {hasUpload && summary && (
+        <div className="ch-kb-zone-summary" data-testid={`${meta.testid}-summary`}>
+          <div className="row">
+            <span className="lbl">已上传 · ID</span>
+            <span className="kb-id">{summary.kb_id.slice(0, 8)}…</span>
+          </div>
+          <div className="filename">{summary.source_filename}</div>
+          <div className="summary-text">{summary.summary_text}</div>
+        </div>
+      )}
+      {isError && (
+        <div className="ch-kb-zone-error" role="alert">
+          <span className="ic" aria-hidden>
+            ⚠
+          </span>
+          <span>{error || `上传失败`}</span>
+        </div>
+      )}
+    </article>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   F-045 · master plan §B.6b · IdealProfile 12 维画像卡 + "开始扫描" CTA
+   消费 /api/channel/profile 返回的 IdealProfile12 + reasoning_text + confidence
+   12 chip 展示 + 用户 confirm "开始扫描" 才走 /api/channel/run
+   ────────────────────────────────────────────────────────────────────── */
+
+const PROFILE_FIELDS_LIST: Array<{ key: keyof IdealProfile12; label: string }> = [
+  { key: "industry_focus", label: "行业聚焦" },
+  { key: "scale_preference", label: "规模偏好" },
+  { key: "geo_coverage", label: "地域覆盖" },
+  { key: "customer_type", label: "客户类型" },
+  { key: "product_keywords", label: "产品关键词" },
+  { key: "growth_signals", label: "增长信号" },
+  { key: "risk_signals", label: "风险信号" },
+];
+
+const PROFILE_FIELDS_STR: Array<{ key: keyof IdealProfile12; label: string }> = [
+  { key: "stage", label: "发展阶段" },
+  { key: "capital_relation", label: "资本关系" },
+  { key: "business_size", label: "业务规模" },
+  { key: "employee_size", label: "员工规模" },
+  { key: "value_chain_position", label: "价值链位置" },
+];
+
+function idealProfileToQuery(profile: IdealProfileResponse | null): string {
+  if (!profile) return "";
+  const p = profile.ideal_profile;
+  const parts: string[] = [];
+  if (p.industry_focus.length) parts.push(`行业 ${p.industry_focus.slice(0, 3).join(" / ")}`);
+  if (p.geo_coverage.length) parts.push(`地域 ${p.geo_coverage.slice(0, 3).join(" / ")}`);
+  if (p.scale_preference.length)
+    parts.push(`规模 ${p.scale_preference.slice(0, 2).join(" / ")}`);
+  if (p.stage) parts.push(`阶段 ${p.stage}`);
+  if (p.product_keywords.length)
+    parts.push(`产品 ${p.product_keywords.slice(0, 3).join(" / ")}`);
+  if (p.growth_signals.length)
+    parts.push(`增长信号 ${p.growth_signals.slice(0, 2).join(" / ")}`);
+  return parts.length
+    ? `按理想画像 look-alike 找企业 · ${parts.join(" · ")}`
+    : "按理想客户画像 look-alike 找企业";
+}
+
+function IdealProfileCard({
+  profile,
+  loading,
+  error,
+  onStartScan,
+}: {
+  profile: IdealProfileResponse | null;
+  loading: boolean;
+  error: string;
+  onStartScan: () => void;
+}) {
+  return (
+    <section
+      className="ch-profile-card"
+      data-testid="ideal-profile-card"
+      data-loading={loading ? "yes" : "no"}
+      aria-label="理想客户画像 12 维"
+    >
+      <header className="ch-profile-head">
+        <div>
+          <div className="rpt-panel-eyebrow">PROFILE · 理想客户画像</div>
+          <h3 className="rpt-panel-title">
+            12 维 IdealProfile · LLM 抽取
+            {profile && (
+              <span className="ch-profile-conf">
+                置信 {Math.round(profile.confidence_score * 100)}%
+              </span>
+            )}
+          </h3>
+        </div>
+        {profile && !loading && !error && (
+          <button
+            type="button"
+            className="ch-profile-cta"
+            data-testid="start-scan-cta"
+            onClick={onStartScan}
+          >
+            <span>开始扫描</span>
+            <span className="kbd" aria-hidden>
+              ↩
+            </span>
+          </button>
+        )}
+      </header>
+
+      {loading && (
+        <div
+          className="ch-profile-loading"
+          data-testid="ideal-profile-loading"
+          role="status"
+        >
+          <span className="ic" aria-hidden>
+            ◌
+          </span>
+          <span>LLM 解析中… 12 维画像抽取约 8-15s</span>
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="ch-profile-error" role="alert" data-testid="ideal-profile-error">
+          <span className="ic" aria-hidden>
+            ⚠
+          </span>
+          <span>画像抽取失败 · {error}</span>
+        </div>
+      )}
+
+      {profile && !loading && (
+        <>
+          <div className="ch-profile-grid">
+            {PROFILE_FIELDS_LIST.map((f) => {
+              const val = profile.ideal_profile[f.key] as string[];
+              return (
+                <div
+                  key={f.key}
+                  className="ch-profile-row ch-profile-row--list"
+                  data-field={f.key}
+                >
+                  <div className="ch-profile-row-lbl">{f.label}</div>
+                  <div className="ch-profile-row-chips">
+                    {val.length === 0 ? (
+                      <span className="ch-profile-empty-chip">未识别</span>
+                    ) : (
+                      val.map((v, i) => (
+                        <span
+                          key={`${f.key}-${i}`}
+                          className="ch-profile-chip"
+                          data-testid="ideal-profile-chip"
+                          data-field={f.key}
+                        >
+                          {v}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {PROFILE_FIELDS_STR.map((f) => {
+              const val = profile.ideal_profile[f.key] as string;
+              return (
+                <div
+                  key={f.key}
+                  className="ch-profile-row ch-profile-row--str"
+                  data-field={f.key}
+                >
+                  <div className="ch-profile-row-lbl">{f.label}</div>
+                  <div className="ch-profile-row-chips">
+                    {val ? (
+                      <span
+                        className="ch-profile-chip ch-profile-chip--str"
+                        data-testid="ideal-profile-chip"
+                        data-field={f.key}
+                      >
+                        {val}
+                      </span>
+                    ) : (
+                      <span className="ch-profile-empty-chip">未识别</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {profile.reasoning_text && (
+            <div
+              className="ch-profile-reasoning"
+              data-testid="ideal-profile-reasoning"
+            >
+              <div className="ch-profile-reasoning-lbl">解析说明</div>
+              <p className="ch-profile-reasoning-text">{profile.reasoning_text}</p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }

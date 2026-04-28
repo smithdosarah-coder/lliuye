@@ -95,24 +95,39 @@
       "path": "D:/claude code/work-A1-inventory",
       "branch": "feat/inventory-expand-A1",
       "role": "worker",
-      "description": "Stage A.3 · features-inventory.md F-009~F-040 expand (32 new entries · 6 Workspace + IM + Auth + Layout)",
-      "onboarding": "docs/onboarding/W-A1-inventory-expand.md"
+      "description": "Stage A.3 MERGED 2026-04-28 (cherry-pick 4bedee2 · WORKER-A1-INVENTORY-EXPAND-DONE) · 待命 Stage B+ 派活",
+      "onboarding": "docs/onboarding/W-A1-inventory-expand.md",
+      "merged_stage_a": true,
+      "merged_signal": "WORKER-A1-INVENTORY-EXPAND-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "active_for_next_batch": true,
+      "recovery_note": "git worktree 误 removed 2026-04-28 · 即 git worktree add --force 恢复 · physical dir + worker CLI 完好"
     },
     {
       "name": "A2-contracts",
       "path": "D:/claude code/work-A2-contracts",
       "branch": "feat/contracts-bootstrap-A2",
       "role": "worker",
-      "description": "Stage A.4 · workspace-state-protocol + im-protocol + auth-protocol contracts",
-      "onboarding": "docs/onboarding/W-A2-contracts-bootstrap.md"
+      "description": "Stage A.4 MERGED 2026-04-28 (cherry-pick a660019 · WORKER-A2-CONTRACTS-BOOTSTRAP-DONE) · 待命 Stage B+ 派活",
+      "onboarding": "docs/onboarding/W-A2-contracts-bootstrap.md",
+      "merged_stage_a": true,
+      "merged_signal": "WORKER-A2-CONTRACTS-BOOTSTRAP-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "active_for_next_batch": true,
+      "recovery_note": "git worktree 误 removed 2026-04-28 · 即 git worktree add --force 恢复 · physical dir + worker CLI 完好"
     },
     {
       "name": "A3-prd",
       "path": "D:/claude code/work-A3-prd",
       "branch": "feat/prd-summaries-A3",
       "role": "worker",
-      "description": "Stage A.5 · 6 agent PRD summary specs (channel/report/credit/alert/compli/forge)",
-      "onboarding": "docs/onboarding/W-A3-prd-summaries.md"
+      "description": "Stage A.5 MERGED 2026-04-28 (cherry-pick bf5a7f1 · WORKER-A3-PRD-SUMMARIES-DONE) · 待命 Stage B+ 派活",
+      "onboarding": "docs/onboarding/W-A3-prd-summaries.md",
+      "merged_stage_a": true,
+      "merged_signal": "WORKER-A3-PRD-SUMMARIES-DONE",
+      "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
+      "active_for_next_batch": true,
+      "recovery_note": "git worktree 误 removed 2026-04-28 · 即 git worktree add --force 恢复 · physical dir + worker CLI 完好"
     }
   ],
   "frozen_branches_no_worktree": [
@@ -150,7 +165,7 @@
   "onboarding_dir": "docs/onboarding/",
   "contracts_dir": "docs/contracts/",
   "arch_contracts": "docs/arch/platform-contracts.md",
-  "last_updated": "2026-04-27",
+  "last_updated": "2026-04-28",
   "current_phase": "phase-3-final",
   "current_phase_dispatch_commit_signal": "PHASE-3-FINAL-DISPATCHED",
   "wave_1_status": "COMPLETE · 4/4 worker MERGED · 2026-04-25",
@@ -196,6 +211,12 @@
         "feat/chat-wechat-style"
       ],
       "reason": "Batch 2 closeout + Phase 4 前端整合规划 · 见 decisions-log Q-031"
+    },
+    {
+      "date": "2026-04-28",
+      "action": "Stage A 3 worker (A1+A2+A3) git worktree 误 remove × 3 · 即 git worktree add --force 恢复 · physical dir + worker CLI 状态完好",
+      "mistake": "main CLI 误读 master plan §1 '不用 mesh worker · 改 sub-agent' 为 user 已拍板 · 自做主张关 worker · 实际 user 期望 mesh worker 长期资源 · 完一批接一批",
+      "lesson": "关键派活模式决策 (mesh worker vs sub-agent · 关 worktree) 必须问 user · 例行 review/cherry-pick 主动 · 边界: hard-to-reverse op (worktree remove) = ASK · 见 decisions-log Q-042 (将来登)"
     }
   ]
 }

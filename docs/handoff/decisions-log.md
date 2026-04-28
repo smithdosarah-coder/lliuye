@@ -2314,3 +2314,71 @@ Wave 2 frontend-integration 已完 · 现在做 diff:
 - Agent3 case 扩 commit Signal: `AGENT3-CASES-EXPANSION-50`
 
 ---
+
+## [Q-041] 2026-04-28 · main CLI (self · post production verify sub-agent) · production [object Object] fix LIVE + candidate metadata 缺失 (独立 gap · 路由 B.5)
+
+**CLI**: main (self-Q/A · sub-agent browser-automation verify report cross-check)
+**Priority**: P0 verify CLOSED · candidate metadata 缺失 → P2 (master plan B.5 涵盖)
+**Blocking**: no
+**Related**: 5139d9e candidates.signals normalize · master plan gap #1 + #4 · auth-protocol.md (a660019) §3.1 D.1
+
+### 背景
+
+Main CLI session post-Stage A close-out (3 worker A1+A2+A3 全 cherry-pick MERGED · ed91175 push origin) · 起 sub-agent (general-purpose · browser-automation) 跑 production https://liuye.me e2e verify · 修 handoff §3 漏检：5139d9e [object Object] fix 是否真生效。
+
+### Finding
+
+#### A-041.1 · [object Object] fix LIVE production · CLOSED
+
+证据 (sub-agent Playwright + DOM probe):
+- service alive · login `u_wangzhe / wangzhe` · /today + /archive/channel 路由正常
+- query "上海科技 SaaS B轮" → /api/channel/run SSE (DeepSeek + Tavily) 全 stage 跑通 (PARSE → SIGNAL_SCAN ×5 → AGGREGATE → ENRICH → PITCH → RANK → DONE)
+- 候选: 华为 + 华测导航 · `.ch-cd-sig` 渲染人话 ("华为作为链主企业强化产业链招商" / "华测导航获批国家级企业技术中心")
+- `document.body.textContent.match(/\[object Object\]/g)` = 0 全页
+- 5 截图: `.playwright-mcp/01-homepage.png` · `02-today-after-login.png` · `03-channel-workspace-initial.png` · `04-channel-candidates-rendered.png` · `05-candidates-zoom.png`
+
+5139d9e (2026-04-25) candidates.signals normalize 取 .title/.label · ChannelWorkspace.tsx:991-1006 · production 已生效。**客户走访 P0 风险消解**.
+
+#### A-041.2 · candidate metadata 缺失 → 路由 B.5
+
+候选返字段:
+- `industry`: "未获取" · `geo`: "未获取" · `scale`: "—" · `similarity`: 0%
+
+非 normalize bug · 是 backend `/api/channel/run` SSE done event 不返这 4 字段 · 前端 fallback "未获取"。
+
+**已 routed 到 master plan §B.5 后端 SSE 扩字段 spec**:
+- 原 B.5 spec: `radar/signals/funnel/match_dimensions/products/pitch`
+- B.5 fix-forward: + `industry/geo/scale/similarity` (Q-041 cross-ref)
+- B.5b 前端 wire 真 SSE 全字段时一并消费
+
+不另开 task · 不重派 sub-agent · B.5 sub-agent dispatch 时注入本 Q-041 reference。
+
+#### A-041.3 · auth 当前前端硬编 → D.1 计划已涵盖
+
+LoginForm.tsx:35-41 5 user/pwd 前端硬编 PASSWORD_MAP (`u_wangzhe/wangzhe / u_lihua/lihua / u_zhoumin/zhoumin / u_chenkai/chenkai / u_liuye/liuye`) · auth-protocol.md (a660019 §3.1) Stage D.1 改 backend `/api/auth/login` + bcrypt + JWT。走访前若 D.1 还没上线 · **demo 阶段前端硬编 acceptable** (演示用 · 不暴露真凭证)。
+
+### PASSWORD_MAP 5 user (主 CLI 缓存)
+
+来源: `web/src/app/login/_components/LoginForm.tsx:35-41`
+
+| user_id | password | role |
+|---|---|---|
+| u_wangzhe | wangzhe | rm (客户经理) |
+| u_lihua | lihua | credit_officer |
+| u_zhoumin | zhoumin | compliance_officer |
+| u_chenkai | chenkai | risk_manager |
+| u_liuye | liuye | admin |
+
+### Follow-up
+
+1. ✅ 立即: 本 Q-041 commit + push origin (chore/l0-infra)
+2. (Stage B.5 dispatch 时): sub-agent prompt 注入 candidate metadata 4 字段 + Q-041 cross-ref
+3. (Stage D.1): auth backend bcrypt + JWT (auth-protocol.md spec)
+
+### Signals
+
+- 本 commit Signal: `Q-041-RESOLVED`
+- 衍生 Stage B.5 (将来): `STAGE-B5-BACKEND-SSE-FULLFIELDS-DONE`
+- 衍生 Stage D.1 (将来): `STAGE-D1-AUTH-BACKEND-DONE`
+
+---

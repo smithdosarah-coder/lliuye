@@ -1,14 +1,24 @@
 # -*- coding: utf-8 -*-
-"""agent_report.api — FastAPI + SSE 后端,封装 V13 form-fill pipeline.
+"""agent_report.api — FastAPI + SSE 后端 · V13 form-fill + v16 主管线 wrapper.
 
 端点:
-  POST /api/report/fill     — 流式推送 5 阶段 + done,可带 mock=1 走预置场景
-  POST /api/report/refine   — 基于 session_id 的外因续跑(stub,只重跑 external_factor section)
-  GET  /downloads/<file>    — 下载生成的 docx
-  GET  /health              — 健康检查
+  POST /api/report/fill         — V13 5 阶段 SSE,可带 mock=1 走预置场景
+  POST /api/report/v16/fill     — v16 主管线 SSE (Stage C.1 · classifier→generator→QC)
+  POST /api/report/upload       — multipart 上传材料 + 解析摘要 (Stage C.1)
+  POST /api/report/refine       — session_id 外因续跑(stub,只重跑 external_factor)
+  POST /api/report/refine_section — section_id LLM 重写指定章节 (Stage C.1)
+  POST /api/report/export_docx  — 从 session 数据渲染 .docx (Stage C.1)
+  GET  /api/report/downloads/{report_id}            — alias to latest session docx (Stage C.1)
+  GET  /api/report/downloads/{session_id}/{filename}— UUID 白名单下载
+  GET  /api/report/downloads/legacy/{fname}         — mock fallback docx
+  GET  /api/report/downloads/v16/{filename}         — v16 真路径产物
+  GET  /api/report/preset/{key}                     — 预置 fixture
+  GET  /downloads/{fname}                           — 兼容老接口
+  GET  /health  /  GET /api/report/health           — 健康检查 + LLM 状态灯
 
 事件契约(与前端 V14-B 约定):
-  event: stage   — {stage, progress, message}
+  event: stage   — {stage, progress, message, pipeline?}
+  event: section — {section: {id, title, content}}
   event: done    — {session_id, report_docx_url, enterprise_profile, pending_questions, downstream_handoff}
   event: error   — {stage, message}
 
@@ -888,6 +898,449 @@ async def preset_profile(key: str):
     except Exception as e:
         # fallback:直接返回 dict
         return {"preset": safe, "enterprise_profile": profile_dict, "warning": str(e)}
+
+
+# ============================================================================
+# Stage C.1 · 新增端点 (master plan §C.1 · gap #6 + gap #12 闭环)
+#   - POST /api/report/upload        — multipart 上传材料 + 解析摘要
+#   - POST /api/report/v16/fill      — v16 主管线 SSE wrapper
+#   - POST /api/report/refine_section — section_id LLM 重写章节
+#   - POST /api/report/export_docx   — session → docx 本地渲染
+#   - GET  /api/report/downloads/{report_id}   — alias 最近一份 docx
+#   - GET  /api/report/downloads/v16/{filename}— v16 真路径产物下载
+# ============================================================================
+
+
+# ---------------------------------------------------------------------------
+# POST /api/report/upload — Stage C.1 multipart 上传 + 解析摘要
+# ---------------------------------------------------------------------------
+
+@app.post("/api/report/upload")
+async def report_upload(
+    request: Request,
+    files: list[UploadFile] = File(default=[]),
+    business_line: str = Query("corporate"),
+):
+    """multipart 上传 1+ 材料文件 · 持久化到 ``data/kb/report/{report_id}/`` ·
+    返 ``{report_id, file_summary}`` 供 fill 阶段引用同一 report_id 跳过重传。
+
+    解耦上传与 fill: 与 ``/api/report/fill`` 一把梭相比 · 此端点仅持久 + 元数据 ·
+    LLM 不在此调用 (empty-state-design-protocol §3 · user trigger 与 LLM 调用解耦)。
+    """
+    if not files:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "至少上传一个材料文件",
+                              "details": {"field": "files"}}},
+        )
+    from agent_report.upload import (  # noqa: E402
+        make_report_id, persist_files,
+    )
+
+    # 读出全部 bytes (多 file → list[(name, bytes)])
+    payload: list[tuple[str, bytes]] = []
+    for f in files:
+        content = await f.read()
+        payload.append((f.filename or "upload.bin", content))
+
+    report_id = make_report_id()
+    summaries = persist_files(report_id, payload)
+
+    # 审计 · 同 fill 风格
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/upload",
+        "report_id": report_id,
+        "file_count": len(files),
+        "business_line": business_line,
+    })
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": "/api/report/upload",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+    })
+
+    total_chars = sum(s.get("parsed_chars", 0) for s in summaries)
+    return {
+        "report_id": report_id,
+        "session_id": report_id,
+        "business_line": business_line,
+        "file_summary": summaries,
+        "total_files": len(summaries),
+        "total_parsed_chars": total_chars,
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /api/report/v16/fill — Stage C.1 v16 主管线 SSE wrapper
+# ---------------------------------------------------------------------------
+
+class V16FillRequest(BaseModel):
+    report_id: str = ""           # = session_id · 关联 upload 产物 (可选)
+    source_docx: str = "samples/经纬测绘_对公成稿A.docx"  # 模板 docx 路径(项目相对)
+    material_dir: str = ""        # 材料目录 · 空时按 report_id 自动指向 upload dir
+    classified_json: str = ""     # 默认走 outputs/v16_llm_classified.json
+    business_line: str = "corporate"
+    mock: bool = False            # explicit mock = true → 走 mock_v16_stream
+
+
+@app.post("/api/report/v16/fill")
+async def report_v16_fill(req: V16FillRequest, request: Request):
+    """v16 主管线 SSE · classifier (复用) → generator → QC gate.
+
+    自动选 mock / real (依 ``DEEPSEEK_API_KEY`` + classifier 产物存在与否) ·
+    显式 ``mock=true`` 强制走 mock(empty-state-design-protocol §5 demo)。
+    """
+    from agent_report.upload import upload_dir  # noqa: E402
+    from agent_report.v16_runner import fill_stream  # noqa: E402
+
+    # report_id 兜底
+    report_id = (req.report_id or "").strip() or str(int(time.time()))
+
+    source_docx = (PROJECT_ROOT / req.source_docx).resolve()
+    classified_json = (
+        Path(req.classified_json).resolve() if req.classified_json
+        else (PROJECT_ROOT / "outputs" / "v16_llm_classified.json").resolve()
+    )
+    if req.material_dir:
+        material_dir = Path(req.material_dir).resolve()
+    elif req.report_id:
+        material_dir = upload_dir(req.report_id).resolve()
+    else:
+        material_dir = (PROJECT_ROOT / "samples").resolve()
+
+    output_dir = (PROJECT_ROOT / "outputs").resolve()
+
+    # 审计上下文
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/v16/fill",
+        "report_id": report_id,
+        "source": req.source_docx,
+        "material": str(material_dir),
+        "mock": bool(req.mock),
+    })
+
+    def _emit_audit(status: str) -> None:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/v16/fill",
+            "input_hash": _audit_input,
+            "output_status": status,
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+        })
+
+    async def gen():
+        status = "ok"
+        try:
+            async for evt in fill_stream(
+                report_id=report_id,
+                source_docx=source_docx,
+                material_dir=material_dir,
+                classified_json=classified_json,
+                output_dir=output_dir,
+                explicit_mock=bool(req.mock),
+            ):
+                yield evt
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            _emit_audit(status)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/report/refine_section — Stage C.1 · LLM 重写指定章节
+# ---------------------------------------------------------------------------
+
+class RefineSectionRequest(BaseModel):
+    session_id: str
+    section_id: str             # chapter_1_background / 2_operation / 3_finance / 4_conclusion
+    user_edit: str              # 用户输入 · 引导 LLM 重写
+    target_word_count: int = 1500
+
+
+@app.post("/api/report/refine_section")
+async def report_refine_section(req: RefineSectionRequest, request: Request):
+    """LLM 重写指定 section · 用户给 ``user_edit`` 引导(增删改方向).
+
+    返回:
+      {section: {id, title, content}, session_id, status}
+    """
+    sess = store.get(req.session_id)
+    if sess is None:
+        raise HTTPException(404, f"session {req.session_id} 不存在或已过期")
+
+    sections = []
+    payload_sec = sess.get("done_payload", {}).get("sections")
+    if isinstance(payload_sec, list):
+        sections = payload_sec
+    target_idx = next(
+        (i for i, s in enumerate(sections) if s.get("id") == req.section_id),
+        None,
+    )
+
+    # 找到原文本
+    old_content = ""
+    old_title = _chapter_title(req.section_id)
+    if target_idx is not None:
+        old_content = sections[target_idx].get("content") or ""
+        old_title = sections[target_idx].get("title") or old_title
+
+    # 审计上下文
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/refine_section",
+        "session_id": req.session_id,
+        "section_id": req.section_id,
+    })
+
+    # LLM 调用(无 key 走简单字符串拼接 · empty-state §5 显式标 demo)
+    llm_caller = _build_llm_caller()
+    has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
+    if has_key and old_content:
+        system = (
+            "你是信贷调查报告重写助手。基于客户经理的指引,把原段落改写得更准确、"
+            "更完整,但不得编造数字 / 名称 / 资质 / 任何无原始证据的事实。"
+            "保持段落语气专业。直接输出新段落正文。"
+        )
+        user = (
+            f"原章节:{old_title}\n"
+            f"原文本:\n{old_content}\n\n"
+            f"客户经理指引:\n{req.user_edit}\n\n"
+            f"目标字数:约 {req.target_word_count} 字。请重写此段。"
+        )
+        try:
+            new_content = (llm_caller(system, user) or "").strip()
+        except Exception:  # noqa: BLE001 — LLM 失败走 fallback
+            new_content = ""
+    else:
+        new_content = ""
+
+    if not new_content:
+        # fallback · 简单拼接(标 demo + 保留原文 + 加用户指引)
+        prefix = (
+            "（demo · 后端 LLM 未配置,以下为占位拼接。配置 DEEPSEEK_API_KEY 后真改写）\n"
+        ) if not has_key else ""
+        new_content = (
+            prefix
+            + (old_content or "")
+            + "\n\n[客户经理指引补充]\n"
+            + req.user_edit
+        )
+
+    new_section = {
+        "id": req.section_id,
+        "title": old_title,
+        "content": new_content,
+        "status": "done",
+        "word_count": len(new_content),
+        "refined_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    # 写回 session
+    if target_idx is not None:
+        sections[target_idx] = new_section
+    else:
+        sections.append(new_section)
+    new_payload = dict(sess.get("done_payload") or {})
+    new_payload["sections"] = sections
+    store.update(req.session_id, {
+        "done_payload": new_payload,
+        "last_refined_section": req.section_id,
+    })
+
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": "/api/report/refine_section",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+    })
+
+    return {
+        "session_id": req.session_id,
+        "report_id": req.session_id,
+        "section": new_section,
+        "status": "ok",
+        "llm_used": bool(has_key),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /api/report/export_docx — Stage C.1 · session → docx 本地渲染
+# ---------------------------------------------------------------------------
+
+class ExportDocxRequest(BaseModel):
+    session_id: str = ""        # 取 session 的 sections / profile
+    report_id: str = ""         # session_id 别名
+    # 直接传字段(不依赖 session · 用于 mock 路径)
+    profile: dict | None = None
+    sections: list[dict] | None = None
+    pending_questions: list[dict] | None = None
+    stats: dict | None = None
+    qc: dict | None = None
+    business_line: str = "corporate"
+    client_manager: str = ""
+
+
+@app.post("/api/report/export_docx")
+async def report_export_docx(req: ExportDocxRequest, request: Request):
+    """从 session 数据(或直接 payload)渲 .docx · 返 attachment 下载."""
+    from urllib.parse import quote
+    from agent_report.word_export import build_filename, export
+
+    sid = (req.session_id or req.report_id or "").strip()
+    payload: dict[str, Any] = {
+        "report_id": sid,
+        "session_id": sid,
+        "business_line": req.business_line,
+        "client_manager": req.client_manager,
+    }
+
+    # 优先从 session 取 sections / profile / pending
+    if sid:
+        sess = store.get(sid)
+        if sess:
+            done_payload = sess.get("done_payload") or {}
+            ep = sess.get("enterprise_profile") or done_payload.get("profile") or {}
+            payload["profile"] = ep
+            payload["sections"] = done_payload.get("sections") or []
+            payload["pending_questions"] = sess.get("pending_questions") or []
+            payload["stats"] = done_payload.get("stats") or {}
+
+    # 显式 payload 字段覆盖 session
+    if req.profile is not None:
+        payload["profile"] = req.profile
+    if req.sections is not None:
+        payload["sections"] = req.sections
+    if req.pending_questions is not None:
+        payload["pending_questions"] = req.pending_questions
+    if req.stats is not None:
+        payload["stats"] = req.stats
+    if req.qc is not None:
+        payload["qc"] = req.qc
+
+    if not payload.get("sections") and not payload.get("profile"):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "需 session_id (含 sections) 或显式 profile/sections",
+                              "details": {"field": "session_id|sections"}}},
+        )
+
+    # 审计
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/export_docx",
+        "session_id": sid,
+        "section_count": len(payload.get("sections") or []),
+    })
+
+    try:
+        data = export(payload)
+        filename = build_filename(payload)
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/export_docx",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+        })
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"docx 渲染失败: {type(e).__name__}: {e}"}},
+        ) from e
+
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": "/api/report/export_docx",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+    })
+
+    filename_ascii = re.sub(r"[^A-Za-z0-9._-]+", "_", filename) or "agent6_report.docx"
+    from fastapi.responses import Response  # 局部 import 避顶部冲突
+    return Response(
+        content=data,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename_ascii}"; '
+                f"filename*=UTF-8''{quote(filename)}"
+            ),
+            "X-Agent6-Export-Type": "docx",
+            "X-Agent6-Export-Sections": str(len(payload.get("sections") or [])),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/report/downloads/{report_id}  alias — 取最新 session docx
+# ---------------------------------------------------------------------------
+
+@app.get("/api/report/downloads/{report_id}")
+async def download_report_alias(report_id: str):
+    """报告 alias 端点 · 从 session 找 ``report_docx_path`` 直返."""
+    if not re.fullmatch(r"[0-9a-fA-F\-]{8,64}", report_id):
+        raise HTTPException(400, "非法 report_id")
+    sess = store.get(report_id)
+    if sess is None:
+        raise HTTPException(404, f"session {report_id} 不存在或已过期")
+    docx_path = sess.get("report_docx_path")
+    if not docx_path or not os.path.exists(docx_path):
+        raise HTTPException(404, f"session {report_id} 暂无 docx 产物 · 请先 fill 或 export")
+    fname = os.path.basename(docx_path)
+    return FileResponse(
+        path=docx_path,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=fname,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/report/downloads/v16/{filename} — v16 真路径产物下载
+# ---------------------------------------------------------------------------
+
+@app.get("/api/report/downloads/v16/{filename}")
+async def download_v16_output(filename: str):
+    """v16 主管线产物下载 · ``outputs/{filename}_v16.docx`` 取."""
+    safe = os.path.basename(filename)
+    target = (PROJECT_ROOT / "outputs" / safe).resolve()
+    try:
+        target.relative_to((PROJECT_ROOT / "outputs").resolve())
+    except ValueError:
+        raise HTTPException(400, "非法路径") from None
+    if not target.is_file():
+        raise HTTPException(404, f"v16 产物不存在: {safe}")
+    return FileResponse(
+        path=str(target),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=safe,
+    )
 
 
 if __name__ == "__main__":
