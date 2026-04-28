@@ -486,6 +486,57 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## Channel Workspace · live SSE wire · F-043
+
+## F-043 · Channel live SSE wire · candidate 全字段 normalize (industry/geo/scale + drawer 三件套)
+
+- **location**: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`normalizeBackendCandidate` 函数 · `runRealSearch` SSE done event 解析 · `liveCandidates` setLive 注入) · 后端 `agent_channel/sse_extras.py` + `agent_channel/realtime_stream.py:_build_final_output` (snake_case enrich)
+- **selector**: `[data-testid="channel-candidate-card"]` (live mode 显 backend 真值 industry/geo/scale 而非 "—" 占位) · `[data-testid="channel-candidate-drawer"]` (live mode 内 `[data-testid="candidate-match-dim-chip"]` × N + `[data-testid="candidate-product-card"]` × 3 + `[data-testid="candidate-pitch-script"]` × N 全是 backend 返的 snake_case `match_dimensions` / `product_recommendations` / `pitch_scripts` 字段映射来 · 不是 mock fallback)
+- **interaction**: 用户 textbox 提交 query (或 "开始扫描" CTA) → fetch `/api/channel/run` SSE → done event 每候选 normalize 含 `match_dimensions` / `product_recommendations` / `pitch_scripts` / `radar_8axis` / signals 转 timeline `SignalEvent[]` → setLive(norm) → CandidatesPanel + drawer 全消费 live 数据 (drawer 4 区在 live mode 显 backend 真生成内容)
+- **introduce**: 2026-04-28 master plan §B.5b · workspace-state-protocol.md §4 后端 SSE done event 必须返完整 panel 数据 · agent-channel-spec.md §5.3 SSE 契约 · Q-041 candidate metadata 路由 (industry/geo/scale 不再硬编 "未获取")
+- **fixes**: master plan gap #3 (panel 不接 props · radar/timeline/funnel 永远 mock 部分修 · 候选 drawer 三件套从 mock 切到 live) + gap #4 (后端 SSE 只返 candidates 现已扩 snake_case 全字段 · 前端 wire) + Q-041 candidate metadata `[object Object]` / "未获取" 占位的彻底解
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/channel-live-wire.spec.ts` (3 case · 3 dropzone 渲染 + 上传 → 画像 → 12 chip + 点扫描 → drawer 4 区全 wire)
+- **数据契约**: backend `candidate.match_dimensions: [{dim_name, hit_evidence, score, display}]` × ≥3 · `product_recommendations: [{product_name, fit_score, intro, category, amount_range?, rate_band?}]` × 3 · `pitch_scripts: [{customer_name_placeholder, script_text, source}]` × ≥1 · 前端 normalize 兼容 snake_case + 兼容 mock camelCase fallback
+- **依赖**: `docs/contracts/agent-channel-spec.md` §5.3 · `docs/contracts/workspace-state-protocol.md` §4 · backend `agent_channel/sse_extras.py` (Worker A1 Stage B 实装)
+
+---
+
+## Channel Workspace · KB upload UI · F-044
+
+## F-044 · Channel KB upload UI · 3 类 dropzone (客户名录 / 政策 / 行业指引)
+
+- **location**: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`KbUploadStrip` + `KbDropzone` 组件 · `handleKbUpload` callback · `kbIds` / `kbStatus` / `kbSummaries` / `kbErrors` useState) · 后端 `agent_channel/kb_upload.py` + `/api/channel/upload_kb`
+- **selector**: `[data-testid="kb-upload-strip"]` 容器 · `[data-testid="kb-dropzone-customer-list"]` / `[data-testid="kb-dropzone-policy"]` / `[data-testid="kb-dropzone-industry-guide"]` 3 dropzone · 各 dropzone 含 `[data-testid="<kb>-input"]` (隐藏 file input · 拖拽用) + `[data-testid="<kb>-btn"]` (显式选择按钮) + `[data-testid="<kb>-summary"]` (上传成功后显 kb_id + filename + summary_text)
+- **interaction**: 用户点 "选择文件" 按钮 OR 拖文件到 dropzone → `<input type="file">` 选定 → `handleKbUpload(type, file)` → multipart/form-data POST `/api/channel/upload_kb` (字段: kb_type · file) → 后端解析 xlsx/pdf/docx → 返 `{kb_id, source_filename, summary_text, n_rows? | n_pages?}` → 前端写 `kbIds[type] = kb_id` + `kbStatus[type] = "success"` → dropzone 边框变青绿 (data-has-upload=yes) + 显 summary card · 失败时 `kbStatus = "error"` + 显错误 banner
+- **introduce**: 2026-04-28 master plan §B.6 · agent-channel-spec.md §C1 KB 多文件上传 · 后端 W-B-A2 worker 实装 (kb_upload.py · POST /api/channel/upload_kb · 50MB cap)
+- **fixes**: master plan gap #1 (KB 上传) frontend 缺 - PRD v2 必须 · 客户经理上传 "已有客户名录 + 政策 + 行业指引" 才能抽 IdealProfile look-alike · 不能直接走 query 兜底
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/channel-live-wire.spec.ts` test #1 (3 dropzone 渲染) + test #2 (上传 customer_list mock 路径走通 · summary card 显)
+- **数据契约**: kb_type ∈ {customer_list, policy, industry_guide} · file ext ∈ {xlsx, xls, csv, pdf, docx} · ≤ 50MB · 单文件 per request · 后端持久化 `data/channel_kb/{kb_id}.json`
+- **依赖**: backend `agent_channel/kb_upload.py` (W-B-A2 worker) · `docs/onboarding/W-B-A2-channel-kb-upload.md` · `docs/contracts/agent-channel-spec.md` §5.2
+
+---
+
+## Channel Workspace · IdealProfile 12 维 + 用户 confirm · F-045
+
+## F-045 · Channel IdealProfile card · 12 维 chip + reasoning + "开始扫描" CTA
+
+- **location**: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`IdealProfileCard` 组件 · `idealProfileToQuery` helper · `idealProfile` / `profileFetching` / `profileError` useState · `externalTrigger` state + `QueryBar` `externalTrigger` prop wire) · 后端 `agent_channel/ideal_profile.py` (IdealProfile12 schema · LLM chat_json) + `/api/channel/profile`
+- **selector**: `[data-testid="ideal-profile-card"]` 主容器 · `[data-testid="ideal-profile-chip"]` × 12 (industry_focus / scale_preference / geo_coverage / customer_type / product_keywords / growth_signals / risk_signals 列表字段 + stage / capital_relation / business_size / employee_size / value_chain_position 字符串字段) · `[data-testid="ideal-profile-loading"]` / `[data-testid="ideal-profile-error"]` 状态 · `[data-testid="ideal-profile-reasoning"]` 解析说明段 · `[data-testid="start-scan-cta"]` "开始扫描" 按钮
+- **interaction**: customer_list KB 上传成功 → `handleKbUpload` 内自动 POST `/api/channel/profile` `{kb_id, kb_type}` → 后端 `extract_ideal_profile` 用 DeepSeek temperature 0.2 抽 12 维 + confidence + reasoning_text → 前端 `setIdealProfile(pdata)` → IdealProfileCard 渲染 12 chip grid + reasoning · 用户 click "开始扫描" → `idealProfileToQuery(profile)` 转 query 字符串 → `setExternalTrigger({input, nonce: Date.now()})` → QueryBar `useEffect[externalTrigger]` 自动 call `runRealSearch(query)` → 走标准 SSE 全字段 wire (F-043) · 用户 confirm 才扫描 (PRD v2 "看一眼画像确认 → 才扫" 体验红线)
+- **introduce**: 2026-04-28 master plan §B.6b · agent-channel-spec.md §C2 IdealProfile LLM 抽取 · §C3 用户确认后才"开始扫描" · 后端 W-B-A3 worker 实装 (ideal_profile.py · IdealProfile12 schema · POST /api/channel/profile)
+- **fixes**: master plan gap #2 (IdealProfile 缺) frontend - PRD v2 必须 · 客户经理上传完不能直接黑盒扫 · 必须看 12 维画像 + reasoning + 自己确认才扫 (autopilot 期需要)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/channel-live-wire.spec.ts` test #2 (上传 customer_list → IdealProfile 自动抽 + 12 chip 显 + start-scan-cta 显) + test #3 (点 CTA → live SSE wire 链路通)
+- **数据契约**: 12 维 schema 见 `agent_channel/ideal_profile.py:IdealProfile12` (Pydantic BaseModel · 7 list[str] 字段 + 5 str 字段) + `confidence_score` (0-1) + `reasoning_text` (80-150 字 · 解析说明) · LLM 失败时降级返空 profile + reasoning_text 标降级原因 · 不抛异常
+- **依赖**: backend `agent_channel/ideal_profile.py` (W-B-A3 worker) · `docs/onboarding/W-B-A3-channel-ideal-profile.md` · `docs/contracts/agent-channel-spec.md` §5.2 · F-044 (KB upload 是上游) · F-043 (扫描 SSE 是下游)
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`

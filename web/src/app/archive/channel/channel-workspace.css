@@ -1844,3 +1844,343 @@
   border-radius: var(--r-md);
   text-align: center;
 }
+
+/* ══════ F-044 · KB upload strip · 3 dropzones ══════════════ */
+
+.v-archive--canon[data-agent="channel"] .ch-kb-strip {
+  background: color-mix(in srgb, var(--chalk) 92%, var(--t-channel) 8%);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-lg);
+  padding: 18px 22px;
+  margin: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-strip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1024px) {
+  .v-archive--canon[data-agent="channel"] .ch-kb-strip-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone {
+  background: var(--chalk);
+  border: 1.5px dashed var(--ink-20);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 180ms ease;
+  position: relative;
+  min-height: 120px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone[data-drag-over="yes"] {
+  border-color: var(--t-channel);
+  border-style: solid;
+  background: color-mix(in srgb, var(--chalk) 80%, var(--t-channel) 20%);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone[data-status="uploading"] {
+  border-color: var(--accent);
+  border-style: dotted;
+  opacity: 0.85;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone[data-has-upload="yes"] {
+  border-color: var(--t-channel);
+  border-style: solid;
+  background: color-mix(in srgb, var(--chalk) 92%, var(--t-channel) 8%);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-head .ic {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-desc {
+  font-size: 11px;
+  color: var(--ink-50);
+  font-family: var(--cjk);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-input {
+  display: none;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-btn {
+  background: var(--t-channel);
+  color: var(--chalk);
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-family: var(--cjk);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 140ms ease;
+  letter-spacing: 0.02em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-btn:hover {
+  opacity: 0.85;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-hint {
+  font-size: 11px;
+  color: var(--ink-48);
+  font-family: var(--cjk);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary {
+  border-top: 1px solid var(--ink-10);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-60);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary .lbl {
+  letter-spacing: 0.05em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary .kb-id {
+  font-family: var(--mono);
+  color: var(--t-channel);
+  font-weight: 500;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary .filename {
+  font-size: 12px;
+  color: var(--ink);
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-summary .summary-text {
+  font-size: 11px;
+  color: var(--ink-65);
+  font-family: var(--cjk);
+  line-height: 1.55;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--t-alert, #b94a3a) 80%, var(--ink));
+  font-family: var(--cjk);
+  background: color-mix(in srgb, var(--chalk) 90%, var(--t-alert, #b94a3a) 10%);
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+}
+
+/* ══════ F-045 · IdealProfile card · 12 维 chip + 解析说明 + 开始扫描 ══════ */
+
+.v-archive--canon[data-agent="channel"] .ch-profile-card {
+  background: var(--chalk);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-lg);
+  padding: 18px 22px;
+  margin: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-card[data-loading="yes"] {
+  opacity: 0.85;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-conf {
+  margin-left: 10px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-50);
+  font-family: var(--mono);
+  font-weight: normal;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-cta {
+  background: var(--t-channel);
+  color: var(--chalk);
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 9px 18px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 140ms ease;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-cta:hover {
+  opacity: 0.88;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-cta .kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: color-mix(in srgb, var(--chalk) 30%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-loading,
+.v-archive--canon[data-agent="channel"] .ch-profile-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--ink-04);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  color: var(--ink-65);
+  font-family: var(--cjk);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-error {
+  background: color-mix(in srgb, var(--chalk) 90%, var(--t-alert, #b94a3a) 10%);
+  color: color-mix(in srgb, var(--t-alert, #b94a3a) 70%, var(--ink));
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 22px;
+}
+
+@media (max-width: 920px) {
+  .v-archive--canon[data-agent="channel"] .ch-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-row-lbl {
+  font-size: 12px;
+  color: var(--ink-60);
+  font-family: var(--cjk);
+  font-weight: 500;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-chip {
+  background: color-mix(in srgb, var(--chalk) 86%, var(--t-channel) 14%);
+  color: color-mix(in srgb, var(--t-channel) 70%, var(--ink));
+  font-size: 11.5px;
+  font-family: var(--cjk);
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--t-channel) 30%, transparent);
+  letter-spacing: 0.02em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-chip--str {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-empty-chip {
+  font-size: 11px;
+  color: var(--ink-40);
+  font-style: italic;
+  font-family: var(--cjk);
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-reasoning {
+  border-top: 1px solid var(--ink-10);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-reasoning-lbl {
+  font-size: 11px;
+  color: var(--ink-50);
+  font-family: var(--cjk);
+  letter-spacing: 0.06em;
+}
+
+.v-archive--canon[data-agent="channel"] .ch-profile-reasoning-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink);
+  font-family: var(--cjk);
+}

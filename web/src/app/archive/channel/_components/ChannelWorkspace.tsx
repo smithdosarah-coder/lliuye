@@ -41,6 +41,44 @@ import {
   type SignalEvent,
   type SignalSource,
 } from "@/lib/mock/agent-channel-sessions";
+
+/* B.6b · 12 维 IdealProfile (后端 agent_channel/ideal_profile.py · IdealProfile12 schema)
+   消费 /api/channel/profile 返回的 ideal_profile 字段 */
+type IdealProfile12 = {
+  industry_focus: string[];
+  scale_preference: string[];
+  geo_coverage: string[];
+  stage: string;
+  capital_relation: string;
+  business_size: string;
+  employee_size: string;
+  customer_type: string[];
+  product_keywords: string[];
+  value_chain_position: string;
+  growth_signals: string[];
+  risk_signals: string[];
+};
+
+type IdealProfileResponse = {
+  ideal_profile: IdealProfile12;
+  confidence_score: number;
+  reasoning_text: string;
+};
+
+/* B.6 · 3 类 KB type (per agent-channel-spec.md §C1) */
+type KbType = "customer_list" | "policy" | "industry_guide";
+
+type KbUploadResult = {
+  kb_id: string;
+  kb_type: KbType;
+  source_filename: string;
+  summary_text: string;
+  n_rows?: number;
+  n_pages?: number;
+  n_paragraphs?: number;
+};
+
+type KbUploadStatus = "idle" | "uploading" | "success" | "error";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import {
@@ -80,7 +118,9 @@ export default function ChannelWorkspace() {
   const s = currentSession;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
 
-  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist */
+  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
+     F-043 · 2026-04-28 · master plan §B.5b · live mode 不再仅 candidates · 整 session shape 注入
+     liveCandidates 仍保留作为 b.4 candidate drawer 的 live data path (drawer 直接读 candidatesPool) */
   const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
 
   /* #3 · 2026-04-27 · 功能页面真初始化 · 默认 started=false 只渲染 Hero + QueryBar + 空白提示
@@ -92,6 +132,42 @@ export default function ChannelWorkspace() {
      候选 click → setSelectedCandidateId · drawer 4 区: header / radar+signals / 匹配明细 / 产品+话术
      ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+
+  /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
+     kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
+  const [kbIds, setKbIds] = useState<Record<KbType, string | null>>({
+    customer_list: null,
+    policy: null,
+    industry_guide: null,
+  });
+  const [kbSummaries, setKbSummaries] = useState<Record<KbType, KbUploadResult | null>>({
+    customer_list: null,
+    policy: null,
+    industry_guide: null,
+  });
+  const [kbStatus, setKbStatus] = useState<Record<KbType, KbUploadStatus>>({
+    customer_list: "idle",
+    policy: "idle",
+    industry_guide: "idle",
+  });
+  const [kbErrors, setKbErrors] = useState<Record<KbType, string>>({
+    customer_list: "",
+    policy: "",
+    industry_guide: "",
+  });
+
+  /* F-045 · 2026-04-28 · master plan §B.6b · IdealProfile 12 维画像卡 + 用户 confirm
+     customer_list 上传完成 → 自动 POST /api/channel/profile → 12 chip + reasoning
+     用户点 "开始扫描" → setStarted(true) → 走 /api/channel/run */
+  const [idealProfile, setIdealProfile] = useState<IdealProfileResponse | null>(null);
+  const [profileFetching, setProfileFetching] = useState(false);
+  const [profileError, setProfileError] = useState<string>("");
+
+  /* F-045 · external SSE trigger · profile card "开始扫描" 按钮发 nonce + query · QueryBar 自动 run */
+  const [externalTrigger, setExternalTrigger] = useState<{
+    input: string;
+    nonce: number;
+  } | null>(null);
 
   /* derive selected candidate (live 优先 · mock fallback) */
   const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
@@ -128,6 +204,68 @@ export default function ChannelWorkspace() {
     },
     [],
   );
+
+  /* F-044 · master plan §B.6 · 单文件 KB 上传 (multipart) → /api/channel/upload_kb
+     成功后写 kbIds[type] · customer_list 触发 IdealProfile 自动抽取 (B.6b) */
+  const handleKbUpload = useCallback(
+    async (kbType: KbType, file: File) => {
+      const apiBase =
+        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+        "";
+      setKbStatus((prev) => ({ ...prev, [kbType]: "uploading" }));
+      setKbErrors((prev) => ({ ...prev, [kbType]: "" }));
+      try {
+        const fd = new FormData();
+        fd.append("kb_type", kbType);
+        fd.append("file", file, file.name);
+        const res = await fetch(`${apiBase}/api/channel/upload_kb`, {
+          method: "POST",
+          body: fd,
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}: ${text.slice(0, 120)}`);
+        }
+        const data = (await res.json()) as KbUploadResult;
+        setKbIds((prev) => ({ ...prev, [kbType]: data.kb_id }));
+        setKbSummaries((prev) => ({ ...prev, [kbType]: data }));
+        setKbStatus((prev) => ({ ...prev, [kbType]: "success" }));
+
+        /* B.6b · customer_list 上传成功 → 自动 POST /api/channel/profile 抽 12 维画像 */
+        if (kbType === "customer_list") {
+          setProfileFetching(true);
+          setProfileError("");
+          try {
+            const pres = await fetch(`${apiBase}/api/channel/profile`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kb_id: data.kb_id, kb_type: kbType }),
+            });
+            if (!pres.ok) {
+              const text = await pres.text().catch(() => "");
+              throw new Error(`HTTP ${pres.status}: ${text.slice(0, 120)}`);
+            }
+            const pdata = (await pres.json()) as IdealProfileResponse;
+            setIdealProfile(pdata);
+          } catch (err) {
+            setProfileError(
+              err instanceof Error ? err.message : String(err),
+            );
+          } finally {
+            setProfileFetching(false);
+          }
+        }
+      } catch (err) {
+        setKbStatus((prev) => ({ ...prev, [kbType]: "error" }));
+        setKbErrors((prev) => ({
+          ...prev,
+          [kbType]: err instanceof Error ? err.message : String(err),
+        }));
+      }
+    },
+    [],
+  );
+
   const seq = useRef(0);
 
   const submit = useCallback((raw: string) => {
@@ -228,12 +366,35 @@ export default function ChannelWorkspace() {
       data-started={started ? "yes" : "no"}
     >
       <ChannelHero sessionData={s} topSim={topSim} />
+      {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
+      <KbUploadStrip
+        kbIds={kbIds}
+        kbStatus={kbStatus}
+        kbSummaries={kbSummaries}
+        kbErrors={kbErrors}
+        onUpload={handleKbUpload}
+      />
+      {/* F-045 · master plan §B.6b · IdealProfile 12 维画像卡 + "开始扫描" CTA
+         显示条件: 正在抽取 · 已抽取 · 抽取失败 (任一即显) · null/false/empty 均不显 */}
+      {(profileFetching || idealProfile !== null || profileError !== "") && (
+        <IdealProfileCard
+          profile={idealProfile}
+          loading={profileFetching}
+          error={profileError}
+          onStartScan={() => {
+            const trig = idealProfileToQuery(idealProfile);
+            if (!trig) return;
+            setExternalTrigger({ input: trig, nonce: Date.now() });
+          }}
+        />
+      )}
       <QueryBar
         sessionData={s}
         selectedSessionId={selectedSessionId}
         onSelectSession={handleSelectSession}
         setLive={setLive}
         setStarted={setStarted}
+        externalTrigger={externalTrigger}
       />
       {started ? (
         <>
@@ -998,18 +1159,173 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
   return { stage: baseStage, msg: String(evt.message ?? "进行中…") };
 }
 
+/* F-043 · master plan §B.5b · backend candidate (snake_case) → 前端 Candidate (含 drawer 三件套)
+   消费 agent_channel/sse_extras.py + realtime_stream._build_final_output 的 done event
+   - Q-041 fix: industry/geo/scale 不再 "—" fallback 而是用 backend 真值 (extras.industry 等)
+   - drawer 4 区数据: match_dimensions / product_recommendations / pitch_scripts / timeline */
+function normalizeBackendCandidate(
+  c: Record<string, unknown>,
+  index: number,
+): Candidate {
+  const id = String(c.id ?? c.uscc ?? `live-${index}`);
+  const name = String(c.name ?? c.company_name ?? "(未命名)");
+
+  /* signals · backend [{type, title, detail, date, source, url}] · 既给 timeline 也给 chip 列表 */
+  const rawSignals = Array.isArray(c.signals)
+    ? (c.signals as Array<unknown>)
+    : [];
+
+  /* signal chip list · CandidateCard 的命中信号 chip (字符串数组) */
+  const signalChips: string[] = rawSignals
+    .map((s) => {
+      if (typeof s === "string") return s;
+      if (s && typeof s === "object") {
+        const r = s as Record<string, unknown>;
+        return String(r.title ?? r.label ?? r.type ?? r.kind ?? "");
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  /* signal_types fallback (legacy snake_case · 当 signals 缺时) */
+  const fallbackSignalChips =
+    signalChips.length === 0 && Array.isArray(c.signal_types)
+      ? (c.signal_types as unknown[]).map(String)
+      : signalChips;
+
+  /* timeline · backend signals 转 SignalEvent[] (drawer §一 信号时间线 + Timeline panel) */
+  const timeline: SignalEvent[] = rawSignals
+    .filter((s): s is Record<string, unknown> => s !== null && typeof s === "object")
+    .map((s, j) => {
+      const type = String(s.type ?? s.kind ?? "news");
+      const kindMap: Record<string, SignalEvent["kind"]> = {
+        bidding: "bid-win",
+        recognition: "policy",
+        tech: "policy",
+        growth: "fund",
+        award: "policy",
+        news: "news",
+        biz: "biz-change",
+        legal: "legal",
+        tax: "tax",
+        recruit: "recruit",
+        fund: "fund",
+        policy: "policy",
+      };
+      const kind = (kindMap[type] ?? "news") as SignalEvent["kind"];
+      const url = String(s.url ?? "");
+      const sourceLabel = String(s.source ?? "外网");
+      return {
+        id: `live-${id}-tl-${j}`,
+        at: String(s.date ?? ""),
+        kind,
+        title: String(s.title ?? ""),
+        detail: String(s.detail ?? ""),
+        source: { label: sourceLabel, url: url || undefined },
+        severity: "neu" as SignalEvent["severity"],
+      };
+    });
+
+  /* 匹配维度 chip (B.4b · backend: [{dim_name, hit_evidence, score}]) */
+  const matchDimensions: MatchDimension[] = Array.isArray(c.match_dimensions)
+    ? (c.match_dimensions as Array<Record<string, unknown>>).map((m, j) => ({
+        id: String(m.id ?? `live-${id}-md-${j}`),
+        dim_name: String(m.dim_name ?? m.dim ?? ""),
+        display: String(
+          m.display ??
+            m.label ??
+            `${m.dim_name ?? ""} · ${m.hit_evidence ?? ""}`,
+        ),
+        hit_evidence: String(m.hit_evidence ?? m.evidence_source ?? ""),
+        score: typeof m.score === "number" ? (m.score as number) : 0,
+      }))
+    : [];
+
+  /* Top3 产品 (B.4c · backend: [{product_name, fit_score, intro, category}]) */
+  const productRecommendations: ProductRec[] = Array.isArray(
+    c.product_recommendations,
+  )
+    ? (c.product_recommendations as Array<Record<string, unknown>>).map(
+        (p, j) => ({
+          id: String(p.id ?? `live-${id}-prod-${j}`),
+          product_name: String(p.product_name ?? p.name ?? ""),
+          fit_score:
+            typeof p.fit_score === "number" ? (p.fit_score as number) : 0,
+          intro: String(p.intro ?? p.category ?? ""),
+          amount_range:
+            typeof p.amount_range === "string"
+              ? (p.amount_range as string)
+              : undefined,
+          rate_band:
+            typeof p.rate_band === "string"
+              ? (p.rate_band as string)
+              : undefined,
+        }),
+      )
+    : [];
+
+  /* 切入话术 (B.4c · backend: [{customer_name_placeholder, script_text, source}]) */
+  const pitchScripts: PitchScript[] = Array.isArray(c.pitch_scripts)
+    ? (c.pitch_scripts as Array<Record<string, unknown>>).map((p, j) => ({
+        id: String(p.id ?? `live-${id}-pitch-${j}`),
+        customer_name_placeholder: String(
+          p.customer_name_placeholder ?? "{客户名}",
+        ),
+        script_text: String(p.script_text ?? p.text ?? ""),
+        product_ref:
+          typeof p.product_ref === "string"
+            ? (p.product_ref as string)
+            : undefined,
+      }))
+    : [];
+
+  return {
+    id,
+    name,
+    similarity:
+      typeof c.similarity === "number"
+        ? (c.similarity as number)
+        : typeof c.match_score === "number"
+        ? (c.match_score as number)
+        : 0,
+    /* Q-041 fix · industry/geo/scale 用 backend 真值 (sse_extras.extract_metadata 返) */
+    industry: String(c.industry ?? "—"),
+    geo: String(c.geo ?? c.region ?? "—"),
+    scale: String(c.scale ?? c.scale_band ?? "—"),
+    signals: fallbackSignalChips,
+    riskTags: Array.isArray(c.riskTags)
+      ? (c.riskTags as unknown[]).map(String)
+      : Array.isArray(c.risk_tags)
+      ? (c.risk_tags as unknown[]).map(String)
+      : [],
+    products: Array.isArray(c.products)
+      ? (c.products as unknown[]).map(String)
+      : Array.isArray(c.recommended_products)
+      ? (c.recommended_products as unknown[]).map(String)
+      : productRecommendations.map((p) => p.product_name),
+    /* B.4 · drawer 三件套 + timeline */
+    timeline,
+    match_dimensions: matchDimensions,
+    product_recommendations: productRecommendations,
+    pitch_scripts: pitchScripts,
+  };
+}
+
 function QueryBar({
   sessionData,
   selectedSessionId,
   onSelectSession,
   setLive,
   setStarted,
+  externalTrigger,
 }: {
   sessionData: ChannelSession;
   selectedSessionId: string;
   onSelectSession: (id: string) => void;
   setLive: (c: Candidate[] | null) => void;
   setStarted: (v: boolean) => void;
+  /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
+  externalTrigger?: { input: string; nonce: number } | null;
 }) {
   const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
@@ -1023,8 +1339,9 @@ function QueryBar({
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
-  async function runRealSearch() {
-    if (!input.trim() || streaming) return;
+  async function runRealSearch(queryOverride?: string) {
+    const queryText = (queryOverride ?? input).trim();
+    if (!queryText || streaming) return;
     setStarted(true); // #3 · 触发 ChannelWorkspace render 完整 panel
     setStreaming(true);
     setStreamEvents([]);
@@ -1037,7 +1354,7 @@ function QueryBar({
       const res = await fetch(`${apiBase}/api/channel/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: input, mock: false, top_n: 8 }),
+        body: JSON.stringify({ query: queryText, mock: false, top_n: 8 }),
       });
       if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status}`);
@@ -1065,45 +1382,15 @@ function QueryBar({
             //   render 时 signals/riskTags/products .length on undefined 抛 TypeError ·
             //   "This page couldn't load" · 这里 normalize 一遍 · 兼容 backend snake_case + camelCase
             if (evt.event === "done" && Array.isArray(evt.candidates)) {
+              /* F-043 · master plan §B.5b · live mode 全字段 normalize
+                 backend candidate (per agent_channel/sse_extras.py + realtime_stream._build_final_output)
+                 含: industry / geo / scale / similarity / radar_8axis /
+                     match_dimensions / product_recommendations / pitch_scripts +
+                     legacy: signals (objects with type/title/detail/date/source/url)
+                 把 backend snake_case 全 wire 到前端 Candidate (含 timeline + drawer 三件套) */
               const norm = (evt.candidates as Array<Record<string, unknown>>).map(
-                (c, i) => ({
-                  id: String(c.id ?? c.uscc ?? `live-${i}`),
-                  name: String(c.name ?? c.company_name ?? "(未命名)"),
-                  similarity:
-                    typeof c.similarity === "number"
-                      ? c.similarity
-                      : typeof c.match_score === "number"
-                      ? c.match_score
-                      : 0,
-                  industry: String(c.industry ?? "—"),
-                  geo: String(c.geo ?? c.region ?? "—"),
-                  scale: String(c.scale ?? c.scale_band ?? "—"),
-                  signals: Array.isArray(c.signals)
-                    ? (c.signals as Array<unknown>).map((s) => {
-                        if (typeof s === "string") return s;
-                        if (s && typeof s === "object") {
-                          const r = s as Record<string, unknown>;
-                          return String(
-                            r.title ?? r.label ?? r.type ?? r.kind ?? "",
-                          );
-                        }
-                        return String(s);
-                      }).filter(Boolean)
-                    : Array.isArray(c.signal_types)
-                    ? (c.signal_types as unknown[]).map(String)
-                    : [],
-                  riskTags: Array.isArray(c.riskTags)
-                    ? (c.riskTags as unknown[]).map(String)
-                    : Array.isArray(c.risk_tags)
-                    ? (c.risk_tags as unknown[]).map(String)
-                    : [],
-                  products: Array.isArray(c.products)
-                    ? (c.products as unknown[]).map(String)
-                    : Array.isArray(c.recommended_products)
-                    ? (c.recommended_products as unknown[]).map(String)
-                    : [],
-                }),
-              ) as unknown as Candidate[];
+                (c, i) => normalizeBackendCandidate(c, i),
+              );
               setLive(norm);
             }
           } catch {
@@ -1134,6 +1421,18 @@ function QueryBar({
       void runRealSearch();
     }
   }
+
+  /* F-045 · external trigger: IdealProfile "开始扫描" button → 写 input + 自动 run
+     query 直接通过参数传 · 不依赖 setInput flush (避免 closure stale state) */
+  const lastNonceRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!externalTrigger) return;
+    if (externalTrigger.nonce === lastNonceRef.current) return;
+    lastNonceRef.current = externalTrigger.nonce;
+    setInput(externalTrigger.input);
+    void runRealSearch(externalTrigger.input);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [externalTrigger]);
 
   return (
     <section className="rpt-panel ch-querybar">
@@ -2002,5 +2301,384 @@ function CandidateDetailDrawer({
         </div>
       </aside>
     </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   F-044 · master plan §B.6 · 3 类 KB upload UI (单文件 multipart upload)
+   3 dropzone: 客户名录 / 政策 / 行业指引
+   POST /api/channel/upload_kb · 返 kb_id + summary_text
+   customer_list 上传完成 → 父级 useEffect 触发 IdealProfile 自动抽取 (B.6b)
+   ────────────────────────────────────────────────────────────────────── */
+
+const KB_TYPE_META: Record<
+  KbType,
+  { label: string; desc: string; accept: string; testid: string; ic: string }
+> = {
+  customer_list: {
+    label: "客户名录",
+    desc: "xlsx / csv · 银行已成交客户基础特征",
+    accept: ".xlsx,.xls,.csv",
+    testid: "kb-dropzone-customer-list",
+    ic: "👥",
+  },
+  policy: {
+    label: "政策文件",
+    desc: "docx / pdf · 银保监 / 央行新政",
+    accept: ".docx,.pdf",
+    testid: "kb-dropzone-policy",
+    ic: "📋",
+  },
+  industry_guide: {
+    label: "行业指引",
+    desc: "docx / pdf · 行业研究报告 / 准入标准",
+    accept: ".docx,.pdf",
+    testid: "kb-dropzone-industry-guide",
+    ic: "📚",
+  },
+};
+
+const KB_TYPE_ORDER: KbType[] = ["customer_list", "policy", "industry_guide"];
+
+function KbUploadStrip({
+  kbIds,
+  kbStatus,
+  kbSummaries,
+  kbErrors,
+  onUpload,
+}: {
+  kbIds: Record<KbType, string | null>;
+  kbStatus: Record<KbType, KbUploadStatus>;
+  kbSummaries: Record<KbType, KbUploadResult | null>;
+  kbErrors: Record<KbType, string>;
+  onUpload: (type: KbType, file: File) => void;
+}) {
+  return (
+    <section
+      className="ch-kb-strip"
+      data-testid="kb-upload-strip"
+      aria-label="知识库上传区"
+    >
+      <header className="ch-kb-strip-head">
+        <div>
+          <div className="rpt-panel-eyebrow">KB · 知识库上传</div>
+          <h3 className="rpt-panel-title">
+            上传 3 类 KB · 抽 12 维理想客户画像 · 再扫
+          </h3>
+        </div>
+        <span className="rpt-panel-meta">客户名录必传 · 政策 / 行业可选</span>
+      </header>
+      <div className="ch-kb-strip-grid">
+        {KB_TYPE_ORDER.map((t) => (
+          <KbDropzone
+            key={t}
+            type={t}
+            kbId={kbIds[t]}
+            status={kbStatus[t]}
+            summary={kbSummaries[t]}
+            error={kbErrors[t]}
+            onUpload={onUpload}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function KbDropzone({
+  type,
+  kbId,
+  status,
+  summary,
+  error,
+  onUpload,
+}: {
+  type: KbType;
+  kbId: string | null;
+  status: KbUploadStatus;
+  summary: KbUploadResult | null;
+  error: string;
+  onUpload: (type: KbType, file: File) => void;
+}) {
+  const meta = KB_TYPE_META[type];
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  function pick(file: File | null | undefined) {
+    if (!file) return;
+    onUpload(type, file);
+  }
+
+  function handlePick(e: ChangeEvent<HTMLInputElement>) {
+    pick(e.target.files?.[0]);
+    /* reset input · 让用户能上传同一 file 重复 */
+    if (e.target) e.target.value = "";
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    pick(e.dataTransfer.files?.[0]);
+  }
+
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!dragOver) setDragOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+  }
+
+  const hasUpload = kbId !== null && status === "success";
+  const isUploading = status === "uploading";
+  const isError = status === "error";
+
+  return (
+    <article
+      className="ch-kb-zone"
+      data-testid={meta.testid}
+      data-status={status}
+      data-has-upload={hasUpload ? "yes" : "no"}
+      data-drag-over={dragOver ? "yes" : "no"}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className="ch-kb-zone-head">
+        <span className="ic" aria-hidden>
+          {meta.ic}
+        </span>
+        <div className="ch-kb-zone-title-wrap">
+          <h4 className="ch-kb-zone-title">{meta.label}</h4>
+          <div className="ch-kb-zone-desc">{meta.desc}</div>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={meta.accept}
+        className="ch-kb-zone-input"
+        data-testid={`${meta.testid}-input`}
+        onChange={handlePick}
+        disabled={isUploading}
+      />
+      <div className="ch-kb-zone-action">
+        <button
+          type="button"
+          className="ch-kb-zone-btn"
+          data-testid={`${meta.testid}-btn`}
+          onClick={() => inputRef.current?.click()}
+          disabled={isUploading}
+        >
+          {isUploading
+            ? `上传中…`
+            : hasUpload
+            ? `重新上传`
+            : `选择文件`}
+        </button>
+        <span className="ch-kb-zone-hint">或拖拽文件到此区</span>
+      </div>
+      {hasUpload && summary && (
+        <div className="ch-kb-zone-summary" data-testid={`${meta.testid}-summary`}>
+          <div className="row">
+            <span className="lbl">已上传 · ID</span>
+            <span className="kb-id">{summary.kb_id.slice(0, 8)}…</span>
+          </div>
+          <div className="filename">{summary.source_filename}</div>
+          <div className="summary-text">{summary.summary_text}</div>
+        </div>
+      )}
+      {isError && (
+        <div className="ch-kb-zone-error" role="alert">
+          <span className="ic" aria-hidden>
+            ⚠
+          </span>
+          <span>{error || `上传失败`}</span>
+        </div>
+      )}
+    </article>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   F-045 · master plan §B.6b · IdealProfile 12 维画像卡 + "开始扫描" CTA
+   消费 /api/channel/profile 返回的 IdealProfile12 + reasoning_text + confidence
+   12 chip 展示 + 用户 confirm "开始扫描" 才走 /api/channel/run
+   ────────────────────────────────────────────────────────────────────── */
+
+const PROFILE_FIELDS_LIST: Array<{ key: keyof IdealProfile12; label: string }> = [
+  { key: "industry_focus", label: "行业聚焦" },
+  { key: "scale_preference", label: "规模偏好" },
+  { key: "geo_coverage", label: "地域覆盖" },
+  { key: "customer_type", label: "客户类型" },
+  { key: "product_keywords", label: "产品关键词" },
+  { key: "growth_signals", label: "增长信号" },
+  { key: "risk_signals", label: "风险信号" },
+];
+
+const PROFILE_FIELDS_STR: Array<{ key: keyof IdealProfile12; label: string }> = [
+  { key: "stage", label: "发展阶段" },
+  { key: "capital_relation", label: "资本关系" },
+  { key: "business_size", label: "业务规模" },
+  { key: "employee_size", label: "员工规模" },
+  { key: "value_chain_position", label: "价值链位置" },
+];
+
+function idealProfileToQuery(profile: IdealProfileResponse | null): string {
+  if (!profile) return "";
+  const p = profile.ideal_profile;
+  const parts: string[] = [];
+  if (p.industry_focus.length) parts.push(`行业 ${p.industry_focus.slice(0, 3).join(" / ")}`);
+  if (p.geo_coverage.length) parts.push(`地域 ${p.geo_coverage.slice(0, 3).join(" / ")}`);
+  if (p.scale_preference.length)
+    parts.push(`规模 ${p.scale_preference.slice(0, 2).join(" / ")}`);
+  if (p.stage) parts.push(`阶段 ${p.stage}`);
+  if (p.product_keywords.length)
+    parts.push(`产品 ${p.product_keywords.slice(0, 3).join(" / ")}`);
+  if (p.growth_signals.length)
+    parts.push(`增长信号 ${p.growth_signals.slice(0, 2).join(" / ")}`);
+  return parts.length
+    ? `按理想画像 look-alike 找企业 · ${parts.join(" · ")}`
+    : "按理想客户画像 look-alike 找企业";
+}
+
+function IdealProfileCard({
+  profile,
+  loading,
+  error,
+  onStartScan,
+}: {
+  profile: IdealProfileResponse | null;
+  loading: boolean;
+  error: string;
+  onStartScan: () => void;
+}) {
+  return (
+    <section
+      className="ch-profile-card"
+      data-testid="ideal-profile-card"
+      data-loading={loading ? "yes" : "no"}
+      aria-label="理想客户画像 12 维"
+    >
+      <header className="ch-profile-head">
+        <div>
+          <div className="rpt-panel-eyebrow">PROFILE · 理想客户画像</div>
+          <h3 className="rpt-panel-title">
+            12 维 IdealProfile · LLM 抽取
+            {profile && (
+              <span className="ch-profile-conf">
+                置信 {Math.round(profile.confidence_score * 100)}%
+              </span>
+            )}
+          </h3>
+        </div>
+        {profile && !loading && !error && (
+          <button
+            type="button"
+            className="ch-profile-cta"
+            data-testid="start-scan-cta"
+            onClick={onStartScan}
+          >
+            <span>开始扫描</span>
+            <span className="kbd" aria-hidden>
+              ↩
+            </span>
+          </button>
+        )}
+      </header>
+
+      {loading && (
+        <div
+          className="ch-profile-loading"
+          data-testid="ideal-profile-loading"
+          role="status"
+        >
+          <span className="ic" aria-hidden>
+            ◌
+          </span>
+          <span>LLM 解析中… 12 维画像抽取约 8-15s</span>
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="ch-profile-error" role="alert" data-testid="ideal-profile-error">
+          <span className="ic" aria-hidden>
+            ⚠
+          </span>
+          <span>画像抽取失败 · {error}</span>
+        </div>
+      )}
+
+      {profile && !loading && (
+        <>
+          <div className="ch-profile-grid">
+            {PROFILE_FIELDS_LIST.map((f) => {
+              const val = profile.ideal_profile[f.key] as string[];
+              return (
+                <div
+                  key={f.key}
+                  className="ch-profile-row ch-profile-row--list"
+                  data-field={f.key}
+                >
+                  <div className="ch-profile-row-lbl">{f.label}</div>
+                  <div className="ch-profile-row-chips">
+                    {val.length === 0 ? (
+                      <span className="ch-profile-empty-chip">未识别</span>
+                    ) : (
+                      val.map((v, i) => (
+                        <span
+                          key={`${f.key}-${i}`}
+                          className="ch-profile-chip"
+                          data-testid="ideal-profile-chip"
+                          data-field={f.key}
+                        >
+                          {v}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {PROFILE_FIELDS_STR.map((f) => {
+              const val = profile.ideal_profile[f.key] as string;
+              return (
+                <div
+                  key={f.key}
+                  className="ch-profile-row ch-profile-row--str"
+                  data-field={f.key}
+                >
+                  <div className="ch-profile-row-lbl">{f.label}</div>
+                  <div className="ch-profile-row-chips">
+                    {val ? (
+                      <span
+                        className="ch-profile-chip ch-profile-chip--str"
+                        data-testid="ideal-profile-chip"
+                        data-field={f.key}
+                      >
+                        {val}
+                      </span>
+                    ) : (
+                      <span className="ch-profile-empty-chip">未识别</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {profile.reasoning_text && (
+            <div
+              className="ch-profile-reasoning"
+              data-testid="ideal-profile-reasoning"
+            >
+              <div className="ch-profile-reasoning-lbl">解析说明</div>
+              <p className="ch-profile-reasoning-text">{profile.reasoning_text}</p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
