@@ -1654,3 +1654,396 @@
 .v-archive--canon[data-agent="credit"] .credit-band {
   display: none;
 }
+
+/* ─── W-CF-A2 · 2026-04-28 · CreditEmptyState (empty-state-design-protocol v1.0) ───
+   started=false 默认渲染:
+     §2.1 Hero (一句话 problem statement)
+     §2.2 主 CTA 3 入口分级 (primary / secondary / tertiary)
+     §2.3 Panel 区空骨架 (灰底 placeholder · 不显示模拟数字)
+     §2.4 状态透明 status pill
+     §2.5 demo 显式标 (示例) tag (tertiary 灰色降级)
+*/
+
+.credit-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 28px 32px;
+  min-height: 520px;
+}
+
+.credit-empty__tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.credit-empty__tabs-lbl {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-right: 6px;
+}
+.credit-empty__tab {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-65);
+  background: transparent;
+  border: 1px solid var(--ink-14);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.credit-empty__tab:hover {
+  color: var(--ink);
+  border-color: var(--ink-28);
+}
+.credit-empty__tab[data-active="yes"] {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--t-credit) 18%, transparent);
+  border-color: var(--t-credit);
+}
+
+.credit-empty__hero {
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--ink-08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.credit-empty__hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t-credit);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.credit-empty__hero-title {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.credit-empty__hero-sub {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-65);
+  margin: 0;
+  line-height: 1.6;
+}
+.credit-empty__hero-sub strong {
+  color: var(--t-credit);
+  font-weight: 500;
+}
+
+.credit-empty__cta-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.credit-empty__cta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 18px 16px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  font: inherit;
+}
+.credit-empty__cta:hover:not(:disabled) {
+  border-color: var(--t-credit);
+  transform: translateY(-1px);
+}
+.credit-empty__cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.credit-empty__cta--primary {
+  background: color-mix(in srgb, var(--t-credit) 14%, transparent);
+  border-color: var(--t-credit);
+}
+.credit-empty__cta--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--t-credit) 24%, transparent);
+}
+.credit-empty__cta--secondary {
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+}
+.credit-empty__cta--tertiary {
+  background: color-mix(in srgb, var(--ink-08) 50%, transparent);
+}
+.credit-empty__cta-rank {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-55);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.credit-empty__cta--primary .credit-empty__cta-rank {
+  color: var(--t-credit);
+  font-weight: 600;
+}
+.credit-empty__cta-rank--demo {
+  color: var(--ink-40);
+  font-style: italic;
+}
+.credit-empty__cta-title {
+  font-family: var(--cjk);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.credit-empty__cta-sub {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-65);
+  line-height: 1.5;
+}
+
+.credit-empty__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.credit-empty__skel-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.credit-empty__skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 16px;
+  background: color-mix(in srgb, var(--g0b) 30%, transparent);
+  border: 1px dashed var(--ink-14);
+  border-radius: var(--r-md);
+  min-height: 96px;
+}
+.credit-empty__skel-card--wide {
+  grid-column: 1 / -1;
+}
+.credit-empty__skel-lbl {
+  font-family: var(--cjk);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-65);
+}
+.credit-empty__skel-hint {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-40);
+  line-height: 1.6;
+}
+.credit-empty__skel-export {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  background: transparent;
+  border: 1px solid var(--ink-14);
+  border-radius: 6px;
+  cursor: not-allowed;
+}
+
+.credit-empty__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--chalk) 65%, transparent);
+  border: 1px solid var(--ink-08);
+  border-radius: 999px;
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-65);
+}
+.credit-empty__status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.credit-empty__status-item[data-tone="ok"] {
+  color: #2e7d57;
+}
+.credit-empty__status-item--demo {
+  color: var(--ink-40);
+}
+.credit-empty__status-item--err {
+  color: var(--t-alert);
+  font-family: var(--cjk);
+  font-size: 12px;
+}
+.credit-empty__status-item code {
+  background: color-mix(in srgb, var(--ink-08) 50%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--t-credit);
+}
+
+@media (max-width: 900px) {
+  .credit-empty__cta-row,
+  .credit-empty__skel-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── W-CF-A2 · CreditDecisionAdvicePanel (started=true · live SSE 完成态) ─── */
+
+.credit-advice-live {
+  margin-top: 16px;
+  padding: 18px 22px;
+  background: color-mix(in srgb, var(--t-credit) 8%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--t-credit) 32%, transparent);
+  border-radius: var(--r-md);
+}
+.credit-advice-live__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.credit-advice-live__eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t-credit);
+  letter-spacing: 0.12em;
+}
+.credit-advice-live__err {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--t-alert);
+}
+.credit-advice-live__verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.credit-advice-live__verdict-lbl {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.credit-advice-live__verdict-grade {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--t-credit);
+  background: color-mix(in srgb, var(--t-credit) 16%, transparent);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.credit-advice-live__verdict-score {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-65);
+}
+.credit-advice-live__meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.credit-advice-live__meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.credit-advice-live__meta dt {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.credit-advice-live__meta dd {
+  font-family: var(--cjk);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+}
+.credit-advice-live__meta dd .bench {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  margin-left: 4px;
+}
+.credit-advice-live__reason {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-80);
+  line-height: 1.7;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--chalk) 60%, transparent);
+  border-left: 3px solid var(--t-credit);
+  margin: 0 0 14px;
+}
+.credit-advice-live__cond {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.credit-advice-live__cond .lbl {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.credit-advice-live__cond ul {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 18px;
+  margin: 0;
+}
+.credit-advice-live__cond li {
+  font-family: var(--cjk);
+  font-size: 12.5px;
+  color: var(--ink-80);
+  line-height: 1.6;
+}
+.credit-advice-live__export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: #fff;
+  background: var(--t-credit);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.credit-advice-live__export:hover:not(:disabled) {
+  opacity: 0.85;
+}
+.credit-advice-live__export:disabled {
+  background: var(--ink-28);
+  cursor: not-allowed;
+}
+.credit-advice-live__loading {
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-65);
+  padding: 16px;
+}

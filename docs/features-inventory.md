@@ -537,6 +537,39 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-048 · Credit empty state · default started=false → Hero + 3 CTA + skeleton + status pill
+
+- **status**: live
+- **owner**: Worker A2 (W-CF-A2)
+- **goal**: 满足 empty-state-design-protocol v1.0 §2-§5 落地 · Credit Workspace 默认空白启动 · 不渲染 mock 数据 · 用户主动触发 (CTA) 才 setStarted(true) · 信任模型 P0 (银行用户对假数据零容忍)
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`started` useState + `CreditEmptyState` 子组件 · 顶层 fork render `if (!started) return EmptyState`) · `web/src/app/archive/credit/credit-workspace.css` (`.credit-empty__*` 类 ~250 行)
+- **selector**: `[data-credit-started="no"]` 根 · `[data-testid="credit-empty-skeleton"]` skeleton 容器 · `[data-testid="credit-empty-skeleton-panels"]` 3 panel grid · `[data-testid="credit-empty-status-pill"]` 状态 pill · `[data-testid="credit-stage-tab-{corporate,small_business,retail}"]` 3 stage tabs · `[data-testid="credit-decision-cta"]` primary CTA · `[data-testid="credit-decision-cta-secondary"]` secondary CTA · `[data-testid="credit-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="credit-redlines-list"]` 红线 placeholder · `[data-testid="credit-export-docx-btn"]` Word 导出 (default disabled)
+- **interaction**: default 进 `/archive/credit` → `started=false` → 渲染 EmptyState (Hero "授信决策辅助 · 4 维评分 + 红线 + 案例 + 决策建议书" + 3 stage_tab 切换 + 3 CTA 分级 + 3-card panel skeleton + status pill) · primary CTA "选材料 + 起决策" → `runDecision({mockMode: false})` → POST `/api/credit/decision` SSE (stage_tab + preset_name) · secondary CTA "演示模式起决策" → `runDecision({mockMode: true})` → backend mock SSE fixture · tertiary "历史 (示例)" → `selectHistoricalDemo()` → setStarted=true + scanned=yes 看 mock 演示 · 任一 CTA 触发都 `setStarted(true)` 切到完整 workspace
+- **introduce**: 2026-04-28 W-CF-A2 worker · empty-state-design-protocol v1.0 §6 Credit 改造点 (主 CTA 选材料 + 起决策 / secondary 直接输入 / tertiary 历史 dropdown 标 (示例)) · onboarding §Acceptance 列 6 必加 testid
+- **fixes**: master plan gap #6 (5 archive Workspace 仅 Channel 部分实装 · Credit 部分实装但 default 已渲染 mock data 违反 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` (4 test: default render skeleton + 3 stage_tab 切换 + tertiary trigger started + tertiary 标 (示例) tag)
+
+---
+
+## F-053 · Credit 完整 workspace · LLM SSE 决策 + Word 导出 (started=true 路径)
+
+- **status**: live
+- **owner**: Worker A2 (W-CF-A2 · backend W-C2-A2 v4.0 复用)
+- **goal**: started=true 后渲染完整授信决策 panel + 真接 backend SSE 流 + LLM advice 实时 fade-in + decision_id 缓存 + Word 导出 (.docx)
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`runDecision()` async fn · POST `/api/credit/decision` SSE 解析 advising_done event · `liveAdvice/decisionId/decisionRunning/decisionError` useState · `CreditDecisionAdvicePanel` 子组件 · 动态生成 anchor 触发 .docx 下载) · `credit-workspace.css` (`.credit-advice-live__*` ~120 行)
+- **selector**: `[data-credit-started="yes"]` 根 · `[data-testid="credit-decision-advice-live"]` advice panel 容器 (live SSE 完成后渲) · `.credit-advice-live__verdict-lbl/grade/score` 决策结论 + 风险等级 + 综合分 · `.credit-advice-live__meta` dt/dd 额度/期限/利率 · `.credit-advice-live__cond` 附加条件列表 · `[data-testid="credit-export-docx-btn"]` Word 导出 button (live 完成后启用)
+- **interaction**: 用户在 EmptyState 点 primary/secondary CTA → `runDecision()` POST `/api/credit/decision` SSE (`stage_tab + preset_name + mock`) → 流式解析: `advising_done` event 注 `liveAdvice` + `decision_cached` event 拿 `decision_id` → `CreditDecisionAdvicePanel` fade-in 渲 LLM 建议 + 决策卡 + 红线解释 + 附加条件 → 用户点 export_docx → POST `/api/credit/export_docx` `{decision_id}` (优先 cache) 或 `{advice}` (passthrough) → 拿 .docx blob → 动态 anchor click 触发浏览器下载 `授信决策建议书_{stage_tab}_{ts}.docx` · `decision_id` 不存在/过期 → 后端 404 + ttl_sec hint
+- **introduce**: 2026-04-28 W-CF-A2 worker · 复用 W-C2-A2 v4.0 backend 的 `decision SSE event=decision_cached` + `export_docx body{decision_id}` (in-memory cache 30min TTL) · empty-state-design-protocol §3 状态机 trigger 之一
+- **fixes**: master plan gap #8 (Agent3 后端 stub) · gap #12 (6 Agent Word 导出·后端只有 xlsx) Credit 闭环
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` test #3 (点 tertiary trigger 完整 workspace · RiskRadarPreview 渲染验证) · live SSE wire 完整 e2e (含 docx 下载) 留 Stage D dry-run 阶段补 (本批 acceptance 不要求 · 因 LLM key 环境依赖 + binary blob assert 复杂)
+- **依赖**: F-048 (empty state 是入口) · backend `/api/credit/decision` SSE v4.0 + `/api/credit/export_docx` (W-C2-A2 已 deliver) · `web/AGENTS.md` Next 16 注意 (use client + fetch streaming reader 标准模式)
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`

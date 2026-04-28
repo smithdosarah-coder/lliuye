@@ -69,6 +69,21 @@ const AGENT_KEY = "credit";
 const AGENT_HREF = "/archive/credit";
 const AGENT_ACCENT = "--t-credit";
 
+/* W-CF-A2 · 2026-04-28 · stage_tab 命名与 backend 对齐 (per agent-credit-spec §1 + W-C2-A2 backend v4.0)
+   内部 CreditMode keys 不变 (mock data map 不动 · 现 testid/Tabbar UI 不破)
+   onboarding 字面 testid 用 "corporate" / "small_business" / "retail" mapping. */
+const MODE_TO_STAGE_TAB: Record<CreditMode, "corporate" | "small_business" | "retail"> = {
+  corp: "corporate",
+  small: "small_business",
+  retail: "retail",
+};
+
+const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
+  corp: "对公授信 · 50-5000 万 · 4 维评分 + 30 红线",
+  small: "普惠 / 小微 · 10-500 万 · 抵押权重高 · 阈值放宽 5 分",
+  retail: "对私 / 零售 · 5-500 万 · FICO 式 800/760/700/680 评级",
+};
+
 export default function CreditWorkspace() {
   const [mode, setMode] = useState<CreditMode>("corp");
   const [tab, setTab] = useState<OutputTab>("radar");
@@ -90,6 +105,15 @@ export default function CreditWorkspace() {
   /* 2026-04-23 · credit 也统一空态 · startGenerate 最后一步触发 · 数据显现 */
   const [scanned, setScanned] = useState(false);
 
+  /* W-CF-A2 · 2026-04-28 · empty-state-design-protocol v1.0 落地
+     started default false · 仅渲染 Hero + 3 CTA + skeleton + status pill
+     mock data 不 default load · 用户主动选 dropdown / submit 才 start */
+  const [started, setStarted] = useState(false);
+  const [liveAdvice, setLiveAdvice] = useState<Record<string, unknown> | null>(null);
+  const [decisionId, setDecisionId] = useState<string | null>(null);
+  const [decisionRunning, setDecisionRunning] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+
   useEffect(() => {
     return () => {
       if (timerRef.current !== null) {
@@ -97,6 +121,88 @@ export default function CreditWorkspace() {
       }
     };
   }, []);
+
+  /* 起授信决策 · POST /api/credit/decision SSE · 收 advice + decision_id
+     mock=true 兼容无 LLM key 环境 (curl-friendly · spec test 也走 mock 避真 LLM 依赖) */
+  async function runDecision(opts: { mockMode: boolean }) {
+    if (decisionRunning) return;
+    setStarted(true);
+    setDecisionRunning(true);
+    setDecisionError(null);
+    setLiveAdvice(null);
+    setDecisionId(null);
+    try {
+      const apiBase =
+        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+      const stageTab = MODE_TO_STAGE_TAB[mode];
+      // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
+      const presetByMode: Record<CreditMode, string> = {
+        corp: "dingsheng_trade",
+        small: "dingsheng_trade",
+        retail: "zhangsan_restaurant",
+      };
+      const res = await fetch(`${apiBase}/api/credit/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stage_tab: stageTab,
+          mock: opts.mockMode,
+          preset_name: opts.mockMode ? null : presetByMode[mode],
+        }),
+      });
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const blocks = buf.split("\n\n");
+        buf = blocks.pop() ?? "";
+        for (const block of blocks) {
+          const dataLine = block.split("\n").find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          try {
+            const evt = JSON.parse(dataLine.slice(5).trim()) as {
+              event?: string;
+              stage?: string;
+              decision_id?: string;
+              payload?: Record<string, unknown>;
+              message?: string;
+            };
+            if (evt.event === "stage" && evt.stage === "advising_done" && evt.payload) {
+              setLiveAdvice(evt.payload);
+              setScanned(true);
+            }
+            if (evt.event === "decision_cached" && evt.decision_id) {
+              setDecisionId(evt.decision_id);
+            }
+            if (evt.event === "error") {
+              setDecisionError(String(evt.message ?? "decision SSE error"));
+            }
+          } catch {
+            /* skip malformed line */
+          }
+        }
+      }
+    } catch (err) {
+      setDecisionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDecisionRunning(false);
+    }
+  }
+
+  /* tertiary CTA · 选历史 (示例) session · setStarted=true 但不调 backend · 看 mock UI */
+  function selectHistoricalDemo() {
+    setStarted(true);
+    setScanned(true);
+    setLiveAdvice(null);
+    setDecisionId(null);
+    setDecisionError(null);
+  }
 
   function startGenerate() {
     if (progress.running) return;
@@ -122,12 +228,46 @@ export default function CreditWorkspace() {
     }, 450);
   }
 
+  /* W-CF-A2 · empty-state v1.0 路径
+     started=false → 渲染 EmptyState (Hero + 3 CTA + skeleton + status pill · 不渲染 mock data)
+     started=true  → 渲染现有完整 workspace (4 panel + EvidenceTrail + RiskRadar 等) */
+  if (!started) {
+    return (
+      <EvidenceProvider
+        items={CREDIT_EVIDENCE.items}
+        unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+      >
+        <div
+          className="rpt-workspace credit-empty-root"
+          data-credit-mode={mode}
+          data-scanned="no"
+          data-credit-started="no"
+        >
+          <CreditEmptyState
+            mode={mode}
+            onModeChange={setMode}
+            onPrimary={() => runDecision({ mockMode: false })}
+            onSecondary={() => runDecision({ mockMode: true })}
+            onTertiary={selectHistoricalDemo}
+            decisionRunning={decisionRunning}
+            decisionError={decisionError}
+          />
+        </div>
+      </EvidenceProvider>
+    );
+  }
+
   return (
     <EvidenceProvider
       items={CREDIT_EVIDENCE.items}
       unfilledFields={CREDIT_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace" data-credit-mode={mode} data-scanned={scanned ? "yes" : "no"}>
+    <div
+      className="rpt-workspace"
+      data-credit-mode={mode}
+      data-credit-started="yes"
+      data-scanned={scanned ? "yes" : "no"}
+    >
       <TopBar
         mode={mode}
         onModeChange={setMode}
@@ -186,6 +326,14 @@ export default function CreditWorkspace() {
         pipeline={session.pipeline}
         generateSteps={session.generateSteps}
         progress={progress}
+      />
+      {/* W-CF-A2 · 决策完成 advice + Word 导出 (live SSE 路径) */}
+      <CreditDecisionAdvicePanel
+        liveAdvice={liveAdvice}
+        decisionId={decisionId}
+        decisionRunning={decisionRunning}
+        decisionError={decisionError}
+        stageTab={MODE_TO_STAGE_TAB[mode]}
       />
       <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
         <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
@@ -1361,6 +1509,316 @@ function PipelineLane({
           ))}
         </ol>
       </div>
+    </section>
+  );
+}
+
+/* ─────────── CreditEmptyState · W-CF-A2 · 2026-04-28 ───────────
+   empty-state-design-protocol v1.0 落地:
+     §2.1 场景 Hero (一句话 problem statement)
+     §2.2 主 CTA 3 入口分级 (primary 显著 / secondary 次要 / tertiary 灰色 (示例))
+     §2.3 Panel 区空骨架 (灰底 placeholder · 不显示模拟数字)
+     §2.4 状态透明 status pill
+     §2.5 demo 显式标 (示例) tag
+   §3 状态机 started default false · 用户主动 trigger 才 setStarted(true)
+   §6 Credit 改造: 主 CTA = 选材料 (来自 Agent6 handoff) + 起决策
+*/
+
+function CreditEmptyState(p: {
+  mode: CreditMode;
+  onModeChange: (m: CreditMode) => void;
+  onPrimary: () => void;       // 起决策 (真接 backend SSE)
+  onSecondary: () => void;     // 起决策 (mock=true · 无 LLM key 演示)
+  onTertiary: () => void;      // 选历史 (示例) session
+  decisionRunning: boolean;
+  decisionError: string | null;
+}) {
+  const stageTab = MODE_TO_STAGE_TAB[p.mode];
+  const stageDesc = STAGE_TAB_DESCRIPTION[p.mode];
+  return (
+    <div className="credit-empty" data-testid="credit-empty-skeleton">
+      {/* Stage tabs · 与 backend stage_tab 命名对齐 */}
+      <div
+        className="credit-empty__tabs"
+        role="tablist"
+        aria-label="授信板块切换"
+      >
+        <span className="credit-empty__tabs-lbl">板块</span>
+        {(["corp", "small", "retail"] as CreditMode[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={p.mode === k}
+            data-testid={`credit-stage-tab-${MODE_TO_STAGE_TAB[k]}`}
+            className="credit-empty__tab"
+            data-active={p.mode === k ? "yes" : "no"}
+            onClick={() => p.onModeChange(k)}
+          >
+            {CREDIT_MODE_LABEL[k]}
+          </button>
+        ))}
+      </div>
+
+      {/* §2.1 Hero · 一句话 problem statement */}
+      <header className="credit-empty__hero">
+        <div className="credit-empty__hero-eyebrow">AGENT · 03 · BENCH · 授信决策辅助</div>
+        <h1 className="credit-empty__hero-title">
+          授信决策辅助 · 4 维评分 + 红线 + 案例 + 决策建议书
+        </h1>
+        <p className="credit-empty__hero-sub">
+          当前板块: <strong>{CREDIT_MODE_LABEL[p.mode]}</strong> · {stageDesc}
+        </p>
+      </header>
+
+      {/* §2.2 主 CTA · 3 入口分级 */}
+      <section className="credit-empty__cta-row" aria-label="3 CTA 分级">
+        <button
+          type="button"
+          className="credit-empty__cta credit-empty__cta--primary"
+          data-testid="credit-decision-cta"
+          data-cta="primary"
+          onClick={p.onPrimary}
+          disabled={p.decisionRunning}
+        >
+          <span className="credit-empty__cta-rank">主操作</span>
+          <span className="credit-empty__cta-title">
+            {p.decisionRunning ? "决策中…" : "选材料 + 起决策"}
+          </span>
+          <span className="credit-empty__cta-sub">
+            从 Agent6 handoff 拉报告 · 真接 LLM SSE
+          </span>
+        </button>
+        <button
+          type="button"
+          className="credit-empty__cta credit-empty__cta--secondary"
+          data-testid="credit-decision-cta-secondary"
+          data-cta="secondary"
+          onClick={p.onSecondary}
+          disabled={p.decisionRunning}
+        >
+          <span className="credit-empty__cta-rank">次操作</span>
+          <span className="credit-empty__cta-title">演示模式起决策</span>
+          <span className="credit-empty__cta-sub">
+            无 LLM key 也能看流程 · backend mock=true
+          </span>
+        </button>
+        <button
+          type="button"
+          className="credit-empty__cta credit-empty__cta--tertiary"
+          data-testid="credit-history-tertiary"
+          data-cta="tertiary"
+          onClick={p.onTertiary}
+        >
+          <span className="credit-empty__cta-rank credit-empty__cta-rank--demo">
+            历史 (示例)
+          </span>
+          <span className="credit-empty__cta-title">看示例案例</span>
+          <span className="credit-empty__cta-sub">
+            {CREDIT_MODE_LABEL[p.mode]} · 培训演示用 · 切真实输入随时返回
+          </span>
+        </button>
+      </section>
+
+      {/* §2.3 Panel 空骨架 · 不显示模拟数字 · 仅说明文字 */}
+      <section
+        className="credit-empty__skeleton"
+        aria-label="授信决策面板 · 空骨架"
+        data-testid="credit-empty-skeleton-panels"
+      >
+        <div className="credit-empty__skel-row">
+          <div className="credit-empty__skel-card" data-skel="radar">
+            <div className="credit-empty__skel-lbl">4 维评分雷达</div>
+            <div className="credit-empty__skel-hint">起决策后此处显示综合分 + 雷达图</div>
+          </div>
+          <div className="credit-empty__skel-card" data-skel="redlines">
+            <div className="credit-empty__skel-lbl" data-testid="credit-redlines-list">
+              红线检查
+            </div>
+            <div className="credit-empty__skel-hint">命中红线显示在这里 (硬/软分级)</div>
+          </div>
+          <div className="credit-empty__skel-card" data-skel="cases">
+            <div className="credit-empty__skel-lbl">相似案例 Top5</div>
+            <div className="credit-empty__skel-hint">案例召回结果显示在这里</div>
+          </div>
+        </div>
+        <div className="credit-empty__skel-row">
+          <div className="credit-empty__skel-card credit-empty__skel-card--wide" data-skel="advice">
+            <div className="credit-empty__skel-lbl">决策建议书 · LLM 自然语言</div>
+            <div className="credit-empty__skel-hint">
+              起决策完成后显示决策结论 / 额度 / 期限 / 利率 / 红线解释 +{" "}
+              <button
+                type="button"
+                className="credit-empty__skel-export"
+                data-testid="credit-export-docx-btn"
+                disabled
+                aria-disabled
+              >
+                导出 .docx (待决策完成启用)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* §2.4 status pill · 服务健康 + LLM 预算 + 历史 hint */}
+      <footer
+        className="credit-empty__status"
+        data-testid="credit-empty-status-pill"
+        aria-label="状态透明"
+      >
+        <span className="credit-empty__status-item" data-tone="ok">
+          ◉ 服务正常
+        </span>
+        <span className="credit-empty__status-item">
+          板块: <code>{stageTab}</code>
+        </span>
+        <span className="credit-empty__status-item credit-empty__status-item--demo">
+          {p.decisionRunning ? "授信流式中…" : "等待主操作"}
+        </span>
+        {p.decisionError ? (
+          <span
+            className="credit-empty__status-item credit-empty__status-item--err"
+            role="alert"
+          >
+            ⚠ {p.decisionError}
+          </span>
+        ) : null}
+      </footer>
+    </div>
+  );
+}
+
+/* ─────────── CreditDecisionAdvicePanel · W-CF-A2 · 2026-04-28 ───────────
+   决策完成 (live SSE advising_done event) 后渲染 LLM 决策建议 + 红线 +
+   Word 导出 button. decision_id 命中 → POST /api/credit/export_docx 下载 .docx.
+   liveAdvice=null 时不渲 (避免与 mock data band 重叠). */
+
+function CreditDecisionAdvicePanel(p: {
+  liveAdvice: Record<string, unknown> | null;
+  decisionId: string | null;
+  decisionRunning: boolean;
+  decisionError: string | null;
+  stageTab: "corporate" | "small_business" | "retail";
+}) {
+  if (!p.liveAdvice && !p.decisionRunning && !p.decisionError) return null;
+
+  const advice = (p.liveAdvice ?? {}) as Record<string, unknown>;
+  const decision = String(advice.decision ?? "");
+  const composite = advice.composite_score;
+  const grade = String(advice.risk_grade ?? "");
+  const amount = advice.approved_amount;
+  const term = advice.approved_term_months;
+  const rate = advice.interest_rate;
+  const benchmark = String(advice.rate_benchmark ?? "");
+  const reason = String(advice.decision_reason ?? "");
+  const conditions = Array.isArray(advice.conditions) ? (advice.conditions as string[]) : [];
+
+  async function downloadDocx() {
+    if (!p.decisionId && !p.liveAdvice) return;
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    const body = p.decisionId
+      ? { decision_id: p.decisionId }
+      : { advice: { ...advice, segment: "corporate", subject_name: String(advice.subject_name ?? "授信主体") } };
+    try {
+      const res = await fetch(`${apiBase}/api/credit/export_docx`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `授信决策建议书_${p.stageTab}_${Date.now()}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[credit] export_docx failed:", err);
+    }
+  }
+
+  return (
+    <section
+      className="rpt-panel credit-advice-live"
+      aria-label="决策建议 · LLM 实时生成"
+      data-testid="credit-decision-advice-live"
+    >
+      <header className="credit-advice-live__head">
+        <span className="credit-advice-live__eyebrow">
+          DECISION · {p.stageTab.toUpperCase()}
+          {p.decisionRunning ? " · 流式中…" : ""}
+        </span>
+        {p.decisionError ? (
+          <span className="credit-advice-live__err" role="alert">
+            ⚠ {p.decisionError}
+          </span>
+        ) : null}
+      </header>
+      {p.liveAdvice ? (
+        <div className="credit-advice-live__body">
+          <div className="credit-advice-live__verdict">
+            <span className="credit-advice-live__verdict-lbl">{decision || "—"}</span>
+            {grade ? (
+              <span className="credit-advice-live__verdict-grade">{grade}</span>
+            ) : null}
+            {typeof composite === "number" ? (
+              <span className="credit-advice-live__verdict-score">{composite} 分</span>
+            ) : null}
+          </div>
+          <dl className="credit-advice-live__meta">
+            {typeof amount === "number" ? (
+              <div>
+                <dt>建议额度</dt>
+                <dd>{amount} 万</dd>
+              </div>
+            ) : null}
+            {typeof term === "number" ? (
+              <div>
+                <dt>建议期限</dt>
+                <dd>{term} 个月</dd>
+              </div>
+            ) : null}
+            {typeof rate === "number" ? (
+              <div>
+                <dt>利率</dt>
+                <dd>
+                  {(rate * 100).toFixed(2)}%
+                  {benchmark ? <span className="bench"> ({benchmark})</span> : null}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          {reason ? (
+            <p className="credit-advice-live__reason">{reason}</p>
+          ) : null}
+          {conditions.length > 0 ? (
+            <div className="credit-advice-live__cond">
+              <span className="lbl">附加条件</span>
+              <ul>
+                {conditions.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="credit-advice-live__export"
+            data-testid="credit-export-docx-btn"
+            onClick={downloadDocx}
+            disabled={!p.decisionId && !p.liveAdvice}
+          >
+            导出决策建议书 (.docx)
+          </button>
+        </div>
+      ) : p.decisionRunning ? (
+        <div className="credit-advice-live__loading">LLM 决策流式生成中…</div>
+      ) : null}
     </section>
   );
 }
