@@ -537,7 +537,20 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
-## Compli Workspace · 空白启动 + 完整 production-grade pipeline · F-050 / F-054
+## Credit / Compli Workspace · 空白启动 + 完整 production-grade pipeline · F-048 / F-050 / F-053 / F-054
+
+## F-048 · Credit empty state · default started=false → Hero + 3 CTA + skeleton + status pill
+
+- **status**: live
+- **owner**: Worker A2 (W-CF-A2)
+- **goal**: 满足 empty-state-design-protocol v1.0 §2-§5 落地 · Credit Workspace 默认空白启动 · 不渲染 mock 数据 · 用户主动触发 (CTA) 才 setStarted(true) · 信任模型 P0 (银行用户对假数据零容忍)
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`started` useState + `CreditEmptyState` 子组件) · `credit-workspace.css` (`.credit-empty__*` ~250 行)
+- **selector**: `[data-credit-started="no"]` 根 · `[data-testid="credit-empty-skeleton"]` · `[data-testid="credit-empty-skeleton-panels"]` · `[data-testid="credit-empty-status-pill"]` · `[data-testid="credit-stage-tab-{corporate,small_business,retail}"]` 3 stage tabs · `[data-testid="credit-decision-cta"]` primary · `[data-testid="credit-decision-cta-secondary"]` secondary · `[data-testid="credit-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="credit-redlines-list"]` placeholder · `[data-testid="credit-export-docx-btn"]` (default disabled)
+- **interaction**: default `/archive/credit` → `started=false` → EmptyState (Hero + 3 stage_tab + 3 CTA + 3-card skeleton + status pill) · primary "选材料 + 起决策" → POST `/api/credit/decision` SSE · secondary "演示模式" → mock SSE · tertiary "历史 (示例)" → 看 mock · 任一 CTA → `setStarted(true)` 切到完整 workspace
+- **introduce**: 2026-04-28 W-CF-A2 worker · empty-state-design-protocol §6 Credit 改造点
+- **fixes**: master plan gap #6 (Credit Workspace 部分实装 · default 渲 mock data 违 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work
+- **lost_at**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` (4 test: default render + 3 tab 切换 + tertiary trigger + tertiary 标 (示例))
 
 ## F-050 · Compli Workspace · 空白启动 + 3 CTA 分级
 
@@ -552,6 +565,20 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **introduce**: pending Stage CF 第 1 批 cherry-pick (c75488f → main · 2026-04-28)
 - **lost_at**: N/A (新 feature · 此前 ComplianceWorkspace 默认 load mock 数据 · 无 empty state)
 - **smoke_test**: `web/tests/regression/compli-empty-state.spec.ts` (5 case · 默认空 + dropdown 标 + 3 CTA 分级 + tertiary trigger + primary CTA mock SSE)
+
+## F-053 · Credit 完整 workspace · LLM SSE 决策 + Word 导出 (started=true 路径)
+
+- **status**: live
+- **owner**: Worker A2 (W-CF-A2 · backend W-C2-A2 v4.0 复用)
+- **goal**: started=true 后渲染完整授信决策 panel + 真接 backend SSE + LLM advice fade-in + decision_id 缓存 + Word 导出 (.docx)
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`runDecision()` · `liveAdvice/decisionId/decisionRunning/decisionError` useState · `CreditDecisionAdvicePanel` 子组件 · 动态 anchor click 触发 .docx 下载) · `credit-workspace.css` (`.credit-advice-live__*` ~120 行)
+- **selector**: `[data-credit-started="yes"]` 根 · `[data-testid="credit-decision-advice-live"]` advice panel · `.credit-advice-live__verdict-lbl/grade/score` 结论 + 等级 + 分 · `.credit-advice-live__meta` 额度/期限/利率 · `.credit-advice-live__cond` 附加条件 · `[data-testid="credit-export-docx-btn"]` Word 导出 (live 后启用)
+- **interaction**: primary/secondary CTA → POST `/api/credit/decision` SSE → 解析 `advising_done` 注 liveAdvice + `decision_cached` 拿 decision_id → AdvicePanel fade-in → 用户点 export_docx → POST `/api/credit/export_docx` `{decision_id}` 优先 cache · 拿 .docx blob → anchor click 下载 `授信决策建议书_{stage_tab}_{ts}.docx`
+- **introduce**: 2026-04-28 W-CF-A2 · 复用 W-C2-A2 v4.0 backend (decision SSE + decision_cached event + 30min cache TTL)
+- **fixes**: master plan gap #8 (Agent3 后端 stub) + gap #12 Credit Word 闭环
+- **lost_at**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` test #3 (tertiary trigger 完整 workspace · RiskRadarPreview 渲染) · 完整 e2e SSE+docx 下载留 Stage D dry-run
+- **依赖**: F-048 (empty state 入口) · backend `/api/credit/decision` SSE v4.0 + `/api/credit/export_docx` (W-C2-A2)
 
 ## F-054 · Compli Workspace · 完整 production-grade pipeline (3 endpoints + Word 导出)
 
