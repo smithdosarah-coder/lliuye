@@ -718,6 +718,34 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-060 · IM Send wire + pin_ref 严格 thumbnail + live-fail banner
+
+- **status**: live
+- **owner**: Worker A2 (W-FIX · 2026-04-28)
+- **goal**: 修 user 报 production bug 3: (1) dispatch composer 是摆设 send fail silent · (2) 画布拖到 composer 是 url 链接 · 不是 thumbnail (违 F-008 + live-fallback-banner-spec §2 规则 4)
+- **location**:
+  - `web/src/app/dispatch/_components/ComposerBar.tsx` (handleSubmit `.catch` → setSendFailError + handleDrop dispatch kind="pin_ref" message · NOT setText 文本 marker)
+  - `web/src/app/dispatch/_components/MessageStream.tsx` (新 ImBanners 组件 · sendFailError + wsFailSince 30s threshold)
+  - `web/src/app/dispatch/_store/dispatch-store.ts` (sendFailError state + setSendFailError action + wsFailSince 自动追踪 in setWsState)
+  - `web/src/app/dispatch/dispatch-im.css` (.dpx-stream-banners + .dpx-banner--err/warn ~60 行)
+- **selector**: `[data-testid="im-send-fail-banner"]` send 失败 banner · `[data-testid="im-send-fail-dismiss"]` 关 banner · `[data-testid="im-ws-fail-banner"]` ws 持续 ≥ 30s fail banner · `[data-testid="im-pin-ref-thumbnail"]` (复用 F-058 · 已存) · `[data-testid="im-ws-state"]` (复用 F-058)
+- **interaction**:
+  - composer Enter / send button → `addMessage` optimistic local + `sendMessageRest` POST `/api/im/messages`
+  - send 4xx/5xx · network error → `setSendFailError({message, code})` → 顶部 banner + dismiss button
+  - 拖拽 PANEL_PIN_MIME / CARD_PIN_MIME → `addMessage` 立即创建 `kind="pin_ref"` (refs.agentId/href/fullText 来自 PanelPinPayload/CardPinPayload) → MessageBubble PinRefThumbnail 渲缩略图 · NOT setText 文本 marker · live mode 同步 `sendMessageRest` 持久化
+  - ws state !== "open" 持续 ≥ 30s → ws-fail-banner 显 (1s tick 检 wsFailSince) · 自动重连 (D.2F WebSocket client 已实装 exponential backoff)
+- **introduce**: 2026-04-28 W-FIX-A2-im-send-pinref worker · 复用 D.1 (sendMessage REST) + D.2F (WebSocket state · pin_ref types.ts) + D.1F (cookie 自动带)
+- **fixes**:
+  - master plan gap user-bug 3 (composer 摆设 + 拖拽 url 链接) production-grade 闭环
+  - live-fallback-banner-spec.md §1 规则 1 (live 失败 silent ban) + §2 规则 4 (pin_ref 严格 thumbnail)
+- **smoke_test**: `web/tests/regression/im-fix.spec.ts` (3 case · chromium 2 PASS + 1 skip + edge 2 PASS + 1 skip = 4/6 + 2 skip)
+  - case 1 send fail banner: route mock 502 → banner 显 + dismiss button works ✓
+  - case 2 pin_ref strict thumbnail: skip · seed 无 pin_ref message · 真 drag-drop e2e 留 Stage F dry-run (PinRefThumbnail render path 已 compile-verified · MessageBubble.tsx:42-47 严格 if/else)
+  - case 3 ws fail banner: 验 wsState pill + banner 默认 0 (open state 不该显) ✓
+- **依赖**: F-008 (拖柄 + 缩略图 base) · F-058 (D.2F WebSocket + im REST client) · D.1 backend POST /api/im/messages · cookie 自动带
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`

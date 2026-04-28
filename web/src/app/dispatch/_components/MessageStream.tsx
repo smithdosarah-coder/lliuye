@@ -29,6 +29,9 @@ export function MessageStream() {
   );
   const liveMode = useDispatchStore((s) => s.liveMode);
   const wsState = useDispatchStore((s) => s.wsState);
+  const wsFailSince = useDispatchStore((s) => s.wsFailSince);
+  const sendFailError = useDispatchStore((s) => s.sendFailError);
+  const setSendFailError = useDispatchStore((s) => s.setSendFailError);
   const typingPresence = useDispatchStore((s) =>
     s.currentThreadId ? s.typingByThread[s.currentThreadId] ?? EMPTY_TYPING : EMPTY_TYPING,
   );
@@ -82,6 +85,13 @@ export function MessageStream() {
 
   return (
     <section className="dpx-stream" data-live-mode={liveMode} data-ws-state={wsState}>
+      {/* W-FIX · 2026-04-28 · live-fallback-banner-spec §1 规则 1 + onboarding §Acceptance */}
+      <ImBanners
+        sendFailError={sendFailError}
+        clearSendFail={() => setSendFailError(null)}
+        wsState={wsState}
+        wsFailSince={wsFailSince}
+      />
       <header className="dpx-stream-head">
         <div className="dpx-stream-title">
           <h2>{customer?.name ?? thread.title}</h2>
@@ -156,6 +166,73 @@ export function MessageStream() {
       ) : null}
       <ComposerBar />
     </section>
+  );
+}
+
+/* W-FIX · 2026-04-28 · live-fallback-banner-spec banners
+   - sendFailError → 顶部 banner 显错 + [重试 dismiss]
+   - wsFailSince 持续 ≥ 30s → "IM 实时连接断开" banner */
+
+const WS_FAIL_THRESHOLD_MS = 30_000;
+
+function ImBanners(p: {
+  sendFailError: { message: string; code?: number; ts: number } | null;
+  clearSendFail: () => void;
+  wsState: string;
+  wsFailSince: number | null;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  // wsFailSince 存在时 · 启动 1s tick · 持续比对 30s threshold
+  useEffect(() => {
+    if (p.wsState === "open" || p.wsFailSince === null) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [p.wsState, p.wsFailSince]);
+
+  const wsFailing =
+    p.wsState !== "open" &&
+    p.wsFailSince !== null &&
+    now - p.wsFailSince >= WS_FAIL_THRESHOLD_MS;
+
+  if (!p.sendFailError && !wsFailing) return null;
+
+  return (
+    <div className="dpx-stream-banners" aria-live="polite">
+      {p.sendFailError ? (
+        <div
+          className="dpx-banner dpx-banner--err"
+          role="alert"
+          data-testid="im-send-fail-banner"
+        >
+          <span className="dpx-banner__icon" aria-hidden>⚠️</span>
+          <span className="dpx-banner__text">
+            发消息失败
+            {p.sendFailError.code ? ` (${p.sendFailError.code})` : ""} ·{" "}
+            {p.sendFailError.message}
+          </span>
+          <button
+            type="button"
+            className="dpx-banner__dismiss"
+            data-testid="im-send-fail-dismiss"
+            onClick={p.clearSendFail}
+          >
+            知道了
+          </button>
+        </div>
+      ) : null}
+      {wsFailing ? (
+        <div
+          className="dpx-banner dpx-banner--warn"
+          role="status"
+          data-testid="im-ws-fail-banner"
+        >
+          <span className="dpx-banner__icon" aria-hidden>⚠️</span>
+          <span className="dpx-banner__text">
+            IM 实时连接断开 (state: <code>{p.wsState}</code>) · 自动重连中
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
