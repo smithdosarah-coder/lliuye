@@ -57,6 +57,8 @@ _screenshots/
 logs/
 fill_run_output.txt
 data/audit/*.jsonl
+data/audit/*.db
+data/audit/*.db-journal
 data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep

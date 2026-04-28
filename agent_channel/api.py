@@ -36,6 +36,15 @@ if str(PROJECT_ROOT) not in sys.path:
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
+# Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
+try:
+    from audit_service.decorators import audit_llm_call  # noqa: E402
+except ImportError:
+    def audit_llm_call(**_kwargs):  # type: ignore[no-redef]
+        def _passthrough(fn):
+            return fn
+        return _passthrough
+
 app = FastAPI(title="Agent1 Channel Lookalike API", version="4.0")
 
 
@@ -101,6 +110,7 @@ class ChannelRunRequest(BaseModel):
 
 
 @app.post("/api/channel/run")
+@audit_llm_call(agent_id="channel", endpoint="/api/channel/run", model="deepseek-chat")
 async def channel_run(req: ChannelRunRequest):
     """全渠道获客真实搜索流 SSE — 5 阶段事件推送 + 最终候选清单。
 

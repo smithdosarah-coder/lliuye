@@ -30,6 +30,15 @@ if str(PROJECT_ROOT) not in sys.path:
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
+# Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
+try:
+    from audit_service.decorators import audit_llm_call  # noqa: E402
+except ImportError:
+    def audit_llm_call(**_kwargs):  # type: ignore[no-redef]
+        def _passthrough(fn):
+            return fn
+        return _passthrough
+
 app = FastAPI(title="Agent3 Credit Decision API", version="3.1")
 
 _HANDOFF_DIR = PROJECT_ROOT / "demo_data" / "agent_credit"
@@ -195,6 +204,7 @@ async def export_decision_docx(req: ExportDocxRequest):
 
 
 @app.post("/api/credit/decision")
+@audit_llm_call(agent_id="credit", endpoint="/api/credit/decision", model="deepseek-chat")
 async def credit_decision(req: DecisionRequest):
     def gen():
         yield from _decision_event_stream(req)

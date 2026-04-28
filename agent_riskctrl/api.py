@@ -32,6 +32,15 @@ from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 
 from agent_riskctrl.output_validator import soft_clean as _qc_scrub  # noqa: E402
 
+# Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
+try:
+    from audit_service.decorators import audit_llm_call  # noqa: E402
+except ImportError:
+    def audit_llm_call(**_kwargs):  # type: ignore[no-redef]
+        def _passthrough(fn):
+            return fn
+        return _passthrough
+
 app = FastAPI(title="Agent2 Risk Control API", version="3.1")
 
 
@@ -90,6 +99,7 @@ def _stream_riskctrl(message: str, files: list[str] | None,
 
 
 @app.post("/api/riskctrl/dsl_gen")
+@audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/dsl_gen", model="deepseek-chat")
 async def riskctrl_dsl_gen(req: RiskCtrlDslRequest):
     """自然语言 → 结构化风控规则集 SSE。
 

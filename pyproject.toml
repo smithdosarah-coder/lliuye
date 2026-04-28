@@ -109,7 +109,8 @@ exclude = [
 minversion = "8.0"
 testpaths = ["tests", "agent_channel/tests", "agent_credit/tests",
              "agent_alert/tests", "agent_compliance/tests",
-             "agent_riskctrl/tests", "agent_report/tests"]
+             "agent_riskctrl/tests", "agent_report/tests",
+             "audit_service/tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
