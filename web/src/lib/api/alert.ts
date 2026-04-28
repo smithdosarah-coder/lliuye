@@ -1,0 +1,135 @@
+/**
+ * Alert API client (Stage Fix W-FIX-A3 · live-fallback-banner-spec v1.0).
+ *
+ * Endpoints (按 backend agent_alert/api.py):
+ *   POST /api/alert/scan          · SSE · {scenario_key?, uploaded_files?, force_mock?}
+ *   GET  /api/alert/hitlist       · 持久化榜单
+ *   GET  /api/alert/drill/{cid}   · 单客户 drill
+ *
+ * 不 silent swap mock · 失败抛 LiveFailError → UI 显 banner + retry.
+ */
+"use client";
+
+import { LiveFailError, postLive, streamSse } from "./_live";
+
+export { LiveFailError };
+
+const ENDPOINT_SCAN = "/api/alert/scan";
+const ENDPOINT_HITLIST = "/api/alert/hitlist";
+
+
+export type AlertScanRequest = {
+  scenarioKey?: string;
+  uploadedFiles?: string[];
+  forceMock?: boolean;
+};
+
+
+export type AlertSseHandler = (event: {
+  type: string;
+  data: Record<string, unknown>;
+}) => void;
+
+
+export type AlertScanResult = {
+  sessionId: string;
+  mode: string;
+};
+
+
+/** Run alert scan SSE · 流式收 hit + done · 找 session_id 落 state.
+ *  失败 (4xx/5xx/SSE error) 抛 LiveFailError → caller render banner. */
+export async function runAlertScan(
+  req: AlertScanRequest,
+  onEvent?: AlertSseHandler,
+): Promise<AlertScanResult> {
+  const body = {
+    scenario_key: req.scenarioKey ?? "",
+    uploaded_files: req.uploadedFiles ?? null,
+    force_mock: req.forceMock ?? false,
+  };
+  let sessionId = "";
+  let mode = "";
+  await streamSse(ENDPOINT_SCAN, body, (evt) => {
+    onEvent?.(evt);
+    const payload = (evt.data?.payload as Record<string, unknown> | undefined) ?? {};
+    if (payload.type === "session" && payload.session_id) {
+      sessionId = String(payload.session_id);
+      if (payload.mode) mode = String(payload.mode);
+    }
+  });
+  return { sessionId, mode };
+}
+
+
+export type AlertHitListResponse = {
+  session_id?: string;
+  generated_at?: string;
+  mode?: string;
+  hit_list?: {
+    red_count?: number;
+    yellow_count?: number;
+    green_count?: number;
+    hits?: Array<Record<string, unknown>>;
+  };
+  dispositions?: Record<string, unknown>;
+};
+
+
+export async function fetchHitlist(sessionId?: string): Promise<AlertHitListResponse> {
+  const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+  let resp: Response;
+  try {
+    resp = await fetch(`${ENDPOINT_HITLIST}${qs}`, { method: "GET" });
+  } catch (e) {
+    throw new LiveFailError(
+      `network error: ${e instanceof Error ? e.message : String(e)}`,
+      0,
+      ENDPOINT_HITLIST,
+      "",
+    );
+  }
+  if (!resp.ok) {
+    const excerpt = (await resp.text().catch(() => "")).slice(0, 200);
+    throw new LiveFailError(`HTTP ${resp.status}`, resp.status, ENDPOINT_HITLIST, excerpt);
+  }
+  return (await resp.json()) as AlertHitListResponse;
+}
+
+
+export type AlertDrillResponse = {
+  client_id: string;
+  company_name?: string;
+  level?: string;
+  score?: number;
+  matched_rules?: string[];
+  reasons?: string[];
+  signal_timeline?: Array<Record<string, unknown>>;
+  disposition?: Record<string, unknown>;
+  disposition_source?: string;
+};
+
+
+export async function fetchDrill(
+  clientId: string,
+  sessionId?: string,
+): Promise<AlertDrillResponse> {
+  const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+  const path = `/api/alert/drill/${encodeURIComponent(clientId)}${qs}`;
+  let resp: Response;
+  try {
+    resp = await fetch(path, { method: "GET" });
+  } catch (e) {
+    throw new LiveFailError(
+      `network error: ${e instanceof Error ? e.message : String(e)}`,
+      0,
+      path,
+      "",
+    );
+  }
+  if (!resp.ok) {
+    const excerpt = (await resp.text().catch(() => "")).slice(0, 200);
+    throw new LiveFailError(`HTTP ${resp.status}`, resp.status, path, excerpt);
+  }
+  return (await resp.json()) as AlertDrillResponse;
+}

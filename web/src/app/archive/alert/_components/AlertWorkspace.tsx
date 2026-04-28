@@ -34,6 +34,7 @@ import {
   UnfilledFields,
 } from "@/components/evidence";
 import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
+import { LiveFailError, runAlertScan } from "@/lib/api/alert";
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
 function msgTitle(raw: string): string {
@@ -79,6 +80,45 @@ export default function AlertWorkspace() {
   const [stepIdx, setStepIdx] = useState(0);
   const timerRef = useRef<number | null>(null);
 
+  /* Stage Fix W-FIX-A3 · live-fallback-banner-spec v1.0 §2 规则 1
+     启动扫描需真接 POST /api/alert/scan SSE · 失败显式 banner · 不 silent swap */
+  type LiveFail = {
+    endpoint: string;
+    label: string;
+    status: number;
+    message: string;
+    bodyExcerpt: string;
+  };
+  const [liveFail, setLiveFail] = useState<LiveFail | null>(null);
+  const [retryHandler, setRetryHandler] = useState<(() => void) | null>(null);
+  const [scanSessionId, setScanSessionId] = useState<string>("");
+
+  function clearLiveFail(): void {
+    setLiveFail(null);
+    setRetryHandler(null);
+  }
+
+  function recordLiveFail(label: string, err: unknown, retry: () => void): void {
+    if (err instanceof LiveFailError) {
+      setLiveFail({
+        endpoint: err.endpoint,
+        label,
+        status: err.status,
+        message: err.message,
+        bodyExcerpt: err.bodyExcerpt,
+      });
+    } else {
+      setLiveFail({
+        endpoint: "(unknown)",
+        label,
+        status: 0,
+        message: err instanceof Error ? err.message : String(err),
+        bodyExcerpt: "",
+      });
+    }
+    setRetryHandler(() => retry);
+  }
+
   const steps = session.scanSteps;
   const after = session.scanSnapshotAfter;
 
@@ -102,7 +142,10 @@ export default function AlertWorkspace() {
     if (phase === "scanning") return;
     setPhase("scanning");
     setStepIdx(0);
+    clearLiveFail();
     if (timerRef.current != null) window.clearInterval(timerRef.current);
+
+    /* 视觉 stepIdx 推进 (5 步 · 每 500ms) · 与真后端 SSE 并行 */
     let i = 0;
     timerRef.current = window.setInterval(() => {
       i += 1;
@@ -110,11 +153,31 @@ export default function AlertWorkspace() {
         if (timerRef.current != null) window.clearInterval(timerRef.current);
         timerRef.current = null;
         setStepIdx(steps.length - 1);
-        setPhase("after");
-        return;
+      } else {
+        setStepIdx(i);
       }
-      setStepIdx(i);
     }, 500);
+
+    /* Stage Fix · 真接 POST /api/alert/scan SSE · 失败显式 banner */
+    void (async () => {
+      try {
+        const { sessionId } = await runAlertScan({
+          scenarioKey: rangeId || "",
+          forceMock: true, // demo · production 切 false 真扫
+        });
+        if (sessionId) setScanSessionId(sessionId);
+        setPhase("after");
+      } catch (e) {
+        recordLiveFail("alert scan", e, () => startScan());
+        if (timerRef.current != null) {
+          window.clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        // failure: 仍切 after · 让 UI 渲染 fallback mock 但带 banner
+        // 用户主动 click retry 重试 · 不 silent
+        setPhase("after");
+      }
+    })();
   }
 
   function resetScan() {
@@ -131,7 +194,52 @@ export default function AlertWorkspace() {
       items={ALERT_EVIDENCE.items}
       unfilledFields={ALERT_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace">
+    <div
+      className="rpt-workspace"
+      data-testid="alert-workspace"
+      data-phase={phase}
+      data-scan-session-id={scanSessionId}
+    >
+      {liveFail ? (
+        <div
+          className="alert-live-fail-banner"
+          role="alert"
+          data-testid="alert-live-fail-banner"
+          data-status={liveFail.status}
+          data-endpoint={liveFail.endpoint}
+        >
+          <span className="alert-live-fail-banner__icon" aria-hidden>⚠️</span>
+          <span className="alert-live-fail-banner__text">
+            后端 <b>{liveFail.label}</b> 调用失败 (
+            {liveFail.status > 0 ? `HTTP ${liveFail.status}` : "network/SSE"})
+            · 当前显 fallback 演示数据 · 切真实路径请重试
+            {liveFail.bodyExcerpt ? (
+              <span className="alert-live-fail-banner__detail">
+                · 详情：{liveFail.bodyExcerpt}
+              </span>
+            ) : null}
+          </span>
+          {retryHandler ? (
+            <button
+              type="button"
+              className="alert-live-fail-banner__retry"
+              onClick={() => retryHandler()}
+              data-testid="alert-live-fail-retry"
+            >
+              重试
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="alert-live-fail-banner__dismiss"
+            onClick={clearLiveFail}
+            aria-label="关闭横幅"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
       <HeroSection
         weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
         redRate={ALERT_GLOBAL_STATS.redRate}
@@ -209,6 +317,8 @@ export default function AlertWorkspace() {
     </EvidenceProvider>
   );
 }
+
+/* eslint-disable @typescript-eslint/no-unused-vars · scanSessionId 暴露给 testid 验 */
 
 /* ────────────────────── HERO ────────────────────── */
 
