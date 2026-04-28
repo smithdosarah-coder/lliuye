@@ -134,6 +134,36 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-051 · Riskctrl/Forge Workspace · 空白启动 + 3 CTA 分级
+
+- **location**: `web/src/app/archive/riskctrl/_components/RiskctrlWorkspace.tsx`（`started` state + `RiskTriggerBar` + `RiskEmptySkeleton`）+ `riskctrl-workspace.css` 末尾 Stage CF2 段
+- **selector**: `[data-testid="riskctrl-workspace"][data-started="no"]` · `[data-testid="riskctrl-empty-skeleton"]` · `[data-testid="riskctrl-history-dropdown"]` · `[data-testid="riskctrl-preset-dropdown"]` · `[data-testid="riskctrl-dsl-gen-cta"]`
+- **interaction**:
+  - default `started=false` · 仅 Hero + RiskTriggerBar + 空骨架（4 panel placeholder）
+  - Primary 「选样本 + 写策略 · 生成 DSL」按钮 → `setStarted(true)` + POST `/api/riskctrl/dsl_gen` (SSE) → 落 `rulesetId`
+  - Secondary 预置规则集 dropdown → `setStarted(true)` + 直接展示
+  - Tertiary 历史回测 dropdown 标 `(示例)` → demo banner 显示
+- **contract**: `docs/contracts/empty-state-design-protocol.md` v1.0 · production / mock 路径分离
+- **introduce**: pending Stage CF2 第 2 批 cherry-pick
+- **lost_at**: N/A（新 feature · 此前 RiskctrlWorkspace 默认 load mock 数据 · 无 empty state）
+- **smoke_test**: `web/tests/regression/riskctrl-empty-state.spec.ts`（6 case · 默认空 + dropdown 标 + 3 CTA 分级 + tertiary trigger + secondary trigger + primary mock SSE）
+
+## F-056 · Riskctrl Workspace · 完整 production-grade pipeline (3 endpoints + Word 导出)
+
+- **location**: `web/src/app/archive/riskctrl/_components/RiskctrlWorkspace.tsx`（`triggerDslGen` / `triggerBacktest` / `triggerExportDocx` handlers · `RiskOutputPanel` 接 `rulesetId/exportInfo/onExportDocx` props）
+- **selector**: `[data-testid="riskctrl-dsl-editor"]` · `[data-testid="riskctrl-ks-chart"]` · `[data-testid="riskctrl-sample-dist"]` · `[data-testid="riskctrl-backtest-cta"]` · `[data-testid="riskctrl-export-docx-btn"]`
+- **interaction**:
+  - 写策略文本 → POST `/api/riskctrl/dsl_gen` SSE → 真 LLM 生成 DSL 树 → 落 ruleset_id
+  - 「样本回测」CTA → POST `/api/riskctrl/backtest` SSE → KS / AUC / 通过率 / 样本分布刷新
+  - DSL 树展示 4 op (IF / AND / OR / THEN) · KS 双线图 · sample stacked bars
+  - 「导出回测报告 Word」 → POST `/api/riskctrl/export_docx` (后端 stub · 404 时 fallback banner) → blob → a.click() 下载
+- **backend wire**: Stage C.5 backend (cb8bff1 · `agent_riskctrl/api.py` `/dsl_gen` + `/backtest`)
+- **introduce**: pending Stage CF2 第 2 批 cherry-pick
+- **lost_at**: N/A（新增 backend wiring · DSL editor / KS chart 转为 SSE 真接 + Word 导出 placeholder）
+- **smoke_test**: `web/tests/regression/riskctrl-empty-state.spec.ts`（部分覆盖 · 完整 SSE + 导出待 Stage D playwright）
+
+---
+
 ## 待补（用户暗示"还有很多其他的"）
 
 F-009 ~ pending · 等用户继续指出 → enrich 此清单

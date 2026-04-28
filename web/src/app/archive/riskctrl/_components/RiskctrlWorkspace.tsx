@@ -10,7 +10,7 @@
  * 业务：策略经理协同 AI 写 DSL → 回测 KS/通过率/坏账 → 调参 → 送审
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import {
   ClaimText,
@@ -63,52 +63,403 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
   };
 }
 
+type RiskTrigger = "primary_dsl" | "secondary_preset" | "tertiary_history";
+
+type ExportInfo = {
+  status: "idle" | "running" | "done" | "error";
+  message?: string;
+};
+
+type RecentLabel = { value: string; label: string; demo?: boolean };
+
+const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = [
+  { value: "demo-credit-v15-d3", label: "v1.5-d3 · KS 0.42 / 通过 32% (示例)", demo: true },
+  { value: "demo-credit-v15-d2", label: "v1.5-d2 · KS 0.38 / 通过 35% (示例)", demo: true },
+];
+
+const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
+  { value: "preset-credit-baseline", label: "信贷基线 · 通用 8 维评分卡" },
+  { value: "preset-credit-fraud", label: "反欺诈 · 高风险拦截集" },
+  { value: "preset-credit-aml", label: "反洗钱 · KYC 强校验" },
+];
+
 export default function RiskctrlWorkspace() {
-  /* 2026-04-23 · demo 初始态 · 未扫描时数据模糊 · ScanCTA onDone 解锁 */
+  /* Stage CF2 · empty-state-design-protocol v1.0 默认 started=false ·
+     用户写 DSL · 选预置 · 选历史 才 setStarted(true) · panel 真数据填入。
+     mock data 不 default load · 入口 dropdown 标 (示例) 与 production 路径分离。
+     既有 scanned state 保留 (post-scan 视觉解锁) · started 是更外层的"是否进入功能态"。 */
+  const [started, setStarted] = useState(false);
+  const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
+  const [recent, setRecent] = useState<string>("");
+  const [preset, setPreset] = useState<string>("");
+
+  /* 既有 scanned state (post-backtest 视觉解锁) · 不动 */
   const [scanned, setScanned] = useState(false);
+
+  /* 后端 wire state */
+  const [scanRunning, setScanRunning] = useState(false);
+  const [scanError, setScanError] = useState<string>("");
+  const [rulesetId, setRulesetId] = useState<string>("");
+  const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
+
+  /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
+  const triggerDslGen = useCallback(async (ruleText: string) => {
+    setStarted(true);
+    setTrigger("primary_dsl");
+    setScanRunning(true);
+    setScanError("");
+    try {
+      const resp = await fetch("/api/riskctrl/dsl_gen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rule_text: ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户",
+          provider: "deepseek",
+        }),
+      });
+      if (!resp.ok || !resp.body) {
+        throw new Error(`dsl_gen failed: HTTP ${resp.status}`);
+      }
+      /* SSE 流读 · 找 ruleset_id (后端 done event payload) · 不阻塞 UI */
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let captured = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          for (const line of part.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              const payload = data?.payload ?? {};
+              const sid = payload.ruleset_id ?? payload.rule_id ?? payload.session_id;
+              if (sid) captured = String(sid);
+            } catch {
+              /* ignore parse error · 不阻断流 */
+            }
+          }
+        }
+      }
+      if (captured) setRulesetId(captured);
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanRunning(false);
+    }
+  }, []);
+
+  /* Secondary CTA · 选预置规则集 → 快速进入 + 标记触发 */
+  const onSelectPreset = useCallback((value: string) => {
+    setPreset(value);
+    if (!value) return;
+    setStarted(true);
+    setTrigger("secondary_preset");
+    setRulesetId(value);
+  }, []);
+
+  /* Tertiary CTA · 选历史回测 (mock) · 标 (示例) · 与真实路径分离 */
+  const onSelectRecent = useCallback((value: string) => {
+    setRecent(value);
+    if (!value) return;
+    setStarted(true);
+    setTrigger("tertiary_history");
+  }, []);
+
+  /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发 */
+  const triggerBacktest = useCallback(async () => {
+    setScanRunning(true);
+    setScanError("");
+    try {
+      const resp = await fetch("/api/riskctrl/backtest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instruction: "回测当前策略",
+          uploaded_files: [],
+          provider: "deepseek",
+        }),
+      });
+      if (!resp.ok) {
+        throw new Error(`backtest failed: HTTP ${resp.status}`);
+      }
+      /* drain SSE stream · 不阻塞 UI · 仅触发后端真跑 */
+      const reader = resp.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done } = await reader.read();
+          if (done) break;
+        }
+      }
+      setScanned(true);
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanRunning(false);
+    }
+  }, []);
+
+  /* Word 导出 · POST /api/riskctrl/export_docx · 后端尚未 deliver · 优雅 fallback */
+  const triggerExportDocx = useCallback(async () => {
+    if (!rulesetId && !scanned) {
+      setExportInfo({
+        status: "error",
+        message: "尚无回测产物 · 先生成 DSL 或选预置 · 再跑回测",
+      });
+      return;
+    }
+    setExportInfo({ status: "running" });
+    try {
+      const resp = await fetch("/api/riskctrl/export_docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruleset_id: rulesetId || preset || "demo" }),
+      });
+      if (resp.status === 404) {
+        /* 后端 endpoint 未上线 · 显式标 pending · 不算真错误 */
+        setExportInfo({
+          status: "error",
+          message: "导出端点 /api/riskctrl/export_docx 待 Stage D 后端实装",
+        });
+        return;
+      }
+      if (!resp.ok) {
+        throw new Error(`export failed: HTTP ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `riskctrl_backtest_${rulesetId || "demo"}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportInfo({ status: "done" });
+    } catch (e) {
+      setExportInfo({
+        status: "error",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }, [rulesetId, preset, scanned]);
+
   return (
     <EvidenceProvider
       items={RISKCTRL_EVIDENCE.items}
       unfilledFields={RISKCTRL_EVIDENCE.unfilledFields}
     >
-      <div data-view="archive-riskctrl" data-scanned={scanned ? "yes" : "no"}>
+      <div
+        data-view="archive-riskctrl"
+        data-scanned={scanned ? "yes" : "no"}
+        data-started={started ? "yes" : "no"}
+        data-trigger={trigger ?? "none"}
+        data-testid="riskctrl-workspace"
+      >
         <RiskHero />
-        <RiskIndicatorRow />
-        <div className="rpt-body">
-          <aside className="rpt-side">
-            <QueryPanel />
-            <RulesPanel />
-            <RecentPanel />
-          </aside>
-          <main className="rpt-main">
-            <ScanCTA
-              label="样本回测"
-              tone="riskctrl"
-              onDone={() => setScanned(true)}
-              steps={[
-                { label: "装载 DSL 规则 · 3 条件", pct: 18 },
-                { label: "采样 · 50K 近 30 日样本", pct: 42 },
-                { label: "计算 KS / 通过率", pct: 68 },
-                { label: "AB 对比 · 现行版", pct: 88 },
-                { label: "生成回测报告 · 完成", pct: 100 },
-              ]}
-            />
-            <ConversationPanel>
-              <RiskComposer />
-            </ConversationPanel>
-          </main>
-          <aside className="rpt-aux">
-            <RiskOutputPanel />
-          </aside>
-        </div>
-        <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-          <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-          <ClaimText text={RISKCTRL_EVIDENCE.summary} />
-        </section>
-        <UnfilledFields />
-        <EvidenceTrail agentTone="riskctrl" />
+
+        <RiskTriggerBar
+          recent={recent}
+          recentOptions={RISKCTRL_RECENT_DEMO_OPTIONS}
+          preset={preset}
+          presetOptions={RISKCTRL_PRESET_OPTIONS}
+          onSelectRecent={onSelectRecent}
+          onSelectPreset={onSelectPreset}
+          onPrimaryDslGen={() => triggerDslGen("")}
+          scanRunning={scanRunning}
+          trigger={trigger}
+        />
+
+        {started ? (
+          <>
+            {trigger === "tertiary_history" ? (
+              <div
+                className="riskctrl-demo-banner"
+                role="note"
+                aria-label="示例数据 · 培训演示模式"
+                data-testid="riskctrl-demo-banner"
+              >
+                <span className="riskctrl-demo-banner__icon" aria-hidden>⚠</span>
+                <span className="riskctrl-demo-banner__text">
+                  您正在查看示例数据（training mode）· 切真实路径请写策略 → 生成 DSL 真接 LLM。
+                </span>
+              </div>
+            ) : null}
+
+            {scanError ? (
+              <div
+                className="riskctrl-error-banner"
+                role="alert"
+                data-testid="riskctrl-error-banner"
+              >
+                后端调用失败：{scanError}
+              </div>
+            ) : null}
+
+            <RiskIndicatorRow />
+            <div className="rpt-body">
+              <aside className="rpt-side">
+                <QueryPanel />
+                <RulesPanel />
+                <RecentPanel />
+              </aside>
+              <main className="rpt-main">
+                <div data-testid="riskctrl-backtest-cta">
+                  <ScanCTA
+                    label="样本回测"
+                    tone="riskctrl"
+                    onDone={() => {
+                      setScanned(true);
+                      void triggerBacktest();
+                    }}
+                    steps={[
+                      { label: "装载 DSL 规则 · 3 条件", pct: 18 },
+                      { label: "采样 · 50K 近 30 日样本", pct: 42 },
+                      { label: "计算 KS / 通过率", pct: 68 },
+                      { label: "AB 对比 · 现行版", pct: 88 },
+                      { label: "生成回测报告 · 完成", pct: 100 },
+                    ]}
+                  />
+                </div>
+                <ConversationPanel>
+                  <RiskComposer />
+                </ConversationPanel>
+              </main>
+              <aside className="rpt-aux">
+                <RiskOutputPanel
+                  rulesetId={rulesetId}
+                  exportInfo={exportInfo}
+                  onExportDocx={triggerExportDocx}
+                />
+              </aside>
+            </div>
+            <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
+              <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
+              <ClaimText text={RISKCTRL_EVIDENCE.summary} />
+            </section>
+            <UnfilledFields />
+            <EvidenceTrail agentTone="riskctrl" />
+          </>
+        ) : (
+          <RiskEmptySkeleton />
+        )}
       </div>
     </EvidenceProvider>
+  );
+}
+
+/* ── 3 CTA bar (Primary DSL gen · Secondary preset · Tertiary history) ─── */
+
+function RiskTriggerBar(p: {
+  recent: string;
+  recentOptions: RecentLabel[];
+  preset: string;
+  presetOptions: RecentLabel[];
+  onSelectRecent: (v: string) => void;
+  onSelectPreset: (v: string) => void;
+  onPrimaryDslGen: () => void;
+  scanRunning: boolean;
+  trigger: RiskTrigger | null;
+}) {
+  const primaryLabel = p.scanRunning && p.trigger === "primary_dsl"
+    ? "DSL 生成中…"
+    : "选样本 + 写策略 · 生成 DSL";
+  return (
+    <section
+      className="riskctrl-trigger-bar"
+      aria-label="3 CTA 触发入口 · 主/次/降级"
+      data-testid="riskctrl-trigger-bar"
+    >
+      <button
+        type="button"
+        className="riskctrl-trigger-bar__primary"
+        onClick={p.onPrimaryDslGen}
+        disabled={p.scanRunning}
+        data-testid="riskctrl-dsl-gen-cta"
+      >
+        {primaryLabel}
+      </button>
+
+      <label className="riskctrl-trigger-bar__field">
+        <span className="riskctrl-trigger-bar__lbl">预置规则集</span>
+        <select
+          className="riskctrl-trigger-bar__select"
+          value={p.preset}
+          onChange={(e) => p.onSelectPreset(e.target.value)}
+          aria-label="选预置规则集"
+          data-testid="riskctrl-preset-dropdown"
+        >
+          <option value="">— 选预置规则集 —</option>
+          {p.presetOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="riskctrl-trigger-bar__field">
+        <span className="riskctrl-trigger-bar__lbl">历史回测（示例 · 仅培训演示）</span>
+        <select
+          className="riskctrl-trigger-bar__select"
+          value={p.recent}
+          onChange={(e) => p.onSelectRecent(e.target.value)}
+          aria-label="选择历史回测 / 示例"
+          data-testid="riskctrl-history-dropdown"
+        >
+          <option value="">— 选择历史回测 / 示例 —</option>
+          {p.recentOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </section>
+  );
+}
+
+/* ── Empty-state skeleton (空骨架 · 不显示 mock 真数据) ───── */
+
+function RiskEmptySkeleton() {
+  return (
+    <section
+      className="riskctrl-empty"
+      aria-label="尚未触发策略 · 等待用户输入"
+      data-testid="riskctrl-empty-skeleton"
+    >
+      <div className="riskctrl-empty__head">
+        <h3 className="riskctrl-empty__title">等待触发策略</h3>
+        <p className="riskctrl-empty__hint">
+          上方
+          <strong>「选样本 + 写策略 · 生成 DSL」</strong>
+          → 真接 LLM 生成规则树；或
+          <strong>选预置规则集</strong>
+          快速启用；
+          <em>「历史回测（示例）」</em>
+          仅供培训演示。
+        </p>
+      </div>
+      <div className="riskctrl-empty__panels">
+        <div className="riskctrl-empty__panel" data-panel="dsl">
+          DSL 规则树 · IF / AND / OR / THEN 4 op · 生成后此处显示
+        </div>
+        <div className="riskctrl-empty__panel" data-panel="ks">
+          KS / AUC / 通过率 三大指标 + KS 双线图 · 回测完成显示
+        </div>
+        <div className="riskctrl-empty__panel" data-panel="sample">
+          样本分布 (pass / review / block) · 回测完成显示
+        </div>
+        <div className="riskctrl-empty__panel" data-panel="export">
+          回测报告导出 · 完成后可一键导出 Word
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -724,9 +1075,23 @@ const OUTPUT_ACTIONS = [
   { key: "rerun", glyph: "⟳", label: "重跑", title: "调参后重新回测" },
 ] as const;
 
-function RiskOutputPanel() {
+function RiskOutputPanel(p: {
+  rulesetId?: string;
+  exportInfo?: ExportInfo;
+  onExportDocx?: () => void;
+}) {
   const s = RISKCTRL_SESSION;
   const [tab, setTab] = useState<"dsl" | "ks" | "sample">("dsl");
+  const exportStatus = p.exportInfo?.status ?? "idle";
+  const exportLabel =
+    exportStatus === "running"
+      ? "导出中…"
+      : exportStatus === "done"
+      ? "重新导出 Word"
+      : exportStatus === "error"
+      ? "重试导出"
+      : "导出回测报告 Word";
+  const exportDisabled = exportStatus === "running";
   return (
     <section className="rpt-panel rpt-panel--preview">
       <PanelPinHandle
@@ -744,11 +1109,32 @@ function RiskOutputPanel() {
           <h3 className="rpt-panel-title">
             KS {s.ks.ksPeak.toFixed(2)} · 通过 {s.ks.passRate}%
           </h3>
+          {p.rulesetId ? (
+            <p className="rpt-panel-eyebrow" data-testid="riskctrl-ruleset-id">
+              ruleset · {p.rulesetId}
+            </p>
+          ) : null}
         </div>
         <div className="rpt-panel-meta">
           <span className="rpt-pv-pct">AUC {s.ks.auc.toFixed(3)}</span>
+          <button
+            type="button"
+            className="riskctrl-export-btn"
+            onClick={p.onExportDocx}
+            disabled={exportDisabled}
+            data-state={exportStatus}
+            data-testid="riskctrl-export-docx-btn"
+          >
+            {exportLabel}
+          </button>
         </div>
       </div>
+
+      {exportStatus === "error" && p.exportInfo?.message ? (
+        <div className="riskctrl-export-error" role="alert">
+          导出失败：{p.exportInfo.message}
+        </div>
+      ) : null}
 
       <div className="rpt-pv-toolbar" role="toolbar">
         {OUTPUT_ACTIONS.map((a) => (
@@ -811,7 +1197,7 @@ function RiskOutputPanel() {
 
 function DslView({ node }: { node: DslNode }) {
   return (
-    <section className="rc-dsl-sec">
+    <section className="rc-dsl-sec" data-testid="riskctrl-dsl-editor">
       <header className="rc-out-sec-head">
         <h4 className="rc-out-sec-title">
           <span className="rpt-pv-anchor">§一</span>
@@ -873,7 +1259,7 @@ function KSView({
     KS: Math.round(p.ks * 100),
   }));
   return (
-    <section className="rc-ks-sec">
+    <section className="rc-ks-sec" data-testid="riskctrl-ks-chart">
       <header className="rc-out-sec-head">
         <h4 className="rc-out-sec-title">
           <span className="rpt-pv-anchor">§二</span>
@@ -944,7 +1330,7 @@ function KSView({
 function SampleView({ samples }: { samples: SampleBar[] }) {
   const total = samples.reduce((a, b) => a + b.count, 0);
   return (
-    <section className="rc-sp-sec">
+    <section className="rc-sp-sec" data-testid="riskctrl-sample-dist">
       <header className="rc-out-sec-head">
         <h4 className="rc-out-sec-title">
           <span className="rpt-pv-anchor">§三</span>
