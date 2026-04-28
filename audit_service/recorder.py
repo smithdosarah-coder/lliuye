@@ -57,11 +57,17 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   output_tokens INTEGER,
   cost_cny REAL,
   latency_ms INTEGER,
-  error TEXT
+  error TEXT,
+  encryption_marker TEXT  -- Stage E.3 PIPL · null=plain · "aes-gcm-256"=encrypted
 );
 CREATE INDEX IF NOT EXISTS idx_user_ts ON llm_calls(user_id, ts);
 CREATE INDEX IF NOT EXISTS idx_agent_ts ON llm_calls(agent_id, ts);
 """
+
+# Stage E.3 PIPL · 兼容已存在 db (不含 encryption_marker 列) · ALTER TABLE ADD COLUMN
+_MIGRATE_ADD_ENCRYPTION_MARKER = (
+    "ALTER TABLE llm_calls ADD COLUMN encryption_marker TEXT"
+)
 
 
 @dataclass
@@ -130,13 +136,29 @@ class AuditRecorder:
     def _init_schema(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
             conn.executescript(_SCHEMA_SQL)
+            # 兼容已存在 db (Stage E.1 创的 · 不含 encryption_marker)
+            try:
+                conn.execute(_MIGRATE_ADD_ENCRYPTION_MARKER)
+            except sqlite3.OperationalError:
+                # 列已存在 · ignore
+                pass
             conn.commit()
 
     def record(self, call: LLMCall) -> int:
-        """插入一条审计记录 · 返 row id · 失败返 -1 (不抛)."""
+        """插入一条审计记录 · 返 row id · 失败返 -1 (不抛).
+
+        Stage E.3 PIPL · ENCRYPT_AT_REST=true 时 prompt/response 走 AES-GCM 加密 ·
+        encryption_marker 标 'aes-gcm-256' · query() 自动解密.
+        """
         # 应用 truncate (调用方可能传超长 prompt/response)
         prompt = truncate_text(call.prompt, PROMPT_MAX_BYTES)
         response = truncate_text(call.response, RESPONSE_MAX_BYTES)
+        # Stage E.3 · 加密 (ENCRYPT_AT_REST 控 · 默认 false 走明文兼容旧数据)
+        from audit_service.encryption import encrypt  # noqa: PLC0415
+        prompt_stored, marker_p = encrypt(prompt)
+        response_stored, marker_r = encrypt(response)
+        # 两边 marker 必同步 (同时启用 / 同时关闭) · 取非空者
+        encryption_marker = marker_p or marker_r
         # 自动算 cost (若 caller 没填 + tokens 已知)
         cost_cny = call.cost_cny
         if cost_cny is None and (call.input_tokens or call.output_tokens):
@@ -151,14 +173,14 @@ class AuditRecorder:
                       ts, user_id, agent_id, endpoint, model,
                       prompt, response,
                       input_tokens, output_tokens, cost_cny,
-                      latency_ms, error
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      latency_ms, error, encryption_marker
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         call.ts, call.user_id, call.agent_id, call.endpoint,
-                        call.model, prompt, response,
+                        call.model, prompt_stored, response_stored,
                         call.input_tokens, call.output_tokens, cost_cny,
-                        call.latency_ms, call.error,
+                        call.latency_ms, call.error, encryption_marker,
                     ),
                 )
                 conn.commit()
@@ -198,7 +220,7 @@ class AuditRecorder:
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = (
             f"SELECT id, ts, user_id, agent_id, endpoint, model, prompt, response, "
-            f"input_tokens, output_tokens, cost_cny, latency_ms, error "
+            f"input_tokens, output_tokens, cost_cny, latency_ms, error, encryption_marker "
             f"FROM llm_calls {where} "
             f"ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
         )
@@ -208,7 +230,16 @@ class AuditRecorder:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(sql, params_with_paging).fetchall()
-            return [dict(r) for r in rows]
+            # Stage E.3 · 自动解密 prompt/response (encryption_marker 控制)
+            from audit_service.encryption import decrypt  # noqa: PLC0415
+            decoded: list[dict[str, Any]] = []
+            for r in rows:
+                d = dict(r)
+                marker = d.get("encryption_marker")
+                d["prompt"] = decrypt(d.get("prompt"), marker)
+                d["response"] = decrypt(d.get("response"), marker)
+                decoded.append(d)
+            return decoded
         except sqlite3.Error as e:
             logger.warning("[audit_service] sqlite query failed: %s", e)
             return []
