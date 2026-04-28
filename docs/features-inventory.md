@@ -164,6 +164,39 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-058 · IM WebSocket 实时 + Thread 持久化 + 6 kind 渲染 (Stage D.2F frontend)
+
+- **location**:
+  - `web/src/lib/im/websocket.ts` (ImWebSocketClient · reconnect exponential backoff · heartbeat 30s)
+  - `web/src/lib/api/im.ts` (REST: listThreads / listMessages / sendMessage / markThreadRead / createThread)
+  - `web/src/app/dispatch/_components/ImLiveBridge.tsx` (mount-once side-effect · fetch threads + connect ws + subscribe currentThreadId + pruneTyping)
+  - `web/src/app/dispatch/_components/MessageStream.tsx` (WS state pill + typing indicator + history-load button + mark-read on switch)
+  - `web/src/app/dispatch/_components/MessageBubble.tsx` (PinRefThumbnail · pin_ref kind 渲染缩略图卡 · 不显 url)
+  - `web/src/app/dispatch/_components/ComposerBar.tsx` (typing debounce 1s + sendMessage REST 持久化)
+  - `web/src/app/dispatch/_store/dispatch-store.ts` (ingestRemoteMessage / setRemoteThreads / noteTyping / pruneTyping / liveMode + wsState)
+  - `web/src/lib/store/types.ts` (ImMessage.kind 加 "pin_ref" · refs 加 agentId/href/fullText/thumbDataUrl/agentRunId · additive · Q-037 precedent)
+- **selector**:
+  - `[data-testid="dispatch-view"]` · `[data-testid="im-ws-state"]` · `[data-testid="im-typing-indicator"]`
+  - `[data-testid="im-thread-history-load"]` · `[data-testid="im-pin-ref-thumbnail"]`
+- **interaction**:
+  - mount: ImLiveBridge listThreads → setRemoteThreads + connect ws · fallback "live_with_seed_fallback" 兜底
+  - switch thread: 自动 listMessages + ws.subscribe(tid) + markThreadRead
+  - send message: addMessage 本地 optimistic + sendMessage REST 持久化 · WebSocket broadcast 给其他 user · ingest 时按 id dedup
+  - typing: ComposerBar input change debounce 1s emit ws.sendTyping · 其他 user 收 typing event → noteTyping → MessageStream 渲染 indicator (3s expire · pruneTyping 1s 周期清)
+  - 重连: ImWebSocketClient exponential backoff (1s → 2s → 4s → 8s → 16s → cap 30s) · re-subscribe 历史 thread
+  - heartbeat: 30s 内发 typing-self · backend 60s timeout 安全 buffer
+- **backend wire**: Stage D.2 backend (ab59186 · 7c2afaf MERGED)
+- **contract**: `docs/contracts/im-protocol.md` v1.0 (§3 schema · §4 ws · §5 6 kind · §7 pin_ref · §10 migration)
+- **introduce**: pending Stage D.2F cherry-pick
+- **lost_at**: N/A (新 feature · 此前 dispatch 走 polling fetch + seed only · 无 WebSocket / 无持久化)
+- **smoke_test**: `web/tests/regression/im-websocket.spec.ts` (5 case · route load + WS state + history-load + pin_ref thumbnail + typing indicator container)
+- **NB**:
+  - seed 数据保留作 `liveMode="live_with_seed_fallback"` UI · 后端 unreachable 时演示不崩
+  - 真客户端双 user realtime 验证留 Stage D 主 CLI 用 websocat 跑
+  - D.1 frontend AuthGate (Worker A2 同期) 提供 cookie auth_token · 本批 fallback `getImToken()` 取 cookie / localStorage / demo-u_wangzhe
+
+---
+
 ## 待补（用户暗示"还有很多其他的"）
 
 F-009 ~ pending · 等用户继续指出 → enrich 此清单
