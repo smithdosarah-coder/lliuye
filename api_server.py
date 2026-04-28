@@ -31,7 +31,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -67,6 +67,104 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.1"}
+
+
+# ---------------------------------------------------------------------------
+# Auth + RBAC · Stage D.1 · 2026-04-28 · onboarding W-D1-A2-auth-rbac-backend
+# Spec: docs/contracts/auth-protocol.md v1.0 (`4e8310b` Stage A.4)
+# 模块: auth_service/{users,jwt_util,rbac,dependencies}.py
+# ---------------------------------------------------------------------------
+
+from auth_service.dependencies import COOKIE_NAME, require_user  # noqa: E402
+from auth_service.jwt_util import JWT_EXP_HOURS, JWTError, issue, verify  # noqa: E402
+from auth_service.rbac import access_for  # noqa: E402
+from auth_service.users import authenticate, get_user_public  # noqa: E402
+
+# Cookie strategy (per auth-protocol.md §5)
+_COOKIE_MAX_AGE = JWT_EXP_HOURS * 3600
+_COOKIE_SECURE = os.environ.get("AUTH_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
+_COOKIE_SAMESITE = "lax"
+
+
+class LoginRequest(BaseModel):
+    user_id: str
+    password: str
+
+
+@app.post("/api/auth/login")
+async def auth_login(req: LoginRequest, response: Response):
+    """Auth login · bcrypt verify + 签 JWT + Set-Cookie httpOnly.
+
+    Body: { user_id, password }
+    Returns: { token, user, roles } on success · 401 on bad creds.
+    Set-Cookie: zhongan_auth=<jwt>; HttpOnly; SameSite=Lax; Max-Age=86400
+                Secure 仅 production (AUTH_COOKIE_SECURE=true).
+    """
+    if not req.user_id or not req.password:
+        raise HTTPException(
+            400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "user_id 和 password 必填"}},
+        )
+    user = authenticate(req.user_id, req.password)
+    if user is None:
+        raise HTTPException(
+            401,
+            detail={"error": {"code": "AUTH_FAILED", "message": "账号或密码错误"}},
+        )
+    token = issue(user["id"], user["role"])
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        max_age=_COOKIE_MAX_AGE,
+        httponly=True,
+        samesite=_COOKIE_SAMESITE,
+        secure=_COOKIE_SECURE,
+        path="/",
+    )
+    return {
+        "token": token,
+        "user": user,
+        "roles": [user["role"]],
+        "accessibleAgents": access_for(user["role"]),
+    }
+
+
+@app.get("/api/auth/me")
+async def auth_me(payload=Depends(require_user)):
+    """Auth me · 解 cookie → 返当前 user + roles + accessibleAgents.
+
+    401 if no cookie / invalid / expired (走 require_user dependency 标准化).
+    """
+    user_id = payload.get("sub", "")
+    user = get_user_public(user_id)
+    if not user:
+        raise HTTPException(
+            401,
+            detail={"error": {"code": "AUTH_USER_NOT_FOUND",
+                              "message": f"token sub 不在 USERS: {user_id}"}},
+        )
+    return {
+        "user": user,
+        "roles": [user["role"]],
+        "accessibleAgents": access_for(user["role"]),
+    }
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(response: Response, zhongan_auth: str | None = Cookie(default=None)):
+    """Auth logout · 清 cookie · 200 ok.
+
+    幂等 · 即使无 cookie 也返 ok (防客户端反复点 logout 翻 401).
+    """
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite=_COOKIE_SAMESITE,
+        secure=_COOKIE_SECURE,
+    )
+    return {"ok": True, "had_cookie": bool(zhongan_auth)}
 
 
 # ---------------------------------------------------------------------------
