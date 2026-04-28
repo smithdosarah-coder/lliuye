@@ -75,6 +75,13 @@ export function ReportWorkspace() {
   const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [uploadedTemplate, setUploadedTemplate] = useState<string>("");
+  // W-FIX-A1 · live-fallback-banner-spec §2 规则 1: live mode 调失败 → 顶部 banner
+  const [liveFailErr, setLiveFailErr] = useState<{
+    endpoint: string;
+    status: string;
+    message: string;
+  } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // status pill · GET /api/report/health (轻量·非 LLM 调用·empty-state §3 不违)
@@ -114,6 +121,7 @@ export function ReportWorkspace() {
       setLiveStages([]);
       setLivePayload(null);
       setErrMsg(null);
+      setLiveFailErr(null); // 重试时清旧 banner
 
       abortRef.current?.abort();
       const ac = new AbortController();
@@ -134,12 +142,30 @@ export function ReportWorkspace() {
             } else if (evt.event === "done") {
               setLivePayload(evt as ReportV16DoneEvent);
             } else if (evt.event === "error") {
-              setErrMsg((evt as ReportV16ErrorEvent).message);
+              const msg = (evt as ReportV16ErrorEvent).message;
+              setErrMsg(msg);
+              // live mode 失败 · 显式 banner (live-fallback-banner-spec 规则 1)
+              if (!useMock) {
+                setLiveFailErr({
+                  endpoint: "/api/report/v16/fill",
+                  status: "SSE error",
+                  message: msg,
+                });
+              }
             }
           },
           onClose: () => setGenerating(false),
           onError: (e) => {
             setErrMsg(e.message);
+            // 网络 / HTTP 4xx / 5xx · live mode 时弹 banner
+            if (!useMock) {
+              const statusMatch = /HTTP (\d{3})/.exec(e.message);
+              setLiveFailErr({
+                endpoint: "/api/report/v16/fill",
+                status: statusMatch ? statusMatch[1] : "network",
+                message: e.message,
+              });
+            }
             setGenerating(false);
           },
         },
@@ -160,7 +186,15 @@ export function ReportWorkspace() {
         setStarted(true);
         // 不自动触发 fill · 用户须显式点 "开始生成" CTA (empty-state §3)
       } catch (e) {
-        setErrMsg(e instanceof Error ? e.message : String(e));
+        const msg = e instanceof Error ? e.message : String(e);
+        setErrMsg(msg);
+        // W-FIX-A1 · upload endpoint live 失败也算 banner 触发
+        const statusMatch = /HTTP (\d{3})/.exec(msg);
+        setLiveFailErr({
+          endpoint: "/api/report/upload",
+          status: statusMatch ? statusMatch[1] : "network",
+          message: msg,
+        });
       }
     },
     [businessLine],
@@ -182,6 +216,36 @@ export function ReportWorkspace() {
       setStarted(true);
     }
   }, []);
+
+  // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
+  // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
+  const handleUploadTemplate = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setErrMsg(null);
+      try {
+        const resp = await uploadReportMaterials(files, "corporate");
+        // 模板单独存 · uploaded files 列表也 enrich
+        setUploadedTemplate(resp.file_summary[0]?.name ?? files[0].name);
+        if (!reportId) {
+          setReportId(resp.report_id);
+        }
+        setMode("live");
+        setStarted(true);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setErrMsg(msg);
+        // upload endpoint live 失败 · 也算 banner 触发
+        const statusMatch = /HTTP (\d{3})/.exec(msg);
+        setLiveFailErr({
+          endpoint: "/api/report/upload (template)",
+          status: statusMatch ? statusMatch[1] : "network",
+          message: msg,
+        });
+      }
+    },
+    [reportId],
+  );
 
   const handleRefineSection = useCallback(
     async (sectionId: string, userEdit: string) => {
@@ -267,6 +331,12 @@ export function ReportWorkspace() {
         data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
       >
         <ReportHero coverPct={coverPct} />
+        <ReportLiveFailBanner
+          err={liveFailErr}
+          onRetry={() => triggerV16Fill()}
+          onDismiss={() => setLiveFailErr(null)}
+        />
+        <ReportMockBanner started={started} mode={mode} />
         <ReportLaunchBar
           started={started}
           mode={mode}
@@ -299,23 +369,33 @@ export function ReportWorkspace() {
             <ReportPipelineBand />
             <div className="rpt-body">
               <aside className="rpt-side">
-                <TemplatePanel />
+                <TemplatePanel
+                  onUploadTemplate={handleUploadTemplate}
+                  uploadedTemplate={uploadedTemplate}
+                />
                 <MaterialPanel />
                 <TimelinePanel />
               </aside>
               <main className="rpt-main">
-                <ScanCTA
-                  label="生成报告 (mock 路径)"
-                  tone="report"
-                  onDone={() => triggerV16Fill({ explicitMock: true })}
-                  steps={[
-                    { label: "解析企业材料 · OCR 识别", pct: 18 },
-                    { label: "字段结构化预填", pct: 42 },
-                    { label: "段落 Evidence-First 生成", pct: 66 },
-                    { label: "QC 终审 · 占位符检查", pct: 88 },
-                    { label: "导出 Word · 完成", pct: 100 },
-                  ]}
-                />
+                {/* W-FIX-A1 · live-fallback-banner-spec §3 · "生成报告" button
+                    width 不溢出 · max-width 480 · 不允许 100% 占整 panel */}
+                <div
+                  data-testid="report-scancta-wrapper"
+                  style={{ maxWidth: 480, margin: "0 0 16px 0" }}
+                >
+                  <ScanCTA
+                    label="生成报告 (mock 路径)"
+                    tone="report"
+                    onDone={() => triggerV16Fill({ explicitMock: true })}
+                    steps={[
+                      { label: "解析企业材料 · OCR 识别", pct: 18 },
+                      { label: "字段结构化预填", pct: 42 },
+                      { label: "段落 Evidence-First 生成", pct: 66 },
+                      { label: "QC 终审 · 占位符检查", pct: 88 },
+                      { label: "导出 Word · 完成", pct: 100 },
+                    ]}
+                  />
+                </div>
                 <ConversationPanel>
                   <ReportComposer />
                 </ConversationPanel>
@@ -495,7 +575,10 @@ function ReportPipelineBand() {
 
 /* ── 左栏 · Template ────────────────────────────────── */
 
-function TemplatePanel() {
+function TemplatePanel(props: {
+  onUploadTemplate?: (files: File[]) => void;
+  uploadedTemplate?: string;
+}) {
   const tpl = REPORT_SESSION.template;
   const avail = REPORT_SESSION.availableTemplates;
   const cov = REPORT_SESSION.coverage;
@@ -503,6 +586,15 @@ function TemplatePanel() {
   const R = 26;
   const CIRC = 2 * Math.PI * R;
   const FILL = (pct / 100) * CIRC;
+  // W-FIX-A1 · live-fallback-banner-spec §3 · "上传模板" 真 wire file input
+  const tplInputRef = useRef<HTMLInputElement | null>(null);
+  function handleTplFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length && props.onUploadTemplate) {
+      props.onUploadTemplate(files);
+    }
+    e.target.value = "";
+  }
 
   return (
     <section className="rpt-panel rpt-panel--tpl">
@@ -566,13 +658,43 @@ function TemplatePanel() {
           </div>
         </div>
         <div className="rpt-tpl-actions">
-          <button className="rpt-btn rpt-btn--ghost" type="button">
+          <button
+            className="rpt-btn rpt-btn--ghost"
+            type="button"
+            data-testid="report-upload-template-cta"
+            onClick={() => tplInputRef.current?.click()}
+          >
             <span aria-hidden>⇪</span>上传模板
           </button>
-          <button className="rpt-btn rpt-btn--ghost" type="button">
+          <input
+            ref={tplInputRef}
+            type="file"
+            hidden
+            accept=".docx,.doc"
+            onChange={handleTplFileChange}
+          />
+          <button className="rpt-btn rpt-btn--ghost" type="button" disabled
+            title="模板库 · Stage X 计划 (live-fallback-banner-spec §3 disabled with tooltip)"
+          >
             <span aria-hidden>▤</span>模板库
           </button>
         </div>
+        {props.uploadedTemplate ? (
+          <div
+            data-testid="report-uploaded-template-name"
+            style={{
+              marginTop: 6,
+              padding: "4px 8px",
+              fontSize: 11,
+              color: "var(--ink-65)",
+              background: "color-mix(in srgb, var(--t-report) 10%, transparent)",
+              borderRadius: 4,
+              fontFamily: "var(--cjk)",
+            }}
+          >
+            ✓ 已上传 {props.uploadedTemplate}
+          </div>
+        ) : null}
         <div className="rpt-tpl-avail">
           <div className="rpt-tpl-avail-lbl">其他可选</div>
           {avail
@@ -1511,24 +1633,118 @@ function ReportLaunchBar(p: {
         </div>
       ) : null}
 
-      {/* mock banner per empty-state-design-protocol §5 · started + mock 才显 */}
-      {p.started && p.mode === "mock" ? (
-        <div
-          data-testid="report-mock-banner"
-          style={{
-            flex: "1 0 100%",
-            fontFamily: "var(--cjk)",
-            fontSize: 12,
-            color: "var(--ink)",
-            padding: "8px 12px",
-            background: "rgba(180, 140, 60, 0.10)",
-            border: "1px dashed rgba(180, 140, 60, 0.45)",
-            borderRadius: 8,
-          }}
-        >
-          ⚠️ 您正在查看示例数据 (training mode) · 切真实路径请上传材料
-        </div>
-      ) : null}
+    </section>
+  );
+}
+
+/* W-FIX-A1 · mock banner 提取为 root-level 组件 · 跟 LiveFailBanner / Hero 对齐
+   live-fallback-banner-spec §2 规则 2 + §3 排版硬线 (margin 16px 0 一致) */
+function ReportMockBanner(p: { started: boolean; mode: "mock" | "live" }) {
+  if (!p.started || p.mode !== "mock") return null;
+  return (
+    <section
+      data-testid="report-mock-banner"
+      role="status"
+      style={{
+        margin: "16px 0",
+        padding: "10px 16px",
+        fontFamily: "var(--cjk)",
+        fontSize: 12,
+        color: "var(--ink)",
+        background: "rgba(180, 140, 60, 0.10)",
+        border: "1px dashed rgba(180, 140, 60, 0.45)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 16 }}>⚠️</span>
+      <span style={{ flex: 1 }}>
+        您正在查看 <strong>示例数据 (training mode)</strong>
+        {" · "}切真实路径请上传材料触发 v16 主管线
+      </span>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/*  W-FIX-A1 · live-fallback-banner-spec v1.0 §2 规则 1 · live mode 失败 banner */
+/*  顶部 alarm + endpoint + status + retry CTA · empty-state §1.5 配套规范      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function ReportLiveFailBanner(p: {
+  err: { endpoint: string; status: string; message: string } | null;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  if (!p.err) return null;
+  return (
+    <section
+      data-testid="report-live-fail-banner"
+      role="alert"
+      aria-live="assertive"
+      style={{
+        margin: "16px 0",
+        padding: "12px 16px",
+        background: "rgba(200, 90, 60, 0.10)",
+        border: "1px solid rgba(200, 90, 60, 0.45)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        fontFamily: "var(--cjk)",
+        fontSize: 13,
+        color: "var(--ink)",
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 18 }}>⚠️</span>
+      <span style={{ flex: 1 }}>
+        <strong>后端 <code style={{ fontSize: 12 }}>{p.err.endpoint}</code> 调用失败</strong>
+        {" "}
+        <span style={{ color: "var(--ink-65)" }}>
+          ({p.err.status}) · 当前显 fallback 演示数据
+        </span>
+        <br />
+        <span style={{ fontSize: 11, color: "var(--ink-65)", fontStyle: "italic" }}>
+          {p.err.message}
+        </span>
+      </span>
+      <button
+        type="button"
+        data-testid="report-live-fail-retry"
+        onClick={p.onRetry}
+        style={{
+          padding: "6px 14px",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          background: "var(--t-report)",
+          color: "var(--chalk)",
+          border: "none",
+          borderRadius: "var(--r-md)",
+          cursor: "pointer",
+        }}
+      >
+        重试
+      </button>
+      <button
+        type="button"
+        data-testid="report-live-fail-dismiss"
+        onClick={p.onDismiss}
+        aria-label="关闭"
+        style={{
+          padding: "4px 8px",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          background: "transparent",
+          color: "var(--ink-65)",
+          border: "1px solid var(--ink-14)",
+          borderRadius: "var(--r-md)",
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
     </section>
   );
 }
