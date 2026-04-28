@@ -586,6 +586,39 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-049 · Alert empty state · default started=false → Hero + 3 CTA + 红黄绿 skeleton + status pill
+
+- **status**: live
+- **owner**: Worker A2 (W-CF2-A2)
+- **goal**: 满足 empty-state-design-protocol v1.0 §2-§5 落地 · Alert Workspace 默认空白启动 · 不渲染 mock topCases / hitlist · 用户主动触发 (3 CTA 之一) 才 setStarted(true) · 信任模型 P0 (银行用户对假数据零容忍 · 假"红黄绿户数"看着像真分级会让用户混淆 production / demo)
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (`started` useState + `AlertEmptyState` 子组件 · 顶层 fork render `if (!started) return EmptyState`) · `web/src/app/archive/alert/alert-workspace.css` (`.alert-empty__*` 类 ~220 行 + `.alert-export-bar__*` + `.alert-drill-drawer__*` + `.alert-demo-banner` ~140 行)
+- **selector**: `[data-alert-started="no"]` 根 · `[data-testid="alert-workspace"]` workspace 容器 · `[data-testid="alert-empty-skeleton"]` skeleton · `[data-testid="alert-empty-skeleton-panels"]` 3 灯 + hitlist + signalmap grid · `[data-testid="alert-empty-status-pill"]` 状态 · `[data-testid="alert-scan-cta"]` primary · `[data-testid="alert-scan-cta-secondary"]` secondary · `[data-testid="alert-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="alert-traffic-light-{red,yellow,green}"]` 三灯 skeleton · `[data-testid="alert-export-docx-btn"]` Word 导出 (default disabled)
+- **interaction**: default 进 `/archive/alert` → `started=false` → 渲染 EmptyState (Hero "贷中风险预警 · 在贷客户池批量扫描 + 红黄绿分级榜单" + 3 CTA + 红黄绿三灯 skeleton + hitlist 占位 + signalmap 占位 + status pill) · primary CTA "启动风险扫描" → `triggerPrimaryScan()` → setStarted=true + 现有 startScan() 跑 mock 5 步 · secondary CTA "选规则集 + 调阈值" → `triggerSecondaryScan()` → 同 primary 但留 hook 后续可拆 · tertiary "历史 (示例)" → `triggerTertiaryDemo()` → 跳过 scanning · phase=after 直接展示 mock + alert-demo-banner 提示 "示例数据 (training mode)"
+- **introduce**: 2026-04-28 W-CF2-A2 worker · empty-state-design-protocol v1.0 §6 Alert 改造点 (主 CTA 启动扫描 (KB 已加载即可) · panel 默认空 · 历史 secondary) · onboarding §Acceptance 6 必加 testid
+- **fixes**: master plan gap #6 (Alert Workspace 部分实装但 default 直接渲 mock topCases / hitlist 违 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work + §1.5 Demo / Production 路径分离
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/alert-empty-state.spec.ts` (4 test · chromium 4/4 + edge 4/4 = 8/8 PASS · default render skeleton + 6 testid 全可见 + tertiary trigger started+demo banner + tertiary 标 (示例) + primary trigger started)
+
+---
+
+## F-055 · Alert 完整 workspace · drill drawer + Word 导出 + demo banner (started=true 路径)
+
+- **status**: live
+- **owner**: Worker A2 (W-CF2-A2)
+- **goal**: started=true 后渲染完整贷中预警 workspace (TrafficLightWall + ScanQueuePanel + SignalHeatmap + drill drawer + 顶部 export bar) · 客户 click → drill drawer 显风险等级/授信余额/触发信号/处置建议 · phase=after 后启用 export_docx button (POST /api/alert/export_docx) · tertiary trigger 显 demo banner 提示
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (`AlertExportPanel` + `AlertDrillDrawer` 子组件 · `drillCustomer/scanError/demoBanner` useState · `triggerPrimaryScan/triggerSecondaryScan/triggerTertiaryDemo` 三 handler) · `alert-workspace.css` (`.alert-export-bar__*` + `.alert-drill-drawer__*` + `.alert-demo-banner` ~180 行)
+- **selector**: `[data-alert-started="yes"]` 根 · `[data-testid="alert-export-bar"]` 顶部导出条 · `[data-testid="alert-drill-cta"]` 详情入口 (phase=after 显) · `[data-testid="alert-export-docx-btn"]` Word 导出 (phase=after 启用) · `[data-testid="alert-drill-drawer"]` 客户详情 drawer · `[data-testid="alert-hitlist-row"]` hitlist row · `[data-testid="alert-demo-banner"]` tertiary trigger 提示
+- **interaction**: 用户在 EmptyState 点 primary/secondary CTA → setStarted=true · phase=before → startScan 跑 5 步 (500ms 间隔) → phase=after · TrafficLightWall + ScanQueuePanel + SignalHeatmap 全 panel 渲 · 顶部 alert-export-bar 出现 · 用户点 alert-drill-cta → setDrillCustomer(TOP customer) → AlertDrillDrawer fade-in (右上角 fixed) 显 风险等级 + 授信余额 + 触发信号 (triggers) + 处置建议 (advice) · 用户点 alert-export-docx-btn → POST /api/alert/export_docx (后端 endpoint 待 backend 补 · 本批前端按 contract 实装 · 失败 console.error 不抛 UI 阻断) → blob → anchor click 下载 `贷中预警榜单_{ts}.docx`
+- **introduce**: 2026-04-28 W-CF2-A2 worker · empty-state-design-protocol §3 状态机 trigger 之一
+- **fixes**: master plan gap #6 (Alert Workspace 完整 production-grade) + gap #12 (6 Agent Word 导出 · 后端只有 xlsx) Alert 闭环 frontend
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/alert-empty-state.spec.ts` test #2 (tertiary trigger → started=yes + alert-wall 渲 + alert-hitlist-row 出现 + alert-demo-banner 显) · 完整 e2e 含 drill drawer + docx 下载留 Stage D dry-run
+- **依赖**: F-049 (empty state 入口) · backend `/api/alert/scan` (Stage A.5 上批) + `/api/alert/export_docx` (Stage D 待后端补 · 本批前端按 contract 实装) · `web/AGENTS.md` Next 16 注意
+
+---
+
 ## F-054 · Compli Workspace · 完整 production-grade pipeline (3 endpoints + Word 导出)
 
 - **location**: `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`triggerPolicyScan` / `triggerTemplateCheck` / `triggerExportDocx` handlers · `RevisionPanel` 接 `scanId/exportInfo/onExportDocx` props)

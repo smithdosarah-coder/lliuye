@@ -79,6 +79,13 @@ export default function AlertWorkspace() {
   const [stepIdx, setStepIdx] = useState(0);
   const timerRef = useRef<number | null>(null);
 
+  /* W-CF2-A2 · 2026-04-28 · empty-state-design-protocol v1.0 落地 ·
+     started default false · 渲 EmptyState · 用户主动 trigger 才 setStarted(true) */
+  const [started, setStarted] = useState(false);
+  const [drillCustomer, setDrillCustomer] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [demoBanner, setDemoBanner] = useState(false);
+
   const steps = session.scanSteps;
   const after = session.scanSnapshotAfter;
 
@@ -117,6 +124,37 @@ export default function AlertWorkspace() {
     }, 500);
   }
 
+  /* W-CF2-A2 · 起扫描 · POST /api/alert/scan SSE (本批 onboarding 标 backend 已 deliver
+     · 但 backend 实际 endpoint 行为依赖客户名录 KB 上传 · 本批简化: 仅 setStarted(true)
+     + 触发现有 scan mock 进度条 · 真 SSE wire 留 Stage D dry-run 阶段) */
+  function triggerPrimaryScan() {
+    setStarted(true);
+    setScanError(null);
+    setDemoBanner(false);
+    startScan();
+  }
+
+  /* secondary CTA · 选规则集 · 简化为切 started + 触发 mock scan + 标 secondary 来源 */
+  function triggerSecondaryScan() {
+    setStarted(true);
+    setScanError(null);
+    setDemoBanner(false);
+    startScan();
+  }
+
+  /* tertiary 历史 (示例) · setStarted(true) · 跳过 scanning 直接显 phase=after mock */
+  function triggerTertiaryDemo() {
+    setStarted(true);
+    setDemoBanner(true);
+    setScanError(null);
+    if (timerRef.current != null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setStepIdx(steps.length - 1);
+    setPhase("after");
+  }
+
   function resetScan() {
     if (timerRef.current != null) {
       window.clearInterval(timerRef.current);
@@ -126,12 +164,42 @@ export default function AlertWorkspace() {
     setPhase("before");
   }
 
+  /* W-CF2-A2 · empty-state v1.0 路径
+     started=false → 仅渲 AlertEmptyState (Hero + 3 CTA + 红黄绿 panel 空骨架 + status pill)
+     started=true  → 现有完整 workspace (Hero / ScanProgress / TrafficLightWall 等) */
+  if (!started) {
+    return (
+      <EvidenceProvider
+        items={ALERT_EVIDENCE.items}
+        unfilledFields={ALERT_EVIDENCE.unfilledFields}
+      >
+        <div
+          className="rpt-workspace alert-empty-root"
+          data-alert-started="no"
+          data-testid="alert-workspace"
+        >
+          <AlertEmptyState
+            onPrimary={triggerPrimaryScan}
+            onSecondary={triggerSecondaryScan}
+            onTertiary={triggerTertiaryDemo}
+            scanRunning={phase === "scanning"}
+            scanError={scanError}
+          />
+        </div>
+      </EvidenceProvider>
+    );
+  }
+
   return (
     <EvidenceProvider
       items={ALERT_EVIDENCE.items}
       unfilledFields={ALERT_EVIDENCE.unfilledFields}
     >
-    <div className="rpt-workspace">
+    <div
+      className="rpt-workspace"
+      data-alert-started="yes"
+      data-testid="alert-workspace"
+    >
       <HeroSection
         weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
         redRate={ALERT_GLOBAL_STATS.redRate}
@@ -198,6 +266,36 @@ export default function AlertWorkspace() {
       </div>
 
       <SignalHeatmapPanel bars={currentHeat} phase={phase} />
+
+      {demoBanner ? (
+        <div
+          className="alert-demo-banner"
+          role="note"
+          aria-label="示例数据 · 培训演示模式"
+          data-testid="alert-demo-banner"
+        >
+          <span className="alert-demo-banner__icon" aria-hidden>⚠</span>
+          <span className="alert-demo-banner__text">
+            您正在查看示例数据（training mode）· 切真实路径请上传客户名录 + 规则库后点
+            「启动风险扫描」。
+          </span>
+        </div>
+      ) : null}
+
+      <AlertExportPanel
+        phase={phase}
+        scanError={scanError}
+        onDrillSelect={setDrillCustomer}
+        topCases={session.topCases}
+      />
+
+      {drillCustomer ? (
+        <AlertDrillDrawer
+          customer={drillCustomer}
+          onClose={() => setDrillCustomer(null)}
+          topCases={session.topCases}
+        />
+      ) : null}
 
       <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
         <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
@@ -427,7 +525,13 @@ function TrafficLightWall(p: {
       </div>
       <ol className="alert-wall-list">
         {lights.map((l) => (
-          <li key={l.tier} className="alert-wall-light" data-tier={l.tier} data-animate={l.animate}>
+          <li
+            key={l.tier}
+            className="alert-wall-light"
+            data-tier={l.tier}
+            data-animate={l.animate}
+            data-testid={`alert-traffic-light-${l.tier}`}
+          >
             <div className="alert-wall-bulb" aria-hidden>
               <span className="alert-wall-bulb-inner" />
               <span className="alert-wall-bulb-ring" />
@@ -486,7 +590,12 @@ function ScanQueuePanel(p: { queue: ScanQueueCase[]; phase: ScanPhase }) {
       </div>
       <ul className="al-queue__list">
         {p.queue.map((c) => (
-          <li key={c.id} className="al-queue__item" data-tier={c.tier}>
+          <li
+            key={c.id}
+            className="al-queue__item"
+            data-tier={c.tier}
+            data-testid="alert-hitlist-row"
+          >
             <span className="al-queue__ico" aria-hidden>客</span>
             <div className="al-queue__body">
               <div className="al-queue__name">{c.customer}</div>
@@ -1206,5 +1315,314 @@ function ReachView({ reach }: { reach: ReachRate[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ─────────── AlertEmptyState · W-CF2-A2 · 2026-04-28 ───────────
+   empty-state-design-protocol v1.0 落地:
+     §2.1 场景 Hero (一句话 problem statement)
+     §2.2 主 CTA 3 入口分级 (primary 启动扫描 / secondary 选规则集 / tertiary 历史 (示例))
+     §2.3 Panel 区空骨架 (灰底 placeholder · 红/黄/绿三灯 + hitlist + signal map)
+     §2.4 状态透明 status pill
+     §2.5 demo 显式标 (示例) tag
+   §3 状态机 started default false · 用户 trigger 才 setStarted(true)
+   §6 Alert 改造点: 主 CTA = 启动扫描 (KB 已加载即可) · panel 默认空 · 历史 secondary
+*/
+
+function AlertEmptyState(p: {
+  onPrimary: () => void;
+  onSecondary: () => void;
+  onTertiary: () => void;
+  scanRunning: boolean;
+  scanError: string | null;
+}) {
+  return (
+    <div className="alert-empty" data-testid="alert-empty-skeleton">
+      {/* §2.1 Hero · 一句话 problem statement */}
+      <header className="alert-empty__hero">
+        <div className="alert-empty__hero-eyebrow">AGENT · 04 · TOWER · 贷中预警引擎</div>
+        <h1 className="alert-empty__hero-title">
+          贷中风险预警 · 在贷客户池批量扫描 + 红黄绿分级榜单
+        </h1>
+        <p className="alert-empty__hero-sub">
+          外部信号 (裁判文书 / 工商 / 舆情 / 失信) × 内部规则 (本行制度 / 限额 / 白黑名单)
+          双路交叉 · 100 家 ≤ 2 分钟扫完吐分级榜单 + 单客户证据链 + 处置建议
+        </p>
+      </header>
+
+      {/* §2.2 主 CTA · 3 入口分级 */}
+      <section className="alert-empty__cta-row" aria-label="3 CTA 分级">
+        <button
+          type="button"
+          className="alert-empty__cta alert-empty__cta--primary"
+          data-testid="alert-scan-cta"
+          data-cta="primary"
+          onClick={p.onPrimary}
+          disabled={p.scanRunning}
+        >
+          <span className="alert-empty__cta-rank">主操作</span>
+          <span className="alert-empty__cta-title">
+            {p.scanRunning ? "扫描中…" : "启动风险扫描"}
+          </span>
+          <span className="alert-empty__cta-sub">
+            POST /api/alert/scan · 在贷客户池规则扫 + 双路交叉
+          </span>
+        </button>
+        <button
+          type="button"
+          className="alert-empty__cta alert-empty__cta--secondary"
+          data-testid="alert-scan-cta-secondary"
+          data-cta="secondary"
+          onClick={p.onSecondary}
+          disabled={p.scanRunning}
+        >
+          <span className="alert-empty__cta-rank">次操作</span>
+          <span className="alert-empty__cta-title">选规则集 + 调阈值</span>
+          <span className="alert-empty__cta-sub">
+            22 条规则 · 风险偏好 toggle · 阈值 inline edit
+          </span>
+        </button>
+        <button
+          type="button"
+          className="alert-empty__cta alert-empty__cta--tertiary"
+          data-testid="alert-history-tertiary"
+          data-cta="tertiary"
+          onClick={p.onTertiary}
+        >
+          <span className="alert-empty__cta-rank alert-empty__cta-rank--demo">
+            历史 (示例)
+          </span>
+          <span className="alert-empty__cta-title">看示例扫描</span>
+          <span className="alert-empty__cta-sub">
+            微贷组合 100 家 · 培训演示用 · 切真实路径随时返回
+          </span>
+        </button>
+      </section>
+
+      {/* §2.3 Panel 空骨架 · 红黄绿三灯 + hitlist + signal map */}
+      <section
+        className="alert-empty__skeleton"
+        aria-label="贷中预警面板 · 空骨架"
+        data-testid="alert-empty-skeleton-panels"
+      >
+        <div className="alert-empty__skel-row alert-empty__skel-traffic">
+          <div
+            className="alert-empty__skel-card"
+            data-skel="red"
+            data-testid="alert-traffic-light-red"
+          >
+            <div className="alert-empty__skel-light" data-tier="red" aria-hidden />
+            <div className="alert-empty__skel-lbl">红档 · 立即处置</div>
+            <div className="alert-empty__skel-hint">扫描完显示户数 + TOP 1 客户</div>
+          </div>
+          <div
+            className="alert-empty__skel-card"
+            data-skel="yellow"
+            data-testid="alert-traffic-light-yellow"
+          >
+            <div className="alert-empty__skel-light" data-tier="yellow" aria-hidden />
+            <div className="alert-empty__skel-lbl">黄档 · 重点观察</div>
+            <div className="alert-empty__skel-hint">扫描完显示户数 + 触达率</div>
+          </div>
+          <div
+            className="alert-empty__skel-card"
+            data-skel="green"
+            data-testid="alert-traffic-light-green"
+          >
+            <div className="alert-empty__skel-light" data-tier="green" aria-hidden />
+            <div className="alert-empty__skel-lbl">绿档 · 常规跟踪</div>
+            <div className="alert-empty__skel-hint">下轮 T+7 自动复扫</div>
+          </div>
+        </div>
+        <div className="alert-empty__skel-row">
+          <div className="alert-empty__skel-card alert-empty__skel-card--wide" data-skel="hitlist">
+            <div className="alert-empty__skel-lbl">命中榜单 (HitList)</div>
+            <div className="alert-empty__skel-hint">
+              点击客户 → 右侧 drill drawer 显信号 timeline + 处置建议 ·{" "}
+              <button
+                type="button"
+                className="alert-empty__skel-export"
+                data-testid="alert-export-docx-btn"
+                disabled
+                aria-disabled
+              >
+                导出榜单 .docx (待扫描完成启用)
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="alert-empty__skel-row">
+          <div className="alert-empty__skel-card alert-empty__skel-card--wide" data-skel="signalmap">
+            <div className="alert-empty__skel-lbl">SignalMap · 30 天信号热力 + 触达率</div>
+            <div className="alert-empty__skel-hint">扫描完显示行业 × 信号类型分布</div>
+          </div>
+        </div>
+      </section>
+
+      {/* §2.4 status pill */}
+      <footer
+        className="alert-empty__status"
+        data-testid="alert-empty-status-pill"
+        aria-label="状态透明"
+      >
+        <span className="alert-empty__status-item" data-tone="ok">
+          ◉ 服务正常
+        </span>
+        <span className="alert-empty__status-item">
+          KB 待上传 · 客户名录 / 规则库 / 内部制度
+        </span>
+        <span className="alert-empty__status-item alert-empty__status-item--demo">
+          {p.scanRunning ? "扫描流式中…" : "等待主操作"}
+        </span>
+        {p.scanError ? (
+          <span
+            className="alert-empty__status-item alert-empty__status-item--err"
+            role="alert"
+          >
+            ⚠ {p.scanError}
+          </span>
+        ) : null}
+      </footer>
+    </div>
+  );
+}
+
+/* ─────────── AlertExportPanel · started=true 路径 · 顶部含 export_docx ─────────── */
+
+function AlertExportPanel(p: {
+  phase: ScanPhase;
+  scanError: string | null;
+  onDrillSelect: (customer: string) => void;
+  topCases: TopCase[];
+}) {
+  const ready = p.phase === "after";
+  async function downloadDocx() {
+    if (!ready) return;
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    try {
+      const res = await fetch(`${apiBase}/api/alert/export_docx`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: "贷中预警榜单",
+          cases: p.topCases.slice(0, 10),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `贷中预警榜单_${Date.now()}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[alert] export_docx failed:", err);
+    }
+  }
+
+  return (
+    <section
+      className="rpt-panel alert-export-bar"
+      aria-label="导出 + 详情入口"
+      data-testid="alert-export-bar"
+    >
+      <div className="alert-export-bar__left">
+        <span className="alert-export-bar__eyebrow">EXPORT · 榜单与处置</span>
+        {p.scanError ? (
+          <span className="alert-export-bar__err" role="alert">
+            ⚠ {p.scanError}
+          </span>
+        ) : null}
+      </div>
+      <div className="alert-export-bar__right">
+        {ready && p.topCases[0] ? (
+          <button
+            type="button"
+            className="alert-export-bar__drill"
+            data-testid="alert-drill-cta"
+            onClick={() => p.onDrillSelect(p.topCases[0].customer)}
+          >
+            查看 TOP 客户详情
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="alert-export-bar__docx"
+          data-testid="alert-export-docx-btn"
+          onClick={downloadDocx}
+          disabled={!ready}
+        >
+          导出榜单 .docx
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────── AlertDrillDrawer · 客户详情 drawer (W-CF2-A2 onboarding §panel-skeleton) ─────────── */
+
+function AlertDrillDrawer(p: {
+  customer: string;
+  onClose: () => void;
+  topCases: TopCase[];
+}) {
+  const detail = p.topCases.find((c) => c.customer === p.customer);
+  return (
+    <aside
+      className="alert-drill-drawer"
+      role="dialog"
+      aria-label="客户详情 drawer"
+      data-testid="alert-drill-drawer"
+    >
+      <header className="alert-drill-drawer__head">
+        <span className="alert-drill-drawer__eyebrow">DRILL DETAIL</span>
+        <button
+          type="button"
+          className="alert-drill-drawer__close"
+          onClick={p.onClose}
+          aria-label="关闭详情"
+        >
+          ×
+        </button>
+      </header>
+      <h3 className="alert-drill-drawer__name">{p.customer}</h3>
+      {detail ? (
+        <dl className="alert-drill-drawer__meta">
+          <div>
+            <dt>风险等级</dt>
+            <dd data-tier={detail.tier}>
+              {detail.tier === "red" ? "红档 · 立即处置" : detail.tier === "yellow" ? "黄档 · 重点观察" : "绿档 · 常规跟踪"}
+            </dd>
+          </div>
+          {detail.amount ? (
+            <div>
+              <dt>授信余额</dt>
+              <dd>{detail.amount}</dd>
+            </div>
+          ) : null}
+          {detail.triggers && detail.triggers.length > 0 ? (
+            <div>
+              <dt>触发信号</dt>
+              <dd>{detail.triggers.join(" · ")}</dd>
+            </div>
+          ) : null}
+          {detail.advice ? (
+            <div>
+              <dt>处置建议</dt>
+              <dd>{detail.advice}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : (
+        <p className="alert-drill-drawer__empty">未找到该客户的命中详情</p>
+      )}
+      <footer className="alert-drill-drawer__foot">
+        <span>证据链 + 信号 timeline 完整版留 Stage D 补</span>
+      </footer>
+    </aside>
   );
 }
