@@ -31,3 +31,7 @@ akshare>=1.15
 
 # 旧版 UI（Agent6 单机版 app.py 仍依赖；Phase 2 后可移除）
 gradio>=4.44
+
+# Auth + RBAC (Stage D.1 · auth_service · 2026-04-28)
+bcrypt>=5.0
+PyJWT>=2.10
