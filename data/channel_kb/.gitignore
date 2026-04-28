@@ -1,0 +1,6 @@
+# Channel KB upload artifacts (per upload · uuid4-named JSON)
+# 本目录只 keep · runtime 产物不入 git
+*.json
+*.parquet
+!.gitkeep
+!.gitignore

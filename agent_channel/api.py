@@ -24,7 +24,7 @@ import traceback
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -350,3 +350,29 @@ def _pick_export_value(header, profile, ep) -> str | int:
     if header == "data_sources":
         return ", ".join(profile.data_sources)
     return ""
+
+
+# ============================================================================
+# POST /api/channel/upload_kb — Stage B.6 backend KB upload
+# 3 类 KB 文件 (customer_list / policy / industry_guide) · xlsx/pdf/docx ≤ 50MB
+# 解析 + 持久化 (data/channel_kb/{kb_id}.json) + 返摘要
+# 业务实现: agent_channel/kb_upload.py · 本端点仅 wire FastAPI multipart → handler
+# ============================================================================
+
+
+@app.post("/api/channel/upload_kb")
+async def channel_upload_kb(
+    kb_type: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """Channel KB 文件上传端点 · multipart/form-data.
+
+    Field:
+      kb_type: "customer_list" | "policy" | "industry_guide"
+      file:    xlsx | xls | pdf | docx (single file · ≤ 50MB)
+
+    Returns: { kb_id, kb_type, source_filename, summary_text, n_rows? | n_pages? | n_paragraphs? }
+    Errors:  400 (kb_type 非法 / extension 不支持 / 内容损坏 / 空) · 413 (>50MB)
+    """
+    from agent_channel.kb_upload import handle_upload
+    return await handle_upload(kb_type, file)
