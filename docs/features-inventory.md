@@ -746,6 +746,37 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ---
 
+## F-061 · Riskctrl + Alert live-fallback banner (W-FIX-A3 · live-fallback-banner-spec v1.0)
+
+- **location**:
+  - `web/src/lib/api/_live.ts` (LiveFailError class · postLive · streamSse helper)
+  - `web/src/lib/api/riskctrl.ts` (runDslGen / runBacktest / exportDocx · 不 silent swap)
+  - `web/src/lib/api/alert.ts` (runAlertScan / fetchHitlist / fetchDrill · 4xx/5xx 抛 LiveFailError)
+  - `web/src/app/archive/riskctrl/_components/RiskctrlWorkspace.tsx` (`liveFail` state + banner JSX)
+  - `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (`startScan` 真接 SSE + banner JSX + scanSessionId state)
+  - `web/src/app/archive/riskctrl/riskctrl-workspace.css` (+60 LOC · `.riskctrl-live-fail-banner*`)
+  - `web/src/app/archive/alert/alert-workspace.css` (+60 LOC · `.alert-live-fail-banner*`)
+- **selector**:
+  - `[data-testid="riskctrl-live-fail-banner"]` · `[data-testid="riskctrl-live-fail-retry"]`
+  - `[data-testid="alert-live-fail-banner"]` · `[data-testid="alert-live-fail-retry"]`
+  - `[data-testid="alert-workspace"][data-scan-session-id]` (scan 通时落 sessionId)
+- **interaction**:
+  - Riskctrl backtest: HTTP 422 root cause = backend 必填 instruction + uploaded_files (Pydantic 默认无 default factory) · frontend `runBacktest({uploadedFiles: []})` 已显式传 [] 防 422 · 失败时 banner 显 "后端 X 调用失败 (HTTP 422) · 当前显 fallback 演示数据" + retry button + body excerpt detail
+  - Riskctrl dsl_gen / export_docx: 同处理 · 5xx / network / SSE error → banner
+  - Alert startScan: 不再纯本地 mock toggle · `runAlertScan({forceMock: true})` 真 POST /api/alert/scan SSE · 失败 banner · 成功 setScanSessionId
+  - 失败时仍渲染 fallback mock viz · 但 banner 显式标 "fallback 演示数据" · 不静默
+  - retry button 重跑同一调用 · dismiss × 关 banner
+- **contract**: `docs/contracts/live-fallback-banner-spec.md` v1.0 §2 规则 1-4
+- **introduce**: 2026-04-28 W-FIX-A3 worker (cherry-pick → chore/l0-infra)
+- **lost_at**: N/A (新 feature · 此前 silent swap mock · 用户怒"左右脑互博")
+- **smoke_test**: `web/tests/regression/riskctrl-alert-fix.spec.ts` (4 case · riskctrl 422 + dsl_gen 500 + alert scan 503 + alert scan 200)
+- **NB**:
+  - 422 root cause 已 verify (TestClient 真打 backend) · backend Pydantic schema 严格 · 缺 uploaded_files / instruction 都返 422
+  - LiveFailError 含 status / endpoint / bodyExcerpt 三字段 · banner 渲染 detail · 帮 ops 一眼看根因
+  - export_docx 404 (后端未上线) 显式视为 pending · 不弹 banner · 走原 exportInfo error 状态
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`
