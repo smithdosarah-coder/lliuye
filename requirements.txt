@@ -35,3 +35,6 @@ gradio>=4.44
 # Auth + RBAC (Stage D.1 · auth_service · 2026-04-28)
 bcrypt>=5.0
 PyJWT>=2.10
+
+# PIPL Data Compliance · audit AES-GCM at-rest (Stage E.3 · 2026-04-28)
+cryptography>=42.0
