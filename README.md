@@ -1,115 +1,137 @@
-# Credit Report Agent
+# Credit Intelligence Matrix · 信贷 AI 智能体矩阵
 
-众安信科 AI 中台 — 信贷报告助手(Agent6)+ 配套授信决策 / 贷中预警 / 合规核验 Web UI。
+众安信科 AI 中台 / 乾策平台 X-Nexus · 6 Agent 协作平台 · 面向银行客户经理 / 审贷员 / 合规官 / 风险经理。
 
-## V14 成品演示启动
+**Production**: <https://liuye.me> (ECS 139.196.30.69 · main 分支 · cloudflared tunnel)
+**Dev branch**: `chore/l0-infra`
 
-### 先决条件
+---
 
-- Python 3.12+(已装 `pip install -r requirements.txt` 或等价依赖:`openai fastapi uvicorn python-docx openpyxl pydantic`)
-- Node.js 18+ / npm 9+
-- `.env` 或系统环境变量中设置 `DEEPSEEK_API_KEY=sk-xxx`(真 pipeline 必需;仅演示 Mock 可跳过)
+## 1. 6 Agent
 
-### 一键启动
+| Agent | 中文 | 功能 |
+|---|---|---|
+| Agent1 channel | 获客 | look-alike 拓客 (基于已成交客户 + 外网搜) |
+| Agent2 riskctrl | 风控 | DSL 规则生成 + 回测 |
+| Agent3 credit | 授信 | Agent6 下游决策引擎 (对公+对私) |
+| Agent4 alert | 预警 | 客户行为变化驱动 · 知识库批量扫描 |
+| Agent5 compliance | 合规 | 政策事件驱动 · 业务制度违规扫 |
+| Agent6 report | 报告 | Evidence-First 三阶段 + QC blocker |
 
-Windows:
+详见 [docs/reset/north-star.md](docs/reset/north-star.md) (产品 north star + 6 Agent 闭环路径)。
 
-```bat
-scripts\start-dev.bat
-```
+---
 
-Git Bash / WSL / macOS / Linux:
+## 2. 当前状态
+
+项目处于 **"全新出发" reset 工程阶段** (起 2026-04-29):
+- Step 2 conflict scan (架构审视 + 找冲突)
+- Step 1 cleanup (Phase A · 7 worker · workspace 4 gate / shared infra / Letterpress 真清 / PRD 重写)
+- Step 3 PRD + 商业化 (Phase B · 数据飞轮 + 商业化 doc)
+
+**入口文档**: [RESET_MASTER_PLAN.md](RESET_MASTER_PLAN.md) — umbrella 索引
+**新 session / compression 后必读**: [CLAUDE.md §14](CLAUDE.md) (6 reset docs 阅读顺序)
+
+---
+
+## 3. 启动 (Dev)
+
+### 后端
 
 ```bash
-bash scripts/start-dev.sh
+py scripts/start_uvicorn.py
 ```
 
-启动后:
+自动从项目根 `.env` 加载 `DEEPSEEK_API_KEY` / `TAVILY_API_KEY` / `DASHSCOPE_API_KEY` 等 env · 校验缺失 key 后调 uvicorn。
 
-- 前端:http://localhost:3000/report
-- 后端:http://127.0.0.1:8002/api/report/health
-- 前端通过 `next.config.ts` 的 rewrite 把 `/api/report/*` 反代到后端,浏览器看到同源。
+首次部署:
+```bash
+cp .env.example .env
+# 填值
+```
 
-手动启动(两个终端):
+监听 `:8000` (per .env `PORT=8000`)。
+
+### 前端
 
 ```bash
-# 终端 A:后端
-py -m uvicorn agent_report.api:app --port 8002 --reload
-
-# 终端 B:前端
 cd web && npm run dev
 ```
 
-### Mock 模式 vs 真模式
+Next.js 16 · 监听 `:3000` · `next.config.ts` rewrites `/api/*` 到 `127.0.0.1:8000`。
 
-| 维度 | MOCK ON(默认) | MOCK OFF(真 pipeline) |
-|---|---|---|
-| 耗时 | 约 5 秒 | 5-10 分钟 |
-| 依赖 LLM | 不需要 | 需要 `DEEPSEEK_API_KEY` |
-| 材料上传 | 仅记录元信息 | 真读取并解析 |
-| docx 产物 | 指向历史 `outputs/section_gen_test_*.docx` | 新 session 目录下生成 |
-| 适合场景 | 产品演示 / UX 走查 / 无 key 环境 | 客户真实材料走通 |
+### Agent6 v16 主管线 (CLI)
 
-右上角 **LLM 已连接 / 未连接** 状态灯反映后端是否检测到 API Key。红灯且 Mock OFF 时 `开始生成` 会被禁用。
-
-### 预置演示场景
-
-左栏「DEMO PRESETS」chip 一键跑通,无需上传材料:
-
-- **鼎盛商贸**(对公批发,下行) — `dingsheng_trade`
-- **张某餐饮**(普惠个体,健康) — `zhangsan_restaurant`
-
-### 跨 Agent 握手
-
-报告生成完成后,`/report` 页 `继续下游流程` 卡片把 `EnterpriseProfile` 写入 `sessionStorage.enterprise_profile`,跳转到 `/credit` / `/alert` / `/compliance`。目标页 `useEffect` 读取并预填输入。
-
-如 sessionStorage 为空,带 URL `?preset=xxx` 时会回退调用 `/api/report/preset/{key}` 拉预置画像。
-
-### 已知限制
-
-- **真 pipeline 耗时 5-10 min**:中途不要关页面;生成超过 10min 无进度推进会自动报超时。
-- **session 存储仅内存**:后端重启后老 session_id 失效;30 分钟 TTL 自动清理 `outputs/sessions/<session_id>/` 下的材料和 docx(磁盘保护)。
-- **单进程部署**:SessionStore 未落地 Redis,多实例部署需要自行替换。
-- **模板**:不传 `template_file` 时使用 `templates_cache/福建普惠授信申报及审查审批意见表2025新版.docx`。
-
-### 端点概览(后端 :8002)
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/api/report/health` | LLM 连接状态灯 |
-| POST | `/api/report/fill?mock=0|1&preset=...&business_line=...` | 主生成端点(SSE)|
-| POST | `/api/report/refine` | 外因续跑(SSE)|
-| GET | `/api/report/downloads/{session_id}/{filename}` | 下载本次 session 生成的 docx |
-| GET | `/api/report/downloads/legacy/{filename}` | Mock 模式兜底下载 |
-| GET | `/api/report/preset/{key}` | 只读预置画像(跨 Agent 预填 fallback)|
-| GET | `/downloads/{filename}` | 兼容老 URL |
-
-### 目录结构速览
-
-```
-agent_report/         # FastAPI 后端(V14)
-  api.py              # 路由 + SSE + pipeline 包装
-  enterprise_profile.py  # 跨 Agent 消费的画像 schema
-  session_store.py    # 内存 session + TTL
-  mock_fixtures.py    # 预置演示 fixture
-web/                  # Next.js 前端(V14-B/D)
-  src/app/report/     # 信贷报告助手页
-  src/app/credit/     # 授信决策页(消费 sessionStorage)
-  src/app/alert/      # 贷中预警页
-  src/app/compliance/ # 合规核验页
-  src/lib/api.ts      # 后端客户端 + SSE 解析
-scripts/
-  start-dev.bat       # Windows 一键启动
-  start-dev.sh        # Unix 一键启动
-outputs/
-  sessions/           # 真 pipeline 的工作目录(30min TTL)
-  section_gen_test_*.docx  # 历史样本(mock 下载源)
-form_filler.py 等     # V13 引擎核心(V14 禁止改动)
+```bash
+py v16_pipeline.py --source samples/<模板>.docx --material samples
 ```
 
-### Troubleshooting
+Classifier → generator → QC gate 全链路。10 个 `v16_*.py` 实现。详见 [docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md](docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md)。
 
-- **前端白屏 + 控制台 CORS 报错**:检查后端是否起在 8002;`next.config.ts` rewrite 走同源,CORS 不应触发。
-- **`开始生成` 灰的**:切换到 Mock 模式或配置 `DEEPSEEK_API_KEY` 重启后端。
-- **下载按钮点了没反应**:确认 `docx_url` 不是 `#mock-...` 开头(那是纯浏览器端 mock 的占位)。
-- **`报错: 后端连接失败`**:后端进程挂了,`scripts/start-dev.bat` 重启。
+---
+
+## 4. 部署 (Production)
+
+main CLI 改 web/* 后**自动**部署 (per [CLAUDE.md §13.1](CLAUDE.md)):
+
+```bash
+bash scripts/deploy_to_ecs.sh           # 完整 (含 npm build · 5-10 min)
+bash scripts/deploy_to_ecs.sh --skip-build  # 仅后端 restart
+```
+
+脚本封装: stash + pull + pip install + build + restart + healthcheck。
+
+ECS 跑 4 systemd service: `nginx` / `cloudflared` / `lliuye-frontend` / `lliuye-backend`。
+
+---
+
+## 5. 关键文档
+
+- [`CLAUDE.md`](CLAUDE.md) — 项目工程行为规范 (给 AI 看)
+- [`RESET_MASTER_PLAN.md`](RESET_MASTER_PLAN.md) — reset 工程 umbrella
+- [`docs/reset/`](docs/reset/) — north star / Phase A 7 worker / Codex mesh 协议 / state snapshot
+- [`docs/contracts/`](docs/contracts/) — 接口契约 (可验收 spec)
+- [`docs/handoff/decisions-log.md`](docs/handoff/decisions-log.md) — Q-NNN 决策事实日志
+- [`docs/handoff/mesh.json`](docs/handoff/mesh.json) — multi-CLI mesh 配置
+- [`docs/features-inventory.md`](docs/features-inventory.md) — F-001..F-064 feature inventory
+- [`docs/scorecard/definition-of-done.md`](docs/scorecard/) — 银行交付 DoD 5 层
+
+---
+
+## 6. 仓库布局 (顶层)
+
+```
+agent_{channel,credit,alert,compliance,riskctrl,report}/  # 6 Agent backend
+api_server.py                                              # FastAPI 总线
+v16_pipeline.py + 9 v16_*.py                              # Agent6 主管线
+shared/                                                    # 跨 agent 共用 (sources / kb_scan / llm)
+web/                                                       # Next.js 16 frontend
+data/                                                      # mock + feedback + KB
+evaluation/                                                # 6 agent eval YAML
+scripts/                                                   # 启动 / 部署 / orchestrator
+docs/                                                      # 全部文档
+legacy_gradio/                                             # 已归档 Gradio v9.0 + form_filler 等
+.claude/                                                   # mesh worktrees 状态(本地 · gitignored)
+```
+
+---
+
+## 7. 环境变量
+
+详见 [`.env.example`](.env.example)。当前必需:
+
+```
+DEEPSEEK_API_KEY=sk-xxx
+TAVILY_API_KEY=tvly-xxx
+DASHSCOPE_API_KEY=sk-xxx        # Qwen
+PORT=8000
+KB_SCAN_DEMO_MODE=true|false
+```
+
+LLM keys 已 rotated 2026-04-29 · 历史 commit 含旧 keys 但已 dead (per decisions-log:1272 + 2026-04-29 安全事件清理)。
+
+---
+
+## 8. License / Author
+
+内部项目 · 众安信科 AI 中台 · 刘野

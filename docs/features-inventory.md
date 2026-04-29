@@ -654,8 +654,8 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 ## F-054 · Compli Workspace · 完整 production-grade pipeline (3 endpoints + Word 导出)
 
-- **location**: `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`triggerPolicyScan` / `triggerTemplateCheck` / `triggerExportDocx` handlers · `RevisionPanel` 接 `scanId/exportInfo/onExportDocx` props)
-- **selector**: `[data-testid="compli-policy-upload-cta"]` · `[data-testid="compli-business-upload-cta"]` · `[data-testid="compli-matrix-cell"]` · `[data-testid="compli-conflict-chip"]` · `[data-testid="compli-revision-draft"]` · `[data-testid="compli-export-docx-btn"]`
+- **location**: `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`triggerPolicyScan` / `triggerTemplateCheck` / `triggerExportDocx` handlers · `RevisionPanel` 接 `scanId/exportInfo/onExportDocx` props) · `web/src/lib/api/compliance.ts` (W-FIX2-A3 加 · runPolicyScan / runMatrixCheck / exportDocx)
+- **selector**: `[data-testid="compli-policy-upload-cta"]` · `[data-testid="compli-business-upload-cta"]` · `[data-testid="compli-matrix-cell"]` · `[data-testid="compli-conflict-chip"]` · `[data-testid="compli-revision-draft"]` · `[data-testid="compli-export-docx-btn"]` · `[data-testid="compli-live-fail-banner"]`（W-FIX2-A3 加） · `[data-testid="compli-live-fail-retry"]`（W-FIX2-A3 加）
 - **interaction**:
   - 上传政策 + 业务制度 → SSE 抽规则 → 抽事件 → N×M 矩阵 → 改/补/强 LLM 修订
   - 矩阵 cell click 展开左右对照纸 + 条款映射
@@ -665,6 +665,10 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **introduce**: pending Stage CF 第 1 批 cherry-pick (c75488f → main · 2026-04-28)
 - **lost_at**: N/A (新增 backend wiring · ComplianceWorkspace 既有 mock viz 转为 SSE 真接 + Word 导出)
 - **smoke_test**: `web/tests/regression/compli-empty-state.spec.ts` (部分覆盖 · 完整 SSE 解析跑通待 Stage D playwright)
+- **W-FIX2-A3 fix (2026-04-29)**: bug #5 修复 · 之前 primary CTA 路径 hardcode `force_mock: true` (line 113) 静默走 mock policy corpus · UI 标 live · 用户欺骗 (违反 live-fallback-banner-spec.md §1.5 production / demo 路径分离)。
+  - **fix**: primary path 现 `force_mock: false` · 真接后端 SSE · 失败 → live-fail banner（per spec §2 规则 1）· `mock` 仍只在 tertiary `(示例)` dropdown 路径
+  - **新 selector**: `compli-live-fail-banner` + `compli-live-fail-retry` (status / endpoint data-attrs)
+  - **新 client**: `web/src/lib/api/compliance.ts` 复用 `_live.ts` LiveFailError + streamSse · Pattern 与 riskctrl/alert client 一致
 
 ## F-051 · Riskctrl/Forge Workspace · 空白启动 + 3 CTA 分级
 
@@ -823,6 +827,89 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **lost_at**: N/A
 - **restored**: N/A
 - **smoke_test**: `web/tests/regression/report-fix.spec.ts` (6 case · chromium + edge 双 browser PASS · 11/11 cross-browser)
+
+## F-060 · 移至 audit_service · skip slot
+
+> 本 slot 在内部记账中保留 · 实际无前端 inventory 项 (W-E1 后端 audit middleware · 前端无入口)
+
+## F-061 · 移至 audit_service · skip slot
+
+> 同上 · 后端 E.4 测试覆盖加固 · 前端无入口
+
+## F-062 · Compli ForceMock Hardcode 删除 + Live-fallback banner (W-FIX2-A3 · live-fallback-banner-spec v1.0)
+
+- **location**:
+  - `web/src/lib/api/compliance.ts` (新 · runPolicyScan / runMatrixCheck / exportDocx · 复用 `_live.ts` LiveFailError + streamSse pattern)
+  - `web/src/app/archive/compliance/_components/ComplianceWorkspace.tsx` (`liveFail` state + recordLiveFail/clearLiveFail + banner JSX · 删 hardcode `force_mock: true`)
+  - `web/src/app/archive/compliance/compliance-workspace.css` (+62 LOC · `.compliance-live-fail-banner*`)
+- **selector**:
+  - `[data-testid="compli-live-fail-banner"]` (status / endpoint data-attrs)
+  - `[data-testid="compli-live-fail-retry"]` (retry button)
+- **interaction**:
+  - **bug #5 (修)**: primary CTA「开始政策比对」之前 (Stage CF · `c75488f`) hardcode `force_mock: true` · 用户点 → 实际跑 mock policy corpus · UI 仍标 live · 静默欺骗（左右脑互博）
+  - **fix**: primary path 现 `force_mock: false` · 真接后端 SSE · 失败 → live-fail banner（per spec §2 规则 1）· mock 仅 tertiary `(示例)` dropdown 显式 demo banner
+  - secondary template_check 同处理: 4xx/5xx/network → liveFail banner · 不再 silent
+  - export_docx 404 (Stage 未上线) 仍走 exportInfo pending error · 不弹 banner（与 riskctrl 同 fallback pattern）
+- **contract**: `docs/contracts/live-fallback-banner-spec.md` v1.0 §1.5 (production / demo 路径必须显式分开) · §2 规则 1 (live failed → 显式 banner)
+- **introduce**: pending W-FIX2-A3 cherry-pick
+- **lost_at**: N/A (修 Stage CF `c75488f` 引入的 hardcode bug · 之前 user 投诉「左右脑互博」)
+- **smoke_test**: `web/tests/regression/compli-empty-state.spec.ts` (新加 2 case · primary force_mock:false body verify + primary 503 → live-fail banner)
+- **NB**:
+  - 与 F-061 (Riskctrl + Alert) 同 pattern · 复用 `_live.ts` LiveFailError + streamSse
+  - tertiary mock dropdown 路径 `compli-demo-banner` 已 wire (Stage CF) · 本 fix 不动
+  - test runner 见 `web/tests/regression/compli-empty-state.spec.ts` · 加 case 「force_mock:false body verify」 + 「primary path 失败 → live-fail banner 显」
+
+---
+
+## 待补（用户暗示"还有很多其他的"）
+
+F-009 ~ pending · 等用户继续指出 → enrich 此清单
+
+---
+
+## F-063 · IM Cookie Auth Chain Fix (W-FIX2-A2-im-cookie-auth · bug #8 P0)
+
+- **status**: live
+- **owner**: Worker A2 (W-FIX2 · 2026-04-29)
+- **goal**: 修 Codex 找的 P0 bug #8 (IM dead 真根源 · cookie 名错): frontend `web/src/lib/api/im.ts:34` 读 `auth_token` cookie · 但 D.1 backend 真 cookie 名 `zhongan_auth` + httpOnly (JS 不可读) · 整 IM 链断 · 真 user permission fail / 401
+- **location**:
+  - `web/src/lib/api/im.ts` (移除 `getImToken()` 读 cookie · 全 fetch 已有 `credentials: "include"` · header 注释更新)
+  - `web/src/app/dispatch/_components/ComposerBar.tsx` (`/api/im/send` fetch 加 `credentials: "include"`)
+  - `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`/api/im/send` fetch 加 `credentials: "include"`)
+  - `im_service/auth.py` (新 helper `decode_jwt_cookie(zhongan_auth)` 走 `auth_service.jwt_util.verify` 严格 D.1)
+  - `im_service/websocket.py` (`im_websocket_endpoint` 加 `cookie_token` 参数 · cookie 优先 · query token fallback)
+  - `api_server.py` (`_resolve_im_user(zhongan_auth, authorization, token_q)` 三 source 优先级 · 6 IM endpoint signature 加 `zhongan_auth: str | None = Cookie(default=None)` · WS endpoint 读 `websocket.cookies["zhongan_auth"]`)
+- **selector**: 后端无新 testid · 验证走 cookie jar (`zhongan_auth=...` httpOnly · curl `-b jar.txt`)
+- **interaction**:
+  - 真 user 流程: POST `/api/auth/login` → backend Set-Cookie `zhongan_auth=<JWT>` httpOnly · browser 自动 store · 后续所有 IM fetch `credentials: "include"` 自动带 cookie · backend `_resolve_im_user` 优先 `decode_jwt_cookie` (D.1 jwt_util.verify HS256) · 成功立即 hit 真 user_id
+  - demo / e2e 流程: 无 cookie / cookie 无效 · fallback Authorization Bearer (含 `demo-u_<id>` legacy 格式) · 不影响 production
+  - WebSocket: same-origin 自动带 cookie · `/ws/im` 优先 cookie · 失败回退 `?token=<jwt>` query (legacy / 非 same-origin)
+  - 6 endpoint 清单 (per onboarding W-FIX2-A2-im-cookie-auth.md §Acceptance):
+    POST `/api/im/messages` · GET `/api/im/threads` · GET `/api/im/threads/{tid}/messages` ·
+    POST `/api/im/threads/{tid}/read` · POST `/api/im/threads` (create) ·
+    POST `/api/im/send` (legacy · cookie param 兼容 · 不强制) · WS `/ws/im` (cookie 优先)
+- **contract**: `docs/contracts/auth-protocol.md` v1.0 §5 cookie spec (zhongan_auth · httpOnly · SameSite=Lax · 24h) · `docs/onboarding/W-FIX2-A2-im-cookie-auth.md`
+- **introduce**: 2026-04-29 W-FIX2-A2 worker (cherry-pick → chore/l0-infra)
+- **lost_at**: N/A (新 fix · 此前 frontend 读错 cookie 名导致 IM auth dead)
+- **smoke_test**:
+  - `im_service/tests/test_cookie_auth.py` 12 case PASS (decode_jwt_cookie 单元 4 + REST endpoint 8 含真 D.1 cookie / cookie 优先 / fallback Bearer / expired cookie / 缺 cookie + Bearer / 全无效 / messages 完整流 / mark_read)
+  - im_service/tests/ 全套 61 PASS · auth_service/tests/ 全套 43 PASS · 无回归
+  - curl smoke 三 path verified: `POST /api/auth/login` → cookie jar 有 `zhongan_auth` (httpOnly) · `GET /api/im/threads` 仅带 cookie 返 200 + `user_id=u_wangzhe` (真 user · 不是 demo fallback) · 缺 cookie 返 401 MISSING_TOKEN · demo Bearer fallback 仍接受
+- **NB**:
+  - 不增 `/api/im/token` endpoint (Codex 建议过度工程) · 不增 IM-specific token 概念 · 复用 D.1 cookie + jwt_util
+  - cookie 优先级原则: 真 D.1 JWT 命中 > Authorization Bearer (含 demo) > query token · 任一成功立即返 · 不进 fallback
+  - frontend `getImToken()` 仍保留 (作 demo / e2e localStorage fallback) · 但不再 reach for `document.cookie` (httpOnly 不可读)
+  - `/api/im/send` legacy LLM 单 turn endpoint 加 cookie param signature 但不强制 (向后兼容)
+
+## F-064 · Alert 命中清单 Word 导出 + live-fail banner (W-FIX2 修 bug #6)
+
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` 内 `handleExportDocx` + 顶部 export-error banner + HeroSection 内 `导出命中清单 (.docx)` button (phase=after 才显) · backend `agent_alert/word_export.py` (新建) + `agent_alert/api.py` 加 `POST /api/alert/export_docx`
+- **selector**: `[data-testid="alert-export-docx-cta"]` (HeroSection 内 export 按钮) · `[data-testid="alert-export-error-banner"]` (live fail 顶部红 banner role=alert) · `[data-testid="alert-export-error-retry"]` · `[data-testid="alert-export-error-dismiss"]`
+- **interaction**: phase=after 显 "导出命中清单 (.docx)" → POST `/api/alert/export_docx` (session_id + summary + cases + totals + scan_range + stage) · 200 → blob download 触发浏览器下载 · 4xx/5xx/network err → setExportError(msg) → 顶部 banner 显 endpoint + 错误信息 · retry 重发 · dismiss 关 banner · 不静默 console-only (live-fallback-banner-spec v1.0)
+- **introduce**: 本批 W-FIX2-A1 commit · 修 Codex peer review bug #6 (silent fail · backend route 缺失)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `agent_alert/tests/test_export_docx_endpoint.py` (4 case · TestClient · 200 + Content-Type docx + Content-Disposition RFC 6266 + zip magic) · `agent_alert/tests/test_word_export.py` (33 case docx render 各分支)
 
 ---
 

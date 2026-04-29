@@ -9,6 +9,13 @@
  */
 
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
+import {
+  exportDocx as exportDocxApi,
+  LiveFailError,
+  runMatrixCheck,
+  runPolicyScan,
+} from "@/lib/api/compliance";
 import {
   COMPLIANCE_GLOBAL_STATS,
   COMPLIANCE_SESSION,
@@ -86,68 +93,79 @@ export default function ComplianceWorkspace() {
   const [scanError, setScanError] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
 
-  /* Primary CTA · 上传政策 + 业务制度 → POST /api/compliance/policy_scan SSE
-     UploadRail 内 "开始政策比对" 按钮 onClick 调用此 handler */
+  /* Stage Fix W-FIX2-A3 · live-fallback-banner-spec v1.0 §2 规则 1 ·
+     按 endpoint 分别记录失败 · UI 显式 banner + retry · 不 silent swap mock.
+     bug #5 根因: primary CTA 之前 hardcode `force_mock: true` 静默走 mock ·
+     现在 primary 默认 force_mock=false · 失败显 banner 让用户分辨真假. */
+  type LiveFail = {
+    endpoint: string;
+    label: string;
+    status: number;
+    message: string;
+    bodyExcerpt: string;
+  };
+  const [liveFail, setLiveFail] = useState<LiveFail | null>(null);
+  const [retryHandler, setRetryHandler] = useState<(() => void) | null>(null);
+
+  function recordLiveFail(label: string, err: unknown, retry: () => void): void {
+    if (err instanceof LiveFailError) {
+      setLiveFail({
+        endpoint: err.endpoint,
+        label,
+        status: err.status,
+        message: err.message,
+        bodyExcerpt: err.bodyExcerpt,
+      });
+    } else {
+      setLiveFail({
+        endpoint: "(unknown)",
+        label,
+        status: 0,
+        message: err instanceof Error ? err.message : String(err),
+        bodyExcerpt: "",
+      });
+    }
+    setRetryHandler(() => retry);
+  }
+
+  function clearLiveFail(): void {
+    setLiveFail(null);
+    setRetryHandler(null);
+  }
+
+  /* Primary CTA · 上传政策 + 业务制度 → POST /api/compliance/policy_scan SSE.
+     Stage Fix W-FIX2-A3 · force_mock 默认 false · primary 必须真接后端 ·
+     失败 → liveFail banner · mock dropdown tertiary 才走 demo. */
   const triggerPolicyScan = useCallback(async () => {
     setStarted(true);
     setTrigger("primary_scan");
     setScanRunning(true);
     setScanError("");
     setExportInfo({ status: "idle" });
+    clearLiveFail();
     try {
-      const resp = await fetch("/api/compliance/policy_scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          /* TODO Stage D.5 · 上传文件 → 真政策文本 · 当前用 mock session policy 触发 backend SSE */
-          policy_doc:
-            "第六条 个人消费贷款期限不得超过 12 个月。\n" +
-            "第三条 联合贷款本行出资比例不得低于 30%。",
-          business_docs: [
-            { event_id: "LN20251108", event_type: "loan",
-              fields: { months: 18, amount: 100000, purpose: "个人消费" } },
-            { event_id: "COOP202510007", event_type: "cooperation",
-              fields: { bank_share_ratio: 0.15, amount: 5000000 } },
-          ],
-          policy_meta: { title: session.objective, fetched_at: session.updated },
-          force_mock: true,
-        }),
+      const { scanId: captured } = await runPolicyScan({
+        /* TODO Stage D.5 · 上传文件 → 真政策文本 · 当前用 session 内文本触发 backend SSE */
+        policyDoc:
+          "第六条 个人消费贷款期限不得超过 12 个月。\n" +
+          "第三条 联合贷款本行出资比例不得低于 30%。",
+        businessDocs: [
+          { event_id: "LN20251108", event_type: "loan",
+            fields: { months: 18, amount: 100000, purpose: "个人消费" } },
+          { event_id: "COOP202510007", event_type: "cooperation",
+            fields: { bank_share_ratio: 0.15, amount: 5000000 } },
+        ],
+        policyMeta: { title: session.objective, fetched_at: session.updated },
+        forceMock: false,
       });
-      if (!resp.ok || !resp.body) {
-        throw new Error(`scan failed: HTTP ${resp.status}`);
-      }
-      /* SSE 流读 · 找到 type=scan 事件取 scan_id */
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let captured = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const parts = buf.split("\n\n");
-        buf = parts.pop() ?? "";
-        for (const part of parts) {
-          for (const line of part.split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const data = JSON.parse(line.slice(6));
-              const payload = data?.payload ?? {};
-              if (payload.type === "scan" && payload.scan_id) {
-                captured = payload.scan_id;
-              }
-            } catch {
-              /* ignore parse error · 不阻断流 */
-            }
-          }
-        }
-      }
       if (captured) setScanId(captured);
     } catch (e) {
+      recordLiveFail("policy_scan 政策比对", e, () => triggerPolicyScan());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.objective, session.updated]);
 
   /* Secondary CTA · 用模板快速比对 → POST /api/compliance/matrix_check */
@@ -156,41 +174,39 @@ export default function ComplianceWorkspace() {
     setTrigger("secondary_template");
     setScanRunning(true);
     setScanError("");
+    clearLiveFail();
     try {
-      const resp = await fetch("/api/compliance/matrix_check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          policies: [
-            { rule_id: "POL-T-001", article: "模板 · 期限",
-              category: "期限", condition: "期限不超 12 月",
-              threshold: { max_months: 12 }, severity_hint: "critical" },
-          ],
-          business_lines: [
-            { event_id: "DEMO-LN", event_type: "loan",
-              fields: { months: 18, purpose: "consumer" } },
-          ],
-          use_llm: false,
-        }),
+      await runMatrixCheck({
+        policies: [
+          { rule_id: "POL-T-001", article: "模板 · 期限",
+            category: "期限", condition: "期限不超 12 月",
+            threshold: { max_months: 12 }, severity_hint: "critical" },
+        ],
+        businessLines: [
+          { event_id: "DEMO-LN", event_type: "loan",
+            fields: { months: 18, purpose: "consumer" } },
+        ],
+        useLlm: false,
       });
-      if (!resp.ok) {
-        throw new Error(`matrix_check failed: HTTP ${resp.status}`);
-      }
       /* matrix_check 返同步 JSON · 不写 scanId · 仅 demo 触发 */
     } catch (e) {
+      recordLiveFail("matrix_check 模板比对", e, () => triggerTemplateCheck());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Tertiary CTA · 选历史 (mock) · 标「(示例)」与真实路径分离 */
+  /* Tertiary CTA · B-2 click-to-fire · dropdown 仅 set state · "查看示例" button 触发 */
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
-    if (!value) return;
+  }, []);
+  const onApplyRecent = useCallback(() => {
+    if (!recent) return;
     setStarted(true);
     setTrigger("tertiary_history");
-  }, []);
+  }, [recent]);
 
   /* Word 导出 · POST /api/compliance/export_docx */
   const triggerExportDocx = useCallback(async () => {
@@ -203,15 +219,7 @@ export default function ComplianceWorkspace() {
     }
     setExportInfo({ status: "running" });
     try {
-      const resp = await fetch("/api/compliance/export_docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scan_id: scanId, title: session.objective }),
-      });
-      if (!resp.ok) {
-        throw new Error(`export failed: HTTP ${resp.status}`);
-      }
-      const blob = await resp.blob();
+      const blob = await exportDocxApi(scanId, session.objective);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -222,11 +230,21 @@ export default function ComplianceWorkspace() {
       URL.revokeObjectURL(url);
       setExportInfo({ status: "done" });
     } catch (e) {
+      if (e instanceof LiveFailError && e.status === 404) {
+        /* 后端 endpoint 未上线 · 显式 pending 不弹 banner */
+        setExportInfo({
+          status: "error",
+          message: "导出端点 /api/compliance/export_docx 待后端实装",
+        });
+        return;
+      }
+      recordLiveFail("export_docx 导出修订意见", e, () => triggerExportDocx());
       setExportInfo({
         status: "error",
         message: e instanceof Error ? e.message : String(e),
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId, session.objective]);
 
   return (
@@ -254,6 +272,7 @@ export default function ComplianceWorkspace() {
         recent={recent}
         recentOptions={RECENT_DEMO_OPTIONS}
         onSelectRecent={onSelectRecent}
+        onApplyRecent={onApplyRecent}
         onTemplateCheck={triggerTemplateCheck}
         scanRunning={scanRunning}
         trigger={trigger}
@@ -282,7 +301,47 @@ export default function ComplianceWorkspace() {
             </div>
           ) : null}
 
-          {scanError ? (
+          {liveFail ? (
+            <div
+              className="compliance-live-fail-banner"
+              role="alert"
+              data-testid="compli-live-fail-banner"
+              data-status={liveFail.status}
+              data-endpoint={liveFail.endpoint}
+            >
+              <span className="compliance-live-fail-banner__icon" aria-hidden>⚠️</span>
+              <span className="compliance-live-fail-banner__text">
+                后端 <b>{liveFail.label}</b> 调用失败 (
+                {liveFail.status > 0 ? `HTTP ${liveFail.status}` : "network/SSE"})
+                · 当前显 fallback 演示数据 · 切真实路径请重试
+                {liveFail.bodyExcerpt ? (
+                  <span className="compliance-live-fail-banner__detail">
+                    · 详情：{liveFail.bodyExcerpt}
+                  </span>
+                ) : null}
+              </span>
+              {retryHandler ? (
+                <button
+                  type="button"
+                  className="compliance-live-fail-banner__retry"
+                  onClick={() => retryHandler()}
+                  data-testid="compli-live-fail-retry"
+                >
+                  重试
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="compliance-live-fail-banner__dismiss"
+                onClick={clearLiveFail}
+                aria-label="关闭横幅"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
+
+          {scanError && !liveFail ? (
             <div
               className="compliance-error-banner"
               role="alert"
@@ -355,6 +414,7 @@ function TriggerBar(p: {
   recent: string;
   recentOptions: RecentLabel[];
   onSelectRecent: (value: string) => void;
+  onApplyRecent: () => void;
   onTemplateCheck: () => void;
   scanRunning: boolean;
   trigger: TriggerSource | null;
@@ -383,6 +443,15 @@ function TriggerBar(p: {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="compliance-trigger-bar__apply"
+          onClick={p.onApplyRecent}
+          disabled={!p.recent || p.scanRunning}
+          data-testid="compli-history-apply"
+        >
+          查看示例
+        </button>
       </label>
 
       <button
@@ -1067,8 +1136,19 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
 function ComplianceComposer() {
   const [value, setValue] = useState("");
   const hints = ["看严重档", "按制度拆", "改造成本", "派工单", "导出整改清单"];
+  // pin-drop · 拖钉到 composer 时插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button

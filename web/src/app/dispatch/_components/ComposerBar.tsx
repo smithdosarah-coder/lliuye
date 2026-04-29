@@ -28,6 +28,7 @@ import {
   PANEL_PIN_MIME,
   type PanelPinPayload,
 } from "@/lib/store/panel-canvas-store";
+import { PIN_THUMB_MIME } from "@/components/shell/pin-thumb";
 
 import { findRecipeById } from "@/lib/store";
 
@@ -378,9 +379,13 @@ export function ComposerBar() {
     const href = panelPayload?.href ?? cardPayload?.href ?? "";
     // fullText 用 PanelPin.blurb (摘要) 或 fallback subtitle/title
     const fullText = panelPayload?.blurb ?? subtitle ?? title;
+    // pin-thumb · PanelPinHandle / MessagePinHandle 在 dragstart 时同步生成 SVG data URL
+    // · 无论原 DOM 是否有图，drop 处永远拿得到一张缩略图，不再 fallback ◈ 图标
+    const thumbDataUrl = e.dataTransfer.getData(PIN_THUMB_MIME);
     if (agentKey) refsPayload.agentId = agentKey;
     if (href) refsPayload.href = href;
     if (fullText) refsPayload.fullText = fullText;
+    if (thumbDataUrl) refsPayload.thumbDataUrl = thumbDataUrl;
 
     const threadId = thread.id;
     const pinMsg = addMessage(threadId, {

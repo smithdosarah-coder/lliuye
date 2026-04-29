@@ -15,7 +15,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ConversationMessage } from "@/lib/mock/agent-channel-session";
+import type { ConversationMessage } from "@/lib/mock/agent-channel-sessions";
 import { agentLabel } from "@/lib/agent-labels";
 
 export function RefCardMessage({ msg }: { msg: ConversationMessage }) {

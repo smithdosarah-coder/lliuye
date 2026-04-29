@@ -101,6 +101,7 @@ desktop.ini
 # ----------------------------------------------------------------------------
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+.claude/worktrees/
 
 # ----------------------------------------------------------------------------
 # Multi-CLI mesh：每 worktree 本地身份文件（resume 用，不入库）

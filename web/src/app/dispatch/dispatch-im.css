@@ -953,11 +953,13 @@
 }
 
 .wc-msg-pin-ref-thumb {
-  width: 40px;
-  height: 40px;
+  /* W-FIX2-Bpin · 2026-04-29 · pin-thumb util 生成 200×120 SVG · 直接整张展示 (不 clip) */
+  width: 100px;
+  height: 60px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
+  background: color-mix(in srgb, var(--g0b) 80%, transparent);
 }
 
 .wc-msg-pin-ref-icon {

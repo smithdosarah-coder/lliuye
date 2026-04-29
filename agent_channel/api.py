@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import sys
+import time
 import traceback
 import uuid
 from pathlib import Path
@@ -44,6 +46,13 @@ except ImportError:
         def _passthrough(fn):
             return fn
         return _passthrough
+
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
 
 app = FastAPI(title="Agent1 Channel Lookalike API", version="4.0")
 
@@ -110,41 +119,67 @@ class ChannelRunRequest(BaseModel):
 
 
 @app.post("/api/channel/run")
-@audit_llm_call(agent_id="channel", endpoint="/api/channel/run", model="deepseek-chat")
 async def channel_run(req: ChannelRunRequest):
     """全渠道获客真实搜索流 SSE — 5 阶段事件推送 + 最终候选清单。
 
     无 TAVILY_API_KEY 自动降级到 mock_fallback。
+
+    Audit (W-FIX2 修 bug #11): generator finally 内调 audit_stream_event ·
+    latency 含真实 LLM 调用时延 · 不再用 @audit_llm_call decorator
+    (decorator 在 route function return StreamingResponse 即记 · 失真)。
     """
     def gen():
-        try:
-            from agent_channel.realtime_stream import run_channel_search_stream
-        except (ImportError, ModuleNotFoundError, AttributeError) as e:
+        t0 = time.time()
+        err: str | None = None
+        # Codex Part 2 Area A fix: live mode (mock=False) 必须有 TAVILY_API_KEY · 否则 SSE 错误事件早失败 (不 silent mock_fallback · live-fallback-banner-spec §1.5)
+        if not req.mock and not os.environ.get("TAVILY_API_KEY"):
+            err = "TAVILY_KEY_MISSING"
             yield sse_encode({
                 "event": "error",
-                "message": f"import failed: {e}",
-                "traceback": traceback.format_exc(),
+                "stage": "search",
+                "message": "TAVILY_API_KEY 未配置 · 真搜不可用 · 请联系运维配置或切到 demo 模式",
+                "code": "TAVILY_KEY_MISSING",
             })
             return
         try:
-            for evt in run_channel_search_stream(
-                query=req.query,
-                provider=req.provider,
-                api_key=req.api_key,
-                top_n=req.top_n,
-                force_mock=req.mock,
-            ):
-                # QC blocker: 占位符残留软降级为"未能自动填写"
-                yield sse_encode(_qc_clean_event(
-                    {k: to_jsonable(v) for k, v in evt.items()}
-                ))
-        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
-            traceback.print_exc()
-            yield sse_encode({
-                "event": "error",
-                "message": f"{type(e).__name__}: {e}",
-                "traceback": traceback.format_exc()[-2000:],
-            })
+            try:
+                from agent_channel.realtime_stream import run_channel_search_stream
+            except (ImportError, ModuleNotFoundError, AttributeError) as e:
+                err = f"{type(e).__name__}: {e}"
+                yield sse_encode({
+                    "event": "error",
+                    "message": f"import failed: {e}",
+                    "traceback": traceback.format_exc(),
+                })
+                return
+            try:
+                for evt in run_channel_search_stream(
+                    query=req.query,
+                    provider=req.provider,
+                    api_key=req.api_key,
+                    top_n=req.top_n,
+                    force_mock=req.mock,
+                ):
+                    # QC blocker: 占位符残留软降级为"未能自动填写"
+                    yield sse_encode(_qc_clean_event(
+                        {k: to_jsonable(v) for k, v in evt.items()}
+                    ))
+            except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+                err = f"{type(e).__name__}: {e}"
+                traceback.print_exc()
+                yield sse_encode({
+                    "event": "error",
+                    "message": err,
+                    "traceback": traceback.format_exc()[-2000:],
+                })
+        finally:
+            audit_stream_event(
+                agent_id="channel",
+                endpoint="/api/channel/run",
+                model=req.provider or "deepseek-chat",
+                t0=t0,
+                error=err,
+            )
 
     return StreamingResponse(
         gen(),

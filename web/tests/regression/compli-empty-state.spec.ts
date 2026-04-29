@@ -112,4 +112,68 @@ test.describe("F-050 · Compliance Workspace 空白启动 + 3 CTA", () => {
       "yes",
     );
   });
+
+  /**
+   * F-054 fix · W-FIX2-A3 (live-fallback-banner-spec v1.0 §1.5):
+   *   Primary CTA 之前 hardcode `force_mock: true` 静默走 mock · UI 标 live · 用户欺骗.
+   *   现在 primary 路径必须 force_mock:false · 失败显 banner · mock 仅 tertiary 路径.
+   */
+  test("F-054 fix · primary CTA POST body 必含 force_mock:false (不再 hardcode true)", async ({
+    page,
+  }) => {
+    let captured: { force_mock?: unknown; policy_doc?: unknown } | null = null;
+    await page.route("**/api/compliance/policy_scan", async (route) => {
+      const req = route.request();
+      try {
+        captured = req.postDataJSON() as typeof captured;
+      } catch {
+        captured = null;
+      }
+      const sse = [
+        'data: {"event":"stage","payload":{"type":"scan","scan_id":"sid-fix2","stats":{}}}',
+        '',
+        'data: {"event":"done"}',
+        '',
+        '',
+      ].join("\n");
+      await route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream; charset=utf-8" },
+        body: sse,
+      });
+    });
+
+    await page.locator('[data-testid="compli-policy-scan-cta"]').click();
+
+    // 等 SSE drain + state propagate (~3.5s 假进度 · 但 fetch 立即触发)
+    await page.waitForTimeout(3500);
+
+    expect(captured).not.toBeNull();
+    expect(captured!.force_mock).toBe(false);
+    expect(captured!.policy_doc).toBeTruthy();
+  });
+
+  test("F-054 fix · primary path 失败 → live-fail banner 显 (HTTP 503 · retry button)", async ({
+    page,
+  }) => {
+    await page.route("**/api/compliance/policy_scan", async (route) => {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "service unavailable" }),
+      });
+    });
+
+    await page.locator('[data-testid="compli-policy-scan-cta"]').click();
+
+    /* UploadRail 假进度 5 step × 520ms ≈ 2.6s · 等到失败 banner 出现 */
+    const banner = page.locator('[data-testid="compli-live-fail-banner"]');
+    await expect(banner).toBeVisible({ timeout: 6000 });
+    await expect(banner).toHaveAttribute("data-status", "503");
+    await expect(banner).toContainText(/HTTP 503/);
+    await expect(banner).toContainText(/policy_scan/);
+
+    /* retry button 存在 */
+    await expect(page.locator('[data-testid="compli-live-fail-retry"]')).toBeVisible();
+  });
 });

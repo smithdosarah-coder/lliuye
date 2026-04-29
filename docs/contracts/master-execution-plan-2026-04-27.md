@@ -30,15 +30,16 @@ PRD 期望 = 6 Agent 各按 v2 PRD-grade 实装 · 共享 KB/Search/Matcher 底�
 | Skill | 用法 |
 |---|---|
 | make-plan + writing-plans | 本 doc + per-Agent spec |
-| dispatching-parallel-agents | sub-agent (Agent tool) 在 main session 派活 (不用 multi-cli-mesh worker · 减 user 维护负担) |
-| systematic-debugging | per-Agent gap 调研 sub-agent 跑 |
+| multi-cli-mesh | **主线执行机制** · 32 W-* worktree worker 已 dispatch（A/B/C/D/E + FIX 各批 · 见 docs/onboarding/_archive/2026-04/） |
+| dispatching-parallel-agents | sub-agent (Agent tool) 补位 · 不替代 worker · 用于轻量 doc/audit/复杂搜索 |
+| systematic-debugging | per-Agent gap 调研（worker 或 sub-agent 跑 · 看任务粒度） |
 | test-driven-development | 每 feature 先写 Playwright smoke spec · 后实装 |
 | verification-before-completion | 每 commit 必 tsc + smoke + curl backend 验通 才 deploy |
 | smart-explore | 跨 6 Agent 代码 token-optimized 探 |
-| using-git-worktrees | 高风险大改 (e.g. shared/kb_scan/ refactor) 用 worktree 隔离 |
+| using-git-worktrees | worker dispatch 必经 · 物理隔离避免 file conflict |
 | brainstorming | 视觉 / 交互 task 前先 explore intent |
 
-**不用 multi-cli-mesh worker** — user 一人维护多 CLI 累 · 改 sub-agent。
+**实际落地修正（2026-04-29）**：原 §3 写 "不用 multi-cli-mesh worker" 与现实背离。Stage A/B/C/D/E + FIX 第 1/2 批共计 32 个 W-* worker 实际 dispatch（见 git log + `docs/onboarding/_archive/`）。**worker 是主线 · sub-agent 补位**：worker 跑大块结构化交付（含 onboarding doc + signal commit + worktree 隔离 + trailer 协议），sub-agent 适合无副作用的 doc 整理 / audit / 复杂搜索。
 
 ---
 
@@ -88,16 +89,25 @@ PRD 期望 = 6 Agent 各按 v2 PRD-grade 实装 · 共享 KB/Search/Matcher 底�
 
 ### Stage D · 系统级基础 + 收尾 (3-4 sessions)
 
-- [ ] **D.1 5 user RBAC enforce** — backend `/api/auth/login` 真 JWT + frontend AuthGate enforce ACCESS matrix · user 没权限 redirect /403
-- [ ] **D.2 IM WebSocket 实时** — 后端 `/ws/im` (FastAPI WebSocket) + 前端 dispatch 用 WebSocket replace polling · 多 user 1:1 真聊
-- [ ] **D.3 thread persistence DB** — sqlite or 简单 jsonl · `/api/im/threads` `/api/im/messages/{thread_id}` 后端 + 前端真 fetch
+- [x] **D.1 5 user RBAC enforce** — backend `/api/auth/login` 真 JWT + frontend AuthGate enforce ACCESS matrix · user 没权限 redirect /403 · MERGED `bd143b5` (auth-service)
+- [x] **D.2 IM WebSocket 实时** — 后端 `/ws/im` (FastAPI WebSocket) + 前端 dispatch 用 WebSocket replace polling · 多 user 1:1 真聊 · MERGED `7c2afaf`
+- [x] **D.3 thread persistence DB** — sqlite or 简单 jsonl · `/api/im/threads` `/api/im/messages/{thread_id}` 后端 + 前端真 fetch · MERGED `7c2afaf` (与 D.2 同一 commit · IM persistence)
 - [ ] **D.4 IM tool calling** — `/api/im/send` 升级 LLM function calling · 检测 "找/搜/扫" 真触发对应 agent endpoint · 结果回 thread (不只 chat)
-- [ ] **D.5 shared/kb_scan/ 抽共享底座** — 6 Agent 共享 KB · SearchProvider · Matcher (现各 Agent 各管 · 重构合并)
+- [x] **D.5 shared/kb_scan/ 抽共享底座** — 6 Agent 共享 KB · SearchProvider · Matcher · MERGED `a97dc49` (BaseScanner Protocol + Router + Degrader)
 - [ ] **D.6 客户走访 dry run** — 完整 e2e 走一遍 5 user × 6 Agent × 关键 path
 - [ ] **D.7 ECS production verify** — features-inventory 全 entries 都 production 验证 · regression smoke 全跑通
 - [ ] **D.8 走访话术 + commercial-readiness** — 已有 docs/commercial-readiness.md · 更新成最终版
 
+### Stage E · Production Hardening (MERGED · 2026-04-26 起)
+
+- [x] **E.1 audit log middleware** — MERGED `191dda9` (W-E1-A1 · 全 endpoint audit + SSE generator try/finally)
+- [x] **E.2 monitoring + alerting** — MERGED `191dda9` (W-E2-A3 · 监控告警接入)
+- [x] **E.3 PIPL data compliance** — MERGED `42f4aae` (W-E3-A2 · 数据合规闭环)
+- [x] **E.4 test coverage expansion** — MERGED `191dda9` (W-E4-A1 · 回归 smoke 覆盖率扩张)
+
 ### 总工程: ~12-18 sessions · 不分 day · 不算 wall clock · 一直推到 deliver。
+
+**Stage D + E 已 ship · 此 plan 进入 stabilization · 后续 sprint 见 batch 序（FIX 第 1/2 批 + Phase B 批 0~6 已交付，见 git log）。**
 
 ---
 

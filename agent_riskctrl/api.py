@@ -4,37 +4,28 @@
 端点 (Stage C v4.0 · 2026-04-28 · onboarding W-C2-A2):
   POST /api/riskctrl/dsl_gen          — 自然语言 → RuleSet JSON (LLM 真接 · 单 turn)
   POST /api/riskctrl/backtest         — RuleSet + CSV → metrics JSON (KS/通过率/坏账率)
-  POST /api/riskctrl/run              — RuleSet placeholder · 暂未真上线
-  POST /api/riskctrl/dsl_gen_stream   — (legacy SSE · 走 RiskControlAgent · IM tool calling 备用)
-  POST /api/riskctrl/backtest_stream  — (legacy SSE · 同上)
 
 设计：
 - 独立 FastAPI app，由 api_server.py 通过 routes 合并模式装载
 - v4.0 JSON 端点直调 LLMClient.chat_json + parse_natural_language_rules + run_backtest
-  · 不走 SSE generator (RiskControlAgent.process_message 留作 stream 备用)
 - mock=true 切 fixture RuleSet · 不调 LLM (curl 验 / 无 key 环境可用)
-- 输出前过 shared.qc.placeholder_guard (legacy SSE 软降级保留)
+- 输出前过 shared.qc.placeholder_guard
 
 字段契约：见 docs/contracts/field-naming.md
 """
 from __future__ import annotations
 
 import sys
-import traceback
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
-
-from agent_riskctrl.output_validator import soft_clean as _qc_scrub  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
 try:
@@ -52,97 +43,6 @@ app = FastAPI(title="Agent2 Risk Control API", version="4.0")
 async def riskctrl_health():
     """Agent2 sub-app 健康探针 (与 portal /health 平级, 用于精细化故障定位)。"""
     return {"status": "ok", "agent": "agent_riskctrl"}
-
-
-class RiskCtrlDslRequest(BaseModel):
-    rule_text: str                       # 自然语言策略意图
-    provider: str | None = None
-    api_key: str | None = None
-
-
-class RiskCtrlBacktestRequest(BaseModel):
-    instruction: str                     # 用户指令 (e.g. "回测我的拒绝策略")
-    uploaded_files: list[str]            # CSV/Excel 路径列表
-    provider: str | None = None
-    api_key: str | None = None
-
-
-def _stream_riskctrl(message: str, files: list[str] | None,
-                     provider: str | None, api_key: str | None):
-    """共用生成器: 跑 RiskControlAgent.process_message 并以 SSE 返回。"""
-    try:
-        from agent_riskctrl.agent import RiskControlAgent
-    except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
-        return
-
-    try:
-        agent = RiskControlAgent(
-            api_key=api_key or "dummy",
-            model_provider=provider or "deepseek",
-        )
-        for evt in agent.process_message(
-            user_message=message,
-            uploaded_files=files,
-        ):
-            payload = to_jsonable(evt)
-            cleaned, hits = _qc_scrub(payload)
-            wrap = {"event": "stage", "payload": cleaned}
-            if hits:
-                wrap["_qc_placeholder_hits"] = hits
-            yield sse_encode(wrap)
-
-        yield sse_encode({"event": "done"})
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
-
-
-@app.post("/api/riskctrl/dsl_gen_stream")
-async def riskctrl_dsl_gen_stream(req: RiskCtrlDslRequest):
-    """[legacy SSE · IM tool calling 备用] 自然语言 → RuleSet 流式生成.
-
-    走 RiskControlAgent 的 rule_config 流程 (无 CSV 时默认意图).
-    新代码请用 POST /api/riskctrl/dsl_gen (JSON 单 turn).
-    """
-    def gen():
-        yield from _stream_riskctrl(req.rule_text, None, req.provider, req.api_key)
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
-
-
-@app.post("/api/riskctrl/backtest_stream")
-async def riskctrl_backtest_stream(req: RiskCtrlBacktestRequest):
-    """[legacy SSE · IM tool calling 备用] 上传历史数据回测策略效果 流式.
-
-    走 RiskControlAgent 的 backtest 流程 (有 CSV/Excel + 回测意图自动命中).
-    新代码请用 POST /api/riskctrl/backtest (JSON 单 turn).
-    """
-    def gen():
-        # instruction 不带 "回测" 等关键词时, agent 会 fallback 到 rule_config;
-        # 这里显式把 "回测" 拼进 message 头, 确保意图分流稳定。
-        msg = ("回测 " + (req.instruction or "")).strip()
-        yield from _stream_riskctrl(msg, req.uploaded_files, req.provider, req.api_key)
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
 
 
 # ============================================================================
@@ -358,42 +258,4 @@ async def riskctrl_backtest(req: BacktestRequest):
         "ks": ks,
         "label_column_used": label_col,
         "rule_stats": rule_stats,
-    }
-
-
-class RunRequest(BaseModel):
-    """v4.0 JSON run body · placeholder."""
-
-    ruleset: dict
-    note: str = Field(default="", description="(可选) 上线备注")
-
-
-@app.post("/api/riskctrl/run")
-async def riskctrl_run(req: RunRequest):
-    """[placeholder] RuleSet 真上线接口 · 暂未实装.
-
-    Body: { ruleset, note? }
-    Returns: { status: "queued", message, ruleset_id }
-    本端点只做 confirmation 不真上线 · 真上线流程留 Stage D.5 (跨 Agent 共享底座).
-    """
-    from agent_riskctrl.rule_engine import RuleSet
-    try:
-        ruleset = RuleSet.model_validate(req.ruleset)
-    except (ValueError, TypeError, KeyError) as e:
-        raise HTTPException(400, f"ruleset 反序列化失败: {type(e).__name__}: {e}") from e
-
-    # ruleset_id = 简单 hash 给前端做 dedup tracking · 不真持久化
-    import hashlib
-    blob = ruleset.model_dump_json().encode("utf-8")
-    ruleset_id = "rs_" + hashlib.sha256(blob).hexdigest()[:12]
-
-    return {
-        "status": "queued",
-        "message": (
-            "RuleSet 已收到 · placeholder 模式不真上线 · "
-            "完整真上线流程留 Stage D.5 跨 Agent 共享底座"
-        ),
-        "ruleset_id": ruleset_id,
-        "rules_count": len(ruleset.rules),
-        "note": req.note,
     }

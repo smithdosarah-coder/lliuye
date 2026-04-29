@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
@@ -200,22 +201,38 @@ export function ReportWorkspace() {
     [businessLine],
   );
 
+  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "开始生成" CTA 显式触发 */
   const handleSelectHistory = useCallback((key: string) => {
-    if (!key) return;
     setHistoryChoice(key);
-    setMode("mock");
-    setStarted(true);
-    setReportId(`mock-${key}-${Date.now()}`);
-    // 不自动 fill · 用户可继续点 "开始生成" 看 mock 流
   }, []);
 
   const handleSelectTemplate = useCallback((tpl: string) => {
     setTemplateChoice(tpl);
-    if (tpl) {
+  }, []);
+
+  /* "开始生成" CTA · 综合用户当前选择决定 mock vs live · 显式 button click 触发 started + 真 fire SSE */
+  const handleApplyLaunch = useCallback(() => {
+    /* 优先级:
+       1) historyChoice 选了 → mock 模式 + 立刻 triggerV16Fill (explicit_mock=true · 后端走 mock pipeline · sections hydrate)
+       2) templateChoice 选了 (含上传) → live 模式 + 立刻 triggerV16Fill (explicit_mock=false)
+       3) 都没选 → 不动 (button disabled) */
+    if (historyChoice) {
+      const mid = `mock-${historyChoice}-${Date.now()}`;
+      setMode("mock");
+      setStarted(true);
+      setReportId(mid);
+      // 真 fire SSE → backend /v16/fill explicit_mock · livePayload + sections hydrate · 主列不再空白
+      // pass reportIdOverride 因 setReportId 异步 · closure 里 reportId 仍是旧值
+      setTimeout(() => triggerV16Fill({ reportIdOverride: mid, explicitMock: true }), 0);
+      return;
+    }
+    if (templateChoice) {
       setMode("live");
       setStarted(true);
+      // live 路径 · 用现有 reportId (来自上传 · 没上传则 fill_stream 走 fail-banner)
+      setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
     }
-  }, []);
+  }, [historyChoice, templateChoice, triggerV16Fill]);
 
   // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
   // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
@@ -336,6 +353,12 @@ export function ReportWorkspace() {
           onRetry={() => triggerV16Fill()}
           onDismiss={() => setLiveFailErr(null)}
         />
+        {/* B-banner · LaunchBar errMsg 提到 workspace 顶部 · 与 ReportLiveFailBanner 同位 */}
+        <ReportLaunchErrorBanner
+          errMsg={errMsg}
+          onRetry={() => triggerV16Fill()}
+          onDismiss={() => setErrMsg(null)}
+        />
         <ReportMockBanner started={started} mode={mode} />
         <ReportLaunchBar
           started={started}
@@ -351,6 +374,7 @@ export function ReportWorkspace() {
           onUpload={handleUpload}
           onSelectTemplate={handleSelectTemplate}
           onSelectHistory={handleSelectHistory}
+          onApplyLaunch={handleApplyLaunch}
           onBusinessLineChange={setBusinessLine}
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
@@ -377,11 +401,10 @@ export function ReportWorkspace() {
                 <TimelinePanel />
               </aside>
               <main className="rpt-main">
-                {/* W-FIX-A1 · live-fallback-banner-spec §3 · "生成报告" button
-                    width 不溢出 · max-width 480 · 不允许 100% 占整 panel */}
+                {/* B-cta · maxWidth 480 → 320 收紧 · 居中 · 解决 RM 抱怨"巨大不合理交互按钮" */}
                 <div
                   data-testid="report-scancta-wrapper"
-                  style={{ maxWidth: 480, margin: "0 0 16px 0" }}
+                  style={{ maxWidth: 320, margin: "0 auto 16px auto" }}
                 >
                   <ScanCTA
                     label="生成报告 (mock 路径)"
@@ -673,11 +696,8 @@ function TemplatePanel(props: {
             accept=".docx,.doc"
             onChange={handleTplFileChange}
           />
-          <button className="rpt-btn rpt-btn--ghost" type="button" disabled
-            title="模板库 · Stage X 计划 (live-fallback-banner-spec §3 disabled with tooltip)"
-          >
-            <span aria-hidden>▤</span>模板库
-          </button>
+          {/* B-cta · 模板库 disabled placeholder button 删除 (CLAUDE.md "no fake placeholder buttons")
+              原 disabled + tooltip 是 "Stage X 计划" 占位 · 用户视觉上 = 摆设 · 此次去掉 */}
         </div>
         {props.uploadedTemplate ? (
           <div
@@ -1123,11 +1143,24 @@ function ReportComposer() {
     setHint("idle");
   }
 
+  // pin-drop · 拖钉到 composer · 插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
+
   const materialCount = REPORT_SESSION.materials.length;
   const sectionCount = REPORT_SESSION.preview.length;
 
   return (
-    <div className="rpt-composer-slot rpt-composer" data-hint={hint}>
+    <div
+      className={`rpt-composer-slot rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      data-hint={hint}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer-bar">
         <textarea
           ref={taRef}
@@ -1428,27 +1461,33 @@ const _LAUNCH_HINT_STYLE: CSSProperties = {
   marginTop: 2,
 };
 
+/* B-cta · chip-style 紧凑 · 单按钮 ≤ 200px · 不充满列宽
+   primary 上传材料 / secondary 重新生成+导出 一致紧凑 · 解决 RM 抱怨"巨大不合理交互按钮" */
 const _LAUNCH_BTN_PRIMARY: CSSProperties = {
   fontFamily: "var(--cjk)",
-  fontSize: 14,
-  padding: "10px 18px",
+  fontSize: 13,
+  padding: "8px 14px",
   background: "var(--t-report)",
   color: "var(--chalk)",
   border: "none",
   borderRadius: "var(--r-md)",
   cursor: "pointer",
   fontWeight: 500,
+  maxWidth: 200,
+  whiteSpace: "nowrap",
 };
 
 const _LAUNCH_BTN_SECONDARY: CSSProperties = {
   fontFamily: "var(--cjk)",
-  fontSize: 13,
-  padding: "8px 14px",
+  fontSize: 12,
+  padding: "6px 12px",
   background: "transparent",
   color: "var(--ink)",
   border: "1px solid var(--ink-14)",
   borderRadius: "var(--r-md)",
   cursor: "pointer",
+  maxWidth: 200,
+  whiteSpace: "nowrap",
 };
 
 const _LAUNCH_SELECT_STYLE: CSSProperties = {
@@ -1476,6 +1515,7 @@ function ReportLaunchBar(p: {
   onUpload: (files: File[]) => void;
   onSelectTemplate: (tpl: string) => void;
   onSelectHistory: (key: string) => void;
+  onApplyLaunch: () => void;
   onBusinessLineChange: (v: string) => void;
   onStartGenerate: () => void;
   onExport: () => void;
@@ -1581,8 +1621,26 @@ function ReportLaunchBar(p: {
         </select>
       </div>
 
-      {/* 操作 (started 时显) */}
-      {p.started ? (
+      {/* B-2 click-to-fire · !started 时显式 "开始生成" 应用模板/历史选择
+          started 时切到 "重新生成 / 导出" 双 chip-style 按钮 */}
+      {!p.started ? (
+        <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
+          <button
+            type="button"
+            data-testid="report-apply-launch-btn"
+            onClick={p.onApplyLaunch}
+            disabled={!p.templateChoice && !p.historyChoice}
+            style={{
+              ..._LAUNCH_BTN_SECONDARY,
+              borderColor: "var(--t-report)",
+              color: "var(--t-report)",
+              opacity: !p.templateChoice && !p.historyChoice ? 0.5 : 1,
+            }}
+          >
+            开始生成
+          </button>
+        </div>
+      ) : (
         <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
           <button
             type="button"
@@ -1596,7 +1654,7 @@ function ReportLaunchBar(p: {
               opacity: p.generating ? 0.6 : 1,
             }}
           >
-            {p.generating ? "生成中…" : "开始生成"}
+            {p.generating ? "生成中…" : "重新生成"}
           </button>
           <button
             type="button"
@@ -1611,28 +1669,82 @@ function ReportLaunchBar(p: {
             {p.exporting ? "导出中…" : "导出 Word"}
           </button>
         </div>
-      ) : null}
+      )}
 
-      {/* 错误 banner */}
-      {p.errMsg ? (
-        <div
-          role="alert"
-          data-testid="report-error-banner"
-          style={{
-            flex: "1 0 100%",
-            fontFamily: "var(--cjk)",
-            fontSize: 12,
-            color: "#C85A3C",
-            padding: "8px 12px",
-            background: "rgba(200, 90, 60, 0.08)",
-            border: "1px solid rgba(200, 90, 60, 0.32)",
-            borderRadius: 8,
-          }}
-        >
-          ⚠ {p.errMsg}
-        </div>
-      ) : null}
+      {/* B-banner · errMsg 已提到 workspace 顶部 ReportLaunchErrorBanner · 此处不再 inline */}
+    </section>
+  );
+}
 
+/* B-banner · launch 错误 (上传 / 生成 / 导出 / refine) · 顶部贴边显式
+   · 与 ReportLiveFailBanner 区分: live banner 是 fallback warning · 此为 actionable error */
+function ReportLaunchErrorBanner(p: {
+  errMsg: string | null;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  if (!p.errMsg) return null;
+  return (
+    <section
+      data-testid="report-launch-error-banner"
+      role="alert"
+      aria-live="assertive"
+      style={{
+        margin: "16px 0",
+        padding: "12px 16px",
+        background: "rgba(200, 90, 60, 0.10)",
+        border: "1px solid rgba(200, 90, 60, 0.45)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        fontFamily: "var(--cjk)",
+        fontSize: 13,
+        color: "var(--ink)",
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 18 }}>⚠️</span>
+      <span style={{ flex: 1 }}>
+        <strong>报告操作失败</strong>
+        <br />
+        <span style={{ fontSize: 11, color: "var(--ink-65)", fontStyle: "italic" }}>
+          {p.errMsg}
+        </span>
+      </span>
+      <button
+        type="button"
+        data-testid="report-launch-error-retry"
+        onClick={p.onRetry}
+        style={{
+          padding: "6px 14px",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          background: "var(--t-report)",
+          color: "var(--chalk)",
+          border: "none",
+          borderRadius: "var(--r-md)",
+          cursor: "pointer",
+        }}
+      >
+        重试
+      </button>
+      <button
+        type="button"
+        data-testid="report-launch-error-dismiss"
+        onClick={p.onDismiss}
+        aria-label="关闭"
+        style={{
+          padding: "4px 10px",
+          fontFamily: "var(--cjk)",
+          fontSize: 16,
+          background: "transparent",
+          color: "var(--ink-65)",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
     </section>
   );
 }
@@ -1755,12 +1867,17 @@ function ReportEmptySkeleton() {
       data-testid="report-empty-skeleton"
       aria-label="等待触发 · 报告生成"
       style={{
-        padding: "64px 24px",
+        padding: "48px 24px",
         textAlign: "center",
         background: "color-mix(in srgb, var(--chalk) 50%, transparent)",
         borderRadius: "var(--r-md)",
         border: "1px dashed var(--ink-14)",
-        margin: "24px 0",
+        margin: "24px 0 64px 0",
+        minHeight: "calc(100vh - 360px)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
       <h3

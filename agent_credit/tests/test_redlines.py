@@ -78,13 +78,12 @@ def test_redline_retail_specific(client):
     assert any("逾期" in n for n in rule_names)
 
 
-def test_redline_count_metadata(client):
-    """GET /presets 中 red_line_count 与产品 spec 一致 (corp 30 / sb 20 / retail 20)."""
-    resp = client.get("/api/credit/presets")
-    data = resp.json()
-    corp = next(s for s in data["stages"] if s["stage_tab"] == "corporate")
-    sb = next(s for s in data["stages"] if s["stage_tab"] == "small_business")
-    rt = next(s for s in data["stages"] if s["stage_tab"] == "retail")
-    assert corp["red_line_count"] == 30
-    assert sb["red_line_count"] == 20
-    assert rt["red_line_count"] == 20
+def test_redline_count_metadata():
+    """`_STAGE_DIMENSIONS` 中 red_line_count 与产品 spec 一致 (corp 30 / sb 20 / retail 20).
+
+    /api/credit/presets 路由已下架 (batch 4)·改读 _STAGE_DIMENSIONS 直查。
+    """
+    from agent_credit.api import _STAGE_DIMENSIONS
+    assert _STAGE_DIMENSIONS["corporate"]["red_line_count"] == 30
+    assert _STAGE_DIMENSIONS["small_business"]["red_line_count"] == 20
+    assert _STAGE_DIMENSIONS["retail"]["red_line_count"] == 20

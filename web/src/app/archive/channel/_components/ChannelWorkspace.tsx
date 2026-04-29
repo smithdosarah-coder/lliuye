@@ -169,6 +169,16 @@ export default function ChannelWorkspace() {
     nonce: number;
   } | null>(null);
 
+  /* B-banner · streamError 从 QueryBar lift 上来 · 顶部 banner 渲染
+     合并 kbErrors 任一非空 → workspace 顶部统一红条提示 + retry/dismiss */
+  const [streamErrorTop, setStreamErrorTop] = useState<string | null>(null);
+  const aggregatedKbError = (Object.values(kbErrors).find((e) => e) || "");
+  const topBannerMessage = streamErrorTop || aggregatedKbError;
+  const dismissTopBanner = useCallback(() => {
+    setStreamErrorTop(null);
+    setKbErrors({ customer_list: "", policy: "", industry_guide: "" });
+  }, []);
+
   /* derive selected candidate (live 优先 · mock fallback) */
   const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
   const selectedCandidate: Candidate | null =
@@ -366,6 +376,28 @@ export default function ChannelWorkspace() {
       className="ch-v2"
       data-started={started ? "yes" : "no"}
     >
+      {/* B-banner · workspace 顶部统一错误条 · streamError + kbError 合并 · retry/dismiss */}
+      {topBannerMessage ? (
+        <div
+          role="alert"
+          data-testid="channel-error-banner"
+          className="ch-error-banner"
+        >
+          <span className="ch-error-banner__icon" aria-hidden>⚠</span>
+          <span className="ch-error-banner__text">
+            <b>操作失败</b>
+            <span className="ch-error-banner__detail">{topBannerMessage}</span>
+          </span>
+          <button
+            type="button"
+            className="ch-error-banner__dismiss"
+            onClick={dismissTopBanner}
+            aria-label="关闭错误提示"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <ChannelHero sessionData={s} topSim={topSim} />
       {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
       <KbUploadStrip
@@ -396,6 +428,7 @@ export default function ChannelWorkspace() {
         setLive={setLive}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
+        onStreamError={setStreamErrorTop}
       />
       {started ? (
         <>
@@ -1319,6 +1352,7 @@ function QueryBar({
   setLive,
   setStarted,
   externalTrigger,
+  onStreamError,
 }: {
   sessionData: ChannelSession;
   selectedSessionId: string;
@@ -1327,6 +1361,8 @@ function QueryBar({
   setStarted: (v: boolean) => void;
   /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
   externalTrigger?: { input: string; nonce: number } | null;
+  /* B-banner · 上抛 stream error 给 workspace 顶部 banner · QueryBar 内 inline error 删除 */
+  onStreamError?: (msg: string | null) => void;
 }) {
   const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
@@ -1347,6 +1383,7 @@ function QueryBar({
     setStreaming(true);
     setStreamEvents([]);
     setStreamError(null);
+    onStreamError?.(null);
     try {
       // prod: 相对 path 走 nginx proxy → :8000 · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000
       const apiBase =
@@ -1400,20 +1437,27 @@ function QueryBar({
         }
       }
     } catch (err) {
-      setStreamError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      setStreamError(msg);
+      onStreamError?.(msg);
     } finally {
       setStreaming(false);
     }
   }
 
+  /* B-2 click-to-fire · dropdown 仅 set pending 选择 · 显式 button 触发切换 */
+  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSessionId);
   function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
-    /* F-041 · 选下拉历史 session = mock 模式 · 切 parent state · 清 stream 残留
+    setPendingSessionId(e.target.value);
+  }
+  function onApplySessionSwitch() {
+    /* F-041 · "切换演示" button → mock 模式 · 切 parent state · 清 stream 残留
        parent.handleSelectSession 会 reset conversation + setLive(null) */
-    const id = e.target.value;
+    if (!pendingSessionId || pendingSessionId === selectedSessionId) return;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
-    onSelectSession(id);
+    onSelectSession(pendingSessionId);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -1449,7 +1493,7 @@ function QueryBar({
           <select
             id="ch-session-select"
             data-testid="channel-session-select"
-            value={selectedSessionId}
+            value={pendingSessionId}
             onChange={onSessionSelectChange}
           >
             {MOCK_SESSIONS_LIST.map((r) => (
@@ -1462,6 +1506,15 @@ function QueryBar({
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            className="ch-querybar-recent-apply"
+            data-testid="channel-session-apply"
+            onClick={onApplySessionSwitch}
+            disabled={!pendingSessionId || pendingSessionId === selectedSessionId}
+          >
+            切换演示
+          </button>
         </div>
       </div>
       <div className="ch-querybar-body">
@@ -1495,14 +1548,13 @@ function QueryBar({
           ))}
         </div>
       </div>
-      {(streamEvents.length > 0 || streamError) && (
+      {/* B-banner · streamError 已上抛到 workspace 顶部 banner · 此处仅渲事件流 */}
+      {streamEvents.length > 0 && (
         <div className="ch-querybar-stream" data-testid="scout-live-stream">
           <div className="ch-querybar-stream-head">
             ▶ AI 实时流 · /api/channel/run SSE
           </div>
-          {streamError ? (
-            <div className="ch-querybar-stream-error">⚠ {streamError}</div>
-          ) : (
+          {(
             <ul className="ch-querybar-stream-list">
               {streamEvents.map((evt, i) => {
                 const f = formatChannelEvent(evt);
@@ -2491,14 +2543,7 @@ function KbDropzone({
           <div className="summary-text">{summary.summary_text}</div>
         </div>
       )}
-      {isError && (
-        <div className="ch-kb-zone-error" role="alert">
-          <span className="ic" aria-hidden>
-            ⚠
-          </span>
-          <span>{error || `上传失败`}</span>
-        </div>
-      )}
+      {/* B-banner · KB 上传错误统一上抛到 workspace 顶部 banner · 此 zone 内 inline error 已移除 */}
     </article>
   );
 }

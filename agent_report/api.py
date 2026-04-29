@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""agent_report.api — FastAPI + SSE 后端 · V13 form-fill + v16 主管线 wrapper.
+"""agent_report.api — FastAPI + SSE 后端 · v16 主管线 wrapper.
 
 端点:
-  POST /api/report/fill         — V13 5 阶段 SSE,可带 mock=1 走预置场景
   POST /api/report/v16/fill     — v16 主管线 SSE (Stage C.1 · classifier→generator→QC)
   POST /api/report/upload       — multipart 上传材料 + 解析摘要 (Stage C.1)
   POST /api/report/refine       — session_id 外因续跑(stub,只重跑 external_factor)
@@ -10,10 +9,8 @@
   POST /api/report/export_docx  — 从 session 数据渲染 .docx (Stage C.1)
   GET  /api/report/downloads/{report_id}            — alias to latest session docx (Stage C.1)
   GET  /api/report/downloads/{session_id}/{filename}— UUID 白名单下载
-  GET  /api/report/downloads/legacy/{fname}         — mock fallback docx
   GET  /api/report/downloads/v16/{filename}         — v16 真路径产物
   GET  /api/report/preset/{key}                     — 预置 fixture
-  GET  /downloads/{fname}                           — 兼容老接口
   GET  /health  /  GET /api/report/health           — 健康检查 + LLM 状态灯
 
 事件契约(与前端 V14-B 约定):
@@ -61,6 +58,13 @@ except ImportError:
         def _passthrough(fn):
             return fn
         return _passthrough
+
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
 
 # Tiered data sources bootstrap (feat/tiered-search); fail-safe on missing deps
 try:
@@ -185,11 +189,8 @@ async def _mock_stream(preset: str, business_line: Optional[str] = None) -> Asyn
     enterprise = EnterpriseProfile(**_coerce_profile(profile_dict))
     pending = mock_fixtures.sample_pending_questions(preset)
 
-    # Mock 模式沿用历史 docx(在 outputs 根目录,/downloads/{fname} 老端点兜底)
-    fallback_docx = mock_fixtures.fallback_docx_path(OUTPUTS_DIR)
-    report_docx_url = (
-        f"/api/report/downloads/legacy/{fallback_docx.name}" if fallback_docx else None
-    )
+    # Mock 模式 docx_url 不再可用 (legacy 下载端点已下架 · batch 4 cleanup)
+    report_docx_url = None
 
     # mock 场景也推几节 section,让前端看到内容
     chapters = profile_dict.get("chapters") or {}
@@ -300,307 +301,6 @@ def _build_llm_caller():
     return caller
 
 
-def _load_uploaded_materials(upload_paths: list[Path]) -> tuple[dict, dict]:
-    """把上传的文件读成 (file_contents, file_path_map),沿用 tools._read_single_file."""
-    try:
-        from tools import _read_single_file  # type: ignore
-    except Exception as e:
-        print(f"[ingest] _read_single_file import 失败: {e}")
-        _read_single_file = None
-
-    file_contents: dict[str, str] = {}
-    file_path_map: dict[str, str] = {}
-    exts = {".txt", ".docx", ".doc", ".pdf", ".xlsx", ".xls"}
-    for p in upload_paths:
-        if p.suffix.lower() not in exts:
-            continue
-        if _read_single_file is None:
-            continue
-        try:
-            content = _read_single_file(str(p))
-            if content:
-                file_contents[p.name] = content
-                file_path_map[p.name] = str(p)
-        except Exception as e:
-            print(f"[ingest] 读取 {p.name} 失败: {e}")
-    return file_contents, file_path_map
-
-
-def _build_enterprise_profile_from_run(agent, output_path: str,
-                                       source_files: list[str]) -> EnterpriseProfile:
-    """从 FormFillAgent.run() 产物回构 EnterpriseProfile.
-
-    主要消费:
-      - agent.kb (material_kb 产物)
-      - agent._truth_financial_data (truth_fill 产物)
-      - material_anchor(若可用)
-    字段不齐全时全部降级为 None / 空字符串。
-    """
-    facts = (getattr(agent, "kb", None) or {}).get("facts", {}) or {}
-    truth_fin = getattr(agent, "_truth_financial_data", None) or {}
-
-    # 选最新年份数据
-    annual = [k for k in truth_fin.keys() if re.fullmatch(r"20\d{2}", str(k or ""))]
-    annual.sort()
-    latest = annual[-1] if annual else None
-    prev = annual[-2] if len(annual) >= 2 else None
-
-    def _num(d: dict, *keys) -> Optional[float]:
-        for k in keys:
-            v = d.get(k)
-            if v is None:
-                continue
-            try:
-                return float(v)
-            except (TypeError, ValueError):
-                continue
-        return None
-
-    latest_d = truth_fin.get(latest, {}) if latest else {}
-    prev_d = truth_fin.get(prev, {}) if prev else {}
-
-    fa = {
-        "revenue_latest": _num(latest_d, "营业收入", "revenue", "主营业务收入"),
-        "revenue_prev": _num(prev_d, "营业收入", "revenue", "主营业务收入"),
-        "net_profit_latest": _num(latest_d, "净利润", "net_profit"),
-        "net_profit_prev": _num(prev_d, "净利润", "net_profit"),
-        "total_assets": _num(latest_d, "资产总计", "total_assets"),
-        "total_liabilities": _num(latest_d, "负债合计", "total_liabilities"),
-        "net_assets": _num(latest_d, "所有者权益", "net_assets"),
-        "accounts_receivable": _num(latest_d, "应收账款", "accounts_receivable"),
-        "inventory": _num(latest_d, "存货", "inventory"),
-        "operating_cash_flow": _num(latest_d, "经营活动现金流量净额", "operating_cash_flow"),
-        "short_term_borrowing": _num(latest_d, "短期借款", "short_term_borrowing"),
-        "ebitda": _num(latest_d, "EBITDA", "ebitda"),
-        "period": f"{latest}年度" if latest else None,
-    }
-
-    company_name = (facts.get("company_name") or "未知企业").strip() or "未知企业"
-    pid = "report_" + re.sub(r"[^0-9A-Za-z_]+", "_", company_name)[:32] + "_" + str(int(time.time()))
-
-    profile = EnterpriseProfile(
-        profile_id=pid,
-        company_name=company_name,
-        unified_credit_code=facts.get("unified_credit_code"),
-        industry=facts.get("industry"),
-        establishment_date=facts.get("establishment_date"),
-        registered_capital=facts.get("registered_capital"),
-        employee_count=None,
-        region=facts.get("region"),
-        main_business=facts.get("main_business") or facts.get("business"),
-        controller_name=facts.get("controller_name"),
-        controller_share_pct=facts.get("controller_share_pct"),
-        financial_anchors=fa,  # type: ignore[arg-type]
-        source_materials=source_files,
-        generated_at=datetime.now().isoformat(timespec="seconds"),
-    )
-    # 增强：补企业基础信息（仅填空字段，失败不影响主流程）
-    try:
-        from .material_enhancer import enhance_material_with_enterprise_info
-        if profile.company_name and profile.company_name != "未知企业":
-            extra = enhance_material_with_enterprise_info(profile.company_name)
-            for k, v in extra.items():
-                if not k.startswith("_") and v and not getattr(profile, k, None):
-                    setattr(profile, k, v)
-    except Exception:
-        pass
-    return profile
-
-
-def _run_real_pipeline(upload_paths: list[Path],
-                       template_path: Path,
-                       session_dir: Path,
-                       emit: "queue.Queue[str]",
-                       business_line: Optional[str] = None) -> None:
-    """在工作线程里真跑 V13 pipeline,把 stage/done/error 事件推进 emit 队列.
-
-    session_dir:所有本次运行产物(材料副本 / docx)都落在该目录下,30min TTL 统一清。
-    """
-    # 未配置 LLM key 时立即返回明确错误,别让用户等 10 分钟
-    if not os.environ.get("DEEPSEEK_API_KEY"):
-        emit.put(_sse("error", {"stage": STAGE_INGEST,
-                                "message": "后端未配置 DEEPSEEK_API_KEY,真模式不可用。请切换 Mock 演示或联系 IT 配置。"}))
-        emit.put("__END__")
-        return
-
-    try:
-        from form_filler import FormFillAgent  # type: ignore
-    except Exception as e:
-        emit.put(_sse("error", {"stage": STAGE_INGEST,
-                                "message": f"form_filler import 失败: {e}"}))
-        emit.put("__END__")
-        return
-
-    emit.put(_sse("stage", {"stage": STAGE_INGEST, "progress": 0.05,
-                            "message": "准备材料..."}))
-
-    file_contents, file_path_map = _load_uploaded_materials(upload_paths)
-    if not file_contents:
-        emit.put(_sse("error", {"stage": STAGE_INGEST,
-                                "message": "未成功读取任何材料,请检查上传文件格式(支持 docx/pdf/xlsx/txt)"}))
-        emit.put("__END__")
-        return
-
-    llm_caller = _build_llm_caller()
-    agent = FormFillAgent(llm_caller, file_contents, file_path_map=file_path_map)
-    # V15: 业务线分流依据 (corporate → narrative 管线, inclusive → V14 骨架管线)
-    agent._business_line = business_line
-
-    output_path = str(session_dir / f"report_{int(time.time())}.docx")
-
-    # progress_cb 把内部日志归类到 5 段并发事件
-    seen_stages: set[str] = set()
-    stage_count = [0]
-
-    def progress_cb(msg: str) -> None:
-        try:
-            stage = map_log_to_stage(msg)
-            if stage:
-                if stage not in seen_stages:
-                    seen_stages.add(stage)
-                    stage_count[0] += 1
-                progress = min(0.95, stage_count[0] / len(STAGE_ORDER))
-                emit.put(_sse("stage", {
-                    "stage": stage,
-                    "progress": round(progress, 2),
-                    "message": str(msg)[:200],
-                }))
-        except Exception:
-            pass
-
-    try:
-        result_path = agent.run(str(template_path), output_path, progress_cb)
-    except Exception as e:
-        traceback.print_exc()
-        emit.put(_sse("error", {"stage": STAGE_WRITE,
-                                "message": f"pipeline 执行失败: {e}"}))
-        emit.put("__END__")
-        return
-
-    # 最后补一条 audit 完成
-    emit.put(_sse("stage", {"stage": STAGE_AUDIT, "progress": 1.0,
-                            "message": "生成完成"}))
-
-    try:
-        profile = _build_enterprise_profile_from_run(
-            agent, result_path, list(file_contents.keys()))
-        if business_line:
-            profile.business_line = business_line  # type: ignore[assignment]
-    except Exception as e:
-        traceback.print_exc()
-        emit.put(_sse("error", {"stage": STAGE_AUDIT,
-                                "message": f"EnterpriseProfile 构造失败: {e}"}))
-        emit.put("__END__")
-        return
-
-    # Pending questions:V14-C 未接入前返回 stub
-    pending = mock_fixtures.sample_pending_questions("dingsheng_trade")
-
-    session_id = store.create({
-        "mode": "real",
-        "enterprise_profile": profile.model_dump(),
-        "pending_questions": pending,
-        "report_docx_path": str(result_path),
-        "upload_paths": [str(p) for p in upload_paths],
-    })
-
-    fname = os.path.basename(result_path)
-    docx_url = f"/api/report/downloads/{session_id}/{fname}"
-    # 把 docx 拷贝到 session_id 为目录(而非 session_dir 名,因它是 upload-时随机前缀)
-    import shutil
-    final_sess_dir = SESSIONS_DIR / session_id
-    final_sess_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        dst = final_sess_dir / fname
-        if Path(result_path).resolve() != dst.resolve():
-            shutil.copy2(result_path, dst)
-    except Exception as e:
-        print(f"[session copy] 失败: {e}")
-
-    # 更新 session 里的 docx 路径为 final dir,方便后续下载端点查找
-    store.update(session_id, {"report_docx_path": str(final_sess_dir / fname)})
-
-    # 构造给前端的 sections(尽力从 agent / profile.chapters 回构)
-    sections = []
-    try:
-        chapters_d = profile.chapters.model_dump() if hasattr(profile.chapters, "model_dump") else dict(profile.chapters or {})
-    except Exception:
-        chapters_d = {}
-    for k, v in chapters_d.items():
-        if v:
-            sections.append({"id": k, "title": _chapter_title(k), "content": str(v)})
-    # 补:从 section_generator 跑过的产物里拿(若 agent 保留)
-    sec_cache = getattr(agent, "_generated_sections", None)
-    if isinstance(sec_cache, list) and sec_cache:
-        for s in sec_cache:
-            if isinstance(s, dict) and s.get("content"):
-                sections.append({
-                    "id": s.get("id") or s.get("section_id") or f"sec_{len(sections)}",
-                    "title": s.get("title") or s.get("section_title") or "段落",
-                    "content": s.get("content") or "",
-                })
-
-    # FormFillAgent 实际字段:self.stats = {"total_sections", "filled", "errors"},
-    # self.pending_tags = [...] 是未填字段清单
-    agent_stats = getattr(agent, "stats", {}) or {}
-    pending_tags = getattr(agent, "pending_tags", []) or []
-    filled = int(agent_stats.get("filled", 0))
-    unfilled = len(pending_tags)
-    total_fields = int(agent_stats.get("total_sections", 0)) or (filled + unfilled)
-    stats = {
-        "total_fields": total_fields,
-        "auto_filled": filled,
-        "unfilled": unfilled,
-    }
-
-    done_payload = {
-        "profile": profile.model_dump(),
-        "sections": sections,
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(profile.profile_id),
-        "stats": stats,
-        "docx_url": docx_url,
-    }
-
-    emit.put(_sse("done", {
-        "session_id": session_id,
-        "report_docx_url": docx_url,
-        "enterprise_profile": profile.model_dump(),
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(profile.profile_id),
-        "payload": done_payload,
-    }))
-    emit.put("__END__")
-
-
-async def _real_stream(upload_paths: list[Path],
-                       template_path: Path,
-                       session_dir: Path,
-                       business_line: Optional[str] = None) -> AsyncIterator[str]:
-    """真 pipeline 的 SSE 流:开工作线程跑 pipeline,主协程从队列消费事件."""
-    emit: "queue.Queue[str]" = queue.Queue()
-    worker = threading.Thread(
-        target=_run_real_pipeline,
-        args=(upload_paths, template_path, session_dir, emit, business_line),
-        daemon=True,
-    )
-    worker.start()
-
-    while True:
-        # 阻塞获取时用 run_in_executor 避免卡住事件循环
-        try:
-            item = await asyncio.get_event_loop().run_in_executor(
-                None, emit.get, True, 0.5)
-        except queue.Empty:
-            # 轮询 worker 是否还活着
-            if not worker.is_alive():
-                break
-            continue
-        if item == "__END__":
-            break
-        yield item
-
-
 # ---------------------------------------------------------------------------
 # 端点
 # ---------------------------------------------------------------------------
@@ -637,107 +337,6 @@ async def report_health():
         "llm_connected": bool(key.strip()),
         "version": "0.1.0",
     }
-
-
-@app.post("/api/report/fill")
-async def report_fill(
-    request: Request,
-    mock: int = Query(0),
-    preset: str = Query("dingsheng_trade"),
-    business_line: str = Query("corporate"),
-    files: list[UploadFile] = File(default=[]),
-    template_file: Optional[UploadFile] = File(default=None),
-):
-    """生成信贷报告.
-
-    - mock=1 走预置 fixture,5 段假进度+done
-    - mock=0 走真 pipeline,需要上传材料文件(files)
-    - business_line:普惠 inclusive / 对公 corporate / 预留 reserved
-    - template_file:客户自传的申报书模板;不传则用业务线对应的内置默认
-    """
-    # business_line 决定 mock preset(若未显式传 preset 或与 business_line 冲突)
-    effective_preset = preset
-    if business_line in BUSINESS_LINE_TO_PRESET and preset == "dingsheng_trade":
-        # 只有在 preset 仍是默认值时才按业务线覆盖,避免显式传 preset 被吞
-        effective_preset = BUSINESS_LINE_TO_PRESET[business_line]
-
-    # 审计上下文 — DoD L2-12:endpoint / user_id / input_hash / latency_ms 落 data/audit/
-    _audit_t0 = time.time()
-    _audit_user = (request.headers.get("x-user-id") or "mock_wangzhe")
-    _audit_input = hash_input({
-        "endpoint": "/api/report/fill",
-        "mock": int(mock),
-        "preset": effective_preset,
-        "business_line": business_line,
-        "files": [os.path.basename(f.filename or "") for f in files],
-    })
-
-    def _emit_audit(status: str) -> None:
-        audit_log({
-            "timestamp": datetime.now().isoformat(timespec="seconds"),
-            "user_id": _audit_user,
-            "endpoint": "/api/report/fill",
-            "input_hash": _audit_input,
-            "output_status": status,
-            "latency_ms": int((time.time() - _audit_t0) * 1000),
-        })
-
-    if mock == 1:
-        async def gen():
-            status = "ok"
-            try:
-                async for evt in _mock_stream(effective_preset, business_line):
-                    yield evt
-            except Exception:
-                status = "error"
-                raise
-            finally:
-                _emit_audit(status)
-        return StreamingResponse(gen(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache",
-                                          "X-Accel-Buffering": "no"})
-
-    # 真 pipeline:先把上传文件落盘到 session 目录(outputs/sessions/<random>)
-    if not files:
-        _emit_audit("error")
-        raise HTTPException(400, "真模式需要上传至少一个材料文件")
-
-    # 预创建 session 工作目录(30min TTL 清理)
-    _cleanup_expired_sessions()
-    session_dir = Path(tempfile.mkdtemp(prefix="work_", dir=str(SESSIONS_DIR)))
-
-    saved: list[Path] = []
-    for f in files:
-        safe_name = os.path.basename(f.filename or "upload.bin")
-        dst = session_dir / safe_name
-        with dst.open("wb") as out:
-            out.write(await f.read())
-        saved.append(dst)
-
-    # 模板:优先用前端上传的,否则用业务线默认
-    template: Path = TEMPLATE_DEFAULT
-    if template_file is not None and template_file.filename:
-        tpl_name = os.path.basename(template_file.filename)
-        tpl_dst = session_dir / f"_template_{tpl_name}"
-        with tpl_dst.open("wb") as out:
-            out.write(await template_file.read())
-        template = tpl_dst
-    if not template.exists():
-        raise HTTPException(500, f"默认模板不存在: {template}")
-
-    async def gen():
-        status = "ok"
-        try:
-            async for evt in _real_stream(saved, template, session_dir, business_line):
-                yield evt
-        except Exception:
-            status = "error"
-            raise
-        finally:
-            _emit_audit(status)
-    return StreamingResponse(gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache",
-                                      "X-Accel-Buffering": "no"})
 
 
 class RefineAnswer(BaseModel):
@@ -820,10 +419,9 @@ async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]
         "last_refine_answers": [a.model_dump() for a in req.answers],
     })
 
+    # legacy /downloads/{fname} 端点已下架 (batch 4 cleanup);refine 路径若需暴露
+    # docx 链接,改走 /api/report/downloads/{session_id}/{filename} 或 v16 路径。
     report_url = None
-    docx_path = sess.get("report_docx_path")
-    if docx_path and os.path.exists(docx_path):
-        report_url = f"/downloads/{os.path.basename(docx_path)}"
 
     yield _sse("done", {
         "session_id": req.session_id,
@@ -833,34 +431,6 @@ async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]
         "downstream_handoff": mock_fixtures.downstream_handoff(
             (profile.get("profile_id") or "dingsheng_trade")),
     })
-
-
-@app.get("/downloads/{fname}")
-async def download_legacy(fname: str):
-    """兼容老接口:直接从 outputs 根目录下载."""
-    safe = os.path.basename(fname)
-    target = DOWNLOAD_DIR / safe
-    if not target.is_file():
-        raise HTTPException(404, f"文件不存在: {safe}")
-    return FileResponse(
-        path=str(target),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=safe,
-    )
-
-
-@app.get("/api/report/downloads/legacy/{fname}")
-async def download_mock_fallback(fname: str):
-    """Mock 模式历史 docx 下载(从 outputs 根目录取)."""
-    safe = os.path.basename(fname)
-    target = DOWNLOAD_DIR / safe
-    if not target.is_file():
-        raise HTTPException(404, f"文件不存在: {safe}")
-    return FileResponse(
-        path=str(target),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=safe,
-    )
 
 
 @app.get("/api/report/downloads/{session_id}/{filename}")
@@ -999,12 +569,16 @@ class V16FillRequest(BaseModel):
 
 
 @app.post("/api/report/v16/fill")
-@audit_llm_call(agent_id="report", endpoint="/api/report/v16/fill", model="deepseek-chat")
 async def report_v16_fill(req: V16FillRequest, request: Request):
     """v16 主管线 SSE · classifier (复用) → generator → QC gate.
 
     自动选 mock / real (依 ``DEEPSEEK_API_KEY`` + classifier 产物存在与否) ·
-    显式 ``mock=true`` 强制走 mock(empty-state-design-protocol §5 demo)。
+    显式 ``mock=true`` 强制走 mock(empty-state-design-protocol §5 demo).
+
+    Audit (W-FIX2 修 bug #11): 移除 @audit_llm_call decorator (decorator 在 route
+    return StreamingResponse 即记 latency · 失真) · 改在 gen() finally 内调
+    audit_stream_event · latency 含真实 SSE 流时延。
+    内部 _emit_audit (写 session_store) 不动。
     """
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
@@ -1049,6 +623,27 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
 
     async def gen():
         status = "ok"
+        err: str | None = None
+        # Codex Part 2 Area A fix: live mode (mock=False) 必须有 DEEPSEEK_API_KEY · 否则 SSE 错误事件早失败 (不 silent fallback)
+        if not bool(req.mock) and not os.environ.get("DEEPSEEK_API_KEY"):
+            status = "error"
+            err = "DEEPSEEK_KEY_MISSING"
+            yield sse_encode({
+                "event": "error",
+                "stage": "ingest",
+                "message": "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 请联系运维配置或切到 demo 模式",
+                "code": "DEEPSEEK_KEY_MISSING",
+            })
+            _emit_audit(status)
+            audit_stream_event(
+                agent_id="report",
+                endpoint="/api/report/v16/fill",
+                model="deepseek-chat",
+                t0=_audit_t0,
+                user_id=_audit_user,
+                error=err,
+            )
+            return
         try:
             async for evt in fill_stream(
                 report_id=report_id,
@@ -1059,11 +654,21 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
                 explicit_mock=bool(req.mock),
             ):
                 yield evt
-        except Exception:
+        except Exception as e:
             status = "error"
+            err = f"{type(e).__name__}: {e}"
             raise
         finally:
             _emit_audit(status)
+            # W-FIX2 修 bug #11: SSE-aware audit (latency 含全流) · 替代 decorator
+            audit_stream_event(
+                agent_id="report",
+                endpoint="/api/report/v16/fill",
+                model="deepseek-chat",
+                t0=_audit_t0,
+                user_id=_audit_user,
+                error=err,
+            )
 
     return StreamingResponse(
         gen(),
@@ -1119,10 +724,17 @@ async def report_refine_section(req: RefineSectionRequest, request: Request):
         "section_id": req.section_id,
     })
 
-    # LLM 调用(无 key 走简单字符串拼接 · empty-state §5 显式标 demo)
-    llm_caller = _build_llm_caller()
+    # LLM 调用 · Codex Decision 6 fix: 无 key 显式 503 不静默 demo (与 /api/report/fill line 427-431 一致)
     has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
-    if has_key and old_content:
+    if not has_key:
+        raise HTTPException(
+            status_code=503,
+            detail="DEEPSEEK_API_KEY 未配置 · 真改写不可用 · 请联系运维配置或回退到原章节",
+        )
+
+    llm_caller = _build_llm_caller()
+    new_content = ""
+    if old_content:
         system = (
             "你是信贷调查报告重写助手。基于客户经理的指引,把原段落改写得更准确、"
             "更完整,但不得编造数字 / 名称 / 资质 / 任何无原始证据的事实。"
@@ -1136,19 +748,16 @@ async def report_refine_section(req: RefineSectionRequest, request: Request):
         )
         try:
             new_content = (llm_caller(system, user) or "").strip()
-        except Exception:  # noqa: BLE001 — LLM 失败走 fallback
-            new_content = ""
-    else:
-        new_content = ""
+        except Exception as e:  # noqa: BLE001 — LLM 失败显式 503 不 fallback
+            raise HTTPException(
+                status_code=503,
+                detail=f"LLM 调用失败 · {type(e).__name__}: {e}",
+            ) from e
 
     if not new_content:
-        # fallback · 简单拼接(标 demo + 保留原文 + 加用户指引)
-        prefix = (
-            "（demo · 后端 LLM 未配置,以下为占位拼接。配置 DEEPSEEK_API_KEY 后真改写）\n"
-        ) if not has_key else ""
+        # 仅当 LLM 返空内容时 fallback (老文本 + 客户经理指引拼接 · 不冒用 LLM 名义)
         new_content = (
-            prefix
-            + (old_content or "")
+            (old_content or "")
             + "\n\n[客户经理指引补充]\n"
             + req.user_edit
         )

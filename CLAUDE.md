@@ -9,7 +9,7 @@
 - **后端**：`py scripts/start_uvicorn.py`（自动从项目根 `.env` 加载 TAVILY / DEEPSEEK / PROXY 等 env，校验缺失 key 后调 uvicorn；首次部署 `cp .env.example .env` 填值即可。直接 `python api_server.py` 会缺 key）
 - **前端**：`cd web && npm run dev`（Next.js 16，路由拓扑见 §7 canon vs legacy）
 - **Agent6 主管线（v16）**：`py v16_pipeline.py --source samples/<模板>.docx --material samples`（classifier → generator → QC gate 全链路 · 项目根 10 个 `v16_*.py` 实现 · 见 `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md`）
-- **旧版 Gradio 报告助手**：`python app.py`（Gradio v9.0 + 引擎 v7.5 单机版 · 不走 API · 与 v16 管线并存，逐步淘汰中）
+- **旧版 Gradio 报告助手**：已归档至 `legacy_gradio/`（2026-04-29）· 如需 fallback 演示从 archive 恢复
 
 ## 3. 架构原则
 
@@ -125,7 +125,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 
 - **信息架构**：4 view——**今日**(`/today`) / **对话**(`/dispatch` · Slack 风 IM) / **AI 助手**(`/archive` · 6 Agent tile 聚合) / **任务**(`/warroom` · 4 列 kanban)。Agent 不在顶栏，是 Archive view 内 6 tile；tile 点击跳转既有 `/archive/[agent]` workspace
 - **路由拓扑**（legacy 顶层 6 路由已于 2026-04 清完 · git history 可查）：
-  - **canon**（shell v2 唯一入口）：`/today` / `/dispatch` / `/archive` + `/archive/[agent]` 动态路由（`archive/[agent]/page.tsx` + `WORKSPACES` map 覆盖 6 Agent）/ `/warroom`；辅助 `/login` / `/audit` / `/customer` / `/design`
+  - **canon**（shell v2 唯一入口）：`/today` / `/dispatch` / `/archive` + `/archive/[agent]` 动态路由（`archive/[agent]/page.tsx` + `WORKSPACES` map 覆盖 6 Agent）/ `/warroom`；辅助 `/login` / `/audit` / `/customer` / `/design` / `/403`（D.1 RBAC 拒绝跳转 · `web/src/app/403/page.tsx`） / `/api/*`（Next.js API routes proxy · `web/src/app/api/credit/mock-session/route.ts` 等）
   - **前端改动红线**：所有 Agent workspace 只走 `/archive/[agent]` 下的 `_components/*Workspace.tsx`·**不允许重新引入顶层 `/channel` `/credit` 等 legacy 路由**·Letterpress / crimson / `--color-brass` / `--color-ink` / `ink-brush-hr` 等老 tokens 已下架·不允许复活
 - **共享壳**：左抽屉 Desk（客户 / 进行中 / 最近 / 新建 · hover-from-edge < 22px 触发 · pin / Esc / ⌘K）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东 + live clock 20s tick） + 右下 Float-badge（4 主题各一 SVG 符号） + 主题切换器（4 按钮全部可见）
 - **主题**：`data-theme` 4 套——**Canvas**（默认，米黄→橙红→墨绿） / **Matcha**（抹茶） / **Dusk**（暮粉桃花） / **Ink**（水墨 · 宣纸→深墨 · 2026-04-20 替换 v1 Letterpress 黑红方案，用户判"黑红读老 DEMO"），每主题 8 档渐变 `--g0..--g7` + `--g0b` + ink/chalk opacity ramps + `--accent` 功能色
@@ -166,12 +166,13 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `material_kb.py` — 材料解析与 KB 构建
 - `evaluation/` — 评估配置（每 Agent 一份 YAML）
 - `data/feedback/` — 动态经验沉淀（审贷员修改 JSONL）
-- `app.py` / `portal_app.py` — 旧版 Gradio Agent6 单机版 + 6 Agent 统一 portal（v9.0 + 引擎 `agent.py` v7.5 · 客户走访期间作为 fallback 演示备份保留 · 走访后归档到 `legacy_gradio/`）
+- `legacy_gradio/` — 已归档 · v15 form_filler + narrative_pipeline + Gradio v7.5/v9 (`app.py` / `portal_app.py`) + run_form_fill_cli (2026-04-29 归档)
 - `v16_pipeline.py` / `v16_generator.py` / `v16_classifier.py` + 其他 7 个 `v16_*.py` — **Agent6 主管线 v16**（classifier → generator → QC gate · CLI 入口 `py v16_pipeline.py`）
 - `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md` / `20260418-evaluation-runner.md` — v16 LLM 抽象层 + evaluation runner 两份 RFC
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
+- `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
@@ -181,7 +182,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - Agent3 授信 v3.1（对公 / 普惠 / 对私三板块）
 - Agent4 预警 v3.1（知识库驱动批量扫描）
 - Agent5 合规 v3.1（政策事件驱动）
-- Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 留作 fallback 演示备份 · 走访后归档）
+- Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 已归档至 `legacy_gradio/` · 2026-04-29）
 - Agent2 风控 v3.1（DSL + 回测）
 
 ## 12. 开发约束
@@ -232,3 +233,81 @@ bash scripts/deploy_to_ecs.sh --skip-build  # 后端改 · 跳 build
 - production hot-fix 影响线上演示 (客户走访期间 / user 在演示)
 - 涉及 ECS systemd service 配置 / cloudflared tunnel / nginx vhost 改动
 - 涉及 LLM key / .env / 凭证类改动
+
+## 14. 新 session / compression 后必读 (Reset 长周期工程专用)
+
+**当前项目处于"全新出发"reset 长周期工程阶段** (起于 2026-04-29) · 主 CLI 任何 fresh session / compression 触发后 · **第一件事是按本节 顺序读完 5 份文档 · 写出"我理解当前状态" commit (Signal: NEW-MAIN-CLI-RESUMED) 等 PM verify · 再做任何决策**。
+
+**必读顺序 (6 份文档 · ~12 min)**:
+
+1. `RESET_MASTER_PLAN.md` (项目根 · umbrella 索引页)
+2. `docs/reset/north-star.md` (产品形态 north star + 走歪表征 + 修正方向)
+3. `docs/reset/phase-a-charter.md` (Phase A 7 worker 拆分 · 验收硬线)
+4. `docs/reset/step2-conflict-scan-charter.md` (Step 2 17 类 + flow + schema · self-contained)
+5. `docs/reset/codex-mesh-protocol.md` (Codex 4 插入点 · 命令 verbatim · prompt template)
+6. `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_<latest>.md` (最新 handoff · 含 PM 已拍板事项 + 待启 + dissent)
+
+**附加(深入用)**:
+- `docs/reset/state-snapshot.md` (当前已完 / 在跑 / 待启 三段)
+- `docs/reset/phase-b-charter.md` (Phase B 商业化 charter)
+- `docs/reset/anti-bias-rules.md` (4 anti-bias 硬规)
+- `docs/handoff/decisions-log.md` 末 50 行 (最近 PM 决策)
+- `docs/handoff/mesh.json` + scoreboard (worker 状态)
+
+**写"我理解当前状态" commit 模板**:
+```
+chore(resume): NEW-MAIN-CLI-RESUMED · 我理解当前状态
+
+产品 north star: <verbatim 复述>
+6 Agent 闭环路径: <verbatim 复述>
+走歪表征 (top 5): <list>
+当前 Phase: <Phase A · Week N · 在哪步>
+待启 worker: <list>
+PM 已拍板 5 件: <list>
+我下一步动作: <具体 1-2 条>
+
+Signal: NEW-MAIN-CLI-RESUMED
+```
+
+PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
+
+**Compression 中段触发的恢复协议**:
+任何 CLI 觉察 compression 后 (system reminder 提示 / 突然不记得最近上下文) · 立即:
+1. 重读上面 5 份文档
+2. `git log --oneline -30 --all` 还原最近活动
+3. `py scripts/orchestrator/scoreboard.py` 看 mesh state
+4. 写一段 "我恢复后理解" 给 PM verify
+5. 不再凭"模糊印象"做决策
+
+**这条规则与 §13 ECS 同步纪律同等优先级 · 不可跳过**。
+
+### 14.1 状态文档实时更新硬规 (PM 2026-04-29 加)
+
+**Reset 工程任何迭代 · 无论大小 · 必须同步更新 `docs/reset/state-snapshot.md`**。
+
+**触发**:
+- 任何 worker DONE signal cherry-pick → 主 CLI 同 commit 加 state-snapshot.md timestamped 段
+- 任何 codex review 出 verdict → 主 CLI 写 audit doc 时同更 state-snapshot
+- 任何 PM 拍板 / decisions-log Q-NNN → 主 CLI 写 decisions-log 时同更 state-snapshot
+- 任何阶段转换 (Phase A → Phase B / Week N → Week N+1)
+
+**段格式**:
+```markdown
+## YYYY-MM-DD HH:MM · <事件>
+
+### What happened
+- <list>
+
+### Triggered by
+- <PM / worker-XX / codex review / scheduled checkpoint>
+
+### State change (delta)
+- <key change · old → new>
+
+### Next
+- <implied next 1-2 step>
+```
+
+**违反 = stop the line**: 任何 commit 触动产品 / 架构 / 决策但**未同步** state-snapshot · 主 CLI 必须立刻 amend commit (或新 commit 补上)。
+
+**意义**: compression / 新 CLI / 未来的我 都靠 state-snapshot 还原 "我们现在到底在哪"。state-snapshot 漂 = reset 工程整体迷失。
