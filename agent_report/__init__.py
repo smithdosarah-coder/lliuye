@@ -22,7 +22,8 @@ v16_*.py 模块。本包是其 FastAPI 化外壳,通过 api.py 暴露 SSE 端点
       入口：word_export / form_filler
 
 对外接口：
-  api.py 暴露 /api/report/fill 与 /api/report/refine SSE 端点，5 段阶段（ingest/extract/infer/write/audit）。
+  api.py 暴露 /api/report/v16/fill SSE 端点（classifier→generator→QC）+ /api/report/refine_section
+  + /api/report/upload + /api/report/export_docx 等。
   产出 EnterpriseProfile JSON 作为跨 Agent（主要被 Agent3 消费）的数据载体。
 
 硬约束：
