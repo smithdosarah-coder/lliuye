@@ -1,17 +1,25 @@
 # -*- coding: utf-8 -*-
 """IM service · auth dep helper (Stage D.2 · onboarding W-D2-A3 §Dependencies).
 
-D.1 worker A2 在并行实装 auth_service/ · 本模块作 thin shim:
+D.1 已 land · 本模块作 multi-source resolver:
 
-  1. 优先 import auth_service.decode_token (生产路径 · D.1 land 后无缝切)
-  2. fallback 内嵌 demo decoder · 接受 PASSWORD_MAP 5 user · 让 D.2 单跑无阻塞
+  1. **cookie path** (生产 · W-FIX2 · zhongan_auth httpOnly cookie):
+     `decode_jwt_cookie(token)` 走 auth_service.jwt_util.verify · 严格 HS256
+  2. **Authorization Bearer / query token path** (legacy · 含 demo fallback):
+     `decode_token(token)` 优先 D.1 verify · 失败回退 demo decoder
 
-Demo token 格式:
+Demo token 格式 (legacy 路径 / e2e 测试用):
   - "demo-<user_id>"           e.g. "demo-u_wangzhe"
   - "demo-<user_id>.<extras>"  允许后缀扩展但 verify 时只看 user_id
 
 protocol §4.1: ws connect 时 query param `token=<jwt>` · REST 通过 cookie 或
 Authorization header 都 OK · 本模块统一接 raw token str 返 user_id。
+
+W-FIX2-A2-im-cookie-auth (2026-04-29):
+  - bug 根因: frontend `web/src/lib/api/im.ts` 读 `auth_token` cookie · 但 D.1 真
+    cookie 名 `zhongan_auth` + httpOnly (JS 不可读) · resolve 全 fall to demo
+  - 修法: backend 各 IM endpoint 加 `zhongan_auth: str | None = Cookie(...)` ·
+    优先 cookie · 走 D.1 jwt_util.verify · 失败再退 Authorization / query token
 """
 from __future__ import annotations
 
@@ -89,3 +97,31 @@ def issue_demo_token(user_id: str) -> str:
     if user_id not in DEMO_USERS:
         raise ValueError(f"unknown user {user_id} · valid: {sorted(DEMO_USERS)}")
     return f"demo-{user_id}"
+
+
+# ---------------------------------------------------------------------------
+# W-FIX2-A2 · Cookie-based JWT path (zhongan_auth · D.1 jwt_util)
+# ---------------------------------------------------------------------------
+
+
+def decode_jwt_cookie(zhongan_auth: Optional[str]) -> Optional[str]:
+    """从 D.1 zhongan_auth cookie 解 JWT 返 user_id (sub) · 失败返 None.
+
+    本 path 严格走 auth_service.jwt_util.verify · 不接受 demo token 格式 ·
+    cookie 必须是真 HS256 JWT。Caller 在 None 时应 fallback Authorization /
+    query token path (decode_token) 或抛 401。
+    """
+    if not zhongan_auth or not isinstance(zhongan_auth, str):
+        return None
+    try:
+        from auth_service.jwt_util import JWTError, verify  # type: ignore
+    except (ImportError, ModuleNotFoundError):
+        return None
+    try:
+        payload = verify(zhongan_auth)
+    except JWTError:
+        return None
+    sub = payload.get("sub") if isinstance(payload, dict) else None
+    if not isinstance(sub, str) or not sub:
+        return None
+    return sub

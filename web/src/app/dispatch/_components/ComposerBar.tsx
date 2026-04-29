@@ -18,6 +18,7 @@ import {
   publishEvent,
   useAuthStore,
   useCustomerStore,
+  type ImMessage,
 } from "@/lib/store";
 import {
   CARD_PIN_MIME,
@@ -44,6 +45,15 @@ import { filterCommands, SlashMenu } from "./SlashMenu";
 
 const FALLBACK_USER_ID = "u_wangzhe";
 
+/** W-FIX · 拖拽 payload safeParse · 解析失败返 null · 调用方走 fallback */
+function safeParse<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function ComposerBar() {
   const router = useRouter();
   const thread = useDispatchStore((s) =>
@@ -56,6 +66,7 @@ export function ComposerBar() {
   const appendSystemEvent = useDispatchStore((s) => s.appendSystemEvent);
   const clearThread = useDispatchStore((s) => s.clearThread);
   const liveMode = useDispatchStore((s) => s.liveMode);
+  const setSendFailError = useDispatchStore((s) => s.setSendFailError);
   const currentUser = useAuthStore((s) => s.currentUser);
 
   /* Stage D.2F · typing debounce · 1s 内同 thread 只 emit 一次 typing */
@@ -159,16 +170,27 @@ export function ComposerBar() {
     });
     setText("");
 
-    /* Stage D.2F · 持久化到后端 + WebSocket broadcast 给其他 user
-       (live mode only · seed mode skip · 失败 silent · 本地已 optimistic) */
+    /* W-FIX · 2026-04-28 · live-fallback-banner-spec §1 规则 1
+       · 持久化到后端 · 失败必显式 banner (禁止 silent fallback)
+       · seed mode (无 backend) → skip · 本地 optimistic 即可 */
     if (liveMode !== "seed" && thread) {
       void sendMessageRest({
         threadId: thread.id,
         content: value,
         kind: "text",
-      }).catch(() => {
-        /* 失败 keep optimistic local · WebSocket 重连后 resync */
-      });
+      })
+        .then(() => {
+          setSendFailError(null);
+        })
+        .catch((err: unknown) => {
+          // 失败 → 触发顶部 banner · 用户可点击 [重试]
+          const isError = err instanceof Error;
+          const status = (err as { status?: number })?.status;
+          setSendFailError({
+            message: isError ? err.message : "发消息失败 · 网络异常",
+            code: typeof status === "number" ? status : undefined,
+          });
+        });
     }
 
     /* #5 + @agent 路由 · 2026-04-27 · IM 真接 DeepSeek + 解析 @智能体 名 */
@@ -193,6 +215,7 @@ export function ComposerBar() {
     fetch(`${apiBase}/api/im/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include", // W-FIX2-A2 · 让 browser 带 zhongan_auth cookie
       body: JSON.stringify({
         message: value,
         thread_id: thread.id,
@@ -343,10 +366,47 @@ export function ComposerBar() {
         return;
       }
     }
-    if (!title) return;
-    const marker = kind === "panel" ? "📎" : "📌";
-    const ref = subtitle ? `${marker} ${title} · ${subtitle}` : `${marker} ${title}`;
-    setText((prev) => (prev ? `${prev}\n${ref}` : ref));
+    if (!title || !thread) return;
+    /* W-FIX · 2026-04-28 · live-fallback-banner-spec §2 规则 4 + F-008
+       拖柄 → 立即创建 kind="pin_ref" message · MessageBubble 渲缩略图
+       · NOT setText 文本 marker (此前 #3 fallback 已停用 · 改为标准 IM message) */
+    const panelPayload = panelRaw ? safeParse<PanelPinPayload>(panelRaw) : null;
+    const cardPayload = !panelPayload && cardRaw ? safeParse<CardPinPayload>(cardRaw) : null;
+    const refsPayload: NonNullable<ImMessage["refs"]> = {};
+    // PanelPinPayload 有 agentKey · CardPinPayload 无 (per pin types 定义)
+    const agentKey = panelPayload?.agentKey ?? "";
+    const href = panelPayload?.href ?? cardPayload?.href ?? "";
+    // fullText 用 PanelPin.blurb (摘要) 或 fallback subtitle/title
+    const fullText = panelPayload?.blurb ?? subtitle ?? title;
+    if (agentKey) refsPayload.agentId = agentKey;
+    if (href) refsPayload.href = href;
+    if (fullText) refsPayload.fullText = fullText;
+
+    const threadId = thread.id;
+    const pinMsg = addMessage(threadId, {
+      from: actorId,
+      kind: "pin_ref",
+      content: title,
+      refs: refsPayload,
+    });
+
+    if (liveMode !== "seed") {
+      void sendMessageRest({
+        threadId,
+        content: title,
+        kind: "pin_ref",
+        refs: refsPayload,
+      })
+        .then(() => setSendFailError(null))
+        .catch((err: unknown) => {
+          const status = (err as { status?: number })?.status;
+          setSendFailError({
+            message: err instanceof Error ? err.message : "拖拽 ref 发送失败",
+            code: typeof status === "number" ? status : undefined,
+          });
+        });
+    }
+    void pinMsg;
     inputRef.current?.focus();
   }
 

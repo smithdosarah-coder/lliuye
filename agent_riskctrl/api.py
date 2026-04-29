@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import traceback
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,13 @@ except ImportError:
             return fn
         return _passthrough
 
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
+
 app = FastAPI(title="Agent2 Risk Control API", version="4.0")
 
 
@@ -68,38 +76,57 @@ class RiskCtrlBacktestRequest(BaseModel):
 
 
 def _stream_riskctrl(message: str, files: list[str] | None,
-                     provider: str | None, api_key: str | None):
-    """共用生成器: 跑 RiskControlAgent.process_message 并以 SSE 返回。"""
-    try:
-        from agent_riskctrl.agent import RiskControlAgent
-    except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
-        return
+                     provider: str | None, api_key: str | None,
+                     *, audit_endpoint: str | None = None):
+    """共用生成器: 跑 RiskControlAgent.process_message 并以 SSE 返回。
 
+    W-FIX2 修 bug #11: 若 ``audit_endpoint`` 给定 · finally 内调
+    ``audit_stream_event`` 落 audit (latency 含完整 stream)。
+    """
+    t0 = time.time()
+    err: str | None = None
     try:
-        agent = RiskControlAgent(
-            api_key=api_key or "dummy",
-            model_provider=provider or "deepseek",
-        )
-        for evt in agent.process_message(
-            user_message=message,
-            uploaded_files=files,
-        ):
-            payload = to_jsonable(evt)
-            cleaned, hits = _qc_scrub(payload)
-            wrap = {"event": "stage", "payload": cleaned}
-            if hits:
-                wrap["_qc_placeholder_hits"] = hits
-            yield sse_encode(wrap)
+        try:
+            from agent_riskctrl.agent import RiskControlAgent
+        except ImportError as e:
+            err = f"ImportError: {e}"
+            yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
+            return
 
-        yield sse_encode({"event": "done"})
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
+        try:
+            agent = RiskControlAgent(
+                api_key=api_key or "dummy",
+                model_provider=provider or "deepseek",
+            )
+            for evt in agent.process_message(
+                user_message=message,
+                uploaded_files=files,
+            ):
+                payload = to_jsonable(evt)
+                cleaned, hits = _qc_scrub(payload)
+                wrap = {"event": "stage", "payload": cleaned}
+                if hits:
+                    wrap["_qc_placeholder_hits"] = hits
+                yield sse_encode(wrap)
+
+            yield sse_encode({"event": "done"})
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            err = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+            yield sse_encode({
+                "event": "error",
+                "message": err,
+                "traceback": traceback.format_exc()[-2000:],
+            })
+    finally:
+        if audit_endpoint:
+            audit_stream_event(
+                agent_id="riskctrl",
+                endpoint=audit_endpoint,
+                model=provider or "deepseek-chat",
+                t0=t0,
+                error=err,
+            )
 
 
 @app.post("/api/riskctrl/dsl_gen_stream")
@@ -108,9 +135,15 @@ async def riskctrl_dsl_gen_stream(req: RiskCtrlDslRequest):
 
     走 RiskControlAgent 的 rule_config 流程 (无 CSV 时默认意图).
     新代码请用 POST /api/riskctrl/dsl_gen (JSON 单 turn).
+
+    Audit (W-FIX2 修 bug #11): generator finally 内调 audit_stream_event ·
+    latency 含真实 stream 时延 · 不再用 @audit_llm_call decorator。
     """
     def gen():
-        yield from _stream_riskctrl(req.rule_text, None, req.provider, req.api_key)
+        yield from _stream_riskctrl(
+            req.rule_text, None, req.provider, req.api_key,
+            audit_endpoint="/api/riskctrl/dsl_gen_stream",
+        )
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",

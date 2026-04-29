@@ -33,6 +33,12 @@ import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
+  exportDocx as exportDocxApi,
+  LiveFailError,
+  runBacktest,
+  runDslGen,
+} from "@/lib/api/riskctrl";
+import {
   RISKCTRL_GLOBAL_STATS,
   RISKCTRL_SESSION,
   type ConversationMessage,
@@ -102,55 +108,62 @@ export default function RiskctrlWorkspace() {
   const [rulesetId, setRulesetId] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
 
+  /* Stage Fix · live-fallback-banner-spec v1.0 §2 规则 1 ·
+     按 endpoint 分别记录失败 · UI 显式 banner + retry · 不 silent swap mock */
+  type LiveFail = {
+    endpoint: string;
+    label: string;
+    status: number;
+    message: string;
+    bodyExcerpt: string;
+  };
+  const [liveFail, setLiveFail] = useState<LiveFail | null>(null);
+  const [retryHandler, setRetryHandler] = useState<(() => void) | null>(null);
+
+  function recordLiveFail(label: string, err: unknown, retry: () => void): void {
+    if (err instanceof LiveFailError) {
+      setLiveFail({
+        endpoint: err.endpoint,
+        label,
+        status: err.status,
+        message: err.message,
+        bodyExcerpt: err.bodyExcerpt,
+      });
+    } else {
+      setLiveFail({
+        endpoint: "(unknown)",
+        label,
+        status: 0,
+        message: err instanceof Error ? err.message : String(err),
+        bodyExcerpt: "",
+      });
+    }
+    setRetryHandler(() => retry);
+  }
+
+  function clearLiveFail(): void {
+    setLiveFail(null);
+    setRetryHandler(null);
+  }
+
   /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
   const triggerDslGen = useCallback(async (ruleText: string) => {
+    const text = ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户";
     setStarted(true);
     setTrigger("primary_dsl");
     setScanRunning(true);
     setScanError("");
+    clearLiveFail();
     try {
-      const resp = await fetch("/api/riskctrl/dsl_gen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rule_text: ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户",
-          provider: "deepseek",
-        }),
-      });
-      if (!resp.ok || !resp.body) {
-        throw new Error(`dsl_gen failed: HTTP ${resp.status}`);
-      }
-      /* SSE 流读 · 找 ruleset_id (后端 done event payload) · 不阻塞 UI */
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      let captured = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const parts = buf.split("\n\n");
-        buf = parts.pop() ?? "";
-        for (const part of parts) {
-          for (const line of part.split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            try {
-              const data = JSON.parse(line.slice(6));
-              const payload = data?.payload ?? {};
-              const sid = payload.ruleset_id ?? payload.rule_id ?? payload.session_id;
-              if (sid) captured = String(sid);
-            } catch {
-              /* ignore parse error · 不阻断流 */
-            }
-          }
-        }
-      }
-      if (captured) setRulesetId(captured);
+      const { rulesetId: sid } = await runDslGen({ ruleText: text });
+      if (sid) setRulesetId(sid);
     } catch (e) {
+      recordLiveFail("DSL 生成", e, () => triggerDslGen(text));
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Secondary CTA · 选预置规则集 → 快速进入 + 标记触发 */
@@ -170,34 +183,21 @@ export default function RiskctrlWorkspace() {
     setTrigger("tertiary_history");
   }, []);
 
-  /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发 */
+  /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发.
+     Stage Fix · 422 root cause: backend 必填 instruction + uploaded_files
+     (Pydantic list[str] 无 default factory) · 此处显式传 [] 防 422 · 失败 banner */
   const triggerBacktest = useCallback(async () => {
     setScanRunning(true);
     setScanError("");
+    clearLiveFail();
     try {
-      const resp = await fetch("/api/riskctrl/backtest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instruction: "回测当前策略",
-          uploaded_files: [],
-          provider: "deepseek",
-        }),
+      await runBacktest({
+        instruction: "回测当前策略",
+        uploadedFiles: [],
       });
-      if (!resp.ok) {
-        throw new Error(`backtest failed: HTTP ${resp.status}`);
-      }
-      /* drain SSE stream · 不阻塞 UI · 仅触发后端真跑 */
-      const reader = resp.body?.getReader();
-      if (reader) {
-        const decoder = new TextDecoder();
-        while (true) {
-          const { done } = await reader.read();
-          if (done) break;
-        }
-      }
       setScanned(true);
     } catch (e) {
+      recordLiveFail("样本回测", e, () => triggerBacktest());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
@@ -214,39 +214,34 @@ export default function RiskctrlWorkspace() {
       return;
     }
     setExportInfo({ status: "running" });
+    const sid = rulesetId || preset || "demo";
     try {
-      const resp = await fetch("/api/riskctrl/export_docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ruleset_id: rulesetId || preset || "demo" }),
-      });
-      if (resp.status === 404) {
-        /* 后端 endpoint 未上线 · 显式标 pending · 不算真错误 */
-        setExportInfo({
-          status: "error",
-          message: "导出端点 /api/riskctrl/export_docx 待 Stage D 后端实装",
-        });
-        return;
-      }
-      if (!resp.ok) {
-        throw new Error(`export failed: HTTP ${resp.status}`);
-      }
-      const blob = await resp.blob();
+      const blob = await exportDocxApi(sid);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `riskctrl_backtest_${rulesetId || "demo"}.docx`;
+      a.download = `riskctrl_backtest_${sid}.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
       setExportInfo({ status: "done" });
     } catch (e) {
+      if (e instanceof LiveFailError && e.status === 404) {
+        /* 后端 endpoint 未上线 · 显式 pending 不算真错 · 不弹 banner */
+        setExportInfo({
+          status: "error",
+          message: "导出端点 /api/riskctrl/export_docx 待 Stage D 后端实装",
+        });
+        return;
+      }
+      recordLiveFail("Word 导出", e, () => triggerExportDocx());
       setExportInfo({
         status: "error",
         message: e instanceof Error ? e.message : String(e),
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rulesetId, preset, scanned]);
 
   return (
@@ -291,7 +286,47 @@ export default function RiskctrlWorkspace() {
               </div>
             ) : null}
 
-            {scanError ? (
+            {liveFail ? (
+              <div
+                className="riskctrl-live-fail-banner"
+                role="alert"
+                data-testid="riskctrl-live-fail-banner"
+                data-status={liveFail.status}
+                data-endpoint={liveFail.endpoint}
+              >
+                <span className="riskctrl-live-fail-banner__icon" aria-hidden>⚠️</span>
+                <span className="riskctrl-live-fail-banner__text">
+                  后端 <b>{liveFail.label}</b> 调用失败 (
+                  {liveFail.status > 0 ? `HTTP ${liveFail.status}` : "network/SSE"})
+                  · 当前显 fallback 演示数据 · 切真实路径请重试
+                  {liveFail.bodyExcerpt ? (
+                    <span className="riskctrl-live-fail-banner__detail">
+                      · 详情：{liveFail.bodyExcerpt}
+                    </span>
+                  ) : null}
+                </span>
+                {retryHandler ? (
+                  <button
+                    type="button"
+                    className="riskctrl-live-fail-banner__retry"
+                    onClick={() => retryHandler()}
+                    data-testid="riskctrl-live-fail-retry"
+                  >
+                    重试
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="riskctrl-live-fail-banner__dismiss"
+                  onClick={clearLiveFail}
+                  aria-label="关闭横幅"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
+
+            {scanError && !liveFail ? (
               <div
                 className="riskctrl-error-banner"
                 role="alert"
