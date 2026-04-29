@@ -317,3 +317,22 @@ PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
 **违反 = stop the line**: 任何 commit 触动产品 / 架构 / 决策但**未同步** state-snapshot · 主 CLI 必须立刻 amend commit (或新 commit 补上)。
 
 **意义**: compression / 新 CLI / 未来的我 都靠 state-snapshot 还原 "我们现在到底在哪"。state-snapshot 漂 = reset 工程整体迷失。
+
+## 15. 指令 SSOT 优先级 (Phase A worker-A1 立 · 2026-04-29)
+
+任何文档 / 代码 / decisions-log 之间冲突时 · 按 `docs/arch/instruction-source-of-truth.md` v1.0 阶梯裁决 · 数字小者赢:
+
+| Tier | 来源 |
+|---|---|
+| 1 | `docs/contracts/*.md` (接口契约 · 红区 · RFC 改) |
+| 2 | `docs/arch/*.md` (架构契约 · 含本 SSOT) |
+| 3 | root `CLAUDE.md` (本文件 · 工程行为 + 全局规则) |
+| 4 | scoped child `CLAUDE.md` (e.g. `agent_*/CLAUDE.md` · narrower-only · 当前 0 个) |
+| 5 | `docs/onboarding/*.md` (worker 任务 brief · 一次性) |
+| 6 | `docs/handoff/decisions-log.md` (Q/A 历史 · active rule 必回写到 Tier 1-3) |
+
+**Active decision 回写硬规** (PM 2026-04-29 拍板 #3): 任何改变 future worker 行为的决议必须在**同 commit 或 ≤ 24 小时**内回写到 Tier 1-3 · commit trailer 列 `ACTIVE-DECISIONS-BACK-WRITTEN: <count>`。违反 = stop the line。
+
+**Stale marker**: Tier 1-3 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
+
+详细规则 / 冲突解决 3 步 / 子域 CLAUDE.md 规范 / 当前积压回写任务 → 见 `docs/arch/instruction-source-of-truth.md`。
