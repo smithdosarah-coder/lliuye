@@ -22,33 +22,50 @@
 
 ---
 
-## 1. 优先级阶梯 (5 tier · 高 → 低)
+## 1. 优先级阶梯 (5 tier · 高 → 低 · + 1 meta 例外)
 
-冲突时 · **数字小者赢**:
+冲突时 · **数字小者赢**。本 SSOT 是 ladder 之外的 **meta 例外** (见 §1.0)。
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ Tier 1 · docs/contracts/*.md                         │  ← 接口契约 (红区 · RFC 改)
-├──────────────────────────────────────────────────────┤
-│ Tier 2 · docs/arch/*.md                              │  ← 架构契约 (含本 doc · 红区)
-├──────────────────────────────────────────────────────┤
-│ Tier 3 · root CLAUDE.md                              │  ← 工程行为 + 全局规则
-├──────────────────────────────────────────────────────┤
-│ Tier 4 · scoped child CLAUDE.md (e.g. agent_*/CLAUDE.md) │  ← 子域行为 (覆盖父域时 only-narrower)
-├──────────────────────────────────────────────────────┤
-│ Tier 5 · docs/onboarding/*.md                        │  ← worker 任务 brief (一次性)
-├──────────────────────────────────────────────────────┤
-│ Tier 6 · docs/handoff/decisions-log.md               │  ← Q-NNN/A-NNN 历史 (active rule 必上回写到 Tier 1-3)
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Meta (例外 · ladder 之外 · 仅本 1 个文件):                            │
+│    docs/arch/instruction-source-of-truth.md  ← THIS file              │
+│    含义: 当本 SSOT 自身规则与 Tier 1-5 冲突时 · 以本 SSOT 为准         │
+│    (因为 Tier 1-5 怎么排序就是本 SSOT 定的 · 不能用 Tier 内文件改 SSOT) │
+└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Tier 1 · docs/contracts/*.md                                        │  ← 接口契约 (红区 · RFC 改)
+├──────────────────────────────────────────────────────────────────────┤
+│  Tier 2 · root CLAUDE.md                                             │  ← 工程行为 + 全局规则
+│    其他 docs/arch/*.md (e.g. platform-contracts.md) sit here as       │
+│    supporting docs · 当与 root CLAUDE.md 冲突 → root CLAUDE.md 赢      │
+├──────────────────────────────────────────────────────────────────────┤
+│  Tier 3 · scoped child CLAUDE.md (e.g. agent_*/CLAUDE.md)            │  ← 子域行为 (only-narrower)
+├──────────────────────────────────────────────────────────────────────┤
+│  Tier 4 · docs/onboarding/*.md                                       │  ← worker 任务 brief (一次性)
+├──────────────────────────────────────────────────────────────────────┤
+│  Tier 5 · docs/handoff/decisions-log.md                              │  ← Q/A 历史 (active rule 必上回写)
+└──────────────────────────────────────────────────────────────────────┘
 
-代码 (Tier 0): 当代码与所有 Tier 文档全冲突时 · "代码胜" 但**必须**当 commit 把代码漂回 Tier 1-3 描述的 contract · 或开 Q-NNN 改 contract。代码不允许成为 stable 的 source of truth (会被 refactor 抹掉)。
+代码 (Tier 0 · 非文档): 当代码与所有 Tier 文档全冲突时 · "代码胜" 但**必须**当 commit 把代码漂回 Tier 1-2 描述的 contract · 或开 Q-NNN 改 contract。代码不允许成为 stable 的 source of truth (会被 refactor 抹掉)。
 ```
 
-**判定细则**:
-- Tier 1 vs Tier 2: docs/contracts/ 是 6 Agent 接口契约 (跨 agent / 跨 worker 共形) · docs/arch/ 是项目级架构 (本 SSOT / platform-contracts) · contracts 优先 (因为 contracts 直接消费 arch · arch 漂会被 contracts 揭露)。
-- Tier 3 vs Tier 4: scoped child CLAUDE.md 仅在子域内有效 · 不允许声明与 root CLAUDE.md 矛盾的全局规则 · 仅 narrow (e.g. 某子域有额外约束) · narrower wins within scope only。
-- Tier 5 onboarding: 是 fire-and-forget 任务 brief · worker DONE 后 onboarding 即过期 · 不能用 onboarding 推翻 Tier 1-3 已锁的契约。
-- Tier 6 decisions-log: Q/A 历史归档 · 任何 active rule 必须**回写**到 Tier 1-3 (见 §3) · 否则 worker 不必 honor。
+### 1.0 Meta 例外 · 仅本 SSOT 一个
+
+**本 doc 之所以是例外**: Tier 1-5 的优先级排序本身**由本 SSOT 定义**。如果允许 Tier 内文件 (e.g. `docs/contracts/foo.md` 或 `root CLAUDE.md`) 改本 SSOT 的 §1 阶梯 · 等于"被排序的对象决定排序规则" · 循环依赖。所以本 SSOT 是元规则 · 必须独立于 ladder。
+
+**修改本 SSOT 的特殊路径**:
+- 仍走 RFC (`docs/contracts/shared-change-protocol.md`)
+- 但**只 PM 可批 (worker / Codex 不批)** · 因为 meta-rule 改动影响整个项目
+- 改后所有 worker / Codex / main CLI 重读
+
+### 1.1 判定细则
+
+- **Tier 1 (contracts/) vs Tier 2 (CLAUDE.md)**: contracts 直接定义跨 agent / 跨 worker 接口 · CLAUDE.md 是项目级行为规则。冲突时 contracts 赢 · 但 contracts 改时必须**回写** CLAUDE.md (per §3 active decision rule)。
+- **Tier 2 内 root CLAUDE.md vs 其他 docs/arch/\*.md**: root CLAUDE.md 是单文件 SSOT · 其他 arch docs 是 supporting (e.g. `platform-contracts.md` v1 是 platform shell 红区契约 · 但其内容应被 root CLAUDE.md §7 / §13 引用 / 镜像)。冲突时 root CLAUDE.md 赢 · arch docs 必须 fix-forward 对齐 root。
+- **Tier 3 scoped child CLAUDE.md**: 仅在子域内有效 (e.g. `agent_report/CLAUDE.md` 仅约束 `agent_report/` 代码) · 不允许声明与 root CLAUDE.md 矛盾的全局规则 · 仅 narrow (per §2)。
+- **Tier 4 onboarding**: fire-and-forget 任务 brief · worker DONE 后即过期 · 不能用 onboarding 推翻 Tier 1-3 已锁的契约。如 onboarding 与 Tier 1-3 矛盾 · worker 按 Tier 1-3 行 · 写 Q-NNN 反映 onboarding 错。
+- **Tier 5 decisions-log**: Q/A 历史归档 · 任何 active rule (A-NNN APPROVED) 必须 ≤ 24 小时**回写**到 Tier 1-3 (见 §3) · 否则 worker 不必 honor。
 
 ---
 
@@ -152,7 +169,7 @@ worker 发现 Tier N 与 Tier M 矛盾时:
 - `RESET_MASTER_PLAN.md` §6 红线第 3 条 · "active decision 改了不回写 CLAUDE.md" → 本 SSOT §3 是其落地规则
 - `CLAUDE.md` §14 (新 session / compression 后必读) · 与本 SSOT 互补 · §14 管"读哪些" · 本 SSOT 管"信哪些"
 - `CLAUDE.md` §14.1 (state-snapshot 实时更新) · 与本 SSOT §3 同等级 · 都是 PM 2026-04-29 硬规
-- `docs/arch/platform-contracts.md` · v1 platform shell 红区契约 · Tier 2 同级 · 本 SSOT 优先 (本 SSOT 是 meta-rule)
+- `docs/arch/platform-contracts.md` · v1 platform shell 红区契约 · Tier 2 supporting doc (under root CLAUDE.md · per §1.1) · 本 SSOT 是 meta · 优先于 platform-contracts.md (但 platform-contracts.md 与 root CLAUDE.md 冲突时 · root CLAUDE.md 赢)
 - `docs/contracts/shared-change-protocol.md` · 所有 contract 修改的 RFC 流程 · 本 SSOT §3 RFC pointer
 - `docs/contracts/decision-log-protocol.md` · Q-NNN/A-NNN 格式 · 本 SSOT §3 decision 格式锚
 - `docs/contracts/agent-naming-ssot.md` v1.0 · 6 Agent 命名 SSOT · 本 SSOT 通用规则的 first instance
@@ -175,8 +192,9 @@ worker 发现 Tier N 与 Tier M 矛盾时:
 
 ## 8. 反校准 (避免改歪)
 
-- ❌ 不要把本 SSOT 替代 CLAUDE.md · 本 SSOT 是 *meta-rule* · CLAUDE.md 是 *project rule*
-- ❌ 不要把 Tier 1 contracts 当成"什么都能放进去" · contracts 仅是**接口契约** (跨 worker / 跨 agent 共形规则) · 单 agent 内部行为放 agent_*/CLAUDE.md (Tier 4) 或代码注释
-- ❌ 不要把 decisions-log 当成"决策 source of truth" · 它是历史归档 · active rule 必须上回写
+- ❌ 不要把本 SSOT 替代 root CLAUDE.md · 本 SSOT 是 *meta-rule* (Tier 之外) · CLAUDE.md 是 *project rule* (Tier 2)
+- ❌ 不要把 Tier 1 contracts 当成"什么都能放进去" · contracts 仅是**接口契约** (跨 worker / 跨 agent 共形规则) · 单 agent 内部行为放 agent_*/CLAUDE.md (Tier 3) 或代码注释
+- ❌ 不要把 decisions-log 当成"决策 source of truth" · 它是历史归档 (Tier 5) · active rule 必须上回写到 Tier 1-3
 - ❌ 不要在 worker 任务里夹带 SSOT 修改 · SSOT 改走 RFC · worker 仅引用
 - ❌ 不要因为某个 Tier 1 contract "看起来过时" 就直接改 · 先标 STALE (§4) + 提 Q-NNN
+- ❌ 不要把其他 docs/arch/* 文件当 Tier 1 (跨 worker 接口契约层) 用 · 它们是 Tier 2 supporting doc · 当与 root CLAUDE.md 冲突时 root CLAUDE.md 赢

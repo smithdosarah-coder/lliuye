@@ -318,21 +318,23 @@ PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
 
 **意义**: compression / 新 CLI / 未来的我 都靠 state-snapshot 还原 "我们现在到底在哪"。state-snapshot 漂 = reset 工程整体迷失。
 
-## 15. 指令 SSOT 优先级 (Phase A worker-A1 立 · 2026-04-29)
+## 15. 指令 SSOT 优先级 (Phase A worker-A1 立 · 2026-04-29 · V2 codex review fix · 5 tier + 1 meta)
 
-任何文档 / 代码 / decisions-log 之间冲突时 · 按 `docs/arch/instruction-source-of-truth.md` v1.0 阶梯裁决 · 数字小者赢:
+任何文档 / 代码 / decisions-log 之间冲突时 · 按 `docs/arch/instruction-source-of-truth.md` v1.0 阶梯裁决 · **数字小者赢**:
 
 | Tier | 来源 |
 |---|---|
+| Meta (例外 · ladder 之外) | `docs/arch/instruction-source-of-truth.md` (本 SSOT 自身 · 改它仅 PM 可批) |
 | 1 | `docs/contracts/*.md` (接口契约 · 红区 · RFC 改) |
-| 2 | `docs/arch/*.md` (架构契约 · 含本 SSOT) |
-| 3 | root `CLAUDE.md` (本文件 · 工程行为 + 全局规则) |
-| 4 | scoped child `CLAUDE.md` (e.g. `agent_*/CLAUDE.md` · narrower-only · 当前 0 个) |
-| 5 | `docs/onboarding/*.md` (worker 任务 brief · 一次性) |
-| 6 | `docs/handoff/decisions-log.md` (Q/A 历史 · active rule 必回写到 Tier 1-3) |
+| 2 | root `CLAUDE.md` (本文件 · 工程行为 + 全局规则) · 其他 `docs/arch/*.md` (e.g. `platform-contracts.md`) sit here as supporting · 与 root CLAUDE.md 冲突时 root 赢 |
+| 3 | scoped child `CLAUDE.md` (e.g. `agent_*/CLAUDE.md` · narrower-only · 当前 0 个) |
+| 4 | `docs/onboarding/*.md` (worker 任务 brief · 一次性) |
+| 5 | `docs/handoff/decisions-log.md` (Q/A 历史 · active rule 必回写到 Tier 1-2) |
 
-**Active decision 回写硬规** (PM 2026-04-29 拍板 #3): 任何改变 future worker 行为的决议必须在**同 commit 或 ≤ 24 小时**内回写到 Tier 1-3 · commit trailer 列 `ACTIVE-DECISIONS-BACK-WRITTEN: <count>`。违反 = stop the line。
+**Meta 例外**: 本 SSOT 自身定义 Tier 1-5 排序 · 不允许 Tier 内文件改本 SSOT (循环依赖) · 是 ladder 之外的元规则 · 见 SSOT §1.0。
 
-**Stale marker**: Tier 1-3 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
+**Active decision 回写硬规** (PM 2026-04-29 拍板 #3): 任何改变 future worker 行为的决议必须在**同 commit 或 ≤ 24 小时**内回写到 Tier 1-2 · commit trailer 列 `ACTIVE-DECISIONS-BACK-WRITTEN: <count>`。违反 = stop the line。
+
+**Stale marker**: Tier 1-2 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
 
 详细规则 / 冲突解决 3 步 / 子域 CLAUDE.md 规范 / 当前积压回写任务 → 见 `docs/arch/instruction-source-of-truth.md`。
