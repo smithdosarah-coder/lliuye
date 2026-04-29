@@ -1061,6 +1061,26 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
     async def gen():
         status = "ok"
         err: str | None = None
+        # Codex Part 2 Area A fix: live mode (mock=False) 必须有 DEEPSEEK_API_KEY · 否则 SSE 错误事件早失败 (不 silent fallback)
+        if not bool(req.mock) and not os.environ.get("DEEPSEEK_API_KEY"):
+            status = "error"
+            err = "DEEPSEEK_KEY_MISSING"
+            yield sse_encode({
+                "event": "error",
+                "stage": "ingest",
+                "message": "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 请联系运维配置或切到 demo 模式",
+                "code": "DEEPSEEK_KEY_MISSING",
+            })
+            _emit_audit(status)
+            audit_stream_event(
+                agent_id="report",
+                endpoint="/api/report/v16/fill",
+                model="deepseek-chat",
+                t0=_audit_t0,
+                user_id=_audit_user,
+                error=err,
+            )
+            return
         try:
             async for evt in fill_stream(
                 report_id=report_id,
@@ -1141,10 +1161,17 @@ async def report_refine_section(req: RefineSectionRequest, request: Request):
         "section_id": req.section_id,
     })
 
-    # LLM 调用(无 key 走简单字符串拼接 · empty-state §5 显式标 demo)
-    llm_caller = _build_llm_caller()
+    # LLM 调用 · Codex Decision 6 fix: 无 key 显式 503 不静默 demo (与 /api/report/fill line 427-431 一致)
     has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
-    if has_key and old_content:
+    if not has_key:
+        raise HTTPException(
+            status_code=503,
+            detail="DEEPSEEK_API_KEY 未配置 · 真改写不可用 · 请联系运维配置或回退到原章节",
+        )
+
+    llm_caller = _build_llm_caller()
+    new_content = ""
+    if old_content:
         system = (
             "你是信贷调查报告重写助手。基于客户经理的指引,把原段落改写得更准确、"
             "更完整,但不得编造数字 / 名称 / 资质 / 任何无原始证据的事实。"
@@ -1158,19 +1185,16 @@ async def report_refine_section(req: RefineSectionRequest, request: Request):
         )
         try:
             new_content = (llm_caller(system, user) or "").strip()
-        except Exception:  # noqa: BLE001 — LLM 失败走 fallback
-            new_content = ""
-    else:
-        new_content = ""
+        except Exception as e:  # noqa: BLE001 — LLM 失败显式 503 不 fallback
+            raise HTTPException(
+                status_code=503,
+                detail=f"LLM 调用失败 · {type(e).__name__}: {e}",
+            ) from e
 
     if not new_content:
-        # fallback · 简单拼接(标 demo + 保留原文 + 加用户指引)
-        prefix = (
-            "（demo · 后端 LLM 未配置,以下为占位拼接。配置 DEEPSEEK_API_KEY 后真改写）\n"
-        ) if not has_key else ""
+        # 仅当 LLM 返空内容时 fallback (老文本 + 客户经理指引拼接 · 不冒用 LLM 名义)
         new_content = (
-            prefix
-            + (old_content or "")
+            (old_content or "")
             + "\n\n[客户经理指引补充]\n"
             + req.user_edit
         )

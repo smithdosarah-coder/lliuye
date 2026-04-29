@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import sys
 import time
@@ -130,6 +131,16 @@ async def channel_run(req: ChannelRunRequest):
     def gen():
         t0 = time.time()
         err: str | None = None
+        # Codex Part 2 Area A fix: live mode (mock=False) 必须有 TAVILY_API_KEY · 否则 SSE 错误事件早失败 (不 silent mock_fallback · live-fallback-banner-spec §1.5)
+        if not req.mock and not os.environ.get("TAVILY_API_KEY"):
+            err = "TAVILY_KEY_MISSING"
+            yield sse_encode({
+                "event": "error",
+                "stage": "search",
+                "message": "TAVILY_API_KEY 未配置 · 真搜不可用 · 请联系运维配置或切到 demo 模式",
+                "code": "TAVILY_KEY_MISSING",
+            })
+            return
         try:
             try:
                 from agent_channel.realtime_stream import run_channel_search_stream
