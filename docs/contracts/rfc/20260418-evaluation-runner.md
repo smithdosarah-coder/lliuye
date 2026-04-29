@@ -4,7 +4,11 @@
 **日期**：2026-04-18
 **变更类型**：黄区（新增 `evaluation/runner/` 模块；各 Agent `evaluation/*.yaml` 仅扩字段不改 schema）
 **关联决策**：`docs/handoff/decisions-log.md` [A-002]
-**审批状态**：待主 CLI 拍板（本 RFC 自审自批，理由见 §6）
+**审批状态**：**APPROVED + IMPLEMENTED · Phase A 已 ship**（2026-04-29 status sync）
+- Phase A 落地：`evaluation/runner/` 完整 8 modules（base_evaluator + schemas + registry + cli + 6 adapter + cross_agent/ratio_consistency + tests/）
+- 6 adapter 全 ready：agent1_channel / agent2_riskctrl / agent3_credit / agent4_alert / agent5_compliance / agent6_report
+- 跨 Agent 验证：cross_agent.ratio_consistency 跨 agent3/agent6 财务比率一致性已接
+- 锚点 baseline：v16 unfilled_marker 0.625（Phase A `94c04f5`）已入 yaml
 
 ---
 
