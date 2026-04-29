@@ -232,3 +232,80 @@ bash scripts/deploy_to_ecs.sh --skip-build  # 后端改 · 跳 build
 - production hot-fix 影响线上演示 (客户走访期间 / user 在演示)
 - 涉及 ECS systemd service 配置 / cloudflared tunnel / nginx vhost 改动
 - 涉及 LLM key / .env / 凭证类改动
+
+## 14. 新 session / compression 后必读 (Reset 长周期工程专用)
+
+**当前项目处于"全新出发"reset 长周期工程阶段** (起于 2026-04-29) · 主 CLI 任何 fresh session / compression 触发后 · **第一件事是按本节 顺序读完 5 份文档 · 写出"我理解当前状态" commit (Signal: NEW-MAIN-CLI-RESUMED) 等 PM verify · 再做任何决策**。
+
+**必读顺序 (5 份文档 · ~10 min)**:
+
+1. `RESET_MASTER_PLAN.md` (项目根 · umbrella 索引页)
+2. `docs/reset/north-star.md` (产品形态 north star + 走歪表征 + 修正方向)
+3. `docs/reset/phase-a-charter.md` (Phase A 7 worker 拆分 · 验收硬线)
+4. `docs/reset/codex-mesh-protocol.md` (Codex 4 插入点 · 命令 verbatim · prompt template)
+5. `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_<latest>.md` (最新 handoff · 含 PM 已拍板事项 + 待启 + dissent)
+
+**附加(深入用)**:
+- `docs/reset/state-snapshot.md` (当前已完 / 在跑 / 待启 三段)
+- `docs/reset/phase-b-charter.md` (Phase B 商业化 charter)
+- `docs/reset/anti-bias-rules.md` (4 anti-bias 硬规)
+- `docs/handoff/decisions-log.md` 末 50 行 (最近 PM 决策)
+- `docs/handoff/mesh.json` + scoreboard (worker 状态)
+
+**写"我理解当前状态" commit 模板**:
+```
+chore(resume): NEW-MAIN-CLI-RESUMED · 我理解当前状态
+
+产品 north star: <verbatim 复述>
+6 Agent 闭环路径: <verbatim 复述>
+走歪表征 (top 5): <list>
+当前 Phase: <Phase A · Week N · 在哪步>
+待启 worker: <list>
+PM 已拍板 5 件: <list>
+我下一步动作: <具体 1-2 条>
+
+Signal: NEW-MAIN-CLI-RESUMED
+```
+
+PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
+
+**Compression 中段触发的恢复协议**:
+任何 CLI 觉察 compression 后 (system reminder 提示 / 突然不记得最近上下文) · 立即:
+1. 重读上面 5 份文档
+2. `git log --oneline -30 --all` 还原最近活动
+3. `py scripts/orchestrator/scoreboard.py` 看 mesh state
+4. 写一段 "我恢复后理解" 给 PM verify
+5. 不再凭"模糊印象"做决策
+
+**这条规则与 §13 ECS 同步纪律同等优先级 · 不可跳过**。
+
+### 14.1 状态文档实时更新硬规 (PM 2026-04-29 加)
+
+**Reset 工程任何迭代 · 无论大小 · 必须同步更新 `docs/reset/state-snapshot.md`**。
+
+**触发**:
+- 任何 worker DONE signal cherry-pick → 主 CLI 同 commit 加 state-snapshot.md timestamped 段
+- 任何 codex review 出 verdict → 主 CLI 写 audit doc 时同更 state-snapshot
+- 任何 PM 拍板 / decisions-log Q-NNN → 主 CLI 写 decisions-log 时同更 state-snapshot
+- 任何阶段转换 (Phase A → Phase B / Week N → Week N+1)
+
+**段格式**:
+```markdown
+## YYYY-MM-DD HH:MM · <事件>
+
+### What happened
+- <list>
+
+### Triggered by
+- <PM / worker-XX / codex review / scheduled checkpoint>
+
+### State change (delta)
+- <key change · old → new>
+
+### Next
+- <implied next 1-2 step>
+```
+
+**违反 = stop the line**: 任何 commit 触动产品 / 架构 / 决策但**未同步** state-snapshot · 主 CLI 必须立刻 amend commit (或新 commit 补上)。
+
+**意义**: compression / 新 CLI / 未来的我 都靠 state-snapshot 还原 "我们现在到底在哪"。state-snapshot 漂 = reset 工程整体迷失。
