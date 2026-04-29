@@ -231,6 +231,36 @@ export default function CreditWorkspace() {
   /* W-CF-A2 · empty-state v1.0 路径
      started=false → 渲染 EmptyState (Hero + 3 CTA + skeleton + status pill · 不渲染 mock data)
      started=true  → 渲染现有完整 workspace (4 panel + EvidenceTrail + RiskRadar 等) */
+  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
+  const creditTopBanner = decisionError ? (
+    <div
+      role="alert"
+      data-testid="credit-error-banner"
+      className="credit-error-banner"
+    >
+      <span className="credit-error-banner__icon" aria-hidden>⚠</span>
+      <span className="credit-error-banner__text">
+        <b>决策操作失败</b>
+        <span className="credit-error-banner__detail">{decisionError}</span>
+      </span>
+      <button
+        type="button"
+        className="credit-error-banner__retry"
+        onClick={() => runDecision({ mockMode: false })}
+      >
+        重试
+      </button>
+      <button
+        type="button"
+        className="credit-error-banner__dismiss"
+        onClick={() => setDecisionError(null)}
+        aria-label="关闭错误提示"
+      >
+        ×
+      </button>
+    </div>
+  ) : null;
+
   if (!started) {
     return (
       <EvidenceProvider
@@ -243,6 +273,7 @@ export default function CreditWorkspace() {
           data-scanned="no"
           data-credit-started="no"
         >
+          {creditTopBanner}
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
@@ -268,6 +299,7 @@ export default function CreditWorkspace() {
       data-credit-started="yes"
       data-scanned={scanned ? "yes" : "no"}
     >
+      {creditTopBanner}
       <TopBar
         mode={mode}
         onModeChange={setMode}

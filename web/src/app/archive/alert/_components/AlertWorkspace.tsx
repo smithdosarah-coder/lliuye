@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
   ALERT_SESSION,
@@ -302,6 +303,34 @@ export default function AlertWorkspace() {
           data-alert-started="no"
           data-testid="alert-workspace"
         >
+          {scanError ? (
+            <div
+              className="alert-live-fail-banner"
+              role="alert"
+              data-testid="alert-scan-error-banner"
+            >
+              <span className="alert-live-fail-banner__icon" aria-hidden>⚠️</span>
+              <span className="alert-live-fail-banner__text">
+                <b>客户扫描失败</b>
+                <span className="alert-live-fail-banner__detail">{scanError}</span>
+              </span>
+              <button
+                type="button"
+                className="alert-live-fail-banner__retry"
+                onClick={triggerPrimaryScan}
+              >
+                重试
+              </button>
+              <button
+                type="button"
+                className="alert-live-fail-banner__dismiss"
+                onClick={() => setScanError(null)}
+                aria-label="关闭横幅"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
           <AlertEmptyState
             onPrimary={triggerPrimaryScan}
             onSecondary={triggerSecondaryScan}
@@ -326,6 +355,35 @@ export default function AlertWorkspace() {
       data-phase={phase}
       data-scan-session-id={scanSessionId}
     >
+      {scanError && !liveFail ? (
+        <div
+          className="alert-live-fail-banner"
+          role="alert"
+          data-testid="alert-scan-error-banner"
+        >
+          <span className="alert-live-fail-banner__icon" aria-hidden>⚠️</span>
+          <span className="alert-live-fail-banner__text">
+            <b>客户扫描失败</b>
+            <span className="alert-live-fail-banner__detail">{scanError}</span>
+          </span>
+          <button
+            type="button"
+            className="alert-live-fail-banner__retry"
+            onClick={triggerPrimaryScan}
+          >
+            重试
+          </button>
+          <button
+            type="button"
+            className="alert-live-fail-banner__dismiss"
+            onClick={() => setScanError(null)}
+            aria-label="关闭横幅"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+
       {liveFail ? (
         <div
           className="alert-live-fail-banner"
@@ -1297,8 +1355,19 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
 function AlertComposer() {
   const [value, setValue] = useState("");
   const hints = ["看 top 红档", "行业切片 · 建材", "升级触达", "下发工单", "对比上周"];
+  // pin-drop · 拖钉到 composer 时插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button

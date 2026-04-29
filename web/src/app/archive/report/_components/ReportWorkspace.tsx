@@ -346,6 +346,12 @@ export function ReportWorkspace() {
           onRetry={() => triggerV16Fill()}
           onDismiss={() => setLiveFailErr(null)}
         />
+        {/* B-banner · LaunchBar errMsg 提到 workspace 顶部 · 与 ReportLiveFailBanner 同位 */}
+        <ReportLaunchErrorBanner
+          errMsg={errMsg}
+          onRetry={() => triggerV16Fill()}
+          onDismiss={() => setErrMsg(null)}
+        />
         <ReportMockBanner started={started} mode={mode} />
         <ReportLaunchBar
           started={started}
@@ -1643,26 +1649,80 @@ function ReportLaunchBar(p: {
         </div>
       )}
 
-      {/* 错误 banner */}
-      {p.errMsg ? (
-        <div
-          role="alert"
-          data-testid="report-error-banner"
-          style={{
-            flex: "1 0 100%",
-            fontFamily: "var(--cjk)",
-            fontSize: 12,
-            color: "#C85A3C",
-            padding: "8px 12px",
-            background: "rgba(200, 90, 60, 0.08)",
-            border: "1px solid rgba(200, 90, 60, 0.32)",
-            borderRadius: 8,
-          }}
-        >
-          ⚠ {p.errMsg}
-        </div>
-      ) : null}
+      {/* B-banner · errMsg 已提到 workspace 顶部 ReportLaunchErrorBanner · 此处不再 inline */}
+    </section>
+  );
+}
 
+/* B-banner · launch 错误 (上传 / 生成 / 导出 / refine) · 顶部贴边显式
+   · 与 ReportLiveFailBanner 区分: live banner 是 fallback warning · 此为 actionable error */
+function ReportLaunchErrorBanner(p: {
+  errMsg: string | null;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  if (!p.errMsg) return null;
+  return (
+    <section
+      data-testid="report-launch-error-banner"
+      role="alert"
+      aria-live="assertive"
+      style={{
+        margin: "16px 0",
+        padding: "12px 16px",
+        background: "rgba(200, 90, 60, 0.10)",
+        border: "1px solid rgba(200, 90, 60, 0.45)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        fontFamily: "var(--cjk)",
+        fontSize: 13,
+        color: "var(--ink)",
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 18 }}>⚠️</span>
+      <span style={{ flex: 1 }}>
+        <strong>报告操作失败</strong>
+        <br />
+        <span style={{ fontSize: 11, color: "var(--ink-65)", fontStyle: "italic" }}>
+          {p.errMsg}
+        </span>
+      </span>
+      <button
+        type="button"
+        data-testid="report-launch-error-retry"
+        onClick={p.onRetry}
+        style={{
+          padding: "6px 14px",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          background: "var(--t-report)",
+          color: "var(--chalk)",
+          border: "none",
+          borderRadius: "var(--r-md)",
+          cursor: "pointer",
+        }}
+      >
+        重试
+      </button>
+      <button
+        type="button"
+        data-testid="report-launch-error-dismiss"
+        onClick={p.onDismiss}
+        aria-label="关闭"
+        style={{
+          padding: "4px 10px",
+          fontFamily: "var(--cjk)",
+          fontSize: 16,
+          background: "transparent",
+          color: "var(--ink-65)",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
     </section>
   );
 }
