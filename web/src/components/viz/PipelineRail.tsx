@@ -23,7 +23,7 @@ export function PipelineRail({
 }) {
   return (
     <ol className="relative space-y-0">
-      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-[var(--color-line)]" />
+      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-[var(--ink-08)]" />
       {stages.map((s, i) => {
         const status: Status = error
           ? "error"
@@ -39,15 +39,15 @@ export function PipelineRail({
               <span
                 className={cn(
                   "text-[13px] transition-colors",
-                  status === "done" && "text-[var(--color-ink)]",
-                  status === "active" && "text-[var(--color-ink)] font-medium",
-                  status === "pending" && "text-[var(--color-ink-muted)]",
-                  status === "error" && "text-[var(--color-ember)]"
+                  status === "done" && "text-[var(--ink)]",
+                  status === "active" && "text-[var(--ink)] font-medium",
+                  status === "pending" && "text-[var(--ink-48)]",
+                  status === "error" && "text-[var(--t-alert)]"
                 )}
               >
                 {s.label}
               </span>
-              <span className="font-tabular text-[10px] tracking-wider text-[var(--color-ink-muted)]">
+              <span className="font-tabular text-[10px] tracking-wider text-[var(--ink-48)]">
                 {String(i + 1).padStart(2, "0")}
               </span>
             </div>
@@ -59,15 +59,15 @@ export function PipelineRail({
 }
 
 function StageDot({ status }: { status: Status }) {
-  const base = "relative w-[15px] h-[15px] rounded-full border flex items-center justify-center z-10 bg-[var(--color-paper-raised)]";
+  const base = "relative w-[15px] h-[15px] rounded-full border flex items-center justify-center z-10 bg-[var(--chalk)]";
   if (status === "done") {
     return (
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        className={cn(base, "border-[var(--color-sage)] bg-[var(--color-sage)]")}
+        className={cn(base, "border-[var(--safe)] bg-[var(--safe)]")}
       >
-        <svg width="8" height="8" viewBox="0 0 8 8" className="text-[var(--color-paper)]">
+        <svg width="8" height="8" viewBox="0 0 8 8" className="text-[var(--chalk)]">
           <path d="M1.5 4L3.2 5.7L6.5 2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </motion.div>
@@ -75,9 +75,9 @@ function StageDot({ status }: { status: Status }) {
   }
   if (status === "active") {
     return (
-      <div className={cn(base, "border-[var(--color-brass)]")}>
+      <div className={cn(base, "border-[var(--accent)]")}>
         <motion.div
-          className="w-[7px] h-[7px] rounded-full bg-[var(--color-brass)]"
+          className="w-[7px] h-[7px] rounded-full bg-[var(--accent)]"
           animate={{ opacity: [1, 0.3, 1], scale: [1, 1.2, 1] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -85,7 +85,7 @@ function StageDot({ status }: { status: Status }) {
     );
   }
   if (status === "error") {
-    return <div className={cn(base, "border-[var(--color-ember)] bg-[var(--color-ember)]")} />;
+    return <div className={cn(base, "border-[var(--t-alert)] bg-[var(--t-alert)]")} />;
   }
-  return <div className={cn(base, "border-[var(--color-line-strong)]")} />;
+  return <div className={cn(base, "border-[var(--ink-14)]")} />;
 }
