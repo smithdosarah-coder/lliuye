@@ -69,7 +69,7 @@ RM (客户经理)
 ### 2.4 设计层
 
 - **Letterpress legacy color 仍活**: `web/src/lib/agents.ts:46-47,49,73,86,113` 用 `--color-ink` `--color-brass` · 违 §7 红线
-- **6 spec doc 都标 "workspace-state-protocol.md (待 A2 worker 产出)"**: 协议文件不存在 · 6 spec 全 stale
+- **6 spec doc 都标 "workspace-state-protocol.md (待 A2 worker 产出)"**: 协议 v1.0 实**已存在** · 但 6 spec 仍标 stale → 任务 = 6 spec 同步引用 + worker-A1 review protocol v1.0 完整性
 
 ### 2.5 文档层
 

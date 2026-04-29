@@ -43,17 +43,17 @@ Week 6 · 主 CLI 整合
 
 ## 3. 每 worker 详细 charter
 
-### worker-A1 · 写 5 契约
+### worker-A1 · 写 / 完善 5 契约
 
 - **worktree**: `D:\claude code\work-A1-contracts` (新建 · 派生自 chore/l0-infra)
 - **branch**: `feat/phase-a1-contracts`
 - **onboarding doc**: `docs/onboarding/A1-contracts.md` (主 CLI 写)
-- **交付**:
-  - `docs/contracts/workspace-state-protocol.md` (4 gate · agent session shape extension)
-  - `docs/contracts/agent-naming-ssot.md` (8 列单表 · 6 agent 全列)
-  - `docs/contracts/sse-envelope.md` (event 名 + done payload 共形)
-  - `docs/contracts/llm-prompt-contract.md` (8 段: safety/evidence-first/agent-role/tool-use/output-schema/self-check/few-shot/evaluation-hook)
-  - `docs/arch/instruction-source-of-truth.md` (优先级: contracts > root CLAUDE.md > scoped child > worker onboarding > decisions-log)
+- **交付** (3 完善 + 2 新建):
+  - `docs/contracts/workspace-state-protocol.md` ✅ **v1.0 已存在** (Stage B 时建) · worker-A1 任务 = review v1.0 完整性 + 6 spec 同步引用 (6 spec 都标"待 A2 worker 产出" stale · 改为 "v1.0 已 ratified · 见 §X")
+  - `docs/contracts/agent-naming-ssot.md` 🆕 新建 (8 列单表 · 6 agent 全列)
+  - `docs/contracts/sse-envelope.md` 🆕 新建 (event 名 + done payload 共形)
+  - `docs/contracts/llm-prompt-contract.md` 🆕 新建 (8 段: safety/evidence-first/agent-role/tool-use/output-schema/self-check/few-shot/evaluation-hook)
+  - `docs/arch/instruction-source-of-truth.md` 🆕 新建 (优先级: contracts > root CLAUDE.md > scoped child > worker onboarding > decisions-log)
 - **DONE signal**: `WORKER-A1-CONTRACTS-DONE`
 - **Codex 介入**: 插入点 1 (pre-dispatch independent draft) + 插入点 2 (post-DONE peer review)
 

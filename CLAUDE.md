@@ -172,6 +172,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
+- `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
