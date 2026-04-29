@@ -55,6 +55,14 @@ from shared.llm_caller.audit import (
     with_audit,
 )
 
+# Phase A worker-A2 · M4 · prompt composition primitives (无业务 prompt 文本)
+from shared.llm_caller.prompts import (
+    build_chat_messages,
+    truncate_for_context,
+    with_few_shot,
+    with_json_schema_hint,
+)
+
 __all__ = [
     "AuditHandle",
     "DEFAULT_FALLBACK_CHAIN",
@@ -65,11 +73,15 @@ __all__ = [
     "ProviderResult",
     "ProviderUnavailableError",
     "QwenProvider",
+    "build_chat_messages",
     "chat_json_with_fallback",
     "chat_with_fallback",
     "extract_audit_extras",
     "get_provider",
     "list_providers",
     "record_llm_call",
+    "truncate_for_context",
     "with_audit",
+    "with_few_shot",
+    "with_json_schema_hint",
 ]
