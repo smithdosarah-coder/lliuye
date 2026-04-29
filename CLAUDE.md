@@ -193,7 +193,11 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
-- `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
+- `shared/llm_caller/` — **Phase A worker-A2 (2026-04-29) · LLM caller 唯一化层** · 5 模块: `provider.py` (Protocol + 4 providers + registry · `client.py` (LLMCaller facade) · `retry.py` (fallback chain) · `audit.py` (per-call hook) · `prompts.py` (string utilities) · 详 §3.6
+- `shared/llm/` — Stage E.3 (2026-04-28) 旧目录 · Phase A 后改 re-export shim · 1 production import 不破 (`shared/kb_scan/impls/channel_signal.py:311`) · 新代码用 `from shared.llm_caller import ...`
+- `shared/sse_envelope.py` — Phase A worker-A2 · backend SSE event 共形 helper (make_stage / make_section / make_done / make_error / encode_event + `CHANNEL_PANEL_KEYS` per workspace-state-protocol §4 · 6 agent A4 worker 后续迁此入口)
+- `shared/prompts/contract.py` — Phase A worker-A2 · 8 段 LLM prompt template skeleton (safety/evidence/role/tools/schema/self-check/few-shot/eval-hook · pending docs/contracts/llm-prompt-contract.md by worker-A1)
+- `tests/shared/test_llm_caller.py` + `test_sse_envelope.py` — Phase A worker-A2 pytest coverage (69 tests · 含 backward-compat shim 验证)
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
