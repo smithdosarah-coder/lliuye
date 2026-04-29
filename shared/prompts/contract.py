@@ -237,15 +237,19 @@ def assemble(
         schema_hint: output_schema_block 的 schema_hint
         examples:    few_shot_block 的 examples
         eval_id:     evaluation_hook_block 的 eval_id
-        strict:      True 时若任一 section 仍 _PENDING_A1_SPEC 抛 PendingA1SpecError ·
-                      False (默认) 时跳过 placeholder section 静默拼接
+        strict:      行为模式 (V2 fix issue 4):
+                      · False (默认): placeholder section 静默 skip · 仅返 ratified 内容
+                      · True: placeholder 仍 skip · 但有任一 placeholder 时抛
+                        PendingA1SpecError · 防 A4 worker 在 A1 spec 未 landed 时
+                        误用本 module 注入空 prompt
 
     Returns:
-        str · 8 段 \\n\\n 拼接 · 空 section 跳过.
+        str · 已 ratify section \\n\\n 拼接 · 空段 / placeholder 段全 skip.
+        当前所有 8 段都是 placeholder · A1 spec landed 前 strict=False 默认返 "".
 
     Raises:
-        PendingA1SpecError: strict=True 且任一启用 section 是 placeholder · 防 A4
-            worker 在 A1 spec 未 landed 时误用本 module 注入空 prompt.
+        PendingA1SpecError: strict=True 且任一启用 section 仍 placeholder · 显式
+            阻止 A4 worker 接入空 prompt.
     """
     sections: list[tuple[str, str]] = [
         ("safety", safety_block()),
@@ -264,9 +268,9 @@ def assemble(
         if not content:
             continue
         if _PENDING_A1_SPEC in content:
+            # V2 fix issue 4 · placeholder 永远 skip · 不进 output (无论 strict 与否)
             pending.append(name)
-            if strict:
-                continue
+            continue
         parts.append(content)
 
     if strict and pending:
