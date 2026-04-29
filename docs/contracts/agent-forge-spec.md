@@ -331,4 +331,4 @@ const [dataSourceMode, setDataSourceMode] = useState<"mock" | "live">("mock");
 - Q-040 (MAX_ROWS=500→50000 fix · Wave 5 mock-realism-upgrade 立项): `docs/handoff/decisions-log.md` Q-040
 - Wave 2 8b onboarding: `docs/onboarding/batch-3-code-arch-agent2-hardening.md`
 - ReadOnly mock: `web/public/mock/riskctrl_ruleset.json` (113 行 v1.0-readonly-mock · 5 条 rule × 完整 backtest 字段)
-- Workspace state: `docs/contracts/workspace-state-protocol.md` (待 A2 worker)
+- Workspace state: `docs/contracts/workspace-state-protocol.md` v1.1 (Phase A worker-A1 ratified · 4 useState gate + AgentSession shape 见 §10)

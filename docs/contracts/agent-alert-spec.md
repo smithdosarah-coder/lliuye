@@ -332,4 +332,4 @@ const [view, setView] = useState<"by_customer" | "by_rule" | "by_dept">("by_cust
 - Master plan: `docs/contracts/master-execution-plan-2026-04-27.md` § Stage C.3
 - runtime_dump 产物: `evaluation/manual/4_20260419.yaml` (894 行 · 100 客户 baseline)
 - alert dashboard stub: `docs/design/alert-dashboard-stub.md` (UI 实装参考)
-- Workspace state: `docs/contracts/workspace-state-protocol.md` (待 A2 worker)
+- Workspace state: `docs/contracts/workspace-state-protocol.md` v1.1 (Phase A worker-A1 ratified · 4 useState gate + AgentSession shape 见 §10)
