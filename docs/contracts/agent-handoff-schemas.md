@@ -120,7 +120,117 @@ Step 2 conflict scan (`docs/audit/conflict-register-v1.md`) Cat 0 验证 6 Agent
 
 ## 1. 链路 1 · Agent1.candidate_company → Agent6.upload_intent
 
-**TBD · §1 在 Signal: `WORKER-A6-CHAIN-1-SPECCED` commit 中补充。**
+**目的**: RM 在 Agent1 ("拓客") workspace 选中一个候选企业 → 点 "起尽调报告" → Agent6 接收 `upload_intent` 创建 report 容器 → 在 RM 端打开 "上传材料" UI · 这是 north-star §1.4 闭环路径的第 1 跳: `Agent1 拓客 → Agent6 出尽调报告`。
+
+### 1.1 触发与时序
+
+| # | 谁 | UI 动作 | 服务端 | 落地 |
+|---|---|---|---|---|
+| 1 | RM | 在 `/archive/channel` 候选清单点 "起尽调报告" button | — | `CandidateProfile` 已存在 (Agent1 上一步落 `data/handoff/channel/<session>/<profile_id>.json`) |
+| 2 | frontend | `POST /api/report/upload_intent` (新 endpoint · spec 仅 · A4-report 子 worker 实装) | Agent6 接收 payload | — |
+| 3 | Agent6 | 校验 payload → 创建 `report_id` + 初始化 v16 pipeline 容器 | 200 + `{report_id, upload_url}` | 写 `data/handoff/channel_to_report/<report_id>.json` (Agent6 端 archive) |
+| 4 | frontend | 接 `report_id` → 切到 `/archive/report` workspace · 进入 `materials` 4 gate state · 触发 file picker | — | — |
+
+**同步 / 异步**: HTTP 同步 (非 SSE) — 仅创容器 · 不跑 LLM 生成。生成走后续的 `/api/report/v16/fill` SSE。
+
+**失败回退**:
+- 4xx (校验失败): frontend 显 `live-fallback-banner-spec.md` §2 规则 1 banner · 不静默 fallback mock
+- 5xx / network: 同上 + 显 `[重试]` button
+
+### 1.2 传输信封
+
+```http
+POST /api/report/upload_intent HTTP/1.1
+Content-Type: application/json
+Cookie: <RM session cookie · 必带>
+
+{
+  "schema_version": "1.0",
+  "intent_type": "candidate_to_report",
+  "source_agent": "channel",
+  "target_agent": "report",
+  "session_id": "<UUID v4 · Agent1 channel session>",
+  "candidate": { /* CandidateUploadIntent · §1.3 */ },
+  "trigger_at": "2026-04-29T10:30:00Z",
+  "rm_user_id": "<RM 工号 · ≤64 char>"
+}
+```
+
+**ID 约定** (per `field-naming.md` §四):
+- `session_id`: 严格 UUID v4 (Agent1 服务端 `/api/channel/run` 起的 channel session)
+- `report_id` (响应): 不在请求里 · 由 Agent6 生成 · 格式 `report_<company_slug>_<unix_ts>` (现有 v16 pipeline 约定 · `agent_report/api.py` L360)
+
+### 1.3 payload schema · `CandidateUploadIntent`
+
+| 字段 | 类型 | required | 来源 | 说明 |
+|---|---|---|---|---|
+| `profile_id` | str (UUID v4) | ✓ | `CandidateProfile.profile_id` | Agent1 候选企业 ID · 用于回溯 channel session |
+| `company_name` | str | ✓ | `CandidateProfile.enterprise_profile.company_name` | 工商注册全名 |
+| `unified_credit_code` | Optional[str] | — | `CandidateProfile.uscc` | 18 位 USCC · 可空 (Agent1 mock / Tavily 来源可能未抓到) |
+| `business_line` | enum | ✓ | `CandidateProfile.business_line` | `"corporate" \| "inclusive" \| "retail" \| "reserved"` (per `field-naming.md` §3.1) |
+| **`match_score`** | int (0-100) | ✓ | `CandidateProfile.match_score` | **Cat 5 命名 SSOT · 钉死字段名** · 见 §1.4 |
+| `signal_count` | Optional[int] | — | `CandidateProfile.signal_count` | Agent1 信号总条数 (RM 选 candidate 时的判断依据 · Agent6 不消费) |
+| `signal_types` | Optional[list[str]] | — | `CandidateProfile.signal_types` | 去重排序信号类型 |
+| `industry` | Optional[str] | — | `CandidateProfile.industry` | 国标行业 / Agent1 抓的行业 |
+| `region` | Optional[str] | — | `CandidateProfile.region` | 经营地区 / 省份 |
+| `recommended_products` | Optional[list[str]] | — | `CandidateProfile.recommended_products` | Agent1 产品推荐 (informational · Agent6 不消费 · Agent3 后链消费) |
+| `data_sources` | Optional[list[str]] | — | `CandidateProfile.data_sources` | 来源标签 (e.g., `"内部 Mock 客户库"` / `"Tavily"`) |
+
+**字段不消费规则**:
+- Agent6 消费: `profile_id` / `company_name` / `unified_credit_code` / `business_line` / `industry` / `region` (用于初始化 report 容器 + KB 优先级)
+- Agent6 **不**消费: `match_score` / `signal_count` / `signal_types` / `recommended_products` / `data_sources` (这些是 Agent1 内部判断 · 留给 Agent3 后链)
+- `match_score` 仅作 metadata 存于 `data/handoff/channel_to_report/<report_id>.json` · 在最终 `report_json` 落 `report_json.metadata.upstream_match_score` (供 Agent3 在 §2 决策时回看 Agent1 信号强度)
+
+### 1.4 命名 SSOT · `match_score` vs `similarity` 对齐 (Cat 5)
+
+`docs/audit/sub-agent-step2-round1/data.md` §Cat 5 指出三方分裂:
+
+| 面 | 字段名 | 类型 | 范围 | 来源 |
+|---|---|---|---|---|
+| backend Python | `match_score` | int | 0-100 | `agent_channel/candidate_profile.py:78` |
+| frontend mock TS | `similarity` | number (float) | 0.0-1.0 | `web/src/lib/mock/agent-channel-sessions.ts:53,132,297+` |
+| frontend ScoutCandidate type | `similarity` | number (float) | 0.0-1.0 | 同上 |
+
+**统一方案** (本契约 v1.0 钉死):
+
+1. **handoff payload 字段名 = `match_score` (int 0-100)** — 跨 Agent 边界一律用此
+2. frontend cosmetic 显示可保留 `similarity` 0-1 表达 · 但**只在 UI 展示层** · 计算公式: `similarity = match_score / 100.0`
+3. frontend mock fixture (`agent-channel-sessions.ts`) 在 unified platform pivot 后续清理时 **必须迁** 为 `match_score: int` 字段 · 由 worker-A3 (Channel pilot) 在 `WORKER-A3-CHANNEL-PILOT-DONE` 内同步处理 · 不属本契约 scope
+4. CI lint (worker-A1 SSOT lint 已建): grep `\bsimilarity\s*:` 在 handoff JSON / `data/handoff/` / `data/mock/handoff/` 命中 → 报错
+
+**为什么选 match_score 而非 similarity**: backend 真实计算 (`_signal_score_to_match` `agent_channel/candidate_profile.py:139` 的归一化逻辑) 落地是 int 0-100 · 是 source of truth · frontend `similarity 0-1 float` 是 cosmetic artifact (从早期 mock 留下的浮点风格) · 反向同步成本更低。
+
+### 1.5 与已有 `channel_to_credit_handoff.md` v1.0 的关系
+
+`docs/contracts/channel_to_credit_handoff.md` v1.0 (2026-04-18) 定义的是 **Agent1 → Agent3 直跳** (绕过 Agent6) · 这本身违 north-star §1.4 闭环路径 (Agent1 → Agent6 → Agent3) · 是产品形态走歪的产物。
+
+**本契约 (v1.0) 的处理**:
+
+| 场景 | 主路径 (本契约链路 1) | fast-path (channel_to_credit_handoff.md) |
+|---|---|---|
+| RM 给候选企业起新尽调 | ✓ Agent1 → Agent6 → Agent3 (闭环) | ✗ |
+| RM 已有现成 ReportJSON · 复跑授信打分 | ✗ | ✓ Agent1 → Agent3 (跳过 Agent6) |
+| RM 候选数据已含全部 Agent6 必需字段 (≥ M1 完整度) | ✗ | ⚠️ 仅 demo 场景 · 不推荐生产 |
+
+`channel_to_credit_handoff.md` 在 Phase B 商业化推进期可能被 **deprecated** · 由本契约 §1 + §2 双跳替代 · 但当前 (2026-04-29) **保留** 作 Phase A 现状。Phase B-3 端到端 demo chain 启动前 · 主 CLI 决策是否 deprecate · 走 `docs/contracts/shared-change-protocol.md` RFC 流程。
+
+### 1.6 消费侧约束 (Agent6)
+
+Agent6 接 `POST /api/report/upload_intent` 必须:
+
+1. ✓ 校验 `profile_id` 是合法 UUID v4 (regex per `field-naming.md` §四)
+2. ✓ 校验 `company_name` 非空 (≥ 2 char)
+3. ✓ 校验 `business_line` 在 4 enum 内 · 不在则 `VALIDATION_FAILED`
+4. ✓ 检查 `data/handoff/channel/<session_id>/<profile_id>.json` 存在 (溯源 Agent1 上游) · 不存在则 `NOT_FOUND` 但**不**阻断 (allowlist: 直接来自 mock dropdown 的 demo session 可绕过)
+5. ✓ 创建 `report_id` 并响应 `{schema_version: "1.0", report_id: "...", upload_url: "/archive/report?report_id=..."}`
+6. ✓ 落 `data/handoff/channel_to_report/<report_id>.json` (含原 `CandidateUploadIntent` payload + `created_at` 时间戳 · 用于 Phase B-3 demo chain 复盘)
+7. ❌ 不读 `match_score` / `signal_count` / `recommended_products` 用于报告生成 — 严防 Agent6 受 Agent1 启发式分污染
+
+**降级**: 上述 4 (溯源检查) 失败 → log warning · 不阻断;1/2/3 失败 → `VALIDATION_FAILED` 400。
+
+### 1.7 fixture · `data/mock/handoff/agent1-to-6.json`
+
+见 §1.7 配套 fixture · 一个 "海钻智造科技 · 工业软件 SaaS" 真实形态样例 (脱敏再造 · 满足 §6 反结果导向 5 原则)。
 
 ## 2. 链路 2 · Agent6.report_json → Agent3.decision_input
 

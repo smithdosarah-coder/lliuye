@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "intent_type": "candidate_to_report",
+  "source_agent": "channel",
+  "target_agent": "report",
+  "session_id": "7f4c7a2d-c2f5-4c8e-9d2a-b3e6f1a0c9d7",
+  "trigger_at": "2026-04-29T10:30:00Z",
+  "rm_user_id": "wangzhe-east-04",
+  "candidate": {
+    "profile_id": "550e8400-e29b-41d4-a716-446655440000",
+    "company_name": "杭州智云工业软件有限公司",
+    "unified_credit_code": "91330106MA28GZ4QXK",
+    "business_line": "corporate",
+    "match_score": 86,
+    "signal_count": 7,
+    "signal_types": ["投融资", "招聘", "招投标"],
+    "industry": "工业软件 SaaS",
+    "region": "浙江省杭州市",
+    "recommended_products": ["科创信用贷", "并购贷"],
+    "data_sources": ["内部 Mock 客户库", "Tavily"]
+  },
+  "_meta_for_reviewers": {
+    "_note_to_reviewers": "本 fixture 满足反结果导向 5 原则 (CLAUDE.md §3.5):",
+    "_principle_1_blind_test": "PM 不预知 fixture 内坑 (本 fixture 故意未填 employee_count / registered_capital · 模拟 Agent1 mock 的常见缺失)",
+    "_principle_2_difficulty": "中等档 · match_score 86 (中高匹配 · 但需 Agent6 跑材料才能进入 Agent3) · signal_count 7 (中等多样性)",
+    "_principle_3_real_anchor": "工业软件 SaaS 行业锚定真实科创板 / 创业板上市公司 (e.g., 用友 / 鼎捷 / 赛意) 的 ARR + 投融资节奏",
+    "_principle_4_desensitized": "company_name + uscc 全脱敏 · 改名改后缀 · 量级保持 (1000-2000 万营收 + Pre-A) 避免直接复用真实存续企业",
+    "_principle_5_env_boundary": "candidate 字段是 Agent1 已抓的 · Agent6 收到后必须自行 prompt RM 上传材料 · fixture 不替 Agent6 mock 一个完整的 enterprise_profile",
+    "_drop_when_consumed": "Agent6 子 worker 实装 /api/report/upload_intent 时 · 删 _meta_for_reviewers 字段 · 仅保留 7 个真字段"
+  }
+}
