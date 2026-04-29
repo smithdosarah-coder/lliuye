@@ -40,7 +40,15 @@ from shared.llm_caller.provider import (
     list_providers,
 )
 
+# Phase A worker-A2 · M2 · retry / fallback chain layer
+from shared.llm_caller.retry import (
+    DEFAULT_FALLBACK_CHAIN,
+    chat_json_with_fallback,
+    chat_with_fallback,
+)
+
 __all__ = [
+    "DEFAULT_FALLBACK_CHAIN",
     "DashScopeProvider",
     "DeepSeekProvider",
     "LLMProvider",
@@ -48,6 +56,8 @@ __all__ = [
     "ProviderResult",
     "ProviderUnavailableError",
     "QwenProvider",
+    "chat_json_with_fallback",
+    "chat_with_fallback",
     "get_provider",
     "list_providers",
 ]
