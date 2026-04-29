@@ -18,20 +18,20 @@ export function Card({
   return (
     <section
       className={cn(
-        "relative bg-[var(--color-paper-raised)] border border-[var(--color-line)]",
+        "relative bg-[var(--chalk)] border border-[var(--ink-08)]",
         className
       )}
     >
       {(title || eyebrow || action) && (
-        <header className="flex items-end justify-between gap-3 px-5 py-4 border-b border-[var(--color-line)]">
+        <header className="flex items-end justify-between gap-3 px-5 py-4 border-b border-[var(--ink-08)]">
           <div>
             {eyebrow && (
-              <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--color-brass)] uppercase">
+              <div className="text-[10px] font-tabular tracking-[0.25em] text-[var(--accent)] uppercase">
                 {eyebrow}
               </div>
             )}
             {title && (
-              <h3 className="mt-0.5 font-display text-[17px] text-[var(--color-ink)] leading-tight">
+              <h3 className="mt-0.5 font-display text-[17px] text-[var(--ink)] leading-tight">
                 {title}
               </h3>
             )}
@@ -57,21 +57,21 @@ export function Stat({
 }) {
   return (
     <div>
-      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--color-ink-muted)] uppercase">
+      <div className="text-[10px] font-tabular tracking-[0.2em] text-[var(--ink-48)] uppercase">
         {label}
       </div>
       <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="font-display font-tabular text-[28px] text-[var(--color-ink)] leading-none">
+        <span className="font-display font-tabular text-[28px] text-[var(--ink)] leading-none">
           {value}
         </span>
         {unit && (
-          <span className="text-[12px] text-[var(--color-ink-muted)] font-tabular">
+          <span className="text-[12px] text-[var(--ink-48)] font-tabular">
             {unit}
           </span>
         )}
       </div>
       {hint && (
-        <div className="mt-1 text-[11px] text-[var(--color-ink-muted)]">{hint}</div>
+        <div className="mt-1 text-[11px] text-[var(--ink-48)]">{hint}</div>
       )}
     </div>
   );
