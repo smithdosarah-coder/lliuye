@@ -1,0 +1,161 @@
+# State Snapshot · Reset 工程现状
+
+> 本文件 timestamped 段落 append-only · 主 CLI 每 PM checkpoint / worker DONE / 阶段转换 / **每次迭代** 时必须更新。
+
+## 更新硬规 (PM 2026-04-29 立)
+
+**Reset 工程任何迭代 · 无论大小 · 必须同步更新本文件**。
+
+**触发清单**:
+- 任何 worker DONE signal cherry-pick → 主 CLI 同 commit 加段
+- 任何 codex review 出 verdict → 主 CLI 写 audit doc 时同更
+- 任何 PM 拍板 / decisions-log Q-NNN → 主 CLI 同更
+- 任何 cleanup batch / fix / refactor commit → 主 CLI 同更
+- 任何阶段转换 (Phase A → Phase B / Week N → Week N+1)
+
+**段格式**:
+```markdown
+## YYYY-MM-DD HH:MM · <事件 一行>
+
+### What happened
+- <list>
+
+### Triggered by
+- <PM / worker-XX / codex review / scheduled / 自发>
+
+### State change (delta)
+- <key change · old → new>
+
+### Next
+- <implied next 1-2 step>
+```
+
+**违反 = stop the line**: 任何触动产品 / 架构 / 决策的 commit 未同步本文件 · 主 CLI 必须 amend / 补 commit。
+
+**意义**: 本文件 + decisions-log = 长周期工程的 ground truth · compression / 新 CLI / 未来的我 全靠它还原。本文件漂 = reset 工程迷失。
+
+---
+
+---
+
+## 2026-04-29 · Reset 启动 · 由当前 main CLI handoff (本次迭代 · 遵守 §14.1 状态更新硬规)
+
+### What happened
+- 当前主 CLI 完成 reset 工程承接文档全集落地
+- 写 8 份新 doc · 改 4 份 doc · 加 1 个桌面启动脚本
+- PM 加 1 条新硬规 (§14.1 · state-snapshot 必须每迭代同步更新)
+
+### Triggered by
+- PM 2026-04-29 决议进 reset 长周期工程 + 加状态更新硬规
+
+### State change (delta)
+- 文档:`RESET_MASTER_PLAN.md` 新建 · `docs/reset/{north-star, phase-a-charter, phase-b-charter, codex-mesh-protocol, state-snapshot, anti-bias-rules}.md` 新建 · `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_2026-04-29.md` 新建
+- CLAUDE.md: 加 §14 (新 session 必读 + compression 恢复) + §14.1 (state-snapshot 实时更新硬规)
+- 桌面: `C:\Users\Mr.S\Desktop\start-reset-mesh.bat` 一键启 main + A1 + A2 worker
+- decisions-log: 待新 CLI 接手后写 PM 5 拍板 Q-NNN entries
+
+### Next
+- 当前 CLI commit `RESET-HANDOFF-PREPARED` + push + ECS sync · 然后 graceful shutdown
+- PM 双击桌面 start-reset-mesh.bat → 3 cmd window 启 → 在 main CLI window 启 claude → paste resume 提示
+- 新 CLI 走 NEW-MAIN-CLI-RESUMED 流程 verify
+
+---
+
+
+
+### 已完 (Phase B Cleanup batches 0-6 + 散修)
+
+```
+b73b15c security(redact): 批 0 · ECS handoff doc + decisions-log secret redact
+523efd0 fix(demo): 批 2 · 4 demo坑修复 (forceMock + silent fallback × 3)
+e2ec0c5 chore(cleanup): 批 1 · delete 38 dead files + agent-channel-session refactor
+99650a9 refactor(routes): 批 4 · delete 8 dead backend routes
+ddb565b refactor(framework): 批 5 · Gradio + form_filler + narrative_pipeline 退役
+40d8b2c docs(sync): 批 6 · 11 处文档漂移修复
+37ff24a chore(workspace): B-2 · dropdown click-to-fire across 4 workspaces
+78d28d6 fix(workspace): B-banner · inline error → top banner (4 workspaces)
+94e2e88 fix(report): B-cta · Report 删模板库 placeholder + 收紧 launch buttons
+a9370a3 fix(pin-ref): B-pin · pin thumbnail real e2e fix
+8f8e378 fix(report): EmptySkeleton 撑满 viewport · 修底部空白
+97663e7 fix(report): handleApplyLaunch 真 fire SSE · 不再只切 UI 留主列空白
+```
+
+**安全**:
+- 3 LLM key (DeepSeek / Tavily / DashScope) rotated 2026-04-29 · ECS .env 同步 · backend restart
+- handoff doc + decisions-log:1272 + :2364 redacted
+- ECS SSH password / Cloudflare tunnel / 5 demo passwords 仍未 rotate (PM 决议: 演示后再处置)
+
+**production**: ECS 139.196.30.69 · domain liuye.me · main 分支 · 4 services active (nginx / cloudflared / lliuye-frontend / lliuye-backend)
+
+### 在跑 (Step 2 conflict scan · 中断状态)
+
+主 CLI 在派 5 sub-agent + Codex Round 1 时 · PM 切换到本文档 reset planning · 已收到的:
+- ✅ 架构层 sub-agent (类 1/2/3/4/11) — 7 处 dirty 找到
+- ✅ 数据层 sub-agent (类 5/12) — 数据 mock 形态分层 OK · evaluation 6 yaml 对齐
+- ✅ 指令层 sub-agent (类 1/6/7) — 3 套 LLM caller 并行 + 多个 active decision 未回写 root CLAUDE.md
+- ✅ 命名路由层 sub-agent (类 8/9/10/16) — `compliance` vs `compli` dual-id 全栈分裂 + 4 角色 vs 5 角色文案漂
+
+**未收 / 中断**:
+- ❌ 生产同步层 sub-agent (类 0/13/14/15) — 用户中断
+- ❌ PRD 取证 sub-agent — 用户中断
+- ❌ Codex Round 1 全 17 类 — 用户中断
+
+**整合 conflict register**: 待新 main CLI 接手后完成 (调用上面 4 sub-agent 已收数据 + 重派剩余 + Codex Round 1)。
+
+### 待启 (Phase A worker mesh + Codex 工具化)
+
+- worker-A1 contracts (Week 1)
+- worker-A2 shared infra (Week 1)
+- worker-A3 Channel pilot (Week 2-3 · 依赖 A1+A2)
+- worker-A4 5 子 thin adapter (Week 4-5 · 依赖 A3)
+- worker-A5 Letterpress (Week 2-3 并行)
+- worker-A6 6 Agent handoff contract (Week 2-3 并行)
+- worker-A7 PRD 取证 + draft (Week 2-3 并行 · 与 PM 飞书协作)
+- 工程化: `scripts/orchestrator/codex-peer.py` (Week 1-2 后期由主 CLI 抽空写)
+
+### PM 已拍板 (本次 reset 启动)
+
+1. **杜绝拖死 4 机制**: 强制输出 schema / ≤ 3500 词 / 单 issue 最多 2 round 辩论 / dissent 反增即 escalate PM
+2. **Phase A/B 严切阶段**
+3. **active decision 回写 root CLAUDE.md**: 谁改决策谁回写 + CI lint
+4. **命名 SSOT 8 列单表**: agent_id / 中文 / 业务名 / UI brand / route / 色彩 token / RBAC role / eval baseline
+5. **Step 3 PRD 取证 Step 2 中并行启动**
+
+### 当前 mesh 状态
+
+11 个 worktree · 见 `docs/handoff/mesh.json` + `py scripts/orchestrator/scoreboard.py`。
+
+```
+main · chore/l0-infra · 主 CLI (本次将交班 · Signal: RESET-HANDOFF-PREPARED 后关窗)
+A1-inventory · feat/inventory-expand-A1 · idle (将复用为 worker-A1 contracts)
+A2-contracts · feat/contracts-bootstrap-A2 · idle (将复用为 worker-A2 shared infra)
+A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
+其他 7 个 worktree (agent1/agent3/agent6/code-frontend-integration 等) · 长期 idle · 后续按需复用
+```
+
+### 5 项 dissent 已闭环 (Phase A 启动前不再争辩)
+
+- 命名 8 列 (PM 选 8) ✓
+- Phase A/B 切阶段 (PM 选切) ✓
+- 杜绝拖死机制 (PM 选 4 条全要) ✓
+- 回写机制 (PM 选谁改谁回写) ✓
+- Step 3 取证时机 (PM 选 Step 2 中并行) ✓
+
+### 风险预警
+
+- **decisions-log 长 2400+ 行** · compression 后新 CLI 难以全读 · 关键 active rule 必须回写 root CLAUDE.md (规则 3)
+- **`shared/llm/`已建但 0 agent 用** · worker-A2 shared infra 启动时必须接管 + 6 agent 迁
+- **Letterpress 12 consumer** · worker-A5 单 sprint · 视觉验收需 PM 看
+- **Agent6 → Agent3 handoff data flow 没真做** · worker-A6 必须正面对待这个 pivot
+
+---
+
+(下次更新模板)
+
+## YYYY-MM-DD · <事件>
+
+### Worker 状态变更
+
+### 决策变更
+
+### 风险预警
