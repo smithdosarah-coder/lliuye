@@ -392,11 +392,17 @@ _DEFAULT_SYSTEM = (
 
 
 @app.post("/api/im/send")
-async def im_send(req: ImSendRequest):
+async def im_send(
+    req: ImSendRequest,
+    zhongan_auth: str | None = Cookie(default=None),  # noqa: ARG001 · W-FIX2: 兼容 cookie auth, legacy 路径不强制
+):
     """IM 对话 · DeepSeek + agent routing (target_agent 选不同 system prompt)。
 
     单 turn · 无 thread persistence · 无 SSE。后续扩 history + SSE + workflow。
     archive 内 ConversationPanel 通过 target_agent="channel/report/..." 调对应 agent prompt。
+
+    W-FIX2-A2: legacy endpoint · 接 zhongan_auth cookie param 让 frontend `credentials:"include"`
+    一致 · 但当前 LLM 单 turn 不依赖 user_id · 所以不强制鉴权 (后续 deprecate 后改走 /api/im/messages)。
     """
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
@@ -429,7 +435,11 @@ async def im_send(req: ImSendRequest):
 # ============================================================================
 
 from im_service import threads as _im_threads  # noqa: E402
-from im_service.auth import TokenInvalidError, decode_token as _im_decode_token  # noqa: E402
+from im_service.auth import (  # noqa: E402
+    TokenInvalidError,
+    decode_jwt_cookie as _im_decode_jwt_cookie,
+    decode_token as _im_decode_token,
+)
 from im_service.schemas import (  # noqa: E402
     CreateThreadRequest,
     ImMessage,
@@ -441,12 +451,25 @@ from im_service.websocket import im_websocket_endpoint, manager as _im_ws_manage
 _im_threads.init_schema()
 
 
-def _resolve_im_user(authorization: str | None, token_q: str | None) -> str:
-    """从 Authorization 头 (Bearer ...) 或 ?token query 解析 user_id.
+def _resolve_im_user(
+    zhongan_auth: str | None,
+    authorization: str | None,
+    token_q: str | None,
+) -> str:
+    """解析 IM 当前 user_id · 三 source 优先级 (per W-FIX2-A2-im-cookie-auth):
 
-    auth 优先级: Authorization Bearer > query token · 失败抛 401。
-    生产 (D.1 land 后) 走真 JWT · 当前 demo 路径接受 demo-<user_id>。
+      1. **cookie zhongan_auth** (D.1 httpOnly · 生产路径): 走 auth_service.jwt_util.verify
+      2. **Authorization Bearer** (legacy / demo 兼容): demo-<user_id> 或真 JWT
+      3. **?token=<...>** query (legacy / WS): 同上
+
+    任一成功立即返 · 全失败抛 401。bug #8 根因: frontend 之前读
+    `auth_token` cookie 但 D.1 真 cookie 名 `zhongan_auth` (httpOnly · JS 不可读)
+    · 现 backend 优先吃 cookie · frontend 走 `credentials: "include"` 让 browser 自动带。
     """
+    cookie_uid = _im_decode_jwt_cookie(zhongan_auth)
+    if cookie_uid:
+        return cookie_uid
+
     raw = ""
     if authorization:
         if authorization.lower().startswith("bearer "):
@@ -460,7 +483,7 @@ def _resolve_im_user(authorization: str | None, token_q: str | None) -> str:
         raise HTTPException(
             status_code=401,
             detail={"error": {"code": "MISSING_TOKEN",
-                              "message": "请先登录 · 缺 token"}},
+                              "message": "请先登录 · 缺 cookie / token"}},
         )
     try:
         return _im_decode_token(raw)
@@ -473,11 +496,12 @@ def _resolve_im_user(authorization: str | None, token_q: str | None) -> str:
 
 @app.get("/api/im/threads")
 async def im_list_threads(
+    zhongan_auth: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ):
     """列 currentUser 在 participants 里的 thread (按 last_message_at desc)."""
-    user_id = _resolve_im_user(authorization, token)
+    user_id = _resolve_im_user(zhongan_auth, authorization, token)
     items = _im_threads.list_threads_for_user(user_id)
     return {"user_id": user_id, "threads": items}
 
@@ -487,11 +511,12 @@ async def im_list_messages(
     thread_id: str,
     before: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=500),
+    zhongan_auth: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ):
     """历史消息 paginated · before 是 created_at cursor (ASC) · 限 currentUser 在 thread."""
-    user_id = _resolve_im_user(authorization, token)
+    user_id = _resolve_im_user(zhongan_auth, authorization, token)
     if not _im_threads.thread_has_participant(thread_id, user_id):
         raise HTTPException(
             status_code=403,
@@ -505,11 +530,12 @@ async def im_list_messages(
 @app.post("/api/im/threads")
 async def im_create_thread(
     req: CreateThreadRequest,
+    zhongan_auth: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ):
     """创建 thread · currentUser 自动加入 participants."""
-    user_id = _resolve_im_user(authorization, token)
+    user_id = _resolve_im_user(zhongan_auth, authorization, token)
     parts = list({user_id, *(req.participants or [])})
     try:
         thread = _im_threads.create_thread(
@@ -529,11 +555,12 @@ async def im_create_thread(
 @app.post("/api/im/threads/{thread_id}/read")
 async def im_mark_thread_read(
     thread_id: str,
+    zhongan_auth: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ):
     """标记 thread 已读 · currentUser 必须在 participants."""
-    user_id = _resolve_im_user(authorization, token)
+    user_id = _resolve_im_user(zhongan_auth, authorization, token)
     try:
         return _im_threads.mark_thread_read(thread_id, user_id)
     except KeyError as e:
@@ -551,11 +578,12 @@ async def im_mark_thread_read(
 @app.post("/api/im/messages")
 async def im_send_message(
     req: SendMessageRequest,
+    zhongan_auth: str | None = Cookie(default=None),
     authorization: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ):
     """新 send 端点 · 持久化 + WebSocket broadcast · 替代 /api/im/send (后者保留向后兼容)."""
-    user_id = _resolve_im_user(authorization, token)
+    user_id = _resolve_im_user(zhongan_auth, authorization, token)
     if not _im_threads.thread_has_participant(req.thread_id, user_id):
         raise HTTPException(
             status_code=403,
@@ -591,8 +619,17 @@ async def im_send_message(
 
 @app.websocket("/ws/im")
 async def im_websocket(websocket: WebSocket, token: str = Query(default="")):
-    """WebSocket 入口 · query param token=<jwt> · 业务逻辑全在 im_service.websocket."""
-    await im_websocket_endpoint(websocket, token=token)
+    """WebSocket 入口 · 优先 zhongan_auth cookie (W-FIX2-A2 · 浏览器 same-origin 自动带)
+    · 失败回退 query param token=<jwt> (legacy / 非 same-origin 客户端)。
+    业务逻辑全在 im_service.websocket。
+    """
+    # 浏览器 same-origin WebSocket 自动带 cookie · starlette 通过 websocket.cookies 暴露
+    cookie_token = ""
+    try:
+        cookie_token = websocket.cookies.get("zhongan_auth", "") or ""
+    except (AttributeError, TypeError):
+        cookie_token = ""
+    await im_websocket_endpoint(websocket, token=token, cookie_token=cookie_token)
 
 
 # ---------------------------------------------------------------------------

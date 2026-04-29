@@ -24,7 +24,7 @@ from fastapi import WebSocket, WebSocketDisconnect, WebSocketException, status
 from starlette.websockets import WebSocketState
 
 from . import threads as threads_db
-from .auth import TokenInvalidError, decode_token
+from .auth import TokenInvalidError, decode_jwt_cookie, decode_token
 
 
 class ConnectionManager:
@@ -99,18 +99,30 @@ manager = ConnectionManager()
 # ---------------------------------------------------------------------------
 
 
-async def im_websocket_endpoint(websocket: WebSocket, token: str = "") -> None:
+async def im_websocket_endpoint(
+    websocket: WebSocket,
+    token: str = "",
+    cookie_token: str = "",
+) -> None:
     """主 endpoint · 由 FastAPI 路由调用.
 
-    - query token 解 user_id · 失败 close 1008 (policy violation)
-    - accept · 注册 connection
-    - loop receive json · dispatch by `type`
-    - WebSocketDisconnect → cleanup
+    auth 优先级 (W-FIX2-A2-im-cookie-auth):
+      1. cookie_token (zhongan_auth · D.1 httpOnly · 浏览器 same-origin 自动带)
+      2. query token (legacy / 非 same-origin · demo)
+    任一成功立即接受 · 全失败 close 1008 (policy violation)。
     """
-    try:
-        user_id = decode_token(token)
-    except TokenInvalidError:
-        # 拒绝连接前必须 accept · 然后 close · 或直接 raise WebSocketException
+    user_id: Optional[str] = None
+    if cookie_token:
+        user_id = decode_jwt_cookie(cookie_token)
+
+    if not user_id:
+        try:
+            user_id = decode_token(token)
+        except TokenInvalidError:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+    if not user_id:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 

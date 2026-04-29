@@ -1,5 +1,5 @@
 /**
- * IM REST client (Stage D.2F · onboarding W-D2F-A3).
+ * IM REST client (Stage D.2F · onboarding W-D2F-A3 · W-FIX2-A2-im-cookie-auth).
  *
  * 按 docs/contracts/im-protocol.md §3.2:
  *   GET    /api/im/threads
@@ -8,12 +8,16 @@
  *   POST   /api/im/threads/{tid}/read
  *   POST   /api/im/messages
  *
- * 所有调用走 Authorization: Bearer <token> · token 由 getImToken() 解析:
- *   1. 优先 cookie "auth_token" (D.1 worker A2 设置)
- *   2. 退 localStorage "im_token"
- *   3. fallback "demo-u_wangzhe" (demo · 单 user 路径 · 与 backend auth.py shim 对齐)
+ * Auth (W-FIX2-A2 · 2026-04-29 · bug #8 修):
+ *   - 真 user: backend D.1 设 `zhongan_auth` httpOnly cookie · JS 不可读 ·
+ *     所有 fetch 加 `credentials: "include"` 让 browser 自动带 cookie · 后端
+ *     `_resolve_im_user` 优先吃 cookie 走 D.1 jwt_util.verify。
+ *   - demo / e2e: 仍带 `Authorization: Bearer demo-u_<id>` · backend fallback 接受
+ *     这条 path · 不影响真 user (backend cookie 优先成功后即返)。
  *
- * NB: 后端兼容 ?token=<jwt> query 参数 · WebSocket 客户端用 query · REST 用 header。
+ * 历史 bug: 之前 `getImToken()` 读 cookie "auth_token" · 但 D.1 真 cookie 名
+ * `zhongan_auth` (httpOnly 且 JS 不可读) · 导致 token 全 fall to demo · 真 user
+ * 触发 401。修复后 frontend 不再 reach for cookie · 全权交 browser auto-include。
  */
 "use client";
 
@@ -25,28 +29,30 @@ function url(path: string): string {
   return `${API_BASE}${path}`;
 }
 
-/** 取 IM token · 优先 cookie · 次 localStorage · fallback demo. */
+/**
+ * Demo / e2e fallback token · 真 user 走 cookie path · 此 token 仅 backend
+ * Authorization Bearer fallback 用 (无 cookie / cookie 失效场景)。
+ *
+ * 不再读 `document.cookie` · 因 D.1 zhongan_auth 是 httpOnly · JS 不可读 ·
+ * 之前读 `auth_token` 是错的 cookie 名 · resolve 全 fall to demo。
+ */
 export function getImToken(): string {
   if (typeof window === "undefined") return "demo-u_wangzhe";
-  // cookie auth_token (D.1 worker A2 设)
-  const cookies = document.cookie.split(";").map((c) => c.trim());
-  for (const c of cookies) {
-    if (c.startsWith("auth_token=")) {
-      const v = c.slice("auth_token=".length);
-      if (v) return decodeURIComponent(v);
-    }
-  }
-  // localStorage 备选
+  // localStorage 备选 (e2e 测试可注 token · 不依赖真 cookie)
   try {
     const v = window.localStorage?.getItem("im_token");
     if (v) return v;
   } catch {
     /* 无 localStorage 权限 · 忽略 */
   }
-  // fallback demo (本批 D.2F 与 D.1F merge 顺序无关 · 演示能跑)
   return "demo-u_wangzhe";
 }
 
+/**
+ * Auth headers + credentials option (browser 自动带 zhongan_auth cookie · 真 user
+ * path) · Bearer 头作为 demo / e2e fallback path · backend 优先吃 cookie 后再读
+ * Authorization。
+ */
 function authHeaders(): HeadersInit {
   return {
     "Content-Type": "application/json",
