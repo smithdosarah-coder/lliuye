@@ -172,6 +172,34 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 04:10 · Step 2 fire 7 路并行 (DISPATCHED · fresh 重派)
+
+### What happened
+- 新主 CLI 接手 reset 工程 · 走 anti-bias §1.1 → 弃用前任 4 sub-agent 高层总结 (chat-only · 不可信) · fresh 重派
+- 一次 fire 7 路并行 (charter §3 + §9 verbatim):
+  - 5 sub-agent (architecture / data / instruction / naming-route / production-shape) → docs/audit/sub-agent-step2-round1/*.md
+  - 1 PRD 取证 sub-agent (Step 3 范围 · Step 2 中并行启) → docs/audit/prd-evidence-frozen.md
+  - 1 Codex Round 1 background (codex-mesh §4.5 template · 独立扫全 17 类 · 不见 sub-agent 输出) → docs/audit/codex-step2-round1.md
+- audit dir docs/audit/sub-agent-step2-round1/ 已建
+
+### Triggered by
+- PM 2026-04-29 答 fresh CLI 8 题 → 新加 docs/reset/step2-conflict-scan-charter.md (10 节 · 17 类 SSOT + flow + schema + sub-agent template + Codex template + PRD 取证 + 退出标准)
+- codex-mesh-protocol.md 加 §4.5 (Step 2 专用 Codex template) + §5.b (Step 2 audit dir) + §6 引用 SSOT
+- anti-bias-rules.md 加 §1.1 (fresh CLI 接手处理 · 前任未 commit sub-agent 输出弃用)
+
+### State change (delta)
+- Step 2 状态: 中断 (handoff §7) → IN-FLIGHT (fresh 重派 · 7 路并行)
+- 前任 4 sub-agent (架构层/数据层/指令层/命名路由层): chat-only summary → 视为不存在 (per anti-bias §1.1)
+- audit dir: 不存在 → docs/audit/sub-agent-step2-round1/ + docs/audit/{codex-step2-round1, prd-evidence-frozen, conflict-register-v1}.md (后 3 个待 fire 完落)
+
+### Next
+- 6 sub-agent foreground 全 done + Codex background notification → Read 7 份 audit doc
+- 合成 conflict-register-v1.md (charter §8 schema · Cat / file:line / 证据 / Owner-Phase A worker / Keep-Revert-Rewrite · 含 dissent appendix per anti-bias rule 4)
+- Commit STEP-2-CONFLICT-REGISTER-V1-PREPARED + 通知 PM 拍板
+- PM 拍板 (Signal: STEP-2-PM-RULED) → 进 Step 1 Phase A worker mesh
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
