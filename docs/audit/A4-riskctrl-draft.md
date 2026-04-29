@@ -344,6 +344,63 @@ POST /api/riskctrl/export_pdf  · body: {ruleset_id, format?:"pdf"}  · 返 appl
 - 加 `exportXlsx(rulesetId)` + `exportPdf(rulesetId)` 同形函数
 - RiskOutputPanel:1185-1194 的 export button 改 dropdown · 三选一
 
+### 4.5 Demo fixture shape (`data/mock/workspace/riskctrl/scenarios/*.json`)
+
+§1 #3 + §5 step 9 引用但未定 schema · 此节固定 · demo endpoint 走 fixture · prod 端点失败时 banner 显错不静默 fallback。
+
+**目录结构**:
+
+```
+data/mock/workspace/riskctrl/scenarios/
+├── credit_v15.json        ← sess_credit_v15 fixture (绿区 · 简单档)
+├── aml_kyc.json           ← sess_aml_kyc fixture (关注区 · 中等档)
+└── fraud_high.json        ← sess_fraud_high fixture (红区 · 极端档)
+```
+
+**单 fixture json schema** (per scenario · 每条对应一次 demo run · 含 dsl_gen + backtest 双 SSE 完整流):
+
+```json
+{
+  "scenario_id": "credit_v15",
+  "session_id": "sess_credit_v15_demo_001",
+  "endpoint": "dsl_gen",
+  "stream": [
+    { "event": "stage", "data": { "stage": "parse_intent", "pct": 10 } },
+    { "event": "stage", "data": { "stage": "build_prompt", "pct": 25 } },
+    { "event": "stream", "data": { "delta": "{ \"version\": \"1.0\", " } },
+    { "event": "stream", "data": { "delta": "\"rules\": [..." } },
+    { "event": "stage", "data": { "stage": "validate_dsl", "pct": 80 } },
+    {
+      "event": "done",
+      "data": {
+        "session_id": "sess_credit_v15_demo_001",
+        "panels": {
+          "ruleset": { "version": "1.0", "rules": [/*...verbatim from sess_credit_v15.ruleset*/] },
+          "ruleset_id": "rs_credit_v15_demo",
+          "source": "demo",
+          "csv_columns": ["loan_id", "applicant_age", "income", "fico", "ltv", "label_default"]
+        },
+        "metrics": {},
+        "downstream": {}
+      }
+    }
+  ]
+}
+```
+
+**backtest fixture 同形** (`endpoint: "backtest"` · stream 含 load_csv → hit_rules → calc_ks 三 stage · done payload 完整 metrics+ks+samples+rule_stats)。
+
+**字段约束**:
+- `scenario_id` 必须与 `agent-riskctrl-sessions.ts` 的 session id 1:1 (前端切下拉时按 id 索引 fixture)
+- `source: "demo"` 写死 · 与 prod path `source: "llm"|"mock"` 区分
+- stream 数组顺序 = SSE 实际发送顺序 · backend `/api/riskctrl/demo/run` 实装时 `for chunk in fixture.stream: yield chunk; await asyncio.sleep(0.3)` 模拟流速
+- 不含 `event: error` (demo 永远 happy path · prod 错误 banner 走真 SSE)
+
+**反模式硬线** (per CLAUDE.md §3.5 反结果导向 5 原则 · 环境边界):
+- ❌ fixture 不含 LLM 真实 token 文本 · 不假装 LLM 在算 · `delta` 只放最终 ruleset JSON 的分片
+- ❌ fixture 不含 `match_score` / `ks_value` 等 Agent 应自算的"答案字段" — 这里 KS / sample dist 是**已计算结果**因为 demo 不跑 LLM · 不违反原则 (riskctrl 不是检索系 Agent · 没有"自搜"语义)
+- ❌ prod endpoint 失败时**禁止** silent fallback 到 fixture (UI banner: "live endpoint 失败 · 请重试或切 demo 模式")
+
 ---
 
 ## 5. 文件级改动清单 (per-file commit)
@@ -464,6 +521,43 @@ DONE → fire codex post-DONE review → AGREE 则 cherry-pick `feat/phase-a4-ri
 
 ---
 
+## 12. Risks · Unknowns · Open Questions (worker resume 时优先 escalate)
+
+下列项 draft 起草时**主 CLI 尚未拿到答案** · 你 resume + wait gate 解锁后看每条:
+- ① 已闭 (条件已满足) → §1-§5 直接执行
+- ② 未闭 (待 PM 拍 / 待 codex verdict) → 走 decisions-log Q-NNN 报 PM · 不自决
+
+| # | 风险 / 未知 | 触发条件 | resume 时怎么办 |
+|---|---|---|---|
+| 1 | A3 codex post-DONE peer review **DISAGREE** · 改了 ChannelWorkspace 4 gate 实装范本 | 解锁后读 codex verdict cherry-pick 后是否含修改 | 若改 · 先重读修订版 ChannelWorkspace · 同步 §4.1 命名 / §4.2 done payload 结构再动手 |
+| 2 | A6 worker (handoff data contract) export 三件套 schema 与 §4.4 不一致 | A6 cherry-pick 后看 `docs/contracts/agent-handoff-spec.md` 是否定 export 字段 | 不一致以 A6 spec 为准 · §4.4 草案需重写 · 报 Q-NNN-A4-RISKCTRL-EXPORT-V2 |
+| 3 | LLMCaller `stream()` API 在 A2 V2 仅承诺 `simple_chat` / `chat_json` · §4.2 dsl_gen SSE 的 `caller.stream(...)` 调用是否存在 | resume 后读 `shared/llm_caller/__init__.py` + `shared/llm_caller/caller.py` 确认 `.stream()` 方法 | 若不存在 · 退回 `simple_chat()` 拿全文 · 后端模拟分块 yield (体感同 SSE · 不影响前端契约) |
+| 4 | 共享 hook 兼任由谁 (§6.2 五子之一) PM 未拍 | resume 后查 decisions-log 是否有 Q-NNN-A4-SHARED-HOOK-OWNER | 若主 CLI 倾向 (A4-credit) 已拍 · riskctrl 不动 hook · 直消费 · 若拍 riskctrl 兼任 · §5 加步 3.5 / 5.5 / 8.5 三步 hook 抽出 |
+| 5 | Forge UI 文案保留 (§6.1) 是否在用户演示中引发认知冲突 ("Forge" vs RBAC path "riskctrl") | 客户演示 (北部湾首演 + 6 Agent POC 落地) 已认 Forge 字面 | 不动 UI · 仅 backend / API path / RBAC 用 riskctrl · 演示无变化 (per CLAUDE.md §11 + project_6agent_poc_landed memory) |
+| 6 | demo endpoint `/api/riskctrl/demo/run` 与 prod 端点共用 backend handler 还是物理隔离 | charter §3 worker-A4 第 3 行 "单独 mount · 走 fixture · prod 端点不 silent fallback" | **物理隔离** · `agent_riskctrl/demo.py` 新文件 · 不复用 `api.py` 的 `_dsl_gen_stream` · 避免误改污染 prod path |
+| 7 | A5 worker (Letterpress 真清) 若 globals.css 的 `--t-riskctrl: 绛紫` token 被误删 | resume 后读 A5 cherry-pick 内容 · grep `--t-riskctrl` | 报 Q-NNN-A5-TOKEN-DROPPED · 不自己 fix-forward (per §10) |
+| 8 | `agent_riskctrl/api.py` 现注释 "Stage C v4.0 · onboarding W-C2-A2" 的非 SSE 是**设计决定**还是历史遗留 | 旧 onboarding W-C2-A2 docs/onboarding/ 是否仍存 | 若 W-C2-A2 是 reset 前遗留 · 当前 reset 工程 SSE 化是 supersede · 直改 · 若 W-C2-A2 是当前有效 contract · 报 Q-NNN-A4-SSE-OVERRIDE 等 PM 拍 |
+| 9 | `tests/agent_riskctrl/test_llm_dsl_gen.py` 是否存在 + 现 PASS 状态 | resume 后 `ls tests/agent_riskctrl/` + `pytest --collect-only tests/agent_riskctrl/` | 若不存 · §5 步 5 加 caller-binding test 时同步建测试 framework · 若存但 FAIL · 先 fix 再迁 (排除 caller 迁移引入 regression 嫌疑) |
+| 10 | 前端 `streamSse` helper 是否已经处理 `event: stream` (LLM partial) · 还是仅认 `event: stage / done / error` | resume 后读 `web/src/lib/api/sse.ts` (或类似 helper · 由 A1 V2 抽出) 实装 | 若不识 stream event · 加 callback `onStreamDelta` · 与 A3 channel 同改 (channel 也用 LLM token 流) · 若已识 · 直接消费 |
+
+**escalate 模板** (用于 ② 未闭项):
+
+```
+[Q-NNN-A4-RISKCTRL-<TOPIC>]
+触发上下文: <verbatim 第几行 / 哪个 codex verdict / 哪条 decisions-log 缺>
+影响范围: <§5 哪几步阻塞 / 是否影响 A3 模板 mirror>
+建议方案: <2-3 选项 + ROI>
+默认行为 (PM 不拍): <最保守路径 · 通常是"暂不动 + 等下游 worker 推进">
+```
+
+写入 `docs/handoff/decisions-log.md` · trailer `Signal: WORKER-A4-RISKCTRL-ESCALATE-Q<N>` · 不发 chat。
+
+---
+
 **Author**: 主 CLI · 2026-04-29
 **Phase A Week 4-5 · 与 4 兄弟 A4 worker 并行 · 依赖 A3 channel pilot DONE**
-**DRAFT v0 · A3 cherry-pick 完成后转正为 docs/onboarding/A4-riskctrl.md**
+**DRAFT v0.1 · A3 cherry-pick 完成后转正为 docs/onboarding/A4-riskctrl.md**
+
+**Changelog**:
+- v0 (2026-04-29 initial · committed db0bb87): §0-§11 全 11 节 · 共 470 行
+- v0.1 (2026-04-29 wait-period refine): 加 §4.5 demo fixture shape (10 子项 + json schema) · 加 §12 risks/unknowns 10 项 + escalate 模板 · 总行数 ~600
