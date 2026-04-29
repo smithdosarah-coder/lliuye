@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
-"""shared.llm.providers.qwen — Qwen alias for DashScope (onboarding 字面命名).
+"""shared.llm.providers.qwen — re-export shim · 实际定义见 shared.llm_caller.provider.
 
-DashScope 提供 qwen-max model · 命名 "qwen" 是 model 维度 · "dashscope" 是 platform 维度.
-两者指向同一 backend · alias 用于兼容 onboarding W-E3-A2 字面要求.
+Phase A worker-A2 · 2026-04-29 · Stage E.3 → llm_caller 收编.
 """
 from __future__ import annotations
 
-from shared.llm.providers._common import _LLMClientWrapper
-
-
-class QwenProvider(_LLMClientWrapper):
-    """Qwen via DashScope (境内 · PIPL 合规)."""
-
-    name = "qwen"
-    region = "cn"
-    llm_provider_key = "qwen_cloud"
-
+from shared.llm_caller.provider import QwenProvider
 
 __all__ = ["QwenProvider"]
