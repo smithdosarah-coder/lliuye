@@ -84,14 +84,14 @@ export function FileDrop({
         onDrop={onDrop}
         className={`cursor-pointer border border-dashed transition-all px-4 py-5 text-center ${
           hover
-            ? "border-[var(--color-ink)] bg-[var(--color-overlay)]"
-            : "border-[var(--color-line-strong)] hover:border-[var(--color-ink-muted)]"
+            ? "border-[var(--ink)] bg-[var(--ink-04)]"
+            : "border-[var(--ink-14)] hover:border-[var(--ink-48)]"
         }`}
       >
-        <Icon size={18} className="mx-auto text-[var(--color-brass)]" />
-        <div className="mt-2 text-[12px] text-[var(--color-ink)]">{label}</div>
+        <Icon size={18} className="mx-auto text-[var(--accent)]" />
+        <div className="mt-2 text-[12px] text-[var(--ink)]">{label}</div>
         {hint && (
-          <div className="mt-1 text-[10px] text-[var(--color-ink-muted)] font-tabular">
+          <div className="mt-1 text-[10px] text-[var(--ink-48)] font-tabular">
             {hint}
           </div>
         )}
@@ -112,16 +112,16 @@ export function FileDrop({
               key={i}
               className="flex items-center gap-2 text-[12px] group"
             >
-              <File size={12} className="text-[var(--color-brass)] shrink-0" />
-              <span className="flex-1 min-w-0 truncate text-[var(--color-ink)]">
+              <File size={12} className="text-[var(--accent)] shrink-0" />
+              <span className="flex-1 min-w-0 truncate text-[var(--ink)]">
                 {f.name}
               </span>
-              <span className="text-[10px] font-tabular text-[var(--color-ink-muted)]">
+              <span className="text-[10px] font-tabular text-[var(--ink-48)]">
                 {f.size > 0 ? formatSize(f.size) : "已接入"}
               </span>
               <button
                 onClick={() => remove(i)}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--color-ink-muted)] hover:text-[var(--color-ember)]"
+                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--ink-48)] hover:text-[var(--t-alert)]"
               >
                 <X size={11} />
               </button>
@@ -154,13 +154,13 @@ export function KBBadge({
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 border border-[var(--color-line-strong)] hover:border-[var(--color-ink)] transition-all"
+      className="w-full flex items-center gap-3 px-3 py-2.5 border border-[var(--ink-14)] hover:border-[var(--ink)] transition-all"
     >
-      <FolderOpen size={14} className="text-[var(--color-brass)]" />
-      <span className="text-[12px] text-[var(--color-ink)] text-left flex-1">
+      <FolderOpen size={14} className="text-[var(--accent)]" />
+      <span className="text-[12px] text-[var(--ink)] text-left flex-1">
         {label}
       </span>
-      <span className="text-[11px] font-tabular text-[var(--color-ink-muted)]">
+      <span className="text-[11px] font-tabular text-[var(--ink-48)]">
         {count} 份
       </span>
     </button>
