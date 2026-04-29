@@ -1269,7 +1269,7 @@ Q-022 锚点：6 × `/archive/[agent]` workspace 设计改造。前置：
 
 ### 待用户侧动作(已确认完成)
 
-- ✅ DeepSeek 控制台禁用旧 key `sk-358b17cef8a64462b7899dd2dc8a3834`(用户 2026-04-22 确认"删了")
+- ✅ DeepSeek 控制台禁用旧 key `sk-358b17ce[REDACTED]`(用户 2026-04-22 确认"删了")
 - ✅ 新 key 已通过私信传递并写入本地 `.env`(gitignored,不入任何 commit)
 - ❌ **不做** `git filter-repo` 清历史(代价 >> 收益,会炸掉 11 worktree 的 mesh A-012.D SHA-immutable 纪律;禁 key 即可杜绝被滥用)
 
@@ -2359,15 +2359,17 @@ LoginForm.tsx:35-41 5 user/pwd 前端硬编 PASSWORD_MAP (`u_wangzhe/wangzhe / u
 
 ### PASSWORD_MAP 5 user (主 CLI 缓存)
 
-来源: `web/src/app/login/_components/LoginForm.tsx:35-41`
+来源: 历史快照 — D.1 后 frontend PASSWORD_MAP 已删 · backend `auth_service/users.py:43-50` 仍以 user_id 拼音作弱密码(demo 阶段决议保留)
 
 | user_id | password | role |
 |---|---|---|
-| u_wangzhe | wangzhe | rm (客户经理) |
-| u_lihua | lihua | credit_officer |
-| u_zhoumin | zhoumin | compliance_officer |
-| u_chenkai | chenkai | risk_manager |
-| u_liuye | liuye | admin |
+| u_wangzhe | [REDACTED · demo 弱密码] | rm (客户经理) |
+| u_lihua | [REDACTED · demo 弱密码] | credit_officer |
+| u_zhoumin | [REDACTED · demo 弱密码] | compliance_officer |
+| u_chenkai | [REDACTED · demo 弱密码] | risk_manager |
+| u_liuye | [REDACTED · demo 弱密码] | admin |
+
+**TODO 2026-04-29 安全清理**: `auth_service/users.py:44-50` 仍以明文 `wangzhe/lihua/...` 作 demo 密码 · repo public 即泄 · 走访后改强密码 + 移到 .env。
 
 ### Follow-up
 
