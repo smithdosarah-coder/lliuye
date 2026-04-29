@@ -238,10 +238,22 @@ def make_done(
         {"event": "done", "data_source": ..., [session_id, downstream, metrics],
          **panels (展开到顶层), **extras}
 
+    Raises:
+        ValueError: panels / metrics / downstream / session_id / extras 全空时抛 ·
+            空 done event 无 payload 对前端无意义 · 必须至少有一个 (V2 fix · codex
+            review issue 2). 错误路径请用 make_error_from_exception 而非空 done.
+
     Note:
         panels 字段展开到 done event 顶层 (与现有 Channel done 兼容 · evt.candidates
         / evt.radar 等直接读 · 不需 evt.panels.candidates).
     """
+    # V2 issue 2 · 拒空 payload · panels/metrics/downstream/session_id/extras 至少一个非空
+    if not panels and not metrics and not downstream and not session_id and not extras:
+        raise ValueError(
+            "make_done requires at least one of panels/metrics/downstream/session_id/extras · "
+            "empty done event has no payload meaning to frontend · 错误路径用 make_error 而非空 done",
+        )
+
     evt: dict[str, Any] = {
         "event": EVENT_DONE,
         "data_source": data_source,

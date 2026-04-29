@@ -126,9 +126,34 @@ def test_make_section_with_extras():
 # ============================================================================
 
 
-def test_make_done_minimal():
-    d = make_done()
-    assert d == {"event": "done", "data_source": "live"}
+def test_make_done_empty_raises():
+    """V2 fix issue 2 · 空 payload (无 panels/metrics/downstream/session_id/extras) → raise."""
+    with pytest.raises(ValueError, match="at least one of"):
+        make_done()
+
+
+def test_make_done_data_source_alone_still_raises():
+    """仅 data_source 不算 payload · 仍 raise (V2)."""
+    with pytest.raises(ValueError):
+        make_done(data_source=DATA_SOURCE_LIVE)
+
+
+def test_make_done_session_id_only_ok():
+    """有 session_id 即算非空 payload · 通过 (V2 边界)."""
+    d = make_done(session_id="sess_x")
+    assert d["session_id"] == "sess_x"
+
+
+def test_make_done_metrics_only_ok():
+    """有 metrics 即算非空 payload · 通过 (V2 边界)."""
+    d = make_done(metrics={"final": 5})
+    assert d["metrics"] == {"final": 5}
+
+
+def test_make_done_extras_only_ok():
+    """仅 extras (旧 done shape · e.g. report_docx_url) · 通过."""
+    d = make_done(report_docx_url="/x.docx")
+    assert d["report_docx_url"] == "/x.docx"
 
 
 def test_make_done_full_channel_panels():
@@ -163,8 +188,11 @@ def test_make_done_extras_passthrough():
 
 
 def test_make_done_data_source_mock_fallback():
-    """Tavily key 缺 silent fallback 用 DATA_SOURCE_MOCK_FALLBACK · 前端 banner 触发."""
-    d = make_done(data_source=DATA_SOURCE_MOCK_FALLBACK)
+    """Tavily key 缺 silent fallback 用 DATA_SOURCE_MOCK_FALLBACK · 前端 banner 触发.
+
+    V2 fix issue 2 · 必带 payload (此处用 metrics 占非空) · 前端 banner 仍只看 data_source.
+    """
+    d = make_done(metrics={"final": 0}, data_source=DATA_SOURCE_MOCK_FALLBACK)
     assert d["data_source"] == "mock_fallback"
 
 
