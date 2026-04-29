@@ -293,6 +293,51 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 21:30 · 第一天 reset 工程收工 · Phase A ~75%
+
+### What happened (今天 reset 工程整体)
+- A1 contracts V1 + V2 + V3 minor 全 done · merged main · ECS 上线 (硬线 #1 ✅ 100% · 5 contracts + lint script + 8 列 SSOT)
+- A2 shared infra V2 + register update 全 done · merged main · ECS 上线 (硬线 #2 ✅ 100% · 5 module + sse_envelope + prompts/contract + tests)
+- A3 channel pilot V1 DONE (8981899 · panel 1+2+5 + done envelope + demo endpoint + smoke) · codex DISAGREE 4 issue (issue 3 critical · data_source enum no-op) · V2 推明天 (硬线 #3 ⚠️ 95%)
+- A5 design phase 1-11 commit (12 consumer 全迁 shell-v2 · globals.css legacy 段全删 390→84 行) · phase 12 letterpress-purge.spec.ts + 4 themes verify + Playwright 待续 (硬线 #5 ⚠️ 95%)
+- A6 handoff schema V1 DONE (ba96c84 · 4 chain + export contract + 4 fixture) · codex DISAGREE 3 issue (chain 3 profile_id / chain 4 event_id / chain 4 target_agent vs fan_out 全 schema vs fixture 不一致) · V2 推明天 (硬线 #6 ⚠️ 95%)
+- A7 PRD drift table v1 done (c01f7bc) · master + 6 sub PRD + 飞书双写 + legacy_gradio 全栈隔离 待续 (硬线 #7 ⏳ 30%)
+- A4 5 子 (credit/alert/compli/riskctrl/report): 4 个 DRAFT-REFINED commit (A3 模板抄段清单) · 真动 0 行 · wait A3 V2 cherry-pick (硬线 #4 ⏳ 5%)
+- A1 compliance-ratify minor task: 没干 · worktree clean · 推明天 optional
+- 主 CLI fix-forward 3 件 (Cat 1 active rule Q-040/Q-041/PIPL · Cat 9 /design 删 · Cat 16 文案改风险经理) · merged main · ECS 上线
+- ECS production 全程 sync (含 reset 全部 commit · GitHub PAT workflow scope fix-forward 删 .github/workflows/lint-contracts.yml)
+- Cat 15 P0 production sync 漂 ✅ 解 (chore/l0-infra ↔ main 落差 10 commit 已 merge)
+
+### Triggered by
+- PM 决议晚上结束工作 · 关 11 worker cmd · 主 CLI 留 (cron auto-patrol 留)
+- A3 + A6 codex review × 2 都 DISAGREE · V2 推明天
+
+### State change (delta)
+- Phase A 8 硬线: 0/8 → 2/8 ✅ + 4/8 ⚠️ (A3/A5/A6 95% · A7 30%) + 2/8 ⏳ (A4/A8 待启)
+- 整体加权 Phase A: ~50% (下午) → ~75% (今晚)
+- ECS production: 含 A1 V2/V3 + A2 V2 + 主 CLI fix-forward 3 件 · 全 reset 工程 doc + shared infra 全上线
+- worker mesh: 9 active → 1 active (A5) → PM 关 A5 后全 close
+- codex review: A1 V2 AGREE + A2 V2 AGREE (cherry-pick merged) + A3 V1 DISAGREE (V2 待) + A6 V1 DISAGREE (V2 待)
+
+### Next (明天)
+- PM 早上 paste "morning resume" + 双击 launch-tomorrow.bat 启 9 worker (A3 V2 + A6 V2 + A4×5 + A5 + A7 · A1/A2 不启)
+- A3 V2 + A6 V2 fix (~30 min) → codex re-review × 2 → AGREE → cherry-pick → push → ECS
+- commit `A4-{X}-GO-AFTER-A3` × 5 (signal commit · A4 worker 真动)
+- A4 5 子真动 (1-3h 并行) → codex review × 5 → cherry-pick × 5
+- A5 完 phase 12 themes + Playwright + DONE → cherry-pick
+- A7 续 master + 6 sub PRD + 飞书双写 + legacy_gradio 隔离
+- A1 compliance-ratify (optional)
+- integration cross-agent smoke (硬线 #4 第二轮)
+- Phase A 完 ETA: 6-10 小时明天 (并行最快)
+
+### 风险预警
+- A3 V2 issue 3 (data_source enum) 不修 · A4 5 子 copy 模板 spread bad pattern · 必先修
+- A6 V2 3 issue 不修 · A4 worker 抄 schema 时 contract lint fail · 也必先修
+- A7 30+ min 静默 · 没 WIP commit · worktree clean · 明天 launch 启 A7 续
+- A4-report cmd 起 fail (一直 0 commit) · 明天 launch-tomorrow.bat 重新启 · 看是否 OK
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
