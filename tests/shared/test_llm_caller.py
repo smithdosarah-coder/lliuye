@@ -41,6 +41,8 @@ from shared.llm_caller import (
     extract_audit_extras,
     get_provider,
     list_providers,
+    make_json_caller,
+    make_text_caller,
     record_llm_call,
     truncate_for_context,
     with_audit,
@@ -460,6 +462,90 @@ def test_module_level_chat_json(monkeypatch):
 
     result = chat_json("s", "u", chain=["deepseek"])
     assert result.json_payload == [1, 2]
+
+
+# ============================================================================
+# V2 fix issue 3 · legacy adapters (simple_chat / make_text_caller / make_json_caller)
+# ============================================================================
+
+
+def test_llm_caller_simple_chat_returns_str(monkeypatch):
+    """LLMCaller.simple_chat() 返 str (匹配 root LLMClient.simple_chat 签名)."""
+    fake = ProviderResult(content="hello", provider_name="deepseek", region="cn")
+    monkeypatch.setattr(DeepSeekProvider, "is_available", lambda self: True)
+    monkeypatch.setattr(DeepSeekProvider, "chat", lambda self, *a, **kw: fake)
+
+    c = LLMCaller(chain=["deepseek"])
+    text = c.simple_chat("s", "u")
+    assert isinstance(text, str)
+    assert text == "hello"
+
+
+def test_llm_caller_simple_chat_empty_content(monkeypatch):
+    """ProviderResult.content None / "" 时 simple_chat 返 ""."""
+    fake = ProviderResult(content="", provider_name="deepseek")
+    monkeypatch.setattr(DeepSeekProvider, "is_available", lambda self: True)
+    monkeypatch.setattr(DeepSeekProvider, "chat", lambda self, *a, **kw: fake)
+
+    c = LLMCaller(chain=["deepseek"])
+    assert c.simple_chat("s", "u") == ""
+
+
+def test_make_text_caller_factory(monkeypatch):
+    """make_text_caller 返 (system, user) -> str closure."""
+    fake = ProviderResult(content="text result", provider_name="deepseek")
+    monkeypatch.setattr(DeepSeekProvider, "is_available", lambda self: True)
+    monkeypatch.setattr(DeepSeekProvider, "chat", lambda self, *a, **kw: fake)
+
+    fn = make_text_caller(agent_id="report", endpoint="/api/report/v16/fill", chain=["deepseek"])
+    assert callable(fn)
+    out = fn("s", "u")
+    assert isinstance(out, str)
+    assert out == "text result"
+
+
+def test_make_text_caller_silent_on_unavailable(monkeypatch):
+    """全 chain 不可用 → make_text_caller closure 返 "" (silent)."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+    monkeypatch.setenv("NVIDIA_API_KEY", "")
+
+    fn = make_text_caller(agent_id="report", endpoint="/x")
+    out = fn("s", "u")
+    assert out == ""
+
+
+def test_make_json_caller_factory(monkeypatch):
+    """make_json_caller 返 (system, user, schema_hint) -> dict|list|None closure."""
+    fake = ProviderResult(json_payload={"a": 1}, provider_name="deepseek")
+    monkeypatch.setattr(DeepSeekProvider, "is_available", lambda self: True)
+    monkeypatch.setattr(DeepSeekProvider, "chat_json", lambda self, *a, **kw: fake)
+
+    fn = make_json_caller(agent_id="compliance", endpoint="/api/compliance/scan", chain=["deepseek"])
+    assert callable(fn)
+    out = fn("s", "u", schema_hint='{"a": int}')
+    assert out == {"a": 1}
+
+
+def test_make_json_caller_silent_on_unavailable(monkeypatch):
+    """全 chain 不可用 → make_json_caller closure 返 None (silent)."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+    monkeypatch.setenv("NVIDIA_API_KEY", "")
+
+    fn = make_json_caller(agent_id="compliance", endpoint="/x")
+    out = fn("s", "u", schema_hint="")
+    assert out is None
+
+
+def test_make_text_caller_audit_can_be_disabled(monkeypatch):
+    """audit_enabled=False 时不绑 agent_id 也合规 (匹配 module-level chat 行为)."""
+    fake = ProviderResult(content="x", provider_name="deepseek")
+    monkeypatch.setattr(DeepSeekProvider, "is_available", lambda self: True)
+    monkeypatch.setattr(DeepSeekProvider, "chat", lambda self, *a, **kw: fake)
+
+    fn = make_text_caller(audit_enabled=False, chain=["deepseek"])
+    assert fn("s", "u") == "x"
 
 
 # ============================================================================

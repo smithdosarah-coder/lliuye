@@ -64,10 +64,13 @@ from shared.llm_caller.prompts import (
 )
 
 # Phase A worker-A2 · M5 · LLMCaller facade (6 agent 迁此 SSOT 入口 · A4 worker 后续迁)
+# V2 fix issue 3 · 加 make_text_caller / make_json_caller legacy adapters
 from shared.llm_caller.client import (
     LLMCaller,
     chat,
     chat_json,
+    make_json_caller,
+    make_text_caller,
 )
 
 __all__ = [
@@ -89,6 +92,8 @@ __all__ = [
     "extract_audit_extras",
     "get_provider",
     "list_providers",
+    "make_json_caller",
+    "make_text_caller",
     "record_llm_call",
     "truncate_for_context",
     "with_audit",
