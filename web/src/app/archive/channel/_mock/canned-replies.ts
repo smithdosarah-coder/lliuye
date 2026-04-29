@@ -12,7 +12,7 @@
  *           回复条尽量带 fieldRef 让右栏 chip 可见，更"假"得真。
  */
 
-import type { ConversationMessage } from "@/lib/mock/agent-channel-session";
+import type { ConversationMessage } from "@/lib/mock/agent-channel-sessions";
 
 export type CannedReply = {
   /** 关键词数组，命中即返回；空数组表示通用 fallback。 */
