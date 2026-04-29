@@ -1,0 +1,137 @@
+{
+  "scenario_id": "hard",
+  "difficulty": "困难 (信号稀疏 · 候选 3 家 · radar 多维偏暗 · 多家有风险标签)",
+  "_lineage": "锚定银保监处罚公告 + 央行授信指引形态 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4",
+  "stage_messages": {
+    "parse": "解析意图 · 行业较窄...",
+    "signal_scan": "5 路并行 · 多路命中稀疏...",
+    "aggregate": "实体聚合 · 部分企业仅单源命中...",
+    "enrich": "工商补全 · 部分企业资质 / 流水缺失...",
+    "pitch": "话术生成 · 触达难度大...",
+    "rank": "Top 3 候选 · 需人工复审"
+  },
+  "metrics": { "signalTotal": 11, "companiesFound": 5, "final": 3, "kb_files_used": 1 },
+  "candidates": [
+    {
+      "id": "demo-hard-c1",
+      "name": "广东南海特种合金制造有限公司",
+      "similarity": 0.52,
+      "score": 52,
+      "industry": "特种合金 · 冶金加工",
+      "geo": "广东 · 佛山",
+      "scale": "营收 4,200 万元",
+      "uscc": "914406055*****",
+      "registeredCapital": "1,200 万元",
+      "founded": "2010-08",
+      "legalRep": "李南海",
+      "employees": 52,
+      "signals": ["行业新政补贴公告"],
+      "riskTags": ["环保处罚 1 起 · 已结案"],
+      "products": ["小微贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-hard-c1-1", "dim_name": "行业", "display": "特种合金 · 行业小众",  "hit_evidence": "policy",  "score": 50 },
+        { "id": "md-hard-c1-2", "dim_name": "风险", "display": "环保处罚 1 起 · 已结",  "hit_evidence": "moe",     "score": 35 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-hard-c1-1", "product_name": "小微贷", "fit_score": 0.52, "intro": "需人工复审环保历史" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-hard-c1-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 行业新政有补贴预期 · 我行小微贷可配套 · 想聊聊吗? (注: 环保历史需复审)" }
+      ]
+    },
+    {
+      "id": "demo-hard-c2",
+      "name": "山东日照航海机电有限公司",
+      "similarity": 0.46,
+      "score": 46,
+      "industry": "船舶机电 · 配套件",
+      "geo": "山东 · 日照",
+      "scale": "营收 8,800 万元",
+      "uscc": "913711025*****",
+      "registeredCapital": "3,500 万元",
+      "founded": "2008-12",
+      "legalRep": "孙日照",
+      "employees": 78,
+      "signals": ["港口造船订单回升"],
+      "riskTags": ["税务异常 · 待解除"],
+      "products": [],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-hard-c2-1", "dim_name": "行业", "display": "船舶配套 · 周期性强",  "hit_evidence": "qcc",   "score": 42 },
+        { "id": "md-hard-c2-2", "dim_name": "风险", "display": "税务异常 · 暂不准入", "hit_evidence": "tax",   "score": 20 }
+      ],
+      "product_recommendations": [],
+      "pitch_scripts": [
+        { "id": "ps-hard-c2-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 该企业税务异常 · 暂不建议主动接触 · 待异常解除后再评估" }
+      ]
+    },
+    {
+      "id": "demo-hard-c3",
+      "name": "西安西部能源装备有限公司",
+      "similarity": 0.42,
+      "score": 42,
+      "industry": "能源装备 · 油气",
+      "geo": "陕西 · 西安",
+      "scale": "营收 1.6 亿元",
+      "uscc": "916101005*****",
+      "registeredCapital": "8,000 万元",
+      "founded": "2005-06",
+      "legalRep": "白西能",
+      "employees": 218,
+      "signals": ["招标公告 · 西气东输配套"],
+      "riskTags": ["关联企业失信 1 条"],
+      "products": ["项目贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-hard-c3-1", "dim_name": "行业", "display": "能源装备 · 远离 SaaS",  "hit_evidence": "qcc",     "score": 38 },
+        { "id": "md-hard-c3-2", "dim_name": "风险", "display": "关联企业失信 · 需复审", "hit_evidence": "credit", "score": 30 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-hard-c3-1", "product_name": "项目贷", "fit_score": 0.42, "intro": "西气东输项目配套 · 需关联企业风险复审" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-hard-c3-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 该企业行业偏离 · 关联失信记录需复审 · 暂列观察名单" }
+      ]
+    }
+  ],
+  "signals": [
+    { "id": "src-biz",     "key": "biz",     "label": "工商变更",   "status": "active",   "weight": 0.20, "freq": "实时", "coverage": 35, "hits": 2 },
+    { "id": "src-bidding", "key": "bidding", "label": "招投标",     "status": "active",   "weight": 0.18, "freq": "实时", "coverage": 40, "hits": 2 },
+    { "id": "src-pr",      "key": "pr",      "label": "媒体公告",   "status": "active",   "weight": 0.16, "freq": "实时", "coverage": 45, "hits": 1 },
+    { "id": "src-legal",   "key": "legal",   "label": "司法诉讼",   "status": "active",   "weight": 0.10, "freq": "T+1",  "coverage": 70, "hits": 2 },
+    { "id": "src-social",  "key": "social",  "label": "社交舆情",   "status": "off",      "weight": 0.08, "freq": "实时", "coverage": 0,  "hits": 0 },
+    { "id": "src-tax",     "key": "tax",     "label": "税务",       "status": "active",   "weight": 0.10, "freq": "T+30", "coverage": 60, "hits": 2 },
+    { "id": "src-hr",      "key": "hr",      "label": "招聘动态",   "status": "degraded", "weight": 0.08, "freq": "实时", "coverage": 25, "hits": 1 },
+    { "id": "src-funding", "key": "funding", "label": "融资动态",   "status": "off",      "weight": 0.10, "freq": "T+1",  "coverage": 0,  "hits": 0 }
+  ],
+  "radar": [
+    { "axis": "信号密度",   "score": 38, "benchmark": 50, "quadrant": "base",   "note": "5 路稀疏 · 2 路 off / 1 路降级" },
+    { "axis": "行业匹配",   "score": 42, "benchmark": 50, "quadrant": "base",   "note": "行业小众 · 远离目标" },
+    { "axis": "区域匹配",   "score": 45, "benchmark": 50, "quadrant": "base",   "note": "跨区域 · 非目标长三角" },
+    { "axis": "规模匹配",   "score": 50, "benchmark": 50, "quadrant": "base",   "note": "营收分布散" },
+    { "axis": "近期活跃度", "score": 35, "benchmark": 50, "quadrant": "demand", "note": "60 天内信号 ≤ 1 条" },
+    { "axis": "资质含金量", "score": 30, "benchmark": 50, "quadrant": "bonus",  "note": "缺专精特新 / 高新认定" },
+    { "axis": "技术强度",   "score": 40, "benchmark": 50, "quadrant": "bonus",  "note": "传统行业 · 专利少" },
+    { "axis": "相似度",     "score": 47, "benchmark": 50, "quadrant": "market", "note": "Top1 52% · 均值 47%" }
+  ],
+  "funnel": [
+    { "id": "fn-1", "label": "信号池",   "count": 720, "detail": "8 信号源 · 多路稀疏 / off" },
+    { "id": "fn-2", "label": "实体聚合", "count": 218, "detail": "按 USCC 去重" },
+    { "id": "fn-3", "label": "Top 排序", "count": 42,  "detail": "信号密度加权" },
+    { "id": "fn-4", "label": "工商补全", "count": 18,  "detail": "活跃企业过滤" },
+    { "id": "fn-5", "label": "Top 推荐", "count": 3,   "detail": "相似度 ≥ 0.40 · 风险待复审" }
+  ],
+  "match_dimensions": [
+    { "id": "md-top-1", "dim_name": "行业",   "display": "行业偏离目标 · 部分小众",     "hit_evidence": "qcc",   "score": 42 },
+    { "id": "md-top-2", "dim_name": "风险",   "display": "多家有风险标签 · 需人工复审", "hit_evidence": "court", "score": 28 }
+  ],
+  "product_recommendations": [
+    { "id": "prod-top-1", "product_name": "小微贷", "fit_score": 0.52, "intro": "需人工复审风险" },
+    { "id": "prod-top-2", "product_name": "项目贷", "fit_score": 0.42, "intro": "项目配套 · 需关联企业风险复审" }
+  ],
+  "pitch_scripts": [
+    { "id": "ps-top-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 行业新政有补贴预期 · 但需复审环保历史 · 是否方便聊聊?" },
+    { "id": "ps-top-2", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 该企业税务异常 · 暂不建议主动接触" }
+  ]
+}
