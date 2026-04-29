@@ -386,4 +386,4 @@ const [scanned, setScanned] = useState(false);  // RiskRadarPreview gate (Q-039 
 - Master plan: `docs/contracts/master-execution-plan-2026-04-27.md` § Stage C.2
 - Q-033 RiskRadar 路由: `docs/handoff/decisions-log.md` Q-033
 - Q-039 spec verify lesson: `docs/handoff/decisions-log.md` Q-039
-- Workspace state: `docs/contracts/workspace-state-protocol.md` (待 A2 worker)
+- Workspace state: `docs/contracts/workspace-state-protocol.md` v1.1 (Phase A worker-A1 ratified · 4 useState gate + AgentSession shape 见 §10)

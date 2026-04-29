@@ -43,6 +43,8 @@
 
 所有 LLM 生成内容走三阶段：**证据汇集 → Grounded 生成 → 自审**。每条数字、判断、结论必须带证据链（出处文件 / 段落 ID / URL）。无证据项标「未能自动填写」，比编一个看起来对的更有价值。实现见 `section_generator.py` 和 `truth_fill.py` 的 `prefill_labeled_fields_from_kb`。
 
+**LLM Prompt 8 段 SSOT**: 6 Agent system prompt 全部按 `docs/contracts/llm-prompt-contract.md` v1.0 (Phase A worker-A1 ratified · 2026-04-29) 8 段顺序拼装 — `[safety] → [evidence-first] → [agent-role] → [tool-use] → [output-schema] → [self-check] → [few-shot] → [evaluation-hook]`。helper `shared/prompts/contract.py` 由 worker-A2 落地后 · 6 Agent inline `SYSTEM_*` 常量全部替换为 `build_system_prompt(agent_id, task_type, ...)` 调用 (audit Cat 6 fix)。Agent2 riskctrl DSL 生成是 [evidence-first] 的唯一例外 (回测仍走确定性 backtest engine · 不让 LLM 现场算 KS/AUC)。
+
 ### 3.4 Search Provider 抽象（可切换）
 
 Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查查实现），切换来源一行代码。下游统一消费 `CompanyProfile` / `ScanResult` 结构，不准依赖数据来源细节。
@@ -74,18 +76,41 @@ Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查
 
 本 5 原则沉淀于 Q-028/A-028（2026-04-24）· data-foundation Batch 1 REJECT-V2 复盘。
 
+### 3.6 LLM Caller 唯一化 + PIPL 合规 fallback chain
+
+Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/llm_caller/` 单一抽象层 · 替代历史 4+1 套并行 caller。
+
+- **5 模块**：`shared/llm_caller/{client, retry, audit, provider, prompts}.py`
+  - `provider.py`：`LLMProvider` Protocol + `ProviderResult` + 4 providers (`DeepSeek` / `DashScope` / `Qwen` / `Moonshot`) + `_REGISTRY` + `get_provider()`
+  - `retry.py`：`DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` + `chat_with_fallback` / `chat_json_with_fallback` + 主 fail 自动切下一个
+  - `audit.py`：`with_audit(...)` ctx 包 single LLM call · 与 `audit_service.decorators.audit_llm_call` (FastAPI 路由级) + `stream_helpers.audit_stream_event` (SSE 内) 三层互补 · 全 silent-fail
+  - `prompts.py`：`build_chat_messages` / `with_json_schema_hint` / `with_few_shot` / `truncate_for_context` 4 个 string-assembly utility（无业务 prompt 文本）
+  - `client.py`：`LLMCaller(agent_id, endpoint, chain, audit_enabled).chat() / .chat_json()` 顶层 facade · 6 agent 迁此入口
+- **PIPL 合规底线**：默认 fallback chain 全境内（`deepseek` 主 + `dashscope` 备）；`moonshot` 标 `region="overseas"`，仅 `LLM_PROVIDER=moonshot` 显式才走；audit log 含 `region` 字段，跨境调用可追溯。
+- **底层 backing 不动**：root `llm.py:LLMClient` 保留为 caller 1（6+ production import）；`shared/llm_caller/provider._LLMClientWrapper` 委托它做实际 API 调用，复用 cache + provider config。
+- **向下兼容**：`shared/llm/{base, router, providers/*}` 保留为 re-export shim，`shared/kb_scan/impls/channel_signal.py:311` 的 1 production import 不破。
+- **Deprecation 路径**（A4 worker 5 子分别迁，本 worker 不动 agent_*/api.py）：
+  - caller 3 `agent_riskctrl/llm_judge.py` LLMJudge 基类 → 迁 `LLMCaller(agent_id="riskctrl", endpoint="judge").chat()`
+  - caller 4 `agent_report/api.py:_build_llm_caller` 裸 `OpenAI(base_url=...)` → 迁 `LLMCaller(agent_id="report", endpoint="/api/report/v16/fill")`
+  - caller 5 `agent_alert/api.py` + `agent_compliance/scan_engine.py` + `agent_riskctrl/api.py` 直 `LLMClient(provider=...)` → 同上 · 各 agent 自有 `LLMCaller` 实例
+- **环境变量**：`LLM_PROVIDER`（默认 provider，不强制） / `LLM_FALLBACK_CHAIN`（覆盖默认 chain · e.g. `deepseek,qwen,dashscope`） / 各 provider 的 `*_API_KEY`（`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `NVIDIA_API_KEY`）。
+
+依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
 |---|---|---|---|---|
 | Agent1 获客 | 客户经理发起 | 画像描述 + 知识库 | 候选企业 + 信号时间线 + 产品推荐 | 授信决策 |
-| Agent2 风控 | 策略经理发起 | 策略诉求 + 样本 CSV | DSL 规则 + KS / 通过率回测 | 个案决策 |
+| Agent2 风控 | 风险经理发起 | 策略诉求 + 样本 CSV | DSL 规则 + KS / 通过率回测 | 个案决策 |
 | Agent3 授信 | 审贷会发起 | Agent6 ReportJSON + 材料 | 四维评分 + 额度 / 期限建议 + 红线 | 写报告 |
 | Agent4 预警 | **客户行为变化**驱动 | 在贷客户池 + 规则库 | 红/黄/绿分级客户榜单 | 单点手动查询 |
 | Agent5 合规 | **政策发布事件**驱动 | 新政策 + 业务制度库 | 违规冲突点明细清单 | 定期巡检 / 财务审计 |
 | Agent6 报告 | 客户经理发起 | 企业材料 + 模板 | ReportJSON + Word | 决策意见 |
 
 Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是对内对外；共享 `shared/kb_scan/` 矩阵扫描底座，不合并。
+
+**命名 SSOT**: 6 Agent × 8 维度 (id / 中文 / 业务名 / UI brand / route / 色彩 token / RBAC role / eval baseline) 单源在 `docs/contracts/agent-naming-ssot.md` v1.0 (Phase A worker-A1 ratified · 2026-04-29) · 任何 agent 相关 consumer 文件 (`web/src/lib/agents.ts` / `auth_service/rbac.py` / `evaluation/agent*.yaml` / `agent_*/api.py`) 一律 read-only 引用 · 修改走 RFC (`shared-change-protocol.md`)。`compli` vs `compliance` 单 id 选项见 SSOT §3 (PM 待拍板)。
 
 ## 5. 评估框架（双轨制）
 
@@ -172,7 +197,11 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
-- `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
+- `shared/llm_caller/` — **Phase A worker-A2 (2026-04-29) · LLM caller 唯一化层** · 5 模块: `provider.py` (Protocol + 4 providers + registry) · `client.py` (LLMCaller facade · `simple_chat` / `make_text_caller` / `make_json_caller` legacy adapter) · `retry.py` (fallback chain · 显式 `api_key` bypass env check) · `audit.py` (per-call hook) · `prompts.py` (string utilities) · 详 §3.6
+- `shared/llm/` — Stage E.3 (2026-04-28) 旧目录 · Phase A 后改 re-export shim · 1 production import 不破 (`shared/kb_scan/impls/channel_signal.py:311`) · 新代码用 `from shared.llm_caller import ...`
+- `shared/sse_envelope.py` — Phase A worker-A2 · backend SSE event 共形 helper (make_stage / make_section / make_done / make_error / encode_event + `CHANNEL_PANEL_KEYS` per workspace-state-protocol §4 · `make_done` 拒空 payload) · spec 见 `docs/contracts/sse-envelope.md` v1.0 · 解决 audit Cat 4 · 6 agent A4 worker 后续迁此入口
+- `shared/prompts/contract.py` — Phase A worker-A2 · 8 段 LLM prompt template skeleton (safety/evidence/role/tools/schema/self-check/few-shot/eval-hook · `_PENDING_A1_SPEC` placeholder strict-only) · spec 见 `docs/contracts/llm-prompt-contract.md` v1.0 · 解决 audit Cat 6
+- `tests/shared/test_llm_caller.py` + `test_sse_envelope.py` — Phase A worker-A2 pytest coverage (69 tests · 含 backward-compat shim 验证)
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
@@ -311,3 +340,24 @@ PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
 **违反 = stop the line**: 任何 commit 触动产品 / 架构 / 决策但**未同步** state-snapshot · 主 CLI 必须立刻 amend commit (或新 commit 补上)。
 
 **意义**: compression / 新 CLI / 未来的我 都靠 state-snapshot 还原 "我们现在到底在哪"。state-snapshot 漂 = reset 工程整体迷失。
+
+## 15. 指令 SSOT 优先级 (Phase A worker-A1 立 · 2026-04-29 · V2 codex review fix · 5 tier + 1 meta)
+
+任何文档 / 代码 / decisions-log 之间冲突时 · 按 `docs/arch/instruction-source-of-truth.md` v1.0 阶梯裁决 · **数字小者赢**:
+
+| Tier | 来源 |
+|---|---|
+| Meta (例外 · ladder 之外) | `docs/arch/instruction-source-of-truth.md` (本 SSOT 自身 · 改它仅 PM 可批) |
+| 1 | `docs/contracts/*.md` (接口契约 · 红区 · RFC 改) |
+| 2 | root `CLAUDE.md` (本文件 · 工程行为 + 全局规则) · 其他 `docs/arch/*.md` (e.g. `platform-contracts.md`) sit here as supporting · 与 root CLAUDE.md 冲突时 root 赢 |
+| 3 | scoped child `CLAUDE.md` (e.g. `agent_*/CLAUDE.md` · narrower-only · 当前 0 个) |
+| 4 | `docs/onboarding/*.md` (worker 任务 brief · 一次性) |
+| 5 | `docs/handoff/decisions-log.md` (Q/A 历史 · active rule 必回写到 Tier 1-2) |
+
+**Meta 例外**: 本 SSOT 自身定义 Tier 1-5 排序 · 不允许 Tier 内文件改本 SSOT (循环依赖) · 是 ladder 之外的元规则 · 见 SSOT §1.0。
+
+**Active decision 回写硬规** (PM 2026-04-29 拍板 #3): 任何改变 future worker 行为的决议必须在**同 commit 或 ≤ 24 小时**内回写到 Tier 1-2 · commit trailer 列 `ACTIVE-DECISIONS-BACK-WRITTEN: <count>`。违反 = stop the line。
+
+**Stale marker**: Tier 1-2 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
+
+详细规则 / 冲突解决 3 步 / 子域 CLAUDE.md 规范 / 当前积压回写任务 → 见 `docs/arch/instruction-source-of-truth.md`。

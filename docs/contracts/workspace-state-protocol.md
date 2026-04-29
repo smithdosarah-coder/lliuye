@@ -1,16 +1,18 @@
-# Workspace State Protocol v1.0
+# Workspace State Protocol v1.1
 
+**Status**: 🟢 RATIFIED · v1.0 originally drafted Stage B · v1.1 Phase A worker-A1 review (2026-04-29 · adds §10 session shape + §11 changelog · 行号 stale ref fix).
 **目的**: 定义 6 Agent archive Workspace (Channel / Report / Credit / Alert / Compli / Riskctrl) 必须遵循的 state 架构 · 避免 Stage B+ worker 各自实现一套 · 让"切下拉切全 panel + 候选 click 详情 drawer + live SSE hydrate"成为跨 Workspace 一致行为。
 
-**适用范围**: `web/src/app/archive/<agent>/_components/<Agent>Workspace.tsx` 全 6 个。  
-**Owner**: 主 CLI (本 doc 是红区契约 · 修改走 RFC · 见 `shared-change-protocol.md`)。  
-**生效**: Stage B Channel 重写完成即生效 · Stage C 5 Agent 复用此 pattern。
+**适用范围**: `web/src/app/archive/<agent>/_components/<Agent>Workspace.tsx` 全 6 个。
+**Owner**: 主 CLI (本 doc 是红区契约 · 修改走 RFC · 见 `shared-change-protocol.md`)。
+**生效**: v1.0 (Stage B Channel 重写完成) · v1.1 (Phase A 验收硬线 #3 · Channel pilot 真 4 gate 实装).
+**6 Agent 引用方** (各 spec 改 "v1.0 已 ratified"): `agent-channel-spec.md` / `agent-credit-spec.md` / `agent-report-spec.md` / `agent-alert-spec.md` / `agent-compli-spec.md` / `agent-forge-spec.md`。
 
 ---
 
 ## 1. 现状 (master plan gap #2/#3/#4/#5)
 
-`web/src/app/archive/channel/_components/ChannelWorkspace.tsx:67-254` 已部分实装 · 但存在以下 gap:
+`web/src/app/archive/channel/_components/ChannelWorkspace.tsx` 已部分实装 (4 useState 见 line 115/124/129/134 · 文件长度 ~2730 行 · 行号会随重构漂 · cross-ref 用 grep `useState<` 定位) · 但存在以下 gap:
 
 | Gap | 表现 | 根因 |
 |---|---|---|
@@ -246,3 +248,40 @@ Workspace 改完 commit 前必跑:
 - `im-protocol.md` · ConversationPanel 内消息走 IM · 但 IM thread 持久化是另一域 · 本协议只管 archive Workspace state shape
 - `auth-protocol.md` · Workspace 入口由 AuthGate enforce · ACCESS matrix 不在本协议范围
 - `shared-change-protocol.md` · 修本协议走红区 RFC · 修单个 Workspace 实现不走 (绿区)
+- `agent-naming-ssot.md` (Phase A worker-A1) · `<agent>` 占位符必须从该 SSOT 取 (id / route / RBAC role 一致)
+- `sse-envelope.md` (Phase A worker-A1) · §4 后端 SSE done payload 共形 spec · 本协议 §4 是各 Agent 在 envelope 内的 payload 字段约束
+- `field-naming.md` v1.0 · §3.6 SSE event 名 (`done`/`stage`/`stream`/...) + §6 wire format · 本协议 §4 不覆盖这些层
+- `instruction-source-of-truth.md` (Phase A worker-A1) · 本协议 ↔ 单 Workspace impl ↔ root CLAUDE.md 冲突时优先级判定
+
+## 10. Agent session shape extension (v1.1 新增)
+
+本节定义 §3 中 `AgentSession` 的强制字段集 · 6 Agent 各自扩展 · 共形头 + agent-specific tail:
+
+```ts
+// shared 头 · 6 Agent 必含
+type AgentSessionHead = {
+  id: string;                 // session 唯一标识 (mock id 或 "live")
+  benchmark: string;          // 标杆主体 (企业名 / 客户号 / 政策标题等)
+  query: AgentSpecificQuery;  // 触发查询参数 (Channel: ScoutQuery · Report: 上传 intent · Credit: ReportJSON ref · etc.)
+  stage: SessionStage;        // "已扫描" | "扫描中" | "草稿" | "已归档"
+  conversation: ConversationMessage[];  // ConversationPanel 渲染源
+  metrics: AgentSpecificMetrics;        // panel header 卡片数据 (Channel: signalTotal/companiesFound/final)
+};
+
+// Agent-specific tail · 各 Agent _shared types 自定义
+// Channel:    candidates / signals / funnel / radar / matchDimensions / productRecommendations / pitchScripts
+// Report:     uploadedFiles / kbHits / extractedFields / draftSections / qcResult
+// Credit:     scoreRadar / redLines / stageTab / decisionLetter / evidenceTrail
+// Alert:      hitlist (红/黄/绿) / signalMap / drillDetail
+// Compli:     policyDiff / matrixScan / conflictPoints / draftRevision
+// Riskctrl:   dslDraft / backtest / sampleDistribution / runStatus
+```
+
+**Phase A worker-A6 输出** `agent-handoff-schemas.md` 定义 cross-agent 链路时 · `AgentSession` 是单 Agent 内部 state · `HandoffSchema` 是 Agent 间数据流 · 两者**不重复定义**：本协议管"单 Workspace 怎么消费 + 渲染" · handoff-schemas 管"Agent A 输出怎么变成 Agent B 输入"。
+
+## 11. Changelog
+
+| 版本 | 日期 | 变更 | Author |
+|---|---|---|---|
+| v1.0 | Stage B (≈ 2026-04-22) | Initial · 4 useState gate + panel props + mock_sessions array + done event 完整 payload + drawer pattern + migration path | 主 CLI |
+| v1.1 | 2026-04-29 | Phase A worker-A1 review · 加 RATIFIED header + 行号 stale ref fix (line 13) + §9 cross-ref 4 兄弟契约 + §10 AgentSession shape 共形头 / agent tail · 6 spec doc 同步 sync ("待 A2 worker" → "v1.0 已 ratified") | worker-A1 |

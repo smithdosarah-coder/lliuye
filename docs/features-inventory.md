@@ -544,13 +544,16 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **status**: live
 - **owner**: Worker A2 (W-CF-A2)
 - **goal**: 满足 empty-state-design-protocol v1.0 §2-§5 落地 · Credit Workspace 默认空白启动 · 不渲染 mock 数据 · 用户主动触发 (CTA) 才 setStarted(true) · 信任模型 P0 (银行用户对假数据零容忍)
-- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`started` useState + `CreditEmptyState` 子组件) · `credit-workspace.css` (`.credit-empty__*` ~250 行)
-- **selector**: `[data-credit-started="no"]` 根 · `[data-testid="credit-empty-skeleton"]` · `[data-testid="credit-empty-skeleton-panels"]` · `[data-testid="credit-empty-status-pill"]` · `[data-testid="credit-stage-tab-{corporate,small_business,retail}"]` 3 stage tabs · `[data-testid="credit-decision-cta"]` primary · `[data-testid="credit-decision-cta-secondary"]` secondary · `[data-testid="credit-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="credit-redlines-list"]` placeholder · `[data-testid="credit-export-docx-btn"]` (default disabled)
-- **interaction**: default `/archive/credit` → `started=false` → EmptyState (Hero + 3 stage_tab + 3 CTA + 3-card skeleton + status pill) · primary "选材料 + 起决策" → POST `/api/credit/decision` SSE · secondary "演示模式" → mock SSE · tertiary "历史 (示例)" → 看 mock · 任一 CTA → `setStarted(true)` 切到完整 workspace
-- **introduce**: 2026-04-28 W-CF-A2 worker · empty-state-design-protocol §6 Credit 改造点
-- **fixes**: master plan gap #6 (Credit Workspace 部分实装 · default 渲 mock data 违 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`started` useState + `CreditEmptyState` 子组件 · 顶层 fork render `if (!started) return EmptyState`) · `web/src/app/archive/credit/credit-workspace.css` (`.credit-empty__*` 类 ~250 行)
+- **selector**: `[data-credit-started="no"]` 根 · `[data-testid="credit-empty-skeleton"]` skeleton 容器 · `[data-testid="credit-empty-skeleton-panels"]` 3 panel grid · `[data-testid="credit-empty-status-pill"]` 状态 pill · `[data-testid="credit-stage-tab-{corporate,small_business,retail}"]` 3 stage tabs · `[data-testid="credit-decision-cta"]` primary CTA · `[data-testid="credit-decision-cta-secondary"]` secondary CTA · `[data-testid="credit-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="credit-redlines-list"]` 红线 placeholder · `[data-testid="credit-export-docx-btn"]` Word 导出 (default disabled)
+- **interaction**: default 进 `/archive/credit` → `started=false` → 渲染 EmptyState (Hero "授信决策辅助 · 4 维评分 + 红线 + 案例 + 决策建议书" + 3 stage_tab 切换 + 3 CTA 分级 + 3-card panel skeleton + status pill) · primary CTA "选材料 + 起决策" → `runDecision({mockMode: false})` → POST `/api/credit/decision` SSE (stage_tab + preset_name) · secondary CTA "演示模式起决策" → `runDecision({mockMode: true})` → backend mock SSE fixture · tertiary "历史 (示例)" → `selectHistoricalDemo()` → setStarted=true + scanned=yes 看 mock 演示 · 任一 CTA 触发都 `setStarted(true)` 切到完整 workspace
+- **introduce**: 2026-04-28 W-CF-A2 worker · empty-state-design-protocol v1.0 §6 Credit 改造点 (主 CTA 选材料 + 起决策 / secondary 直接输入 / tertiary 历史 dropdown 标 (示例)) · onboarding §Acceptance 列 6 必加 testid
+- **fixes**: master plan gap #6 (5 archive Workspace 仅 Channel 部分实装 · Credit 部分实装但 default 已渲染 mock data 违反 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work
 - **lost_at**: N/A
-- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` (4 test: default render + 3 tab 切换 + tertiary trigger + tertiary 标 (示例))
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` (4 test: default render skeleton + 3 stage_tab 切换 + tertiary trigger started + tertiary 标 (示例) tag)
+
+---
 
 ## F-050 · Compli Workspace · 空白启动 + 3 CTA 分级
 
@@ -570,15 +573,51 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 
 - **status**: live
 - **owner**: Worker A2 (W-CF-A2 · backend W-C2-A2 v4.0 复用)
-- **goal**: started=true 后渲染完整授信决策 panel + 真接 backend SSE + LLM advice fade-in + decision_id 缓存 + Word 导出 (.docx)
-- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`runDecision()` · `liveAdvice/decisionId/decisionRunning/decisionError` useState · `CreditDecisionAdvicePanel` 子组件 · 动态 anchor click 触发 .docx 下载) · `credit-workspace.css` (`.credit-advice-live__*` ~120 行)
-- **selector**: `[data-credit-started="yes"]` 根 · `[data-testid="credit-decision-advice-live"]` advice panel · `.credit-advice-live__verdict-lbl/grade/score` 结论 + 等级 + 分 · `.credit-advice-live__meta` 额度/期限/利率 · `.credit-advice-live__cond` 附加条件 · `[data-testid="credit-export-docx-btn"]` Word 导出 (live 后启用)
-- **interaction**: primary/secondary CTA → POST `/api/credit/decision` SSE → 解析 `advising_done` 注 liveAdvice + `decision_cached` 拿 decision_id → AdvicePanel fade-in → 用户点 export_docx → POST `/api/credit/export_docx` `{decision_id}` 优先 cache · 拿 .docx blob → anchor click 下载 `授信决策建议书_{stage_tab}_{ts}.docx`
-- **introduce**: 2026-04-28 W-CF-A2 · 复用 W-C2-A2 v4.0 backend (decision SSE + decision_cached event + 30min cache TTL)
-- **fixes**: master plan gap #8 (Agent3 后端 stub) + gap #12 Credit Word 闭环
+- **goal**: started=true 后渲染完整授信决策 panel + 真接 backend SSE 流 + LLM advice 实时 fade-in + decision_id 缓存 + Word 导出 (.docx)
+- **location**: `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (`runDecision()` async fn · POST `/api/credit/decision` SSE 解析 advising_done event · `liveAdvice/decisionId/decisionRunning/decisionError` useState · `CreditDecisionAdvicePanel` 子组件 · 动态生成 anchor 触发 .docx 下载) · `credit-workspace.css` (`.credit-advice-live__*` ~120 行)
+- **selector**: `[data-credit-started="yes"]` 根 · `[data-testid="credit-decision-advice-live"]` advice panel 容器 (live SSE 完成后渲) · `.credit-advice-live__verdict-lbl/grade/score` 决策结论 + 风险等级 + 综合分 · `.credit-advice-live__meta` dt/dd 额度/期限/利率 · `.credit-advice-live__cond` 附加条件列表 · `[data-testid="credit-export-docx-btn"]` Word 导出 button (live 完成后启用)
+- **interaction**: 用户在 EmptyState 点 primary/secondary CTA → `runDecision()` POST `/api/credit/decision` SSE (`stage_tab + preset_name + mock`) → 流式解析: `advising_done` event 注 `liveAdvice` + `decision_cached` event 拿 `decision_id` → `CreditDecisionAdvicePanel` fade-in 渲 LLM 建议 + 决策卡 + 红线解释 + 附加条件 → 用户点 export_docx → POST `/api/credit/export_docx` `{decision_id}` (优先 cache) 或 `{advice}` (passthrough) → 拿 .docx blob → 动态 anchor click 触发浏览器下载 `授信决策建议书_{stage_tab}_{ts}.docx` · `decision_id` 不存在/过期 → 后端 404 + ttl_sec hint
+- **introduce**: 2026-04-28 W-CF-A2 worker · 复用 W-C2-A2 v4.0 backend 的 `decision SSE event=decision_cached` + `export_docx body{decision_id}` (in-memory cache 30min TTL) · empty-state-design-protocol §3 状态机 trigger 之一
+- **fixes**: master plan gap #8 (Agent3 后端 stub) · gap #12 (6 Agent Word 导出·后端只有 xlsx) Credit 闭环
 - **lost_at**: N/A
-- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` test #3 (tertiary trigger 完整 workspace · RiskRadarPreview 渲染) · 完整 e2e SSE+docx 下载留 Stage D dry-run
-- **依赖**: F-048 (empty state 入口) · backend `/api/credit/decision` SSE v4.0 + `/api/credit/export_docx` (W-C2-A2)
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/credit-empty-state.spec.ts` test #3 (点 tertiary trigger 完整 workspace · RiskRadarPreview 渲染验证) · live SSE wire 完整 e2e (含 docx 下载) 留 Stage D dry-run 阶段补 (本批 acceptance 不要求 · 因 LLM key 环境依赖 + binary blob assert 复杂)
+- **依赖**: F-048 (empty state 是入口) · backend `/api/credit/decision` SSE v4.0 + `/api/credit/export_docx` (W-C2-A2 已 deliver) · `web/AGENTS.md` Next 16 注意 (use client + fetch streaming reader 标准模式)
+
+---
+
+## F-049 · Alert empty state · default started=false → Hero + 3 CTA + 红黄绿 skeleton + status pill
+
+- **status**: live
+- **owner**: Worker A2 (W-CF2-A2)
+- **goal**: 满足 empty-state-design-protocol v1.0 §2-§5 落地 · Alert Workspace 默认空白启动 · 不渲染 mock topCases / hitlist · 用户主动触发 (3 CTA 之一) 才 setStarted(true) · 信任模型 P0 (银行用户对假数据零容忍 · 假"红黄绿户数"看着像真分级会让用户混淆 production / demo)
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (`started` useState + `AlertEmptyState` 子组件 · 顶层 fork render `if (!started) return EmptyState`) · `web/src/app/archive/alert/alert-workspace.css` (`.alert-empty__*` 类 ~220 行 + `.alert-export-bar__*` + `.alert-drill-drawer__*` + `.alert-demo-banner` ~140 行)
+- **selector**: `[data-alert-started="no"]` 根 · `[data-testid="alert-workspace"]` workspace 容器 · `[data-testid="alert-empty-skeleton"]` skeleton · `[data-testid="alert-empty-skeleton-panels"]` 3 灯 + hitlist + signalmap grid · `[data-testid="alert-empty-status-pill"]` 状态 · `[data-testid="alert-scan-cta"]` primary · `[data-testid="alert-scan-cta-secondary"]` secondary · `[data-testid="alert-history-tertiary"]` tertiary 历史 (示例) · `[data-testid="alert-traffic-light-{red,yellow,green}"]` 三灯 skeleton · `[data-testid="alert-export-docx-btn"]` Word 导出 (default disabled)
+- **interaction**: default 进 `/archive/alert` → `started=false` → 渲染 EmptyState (Hero "贷中风险预警 · 在贷客户池批量扫描 + 红黄绿分级榜单" + 3 CTA + 红黄绿三灯 skeleton + hitlist 占位 + signalmap 占位 + status pill) · primary CTA "启动风险扫描" → `triggerPrimaryScan()` → setStarted=true + 现有 startScan() 跑 mock 5 步 · secondary CTA "选规则集 + 调阈值" → `triggerSecondaryScan()` → 同 primary 但留 hook 后续可拆 · tertiary "历史 (示例)" → `triggerTertiaryDemo()` → 跳过 scanning · phase=after 直接展示 mock + alert-demo-banner 提示 "示例数据 (training mode)"
+- **introduce**: 2026-04-28 W-CF2-A2 worker · empty-state-design-protocol v1.0 §6 Alert 改造点 (主 CTA 启动扫描 (KB 已加载即可) · panel 默认空 · 历史 secondary) · onboarding §Acceptance 6 必加 testid
+- **fixes**: master plan gap #6 (Alert Workspace 部分实装但 default 直接渲 mock topCases / hitlist 违 trust model) · empty-state-design-protocol §1.1 信任 + §1.2 数据归属 + §1.4 Show Its Work + §1.5 Demo / Production 路径分离
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/alert-empty-state.spec.ts` (4 test · chromium 4/4 + edge 4/4 = 8/8 PASS · default render skeleton + 6 testid 全可见 + tertiary trigger started+demo banner + tertiary 标 (示例) + primary trigger started)
+
+---
+
+## F-055 · Alert 完整 workspace · drill drawer + Word 导出 + demo banner (started=true 路径)
+
+- **status**: live
+- **owner**: Worker A2 (W-CF2-A2)
+- **goal**: started=true 后渲染完整贷中预警 workspace (TrafficLightWall + ScanQueuePanel + SignalHeatmap + drill drawer + 顶部 export bar) · 客户 click → drill drawer 显风险等级/授信余额/触发信号/处置建议 · phase=after 后启用 export_docx button (POST /api/alert/export_docx) · tertiary trigger 显 demo banner 提示
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (`AlertExportPanel` + `AlertDrillDrawer` 子组件 · `drillCustomer/scanError/demoBanner` useState · `triggerPrimaryScan/triggerSecondaryScan/triggerTertiaryDemo` 三 handler) · `alert-workspace.css` (`.alert-export-bar__*` + `.alert-drill-drawer__*` + `.alert-demo-banner` ~180 行)
+- **selector**: `[data-alert-started="yes"]` 根 · `[data-testid="alert-export-bar"]` 顶部导出条 · `[data-testid="alert-drill-cta"]` 详情入口 (phase=after 显) · `[data-testid="alert-export-docx-btn"]` Word 导出 (phase=after 启用) · `[data-testid="alert-drill-drawer"]` 客户详情 drawer · `[data-testid="alert-hitlist-row"]` hitlist row · `[data-testid="alert-demo-banner"]` tertiary trigger 提示
+- **interaction**: 用户在 EmptyState 点 primary/secondary CTA → setStarted=true · phase=before → startScan 跑 5 步 (500ms 间隔) → phase=after · TrafficLightWall + ScanQueuePanel + SignalHeatmap 全 panel 渲 · 顶部 alert-export-bar 出现 · 用户点 alert-drill-cta → setDrillCustomer(TOP customer) → AlertDrillDrawer fade-in (右上角 fixed) 显 风险等级 + 授信余额 + 触发信号 (triggers) + 处置建议 (advice) · 用户点 alert-export-docx-btn → POST /api/alert/export_docx (后端 endpoint 待 backend 补 · 本批前端按 contract 实装 · 失败 console.error 不抛 UI 阻断) → blob → anchor click 下载 `贷中预警榜单_{ts}.docx`
+- **introduce**: 2026-04-28 W-CF2-A2 worker · empty-state-design-protocol §3 状态机 trigger 之一
+- **fixes**: master plan gap #6 (Alert Workspace 完整 production-grade) + gap #12 (6 Agent Word 导出 · 后端只有 xlsx) Alert 闭环 frontend
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `web/tests/regression/alert-empty-state.spec.ts` test #2 (tertiary trigger → started=yes + alert-wall 渲 + alert-hitlist-row 出现 + alert-demo-banner 显) · 完整 e2e 含 drill drawer + docx 下载留 Stage D dry-run
+- **依赖**: F-049 (empty state 入口) · backend `/api/alert/scan` (Stage A.5 上批) + `/api/alert/export_docx` (Stage D 待后端补 · 本批前端按 contract 实装) · `web/AGENTS.md` Next 16 注意
+
+---
 
 ## F-049 · Alert empty state · default started=false → Hero + 3 CTA + 红黄绿 skeleton + status pill
 
@@ -871,6 +910,42 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 - **lost_at**: N/A
 - **restored**: N/A
 - **smoke_test**: `agent_alert/tests/test_export_docx_endpoint.py` (4 case · TestClient · 200 + Content-Type docx + Content-Disposition RFC 6266 + zip magic) · `agent_alert/tests/test_word_export.py` (33 case docx render 各分支)
+
+---
+
+## F-062 · IM Cookie Auth Chain Fix (W-FIX2-A2-im-cookie-auth · bug #8 P0)
+
+- **status**: live
+- **owner**: Worker A2 (W-FIX2 · 2026-04-29)
+- **goal**: 修 Codex 找的 P0 bug #8 (IM dead 真根源 · cookie 名错): frontend `web/src/lib/api/im.ts:34` 读 `auth_token` cookie · 但 D.1 backend 真 cookie 名 `zhongan_auth` + httpOnly (JS 不可读) · 整 IM 链断 · 真 user permission fail / 401
+- **location**:
+  - `web/src/lib/api/im.ts` (移除 `getImToken()` 读 cookie · 全 fetch 已有 `credentials: "include"` · header 注释更新)
+  - `web/src/app/dispatch/_components/ComposerBar.tsx` (`/api/im/send` fetch 加 `credentials: "include"`)
+  - `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`/api/im/send` fetch 加 `credentials: "include"`)
+  - `im_service/auth.py` (新 helper `decode_jwt_cookie(zhongan_auth)` 走 `auth_service.jwt_util.verify` 严格 D.1)
+  - `im_service/websocket.py` (`im_websocket_endpoint` 加 `cookie_token` 参数 · cookie 优先 · query token fallback)
+  - `api_server.py` (`_resolve_im_user(zhongan_auth, authorization, token_q)` 三 source 优先级 · 6 IM endpoint signature 加 `zhongan_auth: str | None = Cookie(default=None)` · WS endpoint 读 `websocket.cookies["zhongan_auth"]`)
+- **selector**: 后端无新 testid · 验证走 cookie jar (`zhongan_auth=...` httpOnly · curl `-b jar.txt`)
+- **interaction**:
+  - 真 user 流程: POST `/api/auth/login` → backend Set-Cookie `zhongan_auth=<JWT>` httpOnly · browser 自动 store · 后续所有 IM fetch `credentials: "include"` 自动带 cookie · backend `_resolve_im_user` 优先 `decode_jwt_cookie` (D.1 jwt_util.verify HS256) · 成功立即 hit 真 user_id
+  - demo / e2e 流程: 无 cookie / cookie 无效 · fallback Authorization Bearer (含 `demo-u_<id>` legacy 格式) · 不影响 production
+  - WebSocket: same-origin 自动带 cookie · `/ws/im` 优先 cookie · 失败回退 `?token=<jwt>` query (legacy / 非 same-origin)
+  - 6 endpoint 清单 (per onboarding W-FIX2-A2-im-cookie-auth.md §Acceptance):
+    POST `/api/im/messages` · GET `/api/im/threads` · GET `/api/im/threads/{tid}/messages` ·
+    POST `/api/im/threads/{tid}/read` · POST `/api/im/threads` (create) ·
+    POST `/api/im/send` (legacy · cookie param 兼容 · 不强制) · WS `/ws/im` (cookie 优先)
+- **contract**: `docs/contracts/auth-protocol.md` v1.0 §5 cookie spec (zhongan_auth · httpOnly · SameSite=Lax · 24h) · `docs/onboarding/W-FIX2-A2-im-cookie-auth.md`
+- **introduce**: 2026-04-29 W-FIX2-A2 worker (cherry-pick → chore/l0-infra)
+- **lost_at**: N/A (新 fix · 此前 frontend 读错 cookie 名导致 IM auth dead)
+- **smoke_test**:
+  - `im_service/tests/test_cookie_auth.py` 12 case PASS (decode_jwt_cookie 单元 4 + REST endpoint 8 含真 D.1 cookie / cookie 优先 / fallback Bearer / expired cookie / 缺 cookie + Bearer / 全无效 / messages 完整流 / mark_read)
+  - im_service/tests/ 全套 61 PASS · auth_service/tests/ 全套 43 PASS · 无回归
+  - curl smoke 三 path verified: `POST /api/auth/login` → cookie jar 有 `zhongan_auth` (httpOnly) · `GET /api/im/threads` 仅带 cookie 返 200 + `user_id=u_wangzhe` (真 user · 不是 demo fallback) · 缺 cookie 返 401 MISSING_TOKEN · demo Bearer fallback 仍接受
+- **NB**:
+  - 不增 `/api/im/token` endpoint (Codex 建议过度工程) · 不增 IM-specific token 概念 · 复用 D.1 cookie + jwt_util
+  - cookie 优先级原则: 真 D.1 JWT 命中 > Authorization Bearer (含 demo) > query token · 任一成功立即返 · 不进 fallback
+  - frontend `getImToken()` 仍保留 (作 demo / e2e localStorage fallback) · 但不再 reach for `document.cookie` (httpOnly 不可读)
+  - `/api/im/send` legacy LLM 单 turn endpoint 加 cookie param signature 但不强制 (向后兼容)
 
 ---
 

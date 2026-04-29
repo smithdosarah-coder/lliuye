@@ -229,6 +229,70 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 04:25 · Step 2 conflict-register-v1 PREPARED + A1/A2 worker 同时启 (PM override)
+
+### What happened
+- 7 路 fire 全 done (6 sub-agent foreground · Codex 1 background notification)
+- 7 份 audit doc 全落 disk:
+  - `docs/audit/sub-agent-step2-round1/{architecture,data,instruction,naming-route,production-shape}.md` (5 · 105 findings)
+  - `docs/audit/codex-step2-round1.md` (50 findings 全 17 类 · independent v1)
+  - `docs/audit/prd-evidence-frozen.md` (Step 3 PRD 取证 · 飞书 7 doc found · 10 G-XX gap)
+- 主 CLI synthesize → `docs/audit/conflict-register-v1.md` (87 entries · charter §8 schema · 含 dissent appendix per anti-bias rule 4 · ~2800 词)
+- PM 拍板"我说的是 A1 和 A2" → override charter §3 sequential flow → A1 + A2 worker 与 Step 2 register 拍板并行启
+
+### Triggered by
+- 6 sub-agent foreground 全 returned + Codex background completion notification (b0h9h9wvc)
+- PM 答 "我说的是 A1 和 A2" (override Step 2→Phase A sequential gate)
+
+### State change (delta)
+- Step 2 状态: IN-FLIGHT → REGISTER PREPARED (待 PM 拍板 Signal: STEP-2-PM-RULED)
+- audit dir: 7 路 fire 全落地 + 1 份 conflict-register-v1 主 CLI 合成
+- Phase A worker mesh: idle → A1 + A2 dispatch starting (per PM override · 与 register 拍板并行)
+- 🔴 Cat 15 (production sync 漂 P0) flagged · 待主 CLI fix-forward (chore/l0-infra 落后 main 10 commit)
+- Phase A 8 项验收硬线进度: 0/8 → 启 A1 (硬线 #1, #8) + A2 (硬线 #2)
+
+### Next
+- 主 CLI: 写 A1 + A2 onboarding doc + DISPATCHED commit × 2 + fire Codex pre-dispatch draft × 2 (插入点 1)
+- 通知 PM 启 worker A1-inventory + A2-contracts cmd window (worktree 复用 · branch 改名为 feat/phase-a1-contracts + feat/phase-a2-shared per charter §3)
+- PM 拍板 register (Signal: STEP-2-PM-RULED) → A3-A7 worker 后续按 register 派
+- 主 CLI fix-forward Cat 15 production sync (与 A1+A2 并行)
+
+---
+
+## 2026-04-29 04:45 · STEP-2-PM-RULED + A5/A6/A7 dispatched
+
+### What happened
+- PM 拍板 4 件 dissent (per conflict-register-v1.md PM 拍板段):
+  1. Cat 8 选 `compliance` 单 id
+  2. Cat 0 `/today` RM workbench 推 Phase B-3
+  3. Cat 15 sync 等 A1+A2 完后
+  4. Cat 11 legacy_gradio 全栈隔离 (v16 真稳前不真删)
+- 87 entries 默认按建议跑 · PM 不逐条 review · worker owner 列处理
+- 主 CLI 派 A5 + A6 + A7 worker (Week 2-3 并行 · 不依赖 A1/A2/A3):
+  - A5 worktree D:/claude code/work-A5-design (新建 · feat/phase-a5-design)
+  - A6 worktree D:/claude code/work-A6-handoff (新建 · feat/phase-a6-handoff)
+  - A7 复用 D:/claude code/work-A3-prd · resume 时切 feat/phase-a7-prd
+- Codex pre-dispatch draft × 3 fire background
+
+### Triggered by
+- PM "剩下的 GO" (4 件全过)
+- A1/A2 worker 已 active 跑 (feat/phase-a1-contracts 59cce5c / feat/phase-a2-shared 3147d49)
+
+### State change (delta)
+- Step 2 状态: REGISTER PREPARED → PM-RULED (4 dissent 收敛 + 87 entries 按建议派)
+- Phase A worker mesh: A1+A2 active → A5+A6+A7 dispatching (5 worker active 中 · 仅 A3+A4 等依赖)
+- 87 entries owner 列指 worker 启 · 各 worker resume 时按 register 干
+- legacy_gradio 决议: 真删 → 全栈隔离 (v16 真稳前留)
+
+### Next
+- A5/A6/A7 onboarding doc + DISPATCHED commit × 3 + Codex draft × 3 (background)
+- 等 5 worker (A1/A2/A5/A6/A7) DONE signal · cherry-pick · push origin · ECS sync (per CLAUDE.md §13.1)
+- A1+A2 DONE 后 → 主 CLI 启 A3 (Channel pilot · 依赖 A1+A2)
+- A3 DONE 后 → 主 CLI 启 A4 5 子 worker (依赖 A3 · channel pilot 模板)
+- A1+A2 cherry-pick 后 → 主 CLI 一次性 sync chore/l0-infra ↔ main (Cat 15 fix-forward · 含 ECS verify)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
