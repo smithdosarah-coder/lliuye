@@ -4,7 +4,7 @@
 Coverage:
   - mock=true SSE 流验 7 阶段事件序列 · advice payload 含 4 维评分
   - 缺 report_json + preset_name → SSE error event (空白启动 protocol)
-  - GET /api/credit/presets 返 stage 维度元数据 (corporate 4 维 + 4 grade)
+  - corporate stage 维度元数据 (4 维 + 4 grade · 直读 _STAGE_DIMENSIONS · 路由已下架)
 """
 from __future__ import annotations
 
@@ -77,12 +77,15 @@ def test_decision_corporate_missing_input_emits_error(client):
     assert "report_json" in err_events[0]["message"] or "preset_name" in err_events[0]["message"]
 
 
-def test_get_presets_corporate_dimensions(client):
-    """GET /api/credit/presets · corporate stage 4 维 + 4 grade."""
-    resp = client.get("/api/credit/presets")
-    assert resp.status_code == 200
-    data = resp.json()
-    corp = next(s for s in data["stages"] if s["stage_tab"] == "corporate")
+def test_stage_dimensions_corporate_metadata():
+    """corporate stage_tab metadata · 4 维 + 4 grade.
+
+    `/api/credit/presets` 路由已下架 (batch 4)·改读 `_STAGE_DIMENSIONS` 直查
+    内部数据,保 stage 维度的契约稳定。
+    """
+    from agent_credit.api import _STAGE_DIMENSIONS
+    corp = _STAGE_DIMENSIONS["corporate"]
+    assert corp["stage_tab"] == "corporate"
     assert corp["label"] == "对公授信"
     assert corp["amount_range_wan"] == [50, 5000]
     assert len(corp["scoring_dimensions"]) == 4

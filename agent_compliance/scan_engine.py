@@ -12,8 +12,8 @@ MatrixMatcher 全保留 · 本模块面向 inline text input (新 POST endpoints
 6. **empty-state 协议** · 默认走真扫 · `force_mock=True` 时显式加载 demo session
 
 不破坏：
-- 既有 GET `/api/compliance/policy_scan` (Tavily 政策发现) 不动
 - ComplianceRadarAgent / RuleSetBuilder / EventExtractor / MatrixMatcher 0 改动
+- (注: GET `/api/compliance/policy_scan` Tavily 政策发现端点已下架 · batch 4 cleanup)
 """
 from __future__ import annotations
 

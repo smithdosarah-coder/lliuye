@@ -63,11 +63,13 @@ def test_decision_retail_scoring_subscores(client):
         assert v >= 0
 
 
-def test_get_presets_retail_grades(client):
-    """retail 5 个评级档位 · FICO 阈值 800/760/700/680."""
-    resp = client.get("/api/credit/presets")
-    data = resp.json()
-    rt = next(s for s in data["stages"] if s["stage_tab"] == "retail")
+def test_stage_dimensions_retail_grades():
+    """retail 5 个评级档位 · FICO 阈值 800/760/700/680.
+
+    `/api/credit/presets` 路由已下架 (batch 4)·改读 `_STAGE_DIMENSIONS` 直查。
+    """
+    from agent_credit.api import _STAGE_DIMENSIONS
+    rt = _STAGE_DIMENSIONS["retail"]
     assert rt["label"] == "对私 / 零售"
     assert len(rt["risk_grades"]) == 5
     grade_youxiu = next(g for g in rt["risk_grades"] if g["grade"] == "优")
