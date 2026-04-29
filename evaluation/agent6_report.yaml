@@ -1,8 +1,8 @@
 # Agent6 报告生成 评估配置
 # schema: A-025 · 双写（老 desc/target 保留 · v16 pipeline 继续消费 + 追加新 description/method/baseline_target/blocker_threshold）
 agent: report
-version: v7.23
-updated: 2026-04-24
+version: v16
+updated: 2026-04-29
 
 metrics:
   common:
@@ -114,7 +114,7 @@ baseline:
 coverage_by_template:
   total_templates: 5
   by_scenario:
-    inclusive_skeleton: 1   # 普惠申报书_骨架型.docx (v7.23 基线)
+    inclusive_skeleton: 1   # 普惠申报书_骨架型.docx (v16 基线)
     corporate_long_form: 2  # 兴业资管_对公成稿B.docx + 经纬测绘_对公成稿A.docx
     tech_credit: 1          # 科创贷申报书_模板.docx (Phase 2 新增)
     micro_personal: 1       # 小微对私授信申报书_模板.docx (Phase 2 新增)
