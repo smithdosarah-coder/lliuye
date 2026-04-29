@@ -10,10 +10,8 @@
   POST /api/report/export_docx  — 从 session 数据渲染 .docx (Stage C.1)
   GET  /api/report/downloads/{report_id}            — alias to latest session docx (Stage C.1)
   GET  /api/report/downloads/{session_id}/{filename}— UUID 白名单下载
-  GET  /api/report/downloads/legacy/{fname}         — mock fallback docx
   GET  /api/report/downloads/v16/{filename}         — v16 真路径产物
   GET  /api/report/preset/{key}                     — 预置 fixture
-  GET  /downloads/{fname}                           — 兼容老接口
   GET  /health  /  GET /api/report/health           — 健康检查 + LLM 状态灯
 
 事件契约(与前端 V14-B 约定):
@@ -192,11 +190,8 @@ async def _mock_stream(preset: str, business_line: Optional[str] = None) -> Asyn
     enterprise = EnterpriseProfile(**_coerce_profile(profile_dict))
     pending = mock_fixtures.sample_pending_questions(preset)
 
-    # Mock 模式沿用历史 docx(在 outputs 根目录,/downloads/{fname} 老端点兜底)
-    fallback_docx = mock_fixtures.fallback_docx_path(OUTPUTS_DIR)
-    report_docx_url = (
-        f"/api/report/downloads/legacy/{fallback_docx.name}" if fallback_docx else None
-    )
+    # Mock 模式 docx_url 不再可用 (legacy 下载端点已下架 · batch 4 cleanup)
+    report_docx_url = None
 
     # mock 场景也推几节 section,让前端看到内容
     chapters = profile_dict.get("chapters") or {}
@@ -827,10 +822,9 @@ async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]
         "last_refine_answers": [a.model_dump() for a in req.answers],
     })
 
+    # legacy /downloads/{fname} 端点已下架 (batch 4 cleanup);refine 路径若需暴露
+    # docx 链接,改走 /api/report/downloads/{session_id}/{filename} 或 v16 路径。
     report_url = None
-    docx_path = sess.get("report_docx_path")
-    if docx_path and os.path.exists(docx_path):
-        report_url = f"/downloads/{os.path.basename(docx_path)}"
 
     yield _sse("done", {
         "session_id": req.session_id,
@@ -840,34 +834,6 @@ async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]
         "downstream_handoff": mock_fixtures.downstream_handoff(
             (profile.get("profile_id") or "dingsheng_trade")),
     })
-
-
-@app.get("/downloads/{fname}")
-async def download_legacy(fname: str):
-    """兼容老接口:直接从 outputs 根目录下载."""
-    safe = os.path.basename(fname)
-    target = DOWNLOAD_DIR / safe
-    if not target.is_file():
-        raise HTTPException(404, f"文件不存在: {safe}")
-    return FileResponse(
-        path=str(target),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=safe,
-    )
-
-
-@app.get("/api/report/downloads/legacy/{fname}")
-async def download_mock_fallback(fname: str):
-    """Mock 模式历史 docx 下载(从 outputs 根目录取)."""
-    safe = os.path.basename(fname)
-    target = DOWNLOAD_DIR / safe
-    if not target.is_file():
-        raise HTTPException(404, f"文件不存在: {safe}")
-    return FileResponse(
-        path=str(target),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=safe,
-    )
 
 
 @app.get("/api/report/downloads/{session_id}/{filename}")

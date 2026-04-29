@@ -2,10 +2,8 @@
 """agent_credit.api — Agent3 授信决策 FastAPI 路由模块 (Stage C v4.0).
 
 端点 (v4.0 · 2026-04-28 · onboarding W-C2-A2-agent-credit-backend-complete):
-  GET  /api/credit/presets              — 返 3 stage_tab 评分维度 + 红线 (无 path 版)
-  GET  /api/credit/presets/{segment}    — [legacy] 列出 preset_name (corporate/retail)
+  GET  /api/credit/presets/{segment}    — 列出 preset_name (corporate/retail)
   POST /api/credit/decision             — SSE 流式 · body {stage_tab, report_json?, materials?, preset_name?, mock?}
-  POST /api/credit/decision_legacy      — [legacy] body {segment, preset_name} (preset-only)
   POST /api/credit/export_docx          — body {decision_id?} or {advice?} · 决策建议书 docx
   GET  /api/credit/handoff/demo/{segment} — Agent6→Agent3 handoff 样本
 
@@ -15,7 +13,6 @@
   - report_json 可选 · 优先于 preset_name · 落地走现有 CreditDecisionAgent.run_decision_stream
   - mock=true 路径返 fixture SSE events · 不调 LLM (curl/无 key 环境 demo 友好)
   - decision_id in-memory cache (advice payload) · 30 min TTL · demo 级 (生产走 sqlite)
-  - 老 endpoint 保留 _legacy 后缀 · 不 break Stage A/B 已有调用
 
 Boundary 守 (Stage C onboarding):
   - 改: 本文件
@@ -137,7 +134,7 @@ def _get_cached_advice(decision_id: str) -> dict[str, Any] | None:
 
 
 # ============================================================================
-# Stage C v4.0 · GET /api/credit/presets (no path · 返 3 stage_tab 维度 + 红线)
+# Stage C v4.0 · 3 stage_tab 评分维度 + 红线规则元数据 (内部消费 · decision SSE 用)
 # ============================================================================
 
 
@@ -204,15 +201,9 @@ _STAGE_DIMENSIONS: dict[str, dict[str, Any]] = {
 }
 
 
-@app.get("/api/credit/presets")
-async def list_credit_presets_all():
-    """返 3 stage_tab 评分维度 + 红线规则元数据 (前端 RiskAppetiteDrawer 消费)."""
-    return {"stages": list(_STAGE_DIMENSIONS.values())}
-
-
 @app.get("/api/credit/presets/{segment}")
 async def list_credit_presets(segment: str):
-    """[legacy] 列出指定 segment 下的 preset_name (来自 mock_data/{seg}_profiles/)."""
+    """列出指定 segment 下的 preset_name (来自 mock_data/{seg}_profiles/)."""
     if segment not in ("corporate", "retail"):
         raise HTTPException(400, "segment must be corporate or retail")
     try:
@@ -505,63 +496,6 @@ async def credit_decision_v4(req: DecisionRequestV4):
     def gen():
         yield from _decision_event_stream_v4(req)
 
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
-
-
-# ============================================================================
-# POST /api/credit/decision_legacy — preset-only · 保留 back-compat
-# ============================================================================
-
-
-class DecisionRequestLegacy(BaseModel):
-    segment: str       # "corporate" | "retail"
-    preset_name: str
-    provider: str | None = None
-    api_key: str | None = None
-
-
-def _decision_event_stream_legacy(req: DecisionRequestLegacy):
-    try:
-        from agent_credit.agent import CreditDecisionAgent
-    except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
-        return
-    try:
-        agent = CreditDecisionAgent(
-            api_key=req.api_key or "dummy",
-            model_provider=req.provider or "deepseek",
-        )
-        profile = agent.load_preset_profile(req.preset_name, req.segment)  # type: ignore
-        yield sse_encode({"event": "profile_loaded", "profile": to_jsonable(profile)})
-        for stage, payload in agent.run_decision_stream(profile, req.segment):  # type: ignore
-            cleaned, hits = _qc_scrub(to_jsonable(payload))
-            evt = {"event": "stage", "stage": stage, "payload": cleaned}
-            if hits:
-                evt["_qc_placeholder_hits"] = hits
-            yield sse_encode(evt)
-        yield sse_encode({"event": "done"})
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
-
-
-@app.post("/api/credit/decision_legacy")
-async def credit_decision_legacy(req: DecisionRequestLegacy):
-    """[legacy] preset-only · v3.1 兼容入口."""
-    def gen():
-        yield from _decision_event_stream_legacy(req)
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",

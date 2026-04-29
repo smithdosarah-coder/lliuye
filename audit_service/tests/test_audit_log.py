@@ -317,20 +317,20 @@ def test_6_agent_endpoints_have_audit_decorator_marker():
 
     Stage C 后 HEAD endpoint 函数名:
     - credit_decision → credit_decision_v4 (v4.0 stage_tab 3 板块拆分)
-    - compliance_policy_scan → compliance_policy_scan_get (GET/POST 分流后 GET handler)
+    - compliance_policy_scan_get 已下架 (batch 4) → 改验 POST handler compliance_policy_scan_post
     """
     from agent_channel.api import channel_run
     from agent_credit.api import credit_decision_v4
     from agent_report.api import report_v16_fill
     from agent_alert.api import alert_scan
-    from agent_compliance.api import compliance_policy_scan_get
+    from agent_compliance.api import compliance_policy_scan_post
     from agent_riskctrl.api import riskctrl_dsl_gen
 
     assert channel_run.__name__ == "channel_run"
     assert credit_decision_v4.__name__ == "credit_decision_v4"
     assert report_v16_fill.__name__ == "report_v16_fill"
     assert alert_scan.__name__ == "alert_scan"
-    assert compliance_policy_scan_get.__name__ == "compliance_policy_scan_get"
+    assert compliance_policy_scan_post.__name__ == "compliance_policy_scan_post"
     assert riskctrl_dsl_gen.__name__ == "riskctrl_dsl_gen"
 
 

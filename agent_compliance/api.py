@@ -2,8 +2,6 @@
 """agent_compliance.api — Agent5 合规雷达 FastAPI 路由模块。
 
 端点：
-  GET  /api/compliance/policy_scan   — 主动从 gov.cn / pbc / flk_npc 拉最新政策候选
-                                       (Tavily 政策发现 · 前端轮询 / 看新政策列表)
   POST /api/compliance/policy_scan   — 政策事件触发巡检 (Stage C.4 · onboarding W-C3-A3)
                                        SSE · body {policy_doc, business_docs}
                                        4 阶段: 抽规则 → 抽事件 → N×M 矩阵 → 改/补/强 修订
@@ -16,7 +14,6 @@
 - 独立 FastAPI app，由 api_server.py 通过 routes 合并模式装载
 - POST /policy_scan 业务逻辑走 agent_compliance.scan_engine.run_policy_scan_and_persist
   (KB_DEMO 解锁 · Tavily 401 fallback · Q-040)
-- 既有 GET /policy_scan + ComplianceRadarAgent.process_message 路径不动 (向后兼容)
 - 输出前过 shared.qc.placeholder_guard
 
 empty-state 协议 (docs/contracts/empty-state-design-protocol.md):
@@ -58,27 +55,6 @@ app = FastAPI(title="Agent5 Compliance Radar API", version="3.2")
 # ---------------------------------------------------------------------------
 
 
-def _qc_scrub_policies(policies: list) -> tuple[list, list[str]]:
-    """对每条 policy item 的字符串字段做占位符清洗。"""
-    hits: list[str] = []
-    cleaned: list = []
-    for p in policies or []:
-        if isinstance(p, dict):
-            new: dict = {}
-            for k, v in p.items():
-                if isinstance(v, str):
-                    local = scan_placeholders(v)
-                    if local:
-                        hits.extend(h.kind for h in local)
-                        new[k] = mark_unfilled(v)
-                        continue
-                new[k] = v
-            cleaned.append(new)
-        else:
-            cleaned.append(p)
-    return cleaned, hits
-
-
 def _qc_scrub_dict(payload: dict) -> tuple[dict, list[str]]:
     """递归 scrub dict · 命中占位符替换为「未能自动填写」."""
     hits: list[str] = []
@@ -110,32 +86,7 @@ async def compliance_health():
 
 
 # ---------------------------------------------------------------------------
-# GET /api/compliance/policy_scan — 既有 · Tavily 政策发现
-# ---------------------------------------------------------------------------
-
-
-@app.get("/api/compliance/policy_scan")
-@audit_llm_call(agent_id="compliance", endpoint="/api/compliance/policy_scan", model="deepseek-chat")
-async def compliance_policy_scan_get(query: str = "", limit: int = 10):
-    """主动从政策源拉最新候选清单。失败优雅降级返回空 list + error，前端不崩。
-
-    QC blocker (CLAUDE.md §8): 输出前过 placeholder_guard, 占位符残留软降级
-    为"未能自动填写"标记并在响应中带 ``_qc_placeholder_hits`` 元数据。
-    """
-    try:
-        from agent_compliance.agent import ComplianceRadarAgent
-        agent = ComplianceRadarAgent()
-        cleaned, hits = _qc_scrub_policies(agent.scan_external_policies(query, limit))
-        resp: dict = {"policies": cleaned}
-        if hits:
-            resp["_qc_placeholder_hits"] = hits
-        return resp
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        return {"policies": [], "error": f"{type(e).__name__}: {e}"}
-
-
-# ---------------------------------------------------------------------------
-# POST /api/compliance/policy_scan — 新 · 政策事件触发巡检 SSE (Stage C.4)
+# POST /api/compliance/policy_scan — 政策事件触发巡检 SSE (Stage C.4)
 # ---------------------------------------------------------------------------
 
 

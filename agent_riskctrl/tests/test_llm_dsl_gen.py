@@ -204,41 +204,5 @@ def test_dsl_gen_no_rules_returns_400(client, monkeypatch):
     assert resp.status_code == 400
 
 
-# ----------------------------------------------------------------------------
-# /api/riskctrl/run · placeholder
-# ----------------------------------------------------------------------------
-
-
-def test_run_placeholder(client):
-    """run endpoint 接 ruleset · 返 confirmation · 不真上线."""
-    ruleset = {
-        "rules": [
-            {
-                "rule_id": "R001",
-                "name": "demo",
-                "conditions": [{"field": "debt_ratio", "operator": ">", "value": 0.8}],
-                "action": "reject",
-                "priority": 1,
-            }
-        ],
-        "description": "test",
-    }
-    resp = client.post(
-        "/api/riskctrl/run",
-        json={"ruleset": ruleset, "note": "本批 demo"},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["status"] == "queued"
-    assert data["ruleset_id"].startswith("rs_")
-    assert data["rules_count"] == 1
-    assert "placeholder" in data["message"]
-
-
-def test_run_invalid_ruleset(client):
-    """非法 ruleset → 400."""
-    resp = client.post(
-        "/api/riskctrl/run",
-        json={"ruleset": {"rules": "not a list"}, "note": ""},
-    )
-    assert resp.status_code == 400
+# /api/riskctrl/run placeholder route deleted (batch 4 cleanup · web 0 callers).
+# Tests `test_run_placeholder` + `test_run_invalid_ruleset` removed with the route.
