@@ -112,23 +112,55 @@
 
 ### 4.1 Hardline rule
 
-> 任何 `agent_*/api.py` mount 路径 (FastAPI `prefix=...`) 必须在本 SSOT §1 `route` 列里。
+> 任何 `agent_*/api.py` mount 路径 (FastAPI `@app.METHOD("/api/<id>/...")`) 必须与本 SSOT §1 agent_id 列共形 · 同时 `web/src/app/archive/<id>/` 目录必须存在 · `auth_service/rbac.py` `VALID_AGENTS` 必须共形 · `evaluation/<eval_baseline>.yaml` 必须存在。
 
-**实现**: `scripts/lint/check_agent_naming_ssot.py` (Phase A worker-A2 或 主 CLI fix-forward 落地)
+**实现** (本 contract V2 commit 落地):
 
-```python
-# Pseudocode
-SSOT_ROUTES = parse_ssot_md("docs/contracts/agent-naming-ssot.md")
-# {"channel": "/archive/channel", "report": "/archive/report", ...}
+| 文件 | 作用 |
+|---|---|
+| `scripts/lint/check_agent_naming_ssot.py` | 校验脚本 · stdlib only · 含 5 check (C1-C5) + 1 status report (C6 PM-pending 双 id 分布显式列) |
+| `.github/workflows/lint-contracts.yml` | GitHub Actions wiring · push to `main`/`chore/l0-infra`/`feat/**`/`chore/**`/`fix/**` + PR 触发 · 上传 JSON report artifact (14 天) |
 
-for f in glob("agent_*/api.py"):
-    mount = grep_mount_prefix(f)  # e.g. "/api/channel"
-    agent_id = parse_agent_id_from_filename(f)  # "channel"
-    expected_api_prefix = f"/api/{agent_id}"
-    expected_archive_route = SSOT_ROUTES[agent_id]
-    assert mount == expected_api_prefix, f"{f} mount {mount} != SSOT {expected_api_prefix}"
-    # 同时 check web/src/app/archive/<id>/ 目录 exists
-    assert exists(f"web/src/app/archive/{agent_id}/"), f"route {expected_archive_route} 目录不存在"
+**检查项**:
+
+| code | 描述 | level |
+|---|---|---|
+| C1 | backend `/api/<prefix>/*` 是否在 SSOT agent_ids 内 | ERROR (PM-pending 行降 WARN) |
+| C2 | `web/src/app/archive/<id>/` 目录存在 (PM-pending 行任一 alt 命中即 OK) | ERROR (pending 降 WARN) |
+| C3 | `auth_service/rbac.py` `VALID_AGENTS` 与 SSOT agent_ids 双向共形 | ERROR (含 SSOT 缺反查 RBAC EXTRA) |
+| C4 | `evaluation/<eval_baseline>.yaml` 文件存在 | ERROR (pending 行降 WARN) |
+| C5 | `agent_<dir>/api.py` 目录后缀与 mount prefix 一致 (e.g. `agent_compliance/` + `/api/compliance/*`) | ERROR (pending 降 WARN) |
+| C6 | PM-pending 双 id 跨栈分布报告 (e.g. `compli@[rbac, eval]` vs `compliance@[backend, frontend, eval]`) | WARN |
+
+**当前现状 (V2 commit smoke run)**: 0 ERROR · 1 WARN (C6 · `compli` vs `compliance` 跨栈分裂 · 阻血 = PM 拍板 §3)。
+
+### 4.2 后端 mount prefix 共形
+
+| agent_id | api mount (api_server.py) | archive route |
+|---|---|---|
+| `channel` | `/api/channel` | `/archive/channel` |
+| `report` | `/api/report` | `/archive/report` |
+| `credit` | `/api/credit` | `/archive/credit` |
+| `alert` | `/api/alert` | `/archive/alert` |
+| `compli\|compliance` (TBD) | `/api/<id>` | `/archive/<id>` |
+| `riskctrl` | `/api/riskctrl` | `/archive/riskctrl` |
+
+> ⚠️ **当前现状** (V2 lint smoke 验证): backend 用 `/api/compliance/*` + frontend `/archive/compliance/` + eval `agent5_compliance.yaml` (3 处用 `compliance`) · RBAC 用 `compli` (1 处) · 选项 A 改动量是 1 处 (RBAC) · 选项 B 改动量是 3 处 — 比 §3 原列出更小。PM 拍板时此真实分布优于 §3 估算。
+
+### 4.3 PM 拍板后 lint 收紧
+
+PM 选定 compliance OR compli 后:
+1. 改本 SSOT §1 row 5 锁单 id + §3 标 RESOLVED + bump v1.1
+2. `.github/workflows/lint-contracts.yml` 加 `--strict` flag (WARN 也判 fail · C6 升 ERROR)
+3. 主 CLI 派 worker-A4 / fix-forward batch 真改 1 处 OR 3 处不一致点 + 删 `web/src/lib/auth/agent-id.ts` 补丁
+4. 重跑 lint · 0 WARN 0 ERROR · Phase A 硬线 #8 真 met
+
+### 4.4 本地用法
+
+```bash
+py scripts/lint/check_agent_naming_ssot.py            # 默认 · WARN 不阻 · ERROR 阻
+py scripts/lint/check_agent_naming_ssot.py --strict   # WARN 也判 fail · PM 拍板后 CI 用此模式
+py scripts/lint/check_agent_naming_ssot.py --json     # JSON 机器输出 · CI 上传 artifact
 ```
 
 ### 4.2 后端 mount prefix 共形
