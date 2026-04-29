@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import traceback
 from pathlib import Path
 from urllib.parse import quote
@@ -38,6 +39,13 @@ except ImportError:
         def _passthrough(fn):
             return fn
         return _passthrough
+
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
 
 app = FastAPI(title="Agent3 Credit Decision API", version="3.1")
 
@@ -125,40 +133,53 @@ async def get_handoff_demo(segment: str):
 
 
 def _decision_event_stream(req: DecisionRequest):
-    """生成器 — yield SSE-encoded lines."""
+    """生成器 — yield SSE-encoded lines · try/finally 内部记 audit (W-FIX2 修 bug #11)。"""
+    t0 = time.time()
+    err: str | None = None
     try:
-        from agent_credit.agent import CreditDecisionAgent
-    except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
-        return
+        try:
+            from agent_credit.agent import CreditDecisionAgent
+        except ImportError as e:
+            err = f"ImportError: {e}"
+            yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
+            return
 
-    try:
-        agent = CreditDecisionAgent(
-            api_key=req.api_key or "dummy",
-            model_provider=req.provider or "deepseek",
+        try:
+            agent = CreditDecisionAgent(
+                api_key=req.api_key or "dummy",
+                model_provider=req.provider or "deepseek",
+            )
+            profile = agent.load_preset_profile(req.preset_name, req.segment)  # type: ignore
+            yield sse_encode({"event": "profile_loaded", "profile": to_jsonable(profile)})
+
+            for stage, payload in agent.run_decision_stream(profile, req.segment):  # type: ignore
+                cleaned, hits = _qc_scrub(to_jsonable(payload))
+                evt = {
+                    "event": "stage",
+                    "stage": stage,
+                    "payload": cleaned,
+                }
+                if hits:
+                    evt["_qc_placeholder_hits"] = hits
+                yield sse_encode(evt)
+
+            yield sse_encode({"event": "done"})
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            err = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+            yield sse_encode({
+                "event": "error",
+                "message": err,
+                "traceback": traceback.format_exc()[-2000:],
+            })
+    finally:
+        audit_stream_event(
+            agent_id="credit",
+            endpoint="/api/credit/decision",
+            model=req.provider or "deepseek-chat",
+            t0=t0,
+            error=err,
         )
-        profile = agent.load_preset_profile(req.preset_name, req.segment)  # type: ignore
-        yield sse_encode({"event": "profile_loaded", "profile": to_jsonable(profile)})
-
-        for stage, payload in agent.run_decision_stream(profile, req.segment):  # type: ignore
-            cleaned, hits = _qc_scrub(to_jsonable(payload))
-            evt = {
-                "event": "stage",
-                "stage": stage,
-                "payload": cleaned,
-            }
-            if hits:
-                evt["_qc_placeholder_hits"] = hits
-            yield sse_encode(evt)
-
-        yield sse_encode({"event": "done"})
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
 
 
 class ExportDocxRequest(BaseModel):
@@ -204,8 +225,8 @@ async def export_decision_docx(req: ExportDocxRequest):
 
 
 @app.post("/api/credit/decision")
-@audit_llm_call(agent_id="credit", endpoint="/api/credit/decision", model="deepseek-chat")
 async def credit_decision(req: DecisionRequest):
+    """授信决策 SSE · audit 在 generator finally 内记 (W-FIX2 修 bug #11)。"""
     def gen():
         yield from _decision_event_stream(req)
     return StreamingResponse(
