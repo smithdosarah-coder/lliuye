@@ -293,6 +293,39 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 4) · worker-A7 PRD drift table v1 ready (pre-PM 拍板)
+
+### What happened
+- worker-A7 (feat/phase-a7-prd · 复用 work-A3-prd worktree) resume + rebase chore/l0-infra 拿 A1+A2 V2 (3752d98 + 2bfc5ad)
+- 读 4 关键 context: RESET_MASTER + phase-a-charter + prd-evidence-frozen 70% + conflict-register-v1 + codex draft A7-prd + agent-naming-ssot v1.0
+- 扩展 `docs/audit/prd-evidence-frozen.md` 99 → 206 行:
+  - 修 Section 2 Agent4/Agent5 关于"无 F-XXX"过时声明 (实 F-020~F-027 + F-049/F-055 已建)
+  - 加 Section 4 · per-agent drift table 5 列 (Original Intent / Current State / KRR / Evidence / Owner+Deadline+Acceptance) · 6 agent each (4.1-4.6) + 4.7 coverage summary
+  - 加 Section 5 · PM 裁决候选清单 (10 G-XX 一行 · 8 🟢 默认追认 + 2 🟡 必拍归属) + 5.1 批量 GO 路径 + 5.2 飞书双写流程
+  - 加 Section 6 · 0 新 PRD-level gap (10 G-XX 已穷举)
+
+### Triggered by
+- A7 onboarding §1.1 (PRD 取证 + drift table + master/sub PRD)
+- PM 指令 "继续 PRD draft + drift table"
+
+### State change (delta)
+- prd-evidence-frozen.md: 70% (Section 1+2+3 list) → 100% drift table v1 (Section 1-6 全覆盖 5 列)
+- worker-A7 状态: §0 worktree resume → §1.1 drift table 完 · 等 PM 拍板 cycle
+- Phase A 硬线 #7 进度 (master+6 sub PRD): 0% → 30% (drift ready · master/sub 待 PM 拍板后写)
+
+### 风险预警
+- G-05/G-06 codex draft 反对纯 PRD 越界占用 A6 schema · A7 已标 🟡 PM 拍板归属项 · 不自决
+- G-08 事件订阅工程量大 · A7 建议 Phase B-3 推延 · 但 PRD 触发源是 Agent5/Agent4 边界本质 · PM 必拍
+- G-09 业务单号粒度 待主 CLI 跑 ComplianceWorkspace F-026 真路径验后决 · A7 不能盲拍
+
+### Next
+- worker-A7 commit drift table 扩展 (no signal yet · pre-PM cycle)
+- 通知 PM: drift table ready · §5.1 批量 GO + §5.2 双 🟡 归属拍板
+- PM 拍板 (signal: `WORKER-A7-PRD-DRIFT-PM-RULED`) → A7 进 master + 6 sub-PRD draft + 飞书双写 → signal: `WORKER-A7-PRD-MASTER-DONE`
+- §1.2 legacy_gradio 全栈隔离 + §1.3 active rule 回写 与 PRD draft 并行 (autonomous · 不阻 PM)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
