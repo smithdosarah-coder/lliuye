@@ -150,7 +150,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 
 - **信息架构**：4 view——**今日**(`/today`) / **对话**(`/dispatch` · Slack 风 IM) / **AI 助手**(`/archive` · 6 Agent tile 聚合) / **任务**(`/warroom` · 4 列 kanban)。Agent 不在顶栏，是 Archive view 内 6 tile；tile 点击跳转既有 `/archive/[agent]` workspace
 - **路由拓扑**（legacy 顶层 6 路由已于 2026-04 清完 · git history 可查）：
-  - **canon**（shell v2 唯一入口）：`/today` / `/dispatch` / `/archive` + `/archive/[agent]` 动态路由（`archive/[agent]/page.tsx` + `WORKSPACES` map 覆盖 6 Agent）/ `/warroom`；辅助 `/login` / `/audit` / `/customer` / `/design` / `/403`（D.1 RBAC 拒绝跳转 · `web/src/app/403/page.tsx`） / `/api/*`（Next.js API routes proxy · `web/src/app/api/credit/mock-session/route.ts` 等）
+  - **canon**（shell v2 唯一入口）：`/today` / `/dispatch` / `/archive` + `/archive/[agent]` 动态路由（`archive/[agent]/page.tsx` + `WORKSPACES` map 覆盖 6 Agent）/ `/warroom`；辅助 `/login` / `/audit` / `/customer` / `/403`（D.1 RBAC 拒绝跳转 · `web/src/app/403/page.tsx`） / `/api/*`（Next.js API routes proxy · `web/src/app/api/credit/mock-session/route.ts` 等）
   - **前端改动红线**：所有 Agent workspace 只走 `/archive/[agent]` 下的 `_components/*Workspace.tsx`·**不允许重新引入顶层 `/channel` `/credit` 等 legacy 路由**·Letterpress / crimson / `--color-brass` / `--color-ink` / `ink-brush-hr` 等老 tokens 已下架·不允许复活
 - **共享壳**：左抽屉 Desk（客户 / 进行中 / 最近 / 新建 · hover-from-edge < 22px 触发 · pin / Esc / ⌘K）+ 顶栏 Masthead（logo + 4 tab + persona 王哲·客户经理·华东 + live clock 20s tick） + 右下 Float-badge（4 主题各一 SVG 符号） + 主题切换器（4 按钮全部可见）
 - **主题**：`data-theme` 4 套——**Canvas**（默认，米黄→橙红→墨绿） / **Matcha**（抹茶） / **Dusk**（暮粉桃花） / **Ink**（水墨 · 宣纸→深墨 · 2026-04-20 替换 v1 Letterpress 黑红方案，用户判"黑红读老 DEMO"），每主题 8 档渐变 `--g0..--g7` + `--g0b` + ink/chalk opacity ramps + `--accent` 功能色
@@ -207,12 +207,12 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 
 ## 11. 当前版本
 
-- Agent1 获客 v4.0（信号驱动搜索，2026-04-16）
+- Agent1 获客 v4.0（信号驱动搜索，2026-04-16 · candidate metadata 4 字段 `industry / geo / scale / similarity` per Q-041 · B.5 dispatch 时注入）
 - Agent3 授信 v3.1（对公 / 普惠 / 对私三板块）
 - Agent4 预警 v3.1（知识库驱动批量扫描）
 - Agent5 合规 v3.1（政策事件驱动）
 - Agent6 报告 **v16**（classifier → generator → QC gate 主管线，`v16_pipeline.py` 为 CLI 入口；`agent_report/` 为 API wrapper 层 unreleased，消费 v16 产出；旧 Gradio 单机版 v7.5/v9.0 已归档至 `legacy_gradio/` · 2026-04-29）
-- Agent2 风控 v3.1（DSL + 回测）
+- Agent2 风控 v3.1（DSL + 回测 · 回测 `MAX_ROWS=50000` per Q-040 fix-forward 2026-04-29）
 
 ## 12. 开发约束
 

@@ -373,7 +373,7 @@ _AGENT_SYSTEMS = {
     "credit": "你是 Agent3 授信 · 辅助审贷员评分 / 红线判定。回复 1-3 句·不编造决策结果。",
     "alert": "你是 Agent4 预警 · 分析在贷客户行为信号 + 红/黄/绿榜单。回复 1-3 句·不编造预警事件。",
     "compli": "你是 Agent5 合规 · 解析新政策与业务制度冲突点。回复 1-3 句·不编造政策条款。",
-    "riskctrl": "你是 Agent2 风控 · 辅助策略经理写 DSL + 回测。回复 1-3 句·不编造样本数。",
+    "riskctrl": "你是 Agent2 风控 · 辅助风险经理写 DSL + 回测。回复 1-3 句·不编造样本数。",
 }
 _AGENT_TO_ID = {
     "channel": "agent_channel",
