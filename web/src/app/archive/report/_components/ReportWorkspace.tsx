@@ -210,23 +210,29 @@ export function ReportWorkspace() {
     setTemplateChoice(tpl);
   }, []);
 
-  /* "开始生成" CTA · 综合用户当前选择决定 mock vs live · 显式 button click 触发 started */
+  /* "开始生成" CTA · 综合用户当前选择决定 mock vs live · 显式 button click 触发 started + 真 fire SSE */
   const handleApplyLaunch = useCallback(() => {
     /* 优先级:
-       1) historyChoice 选了 → mock 模式
-       2) templateChoice 选了 (含上传) → live 模式
+       1) historyChoice 选了 → mock 模式 + 立刻 triggerV16Fill (explicit_mock=true · 后端走 mock pipeline · sections hydrate)
+       2) templateChoice 选了 (含上传) → live 模式 + 立刻 triggerV16Fill (explicit_mock=false)
        3) 都没选 → 不动 (button disabled) */
     if (historyChoice) {
+      const mid = `mock-${historyChoice}-${Date.now()}`;
       setMode("mock");
       setStarted(true);
-      setReportId(`mock-${historyChoice}-${Date.now()}`);
+      setReportId(mid);
+      // 真 fire SSE → backend /v16/fill explicit_mock · livePayload + sections hydrate · 主列不再空白
+      // pass reportIdOverride 因 setReportId 异步 · closure 里 reportId 仍是旧值
+      setTimeout(() => triggerV16Fill({ reportIdOverride: mid, explicitMock: true }), 0);
       return;
     }
     if (templateChoice) {
       setMode("live");
       setStarted(true);
+      // live 路径 · 用现有 reportId (来自上传 · 没上传则 fill_stream 走 fail-banner)
+      setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
     }
-  }, [historyChoice, templateChoice]);
+  }, [historyChoice, templateChoice, triggerV16Fill]);
 
   // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
   // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
