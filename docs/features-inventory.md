@@ -789,6 +789,14 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 - **restored**: N/A
 - **smoke_test**: `web/tests/regression/report-fix.spec.ts` (6 case · chromium + edge 双 browser PASS · 11/11 cross-browser)
 
+## F-060 · 移至 audit_service · skip slot
+
+> 本 slot 在内部记账中保留 · 实际无前端 inventory 项 (W-E1 后端 audit middleware · 前端无入口)
+
+## F-061 · 移至 audit_service · skip slot
+
+> 同上 · 后端 E.4 测试覆盖加固 · 前端无入口
+
 ## F-062 · Compli ForceMock Hardcode 删除 + Live-fallback banner (W-FIX2-A3 · live-fallback-banner-spec v1.0)
 
 - **location**:
@@ -820,7 +828,7 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 
 ---
 
-## F-062 · IM Cookie Auth Chain Fix (W-FIX2-A2-im-cookie-auth · bug #8 P0)
+## F-063 · IM Cookie Auth Chain Fix (W-FIX2-A2-im-cookie-auth · bug #8 P0)
 
 - **status**: live
 - **owner**: Worker A2 (W-FIX2 · 2026-04-29)
@@ -853,6 +861,16 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
   - cookie 优先级原则: 真 D.1 JWT 命中 > Authorization Bearer (含 demo) > query token · 任一成功立即返 · 不进 fallback
   - frontend `getImToken()` 仍保留 (作 demo / e2e localStorage fallback) · 但不再 reach for `document.cookie` (httpOnly 不可读)
   - `/api/im/send` legacy LLM 单 turn endpoint 加 cookie param signature 但不强制 (向后兼容)
+
+## F-064 · Alert 命中清单 Word 导出 + live-fail banner (W-FIX2 修 bug #6)
+
+- **location**: `web/src/app/archive/alert/_components/AlertWorkspace.tsx` 内 `handleExportDocx` + 顶部 export-error banner + HeroSection 内 `导出命中清单 (.docx)` button (phase=after 才显) · backend `agent_alert/word_export.py` (新建) + `agent_alert/api.py` 加 `POST /api/alert/export_docx`
+- **selector**: `[data-testid="alert-export-docx-cta"]` (HeroSection 内 export 按钮) · `[data-testid="alert-export-error-banner"]` (live fail 顶部红 banner role=alert) · `[data-testid="alert-export-error-retry"]` · `[data-testid="alert-export-error-dismiss"]`
+- **interaction**: phase=after 显 "导出命中清单 (.docx)" → POST `/api/alert/export_docx` (session_id + summary + cases + totals + scan_range + stage) · 200 → blob download 触发浏览器下载 · 4xx/5xx/network err → setExportError(msg) → 顶部 banner 显 endpoint + 错误信息 · retry 重发 · dismiss 关 banner · 不静默 console-only (live-fallback-banner-spec v1.0)
+- **introduce**: 本批 W-FIX2-A1 commit · 修 Codex peer review bug #6 (silent fail · backend route 缺失)
+- **lost_at**: N/A
+- **restored**: N/A
+- **smoke_test**: `agent_alert/tests/test_export_docx_endpoint.py` (4 case · TestClient · 200 + Content-Type docx + Content-Disposition RFC 6266 + zip magic) · `agent_alert/tests/test_word_export.py` (33 case docx render 各分支)
 
 ---
 

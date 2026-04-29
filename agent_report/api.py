@@ -62,6 +62,13 @@ except ImportError:
             return fn
         return _passthrough
 
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
+
 # Tiered data sources bootstrap (feat/tiered-search); fail-safe on missing deps
 try:
     from shared.sources import bootstrap as _sources_bootstrap; _sources_bootstrap()  # noqa: E402
@@ -999,12 +1006,16 @@ class V16FillRequest(BaseModel):
 
 
 @app.post("/api/report/v16/fill")
-@audit_llm_call(agent_id="report", endpoint="/api/report/v16/fill", model="deepseek-chat")
 async def report_v16_fill(req: V16FillRequest, request: Request):
     """v16 主管线 SSE · classifier (复用) → generator → QC gate.
 
     自动选 mock / real (依 ``DEEPSEEK_API_KEY`` + classifier 产物存在与否) ·
-    显式 ``mock=true`` 强制走 mock(empty-state-design-protocol §5 demo)。
+    显式 ``mock=true`` 强制走 mock(empty-state-design-protocol §5 demo).
+
+    Audit (W-FIX2 修 bug #11): 移除 @audit_llm_call decorator (decorator 在 route
+    return StreamingResponse 即记 latency · 失真) · 改在 gen() finally 内调
+    audit_stream_event · latency 含真实 SSE 流时延。
+    内部 _emit_audit (写 session_store) 不动。
     """
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
@@ -1049,6 +1060,7 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
 
     async def gen():
         status = "ok"
+        err: str | None = None
         try:
             async for evt in fill_stream(
                 report_id=report_id,
@@ -1059,11 +1071,21 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
                 explicit_mock=bool(req.mock),
             ):
                 yield evt
-        except Exception:
+        except Exception as e:
             status = "error"
+            err = f"{type(e).__name__}: {e}"
             raise
         finally:
             _emit_audit(status)
+            # W-FIX2 修 bug #11: SSE-aware audit (latency 含全流) · 替代 decorator
+            audit_stream_event(
+                agent_id="report",
+                endpoint="/api/report/v16/fill",
+                model="deepseek-chat",
+                t0=_audit_t0,
+                user_id=_audit_user,
+                error=err,
+            )
 
     return StreamingResponse(
         gen(),

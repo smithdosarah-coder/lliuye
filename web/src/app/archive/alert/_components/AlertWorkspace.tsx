@@ -100,6 +100,10 @@ export default function AlertWorkspace() {
   const [retryHandler, setRetryHandler] = useState<(() => void) | null>(null);
   const [scanSessionId, setScanSessionId] = useState<string>("");
 
+  // W-FIX2 bug #6 fix: export-hitlist state · live failure 显 banner (不静默 console-only)
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
   function clearLiveFail(): void {
     setLiveFail(null);
     setRetryHandler(null);
@@ -227,6 +231,63 @@ export default function AlertWorkspace() {
     setPhase("before");
   }
 
+  /**
+   * W-FIX2 bug #6 修 · 命中清单 Word 导出 (POST /api/alert/export_docx).
+   *
+   * 失败行为契约 (live-fallback-banner-spec v1.0):
+   *   - 网络/HTTP 失败 → setExportError(err.message) + UI banner 显
+   *   - 不静默 console-only · 不静默 fallback mock · 用户明确知悉失败
+   *   - retry button 让用户 re-trigger · dismiss 关 banner
+   */
+  async function handleExportDocx() {
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const cases = session.topCases.map((c) => ({
+        customer: c.customer,
+        risk_level: c.tier,
+        triggers: c.triggers,
+        amount: c.amount,
+        advice: c.advice,
+        last_update: c.lastUpdate,
+      }));
+      const totals = phase === "after"
+        ? { red: after.warnCount ?? session.totals.red, yellow: session.totals.yellow, green: session.totals.green }
+        : session.totals;
+      const res = await fetch("/api/alert/export_docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: session.id ?? "",
+          summary: currentSummary,
+          cases,
+          scan_range: session.scanRange.find((r) => r.id === rangeId)?.label ?? "",
+          stage: session.stage,
+          totals,
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${res.statusText} · ${detail.slice(0, 200)}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `agent4_命中清单_${session.id ?? "report"}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setExportError(msg);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   /* W-CF2-A2 · empty-state v1.0 路径
      started=false → 仅渲 AlertEmptyState (Hero + 3 CTA + 红黄绿 panel 空骨架 + status pill)
      started=true  → 现有完整 workspace (Hero / ScanProgress / TrafficLightWall 等) */
@@ -305,6 +366,64 @@ export default function AlertWorkspace() {
         </div>
       ) : null}
 
+      {exportError ? (
+        <div
+          data-testid="alert-export-error-banner"
+          role="alert"
+          style={{
+            margin: "16px 0",
+            padding: "12px 16px",
+            borderRadius: 12,
+            background: "rgba(192, 0, 0, 0.08)",
+            border: "1px solid rgba(192, 0, 0, 0.32)",
+            color: "var(--ink-strong, #2a1a16)",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>命中清单导出失败</span>
+          <span style={{ opacity: 0.85, flex: 1 }}>
+            后端 <code>/api/alert/export_docx</code> 错误: {exportError}
+          </span>
+          <button
+            type="button"
+            data-testid="alert-export-error-retry"
+            onClick={handleExportDocx}
+            disabled={exporting}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(192, 0, 0, 0.5)",
+              background: "transparent",
+              color: "var(--ink-strong, #2a1a16)",
+              fontSize: 13,
+              cursor: exporting ? "wait" : "pointer",
+            }}
+          >
+            {exporting ? "重试中…" : "重试"}
+          </button>
+          <button
+            type="button"
+            data-testid="alert-export-error-dismiss"
+            onClick={() => setExportError(null)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(0,0,0,0.18)",
+              background: "transparent",
+              color: "var(--ink-strong, #2a1a16)",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            关闭
+          </button>
+        </div>
+      ) : null}
+
 
       <HeroSection
         weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
@@ -322,6 +441,8 @@ export default function AlertWorkspace() {
         kbState={kbState}
         onScan={startScan}
         onReset={resetScan}
+        onExport={handleExportDocx}
+        exporting={exporting}
       />
 
       <ScanProgressStrip
@@ -434,6 +555,8 @@ function HeroSection(p: {
   kbState: string;
   onScan: () => void;
   onReset: () => void;
+  onExport: () => void;
+  exporting: boolean;
 }) {
   const isScanning = p.phase === "scanning";
   const isAfter = p.phase === "after";
@@ -498,6 +621,26 @@ function HeroSection(p: {
             <span className="al-hero__cta-lbl">{btnLabel}</span>
             {!isScanning ? <kbd className="al-hero__cta-kbd">⌘R</kbd> : null}
           </button>
+          {isAfter ? (
+            <button
+              type="button"
+              data-testid="alert-export-docx-cta"
+              onClick={p.onExport}
+              disabled={p.exporting}
+              style={{
+                marginTop: 8,
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(0,0,0,0.18)",
+                background: "var(--surface-1, rgba(255,255,255,0.85))",
+                color: "var(--ink-strong, #2a1a16)",
+                fontSize: 13,
+                cursor: p.exporting ? "wait" : "pointer",
+              }}
+            >
+              {p.exporting ? "导出中…" : "导出命中清单 (.docx)"}
+            </button>
+          ) : null}
           <div className="al-hero__cta-hint">
             {isScanning
               ? "扫描进行中 · 约 2.5 秒"

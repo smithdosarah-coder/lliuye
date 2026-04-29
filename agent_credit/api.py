@@ -55,6 +55,13 @@ except ImportError:
             return fn
         return _passthrough
 
+# Stage W-FIX2 · SSE-aware audit hook (latency to generator end · 修 bug #11)
+try:
+    from audit_service.stream_helpers import audit_stream_event  # noqa: E402
+except ImportError:
+    def audit_stream_event(*_args, **_kwargs):  # type: ignore[no-redef]
+        pass
+
 app = FastAPI(title="Agent3 Credit Decision API", version="4.0")
 
 _HANDOFF_DIR = PROJECT_ROOT / "demo_data" / "agent_credit"
@@ -392,85 +399,106 @@ def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
 
 
 def _decision_event_stream_v4(req: DecisionRequestV4):
-    """SSE generator · 真 LLM 路径走 CreditDecisionAgent · mock 路径走 fixture."""
-    if req.mock:
-        # mock 模式 · fixture events
-        for evt in _mock_decision_events(req.stage_tab):
-            yield sse_encode(evt)
-        return
+    """SSE generator · 真 LLM 路径走 CreditDecisionAgent · mock 路径走 fixture.
 
-    # 真 LLM 路径
-    segment = _stage_to_segment(req.stage_tab)
+    W-FIX2 修 bug #11: try/finally 内部记 audit · latency 含真实 stream 时延。
+    """
+    t0 = time.time()
+    err: str | None = None
     try:
-        from agent_credit.agent import CreditDecisionAgent
-    except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
-        return
-
-    try:
-        agent = CreditDecisionAgent(
-            api_key=req.api_key or "dummy",
-            model_provider=req.provider or "deepseek",
-        )
-
-        # 决定 profile 来源: report_json > preset_name
-        profile: dict | None = None
-        if req.report_json:
-            from agent_credit.agent import _profile_from_report_json
-            profile = _profile_from_report_json(req.report_json)
-        elif req.preset_name:
-            profile = agent.load_preset_profile(req.preset_name, segment)  # type: ignore
-        else:
-            yield sse_encode({
-                "event": "error",
-                "message": "必须提供 report_json 或 preset_name (空白启动 protocol)",
-                "stage_tab": req.stage_tab,
-            })
+        if req.mock:
+            # mock 模式 · fixture events
+            for evt in _mock_decision_events(req.stage_tab):
+                yield sse_encode(evt)
             return
 
-        # 透传 stage_tab 给前端 (展示用 · 不影响 backend ScoringModel)
-        profile_payload = to_jsonable(profile)
-        if isinstance(profile_payload, dict):
-            profile_payload["_stage_tab"] = req.stage_tab
-        yield sse_encode({
-            "event": "profile_loaded",
-            "profile": profile_payload,
-            "stage_tab": req.stage_tab,
-        })
+        # 真 LLM 路径
+        segment = _stage_to_segment(req.stage_tab)
+        try:
+            try:
+                from agent_credit.agent import CreditDecisionAgent
+            except ImportError as e:
+                err = f"ImportError: {e}"
+                yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
+                return
 
-        last_advice: dict | None = None
-        for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
-            cleaned, hits = _qc_scrub(to_jsonable(payload))
-            if stage == "advising_done" and isinstance(cleaned, dict):
-                last_advice = cleaned
-            evt = {"event": "stage", "stage": stage, "payload": cleaned}
-            if hits:
-                evt["_qc_placeholder_hits"] = hits
-            yield sse_encode(evt)
+            agent = CreditDecisionAgent(
+                api_key=req.api_key or "dummy",
+                model_provider=req.provider or "deepseek",
+            )
 
-        # 缓存 advice for export_docx · 返 decision_id
-        if last_advice:
-            decision_id = _cache_advice(last_advice)
+            # 决定 profile 来源: report_json > preset_name
+            profile: dict | None = None
+            if req.report_json:
+                from agent_credit.agent import _profile_from_report_json
+                profile = _profile_from_report_json(req.report_json)
+            elif req.preset_name:
+                profile = agent.load_preset_profile(req.preset_name, segment)  # type: ignore
+            else:
+                yield sse_encode({
+                    "event": "error",
+                    "message": "必须提供 report_json 或 preset_name (空白启动 protocol)",
+                    "stage_tab": req.stage_tab,
+                })
+                return
+
+            # 透传 stage_tab 给前端 (展示用 · 不影响 backend ScoringModel)
+            profile_payload = to_jsonable(profile)
+            if isinstance(profile_payload, dict):
+                profile_payload["_stage_tab"] = req.stage_tab
             yield sse_encode({
-                "event": "decision_cached",
-                "decision_id": decision_id,
-                "ttl_sec": _DECISION_TTL_SEC,
+                "event": "profile_loaded",
+                "profile": profile_payload,
+                "stage_tab": req.stage_tab,
             })
 
-        yield sse_encode({"event": "done"})
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-        traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
+            last_advice: dict | None = None
+            for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
+                cleaned, hits = _qc_scrub(to_jsonable(payload))
+                if stage == "advising_done" and isinstance(cleaned, dict):
+                    last_advice = cleaned
+                evt = {"event": "stage", "stage": stage, "payload": cleaned}
+                if hits:
+                    evt["_qc_placeholder_hits"] = hits
+                yield sse_encode(evt)
+
+            # 缓存 advice for export_docx · 返 decision_id
+            if last_advice:
+                decision_id = _cache_advice(last_advice)
+                yield sse_encode({
+                    "event": "decision_cached",
+                    "decision_id": decision_id,
+                    "ttl_sec": _DECISION_TTL_SEC,
+                })
+
+            yield sse_encode({"event": "done"})
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            err = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+            yield sse_encode({
+                "event": "error",
+                "message": f"{type(e).__name__}: {e}",
+                "traceback": traceback.format_exc()[-2000:],
+            })
+    finally:
+        # bug #11 fix · audit 写在 generator 末尾 · latency 含全 stream 真实延迟
+        audit_stream_event(
+            agent_id="credit",
+            endpoint="/api/credit/decision",
+            model=req.provider or "deepseek-chat",
+            t0=t0,
+            error=err,
+        )
 
 
 @app.post("/api/credit/decision")
-@audit_llm_call(agent_id="credit", endpoint="/api/credit/decision", model="deepseek-chat")
 async def credit_decision_v4(req: DecisionRequestV4):
-    """v4.0 SSE · stage_tab 3 板块 + report_json/preset_name 双源 + mock fallback."""
+    """v4.0 SSE · stage_tab 3 板块 + report_json/preset_name 双源 + mock fallback.
+
+    Audit (W-FIX2 修 bug #11): generator finally 内调 audit_stream_event ·
+    latency 含真实 stream 时延 · 不再用 @audit_llm_call decorator
+    (decorator 在 route function return StreamingResponse 即记 · 失真)。
+    """
     # 提前校验 stage_tab (mock 路径也要)
     _stage_to_segment(req.stage_tab)
 
