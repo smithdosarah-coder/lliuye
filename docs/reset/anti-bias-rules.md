@@ -13,6 +13,14 @@
 
 **防什么**: 防"先看对方答案 → 顺着对方思路写 → 同质化"。
 
+### 1.1 fresh main CLI 接手时的处理
+
+前任 main CLI 跑过的 sub-agent / codex Round 1 输出 · 如果**未 commit 到 docs/audit/** · 一律视为不存在(compression 后无法 verbatim 还原 · 不可信)。
+
+新 CLI 启动 Step 2 时必须**重派**(不复用前任 chat 高层总结)· 跑出 fresh 6 份输出 commit 到 docs/audit/。
+
+这是 anti-bias rule 1 在长周期工程中的特例。
+
 ## 2. 强制输出 schema
 
 **规则**: 每轮辩论必须用固定结构

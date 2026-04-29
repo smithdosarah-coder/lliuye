@@ -307,7 +307,71 @@ Day 4
 
 ---
 
-## 10. 工程化升级 (Phase A 中段做)
+## 5.b Step 2 audit dir 加 (Step 2 专用)
+
+```
+docs/audit/
+├── sub-agent-step2-round1/
+│   ├── architecture.md      # 架构层 (Cat 1/2/3/4/11)
+│   ├── data.md              # 数据层 (Cat 5/12)
+│   ├── instruction.md       # 指令层 (Cat 1 子集 / 6 / 7)
+│   ├── naming-route.md      # 命名路由层 (Cat 8/9/10/16)
+│   └── production-shape.md  # 生产 + 产品形态 (Cat 0/13/14/15)
+├── codex-step2-round1.md    # Codex Round 1 全 17 类
+├── prd-evidence-frozen.md   # Step 3 PRD 取证 (并行启)
+└── conflict-register-v1.md  # 主 CLI 合成 (Signal: STEP-2-CONFLICT-REGISTER-V1-PREPARED)
+```
+
+---
+
+## 4.5 Template · Step 2 Conflict Scan Round 1 (新增 · Step 2 专用)
+
+```markdown
+# Codex Step 2 · Conflict Scan Round 1 (Independent · Anti-Bias Rule 1)
+
+You are doing an independent full-repo conflict scan for a banking AI 6-agent product entering "全新出发" reset. Sub-agents are scanning the SAME 17 categories IN PARALLEL — you must NOT see their output.
+
+## Anti-bias
+
+- 不见 sub-agent 输出 (rule 1 · independent v1)
+- 输出强制 schema 4 列 markdown table
+- ≤ 3500 词
+- file:line 必备 · 无抽象散文
+- dissent appendix 必含
+
+## Required reading
+
+- `RESET_MASTER_PLAN.md`
+- `docs/reset/north-star.md`
+- `docs/reset/step2-conflict-scan-charter.md` §2 (17 类 SSOT)
+- spot-check 2-3 contracts + 2-3 workspace + 2-3 agent_*/api.py
+
+## Output schema (verbatim)
+
+```markdown
+| Cat | file:line | 证据 (≤80 char) | Keep / Revert / Rewrite |
+|---|---|---|---|
+| 0 | ... | ... | Rewrite |
+... (全 17 类 + 各 cat 内多条 finding)
+```
+
+末尾加 1 段 dissent appendix (≤300 词 · 你跟假想 sub-agent 可能不一致的点 · 不强行收敛)
+
+Begin.
+```
+
+主 CLI commit signal: `CODEX-STEP-2-ROUND-1-DONE` · trailer `CODEX-STEP-2-PATH: docs/audit/codex-step2-round1.md`
+
+---
+
+## 6. Conflict Scan 17 类 SSOT (引用)
+
+完整 17 类列表 + 重点扫文件 → 见 `docs/reset/step2-conflict-scan-charter.md §2`。
+本协议引用之 · 不重复定义。
+
+---
+
+## 7. 工程化升级 (Phase A 中段做)
 
 当前 codex 是手工命令 + 手工 prompt fill。可升级为脚本:
 

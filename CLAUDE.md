@@ -237,13 +237,14 @@ bash scripts/deploy_to_ecs.sh --skip-build  # 后端改 · 跳 build
 
 **当前项目处于"全新出发"reset 长周期工程阶段** (起于 2026-04-29) · 主 CLI 任何 fresh session / compression 触发后 · **第一件事是按本节 顺序读完 5 份文档 · 写出"我理解当前状态" commit (Signal: NEW-MAIN-CLI-RESUMED) 等 PM verify · 再做任何决策**。
 
-**必读顺序 (5 份文档 · ~10 min)**:
+**必读顺序 (6 份文档 · ~12 min)**:
 
 1. `RESET_MASTER_PLAN.md` (项目根 · umbrella 索引页)
 2. `docs/reset/north-star.md` (产品形态 north star + 走歪表征 + 修正方向)
 3. `docs/reset/phase-a-charter.md` (Phase A 7 worker 拆分 · 验收硬线)
-4. `docs/reset/codex-mesh-protocol.md` (Codex 4 插入点 · 命令 verbatim · prompt template)
-5. `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_<latest>.md` (最新 handoff · 含 PM 已拍板事项 + 待启 + dissent)
+4. `docs/reset/step2-conflict-scan-charter.md` (Step 2 17 类 + flow + schema · self-contained)
+5. `docs/reset/codex-mesh-protocol.md` (Codex 4 插入点 · 命令 verbatim · prompt template)
+6. `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_<latest>.md` (最新 handoff · 含 PM 已拍板事项 + 待启 + dissent)
 
 **附加(深入用)**:
 - `docs/reset/state-snapshot.md` (当前已完 / 在跑 / 待启 三段)
