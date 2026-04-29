@@ -17,19 +17,19 @@ export function ScoreBar({
   const pct = Math.max(0, Math.min(1, value / max));
   const tone =
     value >= 70
-      ? "var(--color-sage)"
+      ? "var(--safe)"
       : value >= 50
-      ? "var(--color-brass)"
+      ? "var(--accent)"
       : value >= 30
-      ? "var(--color-amber)"
-      : "var(--color-ember)";
+      ? "color-mix(in srgb, var(--accent) 40%, var(--t-alert) 60%)"
+      : "var(--t-alert)";
 
   return (
     <div className={cn("group", size === "sm" ? "space-y-1" : "space-y-1.5")}>
       <div className="flex items-baseline justify-between gap-2">
         <span
           className={cn(
-            "text-[var(--color-ink-soft)]",
+            "text-[var(--ink-65)]",
             size === "sm" ? "text-[11px]" : "text-[12px]"
           )}
         >
@@ -37,7 +37,7 @@ export function ScoreBar({
         </span>
         <span
           className={cn(
-            "font-tabular text-[var(--color-ink)]",
+            "font-tabular text-[var(--ink)]",
             size === "sm" ? "text-[12px]" : "text-[14px] font-medium"
           )}
         >
@@ -46,7 +46,7 @@ export function ScoreBar({
       </div>
       <div
         className={cn(
-          "relative w-full bg-[var(--color-paper-sunken)] overflow-hidden",
+          "relative w-full bg-[var(--ink-08)] overflow-hidden",
           size === "sm" ? "h-[3px]" : "h-[5px]"
         )}
       >
