@@ -63,17 +63,27 @@ from shared.llm_caller.prompts import (
     with_json_schema_hint,
 )
 
+# Phase A worker-A2 · M5 · LLMCaller facade (6 agent 迁此 SSOT 入口 · A4 worker 后续迁)
+from shared.llm_caller.client import (
+    LLMCaller,
+    chat,
+    chat_json,
+)
+
 __all__ = [
     "AuditHandle",
     "DEFAULT_FALLBACK_CHAIN",
     "DashScopeProvider",
     "DeepSeekProvider",
+    "LLMCaller",
     "LLMProvider",
     "MoonshotProvider",
     "ProviderResult",
     "ProviderUnavailableError",
     "QwenProvider",
     "build_chat_messages",
+    "chat",
+    "chat_json",
     "chat_json_with_fallback",
     "chat_with_fallback",
     "extract_audit_extras",

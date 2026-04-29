@@ -74,6 +74,27 @@ Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查
 
 本 5 原则沉淀于 Q-028/A-028（2026-04-24）· data-foundation Batch 1 REJECT-V2 复盘。
 
+### 3.6 LLM Caller 唯一化 + PIPL 合规 fallback chain
+
+Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/llm_caller/` 单一抽象层 · 替代历史 4+1 套并行 caller。
+
+- **5 模块**：`shared/llm_caller/{client, retry, audit, provider, prompts}.py`
+  - `provider.py`：`LLMProvider` Protocol + `ProviderResult` + 4 providers (`DeepSeek` / `DashScope` / `Qwen` / `Moonshot`) + `_REGISTRY` + `get_provider()`
+  - `retry.py`：`DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` + `chat_with_fallback` / `chat_json_with_fallback` + 主 fail 自动切下一个
+  - `audit.py`：`with_audit(...)` ctx 包 single LLM call · 与 `audit_service.decorators.audit_llm_call` (FastAPI 路由级) + `stream_helpers.audit_stream_event` (SSE 内) 三层互补 · 全 silent-fail
+  - `prompts.py`：`build_chat_messages` / `with_json_schema_hint` / `with_few_shot` / `truncate_for_context` 4 个 string-assembly utility（无业务 prompt 文本）
+  - `client.py`：`LLMCaller(agent_id, endpoint, chain, audit_enabled).chat() / .chat_json()` 顶层 facade · 6 agent 迁此入口
+- **PIPL 合规底线**：默认 fallback chain 全境内（`deepseek` 主 + `dashscope` 备）；`moonshot` 标 `region="overseas"`，仅 `LLM_PROVIDER=moonshot` 显式才走；audit log 含 `region` 字段，跨境调用可追溯。
+- **底层 backing 不动**：root `llm.py:LLMClient` 保留为 caller 1（6+ production import）；`shared/llm_caller/provider._LLMClientWrapper` 委托它做实际 API 调用，复用 cache + provider config。
+- **向下兼容**：`shared/llm/{base, router, providers/*}` 保留为 re-export shim，`shared/kb_scan/impls/channel_signal.py:311` 的 1 production import 不破。
+- **Deprecation 路径**（A4 worker 5 子分别迁，本 worker 不动 agent_*/api.py）：
+  - caller 3 `agent_riskctrl/llm_judge.py` LLMJudge 基类 → 迁 `LLMCaller(agent_id="riskctrl", endpoint="judge").chat()`
+  - caller 4 `agent_report/api.py:_build_llm_caller` 裸 `OpenAI(base_url=...)` → 迁 `LLMCaller(agent_id="report", endpoint="/api/report/v16/fill")`
+  - caller 5 `agent_alert/api.py` + `agent_compliance/scan_engine.py` + `agent_riskctrl/api.py` 直 `LLMClient(provider=...)` → 同上 · 各 agent 自有 `LLMCaller` 实例
+- **环境变量**：`LLM_PROVIDER`（默认 provider，不强制） / `LLM_FALLBACK_CHAIN`（覆盖默认 chain · e.g. `deepseek,qwen,dashscope`） / 各 provider 的 `*_API_KEY`（`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `NVIDIA_API_KEY`）。
+
+依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
