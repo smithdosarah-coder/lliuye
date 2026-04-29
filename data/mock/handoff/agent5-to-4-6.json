@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0",
+  "signal_type": "policy_event_fanout",
+  "source_agent": "compliance",
+  "trigger_at": "2026-04-29T15:00:00Z",
+  "fan_out_targets": ["alert", "report"],
+  "_payload_note": "本 fixture 同时给 /api/alert/policy_event + /api/report/policy_event · payload 一致 · 仅 target_agent 视 endpoint 不同 · A4 端 affected_client_ids 必填 · A6 端 affected_report_ids 必填",
+  "event": {
+    "event_id": "evt_pol_2026_04_29_a3b8f1d2",
+    "scan_id": "scan_compli_20260429_1430_8e7c",
+    "policy_meta": {
+      "title": "关于进一步规范应收账款融资业务风险管理的指导意见",
+      "source_url": "https://www.cbirc.gov.cn/cn/view/pages/ItemDetail.html?docId=000-XXXXXX",
+      "issuing_body": "中国银保监会",
+      "issued_at": "2026-04-25",
+      "fetched_at": "2026-04-29T14:32:11Z"
+    },
+    "policy_category": "credit_risk",
+    "severity": "yellow",
+    "affected_business_lines": ["corporate", "inclusive"],
+    "affected_industries": ["工业软件", "信息技术服务业", "批发零售", "制造业"],
+    "affected_regions": null,
+    "triggered_rules": [
+      {
+        "rule_id": "POL-CBIRC-2026-04-027-A1",
+        "article": "第七条 银行业金融机构开展应收账款融资业务时 · 对应收账款占借款人营业收入比例超过 30% 的客户 · 应季度核查应收账款账龄分布 · 并对账龄超过 180 天的应收账款金额单独披露。",
+        "category": "credit_risk",
+        "condition": "应收账款占营收比 > 30% 的在贷客户",
+        "threshold": {"accounts_receivable_pct_threshold": 0.30, "aging_days_threshold": 180},
+        "severity_hint": "yellow"
+      },
+      {
+        "rule_id": "POL-CBIRC-2026-04-027-A2",
+        "article": "第九条 对前述客户 · 银行业金融机构应在年度审查时增加应收账款回款承诺函 · 缺失该函件的客户授信余额超 1000 万元的 · 应纳入重点监控名单。",
+        "category": "credit_risk",
+        "condition": "无回款承诺函 + 授信余额 > 1000 万",
+        "threshold": {"approved_amount_yuan_threshold": 10000000},
+        "severity_hint": "red"
+      }
+    ],
+    "violation_events": [
+      {
+        "event_inner_id": "ve_001",
+        "client_id": "0a1b9c4d-3e8f-47a2-b5d0-6f9e8c7a1b23",
+        "report_id": "report_zhiyun_industrial_1745922000",
+        "rule_id": "POL-CBIRC-2026-04-027-A1",
+        "evidence_excerpt": "2024 年度应收账款 612.40 万 · 占营收 1820.45 万的 33.6% · 高于政策阈值 30%。当前授信申报中未见账龄分布表与回款承诺函。",
+        "evidence_source": "2024 年度审计报告.pdf · 第 18 页",
+        "severity": "yellow",
+        "confidence": 0.93
+      }
+    ],
+    "recommended_actions": [
+      {
+        "action_type": "supplement",
+        "target_doc": "授信申报表 · 财务数据补充材料",
+        "content": "客户须每季度提交应收账款账龄分布表 · 含账龄 180 天以上单独披露",
+        "severity": "yellow"
+      },
+      {
+        "action_type": "strengthen",
+        "target_doc": "授信审批意见 · 担保与监控章节",
+        "content": "客户应收账款占比 33.6% 已超新规阈值 · 建议在监控配置中加入 'aging_days_180_overdue_alert' 信号 · 季度复核",
+        "severity": "yellow"
+      }
+    ],
+    "affected_client_ids": ["0a1b9c4d-3e8f-47a2-b5d0-6f9e8c7a1b23"],
+    "affected_report_ids": ["report_zhiyun_industrial_1745922000"],
+    "effective_at": "2026-05-25"
+  },
+  "_meta_for_reviewers": {
+    "_chain": "Agent5 检出新政策违规事件 → fan-out POST /api/alert/policy_event + POST /api/report/policy_event",
+    "_continuity_with_chains_2_3": "violation_events[0].client_id 与 agent3-to-4.json decision.client_id 一致 · violation_events[0].report_id 与 agent6-to-3.json report_json.profile_id 一致 · 端到端 demo chain 串联",
+    "_principle_1_blind_test": "PM 不预知坑 · 故意让 violation_events 仅命中 1 条 · 但 triggered_rules 含 2 条 (其中 1 条尚未命中本客户 · 但 Phase B 客户授信余额变化时可能触发 red 级)",
+    "_principle_2_difficulty": "中等档 · 不是模糊政策 (rule.threshold 含具体数值) · 也不是简单合规 (severity yellow + confidence 0.93)",
+    "_principle_3_real_anchor": "政策 title / source_url / 条款形式锚定真实银保监 / 央行 / 央财办近年发文格式 (信用债承销 / 数据安全 / 应收账款融资等真实出过类似指导意见)",
+    "_principle_4_desensitized": "policy.title / issuing_body 是合成版 · docId 是占位符 · 真发文格式参考 cbirc.gov.cn / pbc.gov.cn 真文",
+    "_principle_5_env_boundary": "Agent5 自己跑 4 阶段扫描后产出 · 不替 Agent4 / Agent6 做 hitlist / 报告补充 · fixture 仅传 event 与 affected list",
+    "_drop_when_consumed": "A4-alert / A4-report / A4-compli 子 worker 实装时删 _meta_for_reviewers + 拆成两份 payload (一份给 alert · 一份给 report) · 本 fixture 是 spec 锚点 (双消费方共形)",
+    "_alert_expected_behavior": "Agent4 应按 §4.6 用 affected_client_ids = ['0a1b9c4d-...'] 精准入 scan · scenario_key = 'policy_event_evt_pol_2026_04_29_a3b8f1d2'",
+    "_report_expected_behavior": "Agent6 应按 §4.6 在 report_id='report_zhiyun_industrial_1745922000' 上标记 '合规章节待补' · 不自动重跑 v16 · 等 RM ack",
+    "_business_line_test_coverage": "本 fixture 命中 corporate (智云工业软件) · inclusive 也在 affected 范围内但本 fixture 无具体命中 client · A4-alert 子 worker 测时另补 inclusive fixture"
+  }
+}

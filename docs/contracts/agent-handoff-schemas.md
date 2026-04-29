@@ -469,7 +469,133 @@ Agent4 消费规则:
 
 ## 4. 链路 4 · Agent5.policy_event → Agent4 / Agent6
 
-**TBD · §4 在 Signal: `WORKER-A6-CHAIN-4-SPECCED` commit 中补充。**
+**目的**: Agent5 检测到新政策违规事件 (政策事件驱动 · 非定期巡检) → 双路扇出 · (a) 通知 Agent4 对在贷池中受影响客户做重扫 · (b) 通知 Agent6 在该客户后续报告中追加合规章节 · 这是 north-star §1.4 闭环路径的第 4 跳: `Agent5 合规扫描 (政策事件触发) → Agent4 重扫 + Agent6 报告补充`。
+
+**核心边界 (north-star §1.3 reaffirm)**: Agent5 是**政策事件驱动** (新政策发布 / 监管处罚出 / 行业自查通报) — 不是定期巡检。
+
+**当前 repo 状态 (audit Cat 0)**: Agent5 → Agent4 / Agent6 当前**无直接 API** · 本契约定义的是 spec · A4-alert / A4-report / A4-compli 子 worker 实装时按本 spec 接代码。
+
+### 4.1 触发与时序
+
+链路 4 是 **fan-out** (1 → 2 接收方) · 时序:
+
+```
+Agent5 检出政策事件
+    │
+    ├──→ POST /api/alert/policy_event (Agent4 接收)  · 重扫触发
+    │       └─ Agent4 拉受影响 client 子集 → 入 `/api/alert/scan` 重跑 → 更新 hitlist
+    │
+    └──→ POST /api/report/policy_event (Agent6 接收)  · 报告补充触发
+            └─ Agent6 在受影响 report_id 列表的下次 v16 pipeline 中 inject 合规章节
+```
+
+| # | 谁 | 动作 | 服务端 | 落地 |
+|---|---|---|---|---|
+| 1 | Agent5 | `POST /api/compliance/policy_scan` SSE 跑完 (4 阶段 · 当前已实装) | 持久化 `data/compliance/sessions/<scan_id>.json` | — |
+| 2 | Agent5 后台 | scan 完毕 + 检出 `events` (违规事件) → 自动 fan-out 两个 webhook | — | — |
+| 2a | Agent5 → Agent4 | `POST /api/alert/policy_event` (新 endpoint · spec 仅 · A4-alert 子 worker 实装) | Agent4 接收 + 自动启 scan 重跑 | 落 `data/handoff/compliance_to_alert/<event_id>.json` |
+| 2b | Agent5 → Agent6 | `POST /api/report/policy_event` (新 endpoint · spec 仅 · A4-report 子 worker 实装) | Agent6 接收 + 标记受影响 report_ids | 落 `data/handoff/compliance_to_report/<event_id>.json` |
+| 3 | RM | (异步 · 可能数小时后) 在 `/archive/alert` 看到红标新事件 + 在 `/archive/report` 看到 "合规事件待处理" 卡片 | — | — |
+
+**同步 / 异步**: 两个 fan-out POST **异步** — Agent5 不等 Agent4/Agent6 响应 · 仅 retry 3 次失败后写 `data/handoff/compliance_unreachable/` deadletter。
+
+**RM 触发 vs 自动触发**: Phase A 实装时 fan-out 由 Agent5 后台自动 — RM 不感知 (per north-star §1.3 "政策事件驱动" 的 spirit)。Phase B-3 demo 时可让 RM 在 `/archive/compliance` 手动 ack + dispatch (UI 见 dispatcher 看板)。
+
+**失败回退**:
+- Agent4 / Agent6 任一不可达: Agent5 retry 3 次 (exponential backoff 1s / 5s / 30s) · 最终失败写 deadletter · UI 在 `/today` 显警告卡 (Phase B-3)
+- payload 校验失败: 5xx · 同上 deadletter
+
+### 4.2 传输信封 (双 endpoint 同 payload schema)
+
+```http
+POST /api/alert/policy_event HTTP/1.1     ← Agent4 端
+POST /api/report/policy_event HTTP/1.1    ← Agent6 端
+Content-Type: application/json
+X-Source-Agent: compliance
+X-Idempotency-Key: <event_id · 服务端 dedup>
+
+{
+  "schema_version": "1.0",
+  "signal_type": "policy_event_fanout",
+  "source_agent": "compliance",
+  "target_agent": "alert" | "report",   /* 视 endpoint 而定 · payload 同 */
+  "event": { /* PolicyEvent · §4.3 */ },
+  "trigger_at": "2026-04-29T15:00:00Z"
+}
+```
+
+**幂等性**: `X-Idempotency-Key` 使用 `event.event_id` · Agent4 / Agent6 端 dedup (24h 窗口) · 防 retry 重复入。
+
+### 4.3 payload schema · `PolicyEvent`
+
+| 字段 | 类型 | required | 来源 | 说明 |
+|---|---|---|---|---|
+| `event_id` | str (UUID v4) | ✓ | Agent5 服务端生成 | 幂等键 / 跨 Agent 追踪 |
+| `scan_id` | str | ✓ | Agent5 `/api/compliance/policy_scan` 持久化 ID | 溯源 Agent5 完整产物 |
+| `policy_meta` | dict | ✓ | Agent5 `policy_meta` 透传 | `{title, source_url, issuing_body, issued_at, fetched_at}` |
+| `policy_category` | enum | ✓ | Agent5 抽规则后归类 | `"prudential" \| "consumer_protection" \| "anti_money_laundering" \| "credit_risk" \| "data_security" \| "industry_specific" \| "other"` |
+| `severity` | enum | ✓ | per `field-naming.md` §3.3 | `"red" \| "yellow" \| "green"` |
+| `affected_business_lines` | list[enum] | ✓ | Agent5 矩阵比对结果 | 子集: `business_line` 4 enum (per §3.1) |
+| `affected_industries` | Optional[list[str]] | — | Agent5 行业关键词命中 | 国标行业 (e.g., `"批发零售"` / `"工业软件"`) · null 表示全行业 |
+| `affected_regions` | Optional[list[str]] | — | Agent5 地域关键词命中 | 省份 (e.g., `["浙江", "江苏"]`) · null 表示全国 |
+| `triggered_rules` | list[dict] | ✓ | Agent5 抽规则结果 | 见 §4.4 PolicyRule schema |
+| `violation_events` | Optional[list[dict]] | — | Agent5 矩阵比对命中事件 (Agent4 主用) | 见 §4.5 ViolationEvent schema |
+| `recommended_actions` | list[dict] | ✓ | Agent5 修订意见生成 | `[{action_type: "amend"|"supplement"|"strengthen", target_doc, content, severity}]` |
+| `affected_client_ids` | Optional[list[str]] | — | Agent4 端必填 (Agent6 端可空) | Agent5 直接给受影响 client_id 子集 · 为空时 Agent4 自行用 affected_business_lines/industries 筛 pool |
+| `affected_report_ids` | Optional[list[str]] | — | Agent6 端必填 (Agent4 端可空) | Agent5 直接给受影响 report_id 子集 · 为空时 Agent6 自行用 affected_business_lines 筛 |
+| `effective_at` | str (ISO 8601) | ✓ | 政策生效日期 | Agent4 / Agent6 据此排序优先级 |
+
+### 4.4 PolicyRule schema (triggered_rules 元素)
+
+| 字段 | 类型 | required | 说明 |
+|---|---|---|---|
+| `rule_id` | str | ✓ | Agent5 内部规则 ID (e.g., `"POL-PBC-2026-04-027"`) |
+| `article` | str | ✓ | 政策原文条款 (verbatim · 含原条款编号) |
+| `category` | str | ✓ | per §4.3 `policy_category` enum |
+| `condition` | str | ✓ | 触发条件 (Agent5 LLM 抽出的中文表述) |
+| `threshold` | dict | ✓ | 量化阈值 (e.g., `{"min_capital_yuan": 50000000}`) · 无量化则 `{}` |
+| `severity_hint` | enum | ✓ | per `field-naming.md` §3.3 (`"red" \| "yellow" \| "green"`) |
+
+(注: agent_compliance/api.py 现有字段名 `severity_hint` 而非 `severity` — 这是 Agent5 内部规则 metadata 字段 · 与 §4.3 的 event-level `severity` 不同 · 本契约保留 · 不强行统一)
+
+### 4.5 ViolationEvent schema (violation_events 元素 · Agent4 主消费)
+
+| 字段 | 类型 | required | 说明 |
+|---|---|---|---|
+| `event_inner_id` | str | ✓ | 单次违规事件 ID (Agent5 mat_check 生成) |
+| `client_id` | Optional[str] | — | Agent4 client pool 的 client_id · 命中时填 |
+| `report_id` | Optional[str] | — | Agent6 report 的 report_id · 命中时填 |
+| `rule_id` | str | ✓ | 触发的 PolicyRule.rule_id |
+| `evidence_excerpt` | str | ✓ | 业务文档原文摘录 (≤ 500 char) |
+| `evidence_source` | str | ✓ | 来源文档名 |
+| `severity` | enum | ✓ | per `field-naming.md` §3.3 |
+| `confidence` | float | ✓ | 0-1 · Agent5 LLM 置信度 |
+
+### 4.6 双消费方约束
+
+#### Agent4 (`/api/alert/policy_event`) 消费
+
+1. ✓ 解析 `affected_client_ids`:
+   - 不为 null → 仅扫这些 client (精准模式)
+   - 为 null → 用 `affected_business_lines` + `affected_industries` + `affected_regions` 筛 pool 产生候选 client list
+2. ✓ 把候选 client list 入 `/api/alert/scan` reuse 现有 SSE flow · `scenario_key = f"policy_event_{event_id}"`
+3. ✓ 将 `triggered_rules` 注入 scan rule context · 让规则引擎能匹配新政策条款
+4. ✓ scan 跑完后写 `data/handoff/compliance_to_alert/<event_id>.json` 含 `{event_id, scan_session_id, hit_count, processed_at}`
+5. ❌ 不做政策合规判定 (那是 Agent5 的职责) · Agent4 只做 "客户行为是否触发新规则" 的扫描
+
+#### Agent6 (`/api/report/policy_event`) 消费
+
+1. ✓ 解析 `affected_report_ids`:
+   - 不为 null → 在这些 report 上标记 "合规章节待补"
+   - 为 null → 用 `affected_business_lines` 筛 (Agent6 不维护 industry / region 索引 · 所以前者不用)
+2. ✓ 标记后**不**自动重跑 v16 pipeline (会消耗大量 LLM 资源) — 仅在 RM 下次打开该 report 时显 "合规事件 1 条待补" 提示 + 提供 "追加合规章节" button
+3. ✓ RM 点 button 触发 v16 pipeline 局部重跑 (仅 chapter 5 合规章节 · 现有 v16 不含 ch5 · 这是 v17 扩展 · Phase B-3 启动)
+4. ✓ 写 `data/handoff/compliance_to_report/<event_id>.json` 含 `{event_id, marked_report_ids, marked_at}`
+5. ❌ 不在 ReportJSON 顶层强加 `policy_events` 字段 (会破坏 §2 enterprise_profile.md frozen schema) · 用 `agent_outputs.compliance_appendix` 子结构承载 (Phase B v17 扩展)
+
+### 4.7 fixture · `data/mock/handoff/agent5-to-4-6.json`
+
+见 §6 fixture index · 一份 "应收账款融资风控指引" 政策事件触发的 fan-out 样例 · `affected_client_ids` 含链路 3 的 `0a1b9c4d-...` (智云工业软件 client_id) · `affected_report_ids` 含链路 2 的 `report_zhiyun_industrial_1745922000` · 端到端串联。
 
 ## 5. Export Contract 共形 spec (Cat 13)
 
