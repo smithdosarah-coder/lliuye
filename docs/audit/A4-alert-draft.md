@@ -222,6 +222,158 @@ for await (const evt of streamSse(reader)) {
 
 ---
 
+## A3 模板抄段清单
+
+> **基线**: `feat/phase-a3-channel-pilot` HEAD = `4c54cf2` (A3 worker 尚未 commit 任何 web/ 改动 · sibling worktree `D:\claude code\work-A3-channel-pilot` 也只加了 onboarding doc)。所以"模板"= 当前 disk 上的 `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (2730 行 · workspace-state-protocol §1 标"部分实装")。
+>
+> **行号注**: 以下行号锚定**当前 HEAD**。A3 worker 真 cherry-pick 后 ChannelWorkspace.tsx 行号会漂 · GO 后第一步 `git rebase chore/l0-infra` · 然后**按 anchor 字符串重新 grep 行号** · 不锁死。
+>
+> **共 12 段 · 每段标 alert 改名 / alert 改造点 / 用法 / 抄入 §11 step**。
+
+### 段 1 · 4 useState declarations 块
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:87-130` (`selectedSessionId` / `liveCandidates` / `started` / `selectedCandidateId` 顺序声明 + 注释) |
+| **抄什么** | 4 useState 声明结构 + JSDoc 注释 (含 `F-041` / `F-005 Phase 2` / `F-042` 引用风格) |
+| **alert 改名** | `liveCandidates` → `liveData` (整 `AlertSession` 不只 candidates · per workspace-state-protocol §2 第 3 gate)。`selectedCandidateId` → `selectedClientId` (与 backend `/api/alert/drill/{client_id}` 端点一致) |
+| **alert 改造** | `started` 已存在不动 (line 86)。`drillCustomer: string \| null` 改 `selectedClientId` 同时把所有下游 customer-name display 接 `drillablePool[selectedClientId].customer` (UI 文案不丢) |
+| **抄入 step** | §11 step 2 |
+
+### 段 2 · ESC 关 drawer useEffect
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:134-144` (`useEffect` 监听 `globalThis.KeyboardEvent` · `selectedCandidateId` truthy 时 Escape clear) |
+| **抄什么** | useEffect 整段 + cleanup return |
+| **alert 改名** | `selectedCandidateId` → `selectedClientId` |
+| **alert 改造** | 一比一 · alert 现状没有 ESC 关 drawer 代码 (drillCustomer 半实装) · 直接抄入 |
+| **抄入 step** | §11 step 6 |
+
+### 段 3 · handleSelectSession callback
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:147-158` (useCallback · 切 session id · reset messages · setLive(null) · 关 drawer) |
+| **抄什么** | useCallback 整段结构 (按 id lookup MAP + 4 个 setter 顺序) |
+| **alert 改名** | `setMessages` reset alert conversation (alert 现状是 ScanQueueCase / TopCase 数据 · 不是 messages · 改成 reset `phase` / `stepIdx` / `tab` / `selectedClientId` · 同时 setLiveData(null)) |
+| **alert 改造** | alert 没有 conversation in same shape · reset target = `phase="before"` + `setStepIdx(0)` + `setTab("dist")` + `setSelectedClientId(null)` + `setLiveData(null)` (清 live · 切回 mock) |
+| **抄入 step** | §11 step 2 (与 4 useState 同 commit) |
+
+### 段 4 · sessionData 推导块
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:102-104` (`s = MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID]`) + line 117 (`candidatesPool: Candidate[] = liveCandidates ?? s.candidates`) |
+| **抄什么** | 双层 fallback derive 模式: `liveX ?? mockX ?? defaultX` |
+| **alert 改名** | `s` → `sessionData`。`candidatesPool` 概念在 alert 不存在 · alert 直接全 session 切: `sessionData = liveData ?? ALERT_MOCK_SESSIONS_MAP[selectedSessionId] ?? ALERT_MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID]` |
+| **alert 改造** | 一处 derive 同时 cover 5 panel · 不分 candidatesPool / radarPool / heatmapPool (alert 全是同 sessionData 派生) |
+| **抄入 step** | §11 step 2 |
+
+### 段 5 · normalizeBackendCandidate (snake↔camel 桥)
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:1200-1346` (146 行长函数 · 把 backend SSE done event 单 candidate dict normalize 成前端 `Candidate` type · 含 timeline / match_dimensions / product_recommendations / pitch_scripts / similarity\|\|match_score fallback / industry/geo/scale 字段) |
+| **抄什么** | 整体结构 + Q-041 fix 模式 (`String(c.industry ?? "—")` / 多键 fallback / Array.isArray 守门) |
+| **alert 改名** | `normalizeBackendCandidate` → `normalizeAlertSession` · 输入是**整个 done envelope payload** 而不是单 candidate dict · 输出 `AlertSession` |
+| **alert 改造** | 字段映射 (per §3 done envelope schema): backend `hit_list` / `industry_distribution` / `signal_heatmap` / `reach_rate` / `top_cases` / `dispositions` / `kb_state` → 前端 `AlertSession.{topCases, scanQueueCases, signalHeatmap, industryDistribution, reachRate, ...}`。**关键**: cat 5 grade 命名 (`risk_level` / `tier` / `grade` 三选一 · 等 Q-NNN A) 在此处统一兜底 (用 selected name 优先 · fallback 兼容旧字段) |
+| **抄入 step** | §11 step 5 |
+
+### 段 6 · runRealSearch SSE 主循环
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:1379-1446` (QueryBar 内 · `runRealSearch(queryOverride?: string)` async function · POST /api/channel/run · `res.body.getReader()` · 累积 buf · `\n\n` block split · 解析 `data:` line · evt.event === "done" 时 normalize + setLive · catch 写 streamError) |
+| **抄什么** | 错误处理结构 (try/catch/finally + `setStreaming(false)`) + SSE block 累积 / split 模式 |
+| **alert 改名** | `runRealSearch` → `runAlertScan` (alert 已有同名 helper 在 `web/src/lib/api/alert.ts` · 改造它) · `setLive` → `setLiveData` · `setStreamEvents` → 推进 stage 步骤 (`setStepIdx`) |
+| **alert 改造** | **不抄 inline `res.body.getReader()`** (Cat 3 反模式) · 改用 `web/src/lib/api/_live.ts` 的 `streamSse` helper:<br/>`for await (const evt of streamSse(reader)) { ... }`<br/>endpoint `/api/channel/run` → `/api/alert/scan` · payload 改 `{scenario_key, force_mock: false}` · evt.event 三态: `stage` (推 stepIdx + 显示 stage 名) / `done` (normalize 整 session + setLiveData + setPhase("after")) / `error` (调 `recordLiveFail("alert scan", e, () => startScan())`) |
+| **抄入 step** | §11 step 5 (兼 step 4 后端 done envelope · 前后端同批联调) |
+
+### 段 7 · dropdown click-to-fire (B-2 pattern)
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:1448-1499` (pendingSessionId state + onSessionSelectChange + onApplySessionSwitch button click · `<select data-testid="channel-session-select" value={pendingSessionId} onChange={...}>` + MOCK_SESSIONS_LIST.map render options) |
+| **抄什么** | dropdown 双阶段: select onChange 仅 set pending · 显式 button 点击触发 parent setter · 防止 select 误触切走 live state |
+| **alert 改名** | `data-testid` → `alert-session-select`。MOCK_SESSIONS_LIST → ALERT_MOCK_SESSIONS_LIST (导自 `agent-alert-sessions.ts`) |
+| **alert 改造** | alert 现状**无 dropdown** (只有 scanRange dropdown 选扫描范围 · 不是 mock session) · 在 hero 下加新 dropdown · 与 scanRange 不冲突 (两 dropdown 独立) |
+| **抄入 step** | §11 step 8 (mock dropdown banner 同批 · 选下拉触发 banner 显) |
+
+### 段 8 · external trigger useEffect (skip)
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:1470-1480` (`externalTrigger?: { input: string; nonce: number }` · IdealProfile "开始扫描" 触发 auto-run) |
+| **抄什么** | (none) |
+| **alert 改名** | — |
+| **alert 改造** | **skip · alert 无 IdealProfile pre-step** · 三个 CTA (primary/secondary/tertiary) 已经直接调 `triggerPrimaryScan()` / `triggerSecondaryScan()` / `triggerTertiaryDemo()` · 不需 external trigger 间接层 |
+| **抄入 step** | (none · 显式不抄) |
+
+### 段 9 · 顶部 banner aggregation
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:140-144` (`streamErrorTop` / `aggregatedKbError` / `topBannerMessage` derive · `dismissTopBanner` callback) + JSX line 268-285 (banner render) |
+| **抄什么** | 多源 error 统一聚合到顶部 banner 单 entry · 支持 dismiss + retry |
+| **alert 改名** | streamErrorTop → scanErrorTop。aggregatedKbError → (alert 无 KB upload · skip) |
+| **alert 改造** | alert 现状有**多个分散 banner** (`liveFail` line 387+ / `scanError` line 358+ / `exportError` 推断) · 改造时合并: 顶部统一 `topBannerMessage` derive `liveFail \|\| scanError \|\| exportError \|\| trainingModeBanner (mock dropdown · 段 7 联动)` · 单 dismiss 路径 |
+| **抄入 step** | §11 step 8 (与 mock dropdown banner 同批) |
+
+### 段 10 · 4 gate root render branch
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:264-339` (data-started 顶层 + EvidenceProvider wrap + topBanner + Hero + KbUploadStrip + IdealProfileCard + QueryBar + `started ? <full workspace 5 panel> : <empty state>` ternary + CandidateDetailDrawer 始终在 root) |
+| **抄什么** | started ternary 分支 + EvidenceProvider 双层包 + 顶层 data-attr (`data-view` / `data-started` / `data-phase` / `data-session-id`) |
+| **alert 改名** | `data-view="archive-channel"` → `data-view="archive-alert"`。EvidenceProvider items: `CHANNEL_EVIDENCE` → `ALERT_EVIDENCE` (已存在 · line 37) |
+| **alert 改造** | alert 现状已有**两份 return** (line 295 empty / line 346 full) · 合并到 single return + ternary · 与 A3 一致。data-attr 加 `data-session-id={sessionData.id}` + `data-live-mode={liveData ? "yes" : "no"}` (NEW-DOM trailer) |
+| **抄入 step** | §11 step 2 (与 4 useState 同 commit · 因为 ternary 依赖 sessionData derive) |
+
+### 段 11 · CandidateDetailDrawer 模板
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `ChannelWorkspace.tsx:2149+` (`function CandidateDetailDrawer({ candidate, sessionData, onClose })` · 接 selectedCandidate 渲染 derived radar + signals timeline + match dim + products + pitch) |
+| **抄什么** | drawer 4 区结构 (header / radar+signals / 匹配明细 / 产品+话术) + onClose backdrop click + 关闭 button |
+| **alert 改名** | `CandidateDetailDrawer` → `AlertDrillDrawer` · `candidate: Candidate \| null` → `clientId: string \| null` |
+| **alert 改造** | drawer **不消费 sessionData 本地数据** · 改成 `useEffect` fetch `GET /api/alert/drill/{client_id}` (已有端点 `agent_alert/api.py:260`) · 渲染 backend 返回的 `{client_id, company_name, level, score, matched_rules, reasons, signal_timeline, disposition, disposition_source}` · 4 区: header (company_name + level + score) / signal_timeline (per A3 timeline 模式) / matched_rules + reasons / disposition (LLM 优先 / 模板兜底) |
+| **抄入 step** | §11 step 6 |
+
+### 段 12 · MOCK_SESSIONS array + MAP + LIST + DEFAULT_SESSION_ID 导出
+
+| 项 | 值 |
+|---|---|
+| **A3 锚点** | `web/src/lib/mock/agent-channel-sessions.ts` (整文件结构 · ≥ 3 sessions array + `MOCK_SESSIONS_MAP: Record<id, ChannelSession>` + `MOCK_SESSIONS_LIST: RecentScoutSession[]` summary list + `DEFAULT_SESSION_ID` const) |
+| **抄什么** | 文件骨架 + 多 export 命名 + 难度分层注释 (反 5 原则 §3.5) |
+| **alert 改名** | 新建 `web/src/lib/mock/agent-alert-sessions.ts` · 类型 `ChannelSession` → `AlertSession` · `MOCK_SESSIONS_MAP` → `ALERT_MOCK_SESSIONS_MAP` · `MOCK_SESSIONS_LIST` → `ALERT_MOCK_SESSIONS_LIST` · `RecentScoutSession` → `AlertRecentSession` (类型已存在 in `agent-alert-session.ts:80`) |
+| **alert 改造** | ≥ 3 sessions (per §2.2 难度分层 · `sess_baseline_100` / `sess_manuf_policy_event` / `sess_judicial_news_dual`) · 每 session 之间 hit_list / industry / heatmap / topCases 实质不同 · 不许 deep-copy 改名。**反 5 原则 #5 环境边界**: fixture 不含 difficulty / risk_level 答案字段 · Agent 自己算。 |
+| **抄入 step** | §11 step 1 |
+
+### 段映射 → §11 step 总结
+
+| §11 step | 抄哪些段 |
+|---|---|
+| step 1 (mock-sessions 拆) | 段 12 |
+| step 2 (4 gate + sessionData derive + ternary render) | 段 1 + 段 3 + 段 4 + 段 10 |
+| step 3 (5 panel props) | (无 A3 锚点 · 自己改 · workspace-state-protocol §2.2 模式) |
+| step 4 (backend done envelope) | (无 A3 锚点 · 后端独立 · 但 §3 schema 与 A3 done event 共形) |
+| step 5 (frontend SSE done 注入 + streamSse 迁) | 段 5 + 段 6 |
+| step 6 (drill drawer + ESC) | 段 2 + 段 11 |
+| step 7 (grade 三命名归一) | (cat 5 · 与段 5 normalize 桥联动 · 等 Q-NNN A) |
+| step 8 (mock dropdown banner) | 段 7 + 段 9 |
+| step 9 (demo/run 端点 + fixture) | (后端独立 · 模式参考 A3 fixture 形态 + agent_channel/api.py demo 路) |
+| step 10 (Cat 6/7 prompt + LLM caller · 若范围内) | (无 A3 锚点 · A2 shared infra 为模板) |
+| step 11 (Playwright smoke) | 段 7/9/10/11 的 data-testid 都是 selector 入口 |
+
+### 风险 (与 §10 R4 / R5 联动)
+
+- **行号锁死**: 本清单行号锚 HEAD `4c54cf2` · A3 worker 真 cherry-pick 时若 ChannelWorkspace.tsx 已被 A3 worker 改 (新加 result-driven 派生逻辑 · 删 inline reader 改 streamSse · 重写 panel props) → 行号全漂。**对策**: GO 后第一步 grep anchor 字符串 (e.g. `function CandidateDetailDrawer` / `runRealSearch` / `pendingSessionId`) 重定位 · 不锁死本清单行号
+- **段 6 inline reader 反模式**: 本清单显式标"不抄 inline reader · 改用 streamSse" · A3 worker 也会做这个迁 (per onboarding 任务 #2 "SSE reader 改 streamSse") · 真 cherry-pick 后 A3 ChannelWorkspace 应已是 streamSse 版本 · 直接抄成型版本就好
+- **段 5 normalize 函数大小**: 当前 ChannelWorkspace `normalizeBackendCandidate` 146 行 · alert 的 `normalizeAlertSession` 估计同量级 (整 session 不只 candidate 但 alert 字段更少) · **不抽 hook**: 跟 A3 一样在 component 内 · workspace-state-protocol §7 step 1-7 都没要求抽 hook · 简单优先 (per A4 子 worker onboarding §2 charter `web/src/app/archive/_shared/useWorkspaceRun.ts` 那个 task 主 CLI 派给 5 子 worker 中**一个**兼任 · 不绑 alert)
+
+---
+
 ## 3. Cat 4 alert · Backend SSE schema 修法
 
 `agent_alert/api.py:107-112` 改:
