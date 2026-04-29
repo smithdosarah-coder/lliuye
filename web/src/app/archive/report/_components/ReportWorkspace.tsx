@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
@@ -394,11 +395,10 @@ export function ReportWorkspace() {
                 <TimelinePanel />
               </aside>
               <main className="rpt-main">
-                {/* W-FIX-A1 · live-fallback-banner-spec §3 · "生成报告" button
-                    width 不溢出 · max-width 480 · 不允许 100% 占整 panel */}
+                {/* B-cta · maxWidth 480 → 320 收紧 · 居中 · 解决 RM 抱怨"巨大不合理交互按钮" */}
                 <div
                   data-testid="report-scancta-wrapper"
-                  style={{ maxWidth: 480, margin: "0 0 16px 0" }}
+                  style={{ maxWidth: 320, margin: "0 auto 16px auto" }}
                 >
                   <ScanCTA
                     label="生成报告 (mock 路径)"
@@ -690,11 +690,8 @@ function TemplatePanel(props: {
             accept=".docx,.doc"
             onChange={handleTplFileChange}
           />
-          <button className="rpt-btn rpt-btn--ghost" type="button" disabled
-            title="模板库 · Stage X 计划 (live-fallback-banner-spec §3 disabled with tooltip)"
-          >
-            <span aria-hidden>▤</span>模板库
-          </button>
+          {/* B-cta · 模板库 disabled placeholder button 删除 (CLAUDE.md "no fake placeholder buttons")
+              原 disabled + tooltip 是 "Stage X 计划" 占位 · 用户视觉上 = 摆设 · 此次去掉 */}
         </div>
         {props.uploadedTemplate ? (
           <div
@@ -1140,11 +1137,24 @@ function ReportComposer() {
     setHint("idle");
   }
 
+  // pin-drop · 拖钉到 composer · 插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
+
   const materialCount = REPORT_SESSION.materials.length;
   const sectionCount = REPORT_SESSION.preview.length;
 
   return (
-    <div className="rpt-composer-slot rpt-composer" data-hint={hint}>
+    <div
+      className={`rpt-composer-slot rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      data-hint={hint}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer-bar">
         <textarea
           ref={taRef}
@@ -1445,27 +1455,33 @@ const _LAUNCH_HINT_STYLE: CSSProperties = {
   marginTop: 2,
 };
 
+/* B-cta · chip-style 紧凑 · 单按钮 ≤ 200px · 不充满列宽
+   primary 上传材料 / secondary 重新生成+导出 一致紧凑 · 解决 RM 抱怨"巨大不合理交互按钮" */
 const _LAUNCH_BTN_PRIMARY: CSSProperties = {
   fontFamily: "var(--cjk)",
-  fontSize: 14,
-  padding: "10px 18px",
+  fontSize: 13,
+  padding: "8px 14px",
   background: "var(--t-report)",
   color: "var(--chalk)",
   border: "none",
   borderRadius: "var(--r-md)",
   cursor: "pointer",
   fontWeight: 500,
+  maxWidth: 200,
+  whiteSpace: "nowrap",
 };
 
 const _LAUNCH_BTN_SECONDARY: CSSProperties = {
   fontFamily: "var(--cjk)",
-  fontSize: 13,
-  padding: "8px 14px",
+  fontSize: 12,
+  padding: "6px 12px",
   background: "transparent",
   color: "var(--ink)",
   border: "1px solid var(--ink-14)",
   borderRadius: "var(--r-md)",
   cursor: "pointer",
+  maxWidth: 200,
+  whiteSpace: "nowrap",
 };
 
 const _LAUNCH_SELECT_STYLE: CSSProperties = {
