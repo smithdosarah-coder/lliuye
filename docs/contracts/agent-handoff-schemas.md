@@ -765,12 +765,12 @@ CI 共形 lint 由 worker-A1 SSOT lint 同步加规则:
 
 每条链路 1 个真实形态 fixture · 落 `data/mock/handoff/`:
 
-| 链路 | 文件 | 状态 |
-|---|---|---|
-| 1 | `data/mock/handoff/agent1-to-6.json` | TBD |
-| 2 | `data/mock/handoff/agent6-to-3.json` | TBD |
-| 3 | `data/mock/handoff/agent3-to-4.json` | TBD |
-| 4 | `data/mock/handoff/agent5-to-4-6.json` | TBD |
+| 链路 | 文件 | 状态 | 串联企业 |
+|---|---|---|---|
+| 1 | `data/mock/handoff/agent1-to-6.json` | ✓ v1.0 | 杭州智云工业软件 (profile_id `550e8400-...`) |
+| 2 | `data/mock/handoff/agent6-to-3.json` | ✓ v1.0 | 同上 (upstream_session_id / upstream_match_score 串联) |
+| 3 | `data/mock/handoff/agent3-to-4.json` | ✓ v1.0 | 同上 → 决策 approved_with_conditions / risk_grade B / client_id `0a1b9c4d-...` |
+| 4 | `data/mock/handoff/agent5-to-4-6.json` | ✓ v1.0 | 同上 violation 命中 (client_id + report_id 双向追踪) |
 
 Fixture 必须符合 §3.5 反结果导向 5 原则 (`CLAUDE.md` §3.5):
 
