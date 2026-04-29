@@ -200,22 +200,32 @@ export function ReportWorkspace() {
     [businessLine],
   );
 
+  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "开始生成" CTA 显式触发 */
   const handleSelectHistory = useCallback((key: string) => {
-    if (!key) return;
     setHistoryChoice(key);
-    setMode("mock");
-    setStarted(true);
-    setReportId(`mock-${key}-${Date.now()}`);
-    // 不自动 fill · 用户可继续点 "开始生成" 看 mock 流
   }, []);
 
   const handleSelectTemplate = useCallback((tpl: string) => {
     setTemplateChoice(tpl);
-    if (tpl) {
+  }, []);
+
+  /* "开始生成" CTA · 综合用户当前选择决定 mock vs live · 显式 button click 触发 started */
+  const handleApplyLaunch = useCallback(() => {
+    /* 优先级:
+       1) historyChoice 选了 → mock 模式
+       2) templateChoice 选了 (含上传) → live 模式
+       3) 都没选 → 不动 (button disabled) */
+    if (historyChoice) {
+      setMode("mock");
+      setStarted(true);
+      setReportId(`mock-${historyChoice}-${Date.now()}`);
+      return;
+    }
+    if (templateChoice) {
       setMode("live");
       setStarted(true);
     }
-  }, []);
+  }, [historyChoice, templateChoice]);
 
   // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
   // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
@@ -351,6 +361,7 @@ export function ReportWorkspace() {
           onUpload={handleUpload}
           onSelectTemplate={handleSelectTemplate}
           onSelectHistory={handleSelectHistory}
+          onApplyLaunch={handleApplyLaunch}
           onBusinessLineChange={setBusinessLine}
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
@@ -1476,6 +1487,7 @@ function ReportLaunchBar(p: {
   onUpload: (files: File[]) => void;
   onSelectTemplate: (tpl: string) => void;
   onSelectHistory: (key: string) => void;
+  onApplyLaunch: () => void;
   onBusinessLineChange: (v: string) => void;
   onStartGenerate: () => void;
   onExport: () => void;
@@ -1581,8 +1593,26 @@ function ReportLaunchBar(p: {
         </select>
       </div>
 
-      {/* 操作 (started 时显) */}
-      {p.started ? (
+      {/* B-2 click-to-fire · !started 时显式 "开始生成" 应用模板/历史选择
+          started 时切到 "重新生成 / 导出" 双 chip-style 按钮 */}
+      {!p.started ? (
+        <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
+          <button
+            type="button"
+            data-testid="report-apply-launch-btn"
+            onClick={p.onApplyLaunch}
+            disabled={!p.templateChoice && !p.historyChoice}
+            style={{
+              ..._LAUNCH_BTN_SECONDARY,
+              borderColor: "var(--t-report)",
+              color: "var(--t-report)",
+              opacity: !p.templateChoice && !p.historyChoice ? 0.5 : 1,
+            }}
+          >
+            开始生成
+          </button>
+        </div>
+      ) : (
         <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
           <button
             type="button"
@@ -1596,7 +1626,7 @@ function ReportLaunchBar(p: {
               opacity: p.generating ? 0.6 : 1,
             }}
           >
-            {p.generating ? "生成中…" : "开始生成"}
+            {p.generating ? "生成中…" : "重新生成"}
           </button>
           <button
             type="button"
@@ -1611,7 +1641,7 @@ function ReportLaunchBar(p: {
             {p.exporting ? "导出中…" : "导出 Word"}
           </button>
         </div>
-      ) : null}
+      )}
 
       {/* 错误 banner */}
       {p.errMsg ? (

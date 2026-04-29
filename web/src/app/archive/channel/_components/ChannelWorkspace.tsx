@@ -1406,14 +1406,19 @@ function QueryBar({
     }
   }
 
+  /* B-2 click-to-fire · dropdown 仅 set pending 选择 · 显式 button 触发切换 */
+  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSessionId);
   function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
-    /* F-041 · 选下拉历史 session = mock 模式 · 切 parent state · 清 stream 残留
+    setPendingSessionId(e.target.value);
+  }
+  function onApplySessionSwitch() {
+    /* F-041 · "切换演示" button → mock 模式 · 切 parent state · 清 stream 残留
        parent.handleSelectSession 会 reset conversation + setLive(null) */
-    const id = e.target.value;
+    if (!pendingSessionId || pendingSessionId === selectedSessionId) return;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
-    onSelectSession(id);
+    onSelectSession(pendingSessionId);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -1449,7 +1454,7 @@ function QueryBar({
           <select
             id="ch-session-select"
             data-testid="channel-session-select"
-            value={selectedSessionId}
+            value={pendingSessionId}
             onChange={onSessionSelectChange}
           >
             {MOCK_SESSIONS_LIST.map((r) => (
@@ -1462,6 +1467,15 @@ function QueryBar({
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            className="ch-querybar-recent-apply"
+            data-testid="channel-session-apply"
+            onClick={onApplySessionSwitch}
+            disabled={!pendingSessionId || pendingSessionId === selectedSessionId}
+          >
+            切换演示
+          </button>
         </div>
       </div>
       <div className="ch-querybar-body">
