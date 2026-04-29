@@ -9,6 +9,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   exportDocx as exportDocxApi,
   LiveFailError,
@@ -1135,8 +1136,19 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
 function ComplianceComposer() {
   const [value, setValue] = useState("");
   const hints = ["看严重档", "按制度拆", "改造成本", "派工单", "导出整改清单"];
+  // pin-drop · 拖钉到 composer 时插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button

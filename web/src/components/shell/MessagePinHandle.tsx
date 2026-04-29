@@ -24,6 +24,10 @@ import {
   CARD_PIN_MIME,
   type CardPinPayload,
 } from "@/lib/store/whiteboard-store";
+import {
+  PIN_THUMB_MIME,
+  buildPinThumbDataUrl,
+} from "@/components/shell/pin-thumb";
 
 export interface MessagePinHandleProps {
   /** 对话全局唯一 id · 约定 `${agentKey}:msg:${msg.id}`。 */
@@ -62,9 +66,17 @@ export function MessagePinHandle(props: MessagePinHandleProps) {
       href: props.href ?? "#",
       accentVar: props.accentVar,
     };
+    // pin-thumb · 同步生成 SVG data URL · 见 pin-thumb.ts header
+    const thumbDataUrl = buildPinThumbDataUrl({
+      title: props.title,
+      subtitle: props.subtitle,
+      accentVar: props.accentVar,
+      badge: "消息",
+    });
     try {
       e.dataTransfer.setData(PANEL_PIN_MIME, JSON.stringify(panelPayload));
       e.dataTransfer.setData(CARD_PIN_MIME, JSON.stringify(cardPayload));
+      e.dataTransfer.setData(PIN_THUMB_MIME, thumbDataUrl);
       e.dataTransfer.setData("text/plain", props.title);
       e.dataTransfer.effectAllowed = "copy";
     } catch {

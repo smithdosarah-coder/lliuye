@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ClaimText,
   EvidenceProvider,
@@ -1069,8 +1070,19 @@ function truncate(s: string, n: number): string {
 function CreditComposer() {
   const [value, setValue] = useState("");
   const hints = ["深看财务", "补担保方案", "对比案例 C-1", "触发放款条件", "生成决议草稿"];
+  // pin-drop · 拖钉到 composer · 插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button
