@@ -26,17 +26,50 @@
 
 ## 1. 适用范围 + Layered scope
 
-本协议**不重复**定义 wire-level 已锁的字段:
+本协议**不重复**定义 wire-level 已锁的字段 · 仅锁 `done` envelope + per-agent payload tail:
 
-| 层 | 已锁文档 (DO NOT duplicate) | 本协议覆盖 |
+| 层 | 已锁文档 (authoritative source · DO NOT duplicate) | 本协议覆盖 |
 |---|---|---|
 | Wire format (`event:` / `data:` lines · `\n\n` 分隔) | RFC EventStream · `field-naming.md` §6 | — |
-| SSE event 枚举值 (`stage` / `stream` / `done` / `error` / `tool_call` / `tool_result` / `profile_loaded`) | `field-naming.md` §3.6 | — |
+| SSE event 枚举值 (7 events) | `field-naming.md` §3.6 | mirror only · §1.5 normative table for forward-compat |
 | `stage` event payload (`stage` / `progress` / `message`) | `field-naming.md` §6 | — |
-| `done` event envelope (top-level keys + per-agent payload tail) | — | ✅ 本协议 |
+| `done` event envelope (top-level keys + per-agent payload tail) | — | ✅ 本协议 §2 |
 | Per-agent payload tail schema | `workspace-state-protocol.md` §10 (AgentSession tail) | ✅ 本协议 §3 cross-ref |
 
 **不动的层**: stream / stage / tool_call 等 event payload 形态由各 Agent 在 spec 内定义 (`agent-*-spec.md` § "事件流") · 本协议只锁 `done` event 形态。
+
+### 1.5 Event 名 normative table (mirror · authoritative = field-naming.md §3.6)
+
+> ⚠️ **Mirror 关系**: 本表 verbatim 镜像 `field-naming.md` v1.0 §3.6 SSEEvent enum · 本契约**不引入新 event 名**。当 field-naming.md §3.6 修改时 (升 minor / major) · 本表必须**同 commit** sync · 否则 lint 拒 (Phase A worker-A2 落 lint 后)。
+>
+> **为什么镜像在这**: 让 6 Agent backend 实现者打开 sse-envelope.md 即看到全部合法 event 名 · 不必跳读 field-naming.md。但**当本表与 field-naming.md §3.6 矛盾时** · 以 field-naming.md 为准 (per `docs/arch/instruction-source-of-truth.md` §1.1 · 同 Tier 1 contracts · 取早立者)。
+
+| event 名 | 用途 | payload schema 出处 | 6 Agent 必发 |
+|---|---|---|---|
+| `profile_loaded` | 画像加载完成 (Agent1 / Agent6 入参就绪) | `agent-*-spec.md` § "事件流" | optional (per agent · Channel/Report 用 · 其他 N/A) |
+| `stage` | 进入新阶段 | `field-naming.md` §6 (stage / progress / message) | ✅ 必发 (≥ 1 stage event) |
+| `stream` | LLM 流式 token | `agent-*-spec.md` § "事件流" (text 字段) | optional (LLM 调用时发) |
+| `tool_call` | 工具调用 | `agent-*-spec.md` § "事件流" (tool_name / args) | optional (有工具调用时发) |
+| `tool_result` | 工具结果 | `agent-*-spec.md` § "事件流" (tool_name / result / ok) | optional (与 tool_call 配对) |
+| `done` | 任务结束 (本契约 §2 envelope) | **本契约 §2** (`event` / `version` / `agent` / `session_id` / `ok` / `ts` / `duration_ms` / `metrics` / `payload` / `warnings` / `errors` / `trace_id`) | ✅ 必发 (终态 · 单次) |
+| `error` | 错误 | `field-naming.md` §五 ErrorResponse + 本契约 §2.1 ErrorEntry | optional (致命错误另起 event · 否则走 done.errors[]) |
+
+**Wire form 通用约束** (per field-naming.md §6):
+
+```
+event: <name>
+data: <json · single line · UTF-8>
+
+```
+- `event` 名取自上表
+- `data` 是单行 JSON · 不允许换行 (NDJSON style)
+- 双 `\n` 分隔事件
+- `progress` 是 0-1 浮点 (不是 0-100) · `_at` ISO 8601 · 其余字段命名规则见 field-naming.md §2
+
+**Forward-compat 规则** (本契约扩 event 时):
+- ✅ 加新 event 名 (consumer 容忍未识别 event) → minor bump (本契约 + field-naming.md §3.6 同步)
+- ❌ 改现有 event 名 / 改 wire 分隔符 → major bump (breaking · 6 Agent 同步迁)
+- ❌ 一次只改本契约 §1.5 不动 field-naming.md §3.6 (违 mirror 一致性 · CI lint 拒)
 
 ---
 
