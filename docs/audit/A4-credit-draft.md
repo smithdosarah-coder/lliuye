@@ -75,6 +75,66 @@ export default function CreditWorkspace() {
 
 ---
 
+## A3 模板抄段清单 (cherry-pick 后逐段移植)
+
+> **A3 worktree 现状** (`D:\claude code\work-A3-channel-pilot` · HEAD `4c54cf2` · A3 worker 尚未 commit final rewrite): ChannelWorkspace.tsx 已落 Phase B partial (workspace-state-protocol §1 列 gap #2/#3/#4/#5 中 #2/#3/#5 已实装) · realtime_stream.py done event 仅含 `candidates/metrics/data_source` (cat 4 提)。
+>
+> **A3 worker DONE 后会再补**: 4 gate 真实装收口 + done event 全 envelope (radar/signal_timeline/funnel/profile_brief/hero_summary) + `/api/channel/demo/run` 端点 + scenarios + Playwright smoke。
+>
+> 故 "抄段清单" 分两批: **A · 现已可抄** (Phase B 已落 · 学其形) · **B · 等 A3 final cherry-pick 后抄** (4 gate 收口 + envelope + demo 端点)。
+
+### A. 现已可抄 (Phase B partial · pre-A3-final)
+
+| # | A3 段落 | A3 line ref | credit 抄到哪 | 抄什么 |
+|---|---|---|---|---|
+| A1 | 4 gate state hoist | `ChannelWorkspace.tsx:115-134` (`selectedSessionId` / `liveCandidates` / `started` / `selectedCandidateId` 4 useState 顺序 + 注释引 protocol §2) | `CreditWorkspace.tsx` 顶层 (替 89-116 当前 9 useState) | useState 4 行 + comment 引 `workspace-state-protocol.md §2` 行号 |
+| A2 | sessionData 派生 | `ChannelWorkspace.tsx:116-118` (`MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID]`) | credit 顶层派生 sessionData | `liveData ?? CREDIT_MOCK_SESSIONS.find(...) ?? CREDIT_MOCK_SESSIONS[0]` 三段 fallback (workspace-state-protocol §2 推荐式) |
+| A3 | selectedCandidate 派生 + ESC 关 drawer | `ChannelWorkspace.tsx:182-197` (selectedCandidate `find` + useEffect ESC keydown) | credit `CaseTable` row click drawer | 复制 ESC 关 drawer effect 整段 · 仅改 setter 名 (`setSelectedCandidate`) |
+| A4 | handleSelectSession 切清 callback | `ChannelWorkspace.tsx:206-216` (切 session 时 reset conversation + setLive(null) + setSelectedCandidate(null)) | credit 历史下拉 onChange | 切 sessionData 时同步清 liveData + 关 drawer · 否则 panel 串 session 数据 |
+| A5 | backend candidate normalize | `ChannelWorkspace.tsx:1196-1346` `normalizeBackendCandidate` (snake_case → camelCase · 兼容 backend `signals/match_dimensions/product_recommendations/pitch_scripts`) | credit `_components/_normalize.ts` | 学**结构** (映射函数 + fallback 链 + drawer 三件套展开) · 不学**字段** (credit 字段是 `scoring_result/rule_hits/case_matches/advice` · 重新映) |
+| A6 | runRealSearch SSE pattern (反模式 · 学反例) | `ChannelWorkspace.tsx:1379-1446` 内联 `res.body.getReader() + buf.split("\n\n")` | (不抄) | **明确不抄** · 这是 cat 3 反模式 · credit 直接走 streamSse (本 draft §4) · A3 worker final 也会改 |
+| A7 | "切换演示" click-to-fire pattern | `ChannelWorkspace.tsx:1448-1461` (pendingSessionId 临时 state + 显式 button apply 才切) | credit 历史下拉 (可选) | 若 PM 要求"下拉选完再 click apply"才切 · 抄此 pattern · 否则 onChange 直切 |
+
+### B. 等 A3 final cherry-pick 后抄 (A3 worker DONE 才有)
+
+| # | A3 段落 | 预期 line | credit 抄到哪 | 抄什么 | 何时可抄 |
+|---|---|---|---|---|---|
+| B1 | 4 gate 真收口 (workspace-state-protocol §2 全照搬 · 现有 partial 收齐) | (待 A3 worker 改) | credit 顶层 4 useState 收口 | 收编后的 4 gate 顺序 + 派生函数 + `setStarted` 写入触发源四类完整 | A3 commit `WORKER-A3-CHANNEL-PILOT-DONE` cherry-pick 后 |
+| B2 | done event 全 envelope (cat 4) | `realtime_stream.py:228-237` 改 (加 `radar / signal_timeline / funnel / profile_brief / hero_summary`) | `agent_credit/api.py:387 + :465` `_build_done_envelope` | 学**字段命名规约** (snake_case · 顶层平摊 · 不嵌 stage_xxx) · credit 字段表本 draft §3 已列 | A3 cherry-pick 后 |
+| B3 | streamSse 消费 done envelope 整体 setLiveData | A3 worker final 会替 `ChannelWorkspace.tsx:1422-1433`(只取 candidates) 为整体注入 | credit `streamSse onEvent → if "done" setLiveData(normalize(evt))` | 学整体注入模式 · 不再分 stage 累积本地 state | A3 cherry-pick 后 |
+| B4 | `/api/channel/demo/run` 端点 + `data/mock/workspace/channel/scenarios/*.json` | A3 worker 新建 | credit 镜像建 `/api/credit/demo/run` + `data/mock/workspace/credit/scenarios/*.json` × 6 (本 draft §5) | 学端点签名 + scenarios JSON shape (`{sse_script: [{event, stage, payload, delay_ms}]}`) | A3 cherry-pick 后 |
+| B5 | Playwright `web/tests/regression/channel-pilot-4gate.spec.ts` | A3 worker 新建 | credit 镜像建 `credit-pilot-4gate.spec.ts` (本 draft §7) | 学 5 case 结构 (empty / mock-switch / live-sse / handoff / drawer) + selector 模式 (`data-testid="channel-pilot-..."` → `credit-pilot-...`) | A3 cherry-pick 后 |
+| B6 | live-fail banner 实装 (cat 11 #11) | A3 worker 改 (Tavily key 缺时显式 banner · 不再 silent mock_fallback) | credit `WorkspaceBanner.tsx` 共享组件 (若公共 hook 兼任 worker 先落) | 学 banner DOM + i18n + retry/dismiss action | A3 cherry-pick 后 (或公共 hook worker 先) |
+
+### C. credit 与 A3 不一样 · 不能照抄 (避免误抄)
+
+| 域 | A3 (channel) | credit | 备注 |
+|---|---|---|---|
+| 5 panel 内容 | RadarPanel / FunnelStrip / CandidatesPanel / SignalTimelinePanel / ConversationPanel | 3 segment panel + RadarScore + DecisionLetter (本 draft §2 拟) | 完全不同 · 仅借 "panel 接 sessionData props" 模式 |
+| mock session 字段 | `benchmark / signals / candidates / radar / funnel / conversation / qcCounts / candidateCount / stage / recentSessions` | `enterprise_profile / scoring_result / rule_hits / case_matches / advice / personal_profile (retail)` (per agent-credit-spec §6) | shape 完全不同 · 仅借 array shape (≥6 sessions / 难度分层) |
+| KB upload 流 | `upload_kb` 多 type · IdealProfile 12 维抽取 (`F-044/F-045`) | credit 不需 KB upload · 输入是 Agent6 ReportJSON | 完全不抄 |
+| 候选 drawer | `CandidateDetailDrawer` (radar+signals + match dim + products + pitch_scripts 4 区) | credit 候选概念 ≠ channel · drawer 是 case 详情 (similarity / hit_red_lines / decision / approved_amount) | 学 drawer 整体架构 · 不学内容 |
+| backend 上游 | Tavily 实搜 + 企查查 enrich + DeepSeek pitch | DeepSeek + Agent6 ReportJSON 透传 + 内部 features/scoring/rules/cases pipeline | 完全不同 |
+| ConversationPanel 接 IM | 接 `archive:channel` thread → `/api/im/send target_agent="channel"` | credit 已有 ConversationPanel · 接 `archive:credit` thread (现状 OK · 保留) | 不动 |
+
+### D. 抄段实施顺序 (cherry-pick 后)
+
+1. A1 → 顶层 4 useState 替 (commit 2 of 实施顺序)
+2. A2 → sessionData 派生 (同 commit)
+3. A3 → ESC 关 drawer effect (commit 8)
+4. A4 → handleSelectSession 切清 (commit 2)
+5. A5 → normalize 函数学结构 · 字段重映 (commit 5 之 normalize.ts)
+6. A6 → 不抄 · 直接 streamSse (commit 5)
+7. A7 → 视 PM 决定是否需要 click-to-apply
+8. B1 → 与 A1 合并 · A3 final 收口后再 align (commit 2 修一次)
+9. B2 → backend done envelope 镜像 (commit 4)
+10. B3 → streamSse done 整体 setLiveData (commit 5)
+11. B4 → demo 端点 + scenarios (commit 6)
+12. B5 → Playwright spec 镜像 (commit 10)
+13. B6 → live-fail banner 学 (合并入 §8 公共 hook 或本 worker 实装)
+
+---
+
 ## 2. 5 panel 派生方案 (corp/small/retail × radar/score)
 
 per onboarding §1 #1: "credit 5 panel 是 corp/small/retail 三 segment + radar + score · 不是 channel 5 panel"。
