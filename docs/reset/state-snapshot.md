@@ -38,6 +38,35 @@
 
 ---
 
+## 2026-04-29 (本批次 3) · Neat-freak 跨 3 层知识洁癖整理
+
+### What happened
+- 跑 neat-freak skill (洁癖) · 跨 3 层知识(memory / 项目根 / docs/) 同步现状
+- 删 orphan: `_tmp_viktor_pptx.md`(项目根 1 行空)
+- archive: `HANDOFF.md` (老 5 demo MVP 交接) → `docs/_archive/HANDOFF_legacy_5demo_2026-04.md`
+- archive: `启动说明.md` (Portal 时代 · 2026-04-13) → `docs/_archive/启动说明_legacy_2026-04-13.md`
+- 重写 `README.md` (从 v14 single-page 改为 platform shell v2 + ECS production)
+- 修 reset docs `workspace-state-protocol.md 不存在 · 必新建` 错描述(实 v1.0 已存在 · Stage B 时建 · worker-A1 任务改为 review + 6 spec 同步)
+- CLAUDE.md §10 加 `shared/llm/` 关键文件(Stage E.3 落地 · 0 agent 用 · worker-A2 迁)
+- Memory 加 4 新 entries: project_reset_initiative + project_pm_5_decisions + feedback_state_snapshot_hard_rule + project_llm_keys_rotated
+- Memory 修 reference_deployment(端口 :8002 → :8000 · 加 ECS production 信息)
+- MEMORY.md 索引加 5 项(4 新 + reference_deployment 之前 orphan 现入索引)
+
+### Triggered by
+- /neat-freak skill (PM 触发)
+
+### State change (delta)
+- 项目根 .md 7 → 5 (删 1 + archive 2)
+- README v14 stale → platform shell v2 truthful
+- Reset docs 修 workspace-state-protocol 错引用(3 处)
+- Memory 28 → 32 entries · 0 orphan · 索引齐
+
+### Next
+- commit + push + ECS sync
+- fresh main CLI 接手时 6 reset docs 应 self-contained · 0 question · 直接 fire 6 路并行 Step 2
+
+---
+
 ## 2026-04-29 (本批次 2) · Step 2 Charter 补 + 答 fresh CLI 8 题
 
 ### What happened

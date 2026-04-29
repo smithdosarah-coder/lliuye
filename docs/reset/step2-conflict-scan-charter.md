@@ -18,7 +18,7 @@
 |---|---|---|
 | **0** | **产品形态 (workbench vs 6 showroom · 走歪本质)** | `web/src/app/today/*` · `web/src/app/archive/[agent]/*` · 跨 agent handoff data flow |
 | 1 | 文档规范冲突 | `CLAUDE.md` vs `docs/contracts/*` vs `docs/handoff/decisions-log.md` 互相矛盾 / dangling reference |
-| 2 | workspace state 模型不统一 (4 gate `started/selectedSession/liveData/selectedCandidate`) | `web/src/app/archive/{agent}/_components/*Workspace.tsx` 6 个 |
+| 2 | workspace state 模型不统一 (4 gate `started/selectedSession/liveData/selectedCandidate`) | `web/src/app/archive/{agent}/_components/*Workspace.tsx` 6 个 · 注: protocol v1.0 已存在于 `docs/contracts/workspace-state-protocol.md` · 但 6 workspace 实装漂离 |
 | 3 | frontend SSE 客户端不统一 | `web/src/lib/api/_live.ts streamSse` vs 各 workspace 内 EventSource / fetch reader |
 | 4 | backend SSE schema 不统一 (event 名 + done payload) | `agent_*/api.py` 6 个 |
 | 5 | mock source 冲突 (3 处) | `data/mock/*` + `web/src/lib/mock/*` + workspace inline `MOCK_*` const |
