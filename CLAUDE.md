@@ -43,6 +43,8 @@
 
 所有 LLM 生成内容走三阶段：**证据汇集 → Grounded 生成 → 自审**。每条数字、判断、结论必须带证据链（出处文件 / 段落 ID / URL）。无证据项标「未能自动填写」，比编一个看起来对的更有价值。实现见 `section_generator.py` 和 `truth_fill.py` 的 `prefill_labeled_fields_from_kb`。
 
+**LLM Prompt 8 段 SSOT**: 6 Agent system prompt 全部按 `docs/contracts/llm-prompt-contract.md` v1.0 (Phase A worker-A1 ratified · 2026-04-29) 8 段顺序拼装 — `[safety] → [evidence-first] → [agent-role] → [tool-use] → [output-schema] → [self-check] → [few-shot] → [evaluation-hook]`。helper `shared/prompts/contract.py` 由 worker-A2 落地后 · 6 Agent inline `SYSTEM_*` 常量全部替换为 `build_system_prompt(agent_id, task_type, ...)` 调用 (audit Cat 6 fix)。Agent2 riskctrl DSL 生成是 [evidence-first] 的唯一例外 (回测仍走确定性 backtest engine · 不让 LLM 现场算 KS/AUC)。
+
 ### 3.4 Search Provider 抽象（可切换）
 
 Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查查实现），切换来源一行代码。下游统一消费 `CompanyProfile` / `ScanResult` 结构，不准依赖数据来源细节。
@@ -176,6 +178,7 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
 - `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
 - `shared/sse_envelope.py` — SSE done event envelope helper (Phase A worker-A2 待落地 · spec 见 `docs/contracts/sse-envelope.md` v1.0) · 6 Agent backend done event 共形 · 解决 audit Cat 4 (6 agent done payload 形态各异)
+- `shared/prompts/contract.py` — LLM 8 段 system prompt 拼装 helper (Phase A worker-A2 待落地 · spec 见 `docs/contracts/llm-prompt-contract.md` v1.0) · 6 Agent prompts.py 全迁 · 解决 audit Cat 6 (7 处 prompt 分裂 + Evidence-First 仅 Agent6 落地)
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
