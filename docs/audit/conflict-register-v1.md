@@ -106,30 +106,34 @@ status: pre-PM 拍板 · 待 Signal STEP-2-PM-RULED
 
 ## Cat 6 · prompt source 冲突
 
+> **A2 portion ✅ MERGED 2026-04-29** · `shared/prompts/contract.py` 8 段 SSOT skeleton + `assemble()` strict 语义全落地于 chore/l0-infra commit `2bfc5ad` (V2 codex re-review AGREE) · A4 worker 5 子后续把 6 agent inline `SYSTEM_*` 常量替换为 `contract.assemble(role=...)` 调用 (caller-agent 迁移)。
+
 | Cat | file:line | 证据 (≤80 char) | Owner / Phase A worker | Keep/Revert/Rewrite |
 |---|---|---|---|---|
-| 6 | section_generator.py:36-211 | 三阶段 Evidence-First inline (_EVIDENCE_SYSTEM_PROMPT) · 不从 prompts.py | A2 (shared/prompts/contract) | Rewrite |
-| 6 | prompts.py:42-60 | AGENT_SYSTEM_PROMPT 信贷分析师角色 · 与 section_generator inline 措辞漂 | A2 | Rewrite |
-| 6 | agent_channel/prompts.py:52 | PITCH_GEN_SYSTEM 无 evidence-first · 与 root _DATA_CITATION_RULES 脱轨 | A2 + A4-channel | Rewrite |
-| 6 | agent_alert/prompts.py:13-37 | SYSTEM_RISK_SCAN 含"事实数据"但无三阶段结构 | A2 + A4-alert | Rewrite |
-| 6 | agent_riskctrl/prompts.py:13-44 | SYSTEM_RULE_PARSER 无 evidence/溯源约束 | A2 + A4-riskctrl | Rewrite |
-| 6 | agent_compliance/prompts.py:19-36 | SYSTEM_POLICY_PARSE/_CHECK 严格 JSON 但无溯源条款 | A2 + A4-compli | Rewrite |
-| 6 | agent_credit/prompts.py:16 | Agent3 独立 decision system prompt | A2 + A4-credit | Rewrite |
+| 6 | section_generator.py:36-211 | 三阶段 Evidence-First inline (_EVIDENCE_SYSTEM_PROMPT) · 不从 prompts.py | A2 (shared/prompts/contract) | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | prompts.py:42-60 | AGENT_SYSTEM_PROMPT 信贷分析师角色 · 与 section_generator inline 措辞漂 | A2 | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | agent_channel/prompts.py:52 | PITCH_GEN_SYSTEM 无 evidence-first · 与 root _DATA_CITATION_RULES 脱轨 | A2 + A4-channel | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | agent_alert/prompts.py:13-37 | SYSTEM_RISK_SCAN 含"事实数据"但无三阶段结构 | A2 + A4-alert | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | agent_riskctrl/prompts.py:13-44 | SYSTEM_RULE_PARSER 无 evidence/溯源约束 | A2 + A4-riskctrl | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | agent_compliance/prompts.py:19-36 | SYSTEM_POLICY_PARSE/_CHECK 严格 JSON 但无溯源条款 | A2 + A4-compli | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 6 | agent_credit/prompts.py:16 | Agent3 独立 decision system prompt | A2 + A4-credit | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
 
 ---
 
 ## Cat 7 · LLM caller 冲突 (4+1 套并行)
 
+> **A2 portion ✅ MERGED 2026-04-29** · `shared/llm_caller/{client,retry,audit,provider,prompts}.py` 5 模块 + `shared/llm/*` re-export shim 全落地于 chore/l0-infra commit `2bfc5ad` (V2 codex re-review AGREE) · `LLMCaller` facade + `simple_chat` + `make_text_caller` + `make_json_caller` legacy adapter 就绪 · A4 worker 5 子后续把 caller 3/4/5 直 `LLMClient` 调用替换为 `LLMCaller(...)` 实例 (per CLAUDE.md §3.6 deprecation 路径)。
+
 | Cat | file:line | 证据 (≤80 char) | Owner / Phase A worker | Keep/Revert/Rewrite |
 |---|---|---|---|---|
-| 7 | llm.py:56-69 | Caller 1: LLMClient OpenAI 兼容 · 大多 agent 用 | A2 (主干 · 收编 to shared/llm) | Keep → 迁 |
-| 7 | shared/llm/router.py:27-32 + __init__.py:25 | Caller 2: shared.llm Protocol fallback · 0 production import | A2 (接管 · 6 agent 全迁) | Keep (待接管) |
-| 7 | shared/kb_scan/impls/channel_signal.py:311 | 唯一生产侧 chat_with_fallback · 5 agent_*/api.py 0 调 | A2 | Rewrite (扩展接入) |
-| 7 | agent_riskctrl/llm_judge.py:123-124 | Caller 3: LLMJudge 独立基类 · 游离 shared/llm | A2 + A4-riskctrl | Rewrite |
-| 7 | agent_report/api.py:264-301 | Caller 4: _build_llm_caller 裸 OpenAI(deepseek) · 跳全栈 | A2 + A4-report | Rewrite |
-| 7 | agent_alert/api.py:312-313 | Caller 5: LLMClient 直 init · 跳 shared/llm fallback | A2 + A4-alert | Rewrite |
-| 7 | agent_compliance/scan_engine.py:84-100 | Caller 5 同模式 · 两处重复 init | A2 + A4-compli | Rewrite |
-| 7 | agent_riskctrl/api.py:141-142 | LLMClient 暴露 provider 给前端 · 跳 fallback | A2 + A4-riskctrl | Rewrite |
+| 7 | llm.py:56-69 | Caller 1: LLMClient OpenAI 兼容 · 大多 agent 用 | A2 (主干 · 收编 to shared/llm) | Keep → 迁<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | shared/llm/router.py:27-32 + __init__.py:25 | Caller 2: shared.llm Protocol fallback · 0 production import | A2 (接管 · 6 agent 全迁) | Keep (待接管)<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | shared/kb_scan/impls/channel_signal.py:311 | 唯一生产侧 chat_with_fallback · 5 agent_*/api.py 0 调 | A2 | Rewrite (扩展接入)<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | agent_riskctrl/llm_judge.py:123-124 | Caller 3: LLMJudge 独立基类 · 游离 shared/llm | A2 + A4-riskctrl | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | agent_report/api.py:264-301 | Caller 4: _build_llm_caller 裸 OpenAI(deepseek) · 跳全栈 | A2 + A4-report | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | agent_alert/api.py:312-313 | Caller 5: LLMClient 直 init · 跳 shared/llm fallback | A2 + A4-alert | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | agent_compliance/scan_engine.py:84-100 | Caller 5 同模式 · 两处重复 init | A2 + A4-compli | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
+| 7 | agent_riskctrl/api.py:141-142 | LLMClient 暴露 provider 给前端 · 跳 fallback | A2 + A4-riskctrl | Rewrite<br>✅ MERGED in 2bfc5ad WORKER-A2-SHARED-INFRA-V2-MERGED |
 
 ---
 
