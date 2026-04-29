@@ -206,6 +206,64 @@ def test_resolve_chain_via_env(monkeypatch):
     assert result.metadata.get("fallback_chain") == ["qwen", "deepseek"]
 
 
+# V2 fix · codex review issue 1 · explicit api_key bypass is_available env check
+def test_chat_with_fallback_explicit_key_bypasses_env(monkeypatch):
+    """显式 api_key 非空时 · _try_each bypass is_available env check · 仍试 provider."""
+    # env keys 全空 · is_available() 全 False · 但显式 api_key 应让 chain 仍试
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+    monkeypatch.setenv("NVIDIA_API_KEY", "")
+
+    fake = ProviderResult(content="ok via explicit key", provider_name="deepseek", region="cn")
+    monkeypatch.setattr(DeepSeekProvider, "chat", lambda self, *a, **kw: fake)
+
+    # 显式 api_key 非空 → bypass env check → 仍调 provider.chat
+    result = chat_with_fallback(
+        "s", "u",
+        api_key="sk-explicit-test-key",
+        chain=["deepseek"],
+    )
+    assert result.content == "ok via explicit key"
+    assert result.provider_name == "deepseek"
+
+
+def test_chat_with_fallback_no_explicit_key_skips_no_env(monkeypatch):
+    """对照: 无显式 key + 无 env → is_available False → 全 skip → raise."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+    monkeypatch.setenv("NVIDIA_API_KEY", "")
+
+    with pytest.raises(ProviderUnavailableError, match="all providers fail"):
+        chat_with_fallback("s", "u", chain=["deepseek", "dashscope"])
+
+
+def test_chat_with_fallback_explicit_key_still_falls_back(monkeypatch):
+    """显式 api_key 时 · 主 provider chat 抛 ProviderUnavailableError · 仍切 fallback."""
+    # env 全空
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "")
+
+    def deepseek_fail(self, *a, **kw):
+        raise ProviderUnavailableError("explicit key invalid for deepseek")
+
+    fake_dashscope = ProviderResult(
+        content="dashscope ok",
+        provider_name="dashscope",
+        region="cn",
+    )
+    monkeypatch.setattr(DeepSeekProvider, "chat", deepseek_fail)
+    monkeypatch.setattr(DashScopeProvider, "chat", lambda self, *a, **kw: fake_dashscope)
+
+    result = chat_with_fallback(
+        "s", "u",
+        api_key="sk-explicit-test",
+        chain=["deepseek", "dashscope"],
+    )
+    assert result.provider_name == "dashscope"
+    # fallback metadata 记 deepseek tried + err
+    assert any("deepseek" in s for s in result.metadata.get("fallback_tried", []))
+
+
 # ============================================================================
 # audit · with_audit ctx + AuditHandle + extract_audit_extras
 # ============================================================================

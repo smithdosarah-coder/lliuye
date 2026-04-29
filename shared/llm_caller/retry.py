@@ -50,6 +50,8 @@ def _try_each(
     chain: list[str],
     op_name: str,
     fn: Callable[[LLMProvider], ProviderResult],
+    *,
+    api_key: str = "",
 ) -> ProviderResult:
     """共用 fallback loop · 主 fail → 切下一个 · op_name 仅 logging.
 
@@ -57,6 +59,9 @@ def _try_each(
         chain:    provider name list · 顺序执行
         op_name:  操作名 (chat / chat_json) · 仅 logging
         fn:       (provider) → ProviderResult · 由调用方提供
+        api_key:  显式 api_key · 非空时 bypass is_available env check
+                  (V2 fix · codex review issue 1) · provider chat 会用此 key
+                  init LLMClient · 失败仍走 fallback chain.
 
     Returns:
         首个 success 的 ProviderResult · metadata 含 fallback_chain + fallback_tried.
@@ -70,7 +75,9 @@ def _try_each(
         provider = _REGISTRY.get(name)
         if provider is None:
             continue
-        if not provider.is_available():
+        # 显式 api_key 时 bypass env check (V2 issue 1) · 用户已 opt-in 用此 key 试 ·
+        # 失败仍走 fallback (provider.chat 内会抛 ProviderUnavailableError)
+        if not api_key and not provider.is_available():
             tried.append(f"{name}:no-key")
             continue
         try:
@@ -97,7 +104,11 @@ def chat_with_fallback(
     api_key: str = "",
     chain: list[str] | None = None,
 ) -> ProviderResult:
-    """普通 chat · 主 fail → 自动切下一个 · audit 通过 metadata.fallback_tried 可见."""
+    """普通 chat · 主 fail → 自动切下一个 · audit 通过 metadata.fallback_tried 可见.
+
+    显式 api_key 非空时 · _try_each bypass is_available env check (V2 issue 1) ·
+    用户 opt-in 用此 key 试 chain 全部 provider · 适合 BYOK 场景 (前端传 key).
+    """
     resolved = _resolve_chain(chain)
     return _try_each(
         resolved,
@@ -105,6 +116,7 @@ def chat_with_fallback(
         lambda p: p.chat(
             system, user, temperature=temperature, api_key=api_key,
         ),
+        api_key=api_key,
     )
 
 
@@ -128,6 +140,7 @@ def chat_json_with_fallback(
             temperature=temperature,
             api_key=api_key,
         ),
+        api_key=api_key,
     )
 
 
