@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { CARD_PIN_MIME } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
+import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { nextThinkDelayMs, pickReply } from "../_mock/canned-replies";
 import {
   Radar,
@@ -205,28 +206,6 @@ export default function ChannelWorkspace() {
       setSelectedCandidate(null);
     },
     [],
-  );
-
-  /* C1 compat shim · QueryBar 内联 SSE reader 当前只回 candidates[] · C2 重构后整 ChannelSession 由 normalizeBackendDone() 喂入
-     现把 candidates[] 包成 partial ChannelSession · 其他 panel 字段沿用当前 mock 模板 (radar/funnel/signals 不真切)
-     C2 后此 shim 移除 · QueryBar 直接 setLiveData(normalize(envelope)) */
-  const setLiveCandidatesCompat = useCallback(
-    (cs: Candidate[] | null) => {
-      if (cs === null) {
-        setLiveData(null);
-        return;
-      }
-      const tpl = MOCK_SESSIONS_MAP[selectedSession] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
-      setLiveData({
-        ...tpl,
-        id: "live",
-        benchmarkName: "实时搜索",
-        candidates: cs,
-        candidateCount: cs.length,
-        stage: "已扫描",
-      });
-    },
-    [selectedSession],
   );
 
   /* F-044 · master plan §B.6 · 单文件 KB 上传 (multipart) → /api/channel/upload_kb
@@ -437,9 +416,9 @@ export default function ChannelWorkspace() {
       )}
       <QueryBar
         sessionData={s}
-        selectedSessionId={selectedSession}
+        selectedSession={selectedSession}
         onSelectSession={handleSelectSession}
-        setLive={setLiveCandidatesCompat}
+        setLiveData={setLiveData}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
         onStreamError={setStreamErrorTop}
@@ -1359,19 +1338,57 @@ function normalizeBackendCandidate(
   };
 }
 
+/* C2 · workspace-state-protocol §2 · backend done event → 整 ChannelSession (5 panel 单源消费)
+   shared/sse_envelope.py make_done(panels=...) 把 panels expand 到 done event 顶层 (扁平 · 非嵌套 envelope) ·
+   故这里直接读 evt.candidates / evt.radar / evt.signals / evt.funnel / evt.match_dimensions /
+   evt.product_recommendations / evt.pitch_scripts (CHANNEL_PANEL_KEYS 7 keys).
+   tplFallback: backend 阶段性输出 panel 字段缺时 (C3 之前) · 用 mock 模板兜底 · 视觉不空 panel */
+function normalizeBackendDone(
+  evt: Record<string, unknown>,
+  tplFallback: ChannelSession,
+): ChannelSession {
+  const candidatesRaw = Array.isArray(evt.candidates)
+    ? (evt.candidates as Array<Record<string, unknown>>)
+    : [];
+  const candidates = candidatesRaw.map((c, i) => normalizeBackendCandidate(c, i));
+
+  const radar = Array.isArray(evt.radar) && (evt.radar as unknown[]).length > 0
+    ? (evt.radar as RadarDimension[])
+    : tplFallback.radar;
+  const signals = Array.isArray(evt.signals) && (evt.signals as unknown[]).length > 0
+    ? (evt.signals as SignalSource[])
+    : tplFallback.signals;
+  const funnel = Array.isArray(evt.funnel) && (evt.funnel as unknown[]).length > 0
+    ? (evt.funnel as FunnelStage[])
+    : tplFallback.funnel;
+
+  return {
+    ...tplFallback,
+    id: "live",
+    benchmarkName: "实时搜索",
+    candidates: candidates.length > 0 ? candidates : tplFallback.candidates,
+    candidateCount: candidates.length || tplFallback.candidateCount,
+    stage: "已扫描",
+    radar,
+    signals,
+    funnel,
+  };
+}
+
 function QueryBar({
   sessionData,
-  selectedSessionId,
+  selectedSession,
   onSelectSession,
-  setLive,
+  setLiveData,
   setStarted,
   externalTrigger,
   onStreamError,
 }: {
   sessionData: ChannelSession;
-  selectedSessionId: string;
+  selectedSession: string;
   onSelectSession: (id: string) => void;
-  setLive: (c: Candidate[] | null) => void;
+  /* C2 · 改 setLive(Candidate[]|null) → setLiveData(ChannelSession|null) · 整 session 形态注入 */
+  setLiveData: (s: ChannelSession | null) => void;
   setStarted: (v: boolean) => void;
   /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
   externalTrigger?: { input: string; nonce: number } | null;
@@ -1398,76 +1415,51 @@ function QueryBar({
     setStreamEvents([]);
     setStreamError(null);
     onStreamError?.(null);
+    /* C2 · streamSse 替代内联 res.body.getReader() · LiveFailError 走顶部 banner (banner-spec rule 1)
+       done event 走 normalizeBackendDone(evt, tplFallback) 整 ChannelSession 注入 setLiveData */
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
     try {
-      // prod: 相对 path 走 nginx proxy → :8000 · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000
-      const apiBase =
-        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-        "";
-      const res = await fetch(`${apiBase}/api/channel/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText, mock: false, top_n: 8 }),
-      });
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      // Read SSE 流到 done · 累积 events 给下方 stream panel 渲染
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const dataLine = block
-            .split("\n")
-            .find((line) => line.startsWith("data:"));
-          if (!dataLine) continue;
-          try {
-            const evt = JSON.parse(dataLine.slice(5).trim()) as ChannelStreamEvent;
-            setStreamEvents((prev) => [...prev, evt]);
-            // F-005 Phase 2 · 提取 final candidates 注入 ChannelWorkspace 让 CandidatesPanel 渲染 live
-            // #1 crash fix (2026-04-27): 后端 SSE candidates shape 跟前端 Candidate type 不一致 ·
-            //   render 时 signals/riskTags/products .length on undefined 抛 TypeError ·
-            //   "This page couldn't load" · 这里 normalize 一遍 · 兼容 backend snake_case + camelCase
-            if (evt.event === "done" && Array.isArray(evt.candidates)) {
-              /* F-043 · master plan §B.5b · live mode 全字段 normalize
-                 backend candidate (per agent_channel/sse_extras.py + realtime_stream._build_final_output)
-                 含: industry / geo / scale / similarity / radar_8axis /
-                     match_dimensions / product_recommendations / pitch_scripts +
-                     legacy: signals (objects with type/title/detail/date/source/url)
-                 把 backend snake_case 全 wire 到前端 Candidate (含 timeline + drawer 三件套) */
-              const norm = (evt.candidates as Array<Record<string, unknown>>).map(
-                (c, i) => normalizeBackendCandidate(c, i),
-              );
-              setLive(norm);
-            }
-          } catch {
-            /* skip malformed line */
+      await streamSse(
+        `${apiBase}/api/channel/run`,
+        { query: queryText, mock: false, top_n: 8 },
+        (sseEvt) => {
+          const data = sseEvt.data as ChannelStreamEvent;
+          setStreamEvents((prev) => [...prev, data]);
+          if (sseEvt.type === "done") {
+            const live = normalizeBackendDone(
+              data as Record<string, unknown>,
+              sessionData,
+            );
+            setLiveData(live);
           }
-        }
-      }
+        },
+      );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setStreamError(msg);
-      onStreamError?.(msg);
+      if (err instanceof LiveFailError) {
+        const msg = liveFailBannerText(err, "Channel /api/channel/run");
+        setStreamError(msg);
+        onStreamError?.(msg);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStreamError(msg);
+        onStreamError?.(msg);
+      }
     } finally {
       setStreaming(false);
     }
   }
 
   /* B-2 click-to-fire · dropdown 仅 set pending 选择 · 显式 button 触发切换 */
-  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSessionId);
+  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSession);
   function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
     setPendingSessionId(e.target.value);
   }
   function onApplySessionSwitch() {
     /* F-041 · "切换演示" button → mock 模式 · 切 parent state · 清 stream 残留
-       parent.handleSelectSession 会 reset conversation + setLive(null) */
-    if (!pendingSessionId || pendingSessionId === selectedSessionId) return;
+       parent.handleSelectSession 会 reset conversation + setLiveData(null) */
+    if (!pendingSessionId || pendingSessionId === selectedSession) return;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
@@ -1525,7 +1517,7 @@ function QueryBar({
             className="ch-querybar-recent-apply"
             data-testid="channel-session-apply"
             onClick={onApplySessionSwitch}
-            disabled={!pendingSessionId || pendingSessionId === selectedSessionId}
+            disabled={!pendingSessionId || pendingSessionId === selectedSession}
           >
             切换演示
           </button>
