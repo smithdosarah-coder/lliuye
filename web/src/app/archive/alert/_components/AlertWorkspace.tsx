@@ -174,7 +174,7 @@ export default function AlertWorkspace() {
       try {
         const { sessionId } = await runAlertScan({
           scenarioKey: rangeId || "",
-          forceMock: true, // demo · production 切 false 真扫
+          forceMock: false, // 真扫 · 失败走 recordLiveFail banner (live-fallback-banner-spec §2 规则 1)
         });
         if (sessionId) setScanSessionId(sessionId);
         setPhase("after");
