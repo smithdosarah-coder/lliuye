@@ -47,7 +47,16 @@ from shared.llm_caller.retry import (
     chat_with_fallback,
 )
 
+# Phase A worker-A2 · M3 · audit layer
+from shared.llm_caller.audit import (
+    AuditHandle,
+    extract_audit_extras,
+    record_llm_call,
+    with_audit,
+)
+
 __all__ = [
+    "AuditHandle",
     "DEFAULT_FALLBACK_CHAIN",
     "DashScopeProvider",
     "DeepSeekProvider",
@@ -58,6 +67,9 @@ __all__ = [
     "QwenProvider",
     "chat_json_with_fallback",
     "chat_with_fallback",
+    "extract_audit_extras",
     "get_provider",
     "list_providers",
+    "record_llm_call",
+    "with_audit",
 ]
