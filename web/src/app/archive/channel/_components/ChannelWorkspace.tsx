@@ -109,29 +109,23 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 }
 
 export default function ChannelWorkspace() {
-  /* F-041 · 2026-04-28 · master plan §B.1+§B.2 · multi-session select hoist
-     selectedSessionId 切下拉 · 全 5 panel 跟着切 (gap #2 + #3 修)
-     Workspace state protocol: docs/contracts/workspace-state-protocol.md §2 */
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_SESSION_ID);
-  const currentSession: ChannelSession =
-    MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
-  const s = currentSession;
+  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A3 (2026-04-29)
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
+     sessionData = liveData ?? mock[selectedSession] · 5 panel 单点派生 */
+
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<ChannelSession | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: ChannelSession =
+    liveData ??
+    MOCK_SESSIONS_MAP[selectedSession] ??
+    MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  const s = sessionData;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
-
-  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
-     F-043 · 2026-04-28 · master plan §B.5b · live mode 不再仅 candidates · 整 session shape 注入
-     liveCandidates 仍保留作为 b.4 candidate drawer 的 live data path (drawer 直接读 candidatesPool) */
-  const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
-
-  /* #3 · 2026-04-27 · 功能页面真初始化 · 默认 started=false 只渲染 Hero + QueryBar + 空白提示
-     QueryBar select 历史 OR submit textbox 触发 setStarted(true) · panel 数据才填入
-     user 反馈 "默认显示 mock 数据 · 跟用户输入没关联" · 加交互门槛 */
-  const [started, setStarted] = useState(false);
-
-  /* F-042 · 2026-04-28 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer
-     候选 click → setSelectedCandidateId · drawer 4 区: header / radar+signals / 匹配明细 / 产品+话术
-     ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const isLive = liveData !== null;
 
   /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
      kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
@@ -179,22 +173,20 @@ export default function ChannelWorkspace() {
     setKbErrors({ customer_list: "", policy: "", industry_guide: "" });
   }, []);
 
-  /* derive selected candidate (live 优先 · mock fallback) */
-  const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
-  const selectedCandidate: Candidate | null =
-    selectedCandidateId
-      ? candidatesPool.find((c) => c.id === selectedCandidateId) ?? null
-      : null;
+  /* derive selected candidate object · sessionData.candidates 已 live-or-mock 单源 */
+  const selectedCandidateData: Candidate | null = selectedCandidate
+    ? sessionData.candidates.find((c) => c.id === selectedCandidate) ?? null
+    : null;
 
   /* ESC 关 drawer */
   useEffect(() => {
-    if (!selectedCandidateId) return;
+    if (!selectedCandidate) return;
     function onKey(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") setSelectedCandidateId(null);
+      if (e.key === "Escape") setSelectedCandidate(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedCandidateId]);
+  }, [selectedCandidate]);
 
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
@@ -202,17 +194,39 @@ export default function ChannelWorkspace() {
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
 
-  /* 切 session 时 reset conversation + 清 live candidates + 关 drawer · 让 panel 全 swap 干净 */
+  /* 切 session 时 reset conversation + 清 liveData + 关 drawer · 让 panel 全 swap 干净 */
   const handleSelectSession = useCallback(
     (id: string) => {
       const sess = MOCK_SESSIONS_MAP[id];
       if (!sess) return;
-      setSelectedSessionId(id);
+      setSelectedSession(id);
       setMessages(sess.conversation);
-      setLive(null);
-      setSelectedCandidateId(null);
+      setLiveData(null);
+      setSelectedCandidate(null);
     },
     [],
+  );
+
+  /* C1 compat shim · QueryBar 内联 SSE reader 当前只回 candidates[] · C2 重构后整 ChannelSession 由 normalizeBackendDone() 喂入
+     现把 candidates[] 包成 partial ChannelSession · 其他 panel 字段沿用当前 mock 模板 (radar/funnel/signals 不真切)
+     C2 后此 shim 移除 · QueryBar 直接 setLiveData(normalize(envelope)) */
+  const setLiveCandidatesCompat = useCallback(
+    (cs: Candidate[] | null) => {
+      if (cs === null) {
+        setLiveData(null);
+        return;
+      }
+      const tpl = MOCK_SESSIONS_MAP[selectedSession] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+      setLiveData({
+        ...tpl,
+        id: "live",
+        benchmarkName: "实时搜索",
+        candidates: cs,
+        candidateCount: cs.length,
+        stage: "已扫描",
+      });
+    },
+    [selectedSession],
   );
 
   /* F-044 · master plan §B.6 · 单文件 KB 上传 (multipart) → /api/channel/upload_kb
@@ -423,9 +437,9 @@ export default function ChannelWorkspace() {
       )}
       <QueryBar
         sessionData={s}
-        selectedSessionId={selectedSessionId}
+        selectedSessionId={selectedSession}
         onSelectSession={handleSelectSession}
-        setLive={setLive}
+        setLive={setLiveCandidatesCompat}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
         onStreamError={setStreamErrorTop}
@@ -439,8 +453,8 @@ export default function ChannelWorkspace() {
                 <RadarPanel sessionData={s} />
                 <CandidatesPanel
                   sessionData={s}
-                  liveCandidates={liveCandidates}
-                  onSelectCandidate={setSelectedCandidateId}
+                  isLive={isLive}
+                  onSelectCandidate={setSelectedCandidate}
                 />
               </div>
               <ConversationPanel sessionData={s} messages={messages} />
@@ -503,9 +517,9 @@ export default function ChannelWorkspace() {
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
       <CandidateDetailDrawer
-        candidate={selectedCandidate}
+        candidate={selectedCandidateData}
         sessionData={s}
-        onClose={() => setSelectedCandidateId(null)}
+        onClose={() => setSelectedCandidate(null)}
       />
     </div>
     </EvidenceProvider>
@@ -749,7 +763,7 @@ function ConversationPanel({
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
   return (
-    <section className="rpt-panel rpt-panel--conv">
+    <section className="rpt-panel rpt-panel--conv" data-testid="channel-pilot-conversation">
       <PanelPinHandle
         id="channel:conversation"
         title="获客对话"
@@ -1583,7 +1597,7 @@ function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
   const funnel = s.funnel;
   const max = Math.max(...funnel.map((f) => f.count));
   return (
-    <section className="rpt-panel ch-funnel-strip">
+    <section className="rpt-panel ch-funnel-strip" data-testid="channel-pilot-funnel">
       <div className="ch-funnel-strip-head">
         <span className="eyebrow">FUNNEL · 5 阶段扫描</span>
         <span className="flow">
@@ -1616,7 +1630,7 @@ function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
   const s = sessionData;
   const top = s.candidates[0];
   return (
-    <section className="rpt-panel ch-radar-panel">
+    <section className="rpt-panel ch-radar-panel" data-testid="channel-pilot-radar">
       <PanelPinHandle
         id="channel:radar"
         title="营销优先级雷达"
@@ -1646,20 +1660,23 @@ function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
 
 function CandidatesPanel({
   sessionData,
-  liveCandidates,
+  isLive,
   onSelectCandidate,
 }: {
   sessionData: ChannelSession;
-  liveCandidates: Candidate[] | null;
-  /* F-042 · click 回调 · 父级 setSelectedCandidateId 触发 drawer */
+  /* C1 · workspace-state-protocol §2 · sessionData 已 live-or-mock 单源 · isLive 仅控 UI 标识 */
+  isLive: boolean;
+  /* F-042 · click 回调 · 父级 setSelectedCandidate 触发 drawer */
   onSelectCandidate?: (id: string) => void;
 }) {
   const s = sessionData;
-  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 sessionData.candidates mock */
-  const cs = liveCandidates ?? s.candidates;
-  const isLive = liveCandidates !== null;
+  const cs = s.candidates;
   return (
-    <section className="rpt-panel ch-cand-panel" data-mode={isLive ? "live" : "mock"}>
+    <section
+      className="rpt-panel ch-cand-panel"
+      data-mode={isLive ? "live" : "mock"}
+      data-testid="channel-pilot-candidates"
+    >
       <PanelPinHandle
         id="channel:candidates"
         title="候选企业 Top 推荐"
@@ -1972,7 +1989,7 @@ function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
   const events = active?.timeline ?? [];
 
   return (
-    <section className="rpt-panel rpt-panel--tl ch-tl-panel">
+    <section className="rpt-panel rpt-panel--tl ch-tl-panel" data-testid="channel-pilot-signals">
       <PanelPinHandle
         id={`channel:timeline:${active?.id ?? "none"}`}
         title={`信号时间线 · ${active?.name ?? "—"}`}
