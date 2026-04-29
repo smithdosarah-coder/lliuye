@@ -326,7 +326,146 @@ Agent3 必读字段 — 任一缺失走 §2.5 降级:
 
 ## 3. 链路 3 · Agent3.decision → Agent4.client_pool_signal
 
-**TBD · §3 在 Signal: `WORKER-A6-CHAIN-3-SPECCED` commit 中补充。**
+**目的**: Agent3 授信决策出 (approved / approved_with_conditions) → 模拟放款 → 客户进入"在贷池" → Agent4 把客户纳入后续每次知识库驱动批量扫描的范围 · 这是 north-star §1.4 闭环路径的第 3 跳: `Agent3 授信决策 → 模拟放款 → Agent4 在贷监控`。
+
+**核心边界 (north-star §1.3 reaffirm)**: Agent4 是**客户行为变化**驱动 (不是单点查询 / 也不是定期巡检) — 本契约定义"放款"作为客户进入 pool 的初始信号 · 后续 trigger 由 Agent4 自身规则引擎决定。
+
+### 3.1 触发与时序
+
+| # | 谁 | UI 动作 | 服务端 | 落地 |
+|---|---|---|---|---|
+| 1 | Agent3 | SSE 事件流走到 `advising_done` (per `agent_credit/api.py` `_mock_decision_events`) | — | 缓存 `decision_id` (TTL 30 min · `_DECISION_CACHE`) |
+| 2 | RM | 在 `/archive/credit` workspace 看决策结果 → 点 "执行模拟放款" button (Phase A 是模拟 · Phase B 接真核心系统) | — | — |
+| 3 | frontend | `POST /api/alert/client_pool/admit` (新 endpoint · spec 仅 · A4-alert 子 worker 实装) | Agent4 接收 payload | — |
+| 4 | Agent4 | 把客户写入 `data/handoff/credit_to_alert/<client_id>.json` + 加入 in-memory client pool | 200 + `{client_id, pool_position, next_scan_at}` | — |
+| 5 | Agent4 | 后续每次 `POST /api/alert/scan` 跑批 (RM 在 `/archive/alert` 触发 / Phase B 由 cron / event) 时 · 客户被纳入扫描范围 | SSE `hitlist` event 含该 client_id | 持久化 `data/handoff/alert/<session_id>/hitlist.json` |
+
+**同步 / 异步**: `POST /api/alert/client_pool/admit` HTTP 同步 — 仅入池 · 不跑扫描。后续 scan 是另一条流 (`POST /api/alert/scan` SSE)。
+
+**失败回退**:
+- 4xx: frontend banner 显失败原因 + `[重试]`
+- 客户已在 pool (重复入池): 200 idempotent + `{warning: "already_in_pool"}`
+
+### 3.2 传输信封
+
+```http
+POST /api/alert/client_pool/admit HTTP/1.1
+Content-Type: application/json
+Cookie: <RM session cookie>
+
+{
+  "schema_version": "1.0",
+  "signal_type": "credit_approved_admit",
+  "source_agent": "credit",
+  "target_agent": "alert",
+  "decision": { /* DecisionSignal · §3.3 */ },
+  "trigger_at": "2026-04-29T13:45:00Z",
+  "rm_user_id": "<RM 工号>"
+}
+```
+
+### 3.3 payload schema · `DecisionSignal`
+
+| 字段 | 类型 | required | 来源 | 说明 |
+|---|---|---|---|---|
+| `decision_id` | str | ✓ | Agent3 `_DECISION_CACHE` key (`"dec_" + uuid hex12`) | 决策缓存 ID · 用于 Agent4 回查 / 复跑 |
+| `client_id` | str (UUID v4) | ✓ | 服务端生成 (Agent3 模拟放款时铸) | Agent4 后续以此追踪 · 与 channel `profile_id` 不同 (放款后客户身份升级) |
+| `profile_id` | str (UUID v4) | ✓ | 链路 2 `report_json.profile_id` 透传 | 溯源 Agent6 报告 |
+| `company_name` | str | ✓ | 链路 2 `report_json.company_name` | |
+| `unified_credit_code` | Optional[str] | — | 链路 2 `report_json.unified_credit_code` | |
+| `business_line` | enum | ✓ | 链路 2 `report_json.business_line` | per `field-naming.md` §3.1 |
+| `stage_tab` | enum | ✓ | Agent3 `decision_input.stage_tab` | `"corporate" \| "small_business" \| "retail"` |
+| **`decision_verdict`** | enum | ✓ | Agent3 advising_done | per `field-naming.md` §3.4 · 见 §3.4 命名钉死 |
+| **`risk_grade`** | str | ✓ | Agent3 advising_done payload | 见 §3.5 grade 命名 |
+| `composite_score` | int / float | ✓ | Agent3 advising_done payload | 0-100 (corporate/small_business) / 0-850 (retail) |
+| `score_max` | int | ✓ | Agent3 (`100` for corp/sb · `850` for retail) | 与 composite_score 配套 · 用于 Agent4 范围归一化 |
+| `approved_amount_yuan` | int | ✓ | Agent3 advising_done · **单位元** (per `field-naming.md` §2.2 钉死) | Agent3 内部 `approved_amount: 万元` 必转元 |
+| `approved_term_months` | Optional[int] | — | Agent3 advising_done | |
+| `interest_rate` | Optional[float] | — | Agent3 advising_done | 0-1 浮点 (e.g., 0.065) |
+| `triggered_red_lines` | list[dict] | — | Agent3 rule_done payload | 见 §3.6 红线信号传递 |
+| `conditions` | Optional[list[str]] | — | Agent3 advising_done payload | 批准条件 (有条件批准 / 待复核时必填) |
+| `disbursed_at` | str (ISO 8601) | ✓ | 模拟放款时间戳 | Phase A 是模拟 · Phase B 由真核心系统盖戳 |
+| `monitoring_config` | Optional[dict] | — | RM 可定制 / 默认按 business_line | `{frequency_days: 30, alert_threshold: "yellow"}` |
+
+### 3.4 命名 SSOT · `decision_verdict` 钉死 (中英文映射)
+
+`field-naming.md` v1.0 §3.4 钉死 `decision_verdict` enum 为**英文**:
+
+```
+"approved" | "approved_with_conditions" | "rejected" | "pending_review" | "insufficient_info"
+```
+
+`agent_credit/api.py` 当前实装返回**中文** ("建议批准" / "有条件批准" / "建议拒绝" / "建议人工复核") — 这是 spec vs impl 漂。
+
+**本契约 v1.0 钉死**: handoff payload 的 `decision_verdict` 字段**必须**是英文 enum · Agent3 在 SSE `advising_done` 触发模拟放款 → `client_pool/admit` 时**做映射**:
+
+| Agent3 中文 | handoff `decision_verdict` |
+|---|---|
+| 建议批准 | `approved` |
+| 有条件批准 | `approved_with_conditions` |
+| 建议拒绝 | `rejected` (注: `rejected` 不入 client pool · 链路 3 不触发) |
+| 建议人工复核 | `pending_review` (Phase A 不入 pool · 待人审决议) |
+| 建议人工复核 (材料严重不足) | `insufficient_info` (Phase A 不入 pool) |
+
+**入池条件**: 仅 `approved` / `approved_with_conditions` 触发链路 3 · 其他不入。这是 Phase A 简化 · Phase B 商业化推进 (`docs/reset/phase-b-charter.md`) 时可能扩 (e.g., `pending_review` 也入 watch-only pool)。
+
+`agent_credit/api.py` 修复责任**不在本契约 scope** · 由 Phase A worker-A4-credit (5 子 worker 之一) 在 `WORKER-A4-CREDIT-DONE` 内同步对齐。
+
+### 3.5 命名 SSOT · `risk_grade` 三命名漂 (Cat 5)
+
+`docs/audit/sub-agent-step2-round1/data.md` §Cat 5 指出 alert agent 内部 `grade` 三命名漂:
+
+| 面 | 字段名 | 取值 |
+|---|---|---|
+| frontend mock | `tier` | `"red" \| "yellow" \| "green"` (信号灯) |
+| 后端 export | `risk_level` | `"high" \| "medium" \| "low"` |
+| Agent3 runtime | `risk_grade` | 字母 `"A" \| "B" \| "C" \| "D"` (corp/sb) / 中文 `"优" \| "中优" \| "良好" \| "边界" \| "拒"` (retail) |
+
+**handoff payload 钉死** (本契约 v1.0):
+
+- `decision.risk_grade` (本字段名 · 复用 Agent3 字段) — 字母制 / 中文制按 stage_tab 区分:
+  - corporate / small_business: `"A" | "B" | "C" | "D"` (Agent3 现有取值不变)
+  - retail: `"优" | "中优" | "良好" | "边界" | "拒"` (Agent3 现有取值不变)
+- Agent4 接收后**自行**映射到自己的 hitlist `tier` 字段 (red/yellow/green) · 映射规则见下表 · 不污染 Agent3 字段:
+
+| stage_tab | risk_grade | Agent4 tier |
+|---|---|---|
+| corporate / small_business | `"A"` | `"green"` |
+| corporate / small_business | `"B"` | `"green"` (默认) · 触发红线 ≥ 1 → `"yellow"` |
+| corporate / small_business | `"C"` | `"yellow"` |
+| corporate / small_business | `"D"` | (不入 pool) |
+| retail | `"优" / "中优"` | `"green"` |
+| retail | `"良好"` | `"green"` (默认) · 触发红线 ≥ 1 → `"yellow"` |
+| retail | `"边界"` | `"yellow"` |
+| retail | `"拒"` | (不入 pool) |
+
+`severity` 字段在本链路**不出现**于 handoff payload — `severity` 是 §1 `field-naming.md` §3.3 在 SSE event payload 内的字段 (red/yellow/green 信号灯) · 与 `risk_grade` 不混。
+
+### 3.6 红线信号传递
+
+`triggered_red_lines` 是**摘要**传递 (不传完整规则元数据) · 字段:
+
+```typescript
+type TriggeredRedLine = {
+  rule_id: string;          // Agent3 内部规则 ID (e.g., "corp_rl_023")
+  rule_name: string;        // 中文规则名
+  severity: "red" | "yellow" | "green";  // per field-naming.md §3.3
+  is_hard: boolean;         // hard 阻断 / soft 软警告
+  actual_value: number | string;  // 实际触发值
+  threshold: number | string;     // 阈值
+  can_waive: boolean;       // 可豁免否
+  waiver_conditions?: string[];   // 豁免条件 (有条件批准时填)
+};
+```
+
+Agent4 消费规则:
+- ✓ 把 `triggered_red_lines` 写入 client pool 入池记录 · 后续监控规则匹配时优先关注
+- ✓ `severity == "red" && is_hard == true` 但 `decision_verdict == "approved_with_conditions"` 时 → 入池 tier 自动 = `"yellow"` (覆盖 §3.5 默认映射)
+- ❌ 不在 Agent4 端重新评判红线是否合理 (那是 Agent3 的职责)
+
+### 3.7 fixture · `data/mock/handoff/agent3-to-4.json`
+
+见 §6 fixture index · 一份 "杭州智云工业软件" 经 Agent3 决策 (有条件批准 · risk_grade B · 1 条 yellow 红线) 后给 Agent4 的入池信号 · 与链路 1/2 fixture 同企业。
 
 ## 4. 链路 4 · Agent5.policy_event → Agent4 / Agent6
 

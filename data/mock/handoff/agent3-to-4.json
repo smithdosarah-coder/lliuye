@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "signal_type": "credit_approved_admit",
+  "source_agent": "credit",
+  "target_agent": "alert",
+  "trigger_at": "2026-04-29T13:45:22Z",
+  "rm_user_id": "wangzhe-east-04",
+  "decision": {
+    "decision_id": "dec_8a3f7b2c4e91",
+    "client_id": "0a1b9c4d-3e8f-47a2-b5d0-6f9e8c7a1b23",
+    "profile_id": "550e8400-e29b-41d4-a716-446655440000",
+    "company_name": "杭州智云工业软件有限公司",
+    "unified_credit_code": "91330106MA28GZ4QXK",
+    "business_line": "corporate",
+    "stage_tab": "corporate",
+    "decision_verdict": "approved_with_conditions",
+    "risk_grade": "B",
+    "composite_score": 72,
+    "score_max": 100,
+    "approved_amount_yuan": 12000000,
+    "approved_term_months": 36,
+    "interest_rate": 0.065,
+    "rate_benchmark": "LPR+85BP",
+    "triggered_red_lines": [
+      {
+        "rule_id": "corp_rl_023",
+        "rule_name": "应收账款占营收比",
+        "severity": "yellow",
+        "is_hard": false,
+        "actual_value": 0.336,
+        "threshold": 0.30,
+        "can_waive": true,
+        "waiver_conditions": ["补充季度应收账款账龄表", "提供主要客户回款承诺"]
+      }
+    ],
+    "conditions": [
+      "首次提款前需补充 2024 年度审计报告 PDF 原件",
+      "每季度提交应收账款账龄表",
+      "关联交易超 25% 时需提前申报"
+    ],
+    "disbursed_at": "2026-04-29T14:02:00Z",
+    "monitoring_config": {
+      "frequency_days": 30,
+      "alert_threshold": "yellow",
+      "watch_signals": ["overdue_history_change", "industry_news_negative", "controller_share_change"]
+    }
+  },
+  "_meta_for_reviewers": {
+    "_chain": "Agent3 决策出 (有条件批准) → 模拟放款 → POST /api/alert/client_pool/admit 给 Agent4",
+    "_continuity_with_chain_2": "decision.profile_id / company_name / uscc / business_line 均与 agent6-to-3.json 一致 · client_id 是放款时 Agent3 新铸的 UUID v4 (与上游 profile_id 不同 · 客户身份升级)",
+    "_principle_1_blind_test": "PM 不预知坑 · 故意让 risk_grade B + 1 条 yellow 红线 + can_waive true 的有条件批准场景 · 测 Agent4 是否能正确按 §3.5/§3.6 推断 tier",
+    "_principle_2_difficulty": "中等档 · 不是简单批 (无红线 · risk_grade A) 也不是拒 · 测 Agent4 入池 tier 推断逻辑",
+    "_principle_3_real_anchor": "approved_amount 1200 万 + interest_rate LPR+85BP 锚定真实银行对公中型客户授信中位数",
+    "_principle_4_desensitized": "client_id / decision_id 全为合成值",
+    "_principle_5_env_boundary": "decision 字段是 Agent3 内部跑完后产出 · Agent4 接收后必须自行入池 + 按规则匹配后续监控 signal · fixture 不替 Agent4 mock 出 hitlist 结果",
+    "_drop_when_consumed": "Agent4 子 worker 实装 /api/alert/client_pool/admit 时删 _meta_for_reviewers 字段 · 仅保留 6 个真字段 (含 decision 嵌套 17 字段)",
+    "_alert_tier_inference_expected": "应推 'yellow' (corporate B 级 + 触发 1 条 yellow 红线 → §3.5 表 + §3.6 红线 covering rule)",
+    "_business_line_test_coverage": "本 fixture 覆盖 corporate · 其他 3 个 enum (inclusive / retail / reserved) 由 Agent4 子 worker 实装时另补单测 fixture · 不在本契约 scope"
+  }
+}
