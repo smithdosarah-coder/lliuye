@@ -293,6 +293,38 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (Phase A · Week 2-3) · worker-A3 channel pilot DONE
+
+### What happened
+- A1+A2 V2 已 cherry-pick 进 chore/l0-infra (3752d98 / 2bfc5ad MERGED)
+- worker-A3 (feat/phase-a3-channel-pilot) rebase chore/l0-infra · 拉到 V2 contracts + shared modules
+- worker-A3 7 commit chain landed (C1-C7 · per `docs/onboarding/A3-design-draft.md` §8 plan):
+  - C1 · `WORKER-A3-PANEL-1-MIGRATED` · 4-gate state model + sessionData 单点派生
+  - C2 · `WORKER-A3-PANEL-2-MIGRATED` · streamSse + LiveFailError + normalizeBackendDone (replaced inline `res.body.getReader()`)
+  - C3 · `WORKER-A3-DONE-ENVELOPE-LANDED` · realtime_stream.py 用 `make_done(panels=...)` 7 panel + 6 aggregator helper (Cat 4 fix)
+  - C4 · `WORKER-A3-PANEL-5-BANNER` · banner-spec rule 2 · Tavily silent fallback yield warning event + done.warnings 透传 (Cat 11 fix)
+  - C5 · `WORKER-A3-DEMO-ENDPOINT-LANDED` · `/api/channel/demo/run` + 3 scenario JSON (反 5 原则难度分层)
+  - C6 · `WORKER-A3-SMOKE-LANDED` · `web/tests/regression/channel-pilot-4gate.spec.ts` 4/4 PASS chromium (19.5s)
+  - C7 · `WORKER-A3-CHANNEL-PILOT-DONE` (本 commit · features-inventory F-065/F-066 · state-snapshot 段)
+
+### Triggered by
+- PM 'git rebase chore/l0-infra · A1+A2 V2 已 merge · §0.5 wait gate 过 · 真动 ChannelWorkspace.tsx 重构 4 gate · 开干'
+
+### State change (delta)
+- Phase A worker mesh: A3 active 中 → A3 DONE 候 cherry-pick + GO 给 A4
+- audit conflict-register Cat 2 (channel) / Cat 3 (channel) / Cat 4 (channel) / Cat 11 (channel) · 4 项 channel pilot 范围全部接 fix · 状态从 active → resolved (待 PM verify)
+- 硬线 #3 (`phase-a-charter.md` §1) 'Channel pilot 4 gate 真实装 + Playwright 5 panel 同步亮 smoke 通过' · 已满足
+- frontend ChannelWorkspace.tsx 重构后 · 净 +20 行 (含 bannerKind state + normalizeBackendDone + streamSse 接入 · 删 inline reader + setLiveCandidatesCompat shim)
+- backend realtime_stream.py 加 6 aggregator helper + warnings 收集 · ~+200 行
+- 新增 endpoint: `POST /api/channel/demo/run` (mock-forced 演示路径 · 与 live 解耦)
+- features-inventory: 加 F-065 (4-gate 端到端) · F-066 (demo endpoint)
+
+### Next
+- 主 CLI 等 codex post-DONE peer review (本 commit signal `WORKER-A3-CHANNEL-PILOT-DONE` 触发)
+- Codex AGREE 后 → cherry-pick A3 7 commit 到 chore/l0-infra → push origin → 启 A4 5 子 worker (依赖 A3 channel pilot 模板)
+- A4 onboarding 必读 cross-ref: `docs/onboarding/A3-channel-pilot.md` + 本 design draft + ChannelWorkspace.tsx 4-gate 实装 + realtime_stream.py done envelope 形态
+- channel UI 'demo run' 按钮 wire (deferred 到 A4-channel 或独立任务) · 当前 `/api/channel/demo/run` 端点 ready 待 UI
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
