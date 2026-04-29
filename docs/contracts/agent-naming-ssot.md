@@ -163,18 +163,7 @@ py scripts/lint/check_agent_naming_ssot.py --strict   # WARN 也判 fail · PM �
 py scripts/lint/check_agent_naming_ssot.py --json     # JSON 机器输出 · CI 上传 artifact
 ```
 
-### 4.2 后端 mount prefix 共形
-
-| agent_id | api mount (api_server.py) | archive route |
-|---|---|---|
-| `channel` | `/api/channel` | `/archive/channel` |
-| `report` | `/api/report` | `/archive/report` |
-| `credit` | `/api/credit` | `/archive/credit` |
-| `alert` | `/api/alert` | `/archive/alert` |
-| `compli\|compliance` (TBD) | `/api/<id>` | `/archive/<id>` |
-| `riskctrl` | `/api/riskctrl` | `/archive/riskctrl` |
-
-### 4.3 前端 AgentDef.path 字段 deprecation
+### 4.5 前端 AgentDef.path 字段 deprecation
 
 `web/src/lib/agents.ts:45-115` 6 处 `path: "/channel"` 等顶层路径 (audit Cat 9) → 顶层目录不存在 · 解决方案 (worker-A4 执行):
 - (a) 改为 `path: "/archive/channel"` (canon)
@@ -237,7 +226,7 @@ py scripts/lint/check_agent_naming_ssot.py --json     # JSON 机器输出 · CI 
 本 SSOT v1.0 commit 时:
 - ✅ 5/6 agent 8 列已锁 (除 compli/compliance 字段值待 PM)
 - ✅ §3 PM 拍板项独立 · 标黄 · 不阻 ratification
-- ✅ §4 CI lint 规则定义 (实现待 worker-A2)
+- ✅ §4 CI lint 规则定义 + V2 已落地 (`scripts/lint/check_agent_naming_ssot.py` 真脚本 + `.github/workflows/lint-contracts.yml` workflow · commit `c994036`)
 - ✅ §5 audit Cat 16 dangling fix 同 commit 回写 CLAUDE.md §4
-- ⏳ §3 PM 拍板 → bump v1.1 (后续 commit)
-- ⏳ §4 CI lint 真落地 → Phase A 硬线 #8 met (worker-A2 / 主 CLI fix-forward)
+- ✅ §4 CI lint 真落地 → Phase A 硬线 #8 implementation MET (default mode 0 ERROR · 1 WARN intentional · PM 拍板后 `--strict` 升 ERROR 即 0/0 完整 met)
+- ⏳ §3 PM 拍板 → bump v1.1 (后续 commit · 阻 `--strict` 模式启用)

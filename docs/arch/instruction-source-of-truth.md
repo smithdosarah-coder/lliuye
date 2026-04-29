@@ -64,8 +64,8 @@
 - **Tier 1 (contracts/) vs Tier 2 (CLAUDE.md)**: contracts 直接定义跨 agent / 跨 worker 接口 · CLAUDE.md 是项目级行为规则。冲突时 contracts 赢 · 但 contracts 改时必须**回写** CLAUDE.md (per §3 active decision rule)。
 - **Tier 2 内 root CLAUDE.md vs 其他 docs/arch/\*.md**: root CLAUDE.md 是单文件 SSOT · 其他 arch docs 是 supporting (e.g. `platform-contracts.md` v1 是 platform shell 红区契约 · 但其内容应被 root CLAUDE.md §7 / §13 引用 / 镜像)。冲突时 root CLAUDE.md 赢 · arch docs 必须 fix-forward 对齐 root。
 - **Tier 3 scoped child CLAUDE.md**: 仅在子域内有效 (e.g. `agent_report/CLAUDE.md` 仅约束 `agent_report/` 代码) · 不允许声明与 root CLAUDE.md 矛盾的全局规则 · 仅 narrow (per §2)。
-- **Tier 4 onboarding**: fire-and-forget 任务 brief · worker DONE 后即过期 · 不能用 onboarding 推翻 Tier 1-3 已锁的契约。如 onboarding 与 Tier 1-3 矛盾 · worker 按 Tier 1-3 行 · 写 Q-NNN 反映 onboarding 错。
-- **Tier 5 decisions-log**: Q/A 历史归档 · 任何 active rule (A-NNN APPROVED) 必须 ≤ 24 小时**回写**到 Tier 1-3 (见 §3) · 否则 worker 不必 honor。
+- **Tier 4 onboarding**: fire-and-forget 任务 brief · worker DONE 后即过期 · 不能用 onboarding 推翻 Tier 1-2 已锁的契约。如 onboarding 与 Tier 1-2 矛盾 · worker 按 Tier 1-2 行 · 写 Q-NNN 反映 onboarding 错。
+- **Tier 5 decisions-log**: Q/A 历史归档 · 任何 active rule (A-NNN APPROVED) 必须 ≤ 24 小时**回写**到 Tier 1-2 (见 §3) · 否则 worker 不必 honor。
 
 ---
 
@@ -94,7 +94,7 @@
 
 ### 3.2 回写硬规
 
-> 任何 active decision · 必须在**同 commit** 或**下一个 commit (≤ 24 小时)** 内回写到 Tier 1-3 (合 contracts / arch / root CLAUDE.md) 之一对应章节。
+> 任何 active decision · 必须在**同 commit** 或**下一个 commit (≤ 24 小时)** 内回写到 Tier 1-2 (即 contracts/*.md 或 root CLAUDE.md · 其他 docs/arch/* 是 Tier 2 supporting · 优先 root CLAUDE.md) 对应章节。
 
 **回写责任**:
 - 主 CLI 拍 A-NNN 时同 commit 改 contract / CLAUDE.md
@@ -125,7 +125,7 @@ ACTIVE-DECISIONS-BACK-WRITTEN: <count>
 
 ## 4. Stale Marker 约定
 
-任何 Tier 1-3 文档**自检**为 stale (引用过时 line / API / 文件) 时 · 不允许默默留着 · 必须:
+任何 Tier 1-2 文档**自检**为 stale (引用过时 line / API / 文件) 时 · 不允许默默留着 · 必须:
 
 ### 4.1 标记格式
 
@@ -194,7 +194,7 @@ worker 发现 Tier N 与 Tier M 矛盾时:
 
 - ❌ 不要把本 SSOT 替代 root CLAUDE.md · 本 SSOT 是 *meta-rule* (Tier 之外) · CLAUDE.md 是 *project rule* (Tier 2)
 - ❌ 不要把 Tier 1 contracts 当成"什么都能放进去" · contracts 仅是**接口契约** (跨 worker / 跨 agent 共形规则) · 单 agent 内部行为放 agent_*/CLAUDE.md (Tier 3) 或代码注释
-- ❌ 不要把 decisions-log 当成"决策 source of truth" · 它是历史归档 (Tier 5) · active rule 必须上回写到 Tier 1-3
+- ❌ 不要把 decisions-log 当成"决策 source of truth" · 它是历史归档 (Tier 5) · active rule 必须上回写到 Tier 1-2
 - ❌ 不要在 worker 任务里夹带 SSOT 修改 · SSOT 改走 RFC · worker 仅引用
 - ❌ 不要因为某个 Tier 1 contract "看起来过时" 就直接改 · 先标 STALE (§4) + 提 Q-NNN
 - ❌ 不要把其他 docs/arch/* 文件当 Tier 1 (跨 worker 接口契约层) 用 · 它们是 Tier 2 supporting doc · 当与 root CLAUDE.md 冲突时 root CLAUDE.md 赢
