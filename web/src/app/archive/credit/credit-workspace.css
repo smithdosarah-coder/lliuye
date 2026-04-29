@@ -1887,6 +1887,60 @@
   font-family: var(--cjk);
   font-size: 12px;
 }
+
+/* B-banner · workspace 顶部统一错误条 · started + !started 共用 */
+.credit-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 10%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--t-alert, #b94a3a) 32%, transparent);
+  border-radius: var(--r-md);
+  font-family: var(--cjk);
+  color: color-mix(in srgb, var(--t-alert, #b94a3a) 80%, var(--ink));
+}
+.credit-error-banner__icon {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.credit-error-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.credit-error-banner__text b {
+  font-weight: 600;
+}
+.credit-error-banner__detail {
+  color: var(--ink-65);
+  font-size: 11px;
+}
+.credit-error-banner__retry,
+.credit-error-banner__dismiss {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 10px;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-65);
+}
+.credit-error-banner__retry {
+  border: 1px solid var(--ink-14);
+}
+.credit-error-banner__retry:hover,
+.credit-error-banner__dismiss:hover {
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 16%, transparent);
+}
+.credit-error-banner__dismiss {
+  font-size: 14px;
+  padding: 2px 8px;
+}
 .credit-empty__status-item code {
   background: color-mix(in srgb, var(--ink-08) 50%, transparent);
   padding: 1px 6px;

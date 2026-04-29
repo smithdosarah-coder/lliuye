@@ -9,6 +9,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   exportDocx as exportDocxApi,
   LiveFailError,
@@ -197,13 +198,15 @@ export default function ComplianceWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Tertiary CTA · 选历史 (mock) · 标「(示例)」与真实路径分离 */
+  /* Tertiary CTA · B-2 click-to-fire · dropdown 仅 set state · "查看示例" button 触发 */
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
-    if (!value) return;
+  }, []);
+  const onApplyRecent = useCallback(() => {
+    if (!recent) return;
     setStarted(true);
     setTrigger("tertiary_history");
-  }, []);
+  }, [recent]);
 
   /* Word 导出 · POST /api/compliance/export_docx */
   const triggerExportDocx = useCallback(async () => {
@@ -269,6 +272,7 @@ export default function ComplianceWorkspace() {
         recent={recent}
         recentOptions={RECENT_DEMO_OPTIONS}
         onSelectRecent={onSelectRecent}
+        onApplyRecent={onApplyRecent}
         onTemplateCheck={triggerTemplateCheck}
         scanRunning={scanRunning}
         trigger={trigger}
@@ -410,6 +414,7 @@ function TriggerBar(p: {
   recent: string;
   recentOptions: RecentLabel[];
   onSelectRecent: (value: string) => void;
+  onApplyRecent: () => void;
   onTemplateCheck: () => void;
   scanRunning: boolean;
   trigger: TriggerSource | null;
@@ -438,6 +443,15 @@ function TriggerBar(p: {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="compliance-trigger-bar__apply"
+          onClick={p.onApplyRecent}
+          disabled={!p.recent || p.scanRunning}
+          data-testid="compli-history-apply"
+        >
+          查看示例
+        </button>
       </label>
 
       <button
@@ -1122,8 +1136,19 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
 function ComplianceComposer() {
   const [value, setValue] = useState("");
   const hints = ["看严重档", "按制度拆", "改造成本", "派工单", "导出整改清单"];
+  // pin-drop · 拖钉到 composer 时插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button

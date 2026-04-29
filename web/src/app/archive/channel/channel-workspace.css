@@ -2026,6 +2026,51 @@
   border-radius: var(--r-md);
 }
 
+/* B-banner · workspace 顶部统一错误条 (streamError + kbErrors 合并) */
+.v-archive--canon[data-agent="channel"] .ch-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 10%, var(--chalk));
+  border: 1px solid color-mix(in srgb, var(--t-alert, #b94a3a) 32%, transparent);
+  border-radius: var(--r-md);
+  font-family: var(--cjk);
+  color: color-mix(in srgb, var(--t-alert, #b94a3a) 80%, var(--ink));
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__icon {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__text b {
+  font-weight: 600;
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__detail {
+  color: var(--ink-65);
+  font-size: 11px;
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__dismiss {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="channel"] .ch-error-banner__dismiss:hover {
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 16%, transparent);
+}
+
 /* ══════ F-045 · IdealProfile card · 12 维 chip + 解析说明 + 开始扫描 ══════ */
 
 .v-archive--canon[data-agent="channel"] .ch-profile-card {

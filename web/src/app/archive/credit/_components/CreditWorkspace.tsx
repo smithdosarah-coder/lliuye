@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ClaimText,
   EvidenceProvider,
@@ -231,6 +232,36 @@ export default function CreditWorkspace() {
   /* W-CF-A2 · empty-state v1.0 路径
      started=false → 渲染 EmptyState (Hero + 3 CTA + skeleton + status pill · 不渲染 mock data)
      started=true  → 渲染现有完整 workspace (4 panel + EvidenceTrail + RiskRadar 等) */
+  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
+  const creditTopBanner = decisionError ? (
+    <div
+      role="alert"
+      data-testid="credit-error-banner"
+      className="credit-error-banner"
+    >
+      <span className="credit-error-banner__icon" aria-hidden>⚠</span>
+      <span className="credit-error-banner__text">
+        <b>决策操作失败</b>
+        <span className="credit-error-banner__detail">{decisionError}</span>
+      </span>
+      <button
+        type="button"
+        className="credit-error-banner__retry"
+        onClick={() => runDecision({ mockMode: false })}
+      >
+        重试
+      </button>
+      <button
+        type="button"
+        className="credit-error-banner__dismiss"
+        onClick={() => setDecisionError(null)}
+        aria-label="关闭错误提示"
+      >
+        ×
+      </button>
+    </div>
+  ) : null;
+
   if (!started) {
     return (
       <EvidenceProvider
@@ -243,6 +274,7 @@ export default function CreditWorkspace() {
           data-scanned="no"
           data-credit-started="no"
         >
+          {creditTopBanner}
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
@@ -268,6 +300,7 @@ export default function CreditWorkspace() {
       data-credit-started="yes"
       data-scanned={scanned ? "yes" : "no"}
     >
+      {creditTopBanner}
       <TopBar
         mode={mode}
         onModeChange={setMode}
@@ -1037,8 +1070,19 @@ function truncate(s: string, n: number): string {
 function CreditComposer() {
   const [value, setValue] = useState("");
   const hints = ["深看财务", "补担保方案", "对比案例 C-1", "触发放款条件", "生成决议草稿"];
+  // pin-drop · 拖钉到 composer · 插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
   return (
-    <div className="rpt-composer">
+    <div
+      className={`rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer__hints">
         {hints.map((h) => (
           <button

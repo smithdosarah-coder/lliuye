@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
+import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ClaimText,
   EvidenceProvider,
@@ -166,22 +167,26 @@ export default function RiskctrlWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Secondary CTA · 选预置规则集 → 快速进入 + 标记触发 */
+  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 */
   const onSelectPreset = useCallback((value: string) => {
     setPreset(value);
-    if (!value) return;
-    setStarted(true);
-    setTrigger("secondary_preset");
-    setRulesetId(value);
   }, []);
-
-  /* Tertiary CTA · 选历史回测 (mock) · 标 (示例) · 与真实路径分离 */
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
-    if (!value) return;
-    setStarted(true);
-    setTrigger("tertiary_history");
   }, []);
+  /* 单 "应用" button · preset 优先于 recent · 都没选则 disabled */
+  const onApplySelection = useCallback(() => {
+    if (preset) {
+      setStarted(true);
+      setTrigger("secondary_preset");
+      setRulesetId(preset);
+      return;
+    }
+    if (recent) {
+      setStarted(true);
+      setTrigger("tertiary_history");
+    }
+  }, [preset, recent]);
 
   /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发.
      Stage Fix · 422 root cause: backend 必填 instruction + uploaded_files
@@ -265,6 +270,7 @@ export default function RiskctrlWorkspace() {
           presetOptions={RISKCTRL_PRESET_OPTIONS}
           onSelectRecent={onSelectRecent}
           onSelectPreset={onSelectPreset}
+          onApplySelection={onApplySelection}
           onPrimaryDslGen={() => triggerDslGen("")}
           scanRunning={scanRunning}
           trigger={trigger}
@@ -397,6 +403,7 @@ function RiskTriggerBar(p: {
   presetOptions: RecentLabel[];
   onSelectRecent: (v: string) => void;
   onSelectPreset: (v: string) => void;
+  onApplySelection: () => void;
   onPrimaryDslGen: () => void;
   scanRunning: boolean;
   trigger: RiskTrigger | null;
@@ -455,6 +462,16 @@ function RiskTriggerBar(p: {
           ))}
         </select>
       </label>
+
+      <button
+        type="button"
+        className="riskctrl-trigger-bar__apply"
+        onClick={p.onApplySelection}
+        disabled={(!p.preset && !p.recent) || p.scanRunning}
+        data-testid="riskctrl-apply-cta"
+      >
+        应用
+      </button>
     </section>
   );
 }
@@ -1062,10 +1079,23 @@ function RiskComposer() {
     setHint("idle");
   }
 
+  // pin-drop · 拖钉到 composer · 插入 `@引用:<title> ` · 不再让 textarea 吞 URL
+  const onPin = (payload: PinDropPayload) => {
+    setValue((v) => (v ? `${v} @引用:${payload.title} ` : `@引用:${payload.title} `));
+  };
+  const drop = usePinDrop<HTMLDivElement>(onPin);
+
   const ruleCount = RISKCTRL_SESSION.rules.length;
 
   return (
-    <div className="rpt-composer-slot rpt-composer" data-hint={hint}>
+    <div
+      className={`rpt-composer-slot rpt-composer${drop.dropHover ? " rpt-composer--drop-hover" : ""}`}
+      data-hint={hint}
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
       <div className="rpt-composer-bar">
         <textarea
           ref={taRef}
