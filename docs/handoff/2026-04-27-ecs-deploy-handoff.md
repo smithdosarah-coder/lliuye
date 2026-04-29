@@ -11,28 +11,34 @@
 
 ---
 
-## 关键凭证（永远不要泄露·不要 commit 进 git）
+## 关键凭证（**已 redact** · 2026-04-29 安全事件后清理 · 真值仅在 .env / 本地 keypair / CF dashboard）
 
 ```
 ECS:
   IP:        139.196.30.69
   user:      admin (sudo NOPASSWD)
   OS:        Alibaba Cloud Linux 3 (RHEL 8 兼容·dnf)
-  SSH key:   ~/.ssh/id_ed25519_aliyun_demo (本地 git bash 路径)
-  password:  WOAINI520%@ (备用·keypair 通了不需要)
+  SSH key:   ~/.ssh/id_ed25519_aliyun_demo (本地 git bash 路径 · 真 key 不在仓库)
+  password:  [REDACTED · 已 rotate 2026-04-29 · 真值仅运维知 · keypair 是主路径]
 
-LLM keys (在 ECS .env 和本地 .env 都已同步·全部 valid):
-  DEEPSEEK_API_KEY=sk-0e19c26eec424a948fcbedae4de45575
-  TAVILY_API_KEY=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
-  DASHSCOPE_API_KEY=sk-8aed21c5287c49469d8bed585e594b4a (Qwen)
+LLM keys (在 ECS .env 和本地 .env · gitignored · **不在文档**):
+  DEEPSEEK_API_KEY=[REDACTED · 见 .env]   # 旧 key 已禁用 2026-04-29
+  TAVILY_API_KEY=[REDACTED · 见 .env]     # 旧 key 已禁用 2026-04-29
+  DASHSCOPE_API_KEY=[REDACTED · 见 .env]  # 旧 key 已禁用 2026-04-29
 
 Cloudflare tunnel:
-  Tunnel ID:    dd427133-1379-46f3-a5a5-156a9efdb839
+  Tunnel ID:    [REDACTED · 见 CF dashboard]
   Tunnel name:  credit-demo
-  Account:      Smithdosarah@gmail.com
-  Credentials:  ECS:/home/admin/.cloudflared/dd427133-1379-46f3-a5a5-156a9efdb839.json
-  cert.pem:     ECS:/home/admin/.cloudflared/cert.pem (CF API auth · 用于 cloudflared CLI 调 CF API)
+  Account:      [REDACTED · 见 1Password / CF dashboard]
+  Credentials:  ECS:/home/admin/.cloudflared/<tunnel-id>.json (路径仅 ECS 内可见)
+  cert.pem:     ECS:/home/admin/.cloudflared/cert.pem (CF API auth · 路径仅 ECS 内可见)
 ```
+
+**安全事件背景** (decisions-log §I-024 · 2026-04-29):
+- repo 是 GitHub public · 本文件原含 3 个 LIVE LLM key + ECS SSH password + CF tunnel ID
+- 上次同类事件 (decisions-log:1272) DeepSeek key `sk-358b17ce...` 已禁
+- 本次 3 LLM key 全部 rotate · ECS .env 同步 · `lliuye-backend` 已 restart
+- 历史 commit 仍含旧值 · 但旧值已 dead · 同 decisions-log:1274 处理(不 filter-repo · 禁 key 即止血)
 
 ---
 
@@ -143,8 +149,8 @@ ui-login-blackhole      (黑洞版本集成)
 
 ## 关键 Invariants（千万不要做）
 
-1. ❌ **不要用早上失效的 DEEPSEEK key `sk-716e4b3289...88fe`** — 已废·用 `sk-0e19c26eec424a948fcbedae4de45575`
-2. ❌ **不要用早上失效的 TAVILY key `tvly-dev-2NH0RH-...kM2v`** — 已废·用 `tvly-dev-2uu5h0-...FbDx`
+1. ❌ **LLM key 多次轮换史**: 历次失效 key 列表已 redact · 当前 valid 仅在 .env(gitignored)· 永远不要把全 key 写进文档(本规则因 2026-04-29 安全事件加固)
+2. ❌ **同上 Tavily / DashScope** · 当前活 key 仅在 .env
 3. ❌ **不要 PowerShell `Get-Content -Raw` 读 UTF-8 中文文件** — zh-CN Windows 默认 CP936 解 UTF-8 → mojibake。永远用 Python 字节级（`read_bytes` / `write_bytes`）
 4. ❌ **不要在 ssh 命令里塞 PowerShell `>>`** — PowerShell 解析 `>>` 当本地 redirect·会截 ssh 命令字符串·导致命令到不了远端。直接登远端 bash 跑。
 5. ❌ **不要 `KB_SCAN_DEMO_MODE=false`** 给客户走访 demo — Agent1/4/5 真 Tavily 抖断 demo 翻车。当前 ECS .env 是 `=true`，保留。
