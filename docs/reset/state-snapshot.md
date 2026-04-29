@@ -38,6 +38,28 @@
 
 ---
 
+## 2026-04-29 (本批次 2) · Step 2 Charter 补 + 答 fresh CLI 8 题
+
+### What happened
+- fresh main CLI 启动后读完 6 reset docs · 提 8 个 critical 澄清 (17 类完整定义 / 4 sub-agent 输出在哪 / Step 2 flow / Codex Round 1 template / anti-bias rule 1 衔接 / PRD 取证 / register schema / 调度方式)
+- 诊断: 前任 main CLI 写的 reset docs 仍有 4 处"心里有但没写出来"的 gap (compression 写法典型病)
+- 修复: 新建 `docs/reset/step2-conflict-scan-charter.md` (Step 2 SOP self-contained · 含 17 类完整 + flow + schema + sub-agent template) + codex-mesh-protocol.md 加 §4.5 (Step 2 codex template) + §5.b (audit dir) + §6 引用 charter §2 · anti-bias-rules.md 加 §1.1 (fresh CLI 接手处理) · CLAUDE.md §14 必读列表加 step2 charter · RESET_MASTER_PLAN 文档地图加 step2 charter
+
+### Triggered by
+- fresh main CLI 提 8 题 verify reset doc self-containment (健康 verify 信号)
+
+### State change (delta)
+- 新文档: `docs/reset/step2-conflict-scan-charter.md` (10 节 · 含 17 类 SSOT verbatim)
+- 编辑: codex-mesh-protocol.md / anti-bias-rules.md / CLAUDE.md / RESET_MASTER_PLAN.md
+- reset 必读 docs 从 5 份 → 6 份 (加 step2 charter)
+
+### Next
+- commit + push · ECS sync
+- 通知 fresh main CLI 重读 step2-conflict-scan-charter.md · 8 题应自答 · 然后 fire 6 路并行 (5 sub-agent + Codex Round 1)
+- 沿用 anti-bias rule 1.1: 前任 main CLI 4 sub-agent 输出弃用 (compression 后未 verbatim 还原) · 重派
+
+---
+
 ## 2026-04-29 · Reset 启动 · 由当前 main CLI handoff (本次迭代 · 遵守 §14.1 状态更新硬规)
 
 ### What happened

@@ -40,6 +40,7 @@ Step 3 · PRD + 商业化 (Phase B · 4-6 周 · 与 Step 1 后期并行)
 | 用途 | 文档 |
 |---|---|
 | **产品 north star + 走歪诊断 + 修正方向** | `docs/reset/north-star.md` |
+| **Step 2 conflict scan SOP (17 类 + flow + schema)** | `docs/reset/step2-conflict-scan-charter.md` |
 | **Phase A 7 worker 拆分 + 验收硬线** | `docs/reset/phase-a-charter.md` |
 | **Phase B 2 worker 拆分** | `docs/reset/phase-b-charter.md` |
 | **Codex 4 插入点 + 命令 + template** | `docs/reset/codex-mesh-protocol.md` |
