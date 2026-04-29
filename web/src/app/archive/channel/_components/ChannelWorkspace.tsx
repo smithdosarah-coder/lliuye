@@ -165,13 +165,29 @@ export default function ChannelWorkspace() {
   } | null>(null);
 
   /* B-banner · streamError 从 QueryBar lift 上来 · 顶部 banner 渲染
-     合并 kbErrors 任一非空 → workspace 顶部统一红条提示 + retry/dismiss */
+     合并 kbErrors 任一非空 → workspace 顶部统一红条提示 + retry/dismiss
+     C4 · banner-spec rule 2 · bannerKind 区分 info (mock_fallback warn 黄) vs error (LiveFailError 红) */
   const [streamErrorTop, setStreamErrorTop] = useState<string | null>(null);
+  const [bannerKind, setBannerKind] = useState<"info" | "error">("error");
   const aggregatedKbError = (Object.values(kbErrors).find((e) => e) || "");
   const topBannerMessage = streamErrorTop || aggregatedKbError;
+  /* aggregatedKbError 是 KB 上传失败 · 强制为 error · stream warning 由 setBannerKind 显式 set */
+  const effectiveBannerKind: "info" | "error" =
+    aggregatedKbError && !streamErrorTop ? "error" : bannerKind;
   const dismissTopBanner = useCallback(() => {
     setStreamErrorTop(null);
+    setBannerKind("error");
     setKbErrors({ customer_list: "", policy: "", industry_guide: "" });
+  }, []);
+
+  /* C4 · 给 QueryBar 用的 bundled setter · 让 callback 选 info/error */
+  const setStreamWarning = useCallback((msg: string | null) => {
+    setStreamErrorTop(msg);
+    setBannerKind(msg ? "info" : "error");
+  }, []);
+  const setStreamFatal = useCallback((msg: string | null) => {
+    setStreamErrorTop(msg);
+    setBannerKind(msg ? "error" : "error");
   }, []);
 
   /* derive selected candidate object · sessionData.candidates 已 live-or-mock 单源 */
@@ -372,20 +388,25 @@ export default function ChannelWorkspace() {
       {/* B-banner · workspace 顶部统一错误条 · streamError + kbError 合并 · retry/dismiss */}
       {topBannerMessage ? (
         <div
-          role="alert"
-          data-testid="channel-error-banner"
-          className="ch-error-banner"
+          role={effectiveBannerKind === "error" ? "alert" : "status"}
+          data-testid={
+            effectiveBannerKind === "info"
+              ? "channel-pilot-banner-mock-fallback"
+              : "channel-pilot-banner-live-fail"
+          }
+          data-banner-kind={effectiveBannerKind}
+          className={`ch-error-banner ch-error-banner--${effectiveBannerKind}`}
         >
           <span className="ch-error-banner__icon" aria-hidden>⚠</span>
           <span className="ch-error-banner__text">
-            <b>操作失败</b>
+            <b>{effectiveBannerKind === "info" ? "演示模式" : "操作失败"}</b>
             <span className="ch-error-banner__detail">{topBannerMessage}</span>
           </span>
           <button
             type="button"
             className="ch-error-banner__dismiss"
             onClick={dismissTopBanner}
-            aria-label="关闭错误提示"
+            aria-label="关闭提示"
           >
             ×
           </button>
@@ -421,7 +442,8 @@ export default function ChannelWorkspace() {
         setLiveData={setLiveData}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
-        onStreamError={setStreamErrorTop}
+        onStreamError={setStreamFatal}
+        onStreamWarning={setStreamWarning}
       />
       {started ? (
         <>
@@ -1383,6 +1405,7 @@ function QueryBar({
   setStarted,
   externalTrigger,
   onStreamError,
+  onStreamWarning,
 }: {
   sessionData: ChannelSession;
   selectedSession: string;
@@ -1394,6 +1417,8 @@ function QueryBar({
   externalTrigger?: { input: string; nonce: number } | null;
   /* B-banner · 上抛 stream error 给 workspace 顶部 banner · QueryBar 内 inline error 删除 */
   onStreamError?: (msg: string | null) => void;
+  /* C4 · banner-spec rule 2 · 上抛 stream warning (mock_fallback / Tavily 0 命中) · 黄色 info banner */
+  onStreamWarning?: (msg: string | null) => void;
 }) {
   const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
@@ -1427,12 +1452,22 @@ function QueryBar({
         (sseEvt) => {
           const data = sseEvt.data as ChannelStreamEvent;
           setStreamEvents((prev) => [...prev, data]);
+          /* C4 banner-spec rule 2 · backend stage event status="warning" → 顶部黄条
+             触发源:Tavily key 缺 / TavilyClient init 失败 / 5 路 0 命中 · realtime_stream._parallel_signal_search_core */
+          if (sseEvt.type === "stage" && data.status === "warning" && typeof data.message === "string") {
+            onStreamWarning?.(`⚠️ ${data.message}`);
+          }
           if (sseEvt.type === "done") {
             const live = normalizeBackendDone(
               data as Record<string, unknown>,
               sessionData,
             );
             setLiveData(live);
+            /* done envelope.warnings · backend mock_fallback 透传 · 顶部 banner 二级提示 */
+            const wlist = (data as Record<string, unknown>).warnings;
+            if (Array.isArray(wlist) && wlist.length > 0) {
+              onStreamWarning?.(`⚠️ ${String(wlist[0])}`);
+            }
           }
         },
       );

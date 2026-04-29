@@ -200,6 +200,12 @@ def run_channel_search_stream(
                 yield {"event": "progress", "stage": "signal_scan",
                        "route": route, "signals": count,
                        "routes_done": route_progress, "routes_total": 5}
+            elif kind == "warning":
+                # C4 banner-spec rule 2 · Tavily silent fallback 透明化 · 前端 banner 显
+                _, msg = item
+                warnings.append(msg)
+                yield {"event": "stage", "stage": "signal_scan",
+                       "status": "warning", "message": msg}
             elif kind == "final":
                 _, raw_signals, data_source = item
         yield {"event": "stage", "stage": "signal_scan", "status": "done",
@@ -366,6 +372,8 @@ def _parallel_signal_search_core(
 
     if not tavily_key:
         logger.warning("[channel.signal_search] TAVILY_API_KEY missing → mock_fallback")
+        # C4 banner-spec rule 2 · 显式 warning · 不静默 · 前端 banner 提示
+        yield ("warning", "TAVILY_API_KEY 未配置 · 已降级为 mock 演示数据 · 配置 key 后可恢复 live")
         yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
         return
 
@@ -381,6 +389,7 @@ def _parallel_signal_search_core(
         client = TavilyClient(api_key=tavily_key)
     except TavilySearchError as e:
         logger.warning("[channel.signal_search] TavilyClient init failed: %s → mock_fallback", e)
+        yield ("warning", f"Tavily 客户端初始化失败 ({e}) · 已降级为 mock 演示数据")
         yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
         return
 
@@ -487,6 +496,7 @@ def _parallel_signal_search_core(
         "[channel.signal_search] all routes returned 0 signals → mock_fallback (route_stats=%s)",
         route_stats,
     )
+    yield ("warning", "Tavily 5 路搜索 0 命中 · 已降级为 mock 演示数据 · 检查 query / 网络代理")
     yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
 
 
