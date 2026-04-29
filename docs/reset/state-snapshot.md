@@ -259,6 +259,40 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 04:45 · STEP-2-PM-RULED + A5/A6/A7 dispatched
+
+### What happened
+- PM 拍板 4 件 dissent (per conflict-register-v1.md PM 拍板段):
+  1. Cat 8 选 `compliance` 单 id
+  2. Cat 0 `/today` RM workbench 推 Phase B-3
+  3. Cat 15 sync 等 A1+A2 完后
+  4. Cat 11 legacy_gradio 全栈隔离 (v16 真稳前不真删)
+- 87 entries 默认按建议跑 · PM 不逐条 review · worker owner 列处理
+- 主 CLI 派 A5 + A6 + A7 worker (Week 2-3 并行 · 不依赖 A1/A2/A3):
+  - A5 worktree D:/claude code/work-A5-design (新建 · feat/phase-a5-design)
+  - A6 worktree D:/claude code/work-A6-handoff (新建 · feat/phase-a6-handoff)
+  - A7 复用 D:/claude code/work-A3-prd · resume 时切 feat/phase-a7-prd
+- Codex pre-dispatch draft × 3 fire background
+
+### Triggered by
+- PM "剩下的 GO" (4 件全过)
+- A1/A2 worker 已 active 跑 (feat/phase-a1-contracts 59cce5c / feat/phase-a2-shared 3147d49)
+
+### State change (delta)
+- Step 2 状态: REGISTER PREPARED → PM-RULED (4 dissent 收敛 + 87 entries 按建议派)
+- Phase A worker mesh: A1+A2 active → A5+A6+A7 dispatching (5 worker active 中 · 仅 A3+A4 等依赖)
+- 87 entries owner 列指 worker 启 · 各 worker resume 时按 register 干
+- legacy_gradio 决议: 真删 → 全栈隔离 (v16 真稳前留)
+
+### Next
+- A5/A6/A7 onboarding doc + DISPATCHED commit × 3 + Codex draft × 3 (background)
+- 等 5 worker (A1/A2/A5/A6/A7) DONE signal · cherry-pick · push origin · ECS sync (per CLAUDE.md §13.1)
+- A1+A2 DONE 后 → 主 CLI 启 A3 (Channel pilot · 依赖 A1+A2)
+- A3 DONE 后 → 主 CLI 启 A4 5 子 worker (依赖 A3 · channel pilot 模板)
+- A1+A2 cherry-pick 后 → 主 CLI 一次性 sync chore/l0-infra ↔ main (Cat 15 fix-forward · 含 ECS verify)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>

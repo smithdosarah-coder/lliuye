@@ -292,12 +292,68 @@ status: pre-PM 拍板 · 待 Signal STEP-2-PM-RULED
 
 ## 退出标准 + Next
 
-- ✅ 7 份 audit doc 全 commit (本 commit 一并)
-- ✅ 本 register commit 含 Signal: STEP-2-CONFLICT-REGISTER-V1-PREPARED
-- ⏳ PM 逐条拍板 87 entries + 4 项 dissent (Signal: STEP-2-PM-RULED) → 进 Step 1 Phase A worker mesh
-- ⏳ Cat 15 🔴 P0 主 CLI fix-forward 必须先于 Phase A worker 启 (per dissent #6)
+- ✅ 7 份 audit doc 全 commit
+- ✅ 本 register commit 含 Signal: STEP-2-CONFLICT-REGISTER-V1-PREPARED (2db1107)
+- ✅ **PM 拍板 4 件 (2026-04-29 · STEP-2-PM-RULED · 见 §PM 拍板段)**
+- ✅ A1 + A2 worker 已 dispatch (96e412d / 3723e45) · A5 + A6 + A7 dispatch starting
+- ⏳ A3 等 A1+A2 完后启 · A4 5 子 worker 等 A3 完后启
+- ⏳ Cat 15 sync 等 A1+A2 完后做 (per PM 拍板 #3)
 
 PRD gap (G-01..G-10) 见 `docs/audit/prd-evidence-frozen.md` · 由 worker-A7 接手决议。
+
+---
+
+## PM 拍板 (2026-04-29 · STEP-2-PM-RULED)
+
+PM 拍板 4 件 dissent + 87 entries 默认按建议跑 (PM 不逐条 review · 各 worker owner 列处理 · 主 CLI 后续 monitor)。
+
+### 拍板 1 · Cat 8 单一 agent_id 选 `compliance` (dissent #4 收敛)
+
+- 全栈用 `compliance` (frontend AgentKey · evaluation/agent5_compliance.yaml 一致)
+- 改 ~5 处 (主要后端 rbac.py + auth_service/users.py + 前端 store/types.ts AgentId 改)
+- worker-A1 在 `docs/contracts/agent-naming-ssot.md` 8 列 SSOT 中标 verbatim "compliance" · `web/src/lib/auth/agent-id.ts` 补丁文件 worker-A4-compli 删
+- 理由: `compliance` 更语义化 · 与 evaluation yaml + frontend 一致 · 改面虽改后端但语义清晰
+
+### 拍板 2 · Cat 0 `/today` RM workbench 重写推 Phase B-3 (dissent #5 收敛)
+
+- A6 worker 范围**不含** `/today` 重写 (only handoff data schema)
+- `/today` RM workbench 形态重写归 Phase B-3 (端到端 demo chain) · 与 6 Agent 闭环 demo 一并做
+- Cat 0 entries 中 `/today/*` 部分 owner 改 "B-3 worker" · `/archive/credit/CreditWorkspace.tsx Agent6→Agent3 handoff` 部分 owner 保留 A6 + A4-credit
+- 理由: 不堆 A6 范围 · 不为 RM workbench 新建 A8 · Phase B 端到端 demo 时一起做更省
+
+### 拍板 3 · Cat 15 production sync 等 A1+A2 完后做 (dissent #6 收敛)
+
+- 主 CLI 不立即 fix-forward Cat 15
+- A1 (改 docs/) + A2 (改 shared/*) 都不动 web · 不阻塞
+- A1+A2 DONE cherry-pick 后 · 主 CLI 一次性 sync chore/l0-infra ↔ main · 含 ECS verify
+- 理由: 现在 sync 反而打断 worker · A1+A2 完后再 sync 单点
+
+### 拍板 4 · Cat 11 legacy_gradio 全栈隔离 (dissent #7 收敛 · v16 真稳前不真删)
+
+PM 用真实材料跑过 v16 觉得没问题 · 但客户侧演示用的还是 v15 · CLAUDE.md §11 也写 agent_report wrapper unreleased。所以 v16 真客户验证完成前 · 留 legacy_gradio 备用 · 但全栈隔离不影响产品。
+
+worker-A7 干 5 件 (verbatim 在 `docs/onboarding/A7-prd.md` §1.2):
+1. `legacy_gradio/__init__.py` 加 `ALLOW_LEGACY_GRADIO=1` env import guard (默认 ImportError)
+2. `pyproject.toml` 加 pytest / ruff / coverage / mypy 全排除 `legacy_gradio/`
+3. CLAUDE.md 加 §15 单独章节 (archived 备用 + emergency 解锁路径 + 真删条件)
+4. CLAUDE.md §2 改 (从"如需 fallback 从 archive 恢复"改"全栈隔离 · 详 §15")
+5. worker onboarding template 加默认提示"不读 legacy_gradio/ 除非显式解锁"
+
+unblock 真删条件: PM 拍板"v16 真稳了" → worker 写 PR + PM Authorize-By trailer → `git rm -rf legacy_gradio/`。不绑客户演示日期。
+
+### 87 entries 默认按建议跑
+
+PM 不逐条 review。各 worker 按 register Owner 列开干:
+- A1: cat 1 / 8 / 10 / 16 (含拍板 1 的 compliance 单 id)
+- A2: cat 6 / 7 + 部分 4 / 5
+- A3: cat 2 / 3 / 4 / 11 (channel only)
+- A4 (5 子): cat 2 / 3 / 4 / 5 / 6 / 7 / 11 / 13 (per-agent)
+- A5: cat 14 + 部分 cat 8 (color token)
+- A6: cat 0 (handoff data flow 部分 · 不含 /today RM workbench) + cat 13 + cat 5 (handoff schema)
+- A7: cat 12 + cat 16 + cat 11 (legacy_gradio 全栈隔离) + 部分 cat 1 (active rule 回写)
+- 主 CLI fix-forward: 部分 cat 1 (Q-040/041) + cat 9 (/design 决策) + cat 15 (sync · A1+A2 完后) + 部分 cat 16 (api_server.py:376 文案)
+
+任意 worker 工作中遇到 register 标"Keep / Revert / Rewrite"觉得不对 · 走 `decisions-log.md` Q-NNN 提 · 主 CLI escalate PM。
 
 ---
 
