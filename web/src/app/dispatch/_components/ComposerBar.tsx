@@ -215,6 +215,7 @@ export function ComposerBar() {
     fetch(`${apiBase}/api/im/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include", // W-FIX2-A2 · 让 browser 带 zhongan_auth cookie
       body: JSON.stringify({
         message: value,
         thread_id: thread.id,

@@ -302,6 +302,7 @@ export default function ChannelWorkspace() {
     fetch(`${apiBase}/api/im/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include", // W-FIX2-A2 · 带 zhongan_auth cookie
       body: JSON.stringify({
         message: text,
         thread_id: "archive:channel",
