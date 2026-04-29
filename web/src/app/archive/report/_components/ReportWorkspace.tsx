@@ -1861,12 +1861,17 @@ function ReportEmptySkeleton() {
       data-testid="report-empty-skeleton"
       aria-label="等待触发 · 报告生成"
       style={{
-        padding: "64px 24px",
+        padding: "48px 24px",
         textAlign: "center",
         background: "color-mix(in srgb, var(--chalk) 50%, transparent)",
         borderRadius: "var(--r-md)",
         border: "1px dashed var(--ink-14)",
-        margin: "24px 0",
+        margin: "24px 0 64px 0",
+        minHeight: "calc(100vh - 360px)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
       <h3
