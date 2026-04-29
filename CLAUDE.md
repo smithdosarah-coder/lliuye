@@ -79,13 +79,15 @@ Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查
 | Agent | 触发 | 输入 | 产出 | 不做 |
 |---|---|---|---|---|
 | Agent1 获客 | 客户经理发起 | 画像描述 + 知识库 | 候选企业 + 信号时间线 + 产品推荐 | 授信决策 |
-| Agent2 风控 | 策略经理发起 | 策略诉求 + 样本 CSV | DSL 规则 + KS / 通过率回测 | 个案决策 |
+| Agent2 风控 | 风险经理发起 | 策略诉求 + 样本 CSV | DSL 规则 + KS / 通过率回测 | 个案决策 |
 | Agent3 授信 | 审贷会发起 | Agent6 ReportJSON + 材料 | 四维评分 + 额度 / 期限建议 + 红线 | 写报告 |
 | Agent4 预警 | **客户行为变化**驱动 | 在贷客户池 + 规则库 | 红/黄/绿分级客户榜单 | 单点手动查询 |
 | Agent5 合规 | **政策发布事件**驱动 | 新政策 + 业务制度库 | 违规冲突点明细清单 | 定期巡检 / 财务审计 |
 | Agent6 报告 | 客户经理发起 | 企业材料 + 模板 | ReportJSON + Word | 决策意见 |
 
 Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是对内对外；共享 `shared/kb_scan/` 矩阵扫描底座，不合并。
+
+**命名 SSOT**: 6 Agent × 8 维度 (id / 中文 / 业务名 / UI brand / route / 色彩 token / RBAC role / eval baseline) 单源在 `docs/contracts/agent-naming-ssot.md` v1.0 (Phase A worker-A1 ratified · 2026-04-29) · 任何 agent 相关 consumer 文件 (`web/src/lib/agents.ts` / `auth_service/rbac.py` / `evaluation/agent*.yaml` / `agent_*/api.py`) 一律 read-only 引用 · 修改走 RFC (`shared-change-protocol.md`)。`compli` vs `compliance` 单 id 选项见 SSOT §3 (PM 待拍板)。
 
 ## 5. 评估框架（双轨制）
 
