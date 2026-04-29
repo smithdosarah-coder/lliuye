@@ -345,4 +345,4 @@ const [mode, setMode] = useState<"mock" | "live">("mock");
 - 字段命名: `docs/contracts/field-naming.md`
 - 共享变更协议: `docs/contracts/shared-change-protocol.md`
 - Master plan: `docs/contracts/master-execution-plan-2026-04-27.md` § Stage C.4
-- Workspace state: `docs/contracts/workspace-state-protocol.md` (待 A2 worker)
+- Workspace state: `docs/contracts/workspace-state-protocol.md` v1.1 (Phase A worker-A1 ratified · 4 useState gate + AgentSession shape 见 §10)
