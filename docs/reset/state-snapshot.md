@@ -229,6 +229,36 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 04:25 · Step 2 conflict-register-v1 PREPARED + A1/A2 worker 同时启 (PM override)
+
+### What happened
+- 7 路 fire 全 done (6 sub-agent foreground · Codex 1 background notification)
+- 7 份 audit doc 全落 disk:
+  - `docs/audit/sub-agent-step2-round1/{architecture,data,instruction,naming-route,production-shape}.md` (5 · 105 findings)
+  - `docs/audit/codex-step2-round1.md` (50 findings 全 17 类 · independent v1)
+  - `docs/audit/prd-evidence-frozen.md` (Step 3 PRD 取证 · 飞书 7 doc found · 10 G-XX gap)
+- 主 CLI synthesize → `docs/audit/conflict-register-v1.md` (87 entries · charter §8 schema · 含 dissent appendix per anti-bias rule 4 · ~2800 词)
+- PM 拍板"我说的是 A1 和 A2" → override charter §3 sequential flow → A1 + A2 worker 与 Step 2 register 拍板并行启
+
+### Triggered by
+- 6 sub-agent foreground 全 returned + Codex background completion notification (b0h9h9wvc)
+- PM 答 "我说的是 A1 和 A2" (override Step 2→Phase A sequential gate)
+
+### State change (delta)
+- Step 2 状态: IN-FLIGHT → REGISTER PREPARED (待 PM 拍板 Signal: STEP-2-PM-RULED)
+- audit dir: 7 路 fire 全落地 + 1 份 conflict-register-v1 主 CLI 合成
+- Phase A worker mesh: idle → A1 + A2 dispatch starting (per PM override · 与 register 拍板并行)
+- 🔴 Cat 15 (production sync 漂 P0) flagged · 待主 CLI fix-forward (chore/l0-infra 落后 main 10 commit)
+- Phase A 8 项验收硬线进度: 0/8 → 启 A1 (硬线 #1, #8) + A2 (硬线 #2)
+
+### Next
+- 主 CLI: 写 A1 + A2 onboarding doc + DISPATCHED commit × 2 + fire Codex pre-dispatch draft × 2 (插入点 1)
+- 通知 PM 启 worker A1-inventory + A2-contracts cmd window (worktree 复用 · branch 改名为 feat/phase-a1-contracts + feat/phase-a2-shared per charter §3)
+- PM 拍板 register (Signal: STEP-2-PM-RULED) → A3-A7 worker 后续按 register 派
+- 主 CLI fix-forward Cat 15 production sync (与 A1+A2 并行)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
