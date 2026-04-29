@@ -76,6 +76,27 @@ Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查
 
 本 5 原则沉淀于 Q-028/A-028（2026-04-24）· data-foundation Batch 1 REJECT-V2 复盘。
 
+### 3.6 LLM Caller 唯一化 + PIPL 合规 fallback chain
+
+Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/llm_caller/` 单一抽象层 · 替代历史 4+1 套并行 caller。
+
+- **5 模块**：`shared/llm_caller/{client, retry, audit, provider, prompts}.py`
+  - `provider.py`：`LLMProvider` Protocol + `ProviderResult` + 4 providers (`DeepSeek` / `DashScope` / `Qwen` / `Moonshot`) + `_REGISTRY` + `get_provider()`
+  - `retry.py`：`DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` + `chat_with_fallback` / `chat_json_with_fallback` + 主 fail 自动切下一个
+  - `audit.py`：`with_audit(...)` ctx 包 single LLM call · 与 `audit_service.decorators.audit_llm_call` (FastAPI 路由级) + `stream_helpers.audit_stream_event` (SSE 内) 三层互补 · 全 silent-fail
+  - `prompts.py`：`build_chat_messages` / `with_json_schema_hint` / `with_few_shot` / `truncate_for_context` 4 个 string-assembly utility（无业务 prompt 文本）
+  - `client.py`：`LLMCaller(agent_id, endpoint, chain, audit_enabled).chat() / .chat_json()` 顶层 facade · 6 agent 迁此入口
+- **PIPL 合规底线**：默认 fallback chain 全境内（`deepseek` 主 + `dashscope` 备）；`moonshot` 标 `region="overseas"`，仅 `LLM_PROVIDER=moonshot` 显式才走；audit log 含 `region` 字段，跨境调用可追溯。
+- **底层 backing 不动**：root `llm.py:LLMClient` 保留为 caller 1（6+ production import）；`shared/llm_caller/provider._LLMClientWrapper` 委托它做实际 API 调用，复用 cache + provider config。
+- **向下兼容**：`shared/llm/{base, router, providers/*}` 保留为 re-export shim，`shared/kb_scan/impls/channel_signal.py:311` 的 1 production import 不破。
+- **Deprecation 路径**（A4 worker 5 子分别迁，本 worker 不动 agent_*/api.py）：
+  - caller 3 `agent_riskctrl/llm_judge.py` LLMJudge 基类 → 迁 `LLMCaller(agent_id="riskctrl", endpoint="judge").chat()`
+  - caller 4 `agent_report/api.py:_build_llm_caller` 裸 `OpenAI(base_url=...)` → 迁 `LLMCaller(agent_id="report", endpoint="/api/report/v16/fill")`
+  - caller 5 `agent_alert/api.py` + `agent_compliance/scan_engine.py` + `agent_riskctrl/api.py` 直 `LLMClient(provider=...)` → 同上 · 各 agent 自有 `LLMCaller` 实例
+- **环境变量**：`LLM_PROVIDER`（默认 provider，不强制） / `LLM_FALLBACK_CHAIN`（覆盖默认 chain · e.g. `deepseek,qwen,dashscope`） / 各 provider 的 `*_API_KEY`（`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `NVIDIA_API_KEY`）。
+
+依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
@@ -176,9 +197,11 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `/tmp/start_uvicorn.py` — 带环境变量的启动 wrapper
 - `shared/sources/` — 分层数据源架构（BaseSource 协议 + Router + Degrader）
 - `shared/sources/impls/` — 6 个源实现（Tavily / akshare / gov_cn / pbc_gov / flk_npc / enterprise_info · 后者用于 Agent1 工商信息上市/非上市分层抓取）
-- `shared/llm/` — LLM Provider abstraction (Stage E.3 · 2026-04-28) · Protocol + 4 provider impl + fallback router · 注: 当前 0 agent 实际使用 · Phase A worker-A2 任务是迁 6 agent 走 shared/llm
-- `shared/sse_envelope.py` — SSE done event envelope helper (Phase A worker-A2 待落地 · spec 见 `docs/contracts/sse-envelope.md` v1.0) · 6 Agent backend done event 共形 · 解决 audit Cat 4 (6 agent done payload 形态各异)
-- `shared/prompts/contract.py` — LLM 8 段 system prompt 拼装 helper (Phase A worker-A2 待落地 · spec 见 `docs/contracts/llm-prompt-contract.md` v1.0) · 6 Agent prompts.py 全迁 · 解决 audit Cat 6 (7 处 prompt 分裂 + Evidence-First 仅 Agent6 落地)
+- `shared/llm_caller/` — **Phase A worker-A2 (2026-04-29) · LLM caller 唯一化层** · 5 模块: `provider.py` (Protocol + 4 providers + registry) · `client.py` (LLMCaller facade · `simple_chat` / `make_text_caller` / `make_json_caller` legacy adapter) · `retry.py` (fallback chain · 显式 `api_key` bypass env check) · `audit.py` (per-call hook) · `prompts.py` (string utilities) · 详 §3.6
+- `shared/llm/` — Stage E.3 (2026-04-28) 旧目录 · Phase A 后改 re-export shim · 1 production import 不破 (`shared/kb_scan/impls/channel_signal.py:311`) · 新代码用 `from shared.llm_caller import ...`
+- `shared/sse_envelope.py` — Phase A worker-A2 · backend SSE event 共形 helper (make_stage / make_section / make_done / make_error / encode_event + `CHANNEL_PANEL_KEYS` per workspace-state-protocol §4 · `make_done` 拒空 payload) · spec 见 `docs/contracts/sse-envelope.md` v1.0 · 解决 audit Cat 4 · 6 agent A4 worker 后续迁此入口
+- `shared/prompts/contract.py` — Phase A worker-A2 · 8 段 LLM prompt template skeleton (safety/evidence/role/tools/schema/self-check/few-shot/eval-hook · `_PENDING_A1_SPEC` placeholder strict-only) · spec 见 `docs/contracts/llm-prompt-contract.md` v1.0 · 解决 audit Cat 6
+- `tests/shared/test_llm_caller.py` + `test_sse_envelope.py` — Phase A worker-A2 pytest coverage (69 tests · 含 backward-compat shim 验证)
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 

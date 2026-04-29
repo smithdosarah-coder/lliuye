@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
-"""shared.llm.providers.moonshot — Moonshot Kimi · NVIDIA 代理 · 备用 provider.
+"""shared.llm.providers.moonshot — re-export shim · 实际定义见 shared.llm_caller.provider.
 
-注: NVIDIA 代理路径 · 物理 hop 可能跨境 · PIPL 合规审视后再启用.
-默认 fallback chain 不含 · 显式 LLM_PROVIDER=moonshot 才走.
+Phase A worker-A2 · 2026-04-29 · Stage E.3 → llm_caller 收编.
 """
 from __future__ import annotations
 
-from shared.llm.providers._common import _LLMClientWrapper
-
-
-class MoonshotProvider(_LLMClientWrapper):
-    """Moonshot Kimi via NVIDIA proxy (region 标 'overseas' · PIPL 慎用)."""
-
-    name = "moonshot"
-    region = "overseas"  # NVIDIA proxy · 物理跨境 · PIPL 合规需评估
-    llm_provider_key = "kimi-k2.5"
-
+from shared.llm_caller.provider import MoonshotProvider
 
 __all__ = ["MoonshotProvider"]
