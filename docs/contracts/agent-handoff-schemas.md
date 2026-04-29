@@ -234,7 +234,95 @@ Agent6 接 `POST /api/report/upload_intent` 必须:
 
 ## 2. 链路 2 · Agent6.report_json → Agent3.decision_input
 
-**TBD · §2 在 Signal: `WORKER-A6-CHAIN-2-SPECCED` commit 中补充。**
+**目的**: Agent6 v16 pipeline 跑完 (材料解析 → 字段抽取 → 段落生成 → QC 终审) 输出 ReportJSON · 作为 Agent3 授信决策的 input · 这是 north-star §1.4 闭环路径的第 2 跳: `Agent6 出尽调报告 → Agent3 授信决策`。
+
+**核心 handoff** — Cat 0 audit (`docs/audit/sub-agent-step2-round1/production-shape.md`) 直指: "EmptyState 注释说'来自 Agent6 handoff'·但实际 onClick 直调独立 `/api/credit/decision` · 不消费 ReportJSON" — 本契约钉死 Agent3 必须真消费 ReportJSON · 不允许走旁路。
+
+### 2.1 直接 reference: Agent6 ReportJSON schema = `enterprise_profile.md` v1.0
+
+ReportJSON 的字段定义已由 `docs/contracts/enterprise_profile.md` v1.0 (2026-04-18) **frozen** · 本契约**不重写** · 直接 reference:
+
+- 顶层结构: 21 字段 (2 必填 + 19 Optional) + 7 子结构 + 3 元数据
+- 7 子结构: `FinancialAnchors` / `GuaranteeInfo` / `RelatedPartyInfo` / `ExistingCredit` / `CreditRequest` / `Chapters` / `AgentOutputs`
+- 详见 `enterprise_profile.md` §一 ~ §六
+
+**重要**: `enterprise_profile.md` §〇 已澄清 — ReportJSON 是嵌套 Python dict / JSON payload · **不等同于** `shared/enterprise_profile.py` 的 Pydantic 实例 (该 Pydantic 类是 Agent6 内部扁平画像 · 不参与跨 Agent handoff)。Agent3 / Agent1 / Agent5 消费时**禁止**用 `from shared.enterprise_profile import EnterpriseProfile` 反序列化。
+
+### 2.2 触发与时序
+
+| # | 谁 | UI 动作 | 服务端 | 落地 |
+|---|---|---|---|---|
+| 1 | Agent6 | v16 pipeline 跑完 (含 QC blocker 通过) | — | 写 `data/handoff/report_to_credit/<report_id>.json` (Agent6 端 archive · 含完整 ReportJSON) |
+| 2 | RM (在 `/archive/report` workspace) | 看到 "尽调完成" status → 点 "送审授信" button | — | — |
+| 3 | frontend | `POST /api/credit/decision` (现有 SSE endpoint · `agent_credit/api.py:269`) `body.report_json = <Agent6 ReportJSON>` | Agent3 接收 · 验 schema · 启 SSE | — |
+| 4 | Agent3 | SSE 事件流: `profile_loaded` → `feature_extracting` → `feature_done` → `scoring` → `scoring_done` → `rule_checking` → `rule_done` → `case_retrieving` → `case_done` → `advising` → `advising_done` → `done` | — | 缓存 `decision_id` (TTL 30 min · `_DECISION_CACHE`) · 后续 §3 链路 3 消费 |
+
+**同步 / 异步**: SSE 流式 (Agent3 现有 `POST /api/credit/decision` 已实装 · per `agent_credit/api.py`) — 完整跑 ~30-60 sec。
+
+**失败回退**:
+- 4xx (ReportJSON schema 不合法): `VALIDATION_FAILED` · frontend banner (per §5)
+- 5xx / SSE 中断: frontend 显 banner + `[重试]` · 不静默 fallback mock
+- ReportJSON 缺关键字段 (e.g., `financial_anchors.revenue_latest` 全 None): Agent3 降级 → SSE 事件流加 `event: warning` 提示 RM "材料不足 · 将以保守评分推进"
+
+### 2.3 Agent3 消费契约 · `decision_input`
+
+`decision_input` 是 Agent3 在 `agent_credit/api.py` `DecisionRequestV4` 接收的 payload · 字段清单:
+
+| 字段 | 类型 | required | 来源 | 说明 |
+|---|---|---|---|---|
+| `schema_version` | str | ✓ | 顶层 metadata | 必为 `"1.0"` (向前兼容判断) |
+| `stage_tab` | enum | ✓ | RM 在 frontend 选 | `"corporate" \| "small_business" \| "retail"` (Agent3 三板块 · 注意**与 `business_line` 不互通**) |
+| `report_json` | dict | ✓ | Agent6 v16 pipeline 输出 | 全量 ReportJSON · 嵌套 schema 见 `enterprise_profile.md` §一 |
+| `materials` | Optional[list[dict]] | — | Agent6 → Agent3 透传 | 客户提交材料元数据 · `[{material_id, type, parsed_at, evidence_count}]` |
+| `preset_name` | Optional[str] | — | RM demo 模式 fallback | `report_json` 缺失时 fallback 到 `mock_data/{seg}_profiles/<preset_name>.json` |
+| `appetite_config` | Optional[dict] | — | 风险偏好覆盖 | 当前 default `None` · Phase B 启用 |
+| `provider` | Optional[str] | — | LLM 选择 | per `field-naming.md` §3.5 · 默认 `"deepseek"` |
+| `mock` | bool | — | demo 路径 | default false · `true` → 跑 fixture SSE 不调 LLM |
+
+### 2.4 Agent3 必读字段映射 (ReportJSON → 四维评分 / 红线)
+
+Agent3 必读字段 — 任一缺失走 §2.5 降级:
+
+#### 对公 / 小微 (stage_tab = corporate / small_business)
+
+| 维度 | 必读 ReportJSON 字段路径 | 用途 |
+|---|---|---|
+| 经营财务 (`financial`) | `financial_anchors.revenue_latest` / `revenue_prev` / `net_profit_latest` / `total_assets` / `total_liabilities` / `operating_cash_flow` | 计算资产负债率 / 营收增速 / 现金流覆盖等 7 个比率 |
+| 行业前景 (`industry`) | `industry` (顶层) + `chapters.chapter_2_operation` | LLM 概率性消费 (per §3.1 确定性 vs 概率性边界) |
+| 经营管理 (`operational`) | `establishment_date` / `controller_name` / `controller_share_pct` / `chapters.chapter_2_operation` | 实控人稳定性 + 经营年限 + 主营业务集中度 |
+| 担保条件 (`guarantee`) | `guarantee_info.type` / `collateral` / `collateral_value` / `guarantor` | 担保完整性校验 |
+| 红线规则 (`red_lines`) | `existing_credit.overdue_history` / `related_party_info.related_party_revenue_pct` / `financial_anchors.*` | 30 条 (corporate) / 20 条 (small_business) 红线 |
+
+#### 零售 / 对私 (stage_tab = retail)
+
+| 维度 | 必读 ReportJSON 字段路径 | 用途 |
+|---|---|---|
+| 偿债能力 (`ability`) | (零售场景 ReportJSON shape 不同 · 见 §2.6) | 月还款比 / 负债率 |
+| 还款意愿 (`willingness`) | `existing_credit.overdue_history` (复用对公字段) | 历史逾期 |
+| 工作稳定 (`stability`) | (零售自定字段 · 详见 enterprise_profile.md 零售扩展) | 工作年限 / 单位性质 |
+| 抵押 / 担保 (`collateral`) | `guarantee_info.collateral` / `collateral_value` | 同对公复用 |
+
+### 2.5 缺失降级策略
+
+| 场景 | Agent3 行为 | SSE 事件 |
+|---|---|---|
+| `financial_anchors.revenue_latest` 缺 | 评分 financial 维度 → 0 (而非编造) · risk_grade 自动降一档 | `event: warning, payload.field: "financial_anchors.revenue_latest", payload.action: "missing_zero"` |
+| `guarantee_info.collateral` 缺 (零售/小微) | 红线 "无抵押" 触发 (severity: yellow) · 不阻断 | 同上 |
+| `chapters.chapter_3_finance` 缺 | LLM 用 `financial_anchors.*` 自生段落 (per Agent3 v3.1 现有 fallback) | 同上 |
+| ReportJSON 顶层 `schema_version` ≠ `"1.0"` | `VALIDATION_FAILED` 400 阻断 | — |
+| `report_json` 与 `preset_name` 都缺 | `VALIDATION_FAILED` 400 阻断 | — |
+
+**禁止**: Agent3 用 prompt LLM 现场算财务比率 (per `CLAUDE.md` §3.1 确定性 vs 概率性 · 这条是底线)。所有 `financial.*` 比率必须经 `financial_analyzer.py` 算 · LLM 仅消费结果。
+
+### 2.6 零售场景 ReportJSON 扩展
+
+零售场景 (`stage_tab = retail`) 当前 `enterprise_profile.md` schema 是按对公设计的 · 零售客户的 ReportJSON 需扩展字段 (e.g., `monthly_income_yuan` / `employer_name` / `work_years`) · 这部分**待 Phase B Agent6 v17 (零售扩展)** 定义 · 不在本契约 v1.0 范围。
+
+当前 (Phase A) 的 retail 走 fallback: `report_json = None` + `preset_name = <retail_preset>` · 走 `mock_data/retail_profiles/` 现有 mock。Phase B-3 端到端 demo chain 启动前需补 retail ReportJSON spec。
+
+### 2.7 fixture · `data/mock/handoff/agent6-to-3.json`
+
+见 §6 fixture index · 一份 "杭州智云工业软件" 经 Agent6 v16 跑完后的 ReportJSON 真实形态样例 (与链路 1 fixture 同企业 · 串联 demo chain)。
 
 ## 3. 链路 3 · Agent3.decision → Agent4.client_pool_signal
 
