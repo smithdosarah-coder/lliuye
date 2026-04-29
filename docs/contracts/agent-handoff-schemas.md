@@ -599,7 +599,165 @@ X-Idempotency-Key: <event_id · 服务端 dedup>
 
 ## 5. Export Contract 共形 spec (Cat 13)
 
-**TBD · §5 在 Signal: `WORKER-A6-EXPORT-CONTRACT-SPECCED` commit 中补充。**
+**目的**: 6 Agent 任意 workspace 都要给 RM 提供 "导出" 能力 (本地下载 docx / xlsx / pdf 给客户经理后续邮件 / 打印 / 留档) · 当前 6 Agent 各自实装 endpoint / 字段 / button wire / fallback banner 严重不共形 (audit Cat 13 5 entries) — 本节钉死共形规范。
+
+**audit 引用**: `docs/audit/sub-agent-step2-round1/production-shape.md` Cat 13 verdict: "6 Agent 各自只做了 1-2 种格式 · 字段 / 落盘命名 / button wire 三方分裂 · fallback banner 4 个 agent 缺"。
+
+### 5.1 当前 repo 状态盘点 (2026-04-29)
+
+| Agent | docx | xlsx | pdf | 备注 |
+|---|---|---|---|---|
+| Agent1 (channel) | ✓ `POST /api/channel/export_docx` | ✓ `POST /api/channel/export_xlsx` | ✗ | docx 候选线索报告 · xlsx 候选清单 |
+| Agent6 (report) | ✓ `POST /api/report/export_docx` | ✗ | ✗ | 报告主输出格式是 docx |
+| Agent3 (credit) | ✓ `POST /api/credit/export_docx` | ✗ | ✗ | 决策建议书 |
+| Agent4 (alert) | ✓ `POST /api/alert/export_docx` | ✗ | ✗ | 命中清单 |
+| Agent5 (compliance) | ✓ `POST /api/compliance/export_docx` | ✗ | ✗ | 修订意见书 (改/补/强) |
+| Agent2 (riskctrl) | ✗ | ✗ | ✗ | 当前**无任何 export endpoint** · 应至少补 docx (DSL + 回测报告) |
+
+**漂的表现** (Cat 13):
+
+1. **format 不齐**: 6 agent 仅 1 个 (channel) 有 xlsx · 0 个有 pdf · 1 个 (riskctrl) 完全缺
+2. **field 命名漂**: channel `unified_social_credit_code` 表头 vs report / credit / compliance 内部用 `unified_credit_code` (Cat 5 命名漂的具体表现之一 · 跨 agent 一致性需钉)
+3. **button wire 漂**: frontend 部分 workspace export button 是 dead link (`live-fallback-banner-spec.md` §3 规则 3 已点出)
+4. **fallback banner 缺**: 部分 workspace export 失败时静默 fallback 到本地 mock · 无 banner (违 `live-fallback-banner-spec.md` §2 规则 1)
+5. **filename 命名漂**: channel `agent1_candidates_<session>.xlsx` vs report `<report_id>_<company>_<ts>.docx` 命名风格不一
+
+### 5.2 共形 endpoint 矩阵 (本契约 v1.0 钉死)
+
+每个 Agent 必须实装以下 endpoint 子集 — `必` 表示 Phase A 验收硬线 · `应` 表示 Phase B-3 demo chain 启动前补 · `可` 表示按业务场景判断可选:
+
+| Agent | docx | xlsx | pdf | 内容 |
+|---|---|---|---|---|
+| Agent1 channel | 必 | 必 | 应 | docx: 候选线索完整报告 · xlsx: 候选清单 (现状已对) · pdf: 简版 1 页摘要 |
+| Agent6 report | 必 | 应 | 应 | docx: 完整尽调报告 (现状已对) · xlsx: ReportJSON 结构化导出 (字段 → 列) · pdf: 高保真打印版 |
+| Agent3 credit | 必 | 应 | 应 | docx: 决策建议书 (现状已对) · xlsx: 红线触发清单 · pdf: 给审贷会的简版 |
+| Agent4 alert | 必 | 必 | 应 | docx: 命中清单 + 处置建议 (现状已对) · xlsx: 在贷池全量监控明细 · pdf: 简版 |
+| Agent5 compliance | 必 | 应 | 应 | docx: 修订意见书 改/补/强 (现状已对) · xlsx: N×M 矩阵全量比对结果 · pdf: 给合规官的简版 |
+| Agent2 riskctrl | 必 | 应 | 可 | docx: DSL + 回测报告 (**当前缺** · 必补) · xlsx: 回测明细数据 · pdf: 可选 |
+
+### 5.3 共形 endpoint 命名 + 路径 + 输入
+
+**endpoint 路径模板**:
+
+```
+POST /api/<agent_id>/export_<format>
+```
+
+`<agent_id>` per §0.2 SSOT (channel / report / credit / alert / compliance / riskctrl) · `<format>` ∈ {`docx`, `xlsx`, `pdf`}。
+
+**输入信封 (统一)**:
+
+```http
+POST /api/<agent_id>/export_<format> HTTP/1.1
+Content-Type: application/json
+Cookie: <RM session cookie · 必带>
+
+{
+  "schema_version": "1.0",
+  "session_id": "<UUID v4 · agent 内部 session>",
+  "filters": { /* agent-specific · 见 §5.5 */ },
+  "options": {
+    "include_evidence": true,        /* 是否含证据链段落 · default true */
+    "include_metadata": true,        /* 是否含 _meta · default true */
+    "watermark": "训练演示数据"        /* mock 路径强制水印 · 真路径可空 */
+  }
+}
+```
+
+**响应**: HTTP 200 + `Content-Type: application/<format>` + 二进制 stream (per `agent_*/api.py` 现有 export 端点 pattern · 不变)。
+
+**响应 header (统一)**:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/<vnd-mime>
+Content-Disposition: attachment; filename="<filename>"
+X-Export-Source: <"live" | "mock">     ← 必带 · frontend banner 据此判
+X-Export-Schema-Version: 1.0
+X-Export-Generated-At: 2026-04-29T15:30:00Z
+```
+
+**MIME type 约定**:
+- docx: `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+- xlsx: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- pdf: `application/pdf`
+
+### 5.4 filename 命名共形
+
+```
+<agent_id>_<artifact_kind>_<scope_id>_<ts>.<format>
+```
+
+| 部分 | 取值 |
+|---|---|
+| `agent_id` | per §0.2 SSOT (`channel` / `report` / `credit` / etc.) |
+| `artifact_kind` | per §5.2 (`candidates` / `report` / `decision` / `hitlist` / `revision` / `dsl_backtest`) |
+| `scope_id` | session_id 短前缀 (前 8 位 UUID) 或 report_id 等 · 不含特殊字符 |
+| `ts` | Unix 时间戳 (秒) |
+
+**示例**:
+
+- `channel_candidates_7f4c7a2d_1745928000.xlsx` (链路 1 fixture session 的候选清单)
+- `report_zhiyun_industrial_1745922000.docx` (Agent6 报告 · 注: 已有 v16 命名 · 不强行改 · 保留兼容)
+- `credit_decision_dec_8a3f7b2c_1745928922.docx` (链路 3 fixture decision_id)
+- `alert_hitlist_evt_pol_2026_04_29_1745930000.xlsx` (链路 4 fixture event 触发的扫描)
+- `compliance_revision_scan_compli_20260429_1430_8e7c.docx` (链路 4 fixture scan_id)
+- `riskctrl_dsl_backtest_<rule_set_id>_<ts>.docx` (Agent2 待补)
+
+### 5.5 filters 字段 (agent-specific)
+
+| Agent | filters schema |
+|---|---|
+| channel | `{candidate_ids?: string[], business_line?: enum, min_match_score?: int}` |
+| report | `{report_id: string, sections?: ("background" \| "operation" \| "finance" \| "conclusion")[]}` |
+| credit | `{decision_id: string, include_rejected_rules?: boolean}` |
+| alert | `{session_id: string, tier?: ("red" \| "yellow" \| "green"), client_ids?: string[]}` |
+| compliance | `{scan_id: string, action_types?: ("amend" \| "supplement" \| "strengthen")[]}` |
+| riskctrl | `{rule_set_id: string, include_charts?: boolean}` |
+
+### 5.6 button wire + fallback banner 一致性 (Cat 13 + live-fallback-banner-spec.md)
+
+每个 workspace export button 必须满足以下 4 点 (per `docs/contracts/live-fallback-banner-spec.md` §2 + §3):
+
+1. **button wire 真触发**: `onClick` → `POST /api/<agent>/export_<format>` · **禁止** placeholder UI
+2. **failed → banner**: 4xx / 5xx / network → `live-fallback-banner-spec.md` §2 规则 1 banner: `⚠️ 后端 /api/<agent>/export_<format> 调用失败 (<status>) · 当前显 fallback 演示数据 · [重试]`
+3. **mock 路径显式 banner**: 当请求来自 mock dropdown / `mock=true` 时 · 服务端响应 header `X-Export-Source: mock` · frontend 据此显示 banner: `示例数据 (training mode) · 切真实输入 → [按钮]`
+4. **filename mock 区分**: mock 路径下载文件 filename 前缀加 `mock_` (e.g., `mock_channel_candidates_<ts>.xlsx`) · 防 RM 把 mock 文件误用作真实材料
+
+### 5.7 字段共形钉死 (跨 agent export 字段名)
+
+跨 Agent 共有字段必须用统一名称 (per `field-naming.md` v1.0):
+
+| 概念 | 统一字段名 | 现状漂 |
+|---|---|---|
+| 统一社会信用代码 | `unified_credit_code` | channel xlsx 表头 `unified_social_credit_code` ⚠️ 必修 |
+| 企业名 | `company_name` | channel xlsx `enterprise_name` ⚠️ 必修 |
+| 业务条线 | `business_line` (per §3.1) | 一致 ✓ |
+| 金额单位 | `amount_yuan` (元) / `amount_wan` (万元) 二选一带后缀 (per §2.2) | 各 agent 现状混用 ⚠️ 必修 |
+| 决策动词 | `decision_verdict` (英文 enum) | 见 §3.4 钉死 |
+| 严重等级 | `severity` (red/yellow/green) | 一致 ✓ |
+| ID | `<resource>_id` 单字段 (e.g., `report_id` / `decision_id` / `scan_id`) | 一致 ✓ |
+
+`field-naming.md` v1.0 是 SSOT · 任何冲突回到 SSOT 解决 · 不在本契约重定义。
+
+### 5.8 实装责任分配
+
+本节定义 spec · 实装由 Phase A 5 子 worker (A4-credit / A4-alert / A4-compli / A4-riskctrl / A4-report) + worker-A3 (channel pilot 已含 export) 各自完成:
+
+| Worker | 责任 | DONE signal |
+|---|---|---|
+| worker-A3 (channel pilot) | channel 现有 docx + xlsx 字段 SSOT 修齐 (`enterprise_name` → `company_name` / `unified_social_credit_code` → `unified_credit_code`) + button wire + banner | `WORKER-A3-CHANNEL-PILOT-DONE` |
+| worker-A4-report | report 补 xlsx + pdf | `WORKER-A4-REPORT-DONE` |
+| worker-A4-credit | credit 补 xlsx + pdf | `WORKER-A4-CREDIT-DONE` |
+| worker-A4-alert | alert 补 xlsx + pdf | `WORKER-A4-ALERT-DONE` |
+| worker-A4-compli | compliance 补 xlsx + pdf | `WORKER-A4-COMPLI-DONE` |
+| worker-A4-riskctrl | riskctrl 补 docx + xlsx (从零) | `WORKER-A4-RISKCTRL-DONE` |
+
+CI 共形 lint 由 worker-A1 SSOT lint 同步加规则:
+
+- ✓ 6 agent_*/api.py 至少 1 个 `@app.post("/api/.+/export_docx")`
+- ✓ filename 输出符合 §5.4 正则
+- ✓ response header `X-Export-Source` 必带
 
 ---
 
