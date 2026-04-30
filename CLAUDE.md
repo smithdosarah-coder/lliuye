@@ -9,7 +9,7 @@
 - **后端**：`py scripts/start_uvicorn.py`（自动从项目根 `.env` 加载 TAVILY / DEEPSEEK / PROXY 等 env，校验缺失 key 后调 uvicorn；首次部署 `cp .env.example .env` 填值即可。直接 `python api_server.py` 会缺 key）
 - **前端**：`cd web && npm run dev`（Next.js 16，路由拓扑见 §7 canon vs legacy）
 - **Agent6 主管线（v16）**：`py v16_pipeline.py --source samples/<模板>.docx --material samples`（classifier → generator → QC gate 全链路 · 项目根 10 个 `v16_*.py` 实现 · 见 `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md`）
-- **旧版 Gradio 报告助手**：已归档至 `legacy_gradio/`（2026-04-29）· 如需 fallback 演示从 archive 恢复
+- **旧版 Gradio 报告助手**：已归档至 `legacy_gradio/`（2026-04-29）· **全栈隔离** · 详 §16
 
 ## 3. 架构原则
 
@@ -361,3 +361,40 @@ PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
 **Stale marker**: Tier 1-2 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
 
 详细规则 / 冲突解决 3 步 / 子域 CLAUDE.md 规范 / 当前积压回写任务 → 见 `docs/arch/instruction-source-of-truth.md`。
+
+## 16. Archived: legacy_gradio (备用 · 全栈隔离 · 2026-04-29)
+
+v15 form_filler / narrative_pipeline / Gradio v7.5 + v9 单机版 (`legacy_gradio/{app.py, portal_app.py, form_filler.py, narrative_pipeline.py, run_form_fill_cli.py}` + 5 子目录) · 2026-04-29 全栈隔离 (worker-A7 落地)。v16 主管线 (`v16_pipeline.py`) 已替代 · 已用真实材料跑通。
+
+### 隔离方式 (5 件 · 落实 PM 拍板 #4)
+
+1. **Import guard**: `legacy_gradio/__init__.py` 默认抛 `ImportError` · 仅 `ALLOW_LEGACY_GRADIO=1` 解锁
+2. **工具排除**: `pyproject.toml` 中 `pytest.norecursedirs` / `ruff.extend-exclude` / `coverage.omit` / `mypy.exclude` 全含 `legacy_gradio/`
+3. **主线代码不允许 import legacy_gradio**: 任何 `from legacy_gradio import ...` 或 `import legacy_gradio` 视作 regression · review 阻断
+4. **CLAUDE.md §2 + §16**: 启动方式标"全栈隔离 · 详 §16"，本节为单一 SOT
+5. **Worker onboarding 默认提示**: `RESET_MASTER_PLAN.md` 红线区注明"不读 legacy_gradio/ 除非显式 ALLOW_LEGACY_GRADIO=1"
+
+### Emergency demo 解锁
+
+```bash
+ALLOW_LEGACY_GRADIO=1 py legacy_gradio/app.py     # v9 portal
+ALLOW_LEGACY_GRADIO=1 py legacy_gradio/portal_app.py  # v7.5 single
+```
+
+demo 完关掉 · commit 演示日期 + 用例到 `docs/handoff/decisions-log.md` 留底 (新 Q-NNN entry · 含 trigger 原因 + 演示成功/失败 + 是否需要 fix-forward)。
+
+### 真删条件
+
+PM 拍板"v16 真稳了" → 任何 worker 写 PR + PM `Authorized-By` trailer → `git rm -rf legacy_gradio/`。在此之前**保留物理目录**作为客户走访期间 v16 翻车时的最后 fallback。
+
+### 与 v16 主管线的关系
+
+| 项 | legacy_gradio (v15) | v16 主管线 (current) |
+|---|---|---|
+| 入口 | `app.py` / `portal_app.py` (Gradio UI) | `v16_pipeline.py` CLI + `agent_report/api.py` API |
+| 形态 | 单机 webapp | 后端 API + Next.js 前端 |
+| 字段填法 | form_filler (规则 + 启发) | classifier → generator → QC 三阶段 |
+| 报告生成 | narrative_pipeline (单 prompt 长文) | section_generator Evidence-First 三阶段 |
+| QC | 无 | quality_scorer 9 维度评分 (gate, 不进 prompt) |
+| 状态 | 物理保留 · 不维护 · 不修 bug | 主线 · 持续迭代 |
+

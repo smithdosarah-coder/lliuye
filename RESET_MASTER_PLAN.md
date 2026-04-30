@@ -84,6 +84,7 @@ Step 3 · PRD + 商业化 (Phase B · 4-6 周 · 与 Step 1 后期并行)
 - ❌ Codex 跨 worktree 读 / 直接 push commit (它仅产 audit doc)
 - ❌ compression 后凭模糊印象做决策 (按本文 §5 恢复协议)
 - ❌ **任何迭代未同步更新 `docs/reset/state-snapshot.md`** (PM 2026-04-29 硬规 · 详 CLAUDE.md §14.1)
+- ❌ **读 `legacy_gradio/` 子目录或 import 其内任何 module** · 已全栈隔离 (CLAUDE.md §16) · worker / Codex / 任何 Agent 不读不引 · 仅 emergency demo `ALLOW_LEGACY_GRADIO=1` 解锁 (PM 拍板 #4 · 2026-04-29)
 
 ---
 

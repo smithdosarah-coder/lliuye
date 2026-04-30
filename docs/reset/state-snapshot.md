@@ -326,6 +326,32 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 5) · worker-A7 legacy_gradio 全栈隔离 (Block B 完)
+
+### What happened
+- worker-A7 落地 PM 拍板 #4 "legacy_gradio 物理保留 + 全栈隔离" (5 件):
+  1. `legacy_gradio/__init__.py` 新建 · `ALLOW_LEGACY_GRADIO=1` 才允许 import · 默认抛 `ImportError`
+  2. `pyproject.toml` 4 处加 exclude: `pytest.norecursedirs` / `ruff.extend-exclude` / `coverage.omit` / `mypy.exclude`
+  3. CLAUDE.md §16 新增章节 "Archived: legacy_gradio (备用 · 全栈隔离)" · 含隔离方式 5 件 + emergency 解锁 + 真删条件 + v15 vs v16 对比表
+  4. CLAUDE.md §2 line 12 改 "如需 fallback 演示从 archive 恢复" → "全栈隔离 · 详 §16"
+  5. RESET_MASTER_PLAN.md §6 红线区加"不读 legacy_gradio/" 红线 (worker / Codex / 任何 Agent 不读不引)
+
+### Triggered by
+- A7 onboarding §1.2 (PM 拍板 #4 第 4 件 · per phase-a-charter 加项)
+- Block B autonomous · 不阻 PM 拍板 cycle (与 Block A drift table 并行)
+
+### State change (delta)
+- legacy_gradio: physical 保留 · 但所有工具链 (pytest/ruff/coverage/mypy) 不再扫 · 主线代码 import 抛 ImportError
+- CLAUDE.md: §15 末 → §16 新增 (CLAUDE.md 总章数 15 → 16)
+- worker-A7 状态: drift table v1 ready (Block A 等 PM) → +Block B 完 (pending Block B commit)
+
+### Next
+- Commit Block B (5 件合 1 commit · Signal: `WORKER-A7-LEGACY-GRADIO-ISOLATED`)
+- 进 Block A.0: 3 active rule 回写 CLAUDE.md (Q-040 MAX_ROWS / Q-041 candidate metadata 4 字段 / PIPL fallback chain)
+- 进 Block A.1-A.7: master + 6 sub-PRD draft + 飞书双写
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
