@@ -2,9 +2,8 @@
   "schema_version": "1.0",
   "signal_type": "policy_event_fanout",
   "source_agent": "compliance",
+  "target_agent": "report",
   "trigger_at": "2026-04-29T15:00:00Z",
-  "fan_out_targets": ["alert", "report"],
-  "_payload_note": "本 fixture 同时给 /api/alert/policy_event + /api/report/policy_event · payload 一致 · 仅 target_agent 视 endpoint 不同 · A4 端 affected_client_ids 必填 · A6 端 affected_report_ids 必填",
   "event": {
     "event_id": "evt_pol_2026_04_29_a3b8f1d2",
     "scan_id": "scan_compli_20260429_1430_8e7c",
@@ -69,16 +68,16 @@
     "effective_at": "2026-05-25"
   },
   "_meta_for_reviewers": {
-    "_chain": "Agent5 检出新政策违规事件 → fan-out POST /api/alert/policy_event + POST /api/report/policy_event",
-    "_continuity_with_chains_2_3": "violation_events[0].client_id 与 agent3-to-4.json decision.client_id 一致 · violation_events[0].report_id 与 agent6-to-3.json report_json.profile_id 一致 · 端到端 demo chain 串联",
+    "_chain": "Agent5 检出新政策违规事件 → fan-out 之 report 端 · POST /api/report/policy_event",
+    "_pair_fixture": "对应的 alert 端 fixture 是 agent5-to-4.json · event payload 完全一致 · 仅 target_agent 不同 · 双 endpoint 同 schema (per §4.2)",
+    "_continuity_with_chain_2": "violation_events[0].report_id 与 agent6-to-3.json report_json.profile_id 一致 · affected_report_ids 含同一报告 ID · 端到端 demo chain 串联",
     "_principle_1_blind_test": "PM 不预知坑 · 故意让 violation_events 仅命中 1 条 · 但 triggered_rules 含 2 条 (其中 1 条尚未命中本客户 · 但 Phase B 客户授信余额变化时可能触发 red 级)",
     "_principle_2_difficulty": "中等档 · 不是模糊政策 (rule.threshold 含具体数值) · 也不是简单合规 (severity yellow + confidence 0.93)",
     "_principle_3_real_anchor": "政策 title / source_url / 条款形式锚定真实银保监 / 央行 / 央财办近年发文格式 (信用债承销 / 数据安全 / 应收账款融资等真实出过类似指导意见)",
     "_principle_4_desensitized": "policy.title / issuing_body 是合成版 · docId 是占位符 · 真发文格式参考 cbirc.gov.cn / pbc.gov.cn 真文",
-    "_principle_5_env_boundary": "Agent5 自己跑 4 阶段扫描后产出 · 不替 Agent4 / Agent6 做 hitlist / 报告补充 · fixture 仅传 event 与 affected list",
-    "_drop_when_consumed": "A4-alert / A4-report / A4-compli 子 worker 实装时删 _meta_for_reviewers + 拆成两份 payload (一份给 alert · 一份给 report) · 本 fixture 是 spec 锚点 (双消费方共形)",
-    "_alert_expected_behavior": "Agent4 应按 §4.6 用 affected_client_ids = ['0a1b9c4d-...'] 精准入 scan · scenario_key = 'policy_event_evt_pol_2026_04_29_a3b8f1d2'",
+    "_principle_5_env_boundary": "Agent5 自己跑 4 阶段扫描后产出 · 不替 Agent6 做报告补充 · fixture 仅传 event 与 affected list",
+    "_drop_when_consumed": "A4-report 子 worker 实装 /api/report/policy_event 时删 _meta_for_reviewers · 仅保留 6 个真字段",
     "_report_expected_behavior": "Agent6 应按 §4.6 在 report_id='report_zhiyun_industrial_1745922000' 上标记 '合规章节待补' · 不自动重跑 v16 · 等 RM ack",
-    "_business_line_test_coverage": "本 fixture 命中 corporate (智云工业软件) · inclusive 也在 affected 范围内但本 fixture 无具体命中 client · A4-alert 子 worker 测时另补 inclusive fixture"
+    "_business_line_test_coverage": "本 fixture 命中 corporate (智云工业软件) · inclusive 也在 affected 范围内但本 fixture 无具体命中 report · A4-report 子 worker 测时另补 inclusive fixture"
   }
 }

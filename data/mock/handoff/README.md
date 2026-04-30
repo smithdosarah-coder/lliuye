@@ -7,7 +7,8 @@
 | `agent1-to-6.json` | Agent1.candidate_company → Agent6.upload_intent | `docs/contracts/agent-handoff-schemas.md` §1 |
 | `agent6-to-3.json` | Agent6.report_json → Agent3.decision_input | §2 |
 | `agent3-to-4.json` | Agent3.decision → Agent4.client_pool_signal | §3 |
-| `agent5-to-4-6.json` | Agent5.policy_event → Agent4 / Agent6 | §4 |
+| `agent5-to-4.json` | Agent5.policy_event → Agent4 (alert 端 · target_agent="alert") | §4 |
+| `agent5-to-6.json` | Agent5.policy_event → Agent6 (report 端 · target_agent="report") | §4 |
 
 ## 不是什么
 
@@ -26,4 +27,4 @@
 
 ## 维护
 
-`agent-handoff-schemas.md` schema 改 → 4 fixture 同步改 (主 CLI 把关)。
+`agent-handoff-schemas.md` schema 改 → 5 fixture (链路 1/2/3 各 1 + 链路 4 fan-out 拆 alert/report 共 2) 同步改 (主 CLI 把关)。

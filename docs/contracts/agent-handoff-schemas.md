@@ -370,7 +370,8 @@ Cookie: <RM session cookie>
 |---|---|---|---|---|
 | `decision_id` | str | ✓ | Agent3 `_DECISION_CACHE` key (`"dec_" + uuid hex12`) | 决策缓存 ID · 用于 Agent4 回查 / 复跑 |
 | `client_id` | str (UUID v4) | ✓ | 服务端生成 (Agent3 模拟放款时铸) | Agent4 后续以此追踪 · 与 channel `profile_id` 不同 (放款后客户身份升级) |
-| `profile_id` | str (UUID v4) | ✓ | 链路 2 `report_json.profile_id` 透传 | 溯源 Agent6 报告 |
+| `report_id` | str | ✓ | 链路 2 `report_json.profile_id` 透传 (`report_<company>_<timestamp>` 人类可读 · 见 `enterprise_profile.md` §2.1) | 溯源 Agent6 报告 · 不是 UUID |
+| `upstream_profile_id` | str (UUID v4) | ✓ | 链路 2 `report_json.metadata.upstream_profile_id` 透传 | 跨系统机器追踪 ID · 与 channel session 同源 (链路 1 `candidate.profile_id`) · UUID v4 |
 | `company_name` | str | ✓ | 链路 2 `report_json.company_name` | |
 | `unified_credit_code` | Optional[str] | — | 链路 2 `report_json.unified_credit_code` | |
 | `business_line` | enum | ✓ | 链路 2 `report_json.business_line` | per `field-naming.md` §3.1 |
@@ -530,7 +531,7 @@ X-Idempotency-Key: <event_id · 服务端 dedup>
 
 | 字段 | 类型 | required | 来源 | 说明 |
 |---|---|---|---|---|
-| `event_id` | str (UUID v4) | ✓ | Agent5 服务端生成 | 幂等键 / 跨 Agent 追踪 |
+| `event_id` | str (regex `^evt_[a-z0-9_]+$`) | ✓ | Agent5 服务端生成 (推荐格式 `evt_pol_<YYYY_MM_DD>_<hex8>` · 人类可读便于 deadletter 排错) | 幂等键 / 跨 Agent 追踪 · **不是 UUID** (debug 友好优先 · 24h dedup 窗口由 `^evt_[a-z0-9_]+$` 唯一性保证) |
 | `scan_id` | str | ✓ | Agent5 `/api/compliance/policy_scan` 持久化 ID | 溯源 Agent5 完整产物 |
 | `policy_meta` | dict | ✓ | Agent5 `policy_meta` 透传 | `{title, source_url, issuing_body, issued_at, fetched_at}` |
 | `policy_category` | enum | ✓ | Agent5 抽规则后归类 | `"prudential" \| "consumer_protection" \| "anti_money_laundering" \| "credit_risk" \| "data_security" \| "industry_specific" \| "other"` |
@@ -593,9 +594,14 @@ X-Idempotency-Key: <event_id · 服务端 dedup>
 4. ✓ 写 `data/handoff/compliance_to_report/<event_id>.json` 含 `{event_id, marked_report_ids, marked_at}`
 5. ❌ 不在 ReportJSON 顶层强加 `policy_events` 字段 (会破坏 §2 enterprise_profile.md frozen schema) · 用 `agent_outputs.compliance_appendix` 子结构承载 (Phase B v17 扩展)
 
-### 4.7 fixture · `data/mock/handoff/agent5-to-4-6.json`
+### 4.7 fixture · `data/mock/handoff/agent5-to-{4,6}.json` (双 fixture · 一对一对应 endpoint)
 
-见 §6 fixture index · 一份 "应收账款融资风控指引" 政策事件触发的 fan-out 样例 · `affected_client_ids` 含链路 3 的 `0a1b9c4d-...` (智云工业软件 client_id) · `affected_report_ids` 含链路 2 的 `report_zhiyun_industrial_1745922000` · 端到端串联。
+见 §6 fixture index · "应收账款融资风控指引" 政策事件触发的 fan-out 样例拆为两份 · 每份对应一个 endpoint 的真 HTTP POST · `event` payload 一致 · 仅 `target_agent` 不同:
+
+- `agent5-to-4.json` — `target_agent: "alert"` · `affected_client_ids` 必填含链路 3 的 `0a1b9c4d-...` (智云工业软件 client_id)
+- `agent5-to-6.json` — `target_agent: "report"` · `affected_report_ids` 必填含链路 2 的 `report_zhiyun_industrial_1745922000`
+
+两份 fixture 的 `event.violation_events[*]` 同时携带 `client_id` + `report_id` 双向追踪 (per §4.5 ViolationEvent 两字段均 Optional) · 端到端串联。
 
 ## 5. Export Contract 共形 spec (Cat 13)
 
@@ -770,7 +776,8 @@ CI 共形 lint 由 worker-A1 SSOT lint 同步加规则:
 | 1 | `data/mock/handoff/agent1-to-6.json` | ✓ v1.0 | 杭州智云工业软件 (profile_id `550e8400-...`) |
 | 2 | `data/mock/handoff/agent6-to-3.json` | ✓ v1.0 | 同上 (upstream_session_id / upstream_match_score 串联) |
 | 3 | `data/mock/handoff/agent3-to-4.json` | ✓ v1.0 | 同上 → 决策 approved_with_conditions / risk_grade B / client_id `0a1b9c4d-...` |
-| 4 | `data/mock/handoff/agent5-to-4-6.json` | ✓ v1.0 | 同上 violation 命中 (client_id + report_id 双向追踪) |
+| 4a | `data/mock/handoff/agent5-to-4.json` | ✓ v1.0 | 同上 · `target_agent: "alert"` · violation 命中 client_id `0a1b9c4d-...` |
+| 4b | `data/mock/handoff/agent5-to-6.json` | ✓ v1.0 | 同上 · `target_agent: "report"` · violation 命中 report_id `report_zhiyun_industrial_1745922000` |
 
 Fixture 必须符合 §3.5 反结果导向 5 原则 (`CLAUDE.md` §3.5):
 
