@@ -1,0 +1,122 @@
+{
+  "scenario_id": "credit_v15",
+  "session_id": "sess_credit_v15_demo_001",
+  "label": "新客户首贷批核 v1.5 · KS 0.42 (绿区 · 简单档)",
+  "stage_messages": {
+    "load_csv": "采样 12,400 条历史样本 · 6 个月窗口...",
+    "hit_rules": "规则命中扫描 · 14 条 v1.5-d3 规则...",
+    "calc_ks": "计算 KS / AUC / 通过率 / 坏账率..."
+  },
+  "ruleset": {
+    "description": "新客户首贷批核策略 v1.5 (草稿 · 待审批)",
+    "rules": [
+      {
+        "rule_id": "NC-V15-R001",
+        "name": "年龄准入",
+        "description": "22 ≤ 年龄 ≤ 55",
+        "conditions": [{"field": "age", "operator": "between", "value": [22, 55]}],
+        "action": "pass",
+        "priority": 1
+      },
+      {
+        "rule_id": "NC-V15-R002",
+        "name": "信用评分主链",
+        "description": "credit_score ≥ 620 · 进入主链",
+        "conditions": [{"field": "credit_score", "operator": ">=", "value": 620}],
+        "action": "pass",
+        "priority": 2
+      },
+      {
+        "rule_id": "NC-V15-R003",
+        "name": "工作/经营年限",
+        "description": "受雇 ≥ 12 月 OR 经营 ≥ 2 年",
+        "conditions": [
+          {"field": "job_tenure_months", "operator": ">=", "value": 12},
+          {"field": "business_years", "operator": ">=", "value": 2}
+        ],
+        "action": "pass",
+        "priority": 3
+      },
+      {
+        "rule_id": "NC-V15-R004",
+        "name": "负债收入比",
+        "description": "debt_income_ratio ≤ 0.55",
+        "conditions": [{"field": "debt_income_ratio", "operator": "<=", "value": 0.55}],
+        "action": "pass",
+        "priority": 4
+      },
+      {
+        "rule_id": "NC-V15-R005",
+        "name": "12 月内 90 天以上逾期",
+        "description": "overdue_90_l12m == 0",
+        "conditions": [{"field": "overdue_90_l12m", "operator": "==", "value": 0}],
+        "action": "pass",
+        "priority": 5
+      },
+      {
+        "rule_id": "NC-V15-R006",
+        "name": "司法风险",
+        "description": "无被执行 / 失信 / 行政处罚",
+        "conditions": [{"field": "legal_risk_tags", "operator": "empty", "value": null}],
+        "action": "pass",
+        "priority": 6
+      },
+      {
+        "rule_id": "NC-V15-R007",
+        "name": "边际客户人工复核",
+        "description": "580 ≤ credit_score < 620 → review",
+        "conditions": [{"field": "credit_score", "operator": "between", "value": [580, 620]}],
+        "action": "manual_review",
+        "priority": 7
+      },
+      {
+        "rule_id": "NC-V15-R008",
+        "name": "兜底拒绝",
+        "description": "其他客户 → reject",
+        "conditions": [],
+        "action": "reject",
+        "priority": 99
+      }
+    ]
+  },
+  "ks": {
+    "ksPeak": 0.42,
+    "auc": 0.762,
+    "passRate": 32.0,
+    "badRate": 2.4,
+    "points": [
+      {"bin": 0, "tpr": 0.0, "fpr": 0.0, "ks": 0.0},
+      {"bin": 1, "tpr": 0.18, "fpr": 0.06, "ks": 0.12},
+      {"bin": 2, "tpr": 0.34, "fpr": 0.13, "ks": 0.21},
+      {"bin": 3, "tpr": 0.48, "fpr": 0.21, "ks": 0.27},
+      {"bin": 4, "tpr": 0.6, "fpr": 0.3, "ks": 0.30},
+      {"bin": 5, "tpr": 0.72, "fpr": 0.4, "ks": 0.32},
+      {"bin": 6, "tpr": 0.81, "fpr": 0.51, "ks": 0.30},
+      {"bin": 7, "tpr": 0.88, "fpr": 0.63, "ks": 0.25},
+      {"bin": 8, "tpr": 0.93, "fpr": 0.76, "ks": 0.17},
+      {"bin": 9, "tpr": 0.97, "fpr": 0.88, "ks": 0.09},
+      {"bin": 10, "tpr": 1.0, "fpr": 1.0, "ks": 0.0}
+    ]
+  },
+  "samples": [
+    {"key": "pass", "label": "通过", "count": 3968, "pct": 32.0, "bad_rate": 2.4},
+    {"key": "review", "label": "复核", "count": 1612, "pct": 13.0, "bad_rate": 5.8},
+    {"key": "block", "label": "拒绝", "count": 6820, "pct": 55.0, "bad_rate": 18.4}
+  ],
+  "rule_stats": [
+    {"rule_id": "NC-V15-R002", "hit": 6432, "fp": 188, "tn": 5772},
+    {"rule_id": "NC-V15-R004", "hit": 4870, "fp": 132, "tn": 4548},
+    {"rule_id": "NC-V15-R007", "hit": 1612, "fp": 94, "tn": 1418},
+    {"rule_id": "NC-V15-R008", "hit": 6820, "fp": 1252, "tn": 5568}
+  ],
+  "metrics": {
+    "total_records": 12400,
+    "approved": 3968,
+    "rejected": 6820,
+    "manual_review": 1612,
+    "approval_rate": 0.32,
+    "bad_rate": 0.024,
+    "ks_peak": 0.42,
+    "label_column_used": "label_default"
+  }
+}

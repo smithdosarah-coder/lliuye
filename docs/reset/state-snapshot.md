@@ -456,6 +456,42 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 21:30 · WORKER-A4-RISKCTRL-ADAPTER-DONE
+
+### What happened
+- worker-A4-riskctrl 12 step 全部 commit · 完成 thin adapter 改造 (Phase A 验收硬线 #4 第 1 子)
+- 4 gate state migration: 13 散 useState → started/selectedSession/liveData/selectedRuleOrSegment
+- mock array (3 难度档): sess_credit_v15(KS 0.42 绿) / sess_aml_kyc(KS 0.31 中) / sess_fraud_high(KS 0.28 极端)
+- 8 panel 接 sessionData props (Hero/IndicatorRow/Query/Rules/Recent/Conversation/RiskComposer/RiskOutputPanel)
+- backend SSE 化: dsl_gen + backtest 改 StreamingResponse · 接 shared.sse_envelope helpers
+- LLM caller 迁移 (audit Cat 7 caller 3 + 5 第 1 处): llm_judge.py + api.py:dsl_gen 改 shared.llm_caller
+- Pydantic alias 兼容前端 rule_text → strategy_intent 过渡
+- frontend client v3.x 残留 cleanup: BacktestRequest body {ruleset, csv_path} (audit Cat 3 mismatch #3)
+- export trio 新 endpoint (audit Cat 13 闭): /api/riskctrl/export_{docx,xlsx,pdf} · 本地 python-docx / openpyxl / reportlab
+- demo endpoint /api/riskctrl/demo/run (物理隔离) · 3 fixture (反 5 原则 §3.5 难度分层)
+- live wiring: backtest done event → liveData (mergeBacktestIntoSession helper · snake → camel)
+- 3 Playwright spec (mock-switch / live-dsl-gen / sample-segment-detail · 14 test collected)
+- caller-binding pytest test PASS (4 case · LLMJudge → LLMCaller)
+- legacy `agent-riskctrl-session.ts` (单 const 294 行) 删除
+
+### Triggered by
+- 用户 GO signal commit `62ab218 · A4-RISKCTRL-GO-AFTER-A3` (PM 拍 GO · A3 cherry-pick 已完)
+
+### State change (delta)
+- A4-riskctrl thin adapter: WAITING → ADAPTER-DONE (12 step 全 land)
+- LLM caller migrations: caller 3 (llm_judge) + caller 5 第 1 处 (api.py:dsl_gen) DONE · 4 处 caller 5 待 (alert/compli/credit/report)
+- Phase A 验收硬线 #4: 5 thin adapter 第 1 子完 · 等 A4-credit/alert/compli/report 同形跟进
+- agent_riskctrl/api.py: 261 行 (v4.0 JSON) → 600+ 行 (v4.1 SSE + export + demo)
+- workspace 13 散 useState → 4 gate + 5 transient · 切下拉真切 panel 真 wire backtest live
+- 新文件: agent_riskctrl/exports.py / demo.py / 3 fixture / 1 pytest / 3 playwright spec
+- 删文件: web/src/lib/mock/agent-riskctrl-session.ts (legacy)
+
+### Next
+- 主 CLI 等 worker-A4-riskctrl DONE signal commit (本段后跟) · 触发 codex post-DONE peer review (插入点 2)
+- AGREE → cherry-pick `feat/phase-a4-riskctrl-adapter` → chore/l0-infra → ECS 部署 (改 web/ · 完整 build 流 5-10 min · per CLAUDE.md §13.1)
+- 4 兄弟 A4 worker (credit/alert/compli/report) 已 GO · 各自 worktree 推进 · 最终 5 子全 DONE → Phase A 硬线 #4 闭
+- shared hook 兼任 (PM 倾向 A4-credit · 见 onboarding §6.2 + 风险 #4) · 待 PM 拍
+
 (下次更新模板)
 
 ---

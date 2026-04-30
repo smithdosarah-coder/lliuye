@@ -7,7 +7,7 @@
  * 左 Query / Rules / Recent · 中 Conversation + Composer · 右 DSL 树 / KS 双线 / Sample bar
  *
  * 继承 canon A 章 · Agent tint: --t-riskctrl (绛紫)
- * 业务：策略经理协同 AI 写 DSL → 回测 KS/通过率/坏账 → 调参 → 送审
+ * 业务：风险经理协同 AI 写 DSL → 回测 KS/通过率/坏账 → 调参 → 送审
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,19 +35,25 @@ import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
   exportDocx as exportDocxApi,
+  exportPdf as exportPdfApi,
+  exportXlsx as exportXlsxApi,
   LiveFailError,
   runBacktest,
   runDslGen,
+  type BacktestDonePayload,
 } from "@/lib/api/riskctrl";
 import {
   RISKCTRL_GLOBAL_STATS,
-  RISKCTRL_SESSION,
+  RISKCTRL_MOCK_SESSIONS_MAP,
+  RISKCTRL_MOCK_SESSIONS_LIST,
+  RISKCTRL_DEFAULT_SESSION_ID,
   type ConversationMessage,
   type DslNode,
   type RiskctrlRecentSession,
+  type RiskctrlSession,
   type RuleRef,
   type SampleBar,
-} from "@/lib/mock/agent-riskctrl-session";
+} from "@/lib/mock/agent-riskctrl-sessions";
 
 const AGENT_KEY = "riskctrl";
 const AGENT_HREF = "/archive/riskctrl";
@@ -72,17 +78,61 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 
 type RiskTrigger = "primary_dsl" | "secondary_preset" | "tertiary_history";
 
+/* ─── backtest done event → liveData session merge (Step 8 · Phase A worker-A4) ───
+ * 后端 backtest done 含 panels (ruleset/ks/samples/rule_stats) + metrics 顶层 KPI ·
+ * 前端将 backend snake_case 字段 normalize 为 RiskctrlSession camelCase shape ·
+ * 与 base mock session merge: ks/samples/ruleStats 切真数据 · 其他 (id/objective/
+ * stage/query/dsl/conversation/recent) 保 base · live 视觉壳保留. */
+function mergeBacktestIntoSession(
+  base: RiskctrlSession,
+  done: BacktestDonePayload,
+): RiskctrlSession {
+  return {
+    ...base,
+    id: done.session_id ?? base.id,
+    stage: "live · 回测完成",
+    updated: "刚刚",
+    ks: {
+      ksPeak: done.ks?.ksPeak ?? 0,
+      auc: done.ks?.auc ?? 0,
+      passRate: done.ks?.passRate ?? 0,
+      badRate: done.ks?.badRate ?? 0,
+      points: done.ks?.points ?? [],
+    },
+    samples: (done.samples ?? []).map((s) => ({
+      key: s.key,
+      label: s.label,
+      count: s.count,
+      pct: s.pct,
+      badRate: s.bad_rate,
+    })),
+    ruleStats: (done.rule_stats ?? []).map((r) => ({
+      ruleId: r.rule_id ?? "",
+      hit: r.hit,
+      fp: r.fp,
+      tn: r.tn,
+    })),
+  };
+}
+
+type ExportKind = "docx" | "xlsx" | "pdf";
+
 type ExportInfo = {
   status: "idle" | "running" | "done" | "error";
+  /** kind 标识本次正在 / 最近一次完成 / 失败的导出格式 (UI 三按钮分别 reflect status) */
+  kind?: ExportKind;
   message?: string;
 };
 
 type RecentLabel = { value: string; label: string; demo?: boolean };
 
-const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = [
-  { value: "demo-credit-v15-d3", label: "v1.5-d3 · KS 0.42 / 通过 32% (示例)", demo: true },
-  { value: "demo-credit-v15-d2", label: "v1.5-d2 · KS 0.38 / 通过 35% (示例)", demo: true },
-];
+/* Recent dropdown options 由 3 mock session array 派生 (workspace-state-protocol §3 mock array)
+ * 每条选中后 onSelectRecent 同步 setSelectedSession · 切下拉 panel 全跟切 (Step 3 panel props 化后生效) */
+const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = RISKCTRL_MOCK_SESSIONS_LIST.map((s) => ({
+  value: s.id,
+  label: `${s.objective} · KS ${s.ks.toFixed(2)} (示例)`,
+  demo: true,
+}));
 
 const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
   { value: "preset-credit-baseline", label: "信贷基线 · 通用 8 维评分卡" },
@@ -91,11 +141,26 @@ const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
 ];
 
 export default function RiskctrlWorkspace() {
-  /* Stage CF2 · empty-state-design-protocol v1.0 默认 started=false ·
-     用户写 DSL · 选预置 · 选历史 才 setStarted(true) · panel 真数据填入。
-     mock data 不 default load · 入口 dropdown 标 (示例) 与 production 路径分离。
-     既有 scanned state 保留 (post-scan 视觉解锁) · started 是更外层的"是否进入功能态"。 */
-  const [started, setStarted] = useState(false);
+  /* workspace-state-protocol v1.1 §2 强制 4 gate ·
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedRuleOrSegment
+     sessionData = liveData ?? mock[selectedSession] · 5 panel 单点派生 · 切下拉全跟切。
+     started = "是否进入功能态" · empty-state-design-protocol v1.0 用户触发后才 setStarted(true)。 */
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(RISKCTRL_DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<RiskctrlSession | null>(null);
+  const [selectedRuleOrSegment, setSelectedRuleOrSegment] = useState<
+    { kind: "rule"; id: string } | { kind: "segment"; key: SampleBar["key"] } | null
+  >(null);
+
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: RiskctrlSession =
+    liveData ??
+    RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
+    RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
+
+  const isLive = liveData !== null;
+
+  /* 3 CTA 触发分支 + 既有 trigger/recent/preset 选择 state */
   const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
   const [recent, setRecent] = useState<string>("");
   const [preset, setPreset] = useState<string>("");
@@ -147,6 +212,14 @@ export default function RiskctrlWorkspace() {
     setRetryHandler(null);
   }
 
+  /* lastRuleset · dsl_gen done 后 store 整 ruleset 对象 · backtest 直消费 (Step 8 进 liveData) */
+  const [lastRuleset, setLastRuleset] = useState<Record<string, unknown> | null>(null);
+  /* Default 指向真存在的 7500 行历史贷款 fixture (CLAUDE.md §10 agent2 mock).
+     旧默认 "samples/sample.csv" 不存在 · backtest 必返 400 (Q-040 Demo blocker). */
+  const [lastSampleCsvPath, setLastSampleCsvPath] = useState<string>(
+    "data/mock/agent2-samples/loans.csv",
+  );
+
   /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
   const triggerDslGen = useCallback(async (ruleText: string) => {
     const text = ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户";
@@ -156,8 +229,12 @@ export default function RiskctrlWorkspace() {
     setScanError("");
     clearLiveFail();
     try {
-      const { rulesetId: sid } = await runDslGen({ ruleText: text });
-      if (sid) setRulesetId(sid);
+      const result = await runDslGen({
+        strategyIntent: text,
+        sampleCsvPath: lastSampleCsvPath,
+      });
+      if (result?.ruleset_id) setRulesetId(result.ruleset_id);
+      if (result?.ruleset) setLastRuleset(result.ruleset);
     } catch (e) {
       recordLiveFail("DSL 生成", e, () => triggerDslGen(text));
       setScanError(e instanceof Error ? e.message : String(e));
@@ -165,14 +242,20 @@ export default function RiskctrlWorkspace() {
       setScanRunning(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lastSampleCsvPath]);
 
-  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 */
+  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 ·
+     选 recent (mock session) 时同步切 selectedSession · 退 live mode · 清 selection */
   const onSelectPreset = useCallback((value: string) => {
     setPreset(value);
   }, []);
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
+    if (value && RISKCTRL_MOCK_SESSIONS_MAP[value]) {
+      setSelectedSession(value);
+      setLiveData(null);
+      setSelectedRuleOrSegment(null);
+    }
   }, []);
   /* 单 "应用" button · preset 优先于 recent · 都没选则 disabled */
   const onApplySelection = useCallback(() => {
@@ -189,60 +272,81 @@ export default function RiskctrlWorkspace() {
   }, [preset, recent]);
 
   /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发.
-     Stage Fix · 422 root cause: backend 必填 instruction + uploaded_files
-     (Pydantic list[str] 无 default factory) · 此处显式传 [] 防 422 · 失败 banner */
+     Phase A worker-A4 · backend SSE body 改 {ruleset, csv_path, ...} · 必须先 dsl_gen
+     拿 ruleset · lastRuleset 兜底空 (会 422 显示 banner 提示用户先 gen). */
   const triggerBacktest = useCallback(async () => {
+    if (!lastRuleset) {
+      setScanError("请先生成 DSL · 再跑回测 (backtest 必须含 ruleset)");
+      return;
+    }
     setScanRunning(true);
     setScanError("");
     clearLiveFail();
     try {
-      await runBacktest({
-        instruction: "回测当前策略",
-        uploadedFiles: [],
+      const result = await runBacktest({
+        ruleset: lastRuleset,
+        csvPath: lastSampleCsvPath,
       });
       setScanned(true);
+      if (result) {
+        // Step 8 · backtest done → liveData · panel 整套切真数据
+        const base =
+          RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
+          RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
+        const merged = mergeBacktestIntoSession(base, result);
+        setLiveData(merged);
+      }
     } catch (e) {
       recordLiveFail("样本回测", e, () => triggerBacktest());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
     }
-  }, []);
+  }, [lastRuleset, lastSampleCsvPath, selectedSession]);
 
-  /* Word 导出 · POST /api/riskctrl/export_docx · 后端尚未 deliver · 优雅 fallback */
-  const triggerExportDocx = useCallback(async () => {
+  /* 三件套导出 · POST /api/riskctrl/export_{docx,xlsx,pdf} · backend Step 7 已实装
+     (agent_riskctrl/exports.py · python-docx / openpyxl / reportlab 本地渲染 · 不走境外 API) */
+  const triggerExport = useCallback(async (kind: ExportKind) => {
     if (!rulesetId && !scanned) {
       setExportInfo({
         status: "error",
+        kind,
         message: "尚无回测产物 · 先生成 DSL 或选预置 · 再跑回测",
       });
       return;
     }
-    setExportInfo({ status: "running" });
+    setExportInfo({ status: "running", kind });
     const sid = rulesetId || preset || "demo";
+    const apiByKind = {
+      docx: exportDocxApi,
+      xlsx: exportXlsxApi,
+      pdf: exportPdfApi,
+    } as const;
+    const labelByKind = { docx: "Word", xlsx: "Excel", pdf: "PDF" } as const;
     try {
-      const blob = await exportDocxApi(sid);
+      const blob = await apiByKind[kind](sid);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `riskctrl_backtest_${sid}.docx`;
+      a.download = `riskctrl_backtest_${sid}.${kind}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setExportInfo({ status: "done" });
+      setExportInfo({ status: "done", kind });
     } catch (e) {
       if (e instanceof LiveFailError && e.status === 404) {
-        /* 后端 endpoint 未上线 · 显式 pending 不算真错 · 不弹 banner */
         setExportInfo({
           status: "error",
-          message: "导出端点 /api/riskctrl/export_docx 待 Stage D 后端实装",
+          kind,
+          message: `导出端点 /api/riskctrl/export_${kind} 不可用`,
         });
         return;
       }
-      recordLiveFail("Word 导出", e, () => triggerExportDocx());
+      recordLiveFail(`${labelByKind[kind]} 导出`, e, () => triggerExport(kind));
       setExportInfo({
         status: "error",
+        kind,
         message: e instanceof Error ? e.message : String(e),
       });
     }
@@ -259,9 +363,11 @@ export default function RiskctrlWorkspace() {
         data-scanned={scanned ? "yes" : "no"}
         data-started={started ? "yes" : "no"}
         data-trigger={trigger ?? "none"}
+        data-session={sessionData.id}
+        data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
       >
-        <RiskHero />
+        <RiskHero sessionData={sessionData} />
 
         <RiskTriggerBar
           recent={recent}
@@ -342,12 +448,29 @@ export default function RiskctrlWorkspace() {
               </div>
             ) : null}
 
-            <RiskIndicatorRow />
+            <RiskIndicatorRow sessionData={sessionData} />
             <div className="rpt-body">
               <aside className="rpt-side">
-                <QueryPanel />
-                <RulesPanel />
-                <RecentPanel />
+                <QueryPanel sessionData={sessionData} />
+                <RulesPanel
+                  sessionData={sessionData}
+                  selectedRuleId={
+                    selectedRuleOrSegment?.kind === "rule"
+                      ? selectedRuleOrSegment.id
+                      : null
+                  }
+                  onSelectRule={(id) => setSelectedRuleOrSegment({ kind: "rule", id })}
+                />
+                <RecentPanel
+                  sessionData={sessionData}
+                  selectedSession={selectedSession}
+                  onSelectSession={(id) => {
+                    setSelectedSession(id);
+                    setLiveData(null);
+                    setSelectedRuleOrSegment(null);
+                    setRecent(id);
+                  }}
+                />
               </aside>
               <main className="rpt-main">
                 <div data-testid="riskctrl-backtest-cta">
@@ -367,15 +490,22 @@ export default function RiskctrlWorkspace() {
                     ]}
                   />
                 </div>
-                <ConversationPanel>
-                  <RiskComposer />
+                <ConversationPanel sessionData={sessionData}>
+                  <RiskComposer sessionData={sessionData} />
                 </ConversationPanel>
               </main>
               <aside className="rpt-aux">
                 <RiskOutputPanel
+                  sessionData={sessionData}
                   rulesetId={rulesetId}
                   exportInfo={exportInfo}
-                  onExportDocx={triggerExportDocx}
+                  onExport={triggerExport}
+                  selectedSegmentKey={
+                    selectedRuleOrSegment?.kind === "segment"
+                      ? selectedRuleOrSegment.key
+                      : null
+                  }
+                  onSelectSegment={(key) => setSelectedRuleOrSegment({ kind: "segment", key })}
                 />
               </aside>
             </div>
@@ -508,7 +638,7 @@ function RiskEmptySkeleton() {
           样本分布 (pass / review / block) · 回测完成显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="export">
-          回测报告导出 · 完成后可一键导出 Word
+          回测报告导出 · 完成后可一键导出 Word / Excel / PDF
         </div>
       </div>
     </section>
@@ -517,8 +647,8 @@ function RiskEmptySkeleton() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function RiskHero() {
-  const s = RISKCTRL_SESSION;
+function RiskHero({ sessionData }: { sessionData: RiskctrlSession }) {
+  const s = sessionData;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -546,8 +676,8 @@ function RiskHero() {
 
 /* ── v2 Hero · KS / AUC / 通过率 三大指标卡 ──────────── */
 
-function RiskIndicatorRow() {
-  const s = RISKCTRL_SESSION;
+function RiskIndicatorRow({ sessionData }: { sessionData: RiskctrlSession }) {
+  const s = sessionData;
   const { ksPeak, auc, passRate, badRate } = s.ks;
   const samples = s.samples;
   const pass = samples.find((x) => x.key === "pass");
@@ -669,8 +799,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /* ── 左栏 · Query 策略目标 ──────────────────────────── */
 
-function QueryPanel() {
-  const q = RISKCTRL_SESSION.query;
+function QueryPanel({ sessionData }: { sessionData: RiskctrlSession }) {
+  const q = sessionData.query;
   return (
     <section className="rpt-panel rpt-panel--tpl">
       <PanelPinHandle
@@ -732,9 +862,17 @@ const RULE_STATUS_LABEL: Record<RuleRef["status"], string> = {
   retired: "下线",
 };
 
-function RulesPanel() {
-  const rules = RISKCTRL_SESSION.rules;
-  const current = RISKCTRL_SESSION.currentRule;
+function RulesPanel({
+  sessionData,
+  selectedRuleId,
+  onSelectRule,
+}: {
+  sessionData: RiskctrlSession;
+  selectedRuleId: string | null;
+  onSelectRule: (id: string) => void;
+}) {
+  const rules = sessionData.rules;
+  const current = sessionData.currentRule;
   const active = rules.filter((r) => r.status === "active").length;
   return (
     <section className="rpt-panel rpt-panel--mat">
@@ -763,6 +901,17 @@ function RulesPanel() {
             className="rc-rule-card"
             data-status={r.status}
             data-current={r.id === current.id ? "yes" : "no"}
+            data-selected={r.id === selectedRuleId ? "yes" : "no"}
+            data-testid={`riskctrl-rule-card-${r.id}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelectRule(r.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectRule(r.id);
+              }
+            }}
           >
             <header className="rc-rule-head">
               <span className="rc-rule-code">{r.code}</span>
@@ -784,8 +933,16 @@ function RulesPanel() {
 
 /* ── 左栏 · Recent ────────────────────────────────── */
 
-function RecentPanel() {
-  const recent = RISKCTRL_SESSION.recentSessions;
+function RecentPanel({
+  sessionData,
+  selectedSession,
+  onSelectSession,
+}: {
+  sessionData: RiskctrlSession;
+  selectedSession: string;
+  onSelectSession: (id: string) => void;
+}) {
+  const recent = sessionData.recentSessions;
   return (
     <section className="rpt-panel rpt-panel--tl">
       <PanelPinHandle
@@ -805,11 +962,13 @@ function RecentPanel() {
         <select
           className="rpt-tl-switch"
           aria-label="切换 session"
-          defaultValue={RISKCTRL_SESSION.id}
+          value={selectedSession}
+          onChange={(e) => onSelectSession(e.target.value)}
+          data-testid="riskctrl-session-switch"
         >
-          {recent.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.objective}
+          {RISKCTRL_MOCK_SESSIONS_LIST.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.objective}
             </option>
           ))}
         </select>
@@ -846,9 +1005,15 @@ function RecentRow({ row }: { row: RiskctrlRecentSession }) {
 
 /* ── 中栏 · Conversation / Composer（复用 canon 模式） ── */
 
-function ConversationPanel({ children }: { children?: React.ReactNode }) {
-  const msgs = RISKCTRL_SESSION.conversation;
-  const s = RISKCTRL_SESSION;
+function ConversationPanel({
+  sessionData,
+  children,
+}: {
+  sessionData: RiskctrlSession;
+  children?: React.ReactNode;
+}) {
+  const msgs = sessionData.conversation;
+  const s = sessionData;
   return (
     <section className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
       <PanelPinHandle
@@ -1009,11 +1174,11 @@ function AiThinkingMsg({ msg }: { msg: ConversationMessage }) {
 function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
   return (
     <li className="rpt-msg rpt-msg--user">
-      <MessagePinHandle {...msgPinProps(msg, "策略经理")} />
+      <MessagePinHandle {...msgPinProps(msg, "风险经理")} />
       <div className="rpt-msg-body rpt-msg-body--user">
         <div className="rpt-msg-meta rpt-msg-meta--user">
           <span className="rpt-msg-at">{msg.at}</span>
-          <span className="rpt-msg-who">策略经理 · 李敏</span>
+          <span className="rpt-msg-who">风险经理 · 李敏</span>
         </div>
         <div className="rpt-msg-card rpt-msg-card--user">{msg.content}</div>
       </div>
@@ -1025,11 +1190,11 @@ function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
 function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
   return (
     <li className="rpt-msg rpt-msg--user rpt-msg--cmd">
-      <MessagePinHandle {...msgPinProps(msg, "策略经理 · 指令")} />
+      <MessagePinHandle {...msgPinProps(msg, "风险经理 · 指令")} />
       <div className="rpt-msg-body rpt-msg-body--user">
         <div className="rpt-msg-meta rpt-msg-meta--user">
           <span className="rpt-msg-at">{msg.at}</span>
-          <span className="rpt-msg-who">策略经理 · /command</span>
+          <span className="rpt-msg-who">风险经理 · /command</span>
         </div>
         <div className="rpt-msg-card rpt-msg-card--cmd">
           <code>{msg.content}</code>
@@ -1044,7 +1209,7 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "field";
 
-function RiskComposer() {
+function RiskComposer({ sessionData }: { sessionData: RiskctrlSession }) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -1085,7 +1250,7 @@ function RiskComposer() {
   };
   const drop = usePinDrop<HTMLDivElement>(onPin);
 
-  const ruleCount = RISKCTRL_SESSION.rules.length;
+  const ruleCount = sessionData.rules.length;
 
   return (
     <div
@@ -1141,22 +1306,32 @@ const OUTPUT_ACTIONS = [
 ] as const;
 
 function RiskOutputPanel(p: {
+  sessionData: RiskctrlSession;
   rulesetId?: string;
   exportInfo?: ExportInfo;
-  onExportDocx?: () => void;
+  onExport?: (kind: ExportKind) => void;
+  selectedSegmentKey?: SampleBar["key"] | null;
+  onSelectSegment?: (key: SampleBar["key"]) => void;
 }) {
-  const s = RISKCTRL_SESSION;
+  const s = p.sessionData;
   const [tab, setTab] = useState<"dsl" | "ks" | "sample">("dsl");
   const exportStatus = p.exportInfo?.status ?? "idle";
-  const exportLabel =
-    exportStatus === "running"
-      ? "导出中…"
-      : exportStatus === "done"
-      ? "重新导出 Word"
-      : exportStatus === "error"
-      ? "重试导出"
-      : "导出回测报告 Word";
+  const exportingKind = p.exportInfo?.kind;
+  /* 3 按钮各自从 exportInfo (running/done/error · kind 同) reflect 状态 ·
+     running 时全 disable 防并发 · done 仅自己 kind 显完成 · error 显重试 */
   const exportDisabled = exportStatus === "running";
+  const renderLabel = (kind: ExportKind, text: string): string => {
+    if (exportingKind !== kind) return text;
+    if (exportStatus === "running") return "导出中…";
+    if (exportStatus === "done") return `重新${text}`;
+    if (exportStatus === "error") return `重试${text}`;
+    return text;
+  };
+  const exportButtons: ReadonlyArray<{ kind: ExportKind; label: string; testId: string }> = [
+    { kind: "docx", label: "Word", testId: "riskctrl-export-docx-btn" },
+    { kind: "xlsx", label: "Excel", testId: "riskctrl-export-xlsx-btn" },
+    { kind: "pdf", label: "PDF", testId: "riskctrl-export-pdf-btn" },
+  ];
   return (
     <section className="rpt-panel rpt-panel--preview">
       <PanelPinHandle
@@ -1170,7 +1345,7 @@ function RiskOutputPanel(p: {
       />
       <div className="rpt-panel-head">
         <div>
-          <div className="rpt-panel-eyebrow">OUTPUT · DSL v1.5-d3</div>
+          <div className="rpt-panel-eyebrow">OUTPUT · DSL {s.currentRule.version}</div>
           <h3 className="rpt-panel-title">
             KS {s.ks.ksPeak.toFixed(2)} · 通过 {s.ks.passRate}%
           </h3>
@@ -1182,22 +1357,28 @@ function RiskOutputPanel(p: {
         </div>
         <div className="rpt-panel-meta">
           <span className="rpt-pv-pct">AUC {s.ks.auc.toFixed(3)}</span>
-          <button
-            type="button"
-            className="riskctrl-export-btn"
-            onClick={p.onExportDocx}
-            disabled={exportDisabled}
-            data-state={exportStatus}
-            data-testid="riskctrl-export-docx-btn"
-          >
-            {exportLabel}
-          </button>
+          <div className="riskctrl-export-group" role="group" aria-label="导出回测报告 三件套">
+            {exportButtons.map((b) => (
+              <button
+                key={b.kind}
+                type="button"
+                className="riskctrl-export-btn"
+                onClick={() => p.onExport?.(b.kind)}
+                disabled={exportDisabled}
+                data-state={exportingKind === b.kind ? exportStatus : "idle"}
+                data-kind={b.kind}
+                data-testid={b.testId}
+              >
+                {renderLabel(b.kind, b.label)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {exportStatus === "error" && p.exportInfo?.message ? (
         <div className="riskctrl-export-error" role="alert">
-          导出失败：{p.exportInfo.message}
+          {exportingKind ?? ""} 导出失败：{p.exportInfo.message}
         </div>
       ) : null}
 
@@ -1228,14 +1409,20 @@ function RiskOutputPanel(p: {
       <div className="rpt-pv-paper-wrap">
         <article className="rpt-pv-paper rc-out-paper">
           <div className="rpt-pv-paper-head">
-            <div className="doc-title">策略 v1.5-d3 · 回测稿</div>
+            <div className="doc-title">策略 {s.currentRule.version} · 回测稿</div>
             <div className="doc-sub">
               样本 {s.query.sampleSize.toLocaleString()} · 窗口 {s.query.windowLabel}
             </div>
           </div>
           {tab === "dsl" && <DslView node={s.dsl} />}
           {tab === "ks" && <KSView ks={s.ks} targetKS={s.query.targetKS} />}
-          {tab === "sample" && <SampleView samples={s.samples} />}
+          {tab === "sample" && (
+            <SampleView
+              samples={s.samples}
+              selectedKey={p.selectedSegmentKey ?? null}
+              onSelectSegment={p.onSelectSegment}
+            />
+          )}
           <div className="rpt-pv-paper-foot">
             — 以上为 AI 初版策略稿 · 未经风险总监审批不得上线 —
           </div>
@@ -1392,35 +1579,66 @@ function KSView({
   );
 }
 
-function SampleView({ samples }: { samples: SampleBar[] }) {
+function SampleView({
+  samples,
+  selectedKey,
+  onSelectSegment,
+}: {
+  samples: SampleBar[];
+  selectedKey?: SampleBar["key"] | null;
+  onSelectSegment?: (key: SampleBar["key"]) => void;
+}) {
   const total = samples.reduce((a, b) => a + b.count, 0);
   return (
     <section className="rc-sp-sec" data-testid="riskctrl-sample-dist">
       <header className="rc-out-sec-head">
         <h4 className="rc-out-sec-title">
           <span className="rpt-pv-anchor">§三</span>
-          <span>样本分布 · 12,400 笔</span>
+          <span>样本分布 · {total.toLocaleString()} 笔</span>
         </h4>
         <div className="rc-sp-meta">
           总 <b>{total.toLocaleString()}</b>
         </div>
       </header>
       <ul className="rc-sp-list">
-        {samples.map((s) => (
-          <li key={s.key} className="rc-sp-row" data-k={s.key}>
-            <div className="rc-sp-head">
-              <span className="rc-sp-lbl">{s.label}</span>
-              <span className="rc-sp-count">{s.count.toLocaleString()}</span>
-              <span className="rc-sp-pct">{s.pct.toFixed(1)}%</span>
-              <span className="rc-sp-bad">
-                坏账 <b>{s.badRate.toFixed(1)}%</b>
-              </span>
-            </div>
-            <div className="rc-sp-bar" aria-hidden>
-              <div className="rc-sp-bar-fill" style={{ width: `${s.pct}%` }} />
-            </div>
-          </li>
-        ))}
+        {samples.map((s) => {
+          const clickable = !!onSelectSegment;
+          return (
+            <li
+              key={s.key}
+              className="rc-sp-row"
+              data-k={s.key}
+              data-selected={s.key === selectedKey ? "yes" : "no"}
+              data-testid={`riskctrl-sample-segment-${s.key}`}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => onSelectSegment(s.key) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectSegment(s.key);
+                      }
+                    }
+                  : undefined
+              }
+              style={clickable ? { cursor: "pointer" } : undefined}
+            >
+              <div className="rc-sp-head">
+                <span className="rc-sp-lbl">{s.label}</span>
+                <span className="rc-sp-count">{s.count.toLocaleString()}</span>
+                <span className="rc-sp-pct">{s.pct.toFixed(1)}%</span>
+                <span className="rc-sp-bad">
+                  坏账 <b>{s.badRate.toFixed(1)}%</b>
+                </span>
+              </div>
+              <div className="rc-sp-bar" aria-hidden>
+                <div className="rc-sp-bar-fill" style={{ width: `${s.pct}%` }} />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
