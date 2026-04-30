@@ -402,6 +402,60 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - AGREE 后 → cherry-pick A3 9 commit (含 V2 + V3) 到 chore/l0-infra → push origin → 启 A4 5 子 worker
 - A4-channel onboarding 加 cross-ref: 8 panel key + V3 normalizeBackendDone 派生模板
 
+---
+
+## 2026-04-30 11:00 · Day 2 大段同步 (Codex audit 加补 §14.1 漏)
+
+### What happened (Day 2 morning → 现在)
+- A6 V2 codex AGREE → cherry-pick → main + ECS (5cfb718 merge · 0995694 main · 上午 10:20 · 硬线 #6 ✅)
+- A7 V3 codex AGREE → cherry-pick → main + ECS (8044890/36a713a merge · 9e53582 main · 含 conflict --theirs resolve decisions-log + state-snapshot · 硬线 #7 ✅)
+- A3 V3 codex AGREE → cherry-pick → main + ECS (8cc0b66 merge · 9e53582 main · 含 state-snapshot --theirs resolve · 硬线 #3 ✅)
+- A5 V3 codex AGREE → cherry-pick → main + ECS (e0eaa70 merge · f946de1 main · 含 codex audit add/add --ours · 硬线 #5 ✅)
+- 主 CLI commit A4-{X}-GO-AFTER-A3 × 5 on chore/l0-infra (ccfdc97/a552c57/624c374/62ab218/0fe76e5 · trailer A3-V3-HASH 5876b7b)
+- PM 双击 launch-A4-batch.bat 启 5 A4 子 worker (A4-credit cmd 启 fail · 重启 launch-A4-credit-only.bat OK)
+- Codex periodic audit 主 CLI Day 1+2: PARTIAL · 信心 42/100 (5 维度: mesh 7 + anti-bias 8 + ECS 5 + state-snapshot 3 + PM 拍板 7)
+
+### State change (delta · vs end-of-day-1)
+- Phase A 8 硬线: 2/8 ✅ → 6/8 ✅ (#1+#2+#3+#5+#6+#7) · 1/8 ⏳ #4 真动中 · 1/8 ⚠️ #8 90%
+- main HEAD: 5ed5e82 → 43ae2e7 (含 A1+A2+A3+A5+A6+A7 全 merged + Q-042 + codex audits + 主 CLI fix-forward)
+- worker mesh: 关 → 启 4 worker (V2/V3 fix) → 全完关 → 启 5 A4 子 (real refactor in progress)
+- A4 5 子真现状 (verify 11:00):
+  - A4-credit ae31144 /api/credit/demo/run (Step 8 partial)
+  - A4-alert 53351f5 4GATE + sessionData + drill drawer
+  - A4-compli 3279bd7 DONE-ENVELOPE-LANDED
+  - A4-riskctrl 773bc35 LLM-MIGRATED caller 3+5 第 1 处
+  - A4-report dirty (4 file 改 + spec + scenarios untracked · 没 commit yet · active)
+
+### Codex audit 加补 4 critical 漏 (主 CLI 已 fix 中)
+1. ✅ state-snapshot 断档 (本段补 · §14.1 重新守)
+2. ⏳ A4 final signal 不一致 (PM paste 5 worker chat 提醒 ADAPTER-DONE)
+3. ✅ A4-report 真现状 verify (working tree dirty · 不是 0 commit · codex 看 git log 误判)
+4. ⏳ conflict resolve 后续必 commit conflict-resolution-note (3 次破例: 36a713a/8cc0b66/9e53582 · 后续严守)
+
+### Phase A 真"轻装上阵"度量 (per PM 提示)
+**~50%** (主 CLI 之前 ~85% framing 偏差 · 只看 8 硬线 results · 没看真"包袱清完"):
+- 8 硬线 results: 6/8 ✅ + 1 ⏳ + 1 ⚠️
+- 真"轻装"剩: A4 5 子真动完 + compliance 全栈替换 (consumer 5+ file) + V3/V4 minor cleanup + integration cross-agent smoke + neat-freak doc/memory drift
+
+### Next (Phase A → Phase B)
+- A4 5 子真动完 → ADAPTER-DONE × 5 → fire codex × 5 background → AGREE × 5 → cherry-pick × 5 → push → ECS full deploy 含 npm build (改 web/* 多 file)
+- 硬线 #4 ✅ → 6/8 → 7/8
+- compliance 全栈替换 (frontend store/types.ts + auth-store.ts + agent-id.ts patch 删 + auth_service/rbac.py + 等 consumer · 主 CLI fix-forward OR worker A1 V4)
+- V3/V4 minor cleanup non-blocking (A3 ConversationPanel 无 panel 直接读 · A5 globals.css:12 注释 · A1 contracts minor)
+- integration cross-agent smoke (硬线 #4 第二轮)
+- A1 compliance-ratify minor (optional)
+- neat-freak skill (清 doc + memory · 让 Phase B 接续不漂)
+- Phase A 真"轻装" → Phase B (worker-B1 数据飞轮 + worker-B2 商业化)
+- Phase A 完毕 ETA: 6-10h 今天内
+
+### 风险预警
+- A4-report 没 commit 4 file dirty · cmd crash 丢 · 主 CLI 应建议 worker WIP commit
+- A4 final signal 不一致 · 主 CLI 严守 ADAPTER-DONE 才算硬线 #4 ✅
+- compliance 全栈替换 + neat-freak 没启 · 真"轻装"还差大块
+- conflict resolve --theirs 用 3 次 (audit trail 在 git history · 后续 neat-freak 补)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
