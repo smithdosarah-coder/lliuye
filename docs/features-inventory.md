@@ -949,6 +949,62 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 
 ---
 
+## F-065 · Channel pilot 4-gate state model + done envelope 8 panels + Tavily warn (Phase A worker-A3)
+
+- **location**:
+  - frontend: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (4-gate useState · `started` / `selectedSession` / `liveData` / `selectedCandidate` · `sessionData` 单点派生 · `normalizeBackendDone` · `streamSse` 接 `_live.ts` · `bannerKind` info|error)
+  - backend: `agent_channel/realtime_stream.py` (`make_done(panels=...)` + 6 aggregator helper · `warnings` 收集 · stage status=warning event yield)
+- **selector**:
+  - `[data-testid="channel-pilot-{radar,funnel,candidates,signals,conversation}"]` 5 panel section root
+  - `[data-testid="channel-pilot-banner-mock-fallback"]` (info 黄 · `data-banner-kind="info"`) · `[data-testid="channel-pilot-banner-live-fail"]` (error 红 · `data-banner-kind="error"`)
+  - `[data-mode="live"|"mock"]` on `[data-testid="channel-pilot-candidates"]`
+- **interaction**:
+  - 默认 `started=false` · 渲染等待提示
+  - 选下拉历史 session + 切换演示 → setSelectedSession + setStarted(true) → 5 panel 全 swap (mock 模式)
+  - 自由文本 + AI 搜索 → streamSse `/api/channel/run` → done envelope 扁平 8 panels → normalizeBackendDone → setLiveData → 5 panel 全 swap to live
+  - LiveFailError → bannerKind=error · 红 banner (banner-spec rule 1)
+  - backend stage status=warning OR done.warnings non-empty → bannerKind=info · 黄 banner (banner-spec rule 2)
+  - 候选 click → setSelectedCandidate → CandidateDetailDrawer · ESC 关
+- **introduce**: 2026-04-29 Phase A worker-A3 channel pilot (`docs/onboarding/A3-channel-pilot.md` · `docs/onboarding/A3-design-draft.md`)
+- **lost_at**: N/A (新 feature · 接 Cat 2/3/4/11 channel audit fix · `docs/audit/conflict-register-v1.md`)
+- **endpoints**:
+  - `POST /api/channel/run` 升 SSE done event 形态 · 改用 `shared.sse_envelope.make_done(panels=...)` (扁平 7 panel · 与 V2 helper 实装对齐)
+  - `POST /api/channel/demo/run` (新 · 见下 F-066)
+- **contract**:
+  - `docs/contracts/workspace-state-protocol.md` v1.1 §2 4-gate state model · §4 后端 SSE done payload · §10 AgentSession shape
+  - `docs/contracts/sse-envelope.md` v1.0 §3.1 Channel payload tail
+  - `docs/contracts/live-fallback-banner-spec.md` v1.0 §2 rule 1 + rule 2
+  - `shared/sse_envelope.py` `CHANNEL_PANEL_KEYS = (candidates, signals, radar, funnel, match_dimensions, product_recommendations, pitch_scripts)`
+- **smoke_test**: `web/tests/regression/channel-pilot-4gate.spec.ts` (4 case · T1 mock session + T2 live envelope + T3 candidate drawer + T4 banner-spec rule 2 · 4/4 PASS chromium 19.5s)
+- **NB**:
+  - V1 spec sse-envelope §2.1 描述嵌套 envelope 但 V2 helper `make_done` 实装为扁平 (panels expand 顶层) · A3 跟 V2 实装走 (drift 详情 `docs/onboarding/A3-design-draft.md` §3)
+  - `warnings` 走 `**extras` 通道塞 done envelope 顶层 (A2 helper 不 first-class warnings param · A2 V2.1 升级时再 promote)
+
+## F-066 · /api/channel/demo/run + 3 scenario JSON (Phase A worker-A3)
+
+- **location**: `agent_channel/api.py` (`channel_demo_run` endpoint + `_SCENARIO_DIR`) + `data/mock/workspace/channel/scenarios/{easy,medium,hard}.json`
+- **interaction**:
+  - 前端 POST `/api/channel/demo/run` body `{scenario_id: "easy"|"medium"|"hard"}` (默认 medium)
+  - 后端读 `<scenarios>/<id>.json` · 6 stage running/done 流 (parse/signal_scan/aggregate/enrich/pitch/rank · 各 0.25s sleep) · 末尾 `make_done(panels=7, data_source="mock_forced")`
+  - scenario 文件不存在 / 加载失败 / id 非法 → `make_error(code=DEMO_SCENARIO_{INVALID,MISSING,LOAD})`
+- **introduce**: 2026-04-29 Phase A worker-A3
+- **lost_at**: N/A (新 endpoint · 与 live `/api/channel/run` 路径分开 · 客户走访稳定 demo 路径)
+- **contract**: `shared/sse_envelope.py make_done` + `workspace-state-protocol.md` §4 (frontend 同消费路径)
+- **scenario data 反 5 原则** (CLAUDE.md §3.5):
+  - easy (信号密度高 · 3 候选 · radar 全亮 · metrics signalTotal=42 final=8)
+  - medium (中等 · 3 候选 · radar 半亮 · 1 路降级 1 路 off · metrics signalTotal=21 final=5)
+  - hard (稀疏 · 3 候选 · 多家风险标签 · 2 路 off 1 路降级 · metrics signalTotal=11 final=3)
+  - 锚定 A 股年报 + 工信部 + 银保监公告形态 · 改名改数字保量级 · 不含答案字段
+- **smoke_test**:
+  - `python -c "..."` in-process: easy/medium/hard 各 12 stage + 1 done + 8/8 panels (V3 加 conversation) · INVALID 1 error code=DEMO_SCENARIO_INVALID
+  - Playwright T5 (`channel-pilot-4gate.spec.ts`) · 验 `[data-testid="channel-demo-medium"]` click → /api/channel/demo/run hit · scenario_id="medium" · done.data_source="mock_forced" · 5 panel hydrate
+- **NB**:
+  - V2 fix (2026-04-30): UI demo 按钮 wire 完成 · `[data-testid="channel-demo-{easy,medium,hard}"]` 3 档按钮 in QueryBar (走 `runDemoScenario` → streamSse → `/api/channel/demo/run` → setLiveData/setMessages/setSelectedCandidate)
+  - V3 fix (2026-04-30): scenario JSON 可填 `conversation: [...]` (默认 [] · backend `data.get("conversation", [])` 透传) · 前端 normalizeBackendDone 派生 ConversationPanel
+  - scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不需重启后端
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`

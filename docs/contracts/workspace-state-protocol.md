@@ -145,9 +145,12 @@ export const CHANNEL_MOCK_SESSIONS: ChannelSession[] = [
   "match_dimensions": [...],         // B.4b 候选 vs IdealProfile 维度匹配
   "product_recommendations": [...],  // B.4c Top3 产品 + 评分
   "pitch_scripts": [...],            // B.4c 切入话术
+  "conversation": [...],             // V3 fix · ConversationPanel 渲染源 · 默认 [] · 前端 fallback tplFallback.conversation
   "metrics": { "signalTotal": 0, "companiesFound": 0, "final": 0 }
 }
 ```
+
+> **V3 fix (2026-04-30)**: `conversation` 加为 `CHANNEL_PANEL_KEYS` 8th canonical key (`shared/sse_envelope.py`) · 之前 ConversationPanel 走前端 mock state · live SSE 后不刷新 · codex review issue 1 partial 根因 · 现 backend 在 `make_done(panels=...)` 显式透传 `conversation: []` (默认空 · A4-channel AI 复盘 turn 落地后真填) · 前端 `normalizeBackendDone` 读 `evt.conversation` · 空时 fallback `tplFallback.conversation` (mock session 模板对话)
 
 前端 `setLiveData` 时把整个 payload 注入 (而非只 candidates):
 

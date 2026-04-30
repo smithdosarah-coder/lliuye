@@ -193,6 +193,99 @@ async def channel_run(req: ChannelRunRequest):
 
 
 # ============================================================================
+# POST /api/channel/demo/run · Phase A worker-A3 (2026-04-29)
+#   纯 mock SSE · 不调 LLM/Tavily · 从 data/mock/workspace/channel/scenarios/<id>.json 读
+#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
+#   反 5 原则 §3.5 难度分层: easy / medium / hard 三档
+# ============================================================================
+
+
+class ChannelDemoRunRequest(BaseModel):
+    scenario_id: str = "medium"  # "easy" | "medium" | "hard"
+
+
+_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "channel" / "scenarios"
+
+
+@app.post("/api/channel/demo/run")
+async def channel_demo_run(req: ChannelDemoRunRequest):
+    """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (stage 流 + done envelope).
+
+    Per workspace-state-protocol §4 + sse-envelope §3.1 · done event panels 7 keys 同共形.
+    """
+    from shared.sse_envelope import (
+        DATA_SOURCE_MOCK_FORCED,
+        encode_event,
+        make_done,
+        make_error,
+        make_stage,
+    )
+    import time as _time
+
+    def gen():
+        scenario_id = req.scenario_id or "medium"
+        if scenario_id not in {"easy", "medium", "hard"}:
+            yield encode_event(make_error(
+                f"unknown scenario_id: {scenario_id} (allowed: easy/medium/hard)",
+                code="DEMO_SCENARIO_INVALID",
+            ))
+            return
+        path = _SCENARIO_DIR / f"{scenario_id}.json"
+        if not path.exists():
+            yield encode_event(make_error(
+                f"scenario file not found: {path.name}",
+                code="DEMO_SCENARIO_MISSING",
+            ))
+            return
+        try:
+            data = json.loads(path.read_text("utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            yield encode_event(make_error(
+                f"scenario load failed: {type(e).__name__}: {e}",
+                code="DEMO_SCENARIO_LOAD",
+            ))
+            return
+
+        stages = ["parse", "signal_scan", "aggregate", "enrich", "pitch", "rank"]
+        stage_msgs = data.get("stage_messages", {})
+        for stage_name in stages:
+            yield encode_event(make_stage(
+                stage_name, "running",
+                message=stage_msgs.get(stage_name, f"{stage_name}..."),
+            ))
+            _time.sleep(0.25)
+            yield encode_event(make_stage(stage_name, "done"))
+
+        yield encode_event(make_done(
+            panels={
+                "candidates":              data.get("candidates", []),
+                "signals":                 data.get("signals", []),
+                "radar":                   data.get("radar", []),
+                "funnel":                  data.get("funnel", []),
+                "match_dimensions":        data.get("match_dimensions", []),
+                "product_recommendations": data.get("product_recommendations", []),
+                "pitch_scripts":           data.get("pitch_scripts", []),
+                # V3 fix · CHANNEL_PANEL_KEYS 8 key · scenario JSON 可选 conversation 字段 ·
+                # 缺则 [] · 前端 normalizeBackendDone 兜底 tplFallback.conversation
+                "conversation":            data.get("conversation", []),
+            },
+            metrics=data.get("metrics", {}),
+            data_source=DATA_SOURCE_MOCK_FORCED,
+            session_id=f"demo_{scenario_id}_{int(_time.time())}",
+        ))
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
 # POST /api/channel/export_xlsx
 # 本地 openpyxl 生成候选企业 xlsx，不走境外 API（合规见 data_classification/agent1.md）
 # 表头字段严格按 docs/contracts/field-naming.md（snake_case + _yuan 后缀 + business_line 枚举）

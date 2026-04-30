@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { CARD_PIN_MIME } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
+import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { nextThinkDelayMs, pickReply } from "../_mock/canned-replies";
 import {
   Radar,
@@ -109,29 +110,23 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 }
 
 export default function ChannelWorkspace() {
-  /* F-041 · 2026-04-28 · master plan §B.1+§B.2 · multi-session select hoist
-     selectedSessionId 切下拉 · 全 5 panel 跟着切 (gap #2 + #3 修)
-     Workspace state protocol: docs/contracts/workspace-state-protocol.md §2 */
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_SESSION_ID);
-  const currentSession: ChannelSession =
-    MOCK_SESSIONS_MAP[selectedSessionId] ?? MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
-  const s = currentSession;
+  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A3 (2026-04-29)
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
+     sessionData = liveData ?? mock[selectedSession] · 5 panel 单点派生 */
+
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<ChannelSession | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: ChannelSession =
+    liveData ??
+    MOCK_SESSIONS_MAP[selectedSession] ??
+    MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  const s = sessionData;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
-
-  /* F-005 Phase 2 · 2026-04-27 · live candidates state hoist
-     F-043 · 2026-04-28 · master plan §B.5b · live mode 不再仅 candidates · 整 session shape 注入
-     liveCandidates 仍保留作为 b.4 candidate drawer 的 live data path (drawer 直接读 candidatesPool) */
-  const [liveCandidates, setLive] = useState<Candidate[] | null>(null);
-
-  /* #3 · 2026-04-27 · 功能页面真初始化 · 默认 started=false 只渲染 Hero + QueryBar + 空白提示
-     QueryBar select 历史 OR submit textbox 触发 setStarted(true) · panel 数据才填入
-     user 反馈 "默认显示 mock 数据 · 跟用户输入没关联" · 加交互门槛 */
-  const [started, setStarted] = useState(false);
-
-  /* F-042 · 2026-04-28 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer
-     候选 click → setSelectedCandidateId · drawer 4 区: header / radar+signals / 匹配明细 / 产品+话术
-     ESC 关 / backdrop click 关 · workspace-state-protocol.md §2 (4) selectedCandidate gate */
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const isLive = liveData !== null;
 
   /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
      kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
@@ -170,31 +165,45 @@ export default function ChannelWorkspace() {
   } | null>(null);
 
   /* B-banner · streamError 从 QueryBar lift 上来 · 顶部 banner 渲染
-     合并 kbErrors 任一非空 → workspace 顶部统一红条提示 + retry/dismiss */
+     合并 kbErrors 任一非空 → workspace 顶部统一红条提示 + retry/dismiss
+     C4 · banner-spec rule 2 · bannerKind 区分 info (mock_fallback warn 黄) vs error (LiveFailError 红) */
   const [streamErrorTop, setStreamErrorTop] = useState<string | null>(null);
+  const [bannerKind, setBannerKind] = useState<"info" | "error">("error");
   const aggregatedKbError = (Object.values(kbErrors).find((e) => e) || "");
   const topBannerMessage = streamErrorTop || aggregatedKbError;
+  /* aggregatedKbError 是 KB 上传失败 · 强制为 error · stream warning 由 setBannerKind 显式 set */
+  const effectiveBannerKind: "info" | "error" =
+    aggregatedKbError && !streamErrorTop ? "error" : bannerKind;
   const dismissTopBanner = useCallback(() => {
     setStreamErrorTop(null);
+    setBannerKind("error");
     setKbErrors({ customer_list: "", policy: "", industry_guide: "" });
   }, []);
 
-  /* derive selected candidate (live 优先 · mock fallback) */
-  const candidatesPool: Candidate[] = liveCandidates ?? s.candidates;
-  const selectedCandidate: Candidate | null =
-    selectedCandidateId
-      ? candidatesPool.find((c) => c.id === selectedCandidateId) ?? null
-      : null;
+  /* C4 · 给 QueryBar 用的 bundled setter · 让 callback 选 info/error */
+  const setStreamWarning = useCallback((msg: string | null) => {
+    setStreamErrorTop(msg);
+    setBannerKind(msg ? "info" : "error");
+  }, []);
+  const setStreamFatal = useCallback((msg: string | null) => {
+    setStreamErrorTop(msg);
+    setBannerKind(msg ? "error" : "error");
+  }, []);
+
+  /* derive selected candidate object · sessionData.candidates 已 live-or-mock 单源 */
+  const selectedCandidateData: Candidate | null = selectedCandidate
+    ? sessionData.candidates.find((c) => c.id === selectedCandidate) ?? null
+    : null;
 
   /* ESC 关 drawer */
   useEffect(() => {
-    if (!selectedCandidateId) return;
+    if (!selectedCandidate) return;
     function onKey(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") setSelectedCandidateId(null);
+      if (e.key === "Escape") setSelectedCandidate(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedCandidateId]);
+  }, [selectedCandidate]);
 
   /* Step 2 · 2026-04-22 CLI-C
      conversation state hoist 到这里：ConversationPanel 渲染、Composer 提交都走它。
@@ -202,15 +211,15 @@ export default function ChannelWorkspace() {
      纯 demo · 不接 API · pickReply 走 _mock/canned-replies.ts 关键词 + round-robin。 */
   const [messages, setMessages] = useState<ConversationMessage[]>(s.conversation);
 
-  /* 切 session 时 reset conversation + 清 live candidates + 关 drawer · 让 panel 全 swap 干净 */
+  /* 切 session 时 reset conversation + 清 liveData + 关 drawer · 让 panel 全 swap 干净 */
   const handleSelectSession = useCallback(
     (id: string) => {
       const sess = MOCK_SESSIONS_MAP[id];
       if (!sess) return;
-      setSelectedSessionId(id);
+      setSelectedSession(id);
       setMessages(sess.conversation);
-      setLive(null);
-      setSelectedCandidateId(null);
+      setLiveData(null);
+      setSelectedCandidate(null);
     },
     [],
   );
@@ -379,20 +388,25 @@ export default function ChannelWorkspace() {
       {/* B-banner · workspace 顶部统一错误条 · streamError + kbError 合并 · retry/dismiss */}
       {topBannerMessage ? (
         <div
-          role="alert"
-          data-testid="channel-error-banner"
-          className="ch-error-banner"
+          role={effectiveBannerKind === "error" ? "alert" : "status"}
+          data-testid={
+            effectiveBannerKind === "info"
+              ? "channel-pilot-banner-mock-fallback"
+              : "channel-pilot-banner-live-fail"
+          }
+          data-banner-kind={effectiveBannerKind}
+          className={`ch-error-banner ch-error-banner--${effectiveBannerKind}`}
         >
           <span className="ch-error-banner__icon" aria-hidden>⚠</span>
           <span className="ch-error-banner__text">
-            <b>操作失败</b>
+            <b>{effectiveBannerKind === "info" ? "演示模式" : "操作失败"}</b>
             <span className="ch-error-banner__detail">{topBannerMessage}</span>
           </span>
           <button
             type="button"
             className="ch-error-banner__dismiss"
             onClick={dismissTopBanner}
-            aria-label="关闭错误提示"
+            aria-label="关闭提示"
           >
             ×
           </button>
@@ -423,12 +437,15 @@ export default function ChannelWorkspace() {
       )}
       <QueryBar
         sessionData={s}
-        selectedSessionId={selectedSessionId}
+        selectedSession={selectedSession}
         onSelectSession={handleSelectSession}
-        setLive={setLive}
+        setLiveData={setLiveData}
+        setMessages={setMessages}
+        setSelectedCandidate={setSelectedCandidate}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
-        onStreamError={setStreamErrorTop}
+        onStreamError={setStreamFatal}
+        onStreamWarning={setStreamWarning}
       />
       {started ? (
         <>
@@ -439,8 +456,8 @@ export default function ChannelWorkspace() {
                 <RadarPanel sessionData={s} />
                 <CandidatesPanel
                   sessionData={s}
-                  liveCandidates={liveCandidates}
-                  onSelectCandidate={setSelectedCandidateId}
+                  isLive={isLive}
+                  onSelectCandidate={setSelectedCandidate}
                 />
               </div>
               <ConversationPanel sessionData={s} messages={messages} />
@@ -503,9 +520,9 @@ export default function ChannelWorkspace() {
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
       <CandidateDetailDrawer
-        candidate={selectedCandidate}
+        candidate={selectedCandidateData}
         sessionData={s}
-        onClose={() => setSelectedCandidateId(null)}
+        onClose={() => setSelectedCandidate(null)}
       />
     </div>
     </EvidenceProvider>
@@ -749,7 +766,7 @@ function ConversationPanel({
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
   return (
-    <section className="rpt-panel rpt-panel--conv">
+    <section className="rpt-panel rpt-panel--conv" data-testid="channel-pilot-conversation">
       <PanelPinHandle
         id="channel:conversation"
         title="获客对话"
@@ -1151,8 +1168,11 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
       if (status === "running") return { stage: baseStage, msg: "并行扫描 5 路信号源 (中标 / 认可 / 技术 / 增长 / 获奖)..." };
       if (status === "done") {
         const count = evt.count;
-        const ds = evt.data_source;
-        return { stage: baseStage, msg: `扫描完 · ${count ?? "?"} 条信号 · 来源 ${ds ?? "mock"}` };
+        /* V2 issue 3 · data_source 已 normalize 为 envelope enum (live/mock_forced/mock_fallback) ·
+           provider_source 是 backend 单独透传的 provider 标识 (e.g. "tavily") · 优先显 provider 细节 */
+        const provider = evt.provider_source as string | undefined;
+        const ds = provider ?? evt.data_source ?? "mock";
+        return { stage: baseStage, msg: `扫描完 · ${count ?? "?"} 条信号 · 来源 ${ds}` };
       }
     }
     if (evt.stage === "aggregate") {
@@ -1345,24 +1365,79 @@ function normalizeBackendCandidate(
   };
 }
 
+/* C2 · workspace-state-protocol §2 · backend done event → 整 ChannelSession (5 panel 单源消费)
+   shared/sse_envelope.py make_done(panels=...) 把 panels expand 到 done event 顶层 (扁平 · 非嵌套 envelope) ·
+   故这里直接读 evt.candidates / evt.radar / evt.signals / evt.funnel / evt.match_dimensions /
+   evt.product_recommendations / evt.pitch_scripts (CHANNEL_PANEL_KEYS 7 keys).
+   tplFallback: backend 阶段性输出 panel 字段缺时 (C3 之前) · 用 mock 模板兜底 · 视觉不空 panel */
+function normalizeBackendDone(
+  evt: Record<string, unknown>,
+  tplFallback: ChannelSession,
+): ChannelSession {
+  const candidatesRaw = Array.isArray(evt.candidates)
+    ? (evt.candidates as Array<Record<string, unknown>>)
+    : [];
+  const candidates = candidatesRaw.map((c, i) => normalizeBackendCandidate(c, i));
+
+  const radar = Array.isArray(evt.radar) && (evt.radar as unknown[]).length > 0
+    ? (evt.radar as RadarDimension[])
+    : tplFallback.radar;
+  const signals = Array.isArray(evt.signals) && (evt.signals as unknown[]).length > 0
+    ? (evt.signals as SignalSource[])
+    : tplFallback.signals;
+  const funnel = Array.isArray(evt.funnel) && (evt.funnel as unknown[]).length > 0
+    ? (evt.funnel as FunnelStage[])
+    : tplFallback.funnel;
+  /* V3 fix · ConversationPanel 从 done envelope 派生 (codex review issue 1 根因 fix) ·
+     CHANNEL_PANEL_KEYS 8th key "conversation" · 当前 backend 默认 [] · 缺/空时 fallback
+     tplFallback.conversation (mock session 模板的对话) · A4-channel AI 复盘 turn 落地后真填 */
+  const conversation =
+    Array.isArray(evt.conversation) && (evt.conversation as unknown[]).length > 0
+      ? (evt.conversation as ConversationMessage[])
+      : tplFallback.conversation;
+
+  return {
+    ...tplFallback,
+    id: "live",
+    benchmarkName: "实时搜索",
+    candidates: candidates.length > 0 ? candidates : tplFallback.candidates,
+    candidateCount: candidates.length || tplFallback.candidateCount,
+    stage: "已扫描",
+    radar,
+    signals,
+    funnel,
+    conversation,
+  };
+}
+
 function QueryBar({
   sessionData,
-  selectedSessionId,
+  selectedSession,
   onSelectSession,
-  setLive,
+  setLiveData,
+  setMessages,
+  setSelectedCandidate,
   setStarted,
   externalTrigger,
   onStreamError,
+  onStreamWarning,
 }: {
   sessionData: ChannelSession;
-  selectedSessionId: string;
+  selectedSession: string;
   onSelectSession: (id: string) => void;
-  setLive: (c: Candidate[] | null) => void;
+  /* C2 · 改 setLive(Candidate[]|null) → setLiveData(ChannelSession|null) · 整 session 形态注入 */
+  setLiveData: (s: ChannelSession | null) => void;
+  /* V2 issue 1 · 与 setLiveData 一起 set live conversation · 防 ConversationPanel stale on mock */
+  setMessages: (msgs: ConversationMessage[]) => void;
+  /* V2 issue 1 · live 注入时关 drawer · 防 stale candidate id 指 mock session */
+  setSelectedCandidate: (id: string | null) => void;
   setStarted: (v: boolean) => void;
   /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
   externalTrigger?: { input: string; nonce: number } | null;
   /* B-banner · 上抛 stream error 给 workspace 顶部 banner · QueryBar 内 inline error 删除 */
   onStreamError?: (msg: string | null) => void;
+  /* C4 · banner-spec rule 2 · 上抛 stream warning (mock_fallback / Tavily 0 命中) · 黄色 info banner */
+  onStreamWarning?: (msg: string | null) => void;
 }) {
   const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
@@ -1376,6 +1451,51 @@ function QueryBar({
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
+  /* V2 issue 2 · 显式 demo 模式 · 点 easy/medium/hard 按钮调 /api/channel/demo/run
+     纯 mock SSE · data_source=mock_forced · 客户走访稳定演示 / Playwright smoke 不依赖 Tavily */
+  async function runDemoScenario(scenarioId: "easy" | "medium" | "hard") {
+    if (streaming) return;
+    setStarted(true);
+    setStreaming(true);
+    setStreamEvents([]);
+    setStreamError(null);
+    onStreamError?.(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
+    try {
+      await streamSse(
+        `${apiBase}/api/channel/demo/run`,
+        { scenario_id: scenarioId },
+        (sseEvt) => {
+          const data = sseEvt.data as ChannelStreamEvent;
+          setStreamEvents((prev) => [...prev, data]);
+          if (sseEvt.type === "done") {
+            const live = normalizeBackendDone(
+              data as Record<string, unknown>,
+              sessionData,
+            );
+            setLiveData(live);
+            setMessages(live.conversation);
+            setSelectedCandidate(null);
+          }
+        },
+      );
+    } catch (err) {
+      if (err instanceof LiveFailError) {
+        const msg = liveFailBannerText(err, "Channel /api/channel/demo/run");
+        setStreamError(msg);
+        onStreamError?.(msg);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStreamError(msg);
+        onStreamError?.(msg);
+      }
+    } finally {
+      setStreaming(false);
+    }
+  }
+
   async function runRealSearch(queryOverride?: string) {
     const queryText = (queryOverride ?? input).trim();
     if (!queryText || streaming) return;
@@ -1384,76 +1504,64 @@ function QueryBar({
     setStreamEvents([]);
     setStreamError(null);
     onStreamError?.(null);
+    /* C2 · streamSse 替代内联 res.body.getReader() · LiveFailError 走顶部 banner (banner-spec rule 1)
+       done event 走 normalizeBackendDone(evt, tplFallback) 整 ChannelSession 注入 setLiveData */
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
     try {
-      // prod: 相对 path 走 nginx proxy → :8000 · dev: NEXT_PUBLIC_API_BASE=http://localhost:8000
-      const apiBase =
-        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-        "";
-      const res = await fetch(`${apiBase}/api/channel/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: queryText, mock: false, top_n: 8 }),
-      });
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      // Read SSE 流到 done · 累积 events 给下方 stream panel 渲染
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const dataLine = block
-            .split("\n")
-            .find((line) => line.startsWith("data:"));
-          if (!dataLine) continue;
-          try {
-            const evt = JSON.parse(dataLine.slice(5).trim()) as ChannelStreamEvent;
-            setStreamEvents((prev) => [...prev, evt]);
-            // F-005 Phase 2 · 提取 final candidates 注入 ChannelWorkspace 让 CandidatesPanel 渲染 live
-            // #1 crash fix (2026-04-27): 后端 SSE candidates shape 跟前端 Candidate type 不一致 ·
-            //   render 时 signals/riskTags/products .length on undefined 抛 TypeError ·
-            //   "This page couldn't load" · 这里 normalize 一遍 · 兼容 backend snake_case + camelCase
-            if (evt.event === "done" && Array.isArray(evt.candidates)) {
-              /* F-043 · master plan §B.5b · live mode 全字段 normalize
-                 backend candidate (per agent_channel/sse_extras.py + realtime_stream._build_final_output)
-                 含: industry / geo / scale / similarity / radar_8axis /
-                     match_dimensions / product_recommendations / pitch_scripts +
-                     legacy: signals (objects with type/title/detail/date/source/url)
-                 把 backend snake_case 全 wire 到前端 Candidate (含 timeline + drawer 三件套) */
-              const norm = (evt.candidates as Array<Record<string, unknown>>).map(
-                (c, i) => normalizeBackendCandidate(c, i),
-              );
-              setLive(norm);
-            }
-          } catch {
-            /* skip malformed line */
+      await streamSse(
+        `${apiBase}/api/channel/run`,
+        { query: queryText, mock: false, top_n: 8 },
+        (sseEvt) => {
+          const data = sseEvt.data as ChannelStreamEvent;
+          setStreamEvents((prev) => [...prev, data]);
+          /* C4 banner-spec rule 2 · backend stage event status="warning" → 顶部黄条
+             触发源:Tavily key 缺 / TavilyClient init 失败 / 5 路 0 命中 · realtime_stream._parallel_signal_search_core */
+          if (sseEvt.type === "stage" && data.status === "warning" && typeof data.message === "string") {
+            onStreamWarning?.(`⚠️ ${data.message}`);
           }
-        }
-      }
+          if (sseEvt.type === "done") {
+            const live = normalizeBackendDone(
+              data as Record<string, unknown>,
+              sessionData,
+            );
+            setLiveData(live);
+            /* V2 issue 1 · 与 setLiveData 一起 swap · ConversationPanel / drawer 不留 stale */
+            setMessages(live.conversation);
+            setSelectedCandidate(null);
+            /* done envelope.warnings · backend mock_fallback 透传 · 顶部 banner 二级提示 */
+            const wlist = (data as Record<string, unknown>).warnings;
+            if (Array.isArray(wlist) && wlist.length > 0) {
+              onStreamWarning?.(`⚠️ ${String(wlist[0])}`);
+            }
+          }
+        },
+      );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setStreamError(msg);
-      onStreamError?.(msg);
+      if (err instanceof LiveFailError) {
+        const msg = liveFailBannerText(err, "Channel /api/channel/run");
+        setStreamError(msg);
+        onStreamError?.(msg);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStreamError(msg);
+        onStreamError?.(msg);
+      }
     } finally {
       setStreaming(false);
     }
   }
 
   /* B-2 click-to-fire · dropdown 仅 set pending 选择 · 显式 button 触发切换 */
-  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSessionId);
+  const [pendingSessionId, setPendingSessionId] = useState<string>(selectedSession);
   function onSessionSelectChange(e: ChangeEvent<HTMLSelectElement>) {
     setPendingSessionId(e.target.value);
   }
   function onApplySessionSwitch() {
     /* F-041 · "切换演示" button → mock 模式 · 切 parent state · 清 stream 残留
-       parent.handleSelectSession 会 reset conversation + setLive(null) */
-    if (!pendingSessionId || pendingSessionId === selectedSessionId) return;
+       parent.handleSelectSession 会 reset conversation + setLiveData(null) */
+    if (!pendingSessionId || pendingSessionId === selectedSession) return;
     setStarted(true);
     setStreamEvents([]);
     setStreamError(null);
@@ -1511,7 +1619,7 @@ function QueryBar({
             className="ch-querybar-recent-apply"
             data-testid="channel-session-apply"
             onClick={onApplySessionSwitch}
-            disabled={!pendingSessionId || pendingSessionId === selectedSessionId}
+            disabled={!pendingSessionId || pendingSessionId === selectedSession}
           >
             切换演示
           </button>
@@ -1536,6 +1644,46 @@ function QueryBar({
         >
           <span>{streaming ? "AI 解析中…" : "AI 搜索"}</span>
           <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
+        </button>
+      </div>
+      {/* V2 issue 2 · DEMO 三档按钮 · /api/channel/demo/run · data_source=mock_forced
+         不依赖 Tavily / LLM key · 客户走访稳定路径 + Playwright smoke 锚定 */}
+      <div
+        className="ch-querybar-demo"
+        data-testid="channel-demo-controls"
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0 0 0",
+          fontSize: 12,
+          color: "var(--ink-60, #555)",
+        }}
+      >
+        <span style={{ opacity: 0.7 }}>DEMO · 难度分层 (mock_forced):</span>
+        <button
+          type="button"
+          data-testid="channel-demo-easy"
+          onClick={() => void runDemoScenario("easy")}
+          disabled={streaming}
+        >
+          easy
+        </button>
+        <button
+          type="button"
+          data-testid="channel-demo-medium"
+          onClick={() => void runDemoScenario("medium")}
+          disabled={streaming}
+        >
+          medium
+        </button>
+        <button
+          type="button"
+          data-testid="channel-demo-hard"
+          onClick={() => void runDemoScenario("hard")}
+          disabled={streaming}
+        >
+          hard
         </button>
       </div>
       <div className="ch-querybar-tags">
@@ -1583,7 +1731,7 @@ function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
   const funnel = s.funnel;
   const max = Math.max(...funnel.map((f) => f.count));
   return (
-    <section className="rpt-panel ch-funnel-strip">
+    <section className="rpt-panel ch-funnel-strip" data-testid="channel-pilot-funnel">
       <div className="ch-funnel-strip-head">
         <span className="eyebrow">FUNNEL · 5 阶段扫描</span>
         <span className="flow">
@@ -1616,7 +1764,7 @@ function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
   const s = sessionData;
   const top = s.candidates[0];
   return (
-    <section className="rpt-panel ch-radar-panel">
+    <section className="rpt-panel ch-radar-panel" data-testid="channel-pilot-radar">
       <PanelPinHandle
         id="channel:radar"
         title="营销优先级雷达"
@@ -1646,20 +1794,23 @@ function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
 
 function CandidatesPanel({
   sessionData,
-  liveCandidates,
+  isLive,
   onSelectCandidate,
 }: {
   sessionData: ChannelSession;
-  liveCandidates: Candidate[] | null;
-  /* F-042 · click 回调 · 父级 setSelectedCandidateId 触发 drawer */
+  /* C1 · workspace-state-protocol §2 · sessionData 已 live-or-mock 单源 · isLive 仅控 UI 标识 */
+  isLive: boolean;
+  /* F-042 · click 回调 · 父级 setSelectedCandidate 触发 drawer */
   onSelectCandidate?: (id: string) => void;
 }) {
   const s = sessionData;
-  /* F-005 Phase 2 · 优先 live (SSE done 真返) · 否则 sessionData.candidates mock */
-  const cs = liveCandidates ?? s.candidates;
-  const isLive = liveCandidates !== null;
+  const cs = s.candidates;
   return (
-    <section className="rpt-panel ch-cand-panel" data-mode={isLive ? "live" : "mock"}>
+    <section
+      className="rpt-panel ch-cand-panel"
+      data-mode={isLive ? "live" : "mock"}
+      data-testid="channel-pilot-candidates"
+    >
       <PanelPinHandle
         id="channel:candidates"
         title="候选企业 Top 推荐"
@@ -1972,7 +2123,7 @@ function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
   const events = active?.timeline ?? [];
 
   return (
-    <section className="rpt-panel rpt-panel--tl ch-tl-panel">
+    <section className="rpt-panel rpt-panel--tl ch-tl-panel" data-testid="channel-pilot-signals">
       <PanelPinHandle
         id={`channel:timeline:${active?.id ?? "none"}`}
         title={`信号时间线 · ${active?.name ?? "—"}`}

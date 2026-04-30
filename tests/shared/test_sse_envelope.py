@@ -57,10 +57,11 @@ def test_data_source_constants():
 
 
 def test_channel_panel_keys_canonical():
-    """workspace-state-protocol §4 Channel canonical 7 keys."""
+    """workspace-state-protocol §4 Channel canonical 8 keys (V3 加 conversation)."""
     expected = {
         "candidates", "signals", "radar", "funnel",
         "match_dimensions", "product_recommendations", "pitch_scripts",
+        "conversation",
     }
     assert set(CHANNEL_PANEL_KEYS) == expected
 
