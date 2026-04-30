@@ -458,6 +458,92 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 (下次更新模板)
 
+---
+
+## 2026-04-29 (Phase A · Week 3 evening) · worker-A4-alert DONE · 4 gate canon + done envelope + risk_level unify
+
+### What happened
+- worker-A4-alert 在 worktree `D:\claude code\work-A4-alert` (branch `feat/phase-a4-alert-adapter`) 全套完成 14 step (per `docs/audit/A4-alert-draft.md` §11):
+  - step 0 · `git rebase chore/l0-infra` 拿 A3 cherry-pick (5876b7b 等)
+  - step 1 · `web/src/lib/mock/agent-alert-sessions.ts` (新 · 3 sessions · 难度分层 + risk_level snake)
+  - step 2-3+5+6+7+8 · `AlertWorkspace.tsx` 全栈 4 gate (started + selectedSessionId + liveData + selectedClientId) + sessionData derive + 5 panel props + normalizeAlertSession (snake↔camel) + AlertDrillDrawer fetch /api/alert/drill/{client_id} + ESC + tier→risk_level + SessionPickerBar dropdown + training-mode banner (规则 2)
+  - step 4 · `agent_alert/api.py` SSE done envelope (panels=hit_list/top_cases/dispositions + metrics + data_source + 5 stage 名) + `_build_drill_llm_caller` via `shared.llm_caller.make_text_caller`
+  - step 9 · POST /api/alert/demo/run 端点 + `data/mock/workspace/alert/scenarios/{baseline_100,manuf_policy_event,judicial_news_dual}.json`
+  - step 10 · `agent_alert/prompts.py` `build_alert_system_prompt` shim (fallback to SYSTEM_* 直到 worker-A1 spec landed)
+  - step 11 · `web/tests/regression/alert-pilot-4gate.spec.ts` 8 spec smoke + `alert-empty-state.spec.ts` testid update
+  - step 12 · `docs/features-inventory.md` F-067 (4 gate alert) + F-068 (/api/alert/demo/run) entries · 本 state-snapshot 段
+- 验:
+  - `npx tsc --noEmit` PASS (workspace + sessions file 全 type-clean)
+  - py import smoke: `from agent_alert.api import app` OK · 10 routes (含新 /api/alert/demo/run)
+  - py 单元 smoke: `_load_scenario_fixture` 3 scenario 全载入 · totals 正确
+  - py prompts shim: 7 role 全 fallback OK · typo guard 抛 KeyError
+  - Playwright spec 8 (后端 demo 路径 env-guarded) · 其余 7 spec route mock + DOM 驱动
+- cat 5 grade 三命名归一 = `risk_level` snake (per A6 schema · per 用户 GO 信号 directive `per A6 schema` · 也是 draft §4.3 推荐 A · agent_credit 趋同):
+  - frontend: TopCase / ReachRate / ScanQueueCase / ScanSnapshot.tiers · `tier` → `risk_level`
+  - backend: `_to_compact_hit` / `_to_top_case` 全 snake · word_export.py `_TIER_LABEL` snake-priority 不动
+  - HeatCell.level (热力 0..4) NOT touched · 与 grade 同名不同义 · trailer 显式注
+
+### Triggered by
+- 用户 GO 信号 commit `a552c57 chore(reset): A4-ALERT-GO-AFTER-A3` (2026-04-29 20:24) · A3 V3 cherry-pick (`5876b7b`) 后 A4 5 子 worker batch dispatch
+
+### State change (delta)
+- `feat/phase-a4-alert-adapter` HEAD: `b967b71` (draft refined) → 8 commit ahead of `chore/l0-infra`
+- Alert pilot canon adoption: `started` 单 gate (W-CF2-A2) → 4 gate canon (started + selectedSessionId + liveData + selectedClientId · workspace-state-protocol §2 fully landed)
+- Alert SSE done envelope: 空 `{}` (Cat 4 finding) → 共形 `make_done(panels=hit_list/top_cases/dispositions, metrics, data_source, session_id, scenario_key, ...)`
+- Alert grade 命名: 三命名漂 (tier/level/grade) → snake `risk_level` 全栈统一 (HeatCell.level 不动)
+- LLM caller (alert /drill): 直 `LLMClient(provider="deepseek")` (Cat 7) → `shared.llm_caller.make_text_caller(agent_id="alert")` · 自动 fallback chain + audit
+- Cat 6 prompts: `agent_alert/prompts.py` 加 `build_alert_system_prompt` shim · 等 worker-A1 spec landed 自动接入 8 段 SOT (零行为变更)
+- F-067 + F-068 加入 `docs/features-inventory.md`
+
+### Next
+- 主 CLI 收 `WORKER-A4-ALERT-ADAPTER-DONE` signal commit · 拉 worker-A4-alert 8 commit
+- codex review (per Phase A `--codex-review` 流程 · 5 子 worker 并行)
+- AGREE 后 cherry-pick 到 `chore/l0-infra` · 与 A4-credit / A4-compli / A4-riskctrl / A4-report 4 子并行回收
+- 5 子全收后 → A2 worker-A1 8 段 spec landed (若 ratify) → contract.assemble() 真出实质内容 → 6 agent 自动继承 (alert prompts shim 自动接)
+
+---
+
+## 2026-04-29 (Phase A · Week 3 night) · worker-A4-alert V2 fix · codex DISAGREE 4 issue 全修
+
+### What happened
+- codex review V1 给 DISAGREE · 4 issue (per `feat(alert): WORKER-A4-ALERT-ADAPTER-DONE` 6592a6e):
+  1. **grade-unified NO**: A6 schema (`agent-handoff-schemas.md:421-422`) 写 frontend = `tier` (red/yellow/green) · 后端 export = `risk_level` (high/medium/low) · 不同 domain · 不混. V1 把 frontend 改成 `risk_level` 违 onboarding §1 #6. revert frontend → `tier`. risk_level 仅 backend/export 兼容输入.
+  2. **4-gate partial**: V1 `normalizeAlertSession` 只更 4 panel · `scanQueueCases` + `scanSnapshotAfter.queue/heat/sources/kbState/summary` 没从 backend `hit_list.red/yellow/green` derive · live scan 显 live totals 但 queue 仍 fallback mock. V2 加 `rowToQueueCase` helper · queue 从 `hit_list.red + hit_list.yellow` derive · scanSnapshotAfter 全 derive (summary/warnCount/kbState/tiers/queue/heat).
+  3. **session_id 丢**: backend `make_done()` 顶层 session_id · V1 `runAlertScan` 只读 `evt.data.payload.type === "session"` · `scanSessionId` 没 set. V2 加 `evt.data.event === "done"` 时 read `evt.data.session_id` 路径 · canon path · per shared.sse_envelope.make_done 顶层位置.
+  4. **smoke 虚**: spec 8 env-guard skip 永远不跑真 backend · spec 4 不 assert hitlist 内容变化. V2 spec 4 加 (1) traffic light count 切 7/14/79 · (2) ScanQueueCase 显 `live 红档客户 ALPHA` + `live 黄档客户 BETA` (验 issue #2 fix) · (3) TopCase row data-client-id="CL-LIVE-RED-1". spec 8 改用 page.route mock + page.evaluate(fetch) · 不再 skip · 直接验 done envelope 字段 + V2 issue #1 fix verify (`"tier"` 不是 `"risk_level"`).
+
+- V2 触面 (8 文件):
+  - `web/src/lib/mock/agent-alert-sessions.ts`: 4 type field (TopCase/ReachRate/ScanQueueCase/ScanSnapshot.tiers) `risk_level` → `tier` · 全部 record literal 同步 · docstring 改 V2 注 (per A6 schema)
+  - `web/src/app/archive/alert/_components/AlertWorkspace.tsx`: 全 consumer (`c.risk_level` / `r.risk_level` / `l.risk_level`) → `c.tier` 等 · `normalizeAlertSession` 加 `rowToQueueCase` + scanSnapshotAfter full derive · ScanSnapshot type import 加 · normalize fallback 仍兼容 backend `risk_level/tier/level/grade` 任一输入键
+  - `web/src/lib/api/alert.ts:runAlertScan`: 加 `evt.data.event === "done"` 路径读顶层 session_id · 与 legacy `evt.data.payload.type === "session"` 双路并存
+  - `agent_alert/api.py:_to_compact_hit / _to_top_case`: 输出键 `risk_level` → `tier` (匹配 frontend canon)
+  - `data/mock/workspace/alert/scenarios/{baseline_100,manuf_policy_event,judicial_news_dual}.json`: 全 `"risk_level":` → `"tier":` (49 处)
+  - `web/tests/regression/alert-pilot-4gate.spec.ts`: spec 4 加内容断言 · spec 8 重写无 skip
+- 验:
+  - `npx tsc --noEmit` PASS
+  - py smoke: `_to_compact_hit` / `_to_top_case` 输出含 `tier` 不含 `risk_level` · 3 fixture 全 `tier` canonical
+  - V2 trailer attach `WORKER-A4-ALERT-V2-FIXED` + 4 issue 逐项 verify 链接
+
+### Triggered by
+- codex DISAGREE on V1 (commit `6592a6e WORKER-A4-ALERT-ADAPTER-DONE`) · 4 issue 列出 · 用户 paste 给 worker-A4-alert
+- A6 handoff schema (`agent-handoff-schemas.md:421-442`) 已明确 frontend `tier` vs backend export `risk_level` 不同 domain
+
+### State change (delta)
+- frontend grade canon: V1 `risk_level` → V2 `tier` (per A6 schema · 与 mock canon 一致)
+- backend SSE done envelope payload key: V1 `risk_level` → V2 `tier` (匹配 frontend canon)
+- backend export endpoint INPUT compat: 保留接受 `risk_level / level / tier` (word_export.py:22 已有)
+- normalizeAlertSession panel coverage: V1 4 panel → V2 5 panel (含 scanQueueCases + scanSnapshotAfter full derive)
+- runAlertScan session_id read: V1 single path (payload.type==session) → V2 dual path (含 evt.data.event==done 顶层)
+- Playwright spec 4: V1 仅断 data-attr → V2 加内容断言 (traffic light counts + queue customers + topcase customer)
+- Playwright spec 8: V1 env-guard skip → V2 route-mock + page.evaluate(fetch) · 不再跳过
+
+### Next
+- worker-A4-alert push V2 commit · 用户 attach codex re-review V2 触发
+- AGREE → cherry-pick A4-alert V1+V2 commits 到 chore/l0-infra
+- DISAGREE → V3 fix loop (per per Phase A 流程)
+
+---
+
 ## YYYY-MM-DD · <事件>
 
 ### Worker 状态变更

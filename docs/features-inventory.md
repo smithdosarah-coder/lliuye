@@ -1005,6 +1005,76 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 
 ---
 
+## F-067 · Alert pilot 4-gate state model + done envelope panels + risk_level unify (Phase A worker-A4-alert)
+
+- **status**: live
+- **owner**: worker-A4-alert (2026-04-29 · post A3 cherry-pick)
+- **goal**: AlertWorkspace 全栈走 workspace-state-protocol.md §2 4-gate canon (started + selectedSessionId + liveData + selectedClientId) · sessionData 派生让 5 panel 全消费同一份 mock/live · backend SSE done envelope 共形 panels + metrics + data_source 给 normalizeAlertSession 注入 liveData · cat 5 grade 三命名归一 risk_level (snake)
+- **location**:
+  - `web/src/lib/mock/agent-alert-sessions.ts` (新 · 3 sessions · ALERT_MOCK_SESSIONS_MAP/LIST/DEFAULT_SESSION_ID)
+  - `web/src/app/archive/alert/_components/AlertWorkspace.tsx` (4 useState + sessionData derive + normalizeAlertSession + AlertDrillDrawer fetch + SessionPickerBar)
+  - `agent_alert/api.py` (`_alert_event_stream` 末尾 yield `_build_done_envelope` · `_stage_for_event` 启发式 5 stage 名 · `_build_drill_llm_caller` via `shared.llm_caller.make_text_caller`)
+- **selector**:
+  - `[data-testid="alert-workspace"]` workspace 容器 (新 attr: `data-view="archive-alert"` + `data-session-id="<id>"` + `data-live-mode="yes|no"`)
+  - `[data-testid="alert-session-picker"]` + `[data-testid="alert-session-select"]` 3 sessions dropdown
+  - `[data-testid="alert-training-mode-banner"]` + `[data-testid="alert-training-mode-banner-cta"]` (selectedSessionId !== DEFAULT && !liveData 时显)
+  - `[data-testid="alert-top-case-row"]` + `[data-testid="alert-hitlist-row"]` 含 `data-client-id` (TopCase / hitlist row 通用)
+  - `[data-testid="alert-drill-drawer"]` 含 `data-client-id` + `[data-testid="alert-drill-drawer-close"]` + `[data-testid="alert-drill-loading"]` + `[data-testid="alert-drill-fail"]`
+  - `[data-testid="alert-traffic-light-{red,yellow,green}"]` 三灯 (现有 · 数字跟 sessionData.totals)
+- **interaction**:
+  - 进 `/archive/alert` default `started=false` · 渲 EmptyState (F-049 保留)
+  - primary CTA → `triggerPrimaryScan()` setStarted(true) + startScan() (default session)
+  - tertiary CTA → setStarted(true) + handleSelectSession("sess_manuf_policy_event") + setPhase("after") · training-mode banner 显
+  - SessionPickerBar dropdown change → handleSelectSession(id) · reset phase/stepIdx/tab/selectedClientId/liveData/scanError · 切 sessionData · 5 panel 全跟着切
+  - banner 「回基线场景」 button → handleSelectSession(DEFAULT_SESSION_ID) → banner 隐
+  - SSE live mode (POST /api/alert/scan): `runAlertScan` onEvent 推 stage event 进 stepIdx · done event 调 `normalizeAlertSession` setLiveData · session-select disabled (live mode 锁)
+  - Live fail (4xx/5xx/network): `recordLiveFail` setLiveFail + `alert-live-fail-banner` + `alert-live-fail-retry` button
+  - TopCase row click → setSelectedClientId(c.client_id) → AlertDrillDrawer fetchDrill · ESC / backdrop click 关
+- **introduce**: 2026-04-29 Phase A worker-A4-alert (post A3 channel pilot cherry-pick) · §11 step 1-8
+- **fixes**:
+  - Cat 4 alert (done event 空 envelope · 5 panel 不切) · workspace-state-protocol §2 4-gate gap
+  - Cat 5 alert (grade 三命名 tier/level/grade 漂) → snake `risk_level` 全栈 (HeatCell.level 不动)
+  - Cat 7 alert (LLM caller 直 LLMClient init) → `shared.llm_caller.make_text_caller`
+  - Cat 11 alert (training-mode banner 在 mock dropdown 时不显 · 规则 2)
+- **lost_at**: N/A
+- **restored**: N/A
+- **contract**: `shared/sse_envelope.py make_done/make_stage` + `workspace-state-protocol.md` §2/§7 + `live-fallback-banner-spec.md` §2 规则 1+2
+- **smoke_test**:
+  - `web/tests/regression/alert-pilot-4gate.spec.ts` (8 spec · empty/dropdown switch/2nd switch/SSE live/live-fail/drill drawer/export_docx/demo run endpoint)
+  - `web/tests/regression/alert-empty-state.spec.ts` (testid `alert-demo-banner` → `alert-training-mode-banner` 重命名 · 4 test 保留)
+- **依赖**: F-049 (empty state 入口) + F-055 (drill drawer + export bar) + F-061 (live-fail banner shared) + F-064 (export_docx contract) · backend `/api/alert/scan` SSE done envelope (本 commit 落) + `/api/alert/drill/{client_id}` (Stage C unchanged)
+- **NB**: cat 6 (prompts.py 8 段 contract migrate) shim 已就位 (`build_alert_system_prompt`) · 等 worker-A1 spec landed 自动继承 · 当前 fallback 各 SYSTEM_* 常量 (零行为变更)
+
+---
+
+## F-068 · /api/alert/demo/run + 3 scenario JSON (Phase A worker-A4-alert)
+
+- **status**: live
+- **owner**: worker-A4-alert (2026-04-29)
+- **goal**: 客户走访稳定 demo 路径 (与 live `/api/alert/scan` 分离) · 不读 KB / 不调 LLM / 不持久化 · 与 done envelope 共形 (`make_done` + `data_source="mock_forced"`)
+- **location**:
+  - `agent_alert/api.py` (`alert_demo_run` endpoint + `_alert_demo_event_stream` + `_load_scenario_fixture` + `SCENARIOS_DIR`)
+  - `data/mock/workspace/alert/scenarios/{baseline_100,manuf_policy_event,judicial_news_dual}.json`
+- **interaction**:
+  - POST `/api/alert/demo/run` body `{scenario_key: "baseline_100"|"manuf_policy_event"|"judicial_news_dual"}` (默认 baseline_100)
+  - 后端读 `<scenarios>/<key>.json` (alphanumeric+underscore guard · 防 path traversal) · 5 stage done 流 (kb_load / external_scan / internal_match / cross / summary 各 0.25s sleep)
+  - 末尾 `make_done(panels={hit_list, top_cases, dispositions}, metrics, data_source="mock_forced", session_id="demo-{key}", scenario_key, kb_state, mode="demo_forced", totals, industry_distribution, signal_heatmap, reach_rate)`
+  - 文件不存在 → 404 · key 非法 → 400 · load 失败 → `make_error(code="FIXTURE_LOAD_FAILED")` SSE
+- **introduce**: 2026-04-29 Phase A worker-A4-alert
+- **lost_at**: N/A
+- **contract**: `shared/sse_envelope.py make_done/make_stage/make_error_from_exception`
+- **scenario data 反 5 原则** (CLAUDE.md §3.5):
+  - baseline_100 (简单 · 100 户 · 红 5 / 黄 15 / 绿 80 · 行业平稳 · signal_heatmap 单峰)
+  - manuf_policy_event (中等 · 750 户 · 红 18 / 黄 52 / 绿 680 · 制造业 60% · Agent5 政策事件交叉)
+  - judicial_news_dual (困难 · 200 户重点 · 红 25 / 黄 35 / 绿 140 · 司法+舆情双路命中 14 户)
+  - 锚定 A 股年报 + 央行批次 + 银保监舆情形态 · 改名改数字保量级 · 不含 difficulty 答案字段 (Agent 自己算)
+- **smoke_test**:
+  - `python -c "from agent_alert.api import _load_scenario_fixture; ..."` in-process: 3 fixture 载入 + totals 验
+  - `web/tests/regression/alert-pilot-4gate.spec.ts` spec 8 (env-guarded `ALERT_BACKEND_URL` · curl-style request 测 done envelope 字段)
+- **NB**: scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不重启后端
+
+---
+
 ## 维护规则
 
 1. **新 feature 落地必须加 entry**·worker 在 commit message 内 trailer `INVENTORY-ADDED: F-XXX`
