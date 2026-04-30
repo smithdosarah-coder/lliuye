@@ -214,9 +214,22 @@ test.describe("worker-A4-compli · compliance pilot · 4 gate", () => {
 
     const detail = page.locator('[data-testid="compli-pilot-detail"]');
     await expect(detail).toBeVisible();
-
-    /* 联动 sentinel · 修订意见关联 VIO-002 */
     await expect(detail).toContainText("第十九条");
+
+    /* V2 fix · codex DISAGREE issue 3 · 加 sentinel assert 验真"修订意见联动" ·
+       不只 article string · 必须能在 ViolationDetail 内看到与该 violation 关联的 revision text ·
+       SAMPLE_DONE_ENVELOPE.recommendations VIO-002 含 sentinel "sentinel-VIO-002-rev"
+       · normalizeComplianceBackendDone 把 recommendation.text 写到 RevisionAdvice.body
+       · ViolationDetailPanel 过滤匹配 violation 的 revisions 渲染
+       · Detail panel 必须含此 sentinel · 才证明真联动 (不是渲染 mock 模板的 advice) */
+    const detailRevisions = detail.locator(
+      '[data-testid="compli-violation-detail-revisions"]',
+    );
+    await expect(detailRevisions).toBeVisible();
+    await expect(detailRevisions).toContainText("sentinel-VIO-002-rev");
+
+    /* 反向验:不应含 VIO-001 的 sentinel (验过滤逻辑而非全量渲染) */
+    await expect(detailRevisions).not.toContainText("sentinel-VIO-001-rev");
 
     /* ESC 关 selectedViolationId */
     await page.keyboard.press("Escape");
