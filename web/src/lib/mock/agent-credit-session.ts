@@ -1186,3 +1186,900 @@ export const CREDIT_SESSIONS: Record<CreditMode, CreditSession> = {
 
 /** Backward-compat · 旧 import { CREDIT_SESSION } 指向 corp 默认 */
 export const CREDIT_SESSION: CreditSession = CORP_SESSION;
+
+/* ══════════════════════════════════════════════════════
+ * 对公 · 中锐网络科技 · SaaS · 关联交易软红线 · approved-cut
+ * （难度: hard · 关联交易 32% 软红线可豁免 · 应收账款 140 天）
+ * ════════════════════════════════════════════════════ */
+
+const ZHONGRUI_QUERY: CreditQuery = {
+  id: "cr-zr-saas-0428",
+  customer: "中锐网络科技股份有限公司",
+  customerCode: "CR-2026-04-28-0103",
+  product: "对公经营贷",
+  applyAmount: "500 万",
+  applyTenor: "24 个月",
+  purpose: "SaaS 产品研发投入 + 销售扩张周转",
+  industry: "信息技术服务 · 企业级 SaaS",
+  updated: "1 小时前",
+};
+
+const ZHONGRUI_PIPELINE: CreditPipelineStep[] = [
+  { id: "p-1", label: "消费 Agent6 报告", status: "done", note: "ReportJSON v7.23 · 388 项" },
+  { id: "p-2", label: "四维评分", status: "done", note: "财 64 / 经 70 / 合 73 / 担 60" },
+  { id: "p-3", label: "红线检查", status: "done", note: "7 项 · 5 过 2 警（关联交易 + 应收账龄）" },
+  { id: "p-4", label: "案例召回", status: "done", note: "3 个相似 SaaS 案例 · 相似度 ≥ 0.81" },
+  { id: "p-5", label: "额度 · 期限 · 利率", status: "done", note: "380 万 / 18 月 / LPR+150bps" },
+  { id: "p-6", label: "送审贷会", status: "pending", note: "需主审会议豁免关联交易软红线" },
+];
+
+const ZHONGRUI_RADAR: CreditRadarDim[] = [
+  {
+    key: "fin",
+    label: "财务健康",
+    score: 64,
+    weight: 0.3,
+    note: "毛利率 58% 高（SaaS 行业特征）· 流动比 1.21 · 应收账款周转 140 天偏长",
+    tags: ["毛利 58%", "应收 140 天"],
+  },
+  {
+    key: "ops",
+    label: "经营稳健",
+    score: 70,
+    weight: 0.3,
+    note: "成立 7 年 · ARR 4200 万 · NDR 112% · 客户续约率 87%",
+    tags: ["NDR 112%", "续约 87%"],
+  },
+  {
+    key: "comp",
+    label: "合规征信",
+    score: 73,
+    weight: 0.25,
+    note: "央行征信无不良 · 税务 B 级 · 关联交易占比 32%（软红线 · 集团内 SaaS 互购）",
+    tags: ["关联交易 32%", "税务 B"],
+  },
+  {
+    key: "guar",
+    label: "担保增信",
+    score: 60,
+    weight: 0.15,
+    note: "无土地房产 · 软件著作权 + 应收账款质押 · 控股股东连带保证",
+    tags: ["软资产质押", "股东连带"],
+  },
+];
+
+const ZHONGRUI_RED_LINES: RedLine[] = [
+  {
+    id: "rl-1",
+    rule: "近 12 月 M3+ 逾期 = 0",
+    detail: "核查通过 · 无 M3+ 逾期",
+    status: "pass",
+    citation: "央行征信 2026-04",
+  },
+  {
+    id: "rl-2",
+    rule: "无失信/被执行/行政处罚",
+    detail: "三库联查无命中",
+    status: "pass",
+    citation: "信用中国 2026-04-25",
+  },
+  {
+    id: "rl-3",
+    rule: "税务评级 ≥ B",
+    detail: "税务 B 级 · 恰在阈值",
+    status: "pass",
+    citation: "省税务总局 2025",
+  },
+  {
+    id: "rl-4",
+    rule: "资产负债率 ≤ 70%",
+    detail: "当前 54% · 距上限 16pp",
+    status: "pass",
+    citation: "财报 2025-12 · 经审计",
+  },
+  {
+    id: "rl-5",
+    rule: "关联交易占比 ≤ 30%（软红线）",
+    detail: "当前 32% · 超阈 2pp · SaaS 行业内集团互购属性可豁免，需主审会议批",
+    status: "warn",
+    citation: "审计报告 2025 · 关联方说明",
+  },
+  {
+    id: "rl-6",
+    rule: "应收账款账龄 ≤ 120 天",
+    detail: "当前 140 天 · 超阈 20 天 · 大客户回款节奏决定",
+    status: "warn",
+    citation: "应收账款明细 2026-Q1",
+  },
+  {
+    id: "rl-7",
+    rule: "主营业务集中度 ≤ 60%",
+    detail: "前 3 大客户占比 47% · 通过",
+    status: "pass",
+    citation: "销售台账 2025-Q4",
+  },
+];
+
+const ZHONGRUI_CASES: CaseRecall[] = [
+  {
+    id: "c-1",
+    name: "杭州睿启信息 · 2025-09（SaaS）",
+    similarity: 0.88,
+    amount: "600 万",
+    decision: "approved-cut",
+    note: "同业 SaaS · 关联交易 28% · 应收账款质押 · 终批 480 万 / 18 月 / LPR+140bps",
+    tags: ["SaaS", "应收质押"],
+  },
+  {
+    id: "c-2",
+    name: "苏州云算软件 · 2025-12",
+    similarity: 0.85,
+    amount: "500 万",
+    decision: "approved-cut",
+    note: "同业 · 关联交易 35% 经主审会议豁免 · 终批 360 万 / 18 月 / LPR+160bps",
+    tags: ["关联交易豁免", "B 级"],
+  },
+  {
+    id: "c-3",
+    name: "上海智云数据 · 2026-02",
+    similarity: 0.81,
+    amount: "800 万",
+    decision: "rejected",
+    note: "同业 · 但关联交易 41% + 应收 180 天 · 双警拒",
+    tags: ["关联交易超线", "应收过长"],
+  },
+];
+
+const ZHONGRUI_LIMIT: LimitSuggestion = {
+  applied: 500,
+  suggested: 380,
+  floor: 300,
+  ceiling: 500,
+  tenorMonths: 18,
+  tenorRange: [12, 24],
+  rateBps: 150,
+  rateRange: [130, 180],
+  rationale: [
+    "关联交易 32% 软红线超阈 2pp · 额度下调 24%（参考案例 C-2 经豁免后批 72%）",
+    "应收账款 140 天偏长 · 期限收紧至 18 月匹配回款周期",
+    "LPR+150bps 取案例 C-1/C-2 中位 · 反映软资产担保溢价",
+  ],
+};
+
+const ZHONGRUI_CONVERSATION: ConversationMessage[] = [
+  {
+    id: "crz-msg-1",
+    at: "1 小时前",
+    kind: "system-event",
+    content: "审贷 session 启动 · 客户：中锐网络科技 · 产品：对公经营贷 · 申请 500 万 / 24 月",
+  },
+  {
+    id: "crz-msg-2",
+    at: "55 分钟前",
+    kind: "ai-response",
+    content:
+      "客户为 SaaS 行业 · 综合分 67 · 触发 2 项软红线警告：关联交易 32%（软红线 30%）+ 应收账款账龄 140 天（阈值 120 天）。两项均可经主审会议豁免，召回 3 个相似案例对照。",
+  },
+  {
+    id: "crz-msg-3",
+    at: "40 分钟前",
+    kind: "user-reply",
+    content: "关联交易这块仔细看一下，是真集团内业务还是套壳？",
+  },
+  {
+    id: "crz-msg-4",
+    at: "30 分钟前",
+    kind: "ai-thinking",
+    content: "拆解关联交易构成 · 验证商业实质 · 对照案例 C-2 豁免路径",
+    thinking: {
+      steps: [
+        {
+          label: "关联交易明细",
+          evidences: [
+            "总关联交易 1340 万 · 占总营收 32%",
+            "构成：集团内 SaaS 服务互购 980 万（73%）+ 共享研发资源 210 万（16%）+ 关联方采购 150 万（11%）",
+            "定价：均按市场公允价 · 经审计师核查无利益输送痕迹",
+          ],
+        },
+        {
+          label: "案例豁免路径对标",
+          evidences: [
+            "C-2 苏州云算（0.85）· 关联交易 35% · 主审会议出具豁免意见后批 72%",
+            "豁免要件：商业实质成立 + 公允定价 + 审计师无保留意见",
+            "本笔 3 项要件均满足 · 路径可行",
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "crz-msg-5",
+    at: "10 分钟前",
+    kind: "ai-response",
+    content:
+      "建议：批 380 万 / 18 月 / LPR+150bps · 等同打折批（approved-cut）· 前置条件 = 主审会议出具关联交易豁免意见 + 客户提供应收账款质押合同。",
+  },
+];
+
+const ZHONGRUI_MATERIALS: MaterialsPanel = {
+  completeness: 78,
+  missing: "应收账款质押合同 1 份",
+  files: [
+    { id: "m-1", icon: "照", name: "营业执照.pdf", note: "已提取主体 + 关联方架构", status: "done" },
+    { id: "m-2", icon: "审", name: "2025 经审计财报.pdf", note: "关联交易明细已抽取", status: "done" },
+    { id: "m-3", icon: "应", name: "应收账款明细.xlsx", note: "账龄 140 天 · 超阈", status: "warn" },
+    { id: "m-4", icon: "押", name: "应收账款质押合同", note: "客户尚未提交", status: "pending" },
+  ],
+};
+
+const ZHONGRUI_SOURCES: DataSourcesPanel = {
+  summary: "5 项已接入",
+  updated: "2026-04-28 · 实时",
+  sources: [
+    { id: "s-1", name: "客户基础信息库", desc: "工商 + 关联方架构图", status: "online" },
+    { id: "s-2", name: "央行征信 · 对公", desc: "征信与担保记录", status: "online" },
+    { id: "s-3", name: "税务信用评级", desc: "省税务总局 A/B/C 级", status: "online" },
+    { id: "s-4", name: "关联交易识别引擎", desc: "集团互购 · 公允定价校验", status: "online" },
+    { id: "s-5", name: "行内 SaaS 行业敞口", desc: "信息技术服务饱和度", status: "online" },
+  ],
+};
+
+const ZHONGRUI_EVIDENCES: EvidencesPanel = {
+  positive: [
+    {
+      id: "ev-p-1",
+      icon: "正",
+      title: "SaaS 业务模型健康 · NDR 112%",
+      detail: "续约率 87% · 净金额留存 112% 高于行业中位 105%",
+      tone: "positive",
+    },
+    {
+      id: "ev-p-2",
+      icon: "正",
+      title: "毛利率 58% · 高于行业中位",
+      detail: "SaaS 行业特征 · 软件订阅型收入弹性好",
+      tone: "positive",
+    },
+  ],
+  warnings: [
+    {
+      id: "ev-w-1",
+      icon: "提",
+      title: "关联交易 32% · 触软红线",
+      detail: "超阈 2pp · 商业实质成立 · 需主审会议豁免",
+      tone: "warning",
+    },
+    {
+      id: "ev-w-2",
+      icon: "提",
+      title: "应收账款 140 天 · 超阈 20 天",
+      detail: "大客户回款慢 · 需补应收账款质押缓释",
+      tone: "warning",
+    },
+  ],
+  missing: [
+    {
+      id: "ev-m-1",
+      icon: "缺",
+      title: "应收账款质押合同未签",
+      detail: "影响第二还款来源完成度 · 放款前置条件",
+      tone: "missing",
+    },
+  ],
+};
+
+const ZHONGRUI_PROFILE: CreditProfile = {
+  chips: ["成立 7 年", "企业级 SaaS", "ARR 4200 万", "集团旗下"],
+  tagline: "SaaS 业务健康但关联交易触软红线 · 建议批 380 万、要求主审豁免 + 应收质押",
+};
+
+const ZHONGRUI_SESSION: CreditSession = {
+  id: "cs-zhongrui-network",
+  mode: "corp",
+  objective: "中锐网络科技 · 对公经营贷 500 万 · 关联交易软红线豁免决策",
+  stage: "待主审豁免 · 决议草稿已生成",
+  updated: "10 分钟前",
+  profile: ZHONGRUI_PROFILE,
+  query: ZHONGRUI_QUERY,
+  pipeline: ZHONGRUI_PIPELINE,
+  radar: ZHONGRUI_RADAR,
+  overallScore: 67,
+  decision: "approved-cut",
+  limit: ZHONGRUI_LIMIT,
+  redLines: ZHONGRUI_RED_LINES,
+  cases: ZHONGRUI_CASES,
+  conversation: ZHONGRUI_CONVERSATION,
+  qcCounts: { block: 0, warn: 2, info: 4 },
+  recentSessions: RECENT,
+  materials: ZHONGRUI_MATERIALS,
+  dataSources: ZHONGRUI_SOURCES,
+  evidences: ZHONGRUI_EVIDENCES,
+  generateSteps: GEN_STEPS,
+};
+
+/* ══════════════════════════════════════════════════════
+ * 对公 · 鼎盛商贸 · D 级 · 双红线 fail · rejected
+ * （难度: extreme · 高负债率 0.78 + 关联方占款 · 直接拒）
+ * ════════════════════════════════════════════════════ */
+
+const DINGSHENG_QUERY: CreditQuery = {
+  id: "cr-ds-trade-0427",
+  customer: "鼎盛商贸有限公司",
+  customerCode: "CR-2026-04-27-0089",
+  product: "对公经营贷",
+  applyAmount: "300 万",
+  applyTenor: "12 个月",
+  purpose: "补流 · 偿还到期借款",
+  industry: "批发零售 · 建材",
+  updated: "30 分钟前",
+};
+
+const DINGSHENG_PIPELINE: CreditPipelineStep[] = [
+  { id: "p-1", label: "消费 Agent6 报告", status: "done", note: "ReportJSON v7.23 · 274 项" },
+  { id: "p-2", label: "四维评分", status: "done", note: "财 32 / 经 38 / 合 41 / 担 28" },
+  { id: "p-3", label: "红线检查", status: "done", note: "6 项 · 2 过 2 警 2 fail（双硬红线）" },
+  { id: "p-4", label: "案例召回", status: "done", note: "3 个负面案例 · 全部拒贷" },
+  { id: "p-5", label: "额度 · 期限 · 利率", status: "done", note: "拒贷 · 不出额度建议" },
+  { id: "p-6", label: "送审贷会", status: "done", note: "已生成拒贷意见 · 自动下架" },
+];
+
+const DINGSHENG_RADAR: CreditRadarDim[] = [
+  {
+    key: "fin",
+    label: "财务健康",
+    score: 32,
+    weight: 0.3,
+    note: "毛利率 6.8% 极薄 · 流动比 0.79 · 资产负债率 78% 触红线 · 现金流连续 4 季度净流出",
+    tags: ["负债率 78%", "现金净流出"],
+  },
+  {
+    key: "ops",
+    label: "经营稳健",
+    score: 38,
+    weight: 0.3,
+    note: "成立 9 年但近 2 年营收下滑 22% · 核心客户流失 3 家 · 库存周转 218 天",
+    tags: ["营收下滑 22%", "库存堆积"],
+  },
+  {
+    key: "comp",
+    label: "合规征信",
+    score: 41,
+    weight: 0.25,
+    note: "近 12 月有 3 笔 M1+ 逾期 · 税务 C 级 · 控股股东 1 笔被执行（已结案）",
+    tags: ["M1 逾期 3 笔", "税务 C"],
+  },
+  {
+    key: "guar",
+    label: "担保增信",
+    score: 28,
+    weight: 0.15,
+    note: "抵押物为陈旧库存（建材 · 易跌价）· 估值水分大 · 关联方占款 480 万未归还",
+    tags: ["关联方占款", "存货抵押"],
+  },
+];
+
+const DINGSHENG_RED_LINES: RedLine[] = [
+  {
+    id: "rl-1",
+    rule: "近 12 月 M3+ 逾期 = 0",
+    detail: "无 M3+ · 但有 3 笔 M1+ · 接近上限",
+    status: "warn",
+    citation: "央行征信 2026-04",
+  },
+  {
+    id: "rl-2",
+    rule: "无失信/被执行/行政处罚",
+    detail: "控股股东 1 笔被执行（2024-08 已结案）· 接近边线",
+    status: "warn",
+    citation: "信用中国 2026-04-26",
+  },
+  {
+    id: "rl-3",
+    rule: "税务评级 ≥ B",
+    detail: "当前 C 级 · 触硬红线",
+    status: "fail",
+    citation: "省税务总局 2025",
+  },
+  {
+    id: "rl-4",
+    rule: "资产负债率 ≤ 70%",
+    detail: "当前 78% · 超阈 8pp · 触硬红线",
+    status: "fail",
+    citation: "财报 2025-12 · 未审计",
+  },
+  {
+    id: "rl-5",
+    rule: "关联方占款 = 0",
+    detail: "关联方占款 480 万 · 占净资产 31% · 严重侵蚀偿付能力",
+    status: "fail",
+    citation: "应收明细 2026-Q1",
+  },
+  {
+    id: "rl-6",
+    rule: "现金流为正",
+    detail: "近 4 季度经营性现金流净流出 · 趋势恶化",
+    status: "warn",
+    citation: "现金流量表 2025",
+  },
+];
+
+const DINGSHENG_CASES: CaseRecall[] = [
+  {
+    id: "c-1",
+    name: "唐山兴隆建材贸易 · 2025-08",
+    similarity: 0.89,
+    amount: "400 万",
+    decision: "rejected",
+    note: "同业 · 负债率 76% + 关联方占款 · 拒贷",
+    tags: ["建材", "负债率超线"],
+  },
+  {
+    id: "c-2",
+    name: "邯郸金顺商贸 · 2025-11",
+    similarity: 0.84,
+    amount: "350 万",
+    decision: "rejected",
+    note: "同业 · 税务 C 级 + 现金流恶化 · 拒贷",
+    tags: ["税务 C", "现金流恶化"],
+  },
+  {
+    id: "c-3",
+    name: "石家庄宏达建材 · 2026-02",
+    similarity: 0.82,
+    amount: "300 万",
+    decision: "rejected",
+    note: "同业 · 库存周转 230 天 · 关联方占款 600 万 · 直接拒",
+    tags: ["库存堆积", "关联方占款"],
+  },
+];
+
+const DINGSHENG_LIMIT: LimitSuggestion = {
+  applied: 300,
+  suggested: 0,
+  floor: 0,
+  ceiling: 0,
+  tenorMonths: 0,
+  tenorRange: [0, 0],
+  rateBps: 0,
+  rateRange: [0, 0],
+  rationale: [
+    "触发 3 项硬红线（税务 C + 负债率 78% + 关联方占款 480 万）· 直接拒贷",
+    "案例 C-1/C-2/C-3 同行业全部拒贷 · 无可比放款先例",
+    "建议：客户先化解关联方占款 + 改善税务评级至 B 级后再行评估",
+  ],
+};
+
+const DINGSHENG_CONVERSATION: ConversationMessage[] = [
+  {
+    id: "crd-msg-1",
+    at: "30 分钟前",
+    kind: "system-event",
+    content: "审贷 session 启动 · 客户：鼎盛商贸 · 产品：对公经营贷 · 申请 300 万 / 12 月",
+  },
+  {
+    id: "crd-msg-2",
+    at: "28 分钟前",
+    kind: "ai-response",
+    content:
+      "客户综合分 35 · 触发 3 项硬红线（税务 C + 负债率 78% + 关联方占款 480 万）· 直接进入拒贷判定。已召回 3 个同业案例对照确认。",
+  },
+  {
+    id: "crd-msg-3",
+    at: "20 分钟前",
+    kind: "user-reply",
+    content: "关联方占款这块走个明细，确认一下能不能短期化解",
+  },
+  {
+    id: "crd-msg-4",
+    at: "15 分钟前",
+    kind: "ai-thinking",
+    content: "拆解关联方占款明细 · 评估化解可能",
+    thinking: {
+      steps: [
+        {
+          label: "关联方占款明细",
+          evidences: [
+            "关联方 A（实控人配偶名下贸易公司）· 占款 320 万 · 形成于 2023-Q2 · 账龄 22 月",
+            "关联方 B（实控人弟弟）· 占款 110 万 · 个人借款用途 · 无书面协议",
+            "关联方 C（参股 30% 子公司）· 占款 50 万 · 投资性挪用",
+            "合计 480 万 · 占净资产 31% · 远超监管 5% 提示线",
+          ],
+        },
+        {
+          label: "化解可行性评估",
+          evidences: [
+            "关联方 A 自身负债 280 万 · 短期无现金归还能力",
+            "关联方 B 个人借款无文件支撑 · 法律追索难",
+            "结论：3-6 月内无可见化解路径 · 不建议放款",
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "crd-msg-5",
+    at: "5 分钟前",
+    kind: "ai-response",
+    content:
+      "决策建议：拒贷（rejected）· 不出额度。关键依据 = 3 项硬红线齐发 + 关联方占款无短期化解路径 + 同业 3 个案例全部拒。已生成拒贷意见书草稿。",
+  },
+];
+
+const DINGSHENG_MATERIALS: MaterialsPanel = {
+  completeness: 65,
+  missing: "审计报告 1 份 · 关联方化解承诺 1 份",
+  files: [
+    { id: "m-1", icon: "照", name: "营业执照.pdf", note: "已提取主体信息", status: "done" },
+    { id: "m-2", icon: "报", name: "2025 财报.xlsx", note: "未审计 · 自填 · 数据可信度低", status: "warn" },
+    { id: "m-3", icon: "征", name: "央行征信对公.pdf", note: "M1 逾期 3 笔", status: "warn" },
+    { id: "m-4", icon: "审", name: "审计报告", note: "客户尚未提交", status: "pending" },
+  ],
+};
+
+const DINGSHENG_SOURCES: DataSourcesPanel = {
+  summary: "5 项已接入",
+  updated: "2026-04-27 · 实时",
+  sources: [
+    { id: "s-1", name: "客户基础信息库", desc: "工商 + 关联方架构", status: "online" },
+    { id: "s-2", name: "央行征信 · 对公", desc: "征信与逾期记录", status: "online" },
+    { id: "s-3", name: "税务信用评级", desc: "省税务总局", status: "online" },
+    { id: "s-4", name: "关联方占款识别", desc: "占款明细 + 账龄分布", status: "online" },
+    { id: "s-5", name: "建材行业敞口", desc: "区域饱和 + 风险预警", status: "warn" },
+  ],
+};
+
+const DINGSHENG_EVIDENCES: EvidencesPanel = {
+  positive: [],
+  warnings: [
+    {
+      id: "ev-w-1",
+      icon: "提",
+      title: "近 12 月 M1 逾期 3 笔",
+      detail: "未升至 M3 但已显风险征兆",
+      tone: "warning",
+    },
+    {
+      id: "ev-w-2",
+      icon: "提",
+      title: "经营性现金流连续 4 季度净流出",
+      detail: "趋势恶化 · 偿付能力被侵蚀",
+      tone: "warning",
+    },
+    {
+      id: "ev-w-3",
+      icon: "提",
+      title: "库存周转 218 天",
+      detail: "建材积压 · 减值风险高",
+      tone: "warning",
+    },
+  ],
+  missing: [
+    {
+      id: "ev-m-1",
+      icon: "缺",
+      title: "经审计财报缺失",
+      detail: "未审计版数据可信度无法评估",
+      tone: "missing",
+    },
+  ],
+};
+
+const DINGSHENG_PROFILE: CreditProfile = {
+  chips: ["成立 9 年", "建材批发", "营收下滑 22%", "高负债 + 关联方占款"],
+  tagline: "3 项硬红线齐发（税务 C + 负债率 78% + 关联方占款 480 万）· 直接拒贷",
+};
+
+const DINGSHENG_SESSION: CreditSession = {
+  id: "cs-dingsheng-trade",
+  mode: "corp",
+  objective: "鼎盛商贸 · 对公经营贷 300 万 · 双红线拒贷判定",
+  stage: "已拒 · 拒贷意见书生成",
+  updated: "5 分钟前",
+  profile: DINGSHENG_PROFILE,
+  query: DINGSHENG_QUERY,
+  pipeline: DINGSHENG_PIPELINE,
+  radar: DINGSHENG_RADAR,
+  overallScore: 35,
+  decision: "rejected",
+  limit: DINGSHENG_LIMIT,
+  redLines: DINGSHENG_RED_LINES,
+  cases: DINGSHENG_CASES,
+  conversation: DINGSHENG_CONVERSATION,
+  qcCounts: { block: 3, warn: 4, info: 1 },
+  recentSessions: RECENT,
+  materials: DINGSHENG_MATERIALS,
+  dataSources: DINGSHENG_SOURCES,
+  evidences: DINGSHENG_EVIDENCES,
+  generateSteps: GEN_STEPS,
+};
+
+/* ══════════════════════════════════════════════════════
+ * 对私 · 王五 · 装修工头 · 810 优 · 房产抵押 · approved
+ * （难度: simple · 评分卡子项均高 · 满额批 · LPR-10BP）
+ * ════════════════════════════════════════════════════ */
+
+const WANGWU_QUERY: CreditQuery = {
+  id: "cr-ww-deco-0428",
+  customer: "王五",
+  customerCode: "CR-2026-04-28-PR-0066",
+  product: "对私经营贷",
+  applyAmount: "200 万",
+  applyTenor: "60 个月",
+  purpose: "装修队规模化运营 · 工程款周转 + 设备采购",
+  industry: "建筑装饰 · 个体工头",
+  updated: "20 分钟前",
+};
+
+const WANGWU_PIPELINE: CreditPipelineStep[] = [
+  { id: "p-1", label: "消费身份与资产材料", status: "done", note: "身份证 / 流水 / 房产 / 工程合同" },
+  { id: "p-2", label: "四维评分", status: "done", note: "财 84 / 经 86 / 合 92 / 担 88" },
+  { id: "p-3", label: "红线检查", status: "done", note: "5 项 · 5 过 0 警" },
+  { id: "p-4", label: "案例召回", status: "done", note: "3 个同画像案例 · 相似度 ≥ 0.83" },
+  { id: "p-5", label: "额度 · 期限 · 利率", status: "done", note: "200 万 / 60 月 / LPR-10BP" },
+  { id: "p-6", label: "快速审批", status: "done", note: "评分卡 810 · 优级通道" },
+];
+
+const WANGWU_RADAR: CreditRadarDim[] = [
+  {
+    key: "fin",
+    label: "个人偿付",
+    score: 84,
+    weight: 0.3,
+    note: "近 24 月装修工程结算流水月均 5.6 万 · 月供建议 3.8 万 · 偿付比 41%",
+    tags: ["月入 5.6 万", "偿付比 41%"],
+  },
+  {
+    key: "ops",
+    label: "职业稳定",
+    score: 86,
+    weight: 0.25,
+    note: "工龄 12 年 · 装修队规模 18 人 · 与 3 家精装公司常年合作",
+    tags: ["工龄 12 年", "队伍稳定"],
+  },
+  {
+    key: "comp",
+    label: "征信表现",
+    score: 92,
+    weight: 0.3,
+    note: "央行征信无逾期无关注 · 评分卡综合 810 优级 · 近 24 月查询次数 3 次",
+    tags: ["评分 810", "无逾期"],
+  },
+  {
+    key: "guar",
+    label: "担保增信",
+    score: 88,
+    weight: 0.15,
+    note: "自有住宅 1 套（评估 380 万）抵押 · 抵押率 53%",
+    tags: ["房产抵押", "抵押率 53%"],
+  },
+];
+
+const WANGWU_RED_LINES: RedLine[] = [
+  {
+    id: "rl-1",
+    rule: "近 12 月 M1+ 逾期 = 0",
+    detail: "无任何逾期",
+    status: "pass",
+    citation: "央行征信 2026-04",
+  },
+  {
+    id: "rl-2",
+    rule: "DTI ≤ 55%",
+    detail: "当前 41% · 距上限 14pp",
+    status: "pass",
+    citation: "负债测算 2026-04",
+  },
+  {
+    id: "rl-3",
+    rule: "无黑名单/反欺诈命中",
+    detail: "全查无命中",
+    status: "pass",
+    citation: "反欺诈 2026-04-28",
+  },
+  {
+    id: "rl-4",
+    rule: "经营年限 ≥ 3 年",
+    detail: "工龄 12 年 · 装修队成立 8 年",
+    status: "pass",
+    citation: "工程合同 + 流水佐证",
+  },
+  {
+    id: "rl-5",
+    rule: "抵押率 ≤ 70%",
+    detail: "200/380 = 53% · 充裕",
+    status: "pass",
+    citation: "评估报告 2026-03",
+  },
+];
+
+const WANGWU_CASES: CaseRecall[] = [
+  {
+    id: "c-1",
+    name: "同画像客户 · 2025-12（厦门·装修工头）",
+    similarity: 0.93,
+    amount: "200 万",
+    decision: "approved",
+    note: "终批 200 万 / 60 月 / LPR-15BP · 评分 815 优级通道",
+    tags: ["装修", "评分 815"],
+  },
+  {
+    id: "c-2",
+    name: "同画像客户 · 2026-01（漳州·建装个体）",
+    similarity: 0.88,
+    amount: "180 万",
+    decision: "approved",
+    note: "终批 180 万 / 48 月 / LPR-5BP · 房产抵押率 58%",
+    tags: ["建装", "房产抵押"],
+  },
+  {
+    id: "c-3",
+    name: "同画像客户 · 2025-11（福州·工程承包）",
+    similarity: 0.83,
+    amount: "220 万",
+    decision: "approved",
+    note: "终批 200 万 / 60 月 / LPR-10BP · 评分 805",
+    tags: ["工程承包", "满额批"],
+  },
+];
+
+const WANGWU_LIMIT: LimitSuggestion = {
+  applied: 200,
+  suggested: 200,
+  floor: 150,
+  ceiling: 240,
+  tenorMonths: 60,
+  tenorRange: [36, 60],
+  rateBps: -10,
+  rateRange: [-15, 5],
+  rationale: [
+    "评分卡 810 优级 · 满额批 200 万",
+    "期限 60 月匹配工程款长周期回笼 · 月供压力小",
+    "LPR-10BP 取案例 C-1/C-3 中位 · 优级客群享利率优惠",
+  ],
+};
+
+const WANGWU_CONVERSATION: ConversationMessage[] = [
+  {
+    id: "crw-msg-1",
+    at: "20 分钟前",
+    kind: "system-event",
+    content: "审贷 session 启动 · 客户：王五 · 产品：对私经营贷 · 申请 200 万 / 60 月",
+  },
+  {
+    id: "crw-msg-2",
+    at: "18 分钟前",
+    kind: "ai-response",
+    content:
+      "客户综合分 87 · 评分卡 810 优级 · 房产抵押率仅 53% · 征信干净 · 工龄 12 年。四维全部高分，无红线警告。建议走优级快速审批通道。",
+  },
+  {
+    id: "crw-msg-3",
+    at: "10 分钟前",
+    kind: "user-reply",
+    content: "工程款回款节奏怎么样？60 月期限会不会偏长",
+  },
+  {
+    id: "crw-msg-4",
+    at: "5 分钟前",
+    kind: "ai-thinking",
+    content: "校验工程款回款节奏与期限匹配度",
+    thinking: {
+      steps: [
+        {
+          label: "工程款回款画像",
+          evidences: [
+            "客户与 3 家精装公司常年合作 · 回款节奏稳定（结算后 30-60 天到账）",
+            "近 24 月月均到账 5.6 万 · 季节波动 ±18% 在可控范围",
+            "60 月期限可平摊月供至 3.8 万 · 偿付比 41%（健康区间）",
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "crw-msg-5",
+    at: "1 分钟前",
+    kind: "ai-response",
+    content:
+      "评估通过 · 60 月期限合理。最终建议：满额 200 万 / 60 月 / LPR-10BP · 优级快速审批通道直接放款。",
+  },
+];
+
+const WANGWU_MATERIALS: MaterialsPanel = {
+  completeness: 96,
+  missing: "",
+  files: [
+    { id: "m-1", icon: "身", name: "身份证明.pdf", note: "已校验身份与住址", status: "done" },
+    { id: "m-2", icon: "信", name: "个人征信.pdf", note: "无逾期 · 评分 810", status: "done" },
+    { id: "m-3", icon: "流", name: "工程结算流水.xlsx", note: "近 24 月已分析", status: "done" },
+    { id: "m-4", icon: "房", name: "房产评估报告.pdf", note: "评估 380 万 · 抵押率 53%", status: "done" },
+  ],
+};
+
+const WANGWU_SOURCES: DataSourcesPanel = {
+  summary: "5 项已接入",
+  updated: "2026-04-28 · 实时",
+  sources: [
+    { id: "s-1", name: "央行征信 · 个人", desc: "征信表现 + 评分卡", status: "online" },
+    { id: "s-2", name: "工程合同登记库", desc: "近 24 月合同明细", status: "online" },
+    { id: "s-3", name: "结算流水归集", desc: "三家合作方付款节奏", status: "online" },
+    { id: "s-4", name: "反欺诈规则库", desc: "异常行为校验", status: "online" },
+    { id: "s-5", name: "房产估值接口", desc: "自有房产市价", status: "online" },
+  ],
+};
+
+const WANGWU_EVIDENCES: EvidencesPanel = {
+  positive: [
+    {
+      id: "ev-p-1",
+      icon: "正",
+      title: "评分卡 810 · 优级客群",
+      detail: "高于优级阈值 750 · 享利率优惠通道",
+      tone: "positive",
+    },
+    {
+      id: "ev-p-2",
+      icon: "正",
+      title: "工程款回款稳定 · 月均 5.6 万",
+      detail: "近 24 月与 3 家精装公司合作 · 季节波动可控",
+      tone: "positive",
+    },
+    {
+      id: "ev-p-3",
+      icon: "正",
+      title: "房产抵押率 53% · 充裕",
+      detail: "自有住宅评估 380 万 · 抵押缓释充足",
+      tone: "positive",
+    },
+  ],
+  warnings: [],
+  missing: [],
+};
+
+const WANGWU_PROFILE: CreditProfile = {
+  chips: ["工龄 12 年", "装修工头 18 人队", "评分 810", "房产自有"],
+  tagline: "优级客群 · 评分 810 + 房产抵押充裕，建议满额批 200 万走优级通道",
+};
+
+const WANGWU_SESSION: CreditSession = {
+  id: "cs-wangwu-decoration",
+  mode: "retail",
+  objective: "王五 · 对私经营贷 200 万 · 优级快速审批",
+  stage: "已批 · 优级快速审批通道",
+  updated: "刚刚",
+  profile: WANGWU_PROFILE,
+  query: WANGWU_QUERY,
+  pipeline: WANGWU_PIPELINE,
+  radar: WANGWU_RADAR,
+  overallScore: 87,
+  decision: "approved",
+  limit: WANGWU_LIMIT,
+  redLines: WANGWU_RED_LINES,
+  cases: WANGWU_CASES,
+  conversation: WANGWU_CONVERSATION,
+  qcCounts: { block: 0, warn: 0, info: 5 },
+  recentSessions: RECENT,
+  materials: WANGWU_MATERIALS,
+  dataSources: WANGWU_SOURCES,
+  evidences: WANGWU_EVIDENCES,
+  generateSteps: GEN_STEPS,
+};
+
+/* ── 新出口 (Phase A worker-A4 · workspace-state-protocol §2 适配) ───── */
+
+/** 全 mock sessions array · 反 5 原则 #2 难度分层覆盖 (1 simple + 3 medium + 1 hard + 1 extreme) */
+export const CREDIT_MOCK_SESSIONS: CreditSession[] = [
+  CORP_SESSION,        // medium · 福建惠民商贸 · approved-cut B+
+  SMALL_SESSION,       // medium · 厦门瑞鼎机电 · pending B
+  RETAIL_SESSION,      // medium · 张三 · approved 720
+  ZHONGRUI_SESSION,    // hard   · 中锐网络 · 关联交易软红线 approved-cut
+  DINGSHENG_SESSION,   // extreme · 鼎盛商贸 · 双红线 rejected
+  WANGWU_SESSION,      // simple · 王五装修 · 810 approved
+];
+
+/** id → session 查找 · panel 单点派生用 */
+export const CREDIT_MOCK_SESSIONS_MAP: Record<string, CreditSession> =
+  Object.fromEntries(CREDIT_MOCK_SESSIONS.map((s) => [s.id, s])) as Record<string, CreditSession>;
+
+/** EmptyState skeleton 之后 · started=true 时第一个加载的 session id */
+export const CREDIT_DEFAULT_SESSION_ID = CORP_SESSION.id;

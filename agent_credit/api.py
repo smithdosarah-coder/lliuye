@@ -112,6 +112,40 @@ _DECISION_CACHE: dict[str, dict[str, Any]] = {}
 _DECISION_TTL_SEC = 1800
 
 
+def _build_done_envelope(
+    *,
+    stage_tab: str,
+    source: str,
+    preset_name: str | None,
+    profile: dict | None,
+    scoring: dict | None,
+    rule_hits: list | None,
+    case_matches: list | None,
+    advice: dict | None,
+    decision_id: str | None,
+) -> dict[str, Any]:
+    """Cat 4 fix (Phase A worker-A4-credit · 2026-04-29) · done event 完整 envelope.
+
+    A3 ChannelWorkspace done event 已含完整 panel 数据 (per workspace-state-protocol §4)。
+    Credit done 之前空 payload (mock path L387 + live path L465) · 前端无法 hydrate。
+    本 helper 把 4 stage 关键 payload + segment/preset_name/source/decision_id 一次性灌入。
+
+    前端 normalize 后整体注入 setLiveData → 5 panel 单点派生 · 不再分 stage 累积本地 state。
+    """
+    return {
+        "event": "done",
+        "stage_tab": stage_tab,
+        "source": source,                    # "mock" | "preset" | "report_json"
+        "preset_name": preset_name,
+        "decision_id": decision_id,
+        "profile": profile,                  # profile_loaded payload
+        "scoring": scoring,                  # scoring_done payload (composite + sub_scores + grade)
+        "rule_hits": rule_hits or [],        # rule_done payload (red lines list)
+        "case_matches": case_matches or [],  # case_done payload (Top 5 similar)
+        "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
+    }
+
+
 def _cache_advice(advice: dict[str, Any]) -> str:
     decision_id = "dec_" + uuid.uuid4().hex[:12]
     _DECISION_CACHE[decision_id] = {"advice": advice, "ts": time.time()}
@@ -257,6 +291,166 @@ async def get_handoff_demo(segment: str):
 
 
 # ============================================================================
+# Agent6 → Agent3 handoff endpoints (Phase A worker-A4-credit · 2026-04-29)
+#   per agent-credit-spec §5.2 + agent-handoff-schemas §2 · cat 0 北极星核心
+#   Phase A fallback: 后端从 demo_data/agent_credit/*.json 读 (无真 Agent6 archive)
+#   Phase B 转: data/handoff/report_to_credit/<report_id>.json 真接 Agent6 v16 pipeline 输出
+# ============================================================================
+
+
+_AGENT6_ARCHIVE_DIR = PROJECT_ROOT / "data" / "handoff" / "report_to_credit"
+
+
+def _build_session_meta(path: Path, source: str) -> dict[str, Any]:
+    """从 ReportJSON 文件推 session_id + meta · 双源:
+       - source="demo" · path 在 demo_data/agent_credit/ · session_id 加 "demo_" 前缀 (与 handoff_from_report sid.startswith('demo_') 路径吻合)
+       - source="archive" · path 在 data/handoff/report_to_credit/ · session_id 用 stem (真 Agent6 v16 archive 命名 · 通常含 timestamp)
+    """
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    if source == "archive":
+        sid = path.stem  # 真 Agent6 archive · sid 即 stem
+        # segment 推断: report_json 含 business_line · 或 stage_tab fallback (per agent-handoff-schemas §2.3)
+        seg_raw = (d.get("business_line") or d.get("stage_tab") or "").lower()
+        if "retail" in seg_raw or "personal" in seg_raw:
+            seg = "retail"
+        elif "small" in seg_raw or "sme" in seg_raw or "普惠" in d.get("business_line", ""):
+            seg = "small_business"
+        else:
+            seg = "corporate"
+    else:  # demo
+        sid = f"demo_{path.stem}"
+        seg = "retail" if path.name.startswith("retail_") else "corporate"
+    preset = d.get("preset_name", path.stem)
+    return {
+        "session_id": sid,
+        "report_id": d.get("profile_id", path.stem),
+        "company_name": d.get("company_name", "(unknown)"),
+        "segment": seg,
+        "preset_name": preset,
+        "industry": d.get("industry"),
+        "established_date": d.get("establishment_date"),
+        "generated_at": (d.get("_handoff_meta") or {}).get("generated_at", ""),
+        "status": "done",
+        "source": source,                 # "demo" | "archive" · 前端可显源标
+        "source_file": path.name,
+    }
+
+
+@app.get("/api/credit/reports/sessions")
+async def list_credit_reports(status: str = "done"):
+    """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
+
+    V2 fix · codex DISAGREE issue 2 (cat 0 北极星): 双源扫描 · 真 Agent6 v16 archive 优先暴露 · demo_data 兜底
+      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真输出)
+      - source="demo"    · `demo_data/agent_credit/*.json` (Phase A fallback 4 sample · 在 archive 空时唯一可选)
+
+    EmptyState onPrimary 走 sessions[0] · 真 Agent6 报告优先 · A6 v16 production-wire 后真消费 · 不再仅 demo
+    """
+    if status not in ("done", "all"):
+        raise HTTPException(400, "status must be 'done' or 'all'")
+    sessions: list[dict[str, Any]] = []
+
+    # 先扫真 Agent6 archive · 真 session 优先 (sort: 时间倒序 · 最新报告排首)
+    if _AGENT6_ARCHIVE_DIR.exists():
+        archive_paths = sorted(_AGENT6_ARCHIVE_DIR.glob("*.json"), reverse=True)
+        for path in archive_paths:
+            meta = _build_session_meta(path, "archive")
+            if meta:
+                sessions.append(meta)
+
+    # 再扫 demo_data · phase A fallback (在 archive 空 / 用户选演示时可用)
+    if _HANDOFF_DIR.exists():
+        for path in sorted(_HANDOFF_DIR.glob("*.json")):
+            meta = _build_session_meta(path, "demo")
+            if meta:
+                sessions.append(meta)
+
+    archive_count = sum(1 for s in sessions if s.get("source") == "archive")
+    demo_count = sum(1 for s in sessions if s.get("source") == "demo")
+    return {
+        "sessions": sessions,
+        "count": len(sessions),
+        "archive_count": archive_count,
+        "demo_count": demo_count,
+        "source": "phase_a_dual_scan",
+        "archive_dir": str(_AGENT6_ARCHIVE_DIR.relative_to(PROJECT_ROOT)),
+        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)),
+    }
+
+
+class HandoffFromReportRequest(BaseModel):
+    session_id: str = Field(..., description="Agent6 report session_id (从 /reports/sessions 拉)")
+
+
+@app.post("/api/credit/handoff/from_report")
+async def handoff_from_report(req: HandoffFromReportRequest):
+    """Agent6→Agent3 handoff · Cat 0 北极星核心: EmptyState onPrimary 真消费 ReportJSON。
+
+    返 enterprise_profile + ready_for_decision flag · 前端注入 /api/credit/decision body。
+
+    Phase A 路径: session_id "demo_corp_dingsheng_trade" → 读 demo_data/agent_credit/corp_dingsheng_trade.json
+    Phase B 路径: 真接 data/handoff/report_to_credit/<report_id>.json (Agent6 v16 pipeline 输出)
+    """
+    sid = req.session_id
+    if not sid:
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED", "message": "session_id required"}
+        })
+
+    # Phase A demo · session_id "demo_<filename_stem>" → 找 demo_data/agent_credit/<stem>.json
+    if sid.startswith("demo_"):
+        stem = sid[len("demo_"):]
+        path = _HANDOFF_DIR / f"{stem}.json"
+        if not path.exists():
+            raise HTTPException(404, detail={
+                "error": {"code": "REPORT_NOT_FOUND",
+                          "message": f"demo report not found: {stem}.json",
+                          "available": [p.stem for p in _HANDOFF_DIR.glob("*.json")]}
+            })
+    else:
+        # Phase B path · 真接 Agent6 archive (待 A6 v16 pipeline production-wire)
+        archive = PROJECT_ROOT / "data" / "handoff" / "report_to_credit" / f"{sid}.json"
+        if not archive.exists():
+            raise HTTPException(404, detail={
+                "error": {"code": "REPORT_NOT_FOUND",
+                          "message": f"Agent6 archive not found: {sid} (Phase B path 待 A6 production wire)"}
+            })
+        path = archive
+
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        raise HTTPException(500, detail={
+            "error": {"code": "REPORT_LOAD_FAILED",
+                      "message": f"{type(e).__name__}: {e}"}
+        }) from e
+
+    # 关键字段缺失检查 (per agent-handoff-schemas §2.5 缺失降级)
+    has_financial = bool((report.get("financial_anchors") or {}).get("revenue_latest"))
+    has_company = bool(report.get("company_name"))
+
+    return {
+        "session_id": sid,
+        "report_id": report.get("profile_id", sid),
+        "company_name": report.get("company_name"),
+        "industry": report.get("industry"),
+        "generated_at": (report.get("_handoff_meta") or {}).get("generated_at", ""),
+        "preset_name": report.get("preset_name"),
+        "enterprise_profile": report,   # 全量 ReportJSON · 注入 /decision body.report_json
+        "ready_for_decision": has_company and has_financial,
+        "missing_fields": [
+            *(["company_name"] if not has_company else []),
+            *(["financial_anchors.revenue_latest"] if not has_financial else []),
+        ],
+        "warning": None if (has_company and has_financial) else
+                   "关键字段缺失 · 评分将用保守 fallback (per agent-handoff-schemas §2.5)",
+    }
+
+
+# ============================================================================
 # POST /api/credit/decision — Stage C v4.0 (SSE)
 # body: { stage_tab, report_json?, materials?, preset_name?, provider?, api_key?, mock? }
 # ============================================================================
@@ -292,99 +486,103 @@ class DecisionRequestV4(BaseModel):
 
 
 def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
-    """返 fixture SSE events · 各 stage_tab 略有差异化数值."""
+    """返 fixture SSE events · 各 stage_tab 略有差异化数值.
+
+    Cat 4 fix (Phase A worker-A4-credit · 2026-04-29):
+    末 done event 改为 _build_done_envelope() 完整 payload (segment/profile/scoring/
+    rule_hits/case_matches/advice) · 与 live path 对称 · 前端 normalize 整体注入。
+    """
     seg_dim = _STAGE_DIMENSIONS[stage_tab]
     is_retail = stage_tab == "retail"
     score_max = 850 if is_retail else 100
     composite = 730 if is_retail else (72 if stage_tab == "corporate" else 68)
 
+    profile_payload = {
+        "profile_id": f"mock_{stage_tab}_001",
+        "company_name": "(mock) 鼎盛商贸有限公司"
+                        if stage_tab != "retail" else "(mock) 张三 · 个体户",
+        "stage_tab": stage_tab,
+    }
+    feature_done_payload = {
+        "financial.debt_ratio": 0.42 if not is_retail else None,
+        "operational.years_established": 5.3 if not is_retail else None,
+        "retail.monthly_income_yuan": 18000 if is_retail else None,
+        "_count": 60 if not is_retail else 22,
+    }
+    scoring_done_payload = {
+        "composite_score": composite,
+        "score_max": score_max,
+        "risk_grade": "B" if not is_retail else "良好",
+        "sub_scores": {
+            d["axis_id"]: int(composite * 0.92 + i * 3)
+            for i, d in enumerate(seg_dim["scoring_dimensions"])
+        },
+    }
+    rule_done_payload = [
+        {
+            "rule_id": f"{stage_tab[:4]}_rl_001",
+            "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
+            "is_hard": False,
+            "can_waive": True,
+            "severity": "medium",
+            "actual_value": 0.32 if not is_retail else 1,
+            "threshold": 0.30 if not is_retail else 0,
+            "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
+        },
+    ]
+    case_done_payload = [
+        {
+            "case_id": f"case_{stage_tab[:4]}_022",
+            "company_name": "启明软件" if not is_retail else "李四",
+            "similarity": 0.92,
+            "decision": "批",
+            "approved_amount": 400 if not is_retail else 50,
+        },
+    ]
+    advising_done_payload = {
+        "decision": "有条件批准",
+        "approved_amount": 300 if stage_tab == "corporate"
+                           else (80 if stage_tab == "small_business" else 30),
+        "approved_term_months": 36 if not is_retail else 24,
+        "interest_rate": 0.065 if stage_tab == "corporate"
+                          else (0.078 if stage_tab == "small_business" else 0.045),
+        "rate_benchmark": "LPR+85BP" if stage_tab == "corporate"
+                          else ("LPR+200BP" if stage_tab == "small_business" else "LPR-10BP"),
+        "risk_grade": "B" if not is_retail else "良好",
+        "composite_score": composite,
+        "conditions": ["关联交易审计说明", "季度应收账款账龄表"]
+                      if not is_retail else ["户口本复印件", "近 6 月银行流水"],
+        "decision_reason": (
+            f"[mock] {seg_dim['label']} 板块综合评分 {composite}/{score_max}，"
+            f"四维分布均衡 · 红线 1 条 (中等可豁免) · "
+            f"建议有条件批准 · 完整 LLM reasoning 走真接路径生成"
+        ),
+        "stage_tab": stage_tab,
+    }
+
     events: list[dict[str, Any]] = [
-        {
-            "event": "profile_loaded",
-            "profile": {
-                "profile_id": f"mock_{stage_tab}_001",
-                "company_name": "(mock) 鼎盛商贸有限公司"
-                                if stage_tab != "retail" else "(mock) 张三 · 个体户",
-                "stage_tab": stage_tab,
-            },
-        },
+        {"event": "profile_loaded", "profile": profile_payload},
         {"event": "stage", "stage": "feature_extracting", "payload": None},
-        {
-            "event": "stage", "stage": "feature_done",
-            "payload": {
-                "financial.debt_ratio": 0.42 if not is_retail else None,
-                "operational.years_established": 5.3 if not is_retail else None,
-                "retail.monthly_income_yuan": 18000 if is_retail else None,
-                "_count": 60 if not is_retail else 22,
-            },
-        },
+        {"event": "stage", "stage": "feature_done", "payload": feature_done_payload},
         {"event": "stage", "stage": "scoring", "payload": None},
-        {
-            "event": "stage", "stage": "scoring_done",
-            "payload": {
-                "composite_score": composite,
-                "score_max": score_max,
-                "risk_grade": "B" if not is_retail else "良好",
-                "sub_scores": {
-                    d["axis_id"]: int(composite * 0.92 + i * 3)
-                    for i, d in enumerate(seg_dim["scoring_dimensions"])
-                },
-            },
-        },
+        {"event": "stage", "stage": "scoring_done", "payload": scoring_done_payload},
         {"event": "stage", "stage": "rule_checking", "payload": None},
-        {
-            "event": "stage", "stage": "rule_done",
-            "payload": [
-                {
-                    "rule_id": f"{stage_tab[:4]}_rl_001",
-                    "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
-                    "is_hard": False,
-                    "can_waive": True,
-                    "severity": "medium",
-                    "actual_value": 0.32 if not is_retail else 1,
-                    "threshold": 0.30 if not is_retail else 0,
-                    "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
-                },
-            ],
-        },
+        {"event": "stage", "stage": "rule_done", "payload": rule_done_payload},
         {"event": "stage", "stage": "case_retrieving", "payload": None},
-        {
-            "event": "stage", "stage": "case_done",
-            "payload": [
-                {
-                    "case_id": f"case_{stage_tab[:4]}_022",
-                    "company_name": "启明软件" if not is_retail else "李四",
-                    "similarity": 0.92,
-                    "decision": "批",
-                    "approved_amount": 400 if not is_retail else 50,
-                },
-            ],
-        },
+        {"event": "stage", "stage": "case_done", "payload": case_done_payload},
         {"event": "stage", "stage": "advising", "payload": None},
-        {
-            "event": "stage", "stage": "advising_done",
-            "payload": {
-                "decision": "有条件批准",
-                "approved_amount": 300 if stage_tab == "corporate"
-                                   else (80 if stage_tab == "small_business" else 30),
-                "approved_term_months": 36 if not is_retail else 24,
-                "interest_rate": 0.065 if stage_tab == "corporate"
-                                  else (0.078 if stage_tab == "small_business" else 0.045),
-                "rate_benchmark": "LPR+85BP" if stage_tab == "corporate"
-                                  else ("LPR+200BP" if stage_tab == "small_business" else "LPR-10BP"),
-                "risk_grade": "B" if not is_retail else "良好",
-                "composite_score": composite,
-                "conditions": ["关联交易审计说明", "季度应收账款账龄表"]
-                              if not is_retail else ["户口本复印件", "近 6 月银行流水"],
-                "decision_reason": (
-                    f"[mock] {seg_dim['label']} 板块综合评分 {composite}/{score_max}，"
-                    f"四维分布均衡 · 红线 1 条 (中等可豁免) · "
-                    f"建议有条件批准 · 完整 LLM reasoning 走真接路径生成"
-                ),
-                "stage_tab": stage_tab,
-            },
-        },
-        {"event": "done"},
+        {"event": "stage", "stage": "advising_done", "payload": advising_done_payload},
+        _build_done_envelope(
+            stage_tab=stage_tab,
+            source="mock",
+            preset_name=None,
+            profile=profile_payload,
+            scoring=scoring_done_payload,
+            rule_hits=rule_done_payload,
+            case_matches=case_done_payload,
+            advice=advising_done_payload,
+            decision_id=None,
+        ),
     ]
     return events
 
@@ -443,10 +641,21 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 "stage_tab": req.stage_tab,
             })
 
+            # Cat 4 fix (Phase A worker-A4-credit · 2026-04-29)
+            # 串流时 capture 4 个关键 stage payload · done event 一次性灌完整 envelope
+            last_scoring: dict | None = None
+            last_rules: list | None = None
+            last_cases: list | None = None
             last_advice: dict | None = None
             for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
                 cleaned, hits = _qc_scrub(to_jsonable(payload))
-                if stage == "advising_done" and isinstance(cleaned, dict):
+                if stage == "scoring_done" and isinstance(cleaned, dict):
+                    last_scoring = cleaned
+                elif stage == "rule_done" and isinstance(cleaned, list):
+                    last_rules = cleaned
+                elif stage == "case_done" and isinstance(cleaned, list):
+                    last_cases = cleaned
+                elif stage == "advising_done" and isinstance(cleaned, dict):
                     last_advice = cleaned
                 evt = {"event": "stage", "stage": stage, "payload": cleaned}
                 if hits:
@@ -454,6 +663,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 yield sse_encode(evt)
 
             # 缓存 advice for export_docx · 返 decision_id
+            decision_id: str | None = None
             if last_advice:
                 decision_id = _cache_advice(last_advice)
                 yield sse_encode({
@@ -462,7 +672,20 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                     "ttl_sec": _DECISION_TTL_SEC,
                 })
 
-            yield sse_encode({"event": "done"})
+            # done envelope (cat 4) · 与 mock path 对称 · 前端 normalize 整体注入 sessionData
+            yield sse_encode(_build_done_envelope(
+                stage_tab=req.stage_tab,
+                source="report_json" if req.report_json else (
+                    "preset" if req.preset_name else "unknown"
+                ),
+                preset_name=req.preset_name,
+                profile=profile_payload if isinstance(profile_payload, dict) else None,
+                scoring=last_scoring,
+                rule_hits=last_rules,
+                case_matches=last_cases,
+                advice=last_advice,
+                decision_id=decision_id,
+            ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
             traceback.print_exc()
@@ -498,6 +721,126 @@ async def credit_decision_v4(req: DecisionRequestV4):
 
     return StreamingResponse(
         gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/credit/demo/run · Phase A worker-A4-credit (2026-04-29)
+#   纯 mock SSE · 不调 LLM/agent · 从 data/mock/workspace/credit/scenarios/<id>.json 读
+#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
+#   反 5 原则 §3.5 难度分层: 6 scenarios 覆盖 (3 corp + 3 retail · simple/medium/hard/extreme)
+# ============================================================================
+
+
+class CreditDemoRunRequest(BaseModel):
+    scenario_id: str = Field(
+        default="corp-dingsheng-001",
+        description="scenario JSON 文件名 (无 .json) · per spec §6.2 · 6 标杆 default",
+    )
+
+
+_CREDIT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "credit" / "scenarios"
+
+
+def _credit_demo_event_stream(scenario_id: str):
+    """纯 mock SSE 演示流 · 不依赖 LLM · 视觉与 live 一致 (stage 流 + done envelope).
+
+    scenario JSON shape (与 §6.3 spec 对齐):
+        {
+          "scenario_id": "...",
+          "stage_tab": "corporate" | "small_business" | "retail",
+          "stage_messages": {"feature_extracting": "...", ...},
+          "profile": {...},          // profile_loaded payload
+          "scoring": {...},          // scoring_done payload
+          "rule_hits": [...],        // rule_done payload
+          "case_matches": [...],     // case_done payload
+          "advice": {...},           // advising_done payload
+          "delay_ms": 250            // optional · stage 之间延迟
+        }
+    """
+    if not _CREDIT_SCENARIO_DIR.exists():
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_DIR_MISSING",
+            "message": f"scenario dir not found: {_CREDIT_SCENARIO_DIR}",
+        })
+        return
+
+    path = _CREDIT_SCENARIO_DIR / f"{scenario_id}.json"
+    if not path.exists():
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_MISSING",
+            "message": f"scenario file not found: {scenario_id}.json",
+            "available": sorted(p.stem for p in _CREDIT_SCENARIO_DIR.glob("*.json")),
+        })
+        return
+
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_LOAD",
+            "message": f"scenario load failed: {type(e).__name__}: {e}",
+        })
+        return
+
+    stage_tab = data.get("stage_tab", "corporate")
+    stage_msgs = data.get("stage_messages", {})
+    delay_ms = int(data.get("delay_ms", 250))
+
+    # profile_loaded
+    yield sse_encode({"event": "profile_loaded", "profile": data.get("profile", {})})
+
+    # 7 stage events · 与 _mock_decision_events 同节奏
+    stages_with_payload: list[tuple[str, str, Any]] = [
+        ("feature_extracting", "feature_done", data.get("feature_done", {})),
+        ("scoring", "scoring_done", data.get("scoring", {})),
+        ("rule_checking", "rule_done", data.get("rule_hits", [])),
+        ("case_retrieving", "case_done", data.get("case_matches", [])),
+        ("advising", "advising_done", data.get("advice", {})),
+    ]
+    for active_stage, done_stage, payload in stages_with_payload:
+        yield sse_encode({
+            "event": "stage", "stage": active_stage,
+            "payload": None,
+            "_msg": stage_msgs.get(active_stage, ""),
+        })
+        time.sleep(delay_ms / 1000)
+        yield sse_encode({"event": "stage", "stage": done_stage, "payload": payload})
+
+    # done envelope (cat 4 共形)
+    yield sse_encode(_build_done_envelope(
+        stage_tab=stage_tab,
+        source="mock",
+        preset_name=data.get("preset_name"),
+        profile=data.get("profile"),
+        scoring=data.get("scoring"),
+        rule_hits=data.get("rule_hits", []),
+        case_matches=data.get("case_matches", []),
+        advice=data.get("advice"),
+        decision_id=None,
+    ))
+
+
+@app.post("/api/credit/demo/run")
+async def credit_demo_run(req: CreditDemoRunRequest):
+    """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
+
+    与 /api/credit/decision (mock=true) 区别:
+      - decision: in-memory fixture · 各 stage_tab 略差异化 · 1 scenario per tab
+      - demo/run: file-backed scenario JSON · 6 标杆 (corp/retail × simple/medium/hard/extreme)
+                  · 内容固定 · 视觉一致 · 不会因 _STAGE_DIMENSIONS 改动而漂
+    """
+    return StreamingResponse(
+        _credit_demo_event_stream(req.scenario_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

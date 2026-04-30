@@ -8,6 +8,12 @@ const REPORT_BACKEND =
 const AUTH_BACKEND =
   process.env.AUTH_BACKEND_URL ?? "http://127.0.0.1:8000";
 
+// Phase A worker-A4-credit V2 · 2026-04-29 · codex DISAGREE issue 3
+// agent_credit.api 挂在 main api_server.py (port 8000) · 默认与 AUTH_BACKEND 同源
+// 否则前端 /api/credit/* 命中 Next.js app router 404 (无对应 page.tsx)
+const CREDIT_BACKEND =
+  process.env.CREDIT_BACKEND_URL ?? "http://127.0.0.1:8000";
+
 const LEGACY_AGENT_ROUTES = [
   "credit",
   "channel",
@@ -29,6 +35,12 @@ const nextConfig: NextConfig = {
       {
         source: "/api/auth/:path*",
         destination: `${AUTH_BACKEND}/api/auth/:path*`,
+      },
+      // V2 fix · codex DISAGREE issue 3 · /api/credit/* 走 main api_server.py
+      // 包括 /decision (SSE) / /demo/run (SSE) / /reports/sessions / /handoff/from_report / /export_docx 等
+      {
+        source: "/api/credit/:path*",
+        destination: `${CREDIT_BACKEND}/api/credit/:path*`,
       },
     ];
   },

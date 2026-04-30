@@ -14,7 +14,7 @@
  * 所有 .rpt-panel 挂 PanelPinHandle · 所有消息挂 MessagePinHandle（拖到白板/画布）
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ClaimText,
@@ -34,9 +34,14 @@ import {
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
+import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
+import { normalizeCreditDone } from "./_normalize";
 import {
+  CREDIT_DEFAULT_SESSION_ID,
   CREDIT_GLOBAL_STATS,
+  CREDIT_MOCK_SESSIONS,
+  CREDIT_MOCK_SESSIONS_MAP,
   CREDIT_MODE_LABEL,
   CREDIT_SESSIONS,
   type CaseRecall,
@@ -86,11 +91,52 @@ const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
 };
 
 export default function CreditWorkspace() {
-  const [mode, setMode] = useState<CreditMode>("corp");
-  const [tab, setTab] = useState<OutputTab>("radar");
-  const session = CREDIT_SESSIONS[mode];
+  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A4-credit (2026-04-29)
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
+     sessionData = liveData ?? mock[selectedSession] · panel 单点派生
+     旧 mode/setMode/session = CREDIT_SESSIONS[mode] alias 派生 · 1800 行内 mode/session 引用最小漂 */
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(CREDIT_DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<CreditSession | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  // CTA 生成授信辅助 · 动态进度条状态（纯前端 mock · 5 步 450ms）
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: CreditSession =
+    liveData ??
+    CREDIT_MOCK_SESSIONS_MAP[selectedSession] ??
+    CREDIT_MOCK_SESSIONS_MAP[CREDIT_DEFAULT_SESSION_ID];
+
+  /* alias · minimize churn through 1800 lines · session/mode 不再独立 useState */
+  const session = sessionData;
+  const mode: CreditMode = sessionData.mode;
+
+  /* setMode 适配 · 切 mode 时找该 mode 第一个 session · 同步 reset live + drawer */
+  const setMode = useCallback((newMode: CreditMode) => {
+    const target = CREDIT_MOCK_SESSIONS.find((s) => s.mode === newMode);
+    if (!target) return;
+    setSelectedSession(target.id);
+    setLiveData(null);
+    setSelectedCandidate(null);
+  }, []);
+
+  /* ESC 关 case detail drawer (Step 10 · selectedCandidate gate) */
+  useEffect(() => {
+    if (!selectedCandidate) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setSelectedCandidate(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedCandidate]);
+
+  /* 派生 selected case data · 从 sessionData.cases 找 (live or mock 单源) */
+  const selectedCandidateData: CaseRecall | null = selectedCandidate
+    ? sessionData.cases.find((c) => c.id === selectedCandidate) ?? null
+    : null;
+
+  const [tab, setTab] = useState<OutputTab>("radar");
+
+  // CTA 生成授信辅助 · 动态进度条状态（纯前端 mock · 5 步 450ms · UI 动画 · 与 4 gate 不冲突）
   const [progress, setProgress] = useState<{
     running: boolean;
     step: number;
@@ -106,10 +152,7 @@ export default function CreditWorkspace() {
   /* 2026-04-23 · credit 也统一空态 · startGenerate 最后一步触发 · 数据显现 */
   const [scanned, setScanned] = useState(false);
 
-  /* W-CF-A2 · 2026-04-28 · empty-state-design-protocol v1.0 落地
-     started default false · 仅渲染 Hero + 3 CTA + skeleton + status pill
-     mock data 不 default load · 用户主动选 dropdown / submit 才 start */
-  const [started, setStarted] = useState(false);
+  /* runDecision SSE 状态 · Step 7 streamSse 收编后会进一步精简 */
   const [liveAdvice, setLiveAdvice] = useState<Record<string, unknown> | null>(null);
   const [decisionId, setDecisionId] = useState<string | null>(null);
   const [decisionRunning, setDecisionRunning] = useState(false);
@@ -123,8 +166,10 @@ export default function CreditWorkspace() {
     };
   }, []);
 
-  /* 起授信决策 · POST /api/credit/decision SSE · 收 advice + decision_id
-     mock=true 兼容无 LLM key 环境 (curl-friendly · spec test 也走 mock 避真 LLM 依赖) */
+  /* 起授信决策 · POST /api/credit/decision SSE (Step 7 · 2026-04-29 worker-A4-credit)
+     - 改 streamSse (per A2 _live.ts SSOT) · 删 35 行内联 res.body.getReader() reader (cat 3 修)
+     - done event normalize 后 setLiveData → 4-gate liveData 优先 · panel 全 hydrate
+     - mock=true 兼容无 LLM key 环境 · streamSse 内部已有 LiveFailError 4xx/5xx → 显式 error */
   async function runDecision(opts: { mockMode: boolean }) {
     if (decisionRunning) return;
     setStarted(true);
@@ -132,77 +177,224 @@ export default function CreditWorkspace() {
     setDecisionError(null);
     setLiveAdvice(null);
     setDecisionId(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    const stageTab = MODE_TO_STAGE_TAB[mode];
+    // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
+    const presetByMode: Record<CreditMode, string> = {
+      corp: "dingsheng_trade",
+      small: "dingsheng_trade",
+      retail: "zhangsan_restaurant",
+    };
     try {
-      const apiBase =
-        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-      const stageTab = MODE_TO_STAGE_TAB[mode];
-      // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
-      const presetByMode: Record<CreditMode, string> = {
-        corp: "dingsheng_trade",
-        small: "dingsheng_trade",
-        retail: "zhangsan_restaurant",
-      };
-      const res = await fetch(`${apiBase}/api/credit/decision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // sessionData snapshot at start · 用作 normalize fallback (panels 未 backend 透传字段)
+      const fallbackSession = sessionData;
+      await streamSse(
+        `${apiBase}/api/credit/decision`,
+        {
           stage_tab: stageTab,
           mock: opts.mockMode,
           preset_name: opts.mockMode ? null : presetByMode[mode],
-        }),
-      });
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const dataLine = block.split("\n").find((l) => l.startsWith("data:"));
-          if (!dataLine) continue;
-          try {
-            const evt = JSON.parse(dataLine.slice(5).trim()) as {
-              event?: string;
-              stage?: string;
-              decision_id?: string;
-              payload?: Record<string, unknown>;
-              message?: string;
-            };
-            if (evt.event === "stage" && evt.stage === "advising_done" && evt.payload) {
-              setLiveAdvice(evt.payload);
-              setScanned(true);
-            }
-            if (evt.event === "decision_cached" && evt.decision_id) {
-              setDecisionId(evt.decision_id);
-            }
-            if (evt.event === "error") {
-              setDecisionError(String(evt.message ?? "decision SSE error"));
-            }
-          } catch {
-            /* skip malformed line */
+        },
+        (sseEvt) => {
+          const data = sseEvt.data as {
+            event?: string;
+            stage?: string;
+            decision_id?: string;
+            payload?: Record<string, unknown>;
+            message?: string;
+          };
+          // 保留旧 advising_done capture · 兼容现有 panel 直读 liveAdvice
+          if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
+            setLiveAdvice(data.payload);
+            setScanned(true);
           }
-        }
-      }
+          if (sseEvt.type === "decision_cached" && data.decision_id) {
+            setDecisionId(data.decision_id);
+          }
+          if (sseEvt.type === "done") {
+            // Step 7 · cat 4 done envelope normalize → 4-gate liveData 注入
+            const liveSession = normalizeCreditDone(
+              data as Record<string, unknown>,
+              fallbackSession,
+            );
+            setLiveData(liveSession);
+            setSelectedCandidate(null);
+            setScanned(true);
+          }
+        },
+      );
     } catch (err) {
-      setDecisionError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit /api/credit/decision")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
     } finally {
       setDecisionRunning(false);
     }
   }
 
-  /* tertiary CTA · 选历史 (示例) session · setStarted=true 但不调 backend · 看 mock UI */
-  function selectHistoricalDemo() {
+  /* primary CTA · Cat 0 北极星核心: Agent6 handoff → 注入 enterprise_profile → 起决策
+     Step 9 · 2026-04-29 worker-A4-credit · per agent-handoff-schemas §2 + spec §3 触发源 2
+     Phase A: 先拉 /api/credit/reports/sessions list · 取首条 (UI picker 留 Phase B)
+     Phase B: 弹 modal 让 RM 在 N 个完成报告中挑选 */
+  const [handoffSource, setHandoffSource] = useState<{
+    sessionId: string;
+    reportId: string;
+    companyName: string;
+    industry: string | null;
+    generatedAt: string;
+    stageTab: "corporate" | "small_business" | "retail";
+  } | null>(null);
+
+  async function runDecisionWithAgent6Handoff() {
+    if (decisionRunning) return;
+    setDecisionError(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    try {
+      // 1. 拉 Agent6 已完成报告 list (Phase A: demo_data fixtures · Phase B: 真 archive)
+      const listRes = await fetch(`${apiBase}/api/credit/reports/sessions?status=done`);
+      if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+      const listData = (await listRes.json()) as {
+        sessions: Array<{
+          session_id: string; report_id: string; company_name: string;
+          segment: string; industry: string | null; generated_at: string;
+        }>;
+        count: number;
+      };
+      if (listData.count === 0) {
+        setDecisionError("无可用 Agent6 报告 · 请先在 /archive/report 完成尽调或选演示模式");
+        return;
+      }
+      // Phase A: 按当前 mode 自动 match · 否则取首条
+      const segmentForMode: Record<CreditMode, string> = {
+        corp: "corporate", small: "corporate", retail: "retail",
+      };
+      const targetSeg = segmentForMode[mode];
+      const picked = listData.sessions.find((s) => s.segment === targetSeg)
+                  ?? listData.sessions[0];
+
+      // 2. 拉 ReportJSON
+      const handoffRes = await fetch(`${apiBase}/api/credit/handoff/from_report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: picked.session_id }),
+      });
+      if (!handoffRes.ok) throw new Error(`handoff HTTP ${handoffRes.status}`);
+      const handoff = (await handoffRes.json()) as {
+        session_id: string;
+        report_id: string;
+        company_name: string;
+        industry: string | null;
+        generated_at: string;
+        enterprise_profile: Record<string, unknown>;
+        ready_for_decision: boolean;
+        warning: string | null;
+      };
+
+      // 3. 设 banner state · 起决策
+      const stageTab = MODE_TO_STAGE_TAB[mode];
+      setHandoffSource({
+        sessionId: handoff.session_id,
+        reportId: handoff.report_id,
+        companyName: handoff.company_name,
+        industry: handoff.industry,
+        generatedAt: handoff.generated_at,
+        stageTab,
+      });
+      if (handoff.warning) {
+        setDecisionError(`⚠️ ${handoff.warning}`);
+      }
+
+      // 4. 真起决策 · enterprise_profile 注入 body.report_json
+      setStarted(true);
+      setDecisionRunning(true);
+      setLiveAdvice(null);
+      setDecisionId(null);
+      const fallbackSession = sessionData;
+      try {
+        await streamSse(
+          `${apiBase}/api/credit/decision`,
+          {
+            stage_tab: stageTab,
+            mock: false,
+            report_json: handoff.enterprise_profile,
+          },
+          (sseEvt) => {
+            const data = sseEvt.data as {
+              event?: string; stage?: string; decision_id?: string;
+              payload?: Record<string, unknown>; message?: string;
+            };
+            if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
+              setLiveAdvice(data.payload);
+              setScanned(true);
+            }
+            if (sseEvt.type === "decision_cached" && data.decision_id) {
+              setDecisionId(data.decision_id);
+            }
+            if (sseEvt.type === "done") {
+              setLiveData(normalizeCreditDone(
+                data as Record<string, unknown>,
+                fallbackSession,
+              ));
+              setSelectedCandidate(null);
+              setScanned(true);
+            }
+          },
+        );
+      } finally {
+        setDecisionRunning(false);
+      }
+    } catch (err) {
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit handoff/from_report")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
+      setDecisionRunning(false);
+    }
+  }
+
+  /* tertiary CTA · /api/credit/demo/run · 6 scenario JSON 之一 · 完全 mock SSE · 不调 LLM
+     与 onPrimary (真起决策) / onSecondary (mock decision) 区别: 走 file-backed scenario · 视觉一致 */
+  async function runDemoScenario() {
+    if (decisionRunning) return;
     setStarted(true);
-    setScanned(true);
+    setDecisionRunning(true);
+    setDecisionError(null);
     setLiveAdvice(null);
     setDecisionId(null);
-    setDecisionError(null);
+    setHandoffSource(null);   // demo 路非 handoff 源
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    // mode → 默认 scenario_id (覆盖 6 标杆)
+    const scenarioByMode: Record<CreditMode, string> = {
+      corp: "corp-zhongrui-003",     // hard · B 级有条件批 · 演示典型
+      small: "corp-ruiheng-002",     // simple · A 级直接批 · 演示流畅
+      retail: "retail-zhangsan-001", // medium · 720 良好批 · 演示稳态
+    };
+    const fallbackSession = sessionData;
+    try {
+      await streamSse(
+        `${apiBase}/api/credit/demo/run`,
+        { scenario_id: scenarioByMode[mode] },
+        (sseEvt) => {
+          const data = sseEvt.data as Record<string, unknown>;
+          if (sseEvt.type === "done") {
+            setLiveData(normalizeCreditDone(data, fallbackSession));
+            setSelectedCandidate(null);
+            setScanned(true);
+          }
+        },
+      );
+    } catch (err) {
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit /api/credit/demo/run")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
+    } finally {
+      setDecisionRunning(false);
+    }
   }
 
   function startGenerate() {
@@ -232,6 +424,32 @@ export default function CreditWorkspace() {
   /* W-CF-A2 · empty-state v1.0 路径
      started=false → 渲染 EmptyState (Hero + 3 CTA + skeleton + status pill · 不渲染 mock data)
      started=true  → 渲染现有完整 workspace (4 panel + EvidenceTrail + RiskRadar 等) */
+  /* Step 9 · Cat 0 北极星 · handoff source banner (Agent6 → Agent3 真消费证据) */
+  const handoffBanner = handoffSource ? (
+    <div
+      role="status"
+      data-testid="credit-handoff-banner"
+      className="credit-handoff-banner"
+    >
+      <span className="credit-handoff-banner__icon" aria-hidden>📋</span>
+      <span className="credit-handoff-banner__text">
+        已从 <b>Agent6</b> 加载 <b>{handoffSource.companyName}</b>
+        {handoffSource.industry ? <span> · {handoffSource.industry}</span> : null}
+        {handoffSource.generatedAt ? <span> · 生成于 {handoffSource.generatedAt}</span> : null}
+        {" · 板块 "}
+        <code data-testid="credit-handoff-stage-tab">{handoffSource.stageTab}</code>
+      </span>
+      <button
+        type="button"
+        className="credit-handoff-banner__dismiss"
+        onClick={() => setHandoffSource(null)}
+        aria-label="关闭 handoff 提示"
+      >
+        ×
+      </button>
+    </div>
+  ) : null;
+
   /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
   const creditTopBanner = decisionError ? (
     <div
@@ -274,13 +492,14 @@ export default function CreditWorkspace() {
           data-scanned="no"
           data-credit-started="no"
         >
-          {creditTopBanner}
+          {handoffBanner}
+      {creditTopBanner}
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
-            onPrimary={() => runDecision({ mockMode: false })}
+            onPrimary={() => runDecisionWithAgent6Handoff()}
             onSecondary={() => runDecision({ mockMode: true })}
-            onTertiary={selectHistoricalDemo}
+            onTertiary={() => runDemoScenario()}
             decisionRunning={decisionRunning}
             decisionError={decisionError}
           />
@@ -300,6 +519,7 @@ export default function CreditWorkspace() {
       data-credit-started="yes"
       data-scanned={scanned ? "yes" : "no"}
     >
+      {handoffBanner}
       {creditTopBanner}
       <TopBar
         mode={mode}
@@ -350,6 +570,7 @@ export default function CreditWorkspace() {
             limit={session.limit}
             redLines={session.redLines}
             cases={session.cases}
+            onSelectCase={setSelectedCandidate}
           />
         </section>
       </div>
@@ -375,6 +596,13 @@ export default function CreditWorkspace() {
       <UnfilledFields />
       <RiskRadarPreview mode={mode} session={session} />
       <EvidenceTrail agentTone="credit" />
+      {/* Step 10 · selectedCandidate gate · case detail drawer (workspace-state-protocol §2 #4) */}
+      {selectedCandidateData ? (
+        <CaseDetailDrawer
+          caseRow={selectedCandidateData}
+          onClose={() => setSelectedCandidate(null)}
+        />
+      ) : null}
     </div>
     </EvidenceProvider>
   );
@@ -1122,6 +1350,7 @@ function OutputPanel(p: {
   limit: LimitSuggestion;
   redLines: RedLine[];
   cases: CaseRecall[];
+  onSelectCase?: (id: string) => void;
 }) {
   return (
     <div className="rpt-panel cr-out">
@@ -1151,7 +1380,7 @@ function OutputPanel(p: {
       <div className="rpt-panel__body cr-out__body">
         {p.tab === "radar" ? <RadarView radar={p.radar} overall={p.overall} /> : null}
         {p.tab === "limit" ? <LimitView limit={p.limit} redLines={p.redLines} /> : null}
-        {p.tab === "cases" ? <CasesView cases={p.cases} /> : null}
+        {p.tab === "cases" ? <CasesView cases={p.cases} onSelect={p.onSelectCase} /> : null}
       </div>
     </div>
   );
@@ -1373,13 +1602,34 @@ function Gauge(p: {
   );
 }
 
-function CasesView({ cases }: { cases: CaseRecall[] }) {
+function CasesView({
+  cases,
+  onSelect,
+}: {
+  cases: CaseRecall[];
+  onSelect?: (id: string) => void;
+}) {
   return (
     <div className="cr-cs">
       <div className="cr-cs__ttl">相似案例召回 · {cases.length} 条（相似度 ≥ 0.75）</div>
       <ul className="cr-cs__list">
         {cases.map((c) => (
-          <li key={c.id} className="cr-cs__item" data-decision={c.decision}>
+          <li
+            key={c.id}
+            className="cr-cs__item"
+            data-decision={c.decision}
+            data-testid="credit-case-row"
+            data-case-id={c.id}
+            role={onSelect ? "button" : undefined}
+            tabIndex={onSelect ? 0 : -1}
+            onClick={onSelect ? () => onSelect(c.id) : undefined}
+            onKeyDown={onSelect ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(c.id);
+              }
+            } : undefined}
+          >
             <div className="cr-cs__head">
               <div className="cr-cs__name">{c.name}</div>
               <span className="cr-cs__chip">{DECISION_LABEL[c.decision]}</span>
@@ -1400,6 +1650,82 @@ function CasesView({ cases }: { cases: CaseRecall[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* CaseDetailDrawer · Step 10 · selectedCandidate gate (workspace-state-protocol §2 #4)
+   ESC 关 (parent useEffect) · click backdrop 关 · A11y dialog */
+function CaseDetailDrawer({
+  caseRow,
+  onClose,
+}: {
+  caseRow: CaseRecall;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="credit-case-drawer__backdrop"
+      data-testid="credit-case-drawer-backdrop"
+      onClick={onClose}
+    >
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={`案例详情 · ${caseRow.name}`}
+        data-testid="credit-case-drawer"
+        data-case-id={caseRow.id}
+        data-decision={caseRow.decision}
+        className="credit-case-drawer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="credit-case-drawer__hdr">
+          <h3 className="credit-case-drawer__name">{caseRow.name}</h3>
+          <span className="credit-case-drawer__decision-chip">
+            {DECISION_LABEL[caseRow.decision]}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="credit-case-drawer__close"
+            data-testid="credit-case-drawer-close"
+          >
+            ×
+          </button>
+        </header>
+        <section className="credit-case-drawer__body">
+          <dl className="credit-case-drawer__dl">
+            <dt>相似度</dt>
+            <dd>
+              <span className="credit-case-drawer__sim">
+                {(caseRow.similarity * 100).toFixed(0)}%
+              </span>
+            </dd>
+            <dt>申请额度</dt>
+            <dd>{caseRow.amount}</dd>
+            <dt>决议</dt>
+            <dd data-testid="credit-case-drawer-decision">
+              {DECISION_LABEL[caseRow.decision]}
+            </dd>
+            <dt>说明</dt>
+            <dd className="credit-case-drawer__note">{caseRow.note}</dd>
+            {caseRow.tags.length > 0 ? (
+              <>
+                <dt>标签</dt>
+                <dd>
+                  {caseRow.tags.map((t) => (
+                    <span key={t} className="credit-case-drawer__tag">{t}</span>
+                  ))}
+                </dd>
+              </>
+            ) : null}
+          </dl>
+        </section>
+        <footer className="credit-case-drawer__ftr">
+          <span className="credit-case-drawer__hint">ESC / 点背景 关闭</span>
+        </footer>
+      </aside>
     </div>
   );
 }
@@ -1627,10 +1953,10 @@ function CreditEmptyState(p: {
         >
           <span className="credit-empty__cta-rank">主操作</span>
           <span className="credit-empty__cta-title">
-            {p.decisionRunning ? "决策中…" : "选材料 + 起决策"}
+            {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
           </span>
           <span className="credit-empty__cta-sub">
-            从 Agent6 handoff 拉报告 · 真接 LLM SSE
+            选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
           </span>
         </button>
         <button
@@ -1644,7 +1970,7 @@ function CreditEmptyState(p: {
           <span className="credit-empty__cta-rank">次操作</span>
           <span className="credit-empty__cta-title">演示模式起决策</span>
           <span className="credit-empty__cta-sub">
-            无 LLM key 也能看流程 · backend mock=true
+            无 LLM key 也能看流程 · backend mock=true · in-memory fixture
           </span>
         </button>
         <button
@@ -1653,13 +1979,14 @@ function CreditEmptyState(p: {
           data-testid="credit-history-tertiary"
           data-cta="tertiary"
           onClick={p.onTertiary}
+          disabled={p.decisionRunning}
         >
           <span className="credit-empty__cta-rank credit-empty__cta-rank--demo">
-            历史 (示例)
+            演示场景
           </span>
-          <span className="credit-empty__cta-title">看示例案例</span>
+          <span className="credit-empty__cta-title">demo scenario · 6 标杆</span>
           <span className="credit-empty__cta-sub">
-            {CREDIT_MODE_LABEL[p.mode]} · 培训演示用 · 切真实输入随时返回
+            {CREDIT_MODE_LABEL[p.mode]} · file-backed scenario · /api/credit/demo/run · 客户走访稳定路径
           </span>
         </button>
       </section>
@@ -1745,6 +2072,11 @@ function CreditDecisionAdvicePanel(p: {
   decisionError: string | null;
   stageTab: "corporate" | "small_business" | "retail";
 }) {
+  /* Step 11 · 2026-04-29 worker-A4-credit · 替 console.error 静默 (cat 13)
+     export_docx 失败 → banner 显式 + retry/dismiss · banner 文案区分 4xx/5xx/network */
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportRunning, setExportRunning] = useState(false);
+
   if (!p.liveAdvice && !p.decisionRunning && !p.decisionError) return null;
 
   const advice = (p.liveAdvice ?? {}) as Record<string, unknown>;
@@ -1760,6 +2092,8 @@ function CreditDecisionAdvicePanel(p: {
 
   async function downloadDocx() {
     if (!p.decisionId && !p.liveAdvice) return;
+    setExportError(null);
+    setExportRunning(true);
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
     const body = p.decisionId
@@ -1771,7 +2105,20 @@ function CreditDecisionAdvicePanel(p: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // 解 backend 4xx/5xx detail (per agent_credit/api.py error envelope)
+        const text = await res.text().catch(() => "");
+        let msg = `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(text) as { detail?: { error?: { code?: string; message?: string } } };
+          if (parsed.detail?.error?.message) {
+            msg = `${parsed.detail.error.code ?? `HTTP ${res.status}`}: ${parsed.detail.error.message}`;
+          }
+        } catch {
+          if (text) msg = `${msg} · ${text.slice(0, 120)}`;
+        }
+        throw new Error(msg);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1782,7 +2129,10 @@ function CreditDecisionAdvicePanel(p: {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("[credit] export_docx failed:", err);
+      // 替原 console.error 静默 (cat 13) · banner 显式 + 用户可 retry/dismiss
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportRunning(false);
     }
   }
 
@@ -1855,10 +2205,41 @@ function CreditDecisionAdvicePanel(p: {
             className="credit-advice-live__export"
             data-testid="credit-export-docx-btn"
             onClick={downloadDocx}
-            disabled={!p.decisionId && !p.liveAdvice}
+            disabled={(!p.decisionId && !p.liveAdvice) || exportRunning}
           >
-            导出决策建议书 (.docx)
+            {exportRunning ? "导出中…" : "导出决策建议书 (.docx)"}
           </button>
+          {/* Step 11 · cat 13 fix · export 失败 banner (替 console.error 静默) */}
+          {exportError ? (
+            <div
+              role="alert"
+              data-testid="credit-export-error-banner"
+              className="credit-advice-live__export-err"
+            >
+              <span className="credit-advice-live__export-err-icon" aria-hidden>⚠</span>
+              <span className="credit-advice-live__export-err-text">
+                <b>导出失败</b>
+                <span className="credit-advice-live__export-err-detail">{exportError}</span>
+              </span>
+              <button
+                type="button"
+                className="credit-advice-live__export-err-retry"
+                onClick={downloadDocx}
+                data-testid="credit-export-retry"
+              >
+                重试
+              </button>
+              <button
+                type="button"
+                className="credit-advice-live__export-err-dismiss"
+                onClick={() => setExportError(null)}
+                aria-label="关闭导出错误提示"
+                data-testid="credit-export-dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : p.decisionRunning ? (
         <div className="credit-advice-live__loading">LLM 决策流式生成中…</div>

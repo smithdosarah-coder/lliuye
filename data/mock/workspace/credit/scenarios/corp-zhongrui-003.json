@@ -1,0 +1,124 @@
+{
+  "scenario_id": "corp-zhongrui-003",
+  "preset_name": "zhongrui_saas",
+  "stage_tab": "corporate",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析中锐网络 SaaS 订阅收入结构与应收账龄...",
+    "scoring": "四维加权评分中...",
+    "rule_checking": "30 项硬红线 + 软红线规则扫描中...",
+    "case_retrieving": "Top 5 SaaS / 软件行业相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "corp_zhongrui_003",
+    "company_name": "中锐网络科技 (上海) 有限公司",
+    "stage_tab": "corporate",
+    "industry": "信息技术 · SaaS 订阅服务",
+    "established_date": "2017-06",
+    "registered_capital_wan": 800,
+    "annual_revenue_wan": 9200,
+    "employees": 112,
+    "region": "上海 · 浦东",
+    "credit_history_years": 5,
+    "is_specialized_new": false
+  },
+  "feature_done": {
+    "financial.debt_ratio": 0.58,
+    "financial.revenue_growth": 0.14,
+    "financial.gross_margin": 0.46,
+    "financial.current_ratio": 1.21,
+    "financial.quick_ratio": 1.08,
+    "financial.related_party_revenue_pct": 0.32,
+    "financial.ar_days": 140,
+    "financial.ebitda_margin": 0.09,
+    "operational.years_established": 8.9,
+    "operational.employee_growth_yoy": 0.18,
+    "guarantee.collateral_coverage": 0.78,
+    "guarantee.guarantor_strength": "中",
+    "external.tax_grade": "B",
+    "external.lawsuit_count_2y": 1,
+    "_count": 58
+  },
+  "scoring": {
+    "composite_score": 64,
+    "score_max": 100,
+    "risk_grade": "B",
+    "sub_scores": {
+      "financial": 58,
+      "industry": 72,
+      "operational": 67,
+      "guarantee": 59
+    }
+  },
+  "rule_hits": [
+    {
+      "rule_id": "corp_rl_022",
+      "rule_name": "关联交易收入占比软红线 (>30% warn)",
+      "is_hard": false,
+      "can_waive": true,
+      "severity": "medium",
+      "actual_value": 0.32,
+      "threshold": 0.30,
+      "waiver_conditions": ["补充关联方独立审计意见", "披露未来 12 个月去关联化路径"]
+    },
+    {
+      "rule_id": "corp_rl_029",
+      "rule_name": "应收账款周转天数软红线 (>120 天 warn)",
+      "is_hard": false,
+      "can_waive": true,
+      "severity": "medium",
+      "actual_value": 140,
+      "threshold": 120,
+      "waiver_conditions": ["前 5 大客户回款承诺函", "应收质押"]
+    }
+  ],
+  "case_matches": [
+    {
+      "case_id": "case_corp_201",
+      "company_name": "深圳云链科技",
+      "similarity": 0.85,
+      "decision": "有条件批",
+      "approved_amount": 350,
+      "approved_term": 18,
+      "interest_rate": 0.075,
+      "decision_reason": "SaaS · 关联交易 28% · 降额至 70% 申请额并要求季度复盘"
+    },
+    {
+      "case_id": "case_corp_214",
+      "company_name": "杭州数擎软件",
+      "similarity": 0.81,
+      "decision": "有条件批",
+      "approved_amount": 400,
+      "approved_term": 24,
+      "interest_rate": 0.0785,
+      "decision_reason": "应收 135 天 + 关联 31% · 追加应收质押后批 400 万"
+    },
+    {
+      "case_id": "case_corp_227",
+      "company_name": "南京慧谷信息",
+      "similarity": 0.76,
+      "decision": "批",
+      "approved_amount": 300,
+      "approved_term": 12,
+      "interest_rate": 0.072,
+      "decision_reason": "营收 1.1 亿 · 关联 24% · 短期 12 期通过"
+    }
+  ],
+  "advice": {
+    "decision": "有条件批准",
+    "approved_amount": 380,
+    "approved_term_months": 18,
+    "interest_rate": 0.0535,
+    "rate_benchmark": "LPR+85BP",
+    "risk_grade": "B",
+    "composite_score": 64,
+    "conditions": [
+      "提供前 5 大客户应收账款质押 (覆盖率 ≥ 80%)",
+      "补充关联方 (中锐控股) 独立审计意见 + 12 个月去关联化路径承诺",
+      "季度提供 SaaS 续费率与 ARR 监测报表 · 续费率 < 80% 触发 reveiw"
+    ],
+    "decision_reason": "[demo] 中锐网络 B 级 64/100 · 触发 2 项软红线 (关联交易 32% / 应收 140 天) · 客户申请 500 万 · 综合评估降额 24% 至 380 万 · 期限缩短 6 期至 18 月 · 利率上浮 LPR+85BP 覆盖软红线风险 · 同行业 3/3 案例为有条件批 · 同步附 3 项贷后条件 · 建议有条件批准。",
+    "stage_tab": "corporate"
+  }
+}

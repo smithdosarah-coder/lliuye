@@ -1,0 +1,99 @@
+{
+  "scenario_id": "corp-ruiheng-002",
+  "preset_name": "ruiheng_precision",
+  "stage_tab": "corporate",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析瑞恒精密制造财务画像与产业链位置...",
+    "scoring": "四维加权评分中...",
+    "rule_checking": "30 项硬红线规则扫描中...",
+    "case_retrieving": "Top 5 同行业相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "corp_ruiheng_002",
+    "company_name": "瑞恒精密制造股份有限公司",
+    "stage_tab": "corporate",
+    "industry": "高端装备制造 · 精密零部件",
+    "established_date": "2009-03",
+    "registered_capital_wan": 2000,
+    "annual_revenue_wan": 18600,
+    "employees": 246,
+    "region": "江苏 · 苏州",
+    "credit_history_years": 14,
+    "is_specialized_new": true
+  },
+  "feature_done": {
+    "financial.debt_ratio": 0.42,
+    "financial.revenue_growth": 0.22,
+    "financial.gross_margin": 0.31,
+    "financial.current_ratio": 1.86,
+    "financial.quick_ratio": 1.34,
+    "financial.ebitda_margin": 0.18,
+    "financial.roa": 0.12,
+    "operational.years_established": 17.1,
+    "operational.employee_growth_yoy": 0.09,
+    "guarantee.collateral_coverage": 1.45,
+    "guarantee.guarantor_strength": "强",
+    "external.tax_grade": "A",
+    "external.lawsuit_count_2y": 0,
+    "external.is_high_tech_certified": true,
+    "_count": 62
+  },
+  "scoring": {
+    "composite_score": 87,
+    "score_max": 100,
+    "risk_grade": "A",
+    "sub_scores": {
+      "financial": 89,
+      "industry": 84,
+      "operational": 88,
+      "guarantee": 86
+    }
+  },
+  "rule_hits": [],
+  "case_matches": [
+    {
+      "case_id": "case_corp_103",
+      "company_name": "无锡精工动力",
+      "similarity": 0.91,
+      "decision": "批",
+      "approved_amount": 500,
+      "approved_term": 36,
+      "interest_rate": 0.0445,
+      "decision_reason": "高新 + 营收增 26% + 抵押覆盖 1.6 → 批 500 万 LPR+45BP"
+    },
+    {
+      "case_id": "case_corp_117",
+      "company_name": "常州科达机电",
+      "similarity": 0.86,
+      "decision": "批",
+      "approved_amount": 300,
+      "approved_term": 24,
+      "interest_rate": 0.046,
+      "decision_reason": "专精特新 + 现金流稳健 → 批 300 万 LPR+60BP"
+    },
+    {
+      "case_id": "case_corp_125",
+      "company_name": "宁波智控自动化",
+      "similarity": 0.83,
+      "decision": "批",
+      "approved_amount": 400,
+      "approved_term": 24,
+      "interest_rate": 0.0455,
+      "decision_reason": "毛利 33% + 大客户分散度高 → 批 400 万 LPR+55BP"
+    }
+  ],
+  "advice": {
+    "decision": "批准",
+    "approved_amount": 300,
+    "approved_term_months": 24,
+    "interest_rate": 0.045,
+    "rate_benchmark": "LPR+50BP",
+    "risk_grade": "A",
+    "composite_score": 87,
+    "conditions": [],
+    "decision_reason": "[demo] 瑞恒精密四维全部 80+ 优质客户 · 综合评分 87/100 A 级 · 0 项红线触发 · 营收增长 22% / 资产负债率 0.42 / 抵押覆盖 1.45x / 税务 A · 同行业 3/3 案例均获批 · 建议批准 300 万 24 期 · 利率 LPR+50BP · 可一档 fast track 通过授审会。",
+    "stage_tab": "corporate"
+  }
+}
