@@ -129,6 +129,11 @@ export default function CreditWorkspace() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedCandidate]);
 
+  /* 派生 selected case data · 从 sessionData.cases 找 (live or mock 单源) */
+  const selectedCandidateData: CaseRecall | null = selectedCandidate
+    ? sessionData.cases.find((c) => c.id === selectedCandidate) ?? null
+    : null;
+
   const [tab, setTab] = useState<OutputTab>("radar");
 
   // CTA 生成授信辅助 · 动态进度条状态（纯前端 mock · 5 步 450ms · UI 动画 · 与 4 gate 不冲突）
@@ -565,6 +570,7 @@ export default function CreditWorkspace() {
             limit={session.limit}
             redLines={session.redLines}
             cases={session.cases}
+            onSelectCase={setSelectedCandidate}
           />
         </section>
       </div>
@@ -590,6 +596,13 @@ export default function CreditWorkspace() {
       <UnfilledFields />
       <RiskRadarPreview mode={mode} session={session} />
       <EvidenceTrail agentTone="credit" />
+      {/* Step 10 · selectedCandidate gate · case detail drawer (workspace-state-protocol §2 #4) */}
+      {selectedCandidateData ? (
+        <CaseDetailDrawer
+          caseRow={selectedCandidateData}
+          onClose={() => setSelectedCandidate(null)}
+        />
+      ) : null}
     </div>
     </EvidenceProvider>
   );
@@ -1337,6 +1350,7 @@ function OutputPanel(p: {
   limit: LimitSuggestion;
   redLines: RedLine[];
   cases: CaseRecall[];
+  onSelectCase?: (id: string) => void;
 }) {
   return (
     <div className="rpt-panel cr-out">
@@ -1366,7 +1380,7 @@ function OutputPanel(p: {
       <div className="rpt-panel__body cr-out__body">
         {p.tab === "radar" ? <RadarView radar={p.radar} overall={p.overall} /> : null}
         {p.tab === "limit" ? <LimitView limit={p.limit} redLines={p.redLines} /> : null}
-        {p.tab === "cases" ? <CasesView cases={p.cases} /> : null}
+        {p.tab === "cases" ? <CasesView cases={p.cases} onSelect={p.onSelectCase} /> : null}
       </div>
     </div>
   );
@@ -1588,13 +1602,34 @@ function Gauge(p: {
   );
 }
 
-function CasesView({ cases }: { cases: CaseRecall[] }) {
+function CasesView({
+  cases,
+  onSelect,
+}: {
+  cases: CaseRecall[];
+  onSelect?: (id: string) => void;
+}) {
   return (
     <div className="cr-cs">
       <div className="cr-cs__ttl">相似案例召回 · {cases.length} 条（相似度 ≥ 0.75）</div>
       <ul className="cr-cs__list">
         {cases.map((c) => (
-          <li key={c.id} className="cr-cs__item" data-decision={c.decision}>
+          <li
+            key={c.id}
+            className="cr-cs__item"
+            data-decision={c.decision}
+            data-testid="credit-case-row"
+            data-case-id={c.id}
+            role={onSelect ? "button" : undefined}
+            tabIndex={onSelect ? 0 : -1}
+            onClick={onSelect ? () => onSelect(c.id) : undefined}
+            onKeyDown={onSelect ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(c.id);
+              }
+            } : undefined}
+          >
             <div className="cr-cs__head">
               <div className="cr-cs__name">{c.name}</div>
               <span className="cr-cs__chip">{DECISION_LABEL[c.decision]}</span>
@@ -1615,6 +1650,82 @@ function CasesView({ cases }: { cases: CaseRecall[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* CaseDetailDrawer · Step 10 · selectedCandidate gate (workspace-state-protocol §2 #4)
+   ESC 关 (parent useEffect) · click backdrop 关 · A11y dialog */
+function CaseDetailDrawer({
+  caseRow,
+  onClose,
+}: {
+  caseRow: CaseRecall;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="credit-case-drawer__backdrop"
+      data-testid="credit-case-drawer-backdrop"
+      onClick={onClose}
+    >
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={`案例详情 · ${caseRow.name}`}
+        data-testid="credit-case-drawer"
+        data-case-id={caseRow.id}
+        data-decision={caseRow.decision}
+        className="credit-case-drawer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="credit-case-drawer__hdr">
+          <h3 className="credit-case-drawer__name">{caseRow.name}</h3>
+          <span className="credit-case-drawer__decision-chip">
+            {DECISION_LABEL[caseRow.decision]}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="credit-case-drawer__close"
+            data-testid="credit-case-drawer-close"
+          >
+            ×
+          </button>
+        </header>
+        <section className="credit-case-drawer__body">
+          <dl className="credit-case-drawer__dl">
+            <dt>相似度</dt>
+            <dd>
+              <span className="credit-case-drawer__sim">
+                {(caseRow.similarity * 100).toFixed(0)}%
+              </span>
+            </dd>
+            <dt>申请额度</dt>
+            <dd>{caseRow.amount}</dd>
+            <dt>决议</dt>
+            <dd data-testid="credit-case-drawer-decision">
+              {DECISION_LABEL[caseRow.decision]}
+            </dd>
+            <dt>说明</dt>
+            <dd className="credit-case-drawer__note">{caseRow.note}</dd>
+            {caseRow.tags.length > 0 ? (
+              <>
+                <dt>标签</dt>
+                <dd>
+                  {caseRow.tags.map((t) => (
+                    <span key={t} className="credit-case-drawer__tag">{t}</span>
+                  ))}
+                </dd>
+              </>
+            ) : null}
+          </dl>
+        </section>
+        <footer className="credit-case-drawer__ftr">
+          <span className="credit-case-drawer__hint">ESC / 点背景 关闭</span>
+        </footer>
+      </aside>
     </div>
   );
 }
