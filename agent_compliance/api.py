@@ -37,6 +37,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
+from shared.sse_envelope import (  # noqa: E402
+    DATA_SOURCE_LIVE,
+    DATA_SOURCE_MOCK_FALLBACK,
+    DATA_SOURCE_MOCK_FORCED,
+    encode_event,
+    make_done,
+    make_error,
+    make_error_from_exception,
+    make_stage,
+)
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
 try:
@@ -97,12 +107,92 @@ class CompliancePolicyScanRequest(BaseModel):
     force_mock: bool = False         # 强制走 mock 政策库 · 不尝试 Tavily
 
 
+def _aggregate_recommendations(violations: list[dict]) -> list[dict]:
+    """汇总 violations 各自 revisions 为 flat list · 前端 RevisionPanel 消费.
+
+    每条 revision 加 violation_id 反向引用 · 让前端可按 violation 过滤.
+    """
+    out: list[dict] = []
+    for v in violations or []:
+        vid = v.get("violation_id", "")
+        for rev in v.get("revisions", []) or []:
+            if not isinstance(rev, dict):
+                continue
+            out.append({
+                "violation_id": vid,
+                "category": rev.get("category", ""),
+                "title": rev.get("title", ""),
+                "text": rev.get("text", ""),
+            })
+    return out
+
+
+def _build_compliance_done_envelope(
+    *,
+    scan_id: str,
+    payload: dict,
+    duration_seconds: float,
+) -> dict:
+    """从 persisted scan payload 构 done envelope (per agent-compli-spec §5.3 · A4 worker).
+
+    panels 走 AGENT_PANEL_KEYS_RECOMMENDED["compliance"] 4 keys + 顶层 extras
+    (rules_preview / events_preview / policy_meta / data_source).
+    """
+    stats = payload.get("stats", {}) or {}
+    violations = payload.get("violations", []) or []
+    rules = payload.get("rules", []) or []
+    events = payload.get("events", []) or []
+    matrix = payload.get("matrix", []) or []
+    mode_label = str(payload.get("mode", ""))
+
+    # mode_label → data_source · web_live 主路径 · 其他都视作 fallback
+    if mode_label == "web_live":
+        data_source = DATA_SOURCE_LIVE
+    elif mode_label == "demo_forced":
+        data_source = DATA_SOURCE_MOCK_FORCED
+    else:
+        data_source = DATA_SOURCE_MOCK_FALLBACK
+
+    return make_done(
+        panels={
+            "violations": violations,
+            "matrix": matrix,
+            "events": events,
+            "recommendations": _aggregate_recommendations(violations),
+        },
+        metrics={
+            "rule_count": payload.get("rule_count", len(rules)),
+            "event_count": payload.get("event_count", len(events)),
+            "cell_count": payload.get("cell_count", len(rules) * len(events)),
+            "severe": stats.get("severe_count", 0),
+            "normal": stats.get("normal_count", 0),
+            "observation": stats.get("observation_count", 0),
+            "violation_count": stats.get("violation_count", len(violations)),
+            "duration_seconds": round(duration_seconds, 2),
+        },
+        data_source=data_source,
+        session_id=scan_id,
+        rules_preview=rules[:5],
+        events_preview=events[:5],
+        policy_meta=payload.get("policy_meta", {}) or {},
+        mode_label=mode_label,
+    )
+
+
 def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
     try:
-        from agent_compliance.scan_engine import run_policy_scan_and_persist
+        from agent_compliance.scan_engine import (
+            ScanResultNotFoundError,
+            load_scan_result,
+            run_policy_scan_and_persist,
+        )
     except ImportError as e:
-        yield sse_encode({"event": "error", "message": f"scan_engine import failed: {e}"})
+        yield encode_event(make_error(f"scan_engine import failed: {e}", code="SCAN_IMPORT_FAIL"))
         return
+
+    import time as _time
+    t_start = _time.time()
+    last_scan_id: str = ""
 
     try:
         for evt in run_policy_scan_and_persist(
@@ -113,19 +203,39 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
         ):
             payload = to_jsonable(evt)
             cleaned, hits = _qc_scrub_dict(payload)
+            # 截获 scan event · 不 forward · 留到 done envelope 拼
+            if isinstance(cleaned, dict) and cleaned.get("type") == "scan":
+                last_scan_id = str(cleaned.get("scan_id") or "")
+                continue
             wrap = {"event": "stage", "payload": cleaned}
             if hits:
                 wrap["_qc_placeholder_hits"] = hits
             yield sse_encode(wrap)
 
-        yield sse_encode({"event": "done"})
+        # done envelope · 拉 persisted payload 拼共形 envelope
+        if last_scan_id:
+            try:
+                full_payload = load_scan_result(scan_id=last_scan_id)
+            except ScanResultNotFoundError as e:
+                yield encode_event(make_error(
+                    f"scan_id={last_scan_id} 持久化丢失: {e}",
+                    code="SCAN_PERSIST_LOST",
+                ))
+                return
+            done_evt = _build_compliance_done_envelope(
+                scan_id=last_scan_id,
+                payload=full_payload,
+                duration_seconds=_time.time() - t_start,
+            )
+            yield encode_event(done_evt)
+        else:
+            yield encode_event(make_error(
+                "scan event 未发出 · run_policy_scan_and_persist 未持久化",
+                code="SCAN_PERSIST_MISSING",
+            ))
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         traceback.print_exc()
-        yield sse_encode({
-            "event": "error",
-            "message": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc()[-2000:],
-        })
+        yield encode_event(make_error_from_exception(e, code="SCAN_RUNTIME_ERROR"))
 
 
 @app.post("/api/compliance/policy_scan")
@@ -145,6 +255,99 @@ async def compliance_policy_scan_post(req: CompliancePolicyScanRequest):
 
     def gen():
         yield from _policy_scan_event_stream(req)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/compliance/demo/run · Phase A worker-A4-compli (2026-04-29)
+#   纯 mock SSE · 不调 LLM/Tavily · 从 data/mock/workspace/compliance/scenarios/<id>.json 读
+#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
+#   反 5 原则 §3.5 难度分层: online_loan / aml / data_protect 三档 (per spec §6.2)
+# ============================================================================
+
+
+import json as _json  # noqa: E402
+
+_COMPLI_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "compliance" / "scenarios"
+_COMPLI_ALLOWED_SCENARIOS = {"online_loan", "aml", "data_protect"}
+
+
+class ComplianceDemoRunRequest(BaseModel):
+    scenario_id: str = "online_loan"  # "online_loan" | "aml" | "data_protect"
+
+
+@app.post("/api/compliance/demo/run")
+async def compliance_demo_run(req: ComplianceDemoRunRequest):
+    """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (4 stage 流 + done envelope).
+
+    Per agent-compli-spec §6.2 + sse-envelope §3.1 · done event panels 4 keys
+    (violations / matrix / events / recommendations) 同共形.
+    """
+    import time as _time
+
+    def gen():
+        scenario_id = req.scenario_id or "online_loan"
+        if scenario_id not in _COMPLI_ALLOWED_SCENARIOS:
+            yield encode_event(make_error(
+                f"unknown scenario_id: {scenario_id} "
+                f"(allowed: {'/'.join(sorted(_COMPLI_ALLOWED_SCENARIOS))})",
+                code="DEMO_SCENARIO_INVALID",
+            ))
+            return
+        path = _COMPLI_SCENARIO_DIR / f"{scenario_id}.json"
+        if not path.exists():
+            yield encode_event(make_error(
+                f"scenario file not found: {path.name}",
+                code="DEMO_SCENARIO_MISSING",
+            ))
+            return
+        try:
+            data = _json.loads(path.read_text("utf-8"))
+        except (_json.JSONDecodeError, OSError) as e:
+            yield encode_event(make_error(
+                f"scenario load failed: {type(e).__name__}: {e}",
+                code="DEMO_SCENARIO_LOAD",
+            ))
+            return
+
+        # 4 阶段 (per scan_engine.run_policy_scan_and_persist)
+        stages = ["rule_extract", "event_extract", "matrix_match", "revision_generate"]
+        stage_msgs = data.get("stage_messages", {}) or {}
+        for stage_name in stages:
+            yield encode_event(make_stage(
+                stage_name, "running",
+                message=stage_msgs.get(stage_name, f"{stage_name}..."),
+            ))
+            _time.sleep(0.18)
+            yield encode_event(make_stage(stage_name, "done"))
+
+        violations = data.get("violations", []) or []
+        recommendations = data.get("recommendations") or _aggregate_recommendations(violations)
+
+        yield encode_event(make_done(
+            panels={
+                "violations": violations,
+                "matrix": data.get("matrix", []) or [],
+                "events": data.get("events", []) or [],
+                "recommendations": recommendations,
+            },
+            metrics=data.get("metrics", {}) or {},
+            data_source=DATA_SOURCE_MOCK_FORCED,
+            session_id=f"demo_{scenario_id}_{int(_time.time())}",
+            rules_preview=(data.get("rules_preview") or data.get("rules") or [])[:5],
+            events_preview=(data.get("events_preview") or data.get("events") or [])[:5],
+            policy_meta=data.get("policy_meta", {}) or {},
+            scenario_id=scenario_id,
+        ))
 
     return StreamingResponse(
         gen(),

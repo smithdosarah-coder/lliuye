@@ -1,0 +1,133 @@
+{
+  "scenario_id": "aml",
+  "difficulty": "困难 (54 rule × 96 event ≈ 5184 cell · 3 严重 / 7 一般 / 8 观察)",
+  "_lineage": "锚定 央行《金融机构反洗钱规定》2007 + 《大额交易和可疑交易报告管理办法》2017 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 · 不替 Agent5 做央行新规外搜 (§3.5)",
+  "stage_messages": {
+    "rule_extract": "解析央行 2 份反洗钱政策 → 54 条规则 (大额报送 8 / 可疑识别 14 / 客户尽调 11 / 制裁名单 6 / 留痕保存 9 / 其他 6)...",
+    "event_extract": "解析 2 份内部审计样本 → 96 条业务事件 (大额转账 42 / 可疑模式 19 / 制裁筛查 15 / KYC 重检 20)...",
+    "matrix_match": "5184 单元 hard-rule fast path 3120 + LLM slow path 410 + 1654 not_applicable...",
+    "revision_generate": "18 条违规 改/补/强 修订 (LLM live · 模板兜底 0)..."
+  },
+  "metrics": {
+    "rule_count": 54,
+    "event_count": 96,
+    "cell_count": 5184,
+    "severe": 3,
+    "normal": 7,
+    "observation": 8,
+    "violation_count": 18,
+    "duration_seconds": 124.7
+  },
+  "policy_meta": {
+    "title": "金融机构反洗钱规定 + 大额交易和可疑交易报告管理办法 (并卷)",
+    "source_url": "(mock · 锚定 PBOC-2007-1 / PBOC-2016-3 · 数字脱敏)",
+    "fetched_at": "2026-04-28 09:18",
+    "issuer": "中国人民银行 + 国家金融监督管理总局"
+  },
+  "rules_preview": [
+    {"rule_id": "AML-005", "article": "第五条", "category": "大额报送", "condition": "单笔现金存取 ≥ 5 万元应在 5 工作日内报送", "threshold": {"max_report_days": 5}, "severity_hint": "critical"},
+    {"rule_id": "AML-011", "article": "第十一条", "category": "可疑识别", "condition": "短期内同账户多笔接近报告起点的转账应触发可疑模式", "severity_hint": "major"},
+    {"rule_id": "AML-018", "article": "第十八条", "category": "客户尽调", "condition": "高风险客户应每 12 个月重新做客户身份识别", "threshold": {"max_kyc_renew_months": 12}, "severity_hint": "major"},
+    {"rule_id": "AML-024", "article": "第二十四条", "category": "制裁名单", "condition": "新开户须在 T+0 完成制裁名单筛查", "severity_hint": "critical"},
+    {"rule_id": "AML-031", "article": "第三十一条", "category": "留痕保存", "condition": "客户身份资料及交易记录至少保存 5 年", "threshold": {"min_retain_years": 5}, "severity_hint": "major"}
+  ],
+  "events_preview": [
+    {"event_id": "TX-26Q1-1842", "event_type": "large_cash", "fields": {"amount": 80000, "currency": "CNY", "report_days": 9}},
+    {"event_id": "TX-26Q1-2017", "event_type": "suspicious_pattern", "fields": {"daily_count": 6, "amount_each": 49500, "below_threshold": true}},
+    {"event_id": "KYC-2025-088", "event_type": "kyc_review", "fields": {"risk_level": "high", "kyc_renew_months": 19}},
+    {"event_id": "ACT-26-NEW-411", "event_type": "new_account", "fields": {"sanction_screen_days": 2}},
+    {"event_id": "RET-AUDIT-2024", "event_type": "retention", "fields": {"retain_years": 4}}
+  ],
+  "events": [
+    {"event_id": "TX-26Q1-1842", "event_type": "large_cash", "fields": {"amount": 80000, "report_days": 9}},
+    {"event_id": "TX-26Q1-2017", "event_type": "suspicious_pattern", "fields": {"below_threshold": true, "daily_count": 6}},
+    {"event_id": "KYC-2025-088", "event_type": "kyc_review", "fields": {"risk_level": "high", "kyc_renew_months": 19}},
+    {"event_id": "ACT-26-NEW-411", "event_type": "new_account", "fields": {"sanction_screen_days": 2}},
+    {"event_id": "RET-AUDIT-2024", "event_type": "retention", "fields": {"retain_years": 4}}
+  ],
+  "matrix": [],
+  "violations": [
+    {
+      "violation_id": "VIO-001",
+      "rule_id": "AML-005",
+      "rule_article": "第五条",
+      "rule_condition": "单笔现金存取 ≥ 5 万元应在 5 工作日内报送",
+      "rule_category": "大额报送",
+      "event_id": "TX-26Q1-1842",
+      "event_type": "large_cash",
+      "event_fields": {"amount": 80000, "report_days": 9},
+      "severity": "critical",
+      "evidence": "report_days=9 超阈值 max_report_days=5",
+      "match_reason": "8 万现金存取 9 工作日上报 · 超 5 日上限",
+      "revisions": [
+        {"category": "改", "title": "上报系统加自动校验", "text": "大额业务系统在 T+3 起触发预警 + T+5 强制报送 · 杜绝逾期。"},
+        {"category": "强", "title": "网点反洗钱台账每日盘点", "text": "网点合规专员每日 T+1 复核大额现金台账 · 月度抽查率 ≥ 10%。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-002",
+      "rule_id": "AML-024",
+      "rule_article": "第二十四条",
+      "rule_condition": "新开户须在 T+0 完成制裁名单筛查",
+      "rule_category": "制裁名单",
+      "event_id": "ACT-26-NEW-411",
+      "event_type": "new_account",
+      "event_fields": {"sanction_screen_days": 2},
+      "severity": "critical",
+      "evidence": "sanction_screen_days=2 (应 T+0 即 0 天)",
+      "match_reason": "新开户 411 在 T+2 才完成筛查 · 触红线",
+      "revisions": [
+        {"category": "改", "title": "开户业务嵌入制裁筛查同步调用", "text": "开户系统调用制裁名单 API 设为 blocking · T+0 不返结果不允许放行 · T+10 上线。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-003",
+      "rule_id": "AML-018",
+      "rule_article": "第十八条",
+      "rule_condition": "高风险客户应每 12 个月重新做客户身份识别",
+      "rule_category": "客户尽调",
+      "event_id": "KYC-2025-088",
+      "event_type": "kyc_review",
+      "event_fields": {"risk_level": "high", "kyc_renew_months": 19},
+      "severity": "critical",
+      "evidence": "kyc_renew_months=19 超阈值 max_kyc_renew_months=12",
+      "match_reason": "高风险客户 088 已 19 月未做 KYC 重检",
+      "revisions": [
+        {"category": "改", "title": "T+15 完成存量高风险 KYC 回扫", "text": "梳理高风险客户清单全量回扫 · 19 月未重检客户 T+15 完成。"},
+        {"category": "强", "title": "KYC 到期日提前 30/60/90 三档预警", "text": "客户管理系统按到期前 90/60/30 天三档自动通知客户经理 + 升级督办。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-004",
+      "rule_id": "AML-011",
+      "rule_article": "第十一条",
+      "rule_condition": "短期内同账户多笔接近报告起点的转账应触发可疑模式",
+      "rule_category": "可疑识别",
+      "event_id": "TX-26Q1-2017",
+      "event_type": "suspicious_pattern",
+      "event_fields": {"below_threshold": true, "daily_count": 6, "amount_each": 49500},
+      "severity": "major",
+      "evidence": "1 日 6 笔均 4.95 万 · 接近 5 万报送线",
+      "match_reason": "structuring 拆分模式 · 应升级可疑分析",
+      "revisions": [
+        {"category": "补", "title": "可疑模式规则补 structuring 识别", "text": "在反洗钱模型加单日多笔接近报送线规则 · 触发即升级人工复核。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-005",
+      "rule_id": "AML-031",
+      "rule_article": "第三十一条",
+      "rule_condition": "客户身份资料及交易记录至少保存 5 年",
+      "rule_category": "留痕保存",
+      "event_id": "RET-AUDIT-2024",
+      "event_type": "retention",
+      "event_fields": {"retain_years": 4},
+      "severity": "major",
+      "evidence": "retain_years=4 低于阈值 min_retain_years=5",
+      "match_reason": "审计抽样发现 4 年前记录已被归档清理 · 不足 5 年留存",
+      "revisions": [
+        {"category": "强", "title": "档案归档策略调整为 7 年", "text": "档案系统保存策略从 4 年延至 7 年 (留 2 年安全余量) · IT 部 T+30 调整。"}
+      ]
+    }
+  ]
+}

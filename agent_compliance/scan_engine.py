@@ -71,39 +71,58 @@ def build_compli_provider(*, force_mock: bool = False) -> tuple[Any, str]:
 
 
 # ---------------------------------------------------------------------------
-# LLM caller wrapper · 自动用 DEEPSEEK_API_KEY · 缺 key 返 None (走模板兜底)
+# LLM caller wrapper · 走 shared.llm_caller · PIPL 境内优先 fallback chain
+# (deepseek 主 + dashscope 备 · per A2 V2 cat 7-5 · §3.6 LLM Caller 唯一化)
+# 任一 provider 配 key 即返 caller · 全无 key → None (上层模板兜底)
 # ---------------------------------------------------------------------------
 
 
+_LLM_CALLER_AGENT_ID = "compliance"
+_LLM_CALLER_ENDPOINT = "/api/compliance/policy_scan"
+
+
+def _any_llm_provider_key_present() -> bool:
+    """检 fallback chain 头部 provider 是否至少 1 个 key 配齐 (PIPL 境内 chain)."""
+    for key_env in ("DEEPSEEK_API_KEY", "DASHSCOPE_API_KEY"):
+        if os.environ.get(key_env, "").strip():
+            return True
+    return False
+
+
 def build_llm_caller():
-    """构造 (system, user) -> str caller · 缺 key 返 None."""
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
+    """构造 (system, user) -> str caller · 全无 key 返 None (兜底 fallback)·
+
+    迁 shared.llm_caller (per A2 V2 cat 7-5) · 内部走 fallback chain · audit log 自动留痕.
+    保持 None 短路语义不变 · 让 has_llm flag 与 run_policy_scan_and_persist 上层逻辑一致.
+    """
+    if not _any_llm_provider_key_present():
         return None
     try:
-        from llm import LLMClient
-        client = LLMClient(provider="deepseek", api_key=api_key)
-        def caller(system: str, user: str) -> str:
-            return (client.simple_chat(system, user, temperature=0.2) or "").strip()
-        return caller
+        from shared.llm_caller import make_text_caller
+        return make_text_caller(
+            agent_id=_LLM_CALLER_AGENT_ID,
+            endpoint=_LLM_CALLER_ENDPOINT,
+            temperature=0.2,
+        )
     except (ImportError, RuntimeError, ValueError, OSError):
         return None
 
 
 def build_llm_json_caller():
-    """构造 (system, user, schema_hint) -> dict|list caller · 缺 key 返 None."""
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
+    """构造 (system, user, schema_hint) -> dict|list|None caller · 全无 key 返 None.
+
+    迁 shared.llm_caller · JSON path · fallback chain (deepseek 主 / dashscope 备) ·
+    上层 matrix_check / extract_rules / generate_revisions 等保持 None 兜底语义.
+    """
+    if not _any_llm_provider_key_present():
         return None
     try:
-        from llm import LLMClient
-        client = LLMClient(provider="deepseek", api_key=api_key)
-        def caller(system: str, user: str, schema_hint: str = "") -> Any:
-            try:
-                return client.chat_json(system, user, schema_hint=schema_hint, temperature=0.2)
-            except (RuntimeError, ValueError):
-                return None
-        return caller
+        from shared.llm_caller import make_json_caller
+        return make_json_caller(
+            agent_id=_LLM_CALLER_AGENT_ID,
+            endpoint=_LLM_CALLER_ENDPOINT,
+            temperature=0.2,
+        )
     except (ImportError, RuntimeError, ValueError, OSError):
         return None
 

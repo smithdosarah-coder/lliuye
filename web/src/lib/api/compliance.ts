@@ -20,6 +20,7 @@ export { LiveFailError };
 const ENDPOINT_POLICY_SCAN = "/api/compliance/policy_scan";
 const ENDPOINT_MATRIX_CHECK = "/api/compliance/matrix_check";
 const ENDPOINT_EXPORT_DOCX = "/api/compliance/export_docx";
+const ENDPOINT_DEMO_RUN = "/api/compliance/demo/run";
 
 
 export type PolicyScanRequest = {
@@ -44,15 +45,54 @@ export type ComplianceSseHandler = (event: {
 }) => void;
 
 
-export type PolicyScanResult = {
-  scanId: string;
+/**
+ * Phase A worker-A4-compli (2026-04-29) · done envelope shape (per shared/sse_envelope.make_done
+ * + AGENT_PANEL_KEYS_RECOMMENDED["compliance"] · 与 channel 同 pattern · panels 展开顶层).
+ */
+export type ComplianceDoneEnvelope = {
+  event: "done";
+  data_source: "live" | "mock" | "mock_forced" | "mock_fallback" | "cached" | string;
+  session_id?: string;
+  mode_label?: string;
+  scenario_id?: string;
+  metrics?: {
+    rule_count?: number;
+    event_count?: number;
+    cell_count?: number;
+    severe?: number;
+    normal?: number;
+    observation?: number;
+    violation_count?: number;
+    duration_seconds?: number;
+  };
+  /** 4 panel keys (AGENT_PANEL_KEYS_RECOMMENDED["compliance"]) · 顶层扁平 */
+  violations: Array<Record<string, unknown>>;
+  matrix?: unknown[];
+  events?: Array<Record<string, unknown>>;
+  recommendations?: Array<Record<string, unknown>>;
+  /** Extras */
+  rules_preview?: Array<Record<string, unknown>>;
+  events_preview?: Array<Record<string, unknown>>;
+  policy_meta?: Record<string, unknown>;
 };
 
 
-/** Run policy_scan SSE · 找 payload.type==="scan" 事件取 scan_id · 失败抛 LiveFailError. */
+export type PolicyScanResult = {
+  scanId: string;
+  doneEnvelope: ComplianceDoneEnvelope | null;
+};
+
+
+/** Run policy_scan SSE · 捕获 done envelope + scan_id · 失败抛 LiveFailError.
+ *
+ * V2 (Phase A worker-A4-compli · 2026-04-29): 后端拼 make_done envelope (panels 4 keys
+ * 展开顶层 + metrics + data_source + extras) · 前端 onDone 回 caller 整 envelope.
+ * Pre-V2 fallback (legacy backend): payload.type==="scan" stage event 取 scan_id.
+ */
 export async function runPolicyScan(
   req: PolicyScanRequest,
   onEvent?: ComplianceSseHandler,
+  onDone?: (env: ComplianceDoneEnvelope) => void,
 ): Promise<PolicyScanResult> {
   const body = {
     policy_doc: req.policyDoc,
@@ -61,14 +101,44 @@ export async function runPolicyScan(
     force_mock: req.forceMock ?? false,
   };
   let captured = "";
+  let doneEnvelope: ComplianceDoneEnvelope | null = null;
   await streamSse(ENDPOINT_POLICY_SCAN, body, (evt) => {
     onEvent?.(evt);
+    if (evt.type === "done") {
+      const env = evt.data as unknown as ComplianceDoneEnvelope;
+      doneEnvelope = env;
+      if (env.session_id) captured = String(env.session_id);
+      onDone?.(env);
+      return;
+    }
+    /* Pre-V2 fallback · 旧 backend payload.type==="scan" stage event 携 scan_id */
     const payload = (evt.data?.payload as Record<string, unknown> | undefined) ?? {};
     if (payload.type === "scan" && payload.scan_id) {
       captured = String(payload.scan_id);
     }
   });
-  return { scanId: captured };
+  return { scanId: captured, doneEnvelope };
+}
+
+
+/** Run demo/run SSE · 重放预置 scenario · 同 done envelope shape · 失败抛 LiveFailError. */
+export async function runComplianceDemo(
+  scenarioId: "online_loan" | "aml" | "data_protect",
+  onEvent?: ComplianceSseHandler,
+  onDone?: (env: ComplianceDoneEnvelope) => void,
+): Promise<PolicyScanResult> {
+  let captured = "";
+  let doneEnvelope: ComplianceDoneEnvelope | null = null;
+  await streamSse(ENDPOINT_DEMO_RUN, { scenario_id: scenarioId }, (evt) => {
+    onEvent?.(evt);
+    if (evt.type === "done") {
+      const env = evt.data as unknown as ComplianceDoneEnvelope;
+      doneEnvelope = env;
+      if (env.session_id) captured = String(env.session_id);
+      onDone?.(env);
+    }
+  });
+  return { scanId: captured, doneEnvelope };
 }
 
 
