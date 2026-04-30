@@ -167,7 +167,10 @@ function normalizeRedLines(
   hits: BackendCreditDoneEnvelope["rule_hits"],
   fallback: RedLine[],
 ): RedLine[] {
-  if (!hits || hits.length === 0) return fallback;
+  /* V2 fix · codex DISAGREE issue 1: backend 显式 yield rule_hits: [] 是合法 done envelope payload
+     (e.g., A 级无红线 · simple scenario) · 不应 fallback 到 mock 数字 · 那会让 panel 显示假红线
+     仅 hits === undefined / null (key 缺失) 时 fallback · empty array 是真实 "0 红线" 信号 */
+  if (hits == null) return fallback;
   return hits.map((h, i) => ({
     id: h.rule_id ?? `rl-live-${i}`,
     rule: h.rule_name ?? "未命名规则",
@@ -183,7 +186,9 @@ function normalizeCases(
   matches: BackendCreditDoneEnvelope["case_matches"],
   fallback: CaseRecall[],
 ): CaseRecall[] {
-  if (!matches || matches.length === 0) return fallback;
+  /* V2 fix · codex DISAGREE issue 1: backend 显式 yield case_matches: [] 也是合法 done envelope
+     (案例库未召回到 ≥0.75 相似 case · UI 应显示 "0 案例" · 不混 mock) · 仅 null/undefined 走 fallback */
+  if (matches == null) return fallback;
   return matches.map((m, i) => ({
     id: m.case_id ?? `case-live-${i}`,
     name: m.company_name ?? "(unknown)",

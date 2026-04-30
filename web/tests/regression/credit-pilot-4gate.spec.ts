@@ -283,44 +283,95 @@ test.describe("worker-A4-credit · credit pilot · 4 gate", () => {
     ).toContainText("corporate");
   });
 
-  test("T5 · gate 4 selectedCandidate · case row click → drawer 出 · ESC 关", async ({
-    page,
-  }) => {
-    await page.goto("/archive/credit", { waitUntil: "networkidle" });
-
-    // 走 secondary CTA · mock=true · 不依赖外端点 (decision 的 mock 路 backend in-memory fixture)
-    // 但 test runner 没起 backend · 用 history demo 强转 started=true 的更稳妥路径:
-    // 直接通过 board tabs 切到 cases tab 也行 · 先 setStarted
-    await page.locator('[data-testid="credit-decision-cta-secondary"]').click();
-    await page.waitForTimeout(500);
-
-    // 切到 cases tab (Output 面板)
-    const casesTab = page.locator('button:has-text("案例")').first();
-    if (await casesTab.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await casesTab.click();
-      await page.waitForTimeout(150);
-    }
-
-    // case row 点 → drawer 出
-    const caseRow = page.locator('[data-testid="credit-case-row"]').first();
-    if (await caseRow.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await caseRow.click();
-
-      const drawer = page.locator('[data-testid="credit-case-drawer"]');
-      await expect(drawer).toBeVisible();
-
-      // ESC 关闭
-      await page.keyboard.press("Escape");
-      await expect(drawer).toBeHidden();
-    }
-    // 若 case row 不可见 (mock decision 不走完整 panel) · 跳过 (T5 仅在 cases tab 渲染时验)
-  });
-
-  test("T6 · cat 13 · export_docx 4xx → exportError banner 显 (替 console.error 静默)", async ({
+  test("T5 · gate 4 selectedCandidate · case row click → drawer 必 visible · ESC 关 · 必 hidden", async ({
     page,
     context,
   }) => {
-    // mock /api/credit/decision · 走 mock secondary 让 panel 可见
+    /* V2 fix · codex DISAGREE issue 4 · 删原 silent no-op (drawer 找不到 row 不 fail)
+       现走 hard mock /api/credit/decision · case_matches 真注入 · normalize V2 (issue 1) 后 sessionData.cases 真活
+       case row 必 visible (否则 fail) · drawer click → ESC 必 visible/hidden */
+    await context.route("**/api/credit/decision", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sseStreamWithDone({
+          event: "done",
+          stage_tab: "corporate",
+          source: "mock",
+          preset_name: null,
+          decision_id: "dec_test_t5",
+          profile: { profile_id: "test_t5", company_name: "T5 测试授信主体" },
+          scoring: {
+            composite_score: 72,
+            score_max: 100,
+            risk_grade: "B",
+            sub_scores: { financial: 70, industry: 65, operational: 75, guarantee: 78 },
+          },
+          rule_hits: [],
+          case_matches: [
+            {
+              case_id: "case_t5_001",
+              company_name: "T5 测试相似案例 A",
+              similarity: 0.91,
+              decision: "批",
+              approved_amount: 380,
+              decision_reason: "T5 测试 case A 决策理由",
+            },
+            {
+              case_id: "case_t5_002",
+              company_name: "T5 测试相似案例 B",
+              similarity: 0.85,
+              decision: "有条件批",
+              approved_amount: 250,
+              decision_reason: "T5 测试 case B 决策理由",
+            },
+          ],
+          advice: {
+            decision: "有条件批准",
+            approved_amount: 300,
+            approved_term_months: 24,
+            interest_rate: 0.065,
+            rate_benchmark: "LPR+85BP",
+            risk_grade: "B",
+            composite_score: 72,
+            conditions: [],
+            decision_reason: "T5 测试理由",
+            stage_tab: "corporate",
+          },
+        }),
+      });
+    });
+
+    await page.goto("/archive/credit", { waitUntil: "networkidle" });
+    await page.locator('[data-testid="credit-decision-cta-secondary"]').click();
+
+    // 切到 cases tab (不再 conditional · 直接 click) · 验 workspace 真 hydrate
+    const casesTab = page.locator('button:has-text("案例")').first();
+    await expect(casesTab).toBeVisible({ timeout: 5000 });
+    await casesTab.click();
+
+    // 第一条 case row 必 visible · 否则 fail (而非 silent skip)
+    const caseRow = page.locator('[data-testid="credit-case-row"]').first();
+    await expect(caseRow).toBeVisible({ timeout: 3000 });
+    await expect(caseRow).toHaveAttribute("data-case-id", "case_t5_001");
+
+    // click → drawer 必 visible
+    await caseRow.click();
+    const drawer = page.locator('[data-testid="credit-case-drawer"]');
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toHaveAttribute("data-case-id", "case_t5_001");
+
+    // ESC 必 hide drawer
+    await page.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
+  });
+
+  test("T6 · cat 13 · export_docx 4xx → exportError banner 必 visible (no silent skip)", async ({
+    page,
+    context,
+  }) => {
+    /* V2 fix · codex DISAGREE issue 4 · 删原 silent skip (export button 不 visible 不 fail)
+       现 export button 必 visible · 不可见即 fail · banner 必 contain code · 真验 cat 13 fix */
     await context.route("**/api/credit/decision", async (route) => {
       await route.fulfill({
         status: 200,
@@ -351,7 +402,6 @@ test.describe("worker-A4-credit · credit pilot · 4 gate", () => {
       });
     });
 
-    // mock /api/credit/export_docx · 返 500 触发 cat 13 banner
     await context.route("**/api/credit/export_docx", async (route) => {
       await route.fulfill({
         status: 500,
@@ -369,19 +419,17 @@ test.describe("worker-A4-credit · credit pilot · 4 gate", () => {
 
     await page.goto("/archive/credit", { waitUntil: "networkidle" });
     await page.locator('[data-testid="credit-decision-cta-secondary"]').click();
-    await page.waitForTimeout(700);
 
-    // 决策 advice live panel 显 · 含 export 按钮
+    // export button 必 visible (livedAdvice 触发 CreditDecisionAdvicePanel 真渲) · 否则 fail
     const exportBtn = page.locator('[data-testid="credit-export-docx-btn"]');
-    if (await exportBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await exportBtn.click();
-      await page.waitForTimeout(400);
+    await expect(exportBtn).toBeVisible({ timeout: 5000 });
 
-      // exportError banner 显 (cat 13 fix · 替原 console.error 静默)
-      const banner = page.locator('[data-testid="credit-export-error-banner"]');
-      await expect(banner).toBeVisible();
-      await expect(banner).toContainText("INTERNAL_ERROR");
-    }
-    // 若 advice panel 不渲 (mock 路缺 liveAdvice) · T6 跳过 · cat 13 banner 只在该 panel 内
+    await exportBtn.click();
+
+    // exportError banner 必 visible · 必含 backend error code (cat 13 fix · 替 console.error 静默)
+    const banner = page.locator('[data-testid="credit-export-error-banner"]');
+    await expect(banner).toBeVisible({ timeout: 3000 });
+    await expect(banner).toContainText("INTERNAL_ERROR");
+    await expect(banner).toContainText("docx render failed");
   });
 });

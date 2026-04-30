@@ -298,16 +298,34 @@ async def get_handoff_demo(segment: str):
 # ============================================================================
 
 
-def _build_demo_session_meta(path: Path) -> dict[str, Any]:
-    """从 demo_data/agent_credit/ 文件名推 session_id + meta · 兜底 Agent6 真 archive 未到位。"""
+_AGENT6_ARCHIVE_DIR = PROJECT_ROOT / "data" / "handoff" / "report_to_credit"
+
+
+def _build_session_meta(path: Path, source: str) -> dict[str, Any]:
+    """从 ReportJSON 文件推 session_id + meta · 双源:
+       - source="demo" · path 在 demo_data/agent_credit/ · session_id 加 "demo_" 前缀 (与 handoff_from_report sid.startswith('demo_') 路径吻合)
+       - source="archive" · path 在 data/handoff/report_to_credit/ · session_id 用 stem (真 Agent6 v16 archive 命名 · 通常含 timestamp)
+    """
     try:
         d = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
-    seg = "retail" if path.name.startswith("retail_") else "corporate"
+    if source == "archive":
+        sid = path.stem  # 真 Agent6 archive · sid 即 stem
+        # segment 推断: report_json 含 business_line · 或 stage_tab fallback (per agent-handoff-schemas §2.3)
+        seg_raw = (d.get("business_line") or d.get("stage_tab") or "").lower()
+        if "retail" in seg_raw or "personal" in seg_raw:
+            seg = "retail"
+        elif "small" in seg_raw or "sme" in seg_raw or "普惠" in d.get("business_line", ""):
+            seg = "small_business"
+        else:
+            seg = "corporate"
+    else:  # demo
+        sid = f"demo_{path.stem}"
+        seg = "retail" if path.name.startswith("retail_") else "corporate"
     preset = d.get("preset_name", path.stem)
     return {
-        "session_id": f"demo_{path.stem}",
+        "session_id": sid,
         "report_id": d.get("profile_id", path.stem),
         "company_name": d.get("company_name", "(unknown)"),
         "segment": seg,
@@ -316,6 +334,7 @@ def _build_demo_session_meta(path: Path) -> dict[str, Any]:
         "established_date": d.get("establishment_date"),
         "generated_at": (d.get("_handoff_meta") or {}).get("generated_at", ""),
         "status": "done",
+        "source": source,                 # "demo" | "archive" · 前端可显源标
         "source_file": path.name,
     }
 
@@ -324,19 +343,42 @@ def _build_demo_session_meta(path: Path) -> dict[str, Any]:
 async def list_credit_reports(status: str = "done"):
     """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
 
-    Phase A: 走 demo_data/agent_credit/*.json (4 sample profile)
-    Phase B: 真接 Agent6 v16 pipeline archive (`data/handoff/report_to_credit/`)
+    V2 fix · codex DISAGREE issue 2 (cat 0 北极星): 双源扫描 · 真 Agent6 v16 archive 优先暴露 · demo_data 兜底
+      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真输出)
+      - source="demo"    · `demo_data/agent_credit/*.json` (Phase A fallback 4 sample · 在 archive 空时唯一可选)
+
+    EmptyState onPrimary 走 sessions[0] · 真 Agent6 报告优先 · A6 v16 production-wire 后真消费 · 不再仅 demo
     """
     if status not in ("done", "all"):
         raise HTTPException(400, "status must be 'done' or 'all'")
-    if not _HANDOFF_DIR.exists():
-        return {"sessions": [], "count": 0, "source": "phase_a_demo_data"}
-    sessions = []
-    for path in sorted(_HANDOFF_DIR.glob("*.json")):
-        meta = _build_demo_session_meta(path)
-        if meta:
-            sessions.append(meta)
-    return {"sessions": sessions, "count": len(sessions), "source": "phase_a_demo_data"}
+    sessions: list[dict[str, Any]] = []
+
+    # 先扫真 Agent6 archive · 真 session 优先 (sort: 时间倒序 · 最新报告排首)
+    if _AGENT6_ARCHIVE_DIR.exists():
+        archive_paths = sorted(_AGENT6_ARCHIVE_DIR.glob("*.json"), reverse=True)
+        for path in archive_paths:
+            meta = _build_session_meta(path, "archive")
+            if meta:
+                sessions.append(meta)
+
+    # 再扫 demo_data · phase A fallback (在 archive 空 / 用户选演示时可用)
+    if _HANDOFF_DIR.exists():
+        for path in sorted(_HANDOFF_DIR.glob("*.json")):
+            meta = _build_session_meta(path, "demo")
+            if meta:
+                sessions.append(meta)
+
+    archive_count = sum(1 for s in sessions if s.get("source") == "archive")
+    demo_count = sum(1 for s in sessions if s.get("source") == "demo")
+    return {
+        "sessions": sessions,
+        "count": len(sessions),
+        "archive_count": archive_count,
+        "demo_count": demo_count,
+        "source": "phase_a_dual_scan",
+        "archive_dir": str(_AGENT6_ARCHIVE_DIR.relative_to(PROJECT_ROOT)),
+        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)),
+    }
 
 
 class HandoffFromReportRequest(BaseModel):
