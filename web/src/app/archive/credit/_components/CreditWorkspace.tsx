@@ -14,7 +14,7 @@
  * 所有 .rpt-panel 挂 PanelPinHandle · 所有消息挂 MessagePinHandle（拖到白板/画布）
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ClaimText,
@@ -36,7 +36,10 @@ import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
 import {
+  CREDIT_DEFAULT_SESSION_ID,
   CREDIT_GLOBAL_STATS,
+  CREDIT_MOCK_SESSIONS,
+  CREDIT_MOCK_SESSIONS_MAP,
   CREDIT_MODE_LABEL,
   CREDIT_SESSIONS,
   type CaseRecall,
@@ -86,11 +89,47 @@ const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
 };
 
 export default function CreditWorkspace() {
-  const [mode, setMode] = useState<CreditMode>("corp");
-  const [tab, setTab] = useState<OutputTab>("radar");
-  const session = CREDIT_SESSIONS[mode];
+  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A4-credit (2026-04-29)
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
+     sessionData = liveData ?? mock[selectedSession] · panel 单点派生
+     旧 mode/setMode/session = CREDIT_SESSIONS[mode] alias 派生 · 1800 行内 mode/session 引用最小漂 */
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(CREDIT_DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<CreditSession | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  // CTA 生成授信辅助 · 动态进度条状态（纯前端 mock · 5 步 450ms）
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: CreditSession =
+    liveData ??
+    CREDIT_MOCK_SESSIONS_MAP[selectedSession] ??
+    CREDIT_MOCK_SESSIONS_MAP[CREDIT_DEFAULT_SESSION_ID];
+
+  /* alias · minimize churn through 1800 lines · session/mode 不再独立 useState */
+  const session = sessionData;
+  const mode: CreditMode = sessionData.mode;
+
+  /* setMode 适配 · 切 mode 时找该 mode 第一个 session · 同步 reset live + drawer */
+  const setMode = useCallback((newMode: CreditMode) => {
+    const target = CREDIT_MOCK_SESSIONS.find((s) => s.mode === newMode);
+    if (!target) return;
+    setSelectedSession(target.id);
+    setLiveData(null);
+    setSelectedCandidate(null);
+  }, []);
+
+  /* ESC 关 case detail drawer (Step 10 · selectedCandidate gate) */
+  useEffect(() => {
+    if (!selectedCandidate) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setSelectedCandidate(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedCandidate]);
+
+  const [tab, setTab] = useState<OutputTab>("radar");
+
+  // CTA 生成授信辅助 · 动态进度条状态（纯前端 mock · 5 步 450ms · UI 动画 · 与 4 gate 不冲突）
   const [progress, setProgress] = useState<{
     running: boolean;
     step: number;
@@ -106,10 +145,7 @@ export default function CreditWorkspace() {
   /* 2026-04-23 · credit 也统一空态 · startGenerate 最后一步触发 · 数据显现 */
   const [scanned, setScanned] = useState(false);
 
-  /* W-CF-A2 · 2026-04-28 · empty-state-design-protocol v1.0 落地
-     started default false · 仅渲染 Hero + 3 CTA + skeleton + status pill
-     mock data 不 default load · 用户主动选 dropdown / submit 才 start */
-  const [started, setStarted] = useState(false);
+  /* runDecision SSE 状态 · Step 7 streamSse 收编后会进一步精简 */
   const [liveAdvice, setLiveAdvice] = useState<Record<string, unknown> | null>(null);
   const [decisionId, setDecisionId] = useState<string | null>(null);
   const [decisionRunning, setDecisionRunning] = useState(false);
