@@ -1,0 +1,121 @@
+{
+  "scenario_id": "aml_kyc",
+  "session_id": "sess_aml_kyc_demo_001",
+  "label": "AML/KYC 对公开户准入 v2.3 · KS 0.31 (关注档 · 中等)",
+  "stage_messages": {
+    "load_csv": "采样 8,200 条对公开户申请 · 含 SAR 标记...",
+    "hit_rules": "规则命中扫描 · 18 条 v2.3-d2 规则...",
+    "calc_ks": "计算 KS / AUC / EDD 复核率..."
+  },
+  "ruleset": {
+    "description": "AML/KYC 对公开户准入策略 v2.3 (草稿 · 待 EDD 产能评估)",
+    "rules": [
+      {
+        "rule_id": "AML-V23-R001",
+        "name": "制裁名单一票否决",
+        "description": "sanctions_list_match == false",
+        "conditions": [{"field": "sanctions_list_match", "operator": "==", "value": false}],
+        "action": "pass",
+        "priority": 1
+      },
+      {
+        "rule_id": "AML-V23-R002",
+        "name": "PEP 状态准入",
+        "description": "pep_status in [none, low]",
+        "conditions": [{"field": "pep_status", "operator": "in", "value": ["none", "low"]}],
+        "action": "pass",
+        "priority": 2
+      },
+      {
+        "rule_id": "AML-V23-R003",
+        "name": "高风险国家标志",
+        "description": "high_risk_country_flag == false",
+        "conditions": [{"field": "high_risk_country_flag", "operator": "==", "value": false}],
+        "action": "pass",
+        "priority": 3
+      },
+      {
+        "rule_id": "AML-V23-R004",
+        "name": "UBO 完整性",
+        "description": "ubo_disclosure_complete == true",
+        "conditions": [{"field": "ubo_disclosure_complete", "operator": "==", "value": true}],
+        "action": "pass",
+        "priority": 4
+      },
+      {
+        "rule_id": "AML-V23-R005",
+        "name": "注册资本下限",
+        "description": "registered_capital ≥ 1,000,000",
+        "conditions": [{"field": "registered_capital", "operator": ">=", "value": 1000000}],
+        "action": "pass",
+        "priority": 5
+      },
+      {
+        "rule_id": "AML-V23-R006",
+        "name": "地址核验分",
+        "description": "address_verification_score ≥ 0.7",
+        "conditions": [{"field": "address_verification_score", "operator": ">=", "value": 0.7}],
+        "action": "pass",
+        "priority": 6
+      },
+      {
+        "rule_id": "AML-V23-R007",
+        "name": "EDD 增强尽调档",
+        "description": "PEP 中 OR UBO 缺 OR 地址 0.4-0.7 → review",
+        "conditions": [
+          {"field": "pep_status", "operator": "==", "value": "medium"}
+        ],
+        "action": "manual_review",
+        "priority": 7
+      },
+      {
+        "rule_id": "AML-V23-R008",
+        "name": "兜底拒绝",
+        "description": "其他 → block",
+        "conditions": [],
+        "action": "reject",
+        "priority": 99
+      }
+    ]
+  },
+  "ks": {
+    "ksPeak": 0.31,
+    "auc": 0.694,
+    "passRate": 18.0,
+    "badRate": 1.6,
+    "points": [
+      {"bin": 0, "tpr": 0.0, "fpr": 0.0, "ks": 0.0},
+      {"bin": 1, "tpr": 0.12, "fpr": 0.05, "ks": 0.07},
+      {"bin": 2, "tpr": 0.22, "fpr": 0.11, "ks": 0.11},
+      {"bin": 3, "tpr": 0.33, "fpr": 0.18, "ks": 0.15},
+      {"bin": 4, "tpr": 0.43, "fpr": 0.27, "ks": 0.16},
+      {"bin": 5, "tpr": 0.54, "fpr": 0.38, "ks": 0.16},
+      {"bin": 6, "tpr": 0.65, "fpr": 0.49, "ks": 0.16},
+      {"bin": 7, "tpr": 0.75, "fpr": 0.62, "ks": 0.13},
+      {"bin": 8, "tpr": 0.84, "fpr": 0.75, "ks": 0.09},
+      {"bin": 9, "tpr": 0.93, "fpr": 0.88, "ks": 0.05},
+      {"bin": 10, "tpr": 1.0, "fpr": 1.0, "ks": 0.0}
+    ]
+  },
+  "samples": [
+    {"key": "pass", "label": "通过", "count": 1476, "pct": 18.0, "bad_rate": 1.6},
+    {"key": "review", "label": "EDD 复核", "count": 2624, "pct": 32.0, "bad_rate": 4.2},
+    {"key": "block", "label": "拒绝", "count": 4100, "pct": 50.0, "bad_rate": 22.6}
+  ],
+  "rule_stats": [
+    {"rule_id": "AML-V23-R001", "hit": 7980, "fp": 64, "tn": 7916},
+    {"rule_id": "AML-V23-R004", "hit": 4920, "fp": 138, "tn": 4782},
+    {"rule_id": "AML-V23-R007", "hit": 2624, "fp": 412, "tn": 2212},
+    {"rule_id": "AML-V23-R008", "hit": 4100, "fp": 814, "tn": 3286}
+  ],
+  "metrics": {
+    "total_records": 8200,
+    "approved": 1476,
+    "rejected": 4100,
+    "manual_review": 2624,
+    "approval_rate": 0.18,
+    "bad_rate": 0.016,
+    "ks_peak": 0.31,
+    "label_column_used": "sar_flagged"
+  }
+}

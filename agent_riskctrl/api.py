@@ -567,6 +567,89 @@ async def riskctrl_export_xlsx(req: ExportRequest):
     )
 
 
+# ============================================================================
+# Phase A worker-A4 · 2026-04-29 · /api/riskctrl/demo/run · 纯 mock SSE 演示
+#   物理隔离 endpoint · 不复用 _dsl_gen_stream / _backtest_stream
+#   走 fixture · 反 5 原则 §3.5 难度分层 (credit_v15 / aml_kyc / fraud_high)
+#   prod 端点失败时 banner 显式不 silent fallback (live-fallback-banner-spec §1.5)
+# ============================================================================
+
+
+class DemoRunRequest(BaseModel):
+    scenario_id: str = Field(default="credit_v15", description="credit_v15 | aml_kyc | fraud_high")
+
+
+@app.get("/api/riskctrl/demo/scenarios")
+async def riskctrl_demo_scenarios():
+    """枚举 demo scenarios (前端 dropdown 用)."""
+    from agent_riskctrl.demo import list_scenarios
+    return {"scenarios": list_scenarios()}
+
+
+@app.post("/api/riskctrl/demo/run")
+async def riskctrl_demo_run(req: DemoRunRequest):
+    """纯 mock SSE 流 · 不调 LLM / 不读真 csv · 走 fixture json.
+
+    Scenario 选 credit_v15 / aml_kyc / fraud_high · stages: load_csv → hit_rules → calc_ks ·
+    done payload 与 prod backtest endpoint 共形 (panels.{ruleset, ks, samples, rule_stats}
+    + metrics 顶层 KPI).
+    """
+    from shared.sse_envelope import (
+        DATA_SOURCE_MOCK_FORCED,
+        encode_event,
+        make_done,
+        make_error,
+        make_stage,
+    )
+    import time as _time
+
+    from agent_riskctrl.demo import VALID_SCENARIOS, load_scenario
+
+    def gen():
+        scenario_id = req.scenario_id or "credit_v15"
+        if scenario_id not in VALID_SCENARIOS:
+            yield encode_event(make_error(
+                f"unknown scenario_id: {scenario_id} (allowed: {', '.join(VALID_SCENARIOS)})",
+                code="DEMO_SCENARIO_INVALID",
+            ))
+            return
+        try:
+            data = load_scenario(scenario_id)
+        except FileNotFoundError as e:
+            yield encode_event(make_error(str(e), code="DEMO_SCENARIO_MISSING"))
+            return
+        except (json.JSONDecodeError, OSError) as e:
+            yield encode_event(make_error(
+                f"scenario load failed: {type(e).__name__}: {e}",
+                code="DEMO_SCENARIO_LOAD",
+            ))
+            return
+
+        stage_msgs = data.get("stage_messages", {}) or {}
+        stages = ["load_csv", "hit_rules", "calc_ks"]
+        for stage_name in stages:
+            yield encode_event(make_stage(
+                stage_name, "running",
+                message=stage_msgs.get(stage_name, f"{stage_name}..."),
+            ))
+            _time.sleep(0.25)
+            yield encode_event(make_stage(stage_name, "done"))
+
+        yield encode_event(make_done(
+            panels={
+                "ruleset": data.get("ruleset", {}),
+                "ks": data.get("ks", {}),
+                "samples": data.get("samples", []),
+                "rule_stats": data.get("rule_stats", []),
+            },
+            metrics=data.get("metrics", {}),
+            data_source=DATA_SOURCE_MOCK_FORCED,
+            session_id=data.get("session_id", f"demo_{scenario_id}"),
+        ))
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
 @app.post("/api/riskctrl/export_pdf")
 async def riskctrl_export_pdf(req: ExportRequest):
     """PDF 送审包 · 含规则明细 + 样本分布 + 审批栏 (留白)."""
