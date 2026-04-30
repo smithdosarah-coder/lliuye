@@ -571,6 +571,126 @@ async def credit_decision_v4(req: DecisionRequestV4):
 
 
 # ============================================================================
+# POST /api/credit/demo/run · Phase A worker-A4-credit (2026-04-29)
+#   纯 mock SSE · 不调 LLM/agent · 从 data/mock/workspace/credit/scenarios/<id>.json 读
+#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
+#   反 5 原则 §3.5 难度分层: 6 scenarios 覆盖 (3 corp + 3 retail · simple/medium/hard/extreme)
+# ============================================================================
+
+
+class CreditDemoRunRequest(BaseModel):
+    scenario_id: str = Field(
+        default="corp-dingsheng-001",
+        description="scenario JSON 文件名 (无 .json) · per spec §6.2 · 6 标杆 default",
+    )
+
+
+_CREDIT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "credit" / "scenarios"
+
+
+def _credit_demo_event_stream(scenario_id: str):
+    """纯 mock SSE 演示流 · 不依赖 LLM · 视觉与 live 一致 (stage 流 + done envelope).
+
+    scenario JSON shape (与 §6.3 spec 对齐):
+        {
+          "scenario_id": "...",
+          "stage_tab": "corporate" | "small_business" | "retail",
+          "stage_messages": {"feature_extracting": "...", ...},
+          "profile": {...},          // profile_loaded payload
+          "scoring": {...},          // scoring_done payload
+          "rule_hits": [...],        // rule_done payload
+          "case_matches": [...],     // case_done payload
+          "advice": {...},           // advising_done payload
+          "delay_ms": 250            // optional · stage 之间延迟
+        }
+    """
+    if not _CREDIT_SCENARIO_DIR.exists():
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_DIR_MISSING",
+            "message": f"scenario dir not found: {_CREDIT_SCENARIO_DIR}",
+        })
+        return
+
+    path = _CREDIT_SCENARIO_DIR / f"{scenario_id}.json"
+    if not path.exists():
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_MISSING",
+            "message": f"scenario file not found: {scenario_id}.json",
+            "available": sorted(p.stem for p in _CREDIT_SCENARIO_DIR.glob("*.json")),
+        })
+        return
+
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        yield sse_encode({
+            "event": "error",
+            "code": "DEMO_SCENARIO_LOAD",
+            "message": f"scenario load failed: {type(e).__name__}: {e}",
+        })
+        return
+
+    stage_tab = data.get("stage_tab", "corporate")
+    stage_msgs = data.get("stage_messages", {})
+    delay_ms = int(data.get("delay_ms", 250))
+
+    # profile_loaded
+    yield sse_encode({"event": "profile_loaded", "profile": data.get("profile", {})})
+
+    # 7 stage events · 与 _mock_decision_events 同节奏
+    stages_with_payload: list[tuple[str, str, Any]] = [
+        ("feature_extracting", "feature_done", data.get("feature_done", {})),
+        ("scoring", "scoring_done", data.get("scoring", {})),
+        ("rule_checking", "rule_done", data.get("rule_hits", [])),
+        ("case_retrieving", "case_done", data.get("case_matches", [])),
+        ("advising", "advising_done", data.get("advice", {})),
+    ]
+    for active_stage, done_stage, payload in stages_with_payload:
+        yield sse_encode({
+            "event": "stage", "stage": active_stage,
+            "payload": None,
+            "_msg": stage_msgs.get(active_stage, ""),
+        })
+        time.sleep(delay_ms / 1000)
+        yield sse_encode({"event": "stage", "stage": done_stage, "payload": payload})
+
+    # done envelope (cat 4 共形)
+    yield sse_encode(_build_done_envelope(
+        stage_tab=stage_tab,
+        source="mock",
+        preset_name=data.get("preset_name"),
+        profile=data.get("profile"),
+        scoring=data.get("scoring"),
+        rule_hits=data.get("rule_hits", []),
+        case_matches=data.get("case_matches", []),
+        advice=data.get("advice"),
+        decision_id=None,
+    ))
+
+
+@app.post("/api/credit/demo/run")
+async def credit_demo_run(req: CreditDemoRunRequest):
+    """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
+
+    与 /api/credit/decision (mock=true) 区别:
+      - decision: in-memory fixture · 各 stage_tab 略差异化 · 1 scenario per tab
+      - demo/run: file-backed scenario JSON · 6 标杆 (corp/retail × simple/medium/hard/extreme)
+                  · 内容固定 · 视觉一致 · 不会因 _STAGE_DIMENSIONS 改动而漂
+    """
+    return StreamingResponse(
+        _credit_demo_event_stream(req.scenario_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
 # POST /api/credit/export_docx — Stage C v4.0
 # body: { decision_id? } or { advice? } (二选一 · decision_id 优先)
 # ============================================================================
