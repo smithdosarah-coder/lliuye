@@ -8,11 +8,13 @@
  * 壳类：.v-archive--canon[data-agent="compliance"] → --agent = var(--t-compli) 墨绿
  */
 
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
+  type ComplianceDoneEnvelope,
   exportDocx as exportDocxApi,
   LiveFailError,
+  runComplianceDemo,
   runMatrixCheck,
   runPolicyScan,
 } from "@/lib/api/compliance";
@@ -23,6 +25,7 @@ import {
   type ClauseMapRow,
   type ComplianceQuery,
   type ComplianceRecentSession,
+  type ComplianceSession,
   type Conflict,
   type ConversationMessage,
   type FunnelStage,
@@ -64,6 +67,10 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 
 type OutputTab = "matrix" | "funnel" | "timeline";
 
+/* workspace-state-protocol §2 · view tab (compliance-only · 衍生 UI state · 不在 4 gate)
+   per agent-compli-spec §7.1 + draft §K compliance 三视角无状态污染 */
+type ViolationView = "by_violation" | "by_clause" | "by_event";
+
 type TriggerSource = "primary_scan" | "secondary_template" | "tertiary_history";
 
 type ExportInfo = {
@@ -71,27 +78,161 @@ type ExportInfo = {
   message?: string;
 };
 
-type RecentLabel = { value: string; label: string; demo?: boolean };
+type RecentLabel = { value: string; label: string; demo?: boolean; scenarioId?: ComplianceScenarioId };
+type ComplianceScenarioId = "online_loan" | "aml" | "data_protect";
 
 const RECENT_DEMO_OPTIONS: RecentLabel[] = [
-  { value: "demo-online-loan", label: "互联网贷款 · 5 严重 / 8 一般 (示例)", demo: true },
-  { value: "demo-aml", label: "反洗钱合规 · 3 严重 / 7 一般 (示例)", demo: true },
+  { value: "demo-online-loan", label: "互联网贷款 · 5 严重 / 8 一般 (示例)", demo: true, scenarioId: "online_loan" },
+  { value: "demo-aml", label: "反洗钱合规 · 3 严重 / 7 一般 (示例)", demo: true, scenarioId: "aml" },
+  { value: "demo-data-protect", label: "个人信息保护 · 2 严重 / 6 一般 (示例)", demo: true, scenarioId: "data_protect" },
 ];
 
+/* workspace-state-protocol §2 · 4 gate state (Phase A worker-A4-compli · 2026-04-29)
+   gate 1 = started · gate 2 = selectedSessionId · gate 3 = liveData · gate 4 = selectedViolationId
+   每 session 切换 sessionData 重渲 5 panel · 每 violation 选 ViolationDetail + RevisionDraft 联动 */
+const DEFAULT_COMPLIANCE_SESSION_ID = "default-cbirc-2026-18";
+const MOCK_COMPLIANCE_SESSIONS_MAP: Record<string, ComplianceSession> = {
+  [DEFAULT_COMPLIANCE_SESSION_ID]: COMPLIANCE_SESSION,
+};
+const COMPLIANCE_SESSION_OPTIONS: Array<{ value: string; label: string }> = [
+  {
+    value: DEFAULT_COMPLIANCE_SESSION_ID,
+    label: `默认 · ${COMPLIANCE_SESSION.query.policyTitle}`,
+  },
+];
+
+/* normalizeComplianceBackendDone · 把 done envelope (panels.violations / recommendations) overlay 到 mock 模板
+   - 不替模板 matrix / clauses / docs (visual 层 · 模板提供) · 仅替 conflicts + revisionAdvices · 让 5 panel 全消费 sessionData
+   - draft §C / §K · compliance 5 panel ≠ 4 panel envelope · PolicyTicker 与 cellDetails 仍来自模板 (live 不破) */
+function normalizeComplianceBackendDone(
+  env: ComplianceDoneEnvelope | null,
+  tplFallback: ComplianceSession,
+): ComplianceSession {
+  if (!env) return tplFallback;
+
+  const violations = Array.isArray(env.violations) ? env.violations : [];
+  const recommendations = Array.isArray(env.recommendations) ? env.recommendations : [];
+
+  /* violations → Conflict shape (id/clauseLabel/docId/docTitle/severity/finding/cite/advice)
+     compliance Conflict.severity ∈ {block, warn, info} · 后端 critical → block · major → warn · minor → info */
+  const conflicts: Conflict[] = violations.map((v, idx) => {
+    const sev = String(v.severity ?? "minor").toLowerCase();
+    const mapped: Conflict["severity"] =
+      sev === "critical" || sev === "block"
+        ? "block"
+        : sev === "major" || sev === "warn"
+        ? "warn"
+        : "info";
+    return {
+      id: String(v.violation_id ?? `live-vio-${idx + 1}`),
+      clauseLabel: String(v.rule_article ?? v.rule_condition ?? "—"),
+      docId: String(v.event_id ?? "—"),
+      docTitle: String(v.event_type ?? "业务事件"),
+      severity: mapped,
+      finding: String(v.match_reason ?? v.evidence ?? ""),
+      cite: String(v.evidence ?? ""),
+      advice:
+        ((recommendations.find(
+          (r) => String(r.violation_id ?? "") === String(v.violation_id ?? ""),
+        )?.text as string) ?? "见修订意见区"),
+    };
+  });
+
+  /* recommendations → RevisionAdvice 三类 (改/补/强 → fix/add/strengthen) */
+  const KIND_MAP: Record<string, RevisionAdvice["kind"]> = {
+    "改": "fix",
+    "补": "add",
+    "强": "strengthen",
+    fix: "fix",
+    add: "add",
+    strengthen: "strengthen",
+  };
+  const revisionAdvices: RevisionAdvice[] = recommendations.map((r, idx) => {
+    const cat = String(r.category ?? "改");
+    const kind = KIND_MAP[cat] ?? "fix";
+    const vid = String(r.violation_id ?? "");
+    const matched = violations.find((v) => String(v.violation_id ?? "") === vid);
+    return {
+      id: `live-rev-${idx + 1}`,
+      kind,
+      title: String(r.title ?? "整改建议"),
+      body: String(r.text ?? ""),
+      docTitle: matched ? String(matched.rule_article ?? "") : undefined,
+    };
+  });
+
+  return {
+    ...tplFallback,
+    id: "live",
+    stage: "已扫描",
+    conflicts: conflicts.length > 0 ? conflicts : tplFallback.conflicts,
+    revisionAdvices: revisionAdvices.length > 0 ? revisionAdvices : tplFallback.revisionAdvices,
+  };
+}
+
 export default function ComplianceWorkspace() {
-  const session = COMPLIANCE_SESSION;
   const [tab, setTab] = useState<OutputTab>("matrix");
 
-  /* Stage CF · empty-state-design-protocol v1.0 默认 started=false ·
+  /* Stage CF · empty-state-design-protocol v1.0 默认 started=false (gate 1) ·
      用户上传 / 起巡检 / 选历史 才 setStarted(true) · panel 真数据填入。
-     mock data 不 default load · 入口 dropdown 标「(示例)」与 production 路径分离。 */
+     mock data 不 default load · 入口 dropdown 标「(示例)」与 production 路径分离。
+
+     Phase A worker-A4-compli (2026-04-29) · workspace-state-protocol §2 · 4 gate state:
+       (1) started · (2) selectedSessionId · (3) liveData · (4) selectedViolationId
+     sessionData = liveOverlay(MOCK[selectedSessionId], liveData) · 5 panel 单点派生 */
   const [started, setStarted] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_COMPLIANCE_SESSION_ID);
+  const [liveData, setLiveData] = useState<ComplianceDoneEnvelope | null>(null);
+  const [selectedViolationId, setSelectedViolationId] = useState<string | null>(null);
+  /* compliance-only · 衍生 UI state (不在 4 gate · 但 handleSelectSession 同步 reset) */
+  const [view, setView] = useState<ViolationView>("by_violation");
+  /* gate 2 dropdown pending value (改选 · apply 才提交) */
+  const [pendingSessionId, setPendingSessionId] = useState<string>(DEFAULT_COMPLIANCE_SESSION_ID);
+
+  /* sessionData 单点派生 · live 优先 overlay · 否则 mock by selectedSessionId · 兜底 default */
+  const sessionData: ComplianceSession = useMemo(() => {
+    const tpl =
+      MOCK_COMPLIANCE_SESSIONS_MAP[selectedSessionId] ??
+      MOCK_COMPLIANCE_SESSIONS_MAP[DEFAULT_COMPLIANCE_SESSION_ID] ??
+      COMPLIANCE_SESSION;
+    return liveData ? normalizeComplianceBackendDone(liveData, tpl) : tpl;
+  }, [liveData, selectedSessionId]);
+  const session = sessionData;
+  const isLive = liveData !== null;
+
   const [trigger, setTrigger] = useState<TriggerSource | null>(null);
   const [recent, setRecent] = useState<string>("");
   const [scanId, setScanId] = useState<string>("");
   const [scanRunning, setScanRunning] = useState(false);
   const [scanError, setScanError] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
+
+  /* gate 4 selectedViolationId 派生 conflict 对象 · ViolationDetail + RevisionDraft 联动 */
+  const selectedViolation: Conflict | null = useMemo(() => {
+    if (!selectedViolationId) return null;
+    return sessionData.conflicts.find((c) => c.id === selectedViolationId) ?? null;
+  }, [selectedViolationId, sessionData.conflicts]);
+
+  /* handleSelectSession · 切 session 时 reset gate 3+4 + view (draft §B) */
+  const handleSelectSession = useCallback((id: string) => {
+    if (!MOCK_COMPLIANCE_SESSIONS_MAP[id]) return;
+    setSelectedSessionId(id);
+    setPendingSessionId(id);
+    setLiveData(null);
+    setSelectedViolationId(null);
+    setView("by_violation");
+    setStarted(true);
+  }, []);
+
+  /* ESC 关 ViolationDetail (gate 4 · 与 channel pattern 一致 · 但 compliance 是中栏 panel 非 drawer) */
+  useEffect(() => {
+    if (!selectedViolationId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedViolationId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedViolationId]);
 
   /* Stage Fix W-FIX2-A3 · live-fallback-banner-spec v1.0 §2 规则 1 ·
      按 endpoint 分别记录失败 · UI 显式 banner + retry · 不 silent swap mock.
@@ -135,29 +276,44 @@ export default function ComplianceWorkspace() {
 
   /* Primary CTA · 上传政策 + 业务制度 → POST /api/compliance/policy_scan SSE.
      Stage Fix W-FIX2-A3 · force_mock 默认 false · primary 必须真接后端 ·
-     失败 → liveFail banner · mock dropdown tertiary 才走 demo. */
+     失败 → liveFail banner · mock dropdown tertiary 才走 demo.
+     Phase A worker-A4-compli (2026-04-29) · onDone callback 写 liveData (gate 3) ·
+     panel 同步 overlay · 自动选 violations[0] (gate 4) · per draft §3.2 trigger path */
   const triggerPolicyScan = useCallback(async () => {
     setStarted(true);
     setTrigger("primary_scan");
     setScanRunning(true);
     setScanError("");
     setExportInfo({ status: "idle" });
+    setLiveData(null);
+    setSelectedViolationId(null);
     clearLiveFail();
     try {
-      const { scanId: captured } = await runPolicyScan({
-        /* TODO Stage D.5 · 上传文件 → 真政策文本 · 当前用 session 内文本触发 backend SSE */
-        policyDoc:
-          "第六条 个人消费贷款期限不得超过 12 个月。\n" +
-          "第三条 联合贷款本行出资比例不得低于 30%。",
-        businessDocs: [
-          { event_id: "LN20251108", event_type: "loan",
-            fields: { months: 18, amount: 100000, purpose: "个人消费" } },
-          { event_id: "COOP202510007", event_type: "cooperation",
-            fields: { bank_share_ratio: 0.15, amount: 5000000 } },
-        ],
-        policyMeta: { title: session.objective, fetched_at: session.updated },
-        forceMock: false,
-      });
+      const { scanId: captured } = await runPolicyScan(
+        {
+          /* TODO Stage D.5 · 上传文件 → 真政策文本 · 当前用 session 内文本触发 backend SSE */
+          policyDoc:
+            "第六条 个人消费贷款期限不得超过 12 个月。\n" +
+            "第三条 联合贷款本行出资比例不得低于 30%。",
+          businessDocs: [
+            { event_id: "LN20251108", event_type: "loan",
+              fields: { months: 18, amount: 100000, purpose: "个人消费" } },
+            { event_id: "COOP202510007", event_type: "cooperation",
+              fields: { bank_share_ratio: 0.15, amount: 5000000 } },
+          ],
+          policyMeta: { title: COMPLIANCE_SESSION.objective, fetched_at: COMPLIANCE_SESSION.updated },
+          forceMock: false,
+        },
+        undefined,
+        (env) => {
+          /* gate 3 · done envelope → liveData · panel 整 overlay 渲染 · auto-pick violations[0] */
+          setLiveData(env);
+          const firstVio = Array.isArray(env.violations) && env.violations.length > 0
+            ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
+            : "";
+          if (firstVio) setSelectedViolationId(firstVio);
+        },
+      );
       if (captured) setScanId(captured);
     } catch (e) {
       recordLiveFail("policy_scan 政策比对", e, () => triggerPolicyScan());
@@ -165,8 +321,7 @@ export default function ComplianceWorkspace() {
     } finally {
       setScanRunning(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.objective, session.updated]);
+  }, []);
 
   /* Secondary CTA · 用模板快速比对 → POST /api/compliance/matrix_check */
   const triggerTemplateCheck = useCallback(async () => {
@@ -198,14 +353,47 @@ export default function ComplianceWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Tertiary CTA · B-2 click-to-fire · dropdown 仅 set state · "查看示例" button 触发 */
+  /* Tertiary CTA · B-2 click-to-fire · dropdown 仅 set state · "查看示例" button 触发 SSE.
+     Phase A worker-A4-compli · 真接 /api/compliance/demo/run · scenario_id 三档 · onDone 写 liveData. */
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
   }, []);
-  const onApplyRecent = useCallback(() => {
+  const onApplyRecent = useCallback(async () => {
     if (!recent) return;
+    const opt = RECENT_DEMO_OPTIONS.find((o) => o.value === recent);
+    if (!opt?.scenarioId) {
+      /* 未配 scenarioId · fallback set started 让 dropdown banner 显 */
+      setStarted(true);
+      setTrigger("tertiary_history");
+      return;
+    }
     setStarted(true);
     setTrigger("tertiary_history");
+    setScanRunning(true);
+    setScanError("");
+    setLiveData(null);
+    setSelectedViolationId(null);
+    clearLiveFail();
+    try {
+      const { scanId: captured } = await runComplianceDemo(
+        opt.scenarioId,
+        undefined,
+        (env) => {
+          setLiveData(env);
+          const firstVio = Array.isArray(env.violations) && env.violations.length > 0
+            ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
+            : "";
+          if (firstVio) setSelectedViolationId(firstVio);
+        },
+      );
+      if (captured) setScanId(captured);
+    } catch (e) {
+      recordLiveFail(`demo/run ${opt.scenarioId} 演示`, e, () => { void onApplyRecent(); });
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScanRunning(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recent]);
 
   /* Word 导出 · POST /api/compliance/export_docx */
@@ -257,6 +445,8 @@ export default function ComplianceWorkspace() {
       data-testid="compli-workspace"
       data-started={started ? "yes" : "no"}
       data-trigger={trigger ?? "none"}
+      data-mode={isLive ? "live" : "mock"}
+      data-session-id={selectedSessionId}
     >
       <HeroSection
         weeklyProcessed={COMPLIANCE_GLOBAL_STATS.weeklyProcessed}
@@ -269,6 +459,11 @@ export default function ComplianceWorkspace() {
       />
 
       <TriggerBar
+        sessionOptions={COMPLIANCE_SESSION_OPTIONS}
+        pendingSessionId={pendingSessionId}
+        selectedSessionId={selectedSessionId}
+        onPendingSessionChange={setPendingSessionId}
+        onApplySession={() => handleSelectSession(pendingSessionId)}
         recent={recent}
         recentOptions={RECENT_DEMO_OPTIONS}
         onSelectRecent={onSelectRecent}
@@ -351,11 +546,13 @@ export default function ComplianceWorkspace() {
             </div>
           ) : null}
 
-          <PolicyTicker
-            policies={session.policies}
-            timeline={session.timeline}
-            conflicts={session.conflicts}
-          />
+          <div data-testid="compli-pilot-ticker">
+            <PolicyTicker
+              policies={session.policies}
+              timeline={session.timeline}
+              conflicts={session.conflicts}
+            />
+          </div>
 
           <div className="rpt-grid">
             <aside className="rpt-col rpt-col--left">
@@ -371,7 +568,7 @@ export default function ComplianceWorkspace() {
               <ComplianceComposer />
             </section>
 
-            <section className="rpt-col rpt-col--right">
+            <section className="rpt-col rpt-col--right" data-testid="compli-pilot-matrix">
               <OutputPanel
                 tab={tab}
                 onTabChange={setTab}
@@ -386,12 +583,39 @@ export default function ComplianceWorkspace() {
             </section>
           </div>
 
-          <RevisionPanel
-            advices={session.revisionAdvices}
-            scanId={scanId}
-            exportInfo={exportInfo}
-            onExportDocx={triggerExportDocx}
+          {/* Phase A worker-A4-compli (2026-04-29) · gate 4 · ViolationList + ViolationDetail
+              draft §3.1 · 5 panel = matrix + violations + revisions + detail + ticker
+              view tab (by_violation/by_clause/by_event) compliance-only · 不在 4 gate */}
+          <ViolationListPanel
+            conflicts={session.conflicts}
+            view={view}
+            onViewChange={setView}
+            selectedViolationId={selectedViolationId}
+            onSelectViolation={setSelectedViolationId}
+            isLive={isLive}
           />
+
+          {selectedViolation ? (
+            <ViolationDetailPanel
+              violation={selectedViolation}
+              revisions={session.revisionAdvices.filter(
+                (a) =>
+                  selectedViolation.docTitle ?
+                    a.docTitle === selectedViolation.clauseLabel || a.docTitle === selectedViolation.docTitle :
+                    true,
+              )}
+              onClose={() => setSelectedViolationId(null)}
+            />
+          ) : null}
+
+          <div data-testid="compli-pilot-revisions">
+            <RevisionPanel
+              advices={session.revisionAdvices}
+              scanId={scanId}
+              exportInfo={exportInfo}
+              onExportDocx={triggerExportDocx}
+            />
+          </div>
 
           <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
@@ -411,6 +635,12 @@ export default function ComplianceWorkspace() {
 /* ── Tertiary + Secondary CTA bar ──────────────────────── */
 
 function TriggerBar(p: {
+  /* gate 2 · session 切换 (Phase A worker-A4-compli · 4 gate state) */
+  sessionOptions: Array<{ value: string; label: string }>;
+  pendingSessionId: string;
+  selectedSessionId: string;
+  onPendingSessionChange: (id: string) => void;
+  onApplySession: () => void;
   recent: string;
   recentOptions: RecentLabel[];
   onSelectRecent: (value: string) => void;
@@ -421,12 +651,42 @@ function TriggerBar(p: {
 }) {
   const recentLabel = "选择历史巡检 / 示例 · 培训演示";
   const templateLabel = p.scanRunning ? "比对运行中…" : "用模板快速比对";
+  const sessionLabel = "切换巡检会话 · 4 gate state gate 2";
+  /* apply 仅当 pending 与已生效不同 + 非 running */
+  const applyDisabled =
+    p.scanRunning || p.pendingSessionId === p.selectedSessionId;
   return (
     <section
       className="compliance-trigger-bar"
-      aria-label="次要触发入口 · 历史 / 模板"
+      aria-label="次要触发入口 · 会话 / 历史 / 模板"
       data-testid="compli-trigger-bar"
     >
+      <label className="compliance-trigger-bar__field">
+        <span className="compliance-trigger-bar__lbl">巡检会话</span>
+        <select
+          className="compliance-trigger-bar__select"
+          value={p.pendingSessionId}
+          onChange={(e) => p.onPendingSessionChange(e.target.value)}
+          aria-label={sessionLabel}
+          data-testid="compli-session-select"
+        >
+          {p.sessionOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="compliance-trigger-bar__apply"
+          onClick={p.onApplySession}
+          disabled={applyDisabled}
+          data-testid="compli-session-apply"
+        >
+          切换会话
+        </button>
+      </label>
+
       <label className="compliance-trigger-bar__field">
         <span className="compliance-trigger-bar__lbl">历史会话（示例 · 仅培训演示）</span>
         <select
@@ -1520,6 +1780,200 @@ const TL_KIND_LABEL: Record<string, string> = {
   scanned: "扫描完成",
   resolved: "整改完成",
 };
+
+/* ────────────────────── VIOLATION LIST + DETAIL · gate 4 ────────────────────── */
+/* Phase A worker-A4-compli (2026-04-29) · workspace-state-protocol §2 · gate 4 · click → 选 violation
+   view tab compliance-only (by_violation/by_clause/by_event · 衍生 UI state · 不在 4 gate)
+   draft §K · 三视角无状态污染 (handleSelectSession reset view) */
+
+const VIOLATION_VIEW_LABEL: Record<ViolationView, string> = {
+  by_violation: "按违规",
+  by_clause: "按条款",
+  by_event: "按业务事件",
+};
+
+const SEVERITY_RANK: Record<Conflict["severity"], number> = {
+  block: 0,
+  warn: 1,
+  info: 2,
+};
+
+function ViolationListPanel(p: {
+  conflicts: Conflict[];
+  view: ViolationView;
+  onViewChange: (v: ViolationView) => void;
+  selectedViolationId: string | null;
+  onSelectViolation: (id: string | null) => void;
+  isLive: boolean;
+}) {
+  const sorted = useMemo(() => {
+    const arr = [...p.conflicts];
+    if (p.view === "by_violation") {
+      return arr.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+    }
+    if (p.view === "by_clause") {
+      return arr.sort((a, b) => a.clauseLabel.localeCompare(b.clauseLabel, "zh-CN"));
+    }
+    return arr.sort((a, b) => a.docId.localeCompare(b.docId));
+  }, [p.conflicts, p.view]);
+
+  const blockN = p.conflicts.filter((c) => c.severity === "block").length;
+  const warnN = p.conflicts.filter((c) => c.severity === "warn").length;
+  const infoN = p.conflicts.filter((c) => c.severity === "info").length;
+
+  return (
+    <section
+      className="rpt-panel compliance-violations"
+      aria-label="违规榜单"
+      data-testid="compli-pilot-violations"
+      data-mode={p.isLive ? "live" : "mock"}
+      data-view={p.view}
+    >
+      <PanelPinHandle
+        id="compliance:violations"
+        title="违规榜单"
+        subtitle={`严重 ${blockN} · 一般 ${warnN} · 观察 ${infoN}`}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={`${p.conflicts.length} 条违规 · 三视角 ${VIOLATION_VIEW_LABEL[p.view]}`}
+      />
+      <div className="rpt-panel__head cp-out__head">
+        <div className="rpt-panel__eyebrow">违规榜单 · gate 4</div>
+        <div className="cp-out__tabs" role="tablist" data-testid="compli-violation-view-tabs">
+          {(["by_violation", "by_clause", "by_event"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              className="cp-out__tab"
+              data-active={p.view === v ? "yes" : "no"}
+              data-testid={`compli-violation-view-${v}`}
+              onClick={() => p.onViewChange(v)}
+            >
+              {VIOLATION_VIEW_LABEL[v]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="rpt-panel__body">
+        <ul className="cp-fn__cf-list">
+          {sorted.length === 0 ? (
+            <li className="cp-fn__cf cp-fn__cf--empty">暂无违规 · 政策与业务无冲突</li>
+          ) : null}
+          {sorted.map((c) => {
+            const active = p.selectedViolationId === c.id;
+            return (
+              <li
+                key={c.id}
+                className="cp-fn__cf"
+                data-severity={c.severity}
+                data-active={active ? "yes" : "no"}
+                data-testid="compli-violation-card"
+              >
+                <button
+                  type="button"
+                  className="cp-fn__cf-btn"
+                  onClick={() => p.onSelectViolation(active ? null : c.id)}
+                  aria-pressed={active}
+                  data-testid="compli-violation-card-btn"
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    color: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div className="cp-fn__cf-head">
+                    <span className="cp-fn__cf-mark" aria-hidden>
+                      {c.severity === "block" ? "✕" : c.severity === "warn" ? "!" : "i"}
+                    </span>
+                    <div className="cp-fn__cf-cl">{c.clauseLabel}</div>
+                    <span className="cp-fn__cf-doc">{c.docTitle} · {c.docId}</span>
+                  </div>
+                  <div className="cp-fn__cf-find">{c.finding}</div>
+                  <div className="cp-fn__cf-cite">出处 · {c.cite || "—"}</div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function ViolationDetailPanel(p: {
+  violation: Conflict;
+  revisions: RevisionAdvice[];
+  onClose: () => void;
+}) {
+  const sevLabel =
+    p.violation.severity === "block" ? "严重违规" : p.violation.severity === "warn" ? "一般违规" : "观察项";
+  return (
+    <section
+      className="rpt-panel compliance-violation-detail"
+      aria-label="违规详情"
+      data-testid="compli-pilot-detail"
+      data-severity={p.violation.severity}
+    >
+      <PanelPinHandle
+        id={`compliance:violation:${p.violation.id}`}
+        title={`违规详情 · ${p.violation.clauseLabel}`}
+        subtitle={p.violation.docId}
+        accentVar="--t-compli"
+        agentKey="compliance"
+        href="/archive/compliance"
+        blurb={p.violation.finding}
+      />
+      <div className="rpt-panel__head">
+        <div className="rpt-panel__eyebrow">{sevLabel} · 业务单号 {p.violation.docId}</div>
+        <button
+          type="button"
+          className="cp-out__tab"
+          onClick={p.onClose}
+          aria-label="关闭违规详情"
+          data-testid="compli-violation-detail-close"
+        >
+          关闭 (ESC)
+        </button>
+      </div>
+      <div
+        className="rpt-panel__body"
+        data-testid="compli-violation-detail"
+      >
+        <div className="cp-drawer__head">
+          <span className="cp-drawer__sev" data-severity={p.violation.severity}>{sevLabel}</span>
+          <span className="cp-drawer__doc">{p.violation.clauseLabel}</span>
+        </div>
+        <p style={{ marginTop: 8 }}>{p.violation.finding}</p>
+        {p.violation.cite ? (
+          <p style={{ opacity: 0.85, fontSize: 13 }}>证据 · {p.violation.cite}</p>
+        ) : null}
+        {p.revisions.length > 0 ? (
+          <div className="cp-drawer__advice" data-testid="compli-violation-detail-revisions">
+            <div className="cp-drawer__advice-head">
+              <span className="cp-drawer__advice-tag">联动修订意见 · {p.revisions.length} 条</span>
+            </div>
+            <ul style={{ marginTop: 6, paddingLeft: 16 }}>
+              {p.revisions.map((r) => (
+                <li key={r.id} style={{ marginBottom: 4 }}>
+                  <strong>{KIND_LABEL[r.kind]}</strong> · {r.title} — {r.body}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div style={{ marginTop: 8, opacity: 0.75, fontSize: 13 }}>
+            暂无关联修订意见 · 见底部「修订意见」区
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 /* ────────────────────── REVISION PANEL · 底部修订意见 ────────────────────── */
 
