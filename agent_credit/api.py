@@ -112,6 +112,40 @@ _DECISION_CACHE: dict[str, dict[str, Any]] = {}
 _DECISION_TTL_SEC = 1800
 
 
+def _build_done_envelope(
+    *,
+    stage_tab: str,
+    source: str,
+    preset_name: str | None,
+    profile: dict | None,
+    scoring: dict | None,
+    rule_hits: list | None,
+    case_matches: list | None,
+    advice: dict | None,
+    decision_id: str | None,
+) -> dict[str, Any]:
+    """Cat 4 fix (Phase A worker-A4-credit · 2026-04-29) · done event 完整 envelope.
+
+    A3 ChannelWorkspace done event 已含完整 panel 数据 (per workspace-state-protocol §4)。
+    Credit done 之前空 payload (mock path L387 + live path L465) · 前端无法 hydrate。
+    本 helper 把 4 stage 关键 payload + segment/preset_name/source/decision_id 一次性灌入。
+
+    前端 normalize 后整体注入 setLiveData → 5 panel 单点派生 · 不再分 stage 累积本地 state。
+    """
+    return {
+        "event": "done",
+        "stage_tab": stage_tab,
+        "source": source,                    # "mock" | "preset" | "report_json"
+        "preset_name": preset_name,
+        "decision_id": decision_id,
+        "profile": profile,                  # profile_loaded payload
+        "scoring": scoring,                  # scoring_done payload (composite + sub_scores + grade)
+        "rule_hits": rule_hits or [],        # rule_done payload (red lines list)
+        "case_matches": case_matches or [],  # case_done payload (Top 5 similar)
+        "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
+    }
+
+
 def _cache_advice(advice: dict[str, Any]) -> str:
     decision_id = "dec_" + uuid.uuid4().hex[:12]
     _DECISION_CACHE[decision_id] = {"advice": advice, "ts": time.time()}
@@ -292,99 +326,103 @@ class DecisionRequestV4(BaseModel):
 
 
 def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
-    """返 fixture SSE events · 各 stage_tab 略有差异化数值."""
+    """返 fixture SSE events · 各 stage_tab 略有差异化数值.
+
+    Cat 4 fix (Phase A worker-A4-credit · 2026-04-29):
+    末 done event 改为 _build_done_envelope() 完整 payload (segment/profile/scoring/
+    rule_hits/case_matches/advice) · 与 live path 对称 · 前端 normalize 整体注入。
+    """
     seg_dim = _STAGE_DIMENSIONS[stage_tab]
     is_retail = stage_tab == "retail"
     score_max = 850 if is_retail else 100
     composite = 730 if is_retail else (72 if stage_tab == "corporate" else 68)
 
+    profile_payload = {
+        "profile_id": f"mock_{stage_tab}_001",
+        "company_name": "(mock) 鼎盛商贸有限公司"
+                        if stage_tab != "retail" else "(mock) 张三 · 个体户",
+        "stage_tab": stage_tab,
+    }
+    feature_done_payload = {
+        "financial.debt_ratio": 0.42 if not is_retail else None,
+        "operational.years_established": 5.3 if not is_retail else None,
+        "retail.monthly_income_yuan": 18000 if is_retail else None,
+        "_count": 60 if not is_retail else 22,
+    }
+    scoring_done_payload = {
+        "composite_score": composite,
+        "score_max": score_max,
+        "risk_grade": "B" if not is_retail else "良好",
+        "sub_scores": {
+            d["axis_id"]: int(composite * 0.92 + i * 3)
+            for i, d in enumerate(seg_dim["scoring_dimensions"])
+        },
+    }
+    rule_done_payload = [
+        {
+            "rule_id": f"{stage_tab[:4]}_rl_001",
+            "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
+            "is_hard": False,
+            "can_waive": True,
+            "severity": "medium",
+            "actual_value": 0.32 if not is_retail else 1,
+            "threshold": 0.30 if not is_retail else 0,
+            "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
+        },
+    ]
+    case_done_payload = [
+        {
+            "case_id": f"case_{stage_tab[:4]}_022",
+            "company_name": "启明软件" if not is_retail else "李四",
+            "similarity": 0.92,
+            "decision": "批",
+            "approved_amount": 400 if not is_retail else 50,
+        },
+    ]
+    advising_done_payload = {
+        "decision": "有条件批准",
+        "approved_amount": 300 if stage_tab == "corporate"
+                           else (80 if stage_tab == "small_business" else 30),
+        "approved_term_months": 36 if not is_retail else 24,
+        "interest_rate": 0.065 if stage_tab == "corporate"
+                          else (0.078 if stage_tab == "small_business" else 0.045),
+        "rate_benchmark": "LPR+85BP" if stage_tab == "corporate"
+                          else ("LPR+200BP" if stage_tab == "small_business" else "LPR-10BP"),
+        "risk_grade": "B" if not is_retail else "良好",
+        "composite_score": composite,
+        "conditions": ["关联交易审计说明", "季度应收账款账龄表"]
+                      if not is_retail else ["户口本复印件", "近 6 月银行流水"],
+        "decision_reason": (
+            f"[mock] {seg_dim['label']} 板块综合评分 {composite}/{score_max}，"
+            f"四维分布均衡 · 红线 1 条 (中等可豁免) · "
+            f"建议有条件批准 · 完整 LLM reasoning 走真接路径生成"
+        ),
+        "stage_tab": stage_tab,
+    }
+
     events: list[dict[str, Any]] = [
-        {
-            "event": "profile_loaded",
-            "profile": {
-                "profile_id": f"mock_{stage_tab}_001",
-                "company_name": "(mock) 鼎盛商贸有限公司"
-                                if stage_tab != "retail" else "(mock) 张三 · 个体户",
-                "stage_tab": stage_tab,
-            },
-        },
+        {"event": "profile_loaded", "profile": profile_payload},
         {"event": "stage", "stage": "feature_extracting", "payload": None},
-        {
-            "event": "stage", "stage": "feature_done",
-            "payload": {
-                "financial.debt_ratio": 0.42 if not is_retail else None,
-                "operational.years_established": 5.3 if not is_retail else None,
-                "retail.monthly_income_yuan": 18000 if is_retail else None,
-                "_count": 60 if not is_retail else 22,
-            },
-        },
+        {"event": "stage", "stage": "feature_done", "payload": feature_done_payload},
         {"event": "stage", "stage": "scoring", "payload": None},
-        {
-            "event": "stage", "stage": "scoring_done",
-            "payload": {
-                "composite_score": composite,
-                "score_max": score_max,
-                "risk_grade": "B" if not is_retail else "良好",
-                "sub_scores": {
-                    d["axis_id"]: int(composite * 0.92 + i * 3)
-                    for i, d in enumerate(seg_dim["scoring_dimensions"])
-                },
-            },
-        },
+        {"event": "stage", "stage": "scoring_done", "payload": scoring_done_payload},
         {"event": "stage", "stage": "rule_checking", "payload": None},
-        {
-            "event": "stage", "stage": "rule_done",
-            "payload": [
-                {
-                    "rule_id": f"{stage_tab[:4]}_rl_001",
-                    "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
-                    "is_hard": False,
-                    "can_waive": True,
-                    "severity": "medium",
-                    "actual_value": 0.32 if not is_retail else 1,
-                    "threshold": 0.30 if not is_retail else 0,
-                    "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
-                },
-            ],
-        },
+        {"event": "stage", "stage": "rule_done", "payload": rule_done_payload},
         {"event": "stage", "stage": "case_retrieving", "payload": None},
-        {
-            "event": "stage", "stage": "case_done",
-            "payload": [
-                {
-                    "case_id": f"case_{stage_tab[:4]}_022",
-                    "company_name": "启明软件" if not is_retail else "李四",
-                    "similarity": 0.92,
-                    "decision": "批",
-                    "approved_amount": 400 if not is_retail else 50,
-                },
-            ],
-        },
+        {"event": "stage", "stage": "case_done", "payload": case_done_payload},
         {"event": "stage", "stage": "advising", "payload": None},
-        {
-            "event": "stage", "stage": "advising_done",
-            "payload": {
-                "decision": "有条件批准",
-                "approved_amount": 300 if stage_tab == "corporate"
-                                   else (80 if stage_tab == "small_business" else 30),
-                "approved_term_months": 36 if not is_retail else 24,
-                "interest_rate": 0.065 if stage_tab == "corporate"
-                                  else (0.078 if stage_tab == "small_business" else 0.045),
-                "rate_benchmark": "LPR+85BP" if stage_tab == "corporate"
-                                  else ("LPR+200BP" if stage_tab == "small_business" else "LPR-10BP"),
-                "risk_grade": "B" if not is_retail else "良好",
-                "composite_score": composite,
-                "conditions": ["关联交易审计说明", "季度应收账款账龄表"]
-                              if not is_retail else ["户口本复印件", "近 6 月银行流水"],
-                "decision_reason": (
-                    f"[mock] {seg_dim['label']} 板块综合评分 {composite}/{score_max}，"
-                    f"四维分布均衡 · 红线 1 条 (中等可豁免) · "
-                    f"建议有条件批准 · 完整 LLM reasoning 走真接路径生成"
-                ),
-                "stage_tab": stage_tab,
-            },
-        },
-        {"event": "done"},
+        {"event": "stage", "stage": "advising_done", "payload": advising_done_payload},
+        _build_done_envelope(
+            stage_tab=stage_tab,
+            source="mock",
+            preset_name=None,
+            profile=profile_payload,
+            scoring=scoring_done_payload,
+            rule_hits=rule_done_payload,
+            case_matches=case_done_payload,
+            advice=advising_done_payload,
+            decision_id=None,
+        ),
     ]
     return events
 
@@ -443,10 +481,21 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 "stage_tab": req.stage_tab,
             })
 
+            # Cat 4 fix (Phase A worker-A4-credit · 2026-04-29)
+            # 串流时 capture 4 个关键 stage payload · done event 一次性灌完整 envelope
+            last_scoring: dict | None = None
+            last_rules: list | None = None
+            last_cases: list | None = None
             last_advice: dict | None = None
             for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
                 cleaned, hits = _qc_scrub(to_jsonable(payload))
-                if stage == "advising_done" and isinstance(cleaned, dict):
+                if stage == "scoring_done" and isinstance(cleaned, dict):
+                    last_scoring = cleaned
+                elif stage == "rule_done" and isinstance(cleaned, list):
+                    last_rules = cleaned
+                elif stage == "case_done" and isinstance(cleaned, list):
+                    last_cases = cleaned
+                elif stage == "advising_done" and isinstance(cleaned, dict):
                     last_advice = cleaned
                 evt = {"event": "stage", "stage": stage, "payload": cleaned}
                 if hits:
@@ -454,6 +503,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 yield sse_encode(evt)
 
             # 缓存 advice for export_docx · 返 decision_id
+            decision_id: str | None = None
             if last_advice:
                 decision_id = _cache_advice(last_advice)
                 yield sse_encode({
@@ -462,7 +512,20 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                     "ttl_sec": _DECISION_TTL_SEC,
                 })
 
-            yield sse_encode({"event": "done"})
+            # done envelope (cat 4) · 与 mock path 对称 · 前端 normalize 整体注入 sessionData
+            yield sse_encode(_build_done_envelope(
+                stage_tab=req.stage_tab,
+                source="report_json" if req.report_json else (
+                    "preset" if req.preset_name else "unknown"
+                ),
+                preset_name=req.preset_name,
+                profile=profile_payload if isinstance(profile_payload, dict) else None,
+                scoring=last_scoring,
+                rule_hits=last_rules,
+                case_matches=last_cases,
+                advice=last_advice,
+                decision_id=decision_id,
+            ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
             traceback.print_exc()
