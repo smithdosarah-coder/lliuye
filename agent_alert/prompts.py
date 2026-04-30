@@ -4,7 +4,24 @@
 - 单客户内核（保留）：SYSTEM_RISK_SCAN / SYSTEM_TREND_ANALYSIS / SYSTEM_DISPOSITION
 - 批量雷达新增：SYSTEM_INTERNAL_POLICY_EXTRACT / SYSTEM_CLAUSE_MATCH /
                 SYSTEM_EVIDENCE_NARRATIVE / SYSTEM_DISPOSITION_BATCH
+
+cat 6 migration shim (worker-A4-alert · 2026-04-29):
+  本模块开始接 shared/prompts/contract.py 8 段 SOT (per CLAUDE.md §3.3) ·
+  worker-A1 spec 落地前 contract.assemble() 返 "" (全 _PENDING_A1_SPEC marker) ·
+  build_alert_system_prompt(role) 自动 fallback 到本文件 SYSTEM_* 常量 · 行为零变更.
+  worker-A1 spec landed 后 contract.assemble() 返实质内容 · alert 自动继承 ·
+  无需再次改 alert 代码 (Cat 6 迁移完成路径).
+
+Migration map:
+  agent4_alert_scan          → SYSTEM_RISK_SCAN
+  agent4_alert_disposition   → SYSTEM_DISPOSITION
+  agent4_alert_trend         → SYSTEM_TREND_ANALYSIS
+  agent4_alert_clause_match  → SYSTEM_CLAUSE_MATCH
+  agent4_alert_narrative     → SYSTEM_EVIDENCE_NARRATIVE
+  agent4_alert_batch         → SYSTEM_DISPOSITION_BATCH
 """
+from __future__ import annotations
+
 
 # ---------------------------------------------------------------------------
 # 【保留】单客户风险扫描（供 alert_engine.py 的 LLM 补充路径使用）
@@ -180,3 +197,78 @@ SYSTEM_DISPOSITION_BATCH = """\
 
 要求：每客户 3-5 项行动，且对同一规则 ID 要体现差异化（体现 credit_line / due_date）。
 """
+
+
+# ---------------------------------------------------------------------------
+# Cat 6 migration shim · contract.assemble() bridge with fallback
+# ---------------------------------------------------------------------------
+
+
+_ROLE_FALLBACK: dict[str, str] = {
+    "agent4_alert_scan": SYSTEM_RISK_SCAN,
+    "agent4_alert_disposition": SYSTEM_DISPOSITION,
+    "agent4_alert_trend": SYSTEM_TREND_ANALYSIS,
+    "agent4_alert_clause_match": SYSTEM_CLAUSE_MATCH,
+    "agent4_alert_narrative": SYSTEM_EVIDENCE_NARRATIVE,
+    "agent4_alert_batch": SYSTEM_DISPOSITION_BATCH,
+    "agent4_alert_internal_extract": SYSTEM_INTERNAL_POLICY_EXTRACT,
+}
+
+
+def build_alert_system_prompt(
+    role: str,
+    *,
+    schema_hint: str = "",
+    eval_id: str = "",
+) -> str:
+    """构 Agent4 alert system prompt · 走 shared.prompts.contract.assemble() 8 段 SOT.
+
+    cat 6 fix (worker-A4-alert · 2026-04-29):
+        worker-A1 spec landed 前: contract.assemble() 返 "" (全 _PENDING_A1_SPEC) ·
+            本函数 fallback 到 _ROLE_FALLBACK[role] (维持现有行为 · 零回归)
+        worker-A1 spec landed 后: assemble() 返实质 8 段拼接 · 自动继承
+            (alert 不需要再次改代码 · 整 6 agent 同步升级)
+
+    Args:
+        role: agent4_alert_scan / agent4_alert_disposition / agent4_alert_trend / ...
+              不在 _ROLE_FALLBACK 时 raise KeyError (防 typo · 不悄悄 default)
+        schema_hint: 可选 JSON schema 注入 · per output_schema_block
+        eval_id: 可选 evaluation hook · per evaluation/agent_alert*.yaml
+
+    Returns:
+        str · 实质 prompt body (assemble 非空时) 或 fallback _ROLE_FALLBACK[role]
+
+    Raises:
+        KeyError: role 未注册 (typo / 新增 role 未登记)
+    """
+    if role not in _ROLE_FALLBACK:
+        raise KeyError(
+            f"unknown alert prompt role={role!r} · 注册到 _ROLE_FALLBACK · "
+            f"现有: {sorted(_ROLE_FALLBACK)}",
+        )
+
+    try:
+        from shared.prompts.contract import assemble as _assemble
+    except ImportError:
+        return _ROLE_FALLBACK[role]
+
+    # strict=False · A1 spec landed 前 placeholder section 静默 skip · 返 ""
+    body = _assemble(
+        role=role,
+        schema_hint=schema_hint,
+        eval_id=eval_id,
+        strict=False,
+    )
+    return body if body else _ROLE_FALLBACK[role]
+
+
+__all__ = [
+    "SYSTEM_CLAUSE_MATCH",
+    "SYSTEM_DISPOSITION",
+    "SYSTEM_DISPOSITION_BATCH",
+    "SYSTEM_EVIDENCE_NARRATIVE",
+    "SYSTEM_INTERNAL_POLICY_EXTRACT",
+    "SYSTEM_RISK_SCAN",
+    "SYSTEM_TREND_ANALYSIS",
+    "build_alert_system_prompt",
+]
