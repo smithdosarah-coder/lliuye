@@ -97,6 +97,34 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 
 依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
 
+### 3.7 Active runtime rules (Q-NNN 回写区 · worker-A7 2026-04-29 落地)
+
+> 来自 decisions-log Q-NNN 的 **active rules**（持久改变 future worker 行为）必须在 root CLAUDE.md 留单一 SOT。本节集中三条 phase-a-charter 必须回写的规则；新增按时序 append。详见 SSOT §15 + decisions-log Q-042 (本次回写 batch entry)。
+
+#### 3.7.1 Agent2 backtest sample upper bound: `MAX_ROWS=50000` (Q-040 · 2026-04-26)
+
+- **位置**: `agent_riskctrl/backtesting.py:22, 67, 84` 三处常量
+- **规则**: 真实风控样本量 5-50 万行 · `MAX_ROWS=500` 的 MVP 上限**已废弃** · 强制 `MAX_ROWS=50000` (含 chunk read) · 任何 worker 不得回退到 ≤ 500 (Demo blocker · 客户走访演示当场翻车)
+- **理由**: 500 行算 KS 不可信 · mock 已有 7500 行 · 代码只读 500 = 浪费 93% 输入数据 · 银行客户对统计口径敏感
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit 加 `Authorized-By: PM` trailer · 否则 review 阻断
+- **回写来源**: decisions-log Q-040 + signal `AGENT2-MAX-ROWS-FIX`
+
+#### 3.7.2 Agent1 candidate metadata 必出 4 字段 (Q-041 · 2026-04-28)
+
+- **位置**: `agent_channel/api.py` SSE candidate event payload + `web/src/lib/api/channel.ts` consumer 类型
+- **规则**: 任何 `/api/channel/run` SSE 输出的 candidate 单条**必须**含 `industry` / `geo` / `scale` / `similarity` 四字段 · 任何字段缺失或值为 `null` / `"未知"` / `"[object Object]"` 视作 regression · 前端 banner 必显式 fail-fast
+- **理由**: 客户经理评估 look-alike 候选靠这 4 维度做 sanity check · 缺字段 = 候选不可决策 · 之前 production 出现 `[object Object]` 直接导致 Q-041 立项
+- **回写来源**: decisions-log Q-041 + signal `Q-041-RESOLVED` + Stage B.5 dispatch 注入
+- **配套硬线**: 候选不足 (即使 ≥ 1 但 < 5) 必触发 `banner-spec` 显示 `blocked_by_env` · 不 silent fallback (per §3.6 + bank delivery DoD)
+
+#### 3.7.3 PIPL fallback chain 全境内 (Stage E.3 · 2026-04-28 · §3.6 已展开)
+
+- **规则简述**: `DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` 全境内 provider · `moonshot` (海外路由) 仅 `LLM_PROVIDER=moonshot` 显式触发 · audit log 必含 `region` 字段
+- **位置**: `shared/llm_caller/retry.py:DEFAULT_FALLBACK_CHAIN` + `shared/llm_caller/audit.py` audit ctx
+- **理由**: PIPL 跨境数据出境合规底线 · 银行客户审计必查 LLM 路由
+- **完整规则**: 见 §3.6 (LLM Caller 唯一化 + PIPL 合规 fallback chain)
+- **回写来源**: decisions-log Stage E.3 (2026-04-28) PIPL 境内优先决议
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |

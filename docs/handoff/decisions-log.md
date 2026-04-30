@@ -2384,3 +2384,48 @@ LoginForm.tsx:35-41 5 user/pwd 前端硬编 PASSWORD_MAP (`u_wangzhe/wangzhe / u
 - 衍生 Stage D.1 (将来): `STAGE-D1-AUTH-BACKEND-DONE`
 
 ---
+
+## [Q-042] 2026-04-29 · worker-A7 (Phase A Week 2-3) · 3 active rule 回写 root CLAUDE.md (per A7 onboarding §1.3 + PM 拍板 #3)
+
+**Type**: Active rule back-write (无新拍板 · 仅把已存在 Q-040/Q-041/Stage E.3 PIPL 三条 active rule 从 decisions-log Tier 5 抬到 Tier 2 root CLAUDE.md)
+**Triggered by**: phase-a-charter §3 worker-A7 · 硬线 #7 · onboarding §1.3 · PM 拍板 #3 (active decision 必回写 root CLAUDE.md)
+**Blocking**: no (active rule 已生效 · 仅 SOT layer 升级)
+
+### 背景
+
+PM 拍板 #3 (2026-04-29): "active decision 必须回写 root CLAUDE.md (谁改决策谁回写 · 不回写不算 done · CI lint enforce)"。SSOT §15 + Active decision 回写硬规要求 Tier 5 (decisions-log) 中改变 future worker 行为的决议**必须**抬到 Tier 1-2 (contracts / root CLAUDE.md)。
+
+A7 owner Cat 1 (instruction 漂移) 中 3 条 active rule 当前仅在 decisions-log 留痕 · 未在 root CLAUDE.md 出现 · 违反 SSOT §1.3。本 Q-042 batch 回写。
+
+### 3 条 active rule 回写明细
+
+| Rule | 来源 | 回写位置 (root CLAUDE.md) | 行为约束 |
+|------|------|--------------------------|---------|
+| Q-040 Agent2 `MAX_ROWS=50000` (≤ 500 废弃) | decisions-log Q-040 (2026-04-26) + signal `AGENT2-MAX-ROWS-FIX` | §3.7.1 | 任何 worker 不得回退 ≤ 500 · 仅 PM `Authorized-By` trailer 可放宽 |
+| Q-041 Agent1 candidate 必出 4 字段 (industry/geo/scale/similarity) | decisions-log Q-041 (2026-04-28) + signal `Q-041-RESOLVED` | §3.7.2 | SSE candidate 缺任一字段 / 值 null / "[object Object]" 视作 regression |
+| PIPL fallback chain 全境内 | Stage E.3 (2026-04-28) PIPL 境内优先决议 + §3.6 已展开 | §3.7.3 (back-ref §3.6) | `DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` · `moonshot` 海外路由仅 `LLM_PROVIDER=moonshot` 显式触发 |
+
+### Decisions
+
+#### A-042.1 · 三条 rule 一次性 batch 回写 root CLAUDE.md §3.7
+
+- 新增 §3.7 "Active runtime rules (Q-NNN 回写区)" · 三 sub-section (3.7.1/3.7.2/3.7.3)
+- 每 sub-section 含: 位置 / 规则 / 理由 / 谁可放宽 / 回写来源 5 维度
+- 后续新 active rule 按时序 append §3.7.4 / 3.7.5 …
+
+#### A-042.2 · CI lint (SSOT lint 硬线 #1) 启用后会扫本节
+
+`.github/workflows/ssot-lint.yml` (worker-A2 V2 fix #1 c994036 落) 会扫 root CLAUDE.md 与 decisions-log 的 active rule 一致性 · 本 Q-042 后 §3.7 三条与 decisions-log Q-040/Q-041/Stage E.3 应一致通过 lint。
+
+### Follow-up
+
+1. ✅ 立即: 本 Q-042 commit + 同 commit 含 §3.7 落地 · 同 commit trailer `ACTIVE-RULE-BACK-WRITTEN: 3`
+2. (将来 active rule 新生): 谁加 active rule 谁同 commit append §3.7.N + 同 commit 加 decisions-log entry · 不分两 commit (PM 拍板 #3 同 commit / ≤ 24h 硬线)
+3. SSOT lint 跑通后 · 如有偏差 · fix-forward (不 revert · 不 hide)
+
+### Signals
+
+- 本 commit Signal: `WORKER-A7-PRD-MASTER-DONE` 中 trailer `ACTIVE-RULE-BACK-WRITTEN: 3` (Block A 完时 fire · 本 batch 是 Block A.0 子 commit)
+- 不单 fire signal · merge 进 Block A 主 signal
+
+---
