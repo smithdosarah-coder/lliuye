@@ -1007,7 +1007,21 @@ async def report_demo_run(req: ReportDemoRunRequest):
             yield _sse("section", {"section": sec})
             await asyncio.sleep(0.15)
 
-        session_id = f"demo_report_{req.scenario_id}_{int(time.time())}"
+        # V2 fix issue 3 (codex DISAGREE) · session_id 取 SessionStore 返的 UUID4 · 不再
+        # demo_report_* 自造 prefix · 否则 /api/report/refine_section 的 store.get() lookup 必 404
+        # (refine_section 路径 SessionStore 是单一权威源 · UUID 是契约 key).
+        profile_data = data.get("profile") or {}
+        qc_data = data.get("qc") or {"passed": True, "score": 88, "fatal_fail": False, "halluc_count": 0}
+        stats_data = data.get("stats") or {}
+        pending_data = data.get("pending_questions") or []
+
+        # 先 store.create 拿 UUID · 再用 UUID 拼 done_payload · 然后 update 把 done_payload 写回
+        session_id = store.create({
+            "mode": "demo",
+            "scenario_id": req.scenario_id,
+            "enterprise_profile": profile_data,
+            "pending_questions": pending_data,
+        })
         done_payload: dict[str, Any] = {
             "event": "done",
             "data_source": "mock_forced",
@@ -1016,19 +1030,14 @@ async def report_demo_run(req: ReportDemoRunRequest):
             "session_id": session_id,
             "report_id": session_id,
             "sections": sections,
-            "profile": data.get("profile") or {},
-            "stats": data.get("stats") or {},
-            "qc": data.get("qc") or {"passed": True, "score": 88, "fatal_fail": False, "halluc_count": 0},
-            "pending_questions": data.get("pending_questions") or [],
+            "profile": profile_data,
+            "stats": stats_data,
+            "qc": qc_data,
+            "pending_questions": pending_data,
         }
-        # 持久 session 让后续 export 能命中 (与 v16 fill_stream 一致)
-        store.create({
-            "mode": "demo",
-            "scenario_id": req.scenario_id,
-            "done_payload": done_payload,
-            "enterprise_profile": done_payload["profile"],
-            "pending_questions": done_payload["pending_questions"],
-        })
+        # done_payload 持久化 · /api/report/export_docx + /api/report/export_pdf +
+        # /api/report/refine_section 都靠它从 store 拿 sections / profile / pending
+        store.update(session_id, {"done_payload": done_payload})
         yield _sse("done", done_payload)
 
     return StreamingResponse(

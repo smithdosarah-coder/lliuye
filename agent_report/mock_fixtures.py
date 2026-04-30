@@ -152,7 +152,19 @@ def available_presets() -> list[str]:
 
 
 def _try_load_from_disk(preset: str) -> Optional[dict]:
-    """尝试从外部 fixture 目录加载 <preset>.json,未找到返回 None."""
+    """尝试从外部 fixture 目录加载 <preset>.json,未找到返回 None.
+
+    Phase A worker-A4 V2 (codex audit cat 5 决议 · 2026-04-29):
+      cat 5 (mock_fixtures.py:154-181 disk fixture else embedded stub fallback) 决议:
+      **保留双层 fallback** (disk → embedded stub) · 理由:
+        (1) `data/customer/<preset>/profile.json` 是客户脱敏样本进库路径 · 真实交付侧每个
+            银行客户都会有自己的 fixture · 不可能全在代码里硬编 (反 5 原则 §3.4 脱敏再造).
+        (2) 内嵌 stub (_EMBEDDED_STUBS) 是开发兜底 · 让 unit test / dev 环境无 fixture 时
+            也能跑通主流程 · 与 demo/run scenarios JSON 不冲突 (后者是 演示数据 · 走
+            data/mock/workspace/report/ · 命中 5 原则 §3.5 难度分层硬线).
+      不删 disk fallback · 不删 embedded stub · cat 5 仅文档化 · 不需代码改动.
+      详 commit message · WORKER-A4-REPORT-V2-DONE 第 4 项.
+    """
     for root in FIXTURE_ROOT_CANDIDATES:
         if not root.exists():
             continue
@@ -172,8 +184,12 @@ def _try_load_from_disk(preset: str) -> Optional[dict]:
 def load_preset_profile(preset: str) -> dict:
     """按 preset key 加载企业画像 dict.
 
-    策略:先尝试磁盘 fixture,失败或不存在则回退内嵌 stub。
-    未知 preset 默认返回 dingsheng_trade stub。
+    策略 (V2 codex audit cat 5 决议 · 2026-04-29):
+      1) 先尝试磁盘 fixture (`data/customer/<preset>/profile.json` 等) · 命中即返
+         · 这是客户脱敏样本进库路径 · 真实交付每个银行客户都会有自己的 fixture
+      2) 失败或不存在 → 回退内嵌 stub (_EMBEDDED_STUBS) · 让 dev / test 不依赖文件系统
+      3) 未知 preset → 默认 dingsheng_trade stub
+    双层 fallback 保留 · 不删任一层 (cat 5 决议见 _try_load_from_disk docstring).
     """
     data = _try_load_from_disk(preset)
     if data is not None:

@@ -60,6 +60,97 @@ def _stage(stage: str, progress: float, message: str) -> str:
     })
 
 
+# ---------------------------------------------------------------------------
+# Section extraction · 从 v16 输出 docx 抽 4 章 sections (V2 fix issue 2 · codex DISAGREE)
+# ---------------------------------------------------------------------------
+
+# 4 章模板锚点 · 与 mock_fixtures 同形 · 前端 PreviewPanel TOC 消费
+_CHAPTER_HEADINGS: tuple[tuple[str, str, str], ...] = (
+    ("chapter_1_background", "一、企业背景", "一、"),
+    ("chapter_2_operation", "二、经营情况", "二、"),
+    ("chapter_3_finance", "三、财务分析", "三、"),
+    ("chapter_4_conclusion", "四、审批意见", "四、"),
+)
+
+
+def _extract_sections_from_docx(docx_path: Path) -> list[dict]:
+    """从 v16 输出 docx 抽 4 章 sections · 按 ``一、/二、/三、/四、`` 中文章节锚分段.
+
+    V2 fix issue 2 (codex DISAGREE): real_v16 done 必须含 top-level sections · 不让前端
+    fallback 静态 REPORT_SESSION mock · 否则 5 panel hydrate 与 v16 真产物脱节.
+
+    Returns:
+        [{id, title, content, status, word_count}, ...] · 同 mock_v16_stream done.sections shape
+        失败返 [] (caller 按 mock fallback)
+    """
+    if not docx_path or not Path(docx_path).is_file():
+        return []
+    try:
+        from docx import Document
+        doc = Document(str(docx_path))
+    except Exception:
+        return []
+    paragraphs: list[str] = []
+    for p in doc.paragraphs:
+        t = (p.text or "").strip()
+        if t:
+            paragraphs.append(t)
+    if not paragraphs:
+        return []
+
+    # 按 4 章锚点切段 · 命中第一个 "一、" / "二、" 即开新 section
+    sections: list[dict] = []
+    cur_idx = -1
+    cur_lines: list[str] = []
+    for line in paragraphs:
+        matched = -1
+        for i, (_id, _title, prefix) in enumerate(_CHAPTER_HEADINGS):
+            if line.startswith(prefix) or line.startswith(_title[:2]):
+                matched = i
+                break
+        if matched >= 0:
+            # 关闭上一段
+            if cur_idx >= 0 and cur_lines:
+                _id, _title, _ = _CHAPTER_HEADINGS[cur_idx]
+                content = "\n".join(cur_lines).strip()
+                sections.append({
+                    "id": _id,
+                    "title": _title,
+                    "content": content,
+                    "status": "done" if content else "pending",
+                    "word_count": len(content),
+                })
+            cur_idx = matched
+            cur_lines = []
+        elif cur_idx >= 0:
+            cur_lines.append(line)
+    # tail
+    if cur_idx >= 0 and cur_lines:
+        _id, _title, _ = _CHAPTER_HEADINGS[cur_idx]
+        content = "\n".join(cur_lines).strip()
+        sections.append({
+            "id": _id,
+            "title": _title,
+            "content": content,
+            "status": "done" if content else "pending",
+            "word_count": len(content),
+        })
+    return sections
+
+
+def _load_profile_for_real(report_id: str) -> dict:
+    """real path 装载 profile · 优先用 report_id 命中 mock_fixtures 预置 (脱敏样本) ·
+    否则返空 dict (前端 sessionData fallback REPORT_SESSION mock 兜底).
+
+    V2 fix issue 2 · 真路径 done 需 top-level profile · 与 demo/run + mock_v16 同形.
+    """
+    try:
+        from agent_report import mock_fixtures
+        return dict(mock_fixtures.load_preset_profile(report_id) or {})
+    except Exception:
+        return {}
+
+
 # ============================================================================
 # Mock 路径(测试 + demo · 默认走 mock 不需 API key)
 # ============================================================================
@@ -265,27 +356,71 @@ def _run_v16_in_thread(
             # 与 api.py downloads 端点契合: /api/report/downloads/v16/{filename}
             report_docx_url = f"/api/report/downloads/v16/{Path(output_docx).name}"
 
-        emit.put(_sse("done", {
-            "report_id": str(source_docx.stem),
-            "session_id": str(source_docx.stem),
-            "pipeline": "v16",
-            "mock_pipeline": False,
-            "source_docx": str(source_docx),
-            "report_docx_url": report_docx_url,
-            "output_docx_path": output_docx,
-            "qc": {
+        # V2 fix issue 2 (codex DISAGREE) · real done 加 top-level sections + profile + UUID session_id
+        # 让前端 PreviewPanel/MaterialPanel/TimelinePanel 从真产物 hydrate · 不再 fallback 静态 mock
+        sections = _extract_sections_from_docx(Path(output_docx)) if output_docx else []
+        profile = _load_profile_for_real(str(source_docx.stem))
+
+        # 持久 done_payload 进 SessionStore · UUID = session_id 契约 (refine_section / export 都靠它)
+        # SessionStore 内部 RLock 线程安全 · 工作线程调用合法
+        try:
+            from agent_report.session_store import store as _store
+            qc_payload = {
                 "passed": qc.get("passed"),
                 "score": qc.get("score"),
                 "fatal_fail": qc.get("fatal_fail", False),
                 "halluc_count": qc.get("hallucinations", 0),
-            },
-            "stats": {
+            }
+            stats_payload = {
                 "handler": summary.get("handler_stats"),
                 "apply": summary.get("apply_stats"),
                 "pending_count": summary.get("pending_count"),
-            },
+            }
+            session_id = _store.create({
+                "mode": "real_v16",
+                "source_docx": str(source_docx),
+                "enterprise_profile": profile,
+                "pending_questions": pending_questions,
+            })
+        except Exception:
+            # store 不可用时 fallback 用 stem · 至少前端 hydrate 不崩
+            session_id = str(source_docx.stem)
+            qc_payload = {
+                "passed": qc.get("passed"),
+                "score": qc.get("score"),
+                "fatal_fail": qc.get("fatal_fail", False),
+                "halluc_count": qc.get("hallucinations", 0),
+            }
+            stats_payload = {
+                "handler": summary.get("handler_stats"),
+                "apply": summary.get("apply_stats"),
+                "pending_count": summary.get("pending_count"),
+            }
+
+        done_payload = {
+            "report_id": session_id,
+            "session_id": session_id,
+            "pipeline": "v16",
+            "mock_pipeline": False,
+            "data_source": "live",
+            "source_docx": str(source_docx),
+            "report_docx_url": report_docx_url,
+            "output_docx_path": output_docx,
+            "sections": sections,
+            "profile": profile,
+            "qc": qc_payload,
+            "stats": stats_payload,
             "pending_questions": pending_questions,
-        }))
+        }
+
+        # done_payload 持久 (refine_section / export_docx / export_pdf 共消费)
+        try:
+            from agent_report.session_store import store as _store2
+            _store2.update(session_id, {"done_payload": done_payload})
+        except Exception:
+            pass
+
+        emit.put(_sse("done", done_payload))
     except Exception as e:  # noqa: BLE001 — last-resort crash guard
         traceback.print_exc()
         emit.put(_sse("error", {

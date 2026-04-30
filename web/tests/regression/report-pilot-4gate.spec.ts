@@ -237,6 +237,77 @@ test.describe("worker-A4 · report pilot · 4 gate", () => {
     await expect(preview).toHaveAttribute("data-selected-section", "");
   });
 
+  test("T6 · V2 issue 1 fix · 5 panel content switch · easy vs hard demo 切场景 preview 内容必变", async ({
+    page,
+    context,
+  }) => {
+    /* V2 codex DISAGREE issue 1 fix verify · 5 panel sessionData = liveData ?? mock 单点派生
+       验: easy 跑完 preview 显 "杭州方舟" · hard 跑完 preview 显 "华南普华" · 内容 hash 必不同
+       (之前静态 REPORT_SESSION 占主源 · demo 切场景视觉无变化 · 这是 codex 卡的根因) */
+    let currentScenario: string | null = null;
+    await context.route("**/api/report/demo/run", async (route) => {
+      const body = route.request().postDataJSON() as { scenario_id: string };
+      currentScenario = body.scenario_id;
+      const sentinel =
+        body.scenario_id === "easy"
+          ? "杭州方舟智装-EASY-SENTINEL"
+          : body.scenario_id === "hard"
+            ? "华南普华纺织-HARD-SENTINEL"
+            : "演示中等场景-MEDIUM-SENTINEL";
+      const sse = [
+        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "ingest", progress: 0.2 })}\n\n`,
+        `event: done\ndata: ${JSON.stringify({
+          event: "done",
+          data_source: "mock_forced",
+          pipeline: "v16",
+          mock_pipeline: true,
+          session_id: `00000000-0000-4000-8000-${body.scenario_id.padStart(12, "0")}`,
+          report_id: `00000000-0000-4000-8000-${body.scenario_id.padStart(12, "0")}`,
+          sections: [
+            {
+              id: "chapter_1_background",
+              title: "一、企业背景",
+              content: sentinel,
+              status: "done",
+              word_count: 100,
+            },
+          ],
+          profile: {
+            company_name:
+              body.scenario_id === "easy"
+                ? "杭州方舟智能装备"
+                : body.scenario_id === "hard"
+                  ? "华南普华纺织"
+                  : "厦门海风餐饮",
+          },
+          stats: { total_fields: 100, auto_filled: 90 },
+          qc: { passed: body.scenario_id !== "hard", score: 80, fatal_fail: body.scenario_id === "hard", halluc_count: 0 },
+          pending_questions: [],
+        })}\n\n`,
+      ].join("");
+      await route.fulfill({ status: 200, contentType: "text/event-stream", body: sse });
+    });
+
+    /* edge 在 SSE-heavy 场景下 networkidle 不稳 (ERR_ABORTED) · 用 domcontentloaded */
+    await page.goto("/archive/report", { waitUntil: "domcontentloaded" });
+
+    // 跑 easy · preview 应显 SENTINEL_EASY
+    await page.locator('[data-testid="report-demo-easy"]').click();
+    await page.waitForTimeout(600);
+    const preview = page.locator('[data-testid="report-pilot-preview"]');
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText("杭州方舟智装-EASY-SENTINEL");
+    expect(currentScenario).toBe("easy");
+
+    // 切 hard · preview 内容应换 (V2 codex callout · 5 panel hydrate 真生效)
+    await page.locator('[data-testid="report-demo-hard"]').click();
+    await page.waitForTimeout(600);
+    await expect(preview).toContainText("华南普华纺织-HARD-SENTINEL");
+    // easy 内容应消失 (sessionData 切走)
+    await expect(preview).not.toContainText("杭州方舟智装-EASY-SENTINEL");
+    expect(currentScenario).toBe("hard");
+  });
+
   test("T5 · toolbar Word + PDF 按钮真接 endpoint", async ({ page, context }) => {
     let docxHit = false;
     let pdfHit = false;
@@ -281,7 +352,8 @@ test.describe("worker-A4 · report pilot · 4 gate", () => {
       await route.fulfill({ status: 200, contentType: "text/event-stream", body: sse });
     });
 
-    await page.goto("/archive/report", { waitUntil: "networkidle" });
+    /* edge 在 SSE-heavy 场景下 networkidle 不稳 (ERR_ABORTED) · 用 domcontentloaded */
+    await page.goto("/archive/report", { waitUntil: "domcontentloaded" });
     await page.locator('[data-testid="report-demo-easy"]').click();
     await page.waitForTimeout(500);
 
