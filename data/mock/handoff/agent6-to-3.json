@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "stage_tab": "corporate",
+  "report_json": {
+    "profile_id": "report_zhiyun_industrial_1745922000",
+    "company_name": "杭州智云工业软件有限公司",
+    "unified_credit_code": "91330106MA28GZ4QXK",
+    "industry": "工业软件 SaaS / 信息技术服务业 (国标 I65)",
+    "establishment_date": "2018-09-12",
+    "registered_capital": "5000万元",
+    "employee_count": 86,
+    "region": "浙江省杭州市余杭区",
+    "main_business": "研发并销售面向离散制造业的 MES + APS 工业软件 SaaS · 含定制开发与年度运维",
+    "controller_name": "陈志远",
+    "controller_share_pct": "62%",
+    "business_line": "corporate",
+    "financial_anchors": {
+      "revenue_latest": 1820.45,
+      "revenue_prev": 947.20,
+      "net_profit_latest": 286.78,
+      "net_profit_prev": 92.13,
+      "total_assets": 3450.60,
+      "total_liabilities": 1820.30,
+      "net_assets": 1630.30,
+      "accounts_receivable": 612.40,
+      "inventory": null,
+      "operating_cash_flow": 198.45,
+      "short_term_borrowing": 480.00,
+      "ebitda": 358.20,
+      "period": "2024年度"
+    },
+    "guarantee_info": {
+      "type": "保证 + 抵押",
+      "collateral": "杭州市余杭区办公房产一套 (建面 320㎡)",
+      "collateral_value": 480.00,
+      "collateral_type": "商业房产",
+      "guarantor": "法人陈志远连带保证 + 配偶连带保证"
+    },
+    "related_party_info": {
+      "related_party_revenue_pct": 0.18,
+      "related_party_txn_desc": "向控股子公司智云软件研发中心销售技术服务 · 2024 年度金额 326 万 · 占营收 18%"
+    },
+    "existing_credit": {
+      "total_approved": 800.00,
+      "total_used": 480.00,
+      "overdue_history": "无逾期记录"
+    },
+    "credit_request": {
+      "amount": 1500,
+      "purpose": "补充流动资金 · 用于扩大 SaaS 客户付费转化",
+      "term_months": 36
+    },
+    "chapters": {
+      "chapter_1_background": "杭州智云工业软件有限公司成立于 2018 年 9 月 · 注册资本 5000 万元 · 法定代表人陈志远 · 持股 62% · 公司位于杭州市余杭区 · 员工 86 人 · 主营离散制造业 MES + APS 工业软件 SaaS 产品 · 客户覆盖长三角中型制造企业 · 2023 年完成 Pre-A 轮融资 · 投后估值约 2.4 亿元。",
+      "chapter_2_operation": "公司核心产品 MES-X 与 APS-X 已签约客户 142 家 · ARR (年度经常性收入) 同比增长 92% · 客单价从 28 万提升至 42 万 · NDR (净留存率) 118% · 客户集中度 CR5 38% (低于行业警戒值 50%) · 上下游议价能力中等 · 主要竞争对手为用友 / 鼎捷 / 赛意等。控股股东陈志远持股稳定 · 经营层均超 5 年行业经验 · 实控人控制力强但风险集中度需关注 · 2024 年员工净增 23 人 · 主要为研发与售后岗位。",
+      "chapter_3_finance": "数据→2024 年营收 1820.45 万元 (同比 +92%) · 净利润 286.78 万元 (同比 +211%) · 经营性现金流净额 198.45 万元 · 资产负债率 52.8% (1820.30 / 3450.60) · 流动比率 2.1 · ROA 8.3% · ROE 17.6%。外因→工业软件 SaaS 行业 2024 年增速 28% · 国家两化融合政策利好 · 客户复购率随产品成熟度提升 · 制造业数字化转型刚需未减。内因→公司 ARR 增速 92% 显著高于行业均值 · 主要由 NDR 118% 与新签客单价提升驱动 · 净利率 15.8% 较 2023 年 (9.7%) 大幅改善 · 反映规模效应释放 · 但应收账款 612.40 万元占营收 33.6% · 账期偏长需关注回款风险 · 短期借款 480 万元接近其他流动负债总额 · 还款压力可控但需匹配到期分布。",
+      "chapter_4_conclusion": "(待 Agent3 回填)"
+    },
+    "agent_outputs": {
+      "agent6_report_json": null
+    },
+    "source_materials": [
+      "2024 年度审计报告.pdf",
+      "2025 年 Q1 财务报表.xlsx",
+      "工商登记信息_截至 2026-04-29.pdf",
+      "信贷申报表.docx",
+      "Pre-A 轮融资协议 (节选).pdf"
+    ],
+    "generated_at": "2026-04-29T12:08:33Z",
+    "metadata": {
+      "upstream_match_score": 86,
+      "upstream_session_id": "7f4c7a2d-c2f5-4c8e-9d2a-b3e6f1a0c9d7",
+      "upstream_profile_id": "550e8400-e29b-41d4-a716-446655440000",
+      "v16_pipeline_version": "v16.3",
+      "qc_passed": true,
+      "qc_score": 0.91,
+      "unfilled_marker_count": 2
+    }
+  },
+  "materials": [
+    {"material_id": "m_001", "type": "audit_report", "parsed_at": "2026-04-29T12:00:11Z", "evidence_count": 23},
+    {"material_id": "m_002", "type": "financial_statement", "parsed_at": "2026-04-29T12:01:42Z", "evidence_count": 18},
+    {"material_id": "m_003", "type": "business_license", "parsed_at": "2026-04-29T12:02:08Z", "evidence_count": 6},
+    {"material_id": "m_004", "type": "credit_application", "parsed_at": "2026-04-29T12:02:55Z", "evidence_count": 4},
+    {"material_id": "m_005", "type": "investment_agreement", "parsed_at": "2026-04-29T12:04:12Z", "evidence_count": 9}
+  ],
+  "preset_name": null,
+  "appetite_config": null,
+  "provider": "deepseek",
+  "mock": false,
+  "_meta_for_reviewers": {
+    "_chain": "Agent6 v16 pipeline 输出 ReportJSON · 通过 POST /api/credit/decision 给 Agent3",
+    "_continuity_with_chain_1": "本 fixture company_name + uscc + upstream_session_id + upstream_profile_id + upstream_match_score 与 agent1-to-6.json 完全一致 · 端到端 demo chain 串联",
+    "_principle_1_blind_test": "PM 不预知坑 · 故意让 inventory=null + chapter_4_conclusion stub · 模拟 v16 真实 Phase 2 输出形态",
+    "_principle_2_difficulty": "中等档 · 财务数据合理但不全完美 (应收账款偏长 / 关联交易 18% 中等水位) · Agent3 需基于真数据出有条件批准而非简单批 / 拒",
+    "_principle_3_real_anchor": "财务三表数字锚定真实工业软件 SaaS 上市公司 (用友 / 鼎捷) Pre-A 阶段量级 · ARR / NDR / CR5 等指标符合 SaaS 行业实际水位",
+    "_principle_4_desensitized": "company_name / uscc / 法人 / 持股 / 子公司全部脱敏 · 量级保持",
+    "_principle_5_env_boundary": "report_json 是 Agent6 内部 KB + 材料解析后产出 · Agent3 接收后必须自跑四维评分 + 红线 · fixture 不替 Agent3 mock decision 结果",
+    "_drop_when_consumed": "Agent3 子 worker 对接 ReportJSON 真消费时删 _meta_for_reviewers 字段"
+  }
+}
