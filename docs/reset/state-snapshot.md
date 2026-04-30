@@ -362,6 +362,46 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - Codex AGREE 后 → cherry-pick A3 8 commit (含本 V2) 到 chore/l0-infra → push origin → 启 A4 5 子 worker
 - A6 V2 fix 等 (3 issue · schema vs fixture 不一致 · medium · 与 A3 并行)
 
+---
+
+## 2026-04-30 (Phase A · Week 3 morning · 续) · worker-A3 V3 fix · ConversationPanel 根因 fix
+
+### What happened
+- V2 commit b56b361 后 PM 注意到 issue 1 在 V2 是 partial fix:
+  - V2 `setMessages(live.conversation)` 同步 setLiveData · 但 `live.conversation` 来自 `tplFallback.conversation` (mock 模板) · 不是真 backend-controlled
+  - codex 原本意图: "render `ConversationPanel` from `sessionData.conversation` directly" (option 2) 或 "set live conversation together with `setLiveData`" (option 1)
+  - V2 走 option 1 但 backend 没 emit conversation 字段 · 等于半 fix
+- V3 走 option 1 完整版: backend 显式 emit `conversation` 字段 · 前端 hydrate
+- 触面 (V3 单 commit · 6 文件):
+  - `shared/sse_envelope.py` · `CHANNEL_PANEL_KEYS` 7 → 8 keys (加 "conversation")
+  - `tests/shared/test_sse_envelope.py` · `test_channel_panel_keys_canonical` expected 8 keys
+  - `agent_channel/realtime_stream.py` · `make_done(panels=...)` 加 `"conversation": []` (默认空 · A4-channel AI 复盘 turn 落地后真填)
+  - `agent_channel/api.py` · `/api/channel/demo/run` panels 加 `"conversation": data.get("conversation", [])` (scenario JSON 可填)
+  - `web/.../ChannelWorkspace.tsx` · `normalizeBackendDone` 读 `evt.conversation` · 空时 fallback `tplFallback.conversation`
+  - `web/tests/regression/channel-pilot-4gate.spec.ts` · T2/T5 mock SSE 加 `conversation: []` · 新增 T6 (backend conversation 非空时 · ConversationPanel 显 sentinel)
+- 验:
+  - `pytest tests/shared/test_sse_envelope.py` 31/31 PASS
+  - `pytest tests/agent_channel --ignore test_external_search` 191/191 PASS
+  - `npx tsc --noEmit` PASS
+  - `npx playwright test channel-pilot-4gate.spec.ts --project=chromium` 6/6 PASS (18.2s · T6 新增 lock V3 contract)
+- 契约修订 (Tier 1 · 因 backwards-compat additive · 不破 V2 envelope):
+  - `docs/contracts/workspace-state-protocol.md` §4 done event JSON 加 `"conversation": [...]` 行 + V3 fix 注释段
+  - 注: 8th key 为前向加 · A4 worker copy channel pilot 时按 8 key 处理 (旧 V1/V2 envelope 不破: 缺字段时前端 fallback tplFallback.conversation)
+
+### Triggered by
+- 用户 `A3 V3 fix · 最后 1 issue partial · ConversationPanel 不从 sessionData 派生 · 选 option 1 推荐 backend 补字段`
+
+### State change (delta)
+- `CHANNEL_PANEL_KEYS`: 7 → 8 keys (加 "conversation")
+- A3 verdict: V2 PENDING → V3 codex re-review 触发中
+- Channel pilot done envelope contract: ConversationPanel 真从 sessionData 派生 (option 1 完整版) · 不再依赖 V2 `setMessages(live.conversation)` patch (patch 仍保留作 defensive · 但现真 backend-sourced)
+- A4 worker 复用模板: 8th panel key conversation 是 channel pilot canonical · A4-channel/A4-credit 可 inherit · A4-other 看是否需要
+
+### Next
+- 主 CLI 等 codex re-review V3 (本 commit signal `WORKER-A3-V3-DONE` 触发)
+- AGREE 后 → cherry-pick A3 9 commit (含 V2 + V3) 到 chore/l0-infra → push origin → 启 A4 5 子 worker
+- A4-channel onboarding 加 cross-ref: 8 panel key + V3 normalizeBackendDone 派生模板
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>

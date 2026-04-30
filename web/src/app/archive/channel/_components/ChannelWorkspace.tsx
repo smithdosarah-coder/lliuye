@@ -1388,6 +1388,13 @@ function normalizeBackendDone(
   const funnel = Array.isArray(evt.funnel) && (evt.funnel as unknown[]).length > 0
     ? (evt.funnel as FunnelStage[])
     : tplFallback.funnel;
+  /* V3 fix · ConversationPanel 从 done envelope 派生 (codex review issue 1 根因 fix) ·
+     CHANNEL_PANEL_KEYS 8th key "conversation" · 当前 backend 默认 [] · 缺/空时 fallback
+     tplFallback.conversation (mock session 模板的对话) · A4-channel AI 复盘 turn 落地后真填 */
+  const conversation =
+    Array.isArray(evt.conversation) && (evt.conversation as unknown[]).length > 0
+      ? (evt.conversation as ConversationMessage[])
+      : tplFallback.conversation;
 
   return {
     ...tplFallback,
@@ -1399,6 +1406,7 @@ function normalizeBackendDone(
     radar,
     signals,
     funnel,
+    conversation,
   };
 }
 

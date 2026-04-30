@@ -285,6 +285,11 @@ def run_channel_search_stream(
                 "match_dimensions": _aggregate_match_dimensions(candidates),
                 "product_recommendations": _aggregate_product_recommendations(candidates),
                 "pitch_scripts": _aggregate_pitch_scripts(candidates),
+                # V3 fix · CHANNEL_PANEL_KEYS 8 key · ConversationPanel 显式从 done envelope 派生
+                # 当前 live 路径不生成 AI dialog turns · 默认 [] · 前端 normalizeBackendDone 兜底
+                # tplFallback.conversation (mock session 模板的对话) · A4-channel 生成 AI 复盘时再
+                # 真填 turns
+                "conversation": [],
             },
             metrics={
                 "signalTotal": len(raw_signals),

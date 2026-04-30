@@ -110,6 +110,8 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
           match_dimensions: [],
           product_recommendations: [],
           pitch_scripts: [],
+          // V3 · CHANNEL_PANEL_KEYS 8th key · backend 默认 [] · 前端 normalizeBackendDone fallback
+          conversation: [],
         })}\n\n`,
       ].join("");
       await route.fulfill({
@@ -215,6 +217,8 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
           match_dimensions: [],
           product_recommendations: [],
           pitch_scripts: [],
+          // V3 · CHANNEL_PANEL_KEYS 8th key · demo scenario JSON 可填 · 缺则 []
+          conversation: [],
         })}\n\n`,
       ].join("");
       await route.fulfill({
@@ -257,6 +261,72 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
     // mock_forced 是显式 demo 选择 · 不应触发 mock_fallback banner (banner-spec rule 2)
     const fallbackBanner = page.locator('[data-testid="channel-pilot-banner-mock-fallback"]');
     await expect(fallbackBanner).toHaveCount(0);
+  });
+
+  test("T6 · V3 · conversation panel 从 done envelope 派生 · backend-injected msg 可见", async ({
+    page,
+    context,
+  }) => {
+    // V3 fix · CHANNEL_PANEL_KEYS 加 conversation · ConversationPanel 真从 sessionData 派生 ·
+    // 验 backend done.conversation 非空时 · 前端 ConversationPanel 显 backend 注入的消息
+    const SENTINEL = "V3-LIVE-CONVERSATION-SENTINEL-9527";
+    await context.route("**/api/channel/run", async (route) => {
+      const sse = [
+        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "rank", status: "done" })}\n\n`,
+        `event: done\ndata: ${JSON.stringify({
+          event: "done",
+          data_source: "live",
+          session_id: "test-v3-conv-1",
+          metrics: { signalTotal: 5, companiesFound: 3, final: 2 },
+          candidates: [
+            {
+              id: "v3-1",
+              name: "V3 测试候选",
+              similarity: 0.82,
+              industry: "测试行业",
+              geo: "测试区域",
+              scale: "测试规模",
+              signals: [],
+              riskTags: [],
+              products: [],
+              match_dimensions: [],
+              product_recommendations: [],
+              pitch_scripts: [],
+            },
+          ],
+          radar: [{ axis: "信号密度", score: 70, benchmark: 50, quadrant: "base" }],
+          signals: [],
+          funnel: [],
+          match_dimensions: [],
+          product_recommendations: [],
+          pitch_scripts: [],
+          // V3 · backend 显式注入 conversation turn · 前端必须从 envelope 派生显
+          conversation: [
+            {
+              id: "live-turn-1",
+              at: "刚刚",
+              kind: "ai-response",
+              content: SENTINEL,
+            },
+          ],
+        })}\n\n`,
+      ].join("");
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sse,
+      });
+    });
+
+    await page.goto("/archive/channel", { waitUntil: "networkidle" });
+    await page.locator(".ch-querybar-input").fill("V3 conversation hydration test");
+    await page.locator('[data-testid="scout-search"]').click();
+    await page.waitForTimeout(500);
+
+    // ConversationPanel 显 backend 注入的 sentinel · 不应是 mock 模板对话
+    const conv = page.locator('[data-testid="channel-pilot-conversation"]');
+    await expect(conv).toBeVisible();
+    await expect(conv).toContainText(SENTINEL);
   });
 
   test("T4 · banner-spec rule 2 · backend stage warning + done.warnings → mock-fallback banner", async ({

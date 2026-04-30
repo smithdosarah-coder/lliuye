@@ -949,7 +949,7 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 
 ---
 
-## F-065 · Channel pilot 4-gate state model + done envelope 7 panels + Tavily warn (Phase A worker-A3)
+## F-065 · Channel pilot 4-gate state model + done envelope 8 panels + Tavily warn (Phase A worker-A3)
 
 - **location**:
   - frontend: `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (4-gate useState · `started` / `selectedSession` / `liveData` / `selectedCandidate` · `sessionData` 单点派生 · `normalizeBackendDone` · `streamSse` 接 `_live.ts` · `bannerKind` info|error)
@@ -961,7 +961,7 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 - **interaction**:
   - 默认 `started=false` · 渲染等待提示
   - 选下拉历史 session + 切换演示 → setSelectedSession + setStarted(true) → 5 panel 全 swap (mock 模式)
-  - 自由文本 + AI 搜索 → streamSse `/api/channel/run` → done envelope 扁平 7 panels → normalizeBackendDone → setLiveData → 5 panel 全 swap to live
+  - 自由文本 + AI 搜索 → streamSse `/api/channel/run` → done envelope 扁平 8 panels → normalizeBackendDone → setLiveData → 5 panel 全 swap to live
   - LiveFailError → bannerKind=error · 红 banner (banner-spec rule 1)
   - backend stage status=warning OR done.warnings non-empty → bannerKind=info · 黄 banner (banner-spec rule 2)
   - 候选 click → setSelectedCandidate → CandidateDetailDrawer · ESC 关
@@ -996,10 +996,11 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
   - hard (稀疏 · 3 候选 · 多家风险标签 · 2 路 off 1 路降级 · metrics signalTotal=11 final=3)
   - 锚定 A 股年报 + 工信部 + 银保监公告形态 · 改名改数字保量级 · 不含答案字段
 - **smoke_test**:
-  - `python -c "..."` in-process: easy/medium/hard 各 12 stage + 1 done + 7/7 panels · INVALID 1 error code=DEMO_SCENARIO_INVALID
+  - `python -c "..."` in-process: easy/medium/hard 各 12 stage + 1 done + 8/8 panels (V3 加 conversation) · INVALID 1 error code=DEMO_SCENARIO_INVALID
   - Playwright T5 (`channel-pilot-4gate.spec.ts`) · 验 `[data-testid="channel-demo-medium"]` click → /api/channel/demo/run hit · scenario_id="medium" · done.data_source="mock_forced" · 5 panel hydrate
 - **NB**:
   - V2 fix (2026-04-30): UI demo 按钮 wire 完成 · `[data-testid="channel-demo-{easy,medium,hard}"]` 3 档按钮 in QueryBar (走 `runDemoScenario` → streamSse → `/api/channel/demo/run` → setLiveData/setMessages/setSelectedCandidate)
+  - V3 fix (2026-04-30): scenario JSON 可填 `conversation: [...]` (默认 [] · backend `data.get("conversation", [])` 透传) · 前端 normalizeBackendDone 派生 ConversationPanel
   - scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不需重启后端
 
 ---

@@ -265,6 +265,9 @@ async def channel_demo_run(req: ChannelDemoRunRequest):
                 "match_dimensions":        data.get("match_dimensions", []),
                 "product_recommendations": data.get("product_recommendations", []),
                 "pitch_scripts":           data.get("pitch_scripts", []),
+                # V3 fix · CHANNEL_PANEL_KEYS 8 key · scenario JSON 可选 conversation 字段 ·
+                # 缺则 [] · 前端 normalizeBackendDone 兜底 tplFallback.conversation
+                "conversation":            data.get("conversation", []),
             },
             metrics=data.get("metrics", {}),
             data_source=DATA_SOURCE_MOCK_FORCED,
