@@ -1,0 +1,133 @@
+{
+  "scenario_id": "online_loan",
+  "difficulty": "中等 (68 rule × 145 event ≈ 9860 cell · 5 严重 / 8 一般 / 12 观察)",
+  "_lineage": "锚定 银保监《商业银行互联网贷款管理暂行办法》(2020-7-12 银保监令 2020 第 9 号) · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 · 不替 Agent5 做政策外搜 (§3.5 环境边界)",
+  "stage_messages": {
+    "rule_extract": "解析 2 份政策原文 → 68 条规则 (期限 18 / 资金 12 / 风控 15 / 信息披露 9 / 集中度 8 / 其他 6)...",
+    "event_extract": "解析 3 份业务文件 → 145 条业务事件 (放款 89 / 联合贷 28 / 营销 18 / 集中度抽样 10)...",
+    "matrix_match": "9860 单元 hard-rule fast path 6500 命中 + LLM slow path 280 命中 + 3080 not_applicable...",
+    "revision_generate": "25 条违规批量生成 改/补/强 修订 (LLM live · 模板兜底 0)..."
+  },
+  "metrics": {
+    "rule_count": 68,
+    "event_count": 145,
+    "cell_count": 9860,
+    "severe": 5,
+    "normal": 8,
+    "observation": 12,
+    "violation_count": 25,
+    "duration_seconds": 158.4
+  },
+  "policy_meta": {
+    "title": "商业银行互联网贷款管理暂行办法 (2026 修订)",
+    "source_url": "(mock · 锚定 银保监 2020 第 9 号 · 数字脱敏)",
+    "fetched_at": "2026-04-28 14:32",
+    "issuer": "国家金融监督管理总局"
+  },
+  "rules_preview": [
+    {"rule_id": "POL-001", "article": "第六条", "category": "期限", "condition": "个人消费贷款期限不得超过 12 个月", "threshold": {"max_months": 12}, "severity_hint": "critical"},
+    {"rule_id": "POL-003", "article": "第三条", "category": "资金", "condition": "联合贷款本行出资比例不得低于 30%", "threshold": {"min_bank_share_ratio": 0.3}, "severity_hint": "critical"},
+    {"rule_id": "POL-014", "article": "第十四条", "category": "风控", "condition": "禁止将核心风控环节外包给合作机构", "severity_hint": "major"},
+    {"rule_id": "POL-019", "article": "第十九条", "category": "信息披露", "condition": "互联网贷款合作业务应在合同中明示资金方", "severity_hint": "major"},
+    {"rule_id": "POL-022", "article": "第二十二条", "category": "集中度", "condition": "单一合作方授信余额不得超过本行一级资本 25%", "threshold": {"max_single_partner_ratio": 0.25}, "severity_hint": "major"}
+  ],
+  "events_preview": [
+    {"event_id": "LN20260118-027", "event_type": "loan", "fields": {"months": 18, "amount": 100000, "purpose": "个人消费", "rate": 0.142}},
+    {"event_id": "COOP202601-008", "event_type": "cooperation", "fields": {"bank_share_ratio": 0.15, "amount": 5800000, "partner": "某互联网平台"}},
+    {"event_id": "OUTSRC2026Q1-003", "event_type": "outsourcing", "fields": {"scope": "贷前审批模型", "vendor": "某科技公司"}},
+    {"event_id": "AD2026-MAR-019", "event_type": "marketing", "fields": {"channel": "短视频信息流", "disclose_partner": false}},
+    {"event_id": "EXP2026Q1-001", "event_type": "concentration", "fields": {"single_partner_ratio": 0.34, "tier1_capital": 8200000000}}
+  ],
+  "events": [
+    {"event_id": "LN20260118-027", "event_type": "loan", "fields": {"months": 18, "amount": 100000, "purpose": "个人消费"}},
+    {"event_id": "COOP202601-008", "event_type": "cooperation", "fields": {"bank_share_ratio": 0.15, "amount": 5800000}},
+    {"event_id": "OUTSRC2026Q1-003", "event_type": "outsourcing", "fields": {"scope": "贷前审批模型"}},
+    {"event_id": "AD2026-MAR-019", "event_type": "marketing", "fields": {"channel": "短视频信息流", "disclose_partner": false}},
+    {"event_id": "EXP2026Q1-001", "event_type": "concentration", "fields": {"single_partner_ratio": 0.34}}
+  ],
+  "matrix": [],
+  "violations": [
+    {
+      "violation_id": "VIO-001",
+      "rule_id": "POL-001",
+      "rule_article": "第六条",
+      "rule_condition": "个人消费贷款期限不得超过 12 个月",
+      "rule_category": "期限",
+      "event_id": "LN20260118-027",
+      "event_type": "loan",
+      "event_fields": {"months": 18, "amount": 100000, "purpose": "个人消费"},
+      "severity": "critical",
+      "evidence": "months=18 超阈值 max_months=12",
+      "match_reason": "事件 LN20260118-027 months=18 > 上限 12",
+      "revisions": [
+        {"category": "改", "title": "缩短消费贷期限至 12 月以内", "text": "事件 LN20260118-027 期限 18 月违反 第六条 · 建议批量回扫近 90 天放款，期限 > 12 月条目按合同重置或提前结清，T+5 内整改完成。"},
+        {"category": "强", "title": "在合同模板加期限上限校验", "text": "在审批系统加 months ≤ 12 的硬规则 + 异常预警，杜绝再次发生。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-002",
+      "rule_id": "POL-003",
+      "rule_article": "第三条",
+      "rule_condition": "联合贷款本行出资比例不得低于 30%",
+      "rule_category": "资金",
+      "event_id": "COOP202601-008",
+      "event_type": "cooperation",
+      "event_fields": {"bank_share_ratio": 0.15, "amount": 5800000},
+      "severity": "critical",
+      "evidence": "bank_share_ratio=0.15 低于阈值 min_bank_share_ratio=0.30",
+      "match_reason": "联合贷 COOP202601-008 本行出资 15% < 下限 30%",
+      "revisions": [
+        {"category": "改", "title": "提高本行出资比例至 ≥30%", "text": "与合作平台重谈出资结构 · COOP202601-008 出资从 15% 提至 30%，否则 T+30 暂停新增放款。"},
+        {"category": "补", "title": "补全联合贷出资合同附件", "text": "缺少出资比例的双签确认页 · 合作合同重新签署补强。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-003",
+      "rule_id": "POL-014",
+      "rule_article": "第十四条",
+      "rule_condition": "禁止将核心风控环节外包给合作机构",
+      "rule_category": "风控",
+      "event_id": "OUTSRC2026Q1-003",
+      "event_type": "outsourcing",
+      "event_fields": {"scope": "贷前审批模型"},
+      "severity": "critical",
+      "evidence": "外包 scope=贷前审批模型 属核心风控",
+      "match_reason": "OUTSRC2026Q1-003 将贷前审批模型外包 · 触红线",
+      "revisions": [
+        {"category": "改", "title": "贷前审批模型迁回行内自建", "text": "停止使用外部模型决策 · 仅保留辅助评估 · 行内独立模型 T+60 上线。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-004",
+      "rule_id": "POL-019",
+      "rule_article": "第十九条",
+      "rule_condition": "互联网贷款合作业务应在合同中明示资金方",
+      "rule_category": "信息披露",
+      "event_id": "AD2026-MAR-019",
+      "event_type": "marketing",
+      "event_fields": {"channel": "短视频信息流", "disclose_partner": false},
+      "severity": "major",
+      "evidence": "disclose_partner=false 营销物料未披露资金方",
+      "match_reason": "短视频信息流广告未明示出资银行 · 触违规",
+      "revisions": [
+        {"category": "补", "title": "营销物料补充资金方明示", "text": "信息流素材统一加 '资金方：XX 银行' 字样 · 当批 19 条物料 T+3 整改。"}
+      ]
+    },
+    {
+      "violation_id": "VIO-005",
+      "rule_id": "POL-022",
+      "rule_article": "第二十二条",
+      "rule_condition": "单一合作方授信余额不得超过本行一级资本 25%",
+      "rule_category": "集中度",
+      "event_id": "EXP2026Q1-001",
+      "event_type": "concentration",
+      "event_fields": {"single_partner_ratio": 0.34},
+      "severity": "major",
+      "evidence": "single_partner_ratio=0.34 超阈值 max_single_partner_ratio=0.25",
+      "match_reason": "Q1 末单一合作方占比 34% > 上限 25%",
+      "revisions": [
+        {"category": "强", "title": "压降单一合作方集中度", "text": "T+90 单一合作方占比降至 25% 以内 · 月度董办报告。"}
+      ]
+    }
+  ]
+}
