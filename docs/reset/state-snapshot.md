@@ -392,6 +392,46 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 7) · worker-A7 V2 codex 5 issue 全修 (rebased + fix-forward)
+
+### What happened
+- worker-A7 收 codex DISAGREE 5 issue · `git rebase chore/l0-infra` 8/8 commits 全 replay 成功 (拿 a72b5c3 Cat 1+9+16 fix-forward + 5cfb718 A6 V2 merge)
+- V2.1 (Cat 16): verify api_server.py:376 已是"辅助风险经理" · grep "策略经理" 0 命中 · ack-only
+- V2.2 (Cat 16): `web/src/lib/store/types.ts:27` 注释 `credit_officer // 审贷官` → `credit_officer // 审贷员`
+- V2.3 (Cat 12): `evaluation/agent6_report.yaml:82-92` 三件:
+  - last_run: `2026-04-03` → `2026-04-29`
+  - commit: `null` → `cc3bc7b` (最新 v16 main commit · feat(v16): commit classifier chain source + labeling rules contract)
+  - pending_metrics: 删 `field_completeness` (已在 result 段落地 0.935 · 不再 pending) + 加 unfilled_marker_accuracy: 1.0000 锚点
+- V2.4: master PRD §2 + §7 PM open question 改 (codex 5 issue 第 4 项)
+  - §2 表 `compli\|compliance (TBD)` → `compliance` · 行 verbatim 锁
+  - §7 删 open question 3 (compliance ratified · per Q-042.B) · 留 G-05/06 + G-08 计 2
+  - GAP-DECIDED 10 → 8 (10 - 2 留 PM = 8)
+  - agent5-compliance-prd-v1.md 顶 + §3.3 (strikethrough 删) + §5.1 + §8 全文 verbatim compliance
+- V2.5: `legacy_gradio/__init__.py:6` reference CLAUDE.md `§15` → `§16` (实际 archived 在 §16 · 因 §15 已是 SSOT 章) · smoke verify §16 ref present
+- decisions-log Q-042.B addendum: compliance ratification 形式化 · 同步影响 6 行 (3 ✅ A7 本 commit + 3 🟡 worker-A1 后续)
+
+### Triggered by
+- codex DISAGREE 5 issue (verbatim 反馈 · A7 onboarding §7 codex 协作通道)
+- A7 自驱 fix-forward (per CLAUDE.md §13 ECS 同步纪律 + SSOT §15 active rule 回写)
+
+### State change (delta)
+- branch HEAD: ff60218 (V1) → V2 final commit (本 commit · 含 5 file changes + Q-042.B + state-snapshot)
+- rebase 后 commit hash 全更 (16415c0/c1279ae/ededb0a/7b58303/0c5c885/559752c/09ac872/fd71cb2 · vs 旧 c01f7bc/739ed7d/2ff8384/acf047a/5e499a0/c7b3a88/7838306/ff60218)
+- compliance 单 id 状态: 🟡 PM TBD → ✅ ratified (Q-042.B · 全栈 verbatim 锁)
+- evaluation/agent6_report.yaml: stale baseline (last_run 2026-04-03 · commit null) → fresh (last_run 2026-04-29 · commit cc3bc7b v16)
+- web/src/lib/store/types.ts: 1 个 stale 文案漂消除
+
+### 风险预警
+- 飞书双写 cross-ref 段引用 `commit: 7838306` 已 stale (rebase 后变 `09ac872`) · 但只是 reference label · 不破坏 doc · 后续如需 fix 飞书 V2 同步段
+- master PRD V2 改未推飞书 · master 飞书节点 `YExwdKhugoJ1kXx0DohcwjWdnAc` 仍含 V1 文本 · PM 若需 Feishu 同步 V2 · 后续追加 append 段
+
+### Next
+- Commit V2 final: `WORKER-A7-PRD-MASTER-V2-DONE` (5 codex issue 全修 · trailer 含 GAP-DECIDED:8 + COMPLIANCE-RATIFIED:yes)
+- A7 V2 完后 · 等 PM 验 + cherry-pick 到 chore/l0-infra (rebase 后已基于最新 chore/l0-infra · cherry-pick clean)
+- worker-A1 V3 衍生项: SSOT §3 compliance 锁定 + agent-id.ts patch 删 + auth_service/rbac.py 统一
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>

@@ -1,7 +1,7 @@
 # Agent5 合规巡检 (compliance) · sub-PRD v1
 
-**agent_id**: `compli` 或 `compliance` (SSOT §3 PM 待拍板 · 文件名暂用 `compliance` per onboarding §1.1 row 5)
-**Status**: 🟡 v1 draft · pending PM ratification (per master PRD §3.1 G-08/G-09 · §7 open question 2 + 3)
+**agent_id**: `compliance` (V2 · PM 已拍 per Q-042 decisions-log · SSOT §3 stale marker 待 worker-A1 fix-forward)
+**Status**: 🟡 v1 draft · pending PM ratification (per master PRD §3.1 G-08/G-09 · §7 open question 2 · `compli/compliance` 已 V2 删)
 **Owner**: 主 CLI · 修改走 RFC · worker A4-compli 实施 (+ 主 CLI 跑 G-09 真路径验)
 **Phase**: Phase A end (G-08 doc + G-09 验) + Phase B-3 (事件源真接 + G-09 Rewrite if 验后决)
 **作者**: worker-A7 · 2026-04-29
@@ -102,11 +102,9 @@ N×M 矩阵 (新规则 × 业务事件)
 4. 点 F-026 cell · 看 Drawer 对照纸是否含**业务单号字段**
 5. 如有 → KRR Keep · 若无 → KRR Rewrite (走 Phase B-3)
 
-### 3.3 PM open question 3 · `compli` vs `compliance` 单 id (per master PRD §7)
+### 3.3 ~~PM open question 3 · `compli` vs `compliance` 单 id~~ (V2 已删)
 
-SSOT §3 PM 待拍板 · 本 sub-PRD 文件名暂遵 onboarding verbatim "compliance"。ratification 后:
-- 若 PM 选 `compli` → `git mv` 文件 + 同 commit ack
-- 若 PM 选 `compliance` → 文件名不动 · ack to SSOT
+V2 (codex 5 issue 修): PM per Q-042 decisions-log 拍 **`compliance`** · SSOT §3 stale marker 待 worker-A1 fix-forward · 本 sub-PRD 全文 verbatim 用 `compliance` (文件名 / agent_id / route `/archive/compliance` / LLM caller endpoint 全统一)。
 
 ---
 
@@ -158,7 +156,7 @@ def poll_regulatory_feeds():
 
 - G-08 (b 路): 飞书 PRD + 本地 PRD acceptance 显式标 "Phase A 手动上传允许 · 事件源 Phase B 接"
 - G-09 验路径: 主 CLI 跑 F-026 真路径 · ratification 决 Keep / Rewrite (verbatim 落本 sub-PRD §3.2 acceptance)
-- LLM caller 迁 `LLMCaller(agent_id="compli/compliance")`
+- LLM caller 迁 `LLMCaller(agent_id="compliance")` (V2 · PM 已拍)
 
 ### 5.2 Phase B-3 推延
 
@@ -190,7 +188,7 @@ def poll_regulatory_feeds():
 
 ## 8. 引用
 
-- Tier 1: `docs/contracts/agent-naming-ssot.md` v1.0 (compli/compliance PM 待) + `sse-envelope.md` v1.0 + `llm-prompt-contract.md` v1.0
+- Tier 1: `docs/contracts/agent-naming-ssot.md` v1.0 (compliance ratified V2 · §3 stale marker 待 A1 fix-forward) + `sse-envelope.md` v1.0 + `llm-prompt-contract.md` v1.0
 - Tier 2: CLAUDE.md §3.1 (确定性边界) + §3.6 (LLM caller 迁) + §4 (Agent5 边界 · 政策事件触发) + master-2026-04-29.md §3.1 G-08/G-09 + §7 open question 2 + 3
 - 飞书: https://fcntbrvzmfph.feishu.cn/wiki/ZMeywAaEJi7ALEkwb9uc4cFnnqc
 

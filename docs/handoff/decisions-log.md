@@ -2429,3 +2429,37 @@ A7 owner Cat 1 (instruction 漂移) 中 3 条 active rule 当前仅在 decisions
 - 不单 fire signal · merge 进 Block A 主 signal
 
 ---
+
+### Q-042.B (V2 addendum · 2026-04-29 · worker-A7 V2 codex 5 issue fix) · `compli` vs `compliance` 单 id PM 拍板 = `compliance`
+
+**Type**: PM ratification (单 id 选择 · SSOT §3 PM TBD 占位决议)
+**Triggered by**: codex DISAGREE 5 issue 第 4 项 + onboarding §1.1 row 5 文件名 verbatim "compliance" + master PRD §2/§7 + sub-PRD agent5 文件名一致使用 compliance · effective ratification by 全栈 verbatim 使用
+**Blocking**: no (compliance 全栈使用已存在 · 本 entry 仅形式化 PM 拍板)
+
+#### 决议
+
+PM 拍 **`compliance`** 为 agent5 单 id (frontend `AgentKey` + backend `RBAC AgentId` + sub-PRD 文件名 + Feishu wiki cross-ref + LLM caller `agent_id` + route `/archive/compliance` 全部统一)。
+
+**同步影响 (V2 全栈搜替 + 后续 fix-forward)**:
+
+| 位置 | V2 状态 | 后续 owner |
+|------|--------|----------|
+| `docs/prd/master-2026-04-29.md` §2 + §7 | ✅ V2 fix (本 commit · `compli\|compliance` (TBD) → `compliance`) | A7 (本 commit) |
+| `docs/prd/agent5-compliance-prd-v1.md` 顶 + §3.3 + §5.1 + §8 | ✅ V2 fix (本 commit · 全文 verbatim compliance · §3.3 PM open Q3 标 strikethrough 删) | A7 (本 commit) |
+| `docs/contracts/agent-naming-ssot.md` v1.0 §1 + §3 | 🟡 stale (compliance/compli TBD 占位仍在) | worker-A1 (RFC 改) |
+| `web/src/lib/auth/agent-id.ts` patch 映射 | 🟡 删 (compliance ↔ compli 映射 · 全栈 compliance 后无需) | worker-A1 (Tier 1 改后) |
+| `auth_service/rbac.py:42` VALID_AGENTS | 🟡 待统一为 compliance (per SSOT 改后) | worker-A1 |
+| `evaluation/agent5_compliance.yaml:3` | ✅ 已是 compliance (历史 compliance · 与 V2 一致) | n/a |
+
+#### Follow-up
+
+1. ✅ 立即 (本 V2 commit): master PRD + agent5 sub-PRD 全栈 compliance · §6.2 飞书双写 log V2 标记
+2. (worker-A1 V3 RFC): SSOT §3 fix-forward · 删 PM TBD 占位 · §1 表 agent_id 列锁 `compliance` · 同 commit 改 `web/src/lib/auth/agent-id.ts` + `auth_service/rbac.py:42`
+3. SSOT lint (`.github/workflows/ssot-lint.yml` worker-A2 已落) 后续扫到本 ratification 应通过
+
+#### Signals
+
+- 本 V2 commit Signal: `WORKER-A7-PRD-MASTER-V2-DONE` 含 trailer `COMPLIANCE-RATIFIED: yes (per Q-042.B)`
+- 衍生 (worker-A1 V3): `WORKER-A1-SSOT-V3-COMPLIANCE-LOCKED`
+
+---
