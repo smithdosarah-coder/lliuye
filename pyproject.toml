@@ -51,6 +51,7 @@ exclude = [
     "demo_data",
     "evaluation/results",
 ]
+extend-exclude = ["legacy_gradio"]
 
 [tool.ruff.lint]
 select = [
@@ -99,6 +100,7 @@ exclude = [
     "^data/",
     "^demo_data/",
     "^out_.*/",
+    "^legacy_gradio/",
 ]
 
 # ----------------------------------------------------------------------------
@@ -111,6 +113,7 @@ testpaths = ["tests", "agent_channel/tests", "agent_credit/tests",
              "agent_alert/tests", "agent_compliance/tests",
              "agent_riskctrl/tests", "agent_report/tests",
              "audit_service/tests"]
+norecursedirs = ["legacy_gradio", ".cache", ".next", "node_modules", "_chunks", "out_*", "data", "demo_data"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -143,6 +146,7 @@ omit = [
     "*/__init__.py",
     "*/app.py",          # 旧版 Gradio UI，不纳入覆盖率
     "*/app_demo.py",
+    "legacy_gradio/*",
 ]
 
 [tool.coverage.report]

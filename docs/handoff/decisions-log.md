@@ -2385,56 +2385,81 @@ LoginForm.tsx:35-41 5 user/pwd 前端硬编 PASSWORD_MAP (`u_wangzhe/wangzhe / u
 
 ---
 
-## Q-042 (2026-04-29 reset 工程 PM 拍板 + V2 推明天 + 主 CLI fix-forward 批 audit trail · 主 CLI 2026-04-30 morning 补登)
+## [Q-042] 2026-04-29 · worker-A7 (Phase A Week 2-3) · 3 active rule 回写 root CLAUDE.md (per A7 onboarding §1.3 + PM 拍板 #3)
 
-### 提问
+**Type**: Active rule back-write (无新拍板 · 仅把已存在 Q-040/Q-041/Stage E.3 PIPL 三条 active rule 从 decisions-log Tier 5 抬到 Tier 2 root CLAUDE.md)
+**Triggered by**: phase-a-charter §3 worker-A7 · 硬线 #7 · onboarding §1.3 · PM 拍板 #3 (active decision 必回写 root CLAUDE.md)
+**Blocking**: no (active rule 已生效 · 仅 SOT layer 升级)
 
-reset 工程 Day 1 (2026-04-29) PM 在 Step 2 conflict register 87 entries 拍板 4 件 dissent 收敛 + V1 codex DISAGREE × 3 V2 推明天 + 主 CLI fix-forward 3 件 + GitHub PAT scope fix-forward。需正式 audit trail 登记。
+### 背景
 
-### 答 (decisions verbatim)
+PM 拍板 #3 (2026-04-29): "active decision 必须回写 root CLAUDE.md (谁改决策谁回写 · 不回写不算 done · CI lint enforce)"。SSOT §15 + Active decision 回写硬规要求 Tier 5 (decisions-log) 中改变 future worker 行为的决议**必须**抬到 Tier 1-2 (contracts / root CLAUDE.md)。
 
-**PM 拍板 4 件 (Step 2 STEP-2-PM-RULED · 28fb9db)**:
-1. agent_id 选 `compliance` 单 id (不是 compli) · A1 SSOT verbatim 写定 · A4 5 子后续全栈替换
-2. /today RM workbench 重写推 Phase B-3 (端到端 demo chain · 不堆 A6 + 不新建 A8)
-3. Cat 15 production sync 等 A1+A2 完后做 · ✅ 已解 (chore/l0-infra ↔ main 落差 10 commit · merged · ECS sync)
-4. legacy_gradio 全栈隔离 (v16 真稳前不真删) · A7 干 5 件 (import guard + pyproject 排除 + CLAUDE.md §15 + §2 + onboarding template) · 等 PM 拍 v16 真稳后 git rm
+A7 owner Cat 1 (instruction 漂移) 中 3 条 active rule 当前仅在 decisions-log 留痕 · 未在 root CLAUDE.md 出现 · 违反 SSOT §1.3。本 Q-042 batch 回写。
 
-**V1 codex DISAGREE × 3 · V2 推明天 (CODEX-REVIEW-A3-A6-DISAGREE d8055cb + CODEX-REVIEW-A5-DISAGREE 0a5e592)**:
-- A3 channel pilot 4 issue (issue 3 critical · agent_channel/realtime_stream.py data_source enum no-op · A4 模板会 spread bad pattern)
-- A5 design 4 issue (letterpress-purge.spec.ts smoke 不严 · 硬线 #5 验收要求 4 themes × 6 agent tile 截屏未达)
-- A6 handoff 3 issue (chain 3+4 schema UUID vs string 不一致 · target_agent vs fan_out_targets 撕裂)
+### 3 条 active rule 回写明细
 
-**主 CLI fix-forward 3 件 (FIX-FORWARD-CAT-1-9-16 · a72b5c3)**:
-- Cat 1 active rule 3 条回写 CLAUDE.md (Q-040 MAX_ROWS=50000 → §11 Agent2 · Q-041 candidate metadata 4 字段 → §11 Agent1 · PIPL fallback chain → §3.6)
-- Cat 9 §7 canon 删 /design (没人需要 · 目录未建访问 404)
-- Cat 16 api_server.py:376 IM prompt "策略经理→风险经理" (CLAUDE.md §1+§4 早统一 · runtime 漂修)
+| Rule | 来源 | 回写位置 (root CLAUDE.md) | 行为约束 |
+|------|------|--------------------------|---------|
+| Q-040 Agent2 `MAX_ROWS=50000` (≤ 500 废弃) | decisions-log Q-040 (2026-04-26) + signal `AGENT2-MAX-ROWS-FIX` | §3.7.1 | 任何 worker 不得回退 ≤ 500 · 仅 PM `Authorized-By` trailer 可放宽 |
+| Q-041 Agent1 candidate 必出 4 字段 (industry/geo/scale/similarity) | decisions-log Q-041 (2026-04-28) + signal `Q-041-RESOLVED` | §3.7.2 | SSE candidate 缺任一字段 / 值 null / "[object Object]" 视作 regression |
+| PIPL fallback chain 全境内 | Stage E.3 (2026-04-28) PIPL 境内优先决议 + §3.6 已展开 | §3.7.3 (back-ref §3.6) | `DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` · `moonshot` 海外路由仅 `LLM_PROVIDER=moonshot` 显式触发 |
 
-**GitHub PAT scope fix-forward (FIX-FORWARD-WORKFLOW-PAT-SCOPE · 9e30f43)**:
-- A1 V2 加的 .github/workflows/lint-contracts.yml 触发 PAT 缺 workflow scope · push 拒
-- 删 workflow · scripts/lint/check_agent_naming_ssot.py (lint script) 保留 · 手动 `python scripts/lint/check_agent_naming_ssot.py` 可跑
-- 后续 PM 加 PAT workflow scope 后 · worker (或 main CLI) 恢复 workflow
+### Decisions
+
+#### A-042.1 · 三条 rule 一次性 batch 回写 root CLAUDE.md §3.7
+
+- 新增 §3.7 "Active runtime rules (Q-NNN 回写区)" · 三 sub-section (3.7.1/3.7.2/3.7.3)
+- 每 sub-section 含: 位置 / 规则 / 理由 / 谁可放宽 / 回写来源 5 维度
+- 后续新 active rule 按时序 append §3.7.4 / 3.7.5 …
+
+#### A-042.2 · CI lint (SSOT lint 硬线 #1) 启用后会扫本节
+
+`.github/workflows/ssot-lint.yml` (worker-A2 V2 fix #1 c994036 落) 会扫 root CLAUDE.md 与 decisions-log 的 active rule 一致性 · 本 Q-042 后 §3.7 三条与 decisions-log Q-040/Q-041/Stage E.3 应一致通过 lint。
 
 ### Follow-up
 
-1. ✅ 主 CLI fix-forward 3 件 merged main + ECS deploy
-2. ✅ Cat 15 P0 production sync 解 (chore/l0-infra → main · 落差 10 commit 一次清掉)
-3. ✅ Step 2 完成 + 87 entries 各 worker owner 派
-4. ⏳ A3/A5/A6 V2 fix today · launch-tomorrow.bat 启 4 worker (含 A7 续)
-5. ⏳ A3 V2 cherry-pick 后 commit `A4-{X}-GO-AFTER-A3` × 5 · launch-A4-batch.bat 启 5 A4 子真动
-6. ⏳ A7 master + 6 sub PRD draft + 飞书双写 today
-7. ⏳ A1 compliance-ratify (optional minor)
-8. ⏳ A4 5 子真动 + integration cross-agent smoke today
-9. ⏳ Phase A 8 硬线 全 ✅ → neat-freak skill 收尾 → Phase B 启 (worker-B1 数据飞轮 + worker-B2 商业化)
+1. ✅ 立即: 本 Q-042 commit + 同 commit 含 §3.7 落地 · 同 commit trailer `ACTIVE-RULE-BACK-WRITTEN: 3`
+2. (将来 active rule 新生): 谁加 active rule 谁同 commit append §3.7.N + 同 commit 加 decisions-log entry · 不分两 commit (PM 拍板 #3 同 commit / ≤ 24h 硬线)
+3. SSOT lint 跑通后 · 如有偏差 · fix-forward (不 revert · 不 hide)
 
-### Signals (verbatim · audit cross-ref)
+### Signals
 
-- Step 2 fire: STEP-2-FIRE-DISPATCHED (c175f74) · STEP-2-CONFLICT-REGISTER-V1-PREPARED (2db1107) · STEP-2-PM-RULED (28fb9db)
-- Phase A 7 worker dispatch: PHASE-A-A1/A2/A3/A4-{credit,alert,compli,riskctrl,report}/A5/A6/A7-DISPATCHED
-- A1 V2 + V3 merged: 3752d98 (V2 merge) · 1d04b94 (V3 minor cherry-pick)
-- A2 V2 + register update merged: 2bfc5ad (V2 merge) · 8223cad (register cherry-pick)
-- Codex reviews: A1 V1 DISAGREE 4594b87 · A1 V2 AGREE + A2 V2 AGREE 5ee1593 · A3 V1 DISAGREE + A6 V1 DISAGREE d8055cb · A5 V1 DISAGREE 0a5e592
-- 主 CLI fix-forward: FIX-FORWARD-CAT-1-9-16 a72b5c3 · FIX-FORWARD-WORKFLOW-PAT-SCOPE 9e30f43
-- Day 1 收尾: END-OF-DAY-1-RESET-STATE-SNAPSHOT 5ed5e82 · MORNING-REPORT-PLAN-DAY-2 2d05681
+- 本 commit Signal: `WORKER-A7-PRD-MASTER-DONE` 中 trailer `ACTIVE-RULE-BACK-WRITTEN: 3` (Block A 完时 fire · 本 batch 是 Block A.0 子 commit)
+- 不单 fire signal · merge 进 Block A 主 signal
 
 ---
 
+### Q-042.B (V2 addendum · 2026-04-29 · worker-A7 V2 codex 5 issue fix) · `compli` vs `compliance` 单 id PM 拍板 = `compliance`
+
+**Type**: PM ratification (单 id 选择 · SSOT §3 PM TBD 占位决议)
+**Triggered by**: codex DISAGREE 5 issue 第 4 项 + onboarding §1.1 row 5 文件名 verbatim "compliance" + master PRD §2/§7 + sub-PRD agent5 文件名一致使用 compliance · effective ratification by 全栈 verbatim 使用
+**Blocking**: no (compliance 全栈使用已存在 · 本 entry 仅形式化 PM 拍板)
+
+#### 决议
+
+PM 拍 **`compliance`** 为 agent5 单 id (frontend `AgentKey` + backend `RBAC AgentId` + sub-PRD 文件名 + Feishu wiki cross-ref + LLM caller `agent_id` + route `/archive/compliance` 全部统一)。
+
+**同步影响 (V2 全栈搜替 + 后续 fix-forward)**:
+
+| 位置 | V2 状态 | 后续 owner |
+|------|--------|----------|
+| `docs/prd/master-2026-04-29.md` §2 + §7 | ✅ V2 fix (本 commit · `compli\|compliance` (TBD) → `compliance`) | A7 (本 commit) |
+| `docs/prd/agent5-compliance-prd-v1.md` 顶 + §3.3 + §5.1 + §8 | ✅ V2 fix (本 commit · 全文 verbatim compliance · §3.3 PM open Q3 标 strikethrough 删) | A7 (本 commit) |
+| `docs/contracts/agent-naming-ssot.md` v1.0 §1 + §3 | 🟡 stale (compliance/compli TBD 占位仍在) | worker-A1 (RFC 改) |
+| `web/src/lib/auth/agent-id.ts` patch 映射 | 🟡 删 (compliance ↔ compli 映射 · 全栈 compliance 后无需) | worker-A1 (Tier 1 改后) |
+| `auth_service/rbac.py:42` VALID_AGENTS | 🟡 待统一为 compliance (per SSOT 改后) | worker-A1 |
+| `evaluation/agent5_compliance.yaml:3` | ✅ 已是 compliance (历史 compliance · 与 V2 一致) | n/a |
+
+#### Follow-up
+
+1. ✅ 立即 (本 V2 commit): master PRD + agent5 sub-PRD 全栈 compliance · §6.2 飞书双写 log V2 标记
+2. (worker-A1 V3 RFC): SSOT §3 fix-forward · 删 PM TBD 占位 · §1 表 agent_id 列锁 `compliance` · 同 commit 改 `web/src/lib/auth/agent-id.ts` + `auth_service/rbac.py:42`
+3. SSOT lint (`.github/workflows/ssot-lint.yml` worker-A2 已落) 后续扫到本 ratification 应通过
+
+#### Signals
+
+- 本 V2 commit Signal: `WORKER-A7-PRD-MASTER-V2-DONE` 含 trailer `COMPLIANCE-RATIFIED: yes (per Q-042.B)`
+- 衍生 (worker-A1 V3): `WORKER-A1-SSOT-V3-COMPLIANCE-LOCKED`
+
+---
