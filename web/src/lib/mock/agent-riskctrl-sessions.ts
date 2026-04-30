@@ -565,5 +565,3 @@ export const RISKCTRL_MOCK_SESSIONS_LIST: { id: string; objective: string; ks: n
   { id: SESS_FRAUD_HIGH.id, objective: SESS_FRAUD_HIGH.objective, ks: SESS_FRAUD_HIGH.ks.ksPeak },
 ];
 
-/** 兼容 · 旧 RISKCTRL_SESSION 入口 · 指向 SESS_CREDIT_V15 (Step 11 删旧文件后由本 export 接替) */
-export const RISKCTRL_SESSION = SESS_CREDIT_V15;
