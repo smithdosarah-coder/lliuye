@@ -2072,6 +2072,11 @@ function CreditDecisionAdvicePanel(p: {
   decisionError: string | null;
   stageTab: "corporate" | "small_business" | "retail";
 }) {
+  /* Step 11 · 2026-04-29 worker-A4-credit · 替 console.error 静默 (cat 13)
+     export_docx 失败 → banner 显式 + retry/dismiss · banner 文案区分 4xx/5xx/network */
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportRunning, setExportRunning] = useState(false);
+
   if (!p.liveAdvice && !p.decisionRunning && !p.decisionError) return null;
 
   const advice = (p.liveAdvice ?? {}) as Record<string, unknown>;
@@ -2087,6 +2092,8 @@ function CreditDecisionAdvicePanel(p: {
 
   async function downloadDocx() {
     if (!p.decisionId && !p.liveAdvice) return;
+    setExportError(null);
+    setExportRunning(true);
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
     const body = p.decisionId
@@ -2098,7 +2105,20 @@ function CreditDecisionAdvicePanel(p: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // 解 backend 4xx/5xx detail (per agent_credit/api.py error envelope)
+        const text = await res.text().catch(() => "");
+        let msg = `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(text) as { detail?: { error?: { code?: string; message?: string } } };
+          if (parsed.detail?.error?.message) {
+            msg = `${parsed.detail.error.code ?? `HTTP ${res.status}`}: ${parsed.detail.error.message}`;
+          }
+        } catch {
+          if (text) msg = `${msg} · ${text.slice(0, 120)}`;
+        }
+        throw new Error(msg);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -2109,7 +2129,10 @@ function CreditDecisionAdvicePanel(p: {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("[credit] export_docx failed:", err);
+      // 替原 console.error 静默 (cat 13) · banner 显式 + 用户可 retry/dismiss
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportRunning(false);
     }
   }
 
@@ -2182,10 +2205,41 @@ function CreditDecisionAdvicePanel(p: {
             className="credit-advice-live__export"
             data-testid="credit-export-docx-btn"
             onClick={downloadDocx}
-            disabled={!p.decisionId && !p.liveAdvice}
+            disabled={(!p.decisionId && !p.liveAdvice) || exportRunning}
           >
-            导出决策建议书 (.docx)
+            {exportRunning ? "导出中…" : "导出决策建议书 (.docx)"}
           </button>
+          {/* Step 11 · cat 13 fix · export 失败 banner (替 console.error 静默) */}
+          {exportError ? (
+            <div
+              role="alert"
+              data-testid="credit-export-error-banner"
+              className="credit-advice-live__export-err"
+            >
+              <span className="credit-advice-live__export-err-icon" aria-hidden>⚠</span>
+              <span className="credit-advice-live__export-err-text">
+                <b>导出失败</b>
+                <span className="credit-advice-live__export-err-detail">{exportError}</span>
+              </span>
+              <button
+                type="button"
+                className="credit-advice-live__export-err-retry"
+                onClick={downloadDocx}
+                data-testid="credit-export-retry"
+              >
+                重试
+              </button>
+              <button
+                type="button"
+                className="credit-advice-live__export-err-dismiss"
+                onClick={() => setExportError(null)}
+                aria-label="关闭导出错误提示"
+                data-testid="credit-export-dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : p.decisionRunning ? (
         <div className="credit-advice-live__loading">LLM 决策流式生成中…</div>
