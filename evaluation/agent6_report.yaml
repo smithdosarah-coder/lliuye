@@ -80,10 +80,10 @@ metrics:
       blocker_threshold: 55.0
 
 baseline:
-  last_run: 2026-04-29
-  # 最新 v16 主管线 commit · 见 v16_pipeline.py / v16_generator.py / v16_classifier.py 链
-  # main 分支 v16-specific 最新: cc3bc7b feat(v16): commit classifier chain source + labeling rules contract
-  commit: cc3bc7b
+  last_run: 2026-04-30
+  # 当前 main HEAD SHA (per `git rev-parse main` · V3 codex 反馈采严格 main HEAD 锚)
+  # 衍生 v16-specific 最新提交: cc3bc7b feat(v16): commit classifier chain source + labeling rules contract
+  commit: 7c9e33a
   result:
     field_completeness: 0.935
     unfilled_count: 32

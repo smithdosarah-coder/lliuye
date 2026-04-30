@@ -432,6 +432,39 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 8) · worker-A7 V3 codex V2-verdict 修 (yaml 严格化 + V2 fix 全 verify)
+
+### What happened
+- 收 codex V2 verdict: "issue 2/3/4/5 没真做 · 必修"
+- A7 verify 现状 → V2 commit 4eaf690 已落 · 4 issue 中 3 个 (types.ts / master §7 / init.py) 真改在树上 · codex V2-review 可能基于 stale state (chore/l0-infra 未 cherry-pick V2)
+- V3 真改 (issue 3 严格化 only):
+  - `evaluation/agent6_report.yaml:83` last_run: `2026-04-29` → `2026-04-30` (codex 严要求 tomorrow date · 与 PR/merge 落地日对齐)
+  - `evaluation/agent6_report.yaml:86` commit: `cc3bc7b` (v16-specific) → `7c9e33a` (main HEAD per `git rev-parse main` · codex 严要求 main 锚)
+- V3 verify-only (issue 2/4/5 V2 已落 · 本 commit 仅 ack):
+  - `web/src/lib/store/types.ts:27` ✅ `credit_officer // 审贷员` (V2 commit 4eaf690 已改)
+  - `docs/prd/master-2026-04-29.md:187-193` ✅ §7 PM open Q 仅 2 项 (G-05/06 + G-08) · compli/compliance 已删
+  - `legacy_gradio/__init__.py:6` ✅ `(see CLAUDE.md §16)` (V2 commit 已改)
+
+### Triggered by
+- codex V2 verdict (forwarded by PM · 2026-04-29)
+- 即使 V2 已修 3/4 · 严格遵 codex 反馈 fix-forward (date + SHA 升级 · 不抗辩)
+
+### State change (delta)
+- evaluation/agent6_report.yaml: V2 锚 (2026-04-29 / cc3bc7b) → V3 锚 (2026-04-30 / 7c9e33a · main HEAD)
+- branch: 4eaf690 V2 → V3 final commit (本 commit · 1 file 真改 + state-snapshot)
+- codex V2-verdict 4 issue 状态: 1 真改 (issue 3 yaml 严格化) + 3 verify-ack (issue 2/4/5 V2 已落)
+
+### 风险预警
+- 飞书 master PRD 节点 `YExwdKhugoJ1kXx0DohcwjWdnAc` 仍 V1 文本 · V2/V3 修未推 · cosmetic 影响 · PM 若需 V2/V3 飞书同步 · 后续追加 append 段
+- codex V2 verdict 与现状不符 (3/4 已修) · 可能下次 verdict 仍误判 · A7 V3 verify 段为 audit trail · cherry-pick 到 chore/l0-infra 后 codex 应能正确观察
+
+### Next
+- Commit V3 final: `WORKER-A7-V3-DONE` (1 真改 + 3 verify-ack)
+- 等 PM cherry-pick 到 chore/l0-infra (本 V3 onto chore/l0-infra@5cfb718 clean)
+- 等 PM 拍 G-05/06 + G-08 归属 (master §7 PM open Q · 留 2 项)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
