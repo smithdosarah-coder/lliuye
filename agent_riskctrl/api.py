@@ -20,8 +20,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -475,3 +475,113 @@ async def riskctrl_backtest(req: BacktestRequest):
         ))
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
+# ============================================================================
+# Phase A worker-A4 · 2026-04-29 · Export trio (docx / xlsx / pdf)
+#   audit Cat 13 闭 · 与 worker-A6 export contract 共形
+#   后端实装于 agent_riskctrl/exports.py · 不走境外 API · 本地渲染
+# ============================================================================
+
+
+class ExportRequest(BaseModel):
+    """Export 三件套统一 body. ruleset_id 必传 (文件名后缀); 其余字段可选 ·
+    缺则 build_*  内部用 placeholder. 前端 Step 8 wired 后会传 full panels."""
+
+    ruleset_id: str = Field(..., description="ruleset 标识 · 文件名后缀")
+    ruleset: dict | None = Field(default=None, description="RuleSet model_dump")
+    ks: dict | None = Field(default=None, description="KS panel · {ksPeak, auc, passRate, badRate, points}")
+    samples: list[dict] | None = Field(default=None, description="样本分档 · 3 档")
+    rule_stats: list[dict] | None = Field(default=None, description="per-rule 命中明细")
+    metrics: dict | None = Field(default=None, description="顶层 KPI metrics")
+
+
+def _export_ctx_from_req(req: ExportRequest) -> dict[str, object]:
+    return {
+        "ruleset_id": req.ruleset_id,
+        "ruleset": req.ruleset,
+        "ks": req.ks,
+        "samples": req.samples,
+        "rule_stats": req.rule_stats,
+        "metrics": req.metrics,
+    }
+
+
+def _export_response(data: bytes, ruleset_id: str, ext: str, mime: str) -> Response:
+    from urllib.parse import quote
+
+    from agent_riskctrl.exports import build_filename
+
+    filename = build_filename(ruleset_id, ext)
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"; '
+                f"filename*=UTF-8''{quote(filename)}"
+            ),
+            "X-Riskctrl-Export-RulesetId": ruleset_id,
+            "X-Riskctrl-Export-Type": ext,
+        },
+    )
+
+
+@app.post("/api/riskctrl/export_docx")
+async def riskctrl_export_docx(req: ExportRequest):
+    """Word 报告导出 (回测稿) · 见 agent_riskctrl/exports.build_docx 内容契约."""
+    try:
+        from agent_riskctrl.exports import build_docx
+        data = build_docx(_export_ctx_from_req(req))
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
+        raise HTTPException(
+            500,
+            detail={"error": {
+                "code": "RENDER_FAILED",
+                "message": f"docx render failed: {type(e).__name__}: {e}",
+            }},
+        ) from e
+    return _export_response(
+        data, req.ruleset_id, "docx",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@app.post("/api/riskctrl/export_xlsx")
+async def riskctrl_export_xlsx(req: ExportRequest):
+    """Excel 规则明细导出 · 4 sheet (Rules / KS Points / Samples / RuleStats)."""
+    try:
+        from agent_riskctrl.exports import build_xlsx
+        data = build_xlsx(_export_ctx_from_req(req))
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
+        raise HTTPException(
+            500,
+            detail={"error": {
+                "code": "RENDER_FAILED",
+                "message": f"xlsx render failed: {type(e).__name__}: {e}",
+            }},
+        ) from e
+    return _export_response(
+        data, req.ruleset_id, "xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@app.post("/api/riskctrl/export_pdf")
+async def riskctrl_export_pdf(req: ExportRequest):
+    """PDF 送审包 · 含规则明细 + 样本分布 + 审批栏 (留白)."""
+    try:
+        from agent_riskctrl.exports import build_pdf
+        data = build_pdf(_export_ctx_from_req(req))
+    except (RuntimeError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
+        raise HTTPException(
+            500,
+            detail={"error": {
+                "code": "RENDER_FAILED",
+                "message": f"pdf render failed: {type(e).__name__}: {e}",
+            }},
+        ) from e
+    return _export_response(
+        data, req.ruleset_id, "pdf",
+        "application/pdf",
+    )
