@@ -291,6 +291,124 @@ async def get_handoff_demo(segment: str):
 
 
 # ============================================================================
+# Agent6 → Agent3 handoff endpoints (Phase A worker-A4-credit · 2026-04-29)
+#   per agent-credit-spec §5.2 + agent-handoff-schemas §2 · cat 0 北极星核心
+#   Phase A fallback: 后端从 demo_data/agent_credit/*.json 读 (无真 Agent6 archive)
+#   Phase B 转: data/handoff/report_to_credit/<report_id>.json 真接 Agent6 v16 pipeline 输出
+# ============================================================================
+
+
+def _build_demo_session_meta(path: Path) -> dict[str, Any]:
+    """从 demo_data/agent_credit/ 文件名推 session_id + meta · 兜底 Agent6 真 archive 未到位。"""
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    seg = "retail" if path.name.startswith("retail_") else "corporate"
+    preset = d.get("preset_name", path.stem)
+    return {
+        "session_id": f"demo_{path.stem}",
+        "report_id": d.get("profile_id", path.stem),
+        "company_name": d.get("company_name", "(unknown)"),
+        "segment": seg,
+        "preset_name": preset,
+        "industry": d.get("industry"),
+        "established_date": d.get("establishment_date"),
+        "generated_at": (d.get("_handoff_meta") or {}).get("generated_at", ""),
+        "status": "done",
+        "source_file": path.name,
+    }
+
+
+@app.get("/api/credit/reports/sessions")
+async def list_credit_reports(status: str = "done"):
+    """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
+
+    Phase A: 走 demo_data/agent_credit/*.json (4 sample profile)
+    Phase B: 真接 Agent6 v16 pipeline archive (`data/handoff/report_to_credit/`)
+    """
+    if status not in ("done", "all"):
+        raise HTTPException(400, "status must be 'done' or 'all'")
+    if not _HANDOFF_DIR.exists():
+        return {"sessions": [], "count": 0, "source": "phase_a_demo_data"}
+    sessions = []
+    for path in sorted(_HANDOFF_DIR.glob("*.json")):
+        meta = _build_demo_session_meta(path)
+        if meta:
+            sessions.append(meta)
+    return {"sessions": sessions, "count": len(sessions), "source": "phase_a_demo_data"}
+
+
+class HandoffFromReportRequest(BaseModel):
+    session_id: str = Field(..., description="Agent6 report session_id (从 /reports/sessions 拉)")
+
+
+@app.post("/api/credit/handoff/from_report")
+async def handoff_from_report(req: HandoffFromReportRequest):
+    """Agent6→Agent3 handoff · Cat 0 北极星核心: EmptyState onPrimary 真消费 ReportJSON。
+
+    返 enterprise_profile + ready_for_decision flag · 前端注入 /api/credit/decision body。
+
+    Phase A 路径: session_id "demo_corp_dingsheng_trade" → 读 demo_data/agent_credit/corp_dingsheng_trade.json
+    Phase B 路径: 真接 data/handoff/report_to_credit/<report_id>.json (Agent6 v16 pipeline 输出)
+    """
+    sid = req.session_id
+    if not sid:
+        raise HTTPException(400, detail={
+            "error": {"code": "VALIDATION_FAILED", "message": "session_id required"}
+        })
+
+    # Phase A demo · session_id "demo_<filename_stem>" → 找 demo_data/agent_credit/<stem>.json
+    if sid.startswith("demo_"):
+        stem = sid[len("demo_"):]
+        path = _HANDOFF_DIR / f"{stem}.json"
+        if not path.exists():
+            raise HTTPException(404, detail={
+                "error": {"code": "REPORT_NOT_FOUND",
+                          "message": f"demo report not found: {stem}.json",
+                          "available": [p.stem for p in _HANDOFF_DIR.glob("*.json")]}
+            })
+    else:
+        # Phase B path · 真接 Agent6 archive (待 A6 v16 pipeline production-wire)
+        archive = PROJECT_ROOT / "data" / "handoff" / "report_to_credit" / f"{sid}.json"
+        if not archive.exists():
+            raise HTTPException(404, detail={
+                "error": {"code": "REPORT_NOT_FOUND",
+                          "message": f"Agent6 archive not found: {sid} (Phase B path 待 A6 production wire)"}
+            })
+        path = archive
+
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        raise HTTPException(500, detail={
+            "error": {"code": "REPORT_LOAD_FAILED",
+                      "message": f"{type(e).__name__}: {e}"}
+        }) from e
+
+    # 关键字段缺失检查 (per agent-handoff-schemas §2.5 缺失降级)
+    has_financial = bool((report.get("financial_anchors") or {}).get("revenue_latest"))
+    has_company = bool(report.get("company_name"))
+
+    return {
+        "session_id": sid,
+        "report_id": report.get("profile_id", sid),
+        "company_name": report.get("company_name"),
+        "industry": report.get("industry"),
+        "generated_at": (report.get("_handoff_meta") or {}).get("generated_at", ""),
+        "preset_name": report.get("preset_name"),
+        "enterprise_profile": report,   # 全量 ReportJSON · 注入 /decision body.report_json
+        "ready_for_decision": has_company and has_financial,
+        "missing_fields": [
+            *(["company_name"] if not has_company else []),
+            *(["financial_anchors.revenue_latest"] if not has_financial else []),
+        ],
+        "warning": None if (has_company and has_financial) else
+                   "关键字段缺失 · 评分将用保守 fallback (per agent-handoff-schemas §2.5)",
+    }
+
+
+# ============================================================================
 # POST /api/credit/decision — Stage C v4.0 (SSE)
 # body: { stage_tab, report_json?, materials?, preset_name?, provider?, api_key?, mock? }
 # ============================================================================

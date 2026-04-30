@@ -229,13 +229,167 @@ export default function CreditWorkspace() {
     }
   }
 
-  /* tertiary CTA · 选历史 (示例) session · setStarted=true 但不调 backend · 看 mock UI */
-  function selectHistoricalDemo() {
+  /* primary CTA · Cat 0 北极星核心: Agent6 handoff → 注入 enterprise_profile → 起决策
+     Step 9 · 2026-04-29 worker-A4-credit · per agent-handoff-schemas §2 + spec §3 触发源 2
+     Phase A: 先拉 /api/credit/reports/sessions list · 取首条 (UI picker 留 Phase B)
+     Phase B: 弹 modal 让 RM 在 N 个完成报告中挑选 */
+  const [handoffSource, setHandoffSource] = useState<{
+    sessionId: string;
+    reportId: string;
+    companyName: string;
+    industry: string | null;
+    generatedAt: string;
+    stageTab: "corporate" | "small_business" | "retail";
+  } | null>(null);
+
+  async function runDecisionWithAgent6Handoff() {
+    if (decisionRunning) return;
+    setDecisionError(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    try {
+      // 1. 拉 Agent6 已完成报告 list (Phase A: demo_data fixtures · Phase B: 真 archive)
+      const listRes = await fetch(`${apiBase}/api/credit/reports/sessions?status=done`);
+      if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+      const listData = (await listRes.json()) as {
+        sessions: Array<{
+          session_id: string; report_id: string; company_name: string;
+          segment: string; industry: string | null; generated_at: string;
+        }>;
+        count: number;
+      };
+      if (listData.count === 0) {
+        setDecisionError("无可用 Agent6 报告 · 请先在 /archive/report 完成尽调或选演示模式");
+        return;
+      }
+      // Phase A: 按当前 mode 自动 match · 否则取首条
+      const segmentForMode: Record<CreditMode, string> = {
+        corp: "corporate", small: "corporate", retail: "retail",
+      };
+      const targetSeg = segmentForMode[mode];
+      const picked = listData.sessions.find((s) => s.segment === targetSeg)
+                  ?? listData.sessions[0];
+
+      // 2. 拉 ReportJSON
+      const handoffRes = await fetch(`${apiBase}/api/credit/handoff/from_report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: picked.session_id }),
+      });
+      if (!handoffRes.ok) throw new Error(`handoff HTTP ${handoffRes.status}`);
+      const handoff = (await handoffRes.json()) as {
+        session_id: string;
+        report_id: string;
+        company_name: string;
+        industry: string | null;
+        generated_at: string;
+        enterprise_profile: Record<string, unknown>;
+        ready_for_decision: boolean;
+        warning: string | null;
+      };
+
+      // 3. 设 banner state · 起决策
+      const stageTab = MODE_TO_STAGE_TAB[mode];
+      setHandoffSource({
+        sessionId: handoff.session_id,
+        reportId: handoff.report_id,
+        companyName: handoff.company_name,
+        industry: handoff.industry,
+        generatedAt: handoff.generated_at,
+        stageTab,
+      });
+      if (handoff.warning) {
+        setDecisionError(`⚠️ ${handoff.warning}`);
+      }
+
+      // 4. 真起决策 · enterprise_profile 注入 body.report_json
+      setStarted(true);
+      setDecisionRunning(true);
+      setLiveAdvice(null);
+      setDecisionId(null);
+      const fallbackSession = sessionData;
+      try {
+        await streamSse(
+          `${apiBase}/api/credit/decision`,
+          {
+            stage_tab: stageTab,
+            mock: false,
+            report_json: handoff.enterprise_profile,
+          },
+          (sseEvt) => {
+            const data = sseEvt.data as {
+              event?: string; stage?: string; decision_id?: string;
+              payload?: Record<string, unknown>; message?: string;
+            };
+            if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
+              setLiveAdvice(data.payload);
+              setScanned(true);
+            }
+            if (sseEvt.type === "decision_cached" && data.decision_id) {
+              setDecisionId(data.decision_id);
+            }
+            if (sseEvt.type === "done") {
+              setLiveData(normalizeCreditDone(
+                data as Record<string, unknown>,
+                fallbackSession,
+              ));
+              setSelectedCandidate(null);
+              setScanned(true);
+            }
+          },
+        );
+      } finally {
+        setDecisionRunning(false);
+      }
+    } catch (err) {
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit handoff/from_report")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
+      setDecisionRunning(false);
+    }
+  }
+
+  /* tertiary CTA · /api/credit/demo/run · 6 scenario JSON 之一 · 完全 mock SSE · 不调 LLM
+     与 onPrimary (真起决策) / onSecondary (mock decision) 区别: 走 file-backed scenario · 视觉一致 */
+  async function runDemoScenario() {
+    if (decisionRunning) return;
     setStarted(true);
-    setScanned(true);
+    setDecisionRunning(true);
+    setDecisionError(null);
     setLiveAdvice(null);
     setDecisionId(null);
-    setDecisionError(null);
+    setHandoffSource(null);   // demo 路非 handoff 源
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    // mode → 默认 scenario_id (覆盖 6 标杆)
+    const scenarioByMode: Record<CreditMode, string> = {
+      corp: "corp-zhongrui-003",     // hard · B 级有条件批 · 演示典型
+      small: "corp-ruiheng-002",     // simple · A 级直接批 · 演示流畅
+      retail: "retail-zhangsan-001", // medium · 720 良好批 · 演示稳态
+    };
+    const fallbackSession = sessionData;
+    try {
+      await streamSse(
+        `${apiBase}/api/credit/demo/run`,
+        { scenario_id: scenarioByMode[mode] },
+        (sseEvt) => {
+          const data = sseEvt.data as Record<string, unknown>;
+          if (sseEvt.type === "done") {
+            setLiveData(normalizeCreditDone(data, fallbackSession));
+            setSelectedCandidate(null);
+            setScanned(true);
+          }
+        },
+      );
+    } catch (err) {
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit /api/credit/demo/run")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
+    } finally {
+      setDecisionRunning(false);
+    }
   }
 
   function startGenerate() {
@@ -265,6 +419,32 @@ export default function CreditWorkspace() {
   /* W-CF-A2 · empty-state v1.0 路径
      started=false → 渲染 EmptyState (Hero + 3 CTA + skeleton + status pill · 不渲染 mock data)
      started=true  → 渲染现有完整 workspace (4 panel + EvidenceTrail + RiskRadar 等) */
+  /* Step 9 · Cat 0 北极星 · handoff source banner (Agent6 → Agent3 真消费证据) */
+  const handoffBanner = handoffSource ? (
+    <div
+      role="status"
+      data-testid="credit-handoff-banner"
+      className="credit-handoff-banner"
+    >
+      <span className="credit-handoff-banner__icon" aria-hidden>📋</span>
+      <span className="credit-handoff-banner__text">
+        已从 <b>Agent6</b> 加载 <b>{handoffSource.companyName}</b>
+        {handoffSource.industry ? <span> · {handoffSource.industry}</span> : null}
+        {handoffSource.generatedAt ? <span> · 生成于 {handoffSource.generatedAt}</span> : null}
+        {" · 板块 "}
+        <code data-testid="credit-handoff-stage-tab">{handoffSource.stageTab}</code>
+      </span>
+      <button
+        type="button"
+        className="credit-handoff-banner__dismiss"
+        onClick={() => setHandoffSource(null)}
+        aria-label="关闭 handoff 提示"
+      >
+        ×
+      </button>
+    </div>
+  ) : null;
+
   /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
   const creditTopBanner = decisionError ? (
     <div
@@ -307,13 +487,14 @@ export default function CreditWorkspace() {
           data-scanned="no"
           data-credit-started="no"
         >
-          {creditTopBanner}
+          {handoffBanner}
+      {creditTopBanner}
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
-            onPrimary={() => runDecision({ mockMode: false })}
+            onPrimary={() => runDecisionWithAgent6Handoff()}
             onSecondary={() => runDecision({ mockMode: true })}
-            onTertiary={selectHistoricalDemo}
+            onTertiary={() => runDemoScenario()}
             decisionRunning={decisionRunning}
             decisionError={decisionError}
           />
@@ -333,6 +514,7 @@ export default function CreditWorkspace() {
       data-credit-started="yes"
       data-scanned={scanned ? "yes" : "no"}
     >
+      {handoffBanner}
       {creditTopBanner}
       <TopBar
         mode={mode}
@@ -1660,10 +1842,10 @@ function CreditEmptyState(p: {
         >
           <span className="credit-empty__cta-rank">主操作</span>
           <span className="credit-empty__cta-title">
-            {p.decisionRunning ? "决策中…" : "选材料 + 起决策"}
+            {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
           </span>
           <span className="credit-empty__cta-sub">
-            从 Agent6 handoff 拉报告 · 真接 LLM SSE
+            选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
           </span>
         </button>
         <button
@@ -1677,7 +1859,7 @@ function CreditEmptyState(p: {
           <span className="credit-empty__cta-rank">次操作</span>
           <span className="credit-empty__cta-title">演示模式起决策</span>
           <span className="credit-empty__cta-sub">
-            无 LLM key 也能看流程 · backend mock=true
+            无 LLM key 也能看流程 · backend mock=true · in-memory fixture
           </span>
         </button>
         <button
@@ -1686,13 +1868,14 @@ function CreditEmptyState(p: {
           data-testid="credit-history-tertiary"
           data-cta="tertiary"
           onClick={p.onTertiary}
+          disabled={p.decisionRunning}
         >
           <span className="credit-empty__cta-rank credit-empty__cta-rank--demo">
-            历史 (示例)
+            演示场景
           </span>
-          <span className="credit-empty__cta-title">看示例案例</span>
+          <span className="credit-empty__cta-title">demo scenario · 6 标杆</span>
           <span className="credit-empty__cta-sub">
-            {CREDIT_MODE_LABEL[p.mode]} · 培训演示用 · 切真实输入随时返回
+            {CREDIT_MODE_LABEL[p.mode]} · file-backed scenario · /api/credit/demo/run · 客户走访稳定路径
           </span>
         </button>
       </section>
