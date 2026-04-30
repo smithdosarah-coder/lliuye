@@ -1,0 +1,113 @@
+{
+  "scenario_id": "retail-lisi-002",
+  "preset_name": "lisi_education",
+  "stage_tab": "retail",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析李四教培机构经营画像与个人信用...",
+    "scoring": "对私四维评分中...",
+    "rule_checking": "对私准入规则 + 行业政策扫描中...",
+    "case_retrieving": "Top 5 教培行业相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "retail_lisi_002",
+    "applicant_name": "李四",
+    "stage_tab": "retail",
+    "occupation": "个体工商户 · 学科类校外培训",
+    "business_name": "启智学堂 (K12 学科辅导)",
+    "age": 41,
+    "marital_status": "已婚",
+    "monthly_business_income_yuan": 38000,
+    "household_monthly_income_yuan": 52000,
+    "city": "成都 · 武侯区",
+    "credit_history_years": 9
+  },
+  "feature_done": {
+    "credit.score_pboc": 695,
+    "credit.overdue_count_2y": 1,
+    "credit.current_loan_balance_wan": 18,
+    "credit.utilization_ratio": 0.41,
+    "income.monthly_average_yuan": 38000,
+    "income.stability_months": 24,
+    "income.dti_ratio": 0.46,
+    "income.yoy_change": -0.18,
+    "asset.collateral_type": "无 (信用申请)",
+    "asset.collateral_value_wan": 0,
+    "asset.ltv_proposed": 0,
+    "behavior.industry_years": 12,
+    "behavior.industry_policy_risk": "高 · 双减政策影响 K12 学科类",
+    "_count": 36
+  },
+  "scoring": {
+    "composite_score": 688,
+    "score_max": 850,
+    "risk_grade": "边界",
+    "sub_scores": {
+      "ability": 692,
+      "willingness": 705,
+      "stability": 668,
+      "collateral": 686
+    }
+  },
+  "rule_hits": [
+    {
+      "rule_id": "retail_rl_011",
+      "rule_name": "行业准入红线 · K12 学科类校外培训",
+      "is_hard": true,
+      "can_waive": false,
+      "severity": "high",
+      "actual_value": "K12 学科类",
+      "threshold": "禁止准入 (双减政策)",
+      "waiver_conditions": []
+    }
+  ],
+  "case_matches": [
+    {
+      "case_id": "case_retail_112",
+      "company_name": "(脱敏) 周老师补习班",
+      "similarity": 0.86,
+      "decision": "拒",
+      "approved_amount": 0,
+      "approved_term": 0,
+      "interest_rate": 0,
+      "decision_reason": "K12 学科类 + 双减政策 → 拒 (行业准入红线)"
+    },
+    {
+      "case_id": "case_retail_128",
+      "company_name": "(脱敏) 吴老师托管中心",
+      "similarity": 0.79,
+      "decision": "人工复核",
+      "approved_amount": 0,
+      "approved_term": 0,
+      "interest_rate": 0,
+      "decision_reason": "已转型素质教育 · 但需人工核实业务结构再批"
+    },
+    {
+      "case_id": "case_retail_141",
+      "company_name": "(脱敏) 陈老师素质培训",
+      "similarity": 0.72,
+      "decision": "批",
+      "approved_amount": 30,
+      "approved_term": 24,
+      "interest_rate": 0.054,
+      "decision_reason": "已完成业务转型至艺术类 + 营业执照变更 → 批 30 万"
+    }
+  ],
+  "advice": {
+    "decision": "人工复核",
+    "approved_amount": 0,
+    "approved_term_months": 0,
+    "interest_rate": 0,
+    "rate_benchmark": "—",
+    "risk_grade": "边界",
+    "composite_score": 688,
+    "conditions": [
+      "提供营业执照副本 + 当前实际授课科目证据 (课表 / 收据)",
+      "若已转型非学科类 (素质 / 艺术 / 体育) 须出具变更登记证明",
+      "若仍涉学科类 · 系统拒贷 · 建议引导客户先合规整改"
+    ],
+    "decision_reason": "[demo] 李四教培 PBOC 695 边界 · 综合评分 688/850 · 触发 1 项硬红线 (K12 学科类校外培训行业准入禁止) · 受双减政策影响 · 收入同比 -18% · 同行业 1/3 案例已转型后获批 · 系统不能直接 auto-approve · 建议交人工复核 · 由审贷员核实当前业务实质后决议。",
+    "stage_tab": "retail"
+  }
+}

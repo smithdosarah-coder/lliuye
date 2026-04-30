@@ -1,0 +1,99 @@
+{
+  "scenario_id": "retail-wangwu-003",
+  "preset_name": "wangwu_decoration",
+  "stage_tab": "retail",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析王五装修工头近 3 年项目流水与房产抵押...",
+    "scoring": "对私四维评分中...",
+    "rule_checking": "对私准入规则扫描中...",
+    "case_retrieving": "Top 5 建筑装修个体相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "retail_wangwu_003",
+    "applicant_name": "王五",
+    "stage_tab": "retail",
+    "occupation": "个体工商户 · 建筑装修工程",
+    "business_name": "王五装饰工程队",
+    "age": 45,
+    "marital_status": "已婚",
+    "monthly_business_income_yuan": 86000,
+    "household_monthly_income_yuan": 102000,
+    "city": "深圳 · 龙岗区",
+    "credit_history_years": 12
+  },
+  "feature_done": {
+    "credit.score_pboc": 810,
+    "credit.overdue_count_2y": 0,
+    "credit.current_loan_balance_wan": 25,
+    "credit.utilization_ratio": 0.18,
+    "income.monthly_average_yuan": 86000,
+    "income.stability_months": 48,
+    "income.dti_ratio": 0.22,
+    "income.yoy_change": 0.08,
+    "asset.collateral_type": "自有住宅房产 (深圳)",
+    "asset.collateral_value_wan": 380,
+    "asset.ltv_proposed": 0.53,
+    "behavior.industry_years": 18,
+    "behavior.local_resident_years": 16,
+    "behavior.has_supplier_endorsement": true,
+    "_count": 40
+  },
+  "scoring": {
+    "composite_score": 812,
+    "score_max": 850,
+    "risk_grade": "优",
+    "sub_scores": {
+      "ability": 808,
+      "willingness": 820,
+      "stability": 815,
+      "collateral": 805
+    }
+  },
+  "rule_hits": [],
+  "case_matches": [
+    {
+      "case_id": "case_retail_166",
+      "company_name": "(脱敏) 刘师傅装饰队",
+      "similarity": 0.92,
+      "decision": "批",
+      "approved_amount": 200,
+      "approved_term": 60,
+      "interest_rate": 0.0355,
+      "decision_reason": "PBOC 805 + 深圳房产 LTV 50% → 批 200 万 LPR-15BP"
+    },
+    {
+      "case_id": "case_retail_179",
+      "company_name": "(脱敏) 黄工长水电安装",
+      "similarity": 0.87,
+      "decision": "批",
+      "approved_amount": 180,
+      "approved_term": 48,
+      "interest_rate": 0.036,
+      "decision_reason": "稳定客户 18 年 + 上下游推荐 → 批 180 万 LPR-10BP"
+    },
+    {
+      "case_id": "case_retail_188",
+      "company_name": "(脱敏) 陈师傅工程队",
+      "similarity": 0.81,
+      "decision": "批",
+      "approved_amount": 220,
+      "approved_term": 60,
+      "interest_rate": 0.0365,
+      "decision_reason": "房产抵押 LTV 48% + 月入 9 万 → 批 220 万 LPR-5BP"
+    }
+  ],
+  "advice": {
+    "decision": "批准",
+    "approved_amount": 200,
+    "approved_term_months": 60,
+    "interest_rate": 0.0355,
+    "rate_benchmark": "LPR-10BP",
+    "risk_grade": "优",
+    "composite_score": 812,
+    "conditions": [],
+    "decision_reason": "[demo] 王五装修工头 PBOC 810 优等 · 综合评分 812/850 · 0 项红线 · 行业 18 年深耕 + 月均流水 8.6 万 + DTI 22% + 深圳自有住宅抵押 380 万 LTV 53% · 同业 3/3 案例均获批且利率均低于 LPR · 建议批准 200 万 60 期 · 利率 LPR-10BP · VIP 通道一档过 · 可主动 pre-approve 上调至 250 万。",
+    "stage_tab": "retail"
+  }
+}

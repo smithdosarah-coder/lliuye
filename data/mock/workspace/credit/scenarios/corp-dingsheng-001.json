@@ -1,0 +1,139 @@
+{
+  "scenario_id": "corp-dingsheng-001",
+  "preset_name": "dingsheng_trade",
+  "stage_tab": "corporate",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析鼎盛商贸财务画像与上下游应付链...",
+    "scoring": "四维加权评分 (财务 / 行业 / 经营 / 担保) 中...",
+    "rule_checking": "30 项硬红线规则扫描中...",
+    "case_retrieving": "Top 5 同行业相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "corp_dingsheng_001",
+    "company_name": "鼎盛商贸有限公司",
+    "stage_tab": "corporate",
+    "industry": "批发零售 · 日用消费品",
+    "established_date": "2014-08",
+    "registered_capital_wan": 200,
+    "annual_revenue_wan": 5800,
+    "employees": 38,
+    "region": "福建 · 莆田",
+    "credit_history_years": 6
+  },
+  "feature_done": {
+    "financial.debt_ratio": 0.78,
+    "financial.revenue_growth": -0.05,
+    "financial.gross_margin": 0.12,
+    "financial.current_ratio": 0.82,
+    "financial.quick_ratio": 0.46,
+    "financial.related_party_receivable_wan": 480,
+    "financial.ebitda_margin": 0.04,
+    "operational.years_established": 11.7,
+    "operational.employee_growth_yoy": -0.08,
+    "guarantee.collateral_coverage": 0.42,
+    "guarantee.guarantor_strength": "弱",
+    "external.tax_grade": "C",
+    "external.lawsuit_count_2y": 3,
+    "external.public_negative_news": 2,
+    "_count": 60
+  },
+  "scoring": {
+    "composite_score": 38,
+    "score_max": 100,
+    "risk_grade": "D",
+    "sub_scores": {
+      "financial": 28,
+      "industry": 45,
+      "operational": 41,
+      "guarantee": 35
+    }
+  },
+  "rule_hits": [
+    {
+      "rule_id": "corp_rl_007",
+      "rule_name": "资产负债率上限",
+      "is_hard": true,
+      "can_waive": false,
+      "severity": "high",
+      "actual_value": 0.78,
+      "threshold": 0.70,
+      "waiver_conditions": []
+    },
+    {
+      "rule_id": "corp_rl_012",
+      "rule_name": "关联方占款绝对额上限",
+      "is_hard": true,
+      "can_waive": false,
+      "severity": "high",
+      "actual_value": 480,
+      "threshold": 200,
+      "waiver_conditions": []
+    },
+    {
+      "rule_id": "corp_rl_018",
+      "rule_name": "税务评级最低 B",
+      "is_hard": true,
+      "can_waive": false,
+      "severity": "high",
+      "actual_value": "C",
+      "threshold": "B",
+      "waiver_conditions": []
+    }
+  ],
+  "case_matches": [
+    {
+      "case_id": "case_corp_009",
+      "company_name": "宁德旺达商贸",
+      "similarity": 0.88,
+      "decision": "拒",
+      "approved_amount": 0,
+      "approved_term": 0,
+      "interest_rate": 0,
+      "decision_reason": "同板块负债率 0.81 + 关联方占款 360 万 → 拒"
+    },
+    {
+      "case_id": "case_corp_021",
+      "company_name": "厦门同德百货",
+      "similarity": 0.82,
+      "decision": "拒",
+      "approved_amount": 0,
+      "approved_term": 0,
+      "interest_rate": 0,
+      "decision_reason": "税务 C + 增长率 -3% + 流动比率 0.79 → 拒"
+    },
+    {
+      "case_id": "case_corp_034",
+      "company_name": "莆田信达批发",
+      "similarity": 0.79,
+      "decision": "有条件批",
+      "approved_amount": 80,
+      "approved_term": 12,
+      "interest_rate": 0.085,
+      "decision_reason": "降额 80 万 + 追加股东无限连带担保后过会"
+    },
+    {
+      "case_id": "case_corp_047",
+      "company_name": "泉州万隆贸易",
+      "similarity": 0.74,
+      "decision": "拒",
+      "approved_amount": 0,
+      "approved_term": 0,
+      "interest_rate": 0,
+      "decision_reason": "关联方占款比应收 65% + 税务 C → 拒"
+    }
+  ],
+  "advice": {
+    "decision": "拒绝",
+    "approved_amount": 0,
+    "approved_term_months": 0,
+    "interest_rate": 0,
+    "rate_benchmark": "—",
+    "risk_grade": "D",
+    "composite_score": 38,
+    "conditions": [],
+    "decision_reason": "[demo] 鼎盛商贸触发 3 项硬红线 (资产负债率 0.78 / 关联方占款 480 万 / 税务 C 级) · 综合评分 38/100 D 级 · 同行业 3/4 案例同条件下被拒 · 建议拒绝放款 300 万授信申请 · 如客户必坚持 · 建议要求 6 个月内将负债率压至 65% 以下 + 全额清偿关联方占款 + 税务升至 B 级后重申。",
+    "stage_tab": "corporate"
+  }
+}

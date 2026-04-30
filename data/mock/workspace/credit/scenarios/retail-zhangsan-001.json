@@ -1,0 +1,97 @@
+{
+  "scenario_id": "retail-zhangsan-001",
+  "preset_name": "zhangsan_restaurant",
+  "stage_tab": "retail",
+  "delay_ms": 250,
+  "stage_messages": {
+    "feature_extracting": "解析张三个体户经营流水与抵押物估值...",
+    "scoring": "对私四维评分 (能力 / 意愿 / 稳定 / 抵押) 中...",
+    "rule_checking": "对私 22 项准入规则扫描中...",
+    "case_retrieving": "Top 5 餐饮个体户相似案例召回...",
+    "advising": "DeepSeek 生成决策建议中..."
+  },
+  "profile": {
+    "profile_id": "retail_zhangsan_001",
+    "applicant_name": "张三",
+    "stage_tab": "retail",
+    "occupation": "个体工商户 · 餐饮",
+    "business_name": "张师傅家常菜馆",
+    "age": 38,
+    "marital_status": "已婚",
+    "monthly_business_income_yuan": 42000,
+    "household_monthly_income_yuan": 56000,
+    "city": "杭州 · 西湖区",
+    "credit_history_years": 7
+  },
+  "feature_done": {
+    "credit.score_pboc": 720,
+    "credit.overdue_count_2y": 0,
+    "credit.current_loan_balance_wan": 12,
+    "credit.utilization_ratio": 0.28,
+    "income.monthly_average_yuan": 42000,
+    "income.stability_months": 36,
+    "income.dti_ratio": 0.34,
+    "asset.collateral_type": "营业用房产",
+    "asset.collateral_value_wan": 95,
+    "asset.ltv_proposed": 0.53,
+    "behavior.industry_years": 9,
+    "behavior.local_resident_years": 11,
+    "_count": 38
+  },
+  "scoring": {
+    "composite_score": 728,
+    "score_max": 850,
+    "risk_grade": "良好",
+    "sub_scores": {
+      "ability": 720,
+      "willingness": 745,
+      "stability": 730,
+      "collateral": 718
+    }
+  },
+  "rule_hits": [],
+  "case_matches": [
+    {
+      "case_id": "case_retail_044",
+      "company_name": "(脱敏) 王师傅面馆",
+      "similarity": 0.89,
+      "decision": "批",
+      "approved_amount": 50,
+      "approved_term": 36,
+      "interest_rate": 0.043,
+      "decision_reason": "PBOC 715 + 房产抵押 LTV 50% → 批 50 万 LPR+15BP"
+    },
+    {
+      "case_id": "case_retail_058",
+      "company_name": "(脱敏) 李大姐烧烤店",
+      "similarity": 0.84,
+      "decision": "批",
+      "approved_amount": 45,
+      "approved_term": 36,
+      "interest_rate": 0.0455,
+      "decision_reason": "经营 7 年 + 流水稳定 → 批 45 万 LPR+30BP"
+    },
+    {
+      "case_id": "case_retail_071",
+      "company_name": "(脱敏) 赵记小吃",
+      "similarity": 0.78,
+      "decision": "批",
+      "approved_amount": 60,
+      "approved_term": 24,
+      "interest_rate": 0.044,
+      "decision_reason": "夫妻共借 + 商铺抵押 → 批 60 万 LPR+20BP"
+    }
+  ],
+  "advice": {
+    "decision": "批准",
+    "approved_amount": 50,
+    "approved_term_months": 36,
+    "interest_rate": 0.043,
+    "rate_benchmark": "LPR+20BP",
+    "risk_grade": "良好",
+    "composite_score": 728,
+    "conditions": [],
+    "decision_reason": "[demo] 张三个体户 PBOC 720 良好 · 综合评分 728/850 · 0 项红线 · 经营 9 年 + 月均流水 4.2 万 + DTI 34% + 营业用房产抵押 LTV 53% · 同业 3/3 案例同条件均获批 · 建议批准 50 万 36 期 · 利率 LPR+20BP · 可常规快速通道审批。",
+    "stage_tab": "retail"
+  }
+}
