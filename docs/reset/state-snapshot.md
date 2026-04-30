@@ -404,6 +404,51 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 (下次更新模板)
 
+---
+
+## 2026-04-29 (Phase A · Week 3 evening) · worker-A4-alert DONE · 4 gate canon + done envelope + risk_level unify
+
+### What happened
+- worker-A4-alert 在 worktree `D:\claude code\work-A4-alert` (branch `feat/phase-a4-alert-adapter`) 全套完成 14 step (per `docs/audit/A4-alert-draft.md` §11):
+  - step 0 · `git rebase chore/l0-infra` 拿 A3 cherry-pick (5876b7b 等)
+  - step 1 · `web/src/lib/mock/agent-alert-sessions.ts` (新 · 3 sessions · 难度分层 + risk_level snake)
+  - step 2-3+5+6+7+8 · `AlertWorkspace.tsx` 全栈 4 gate (started + selectedSessionId + liveData + selectedClientId) + sessionData derive + 5 panel props + normalizeAlertSession (snake↔camel) + AlertDrillDrawer fetch /api/alert/drill/{client_id} + ESC + tier→risk_level + SessionPickerBar dropdown + training-mode banner (规则 2)
+  - step 4 · `agent_alert/api.py` SSE done envelope (panels=hit_list/top_cases/dispositions + metrics + data_source + 5 stage 名) + `_build_drill_llm_caller` via `shared.llm_caller.make_text_caller`
+  - step 9 · POST /api/alert/demo/run 端点 + `data/mock/workspace/alert/scenarios/{baseline_100,manuf_policy_event,judicial_news_dual}.json`
+  - step 10 · `agent_alert/prompts.py` `build_alert_system_prompt` shim (fallback to SYSTEM_* 直到 worker-A1 spec landed)
+  - step 11 · `web/tests/regression/alert-pilot-4gate.spec.ts` 8 spec smoke + `alert-empty-state.spec.ts` testid update
+  - step 12 · `docs/features-inventory.md` F-067 (4 gate alert) + F-068 (/api/alert/demo/run) entries · 本 state-snapshot 段
+- 验:
+  - `npx tsc --noEmit` PASS (workspace + sessions file 全 type-clean)
+  - py import smoke: `from agent_alert.api import app` OK · 10 routes (含新 /api/alert/demo/run)
+  - py 单元 smoke: `_load_scenario_fixture` 3 scenario 全载入 · totals 正确
+  - py prompts shim: 7 role 全 fallback OK · typo guard 抛 KeyError
+  - Playwright spec 8 (后端 demo 路径 env-guarded) · 其余 7 spec route mock + DOM 驱动
+- cat 5 grade 三命名归一 = `risk_level` snake (per A6 schema · per 用户 GO 信号 directive `per A6 schema` · 也是 draft §4.3 推荐 A · agent_credit 趋同):
+  - frontend: TopCase / ReachRate / ScanQueueCase / ScanSnapshot.tiers · `tier` → `risk_level`
+  - backend: `_to_compact_hit` / `_to_top_case` 全 snake · word_export.py `_TIER_LABEL` snake-priority 不动
+  - HeatCell.level (热力 0..4) NOT touched · 与 grade 同名不同义 · trailer 显式注
+
+### Triggered by
+- 用户 GO 信号 commit `a552c57 chore(reset): A4-ALERT-GO-AFTER-A3` (2026-04-29 20:24) · A3 V3 cherry-pick (`5876b7b`) 后 A4 5 子 worker batch dispatch
+
+### State change (delta)
+- `feat/phase-a4-alert-adapter` HEAD: `b967b71` (draft refined) → 8 commit ahead of `chore/l0-infra`
+- Alert pilot canon adoption: `started` 单 gate (W-CF2-A2) → 4 gate canon (started + selectedSessionId + liveData + selectedClientId · workspace-state-protocol §2 fully landed)
+- Alert SSE done envelope: 空 `{}` (Cat 4 finding) → 共形 `make_done(panels=hit_list/top_cases/dispositions, metrics, data_source, session_id, scenario_key, ...)`
+- Alert grade 命名: 三命名漂 (tier/level/grade) → snake `risk_level` 全栈统一 (HeatCell.level 不动)
+- LLM caller (alert /drill): 直 `LLMClient(provider="deepseek")` (Cat 7) → `shared.llm_caller.make_text_caller(agent_id="alert")` · 自动 fallback chain + audit
+- Cat 6 prompts: `agent_alert/prompts.py` 加 `build_alert_system_prompt` shim · 等 worker-A1 spec landed 自动接入 8 段 SOT (零行为变更)
+- F-067 + F-068 加入 `docs/features-inventory.md`
+
+### Next
+- 主 CLI 收 `WORKER-A4-ALERT-ADAPTER-DONE` signal commit · 拉 worker-A4-alert 8 commit
+- codex review (per Phase A `--codex-review` 流程 · 5 子 worker 并行)
+- AGREE 后 cherry-pick 到 `chore/l0-infra` · 与 A4-credit / A4-compli / A4-riskctrl / A4-report 4 子并行回收
+- 5 子全收后 → A2 worker-A1 8 段 spec landed (若 ratify) → contract.assemble() 真出实质内容 → 6 agent 自动继承 (alert prompts shim 自动接)
+
+---
+
 ## YYYY-MM-DD · <事件>
 
 ### Worker 状态变更
