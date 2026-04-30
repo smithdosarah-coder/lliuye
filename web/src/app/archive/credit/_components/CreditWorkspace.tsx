@@ -34,7 +34,9 @@ import {
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
+import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
+import { normalizeCreditDone } from "./_normalize";
 import {
   CREDIT_DEFAULT_SESSION_ID,
   CREDIT_GLOBAL_STATS,
@@ -159,8 +161,10 @@ export default function CreditWorkspace() {
     };
   }, []);
 
-  /* 起授信决策 · POST /api/credit/decision SSE · 收 advice + decision_id
-     mock=true 兼容无 LLM key 环境 (curl-friendly · spec test 也走 mock 避真 LLM 依赖) */
+  /* 起授信决策 · POST /api/credit/decision SSE (Step 7 · 2026-04-29 worker-A4-credit)
+     - 改 streamSse (per A2 _live.ts SSOT) · 删 35 行内联 res.body.getReader() reader (cat 3 修)
+     - done event normalize 后 setLiveData → 4-gate liveData 优先 · panel 全 hydrate
+     - mock=true 兼容无 LLM key 环境 · streamSse 内部已有 LiveFailError 4xx/5xx → 显式 error */
   async function runDecision(opts: { mockMode: boolean }) {
     if (decisionRunning) return;
     setStarted(true);
@@ -168,65 +172,58 @@ export default function CreditWorkspace() {
     setDecisionError(null);
     setLiveAdvice(null);
     setDecisionId(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    const stageTab = MODE_TO_STAGE_TAB[mode];
+    // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
+    const presetByMode: Record<CreditMode, string> = {
+      corp: "dingsheng_trade",
+      small: "dingsheng_trade",
+      retail: "zhangsan_restaurant",
+    };
     try {
-      const apiBase =
-        (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-      const stageTab = MODE_TO_STAGE_TAB[mode];
-      // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
-      const presetByMode: Record<CreditMode, string> = {
-        corp: "dingsheng_trade",
-        small: "dingsheng_trade",
-        retail: "zhangsan_restaurant",
-      };
-      const res = await fetch(`${apiBase}/api/credit/decision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // sessionData snapshot at start · 用作 normalize fallback (panels 未 backend 透传字段)
+      const fallbackSession = sessionData;
+      await streamSse(
+        `${apiBase}/api/credit/decision`,
+        {
           stage_tab: stageTab,
           mock: opts.mockMode,
           preset_name: opts.mockMode ? null : presetByMode[mode],
-        }),
-      });
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const dataLine = block.split("\n").find((l) => l.startsWith("data:"));
-          if (!dataLine) continue;
-          try {
-            const evt = JSON.parse(dataLine.slice(5).trim()) as {
-              event?: string;
-              stage?: string;
-              decision_id?: string;
-              payload?: Record<string, unknown>;
-              message?: string;
-            };
-            if (evt.event === "stage" && evt.stage === "advising_done" && evt.payload) {
-              setLiveAdvice(evt.payload);
-              setScanned(true);
-            }
-            if (evt.event === "decision_cached" && evt.decision_id) {
-              setDecisionId(evt.decision_id);
-            }
-            if (evt.event === "error") {
-              setDecisionError(String(evt.message ?? "decision SSE error"));
-            }
-          } catch {
-            /* skip malformed line */
+        },
+        (sseEvt) => {
+          const data = sseEvt.data as {
+            event?: string;
+            stage?: string;
+            decision_id?: string;
+            payload?: Record<string, unknown>;
+            message?: string;
+          };
+          // 保留旧 advising_done capture · 兼容现有 panel 直读 liveAdvice
+          if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
+            setLiveAdvice(data.payload);
+            setScanned(true);
           }
-        }
-      }
+          if (sseEvt.type === "decision_cached" && data.decision_id) {
+            setDecisionId(data.decision_id);
+          }
+          if (sseEvt.type === "done") {
+            // Step 7 · cat 4 done envelope normalize → 4-gate liveData 注入
+            const liveSession = normalizeCreditDone(
+              data as Record<string, unknown>,
+              fallbackSession,
+            );
+            setLiveData(liveSession);
+            setSelectedCandidate(null);
+            setScanned(true);
+          }
+        },
+      );
     } catch (err) {
-      setDecisionError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof LiveFailError
+        ? liveFailBannerText(err, "Credit /api/credit/decision")
+        : err instanceof Error ? err.message : String(err);
+      setDecisionError(msg);
     } finally {
       setDecisionRunning(false);
     }
