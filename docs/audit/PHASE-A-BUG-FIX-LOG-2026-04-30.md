@@ -84,9 +84,62 @@ grep -rn "Letterpress\|crimson\|--color-brass\|--color-ink\|ink-brush-hr" "D:/cl
 
 ---
 
-## 3. BUG-B 修复 (待修 · 加 web/src/lib/api/channel.ts)
+## 3. BUG-B 修复完整记录 (加 web/src/lib/api/channel.ts)
 
-待修复。计划见 §1 列表。
+### 3.1 问题描述 (人话)
+
+前端 `web/src/lib/api/` 目录下有 6 个 API client 文件 (alert.ts / auth.ts / compliance.ts / im.ts / report.ts / riskctrl.ts) · 每个对应一个 Agent 的前端 API 调用 + type 定义。
+
+但 channel (Agent1 全渠道获客) **完全没有 channel.ts 文件**。后端 agent_channel/api.py 已经在跑 (Stage 5a smoke 验过 SSE 真流) · Q-041 ratify 候选企业 4 字段 (industry / geo / scale / similarity) backend 真 emit · 但前端没 type 接 · 现状是 ChannelWorkspace.tsx 内 inline 散写。
+
+Codex audit verdict: 这是 worker-A3 V3 漏 · 应该作为 Channel pilot 验收硬线 #3 的一部分补上。
+
+### 3.2 修复了哪些文件
+
+**新建文件**: `web/src/lib/api/channel.ts` (314 行)
+
+参考 alert.ts 同模式结构:
+- import `LiveFailError` + `streamSse` from `./_live` (复用其他 Agent 同款 helper)
+- 6 endpoint 定义 (run · demo/run · export_xlsx · export_docx · handoff · scenarios)
+- 11 type export (ChannelRunRequest / CandidateMetadata / ChannelCandidate / ChannelDoneEnvelope / ChannelRunResult / ChannelDemoScenarioId / ChannelDemoRequest / ChannelScenarioMeta / ChannelExportRequest / ChannelHandoffRequest / ChannelHandoffResponse)
+- 6 function export (runChannel / runChannelDemo / listChannelScenarios / exportChannelXlsx / exportChannelDocx / channelHandoff)
+- 2 verify utility (verifyCandidateMetadata / findInvalidCandidate · per Q-041 4 字段必出契约)
+
+**关键设计** (per CLAUDE.md §3.7 active rules):
+
+- Q-041 ratify (CLAUDE.md §3.7.2): `CandidateMetadata` type 显式定义 4 字段 (industry / geo / scale / similarity) · 加 `verifyCandidateMetadata()` utility · caller 收到 done envelope 后必检每个 candidate · 任何字段缺失 OR 值为 null/"未知"/"[object Object]" 返 false → 触发 banner-spec blocked_by_env · 不 silent fallback。
+- Q-043 ratify (CLAUDE.md §3.7.4 codex peer-review protocol v2 · PIPL 合规): `ChannelRunRequest` 不传 `provider` / `api_key` field · 一律走 backend env (`shared/llm_caller/retry.py` DEFAULT_FALLBACK_CHAIN)。
+
+**Doc 注释**: 每个 type / function 都有 JSDoc · 含 endpoint 路径 + Q-041/Q-043 ratify 引用 + 失败行为说明。
+
+### 3.3 Verify 怎么做
+
+跑 `npx tsc --noEmit` 检查 TypeScript 整个 web/ 子目录是否 type-clean (新文件不破其他 consumer):
+
+```bash
+cd web && npx tsc --noEmit
+```
+
+### 3.4 Verify 结果
+
+```
+(0 lines · type-clean · 0 error)
+```
+
+✅ **TypeScript compile PASS** · BUG-B 修复完毕。
+
+后续 ChannelWorkspace.tsx 等 consumer 可以 `import { runChannel, ChannelCandidate, verifyCandidateMetadata } from "@/lib/api/channel"` · 替换 inline type 定义 (这是 fix-forward · 不在本 BUG-B scope · Phase B-1 quick win 可顺带做)。
+
+### 3.5 时间戳
+
+- 编辑 alert.ts read (作为 template): 2026-04-30
+- 编辑 agent_channel/api.py read (确认 backend schema): 2026-04-30
+- 写 channel.ts (314 行): 2026-04-30 (~25 min)
+- Verify tsc --noEmit: 2026-04-30
+- 总耗时: ~30 min
+- 修复者: 主 CLI (Claude Opus 4.7 · single session)
+
+---
 
 ## 4. BUG-C 修复 (待修 · 补 handoff schema)
 
