@@ -6,26 +6,26 @@
   "metrics": {"red": 25, "yellow": 35, "green": 140, "total_scanned": 200},
   "hit_list": {
     "red": [
-      {"client_id": "CL-DUAL-301", "company_name": "广州瑞河商贸", "amount": "2400 万", "risk_level": "red", "score": 0.97, "matched_rules": ["EXT-LEGAL-01", "EXT-NEWS-01", "INT-FLOW-01", "CRX-DUAL-LEGAL-NEWS"], "reasons": ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"]},
-      {"client_id": "CL-DUAL-302", "company_name": "深圳鸿祥建材", "amount": "1900 万", "risk_level": "red", "score": 0.95, "matched_rules": ["EXT-LEGAL-01", "EXT-NEWS-01", "INT-CONC-04"], "reasons": ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"]},
-      {"client_id": "CL-DUAL-303", "company_name": "佛山联铸贸易", "amount": "1280 万", "risk_level": "red", "score": 0.93, "matched_rules": ["EXT-CREDIT-02", "EXT-NEWS-01", "INT-FLOW-01"], "reasons": ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"]},
-      {"client_id": "CL-DUAL-304", "company_name": "东莞鼎华科技", "amount": "950 万", "risk_level": "red", "score": 0.91, "matched_rules": ["INT-CONC-04", "EXT-BIZ-03"], "reasons": ["对手方集中转出 75%", "工商变更 + 实控人股权质押"]},
-      {"client_id": "CL-DUAL-310", "company_name": "珠海亚兴贸易", "amount": "830 万", "risk_level": "red", "score": 0.89, "matched_rules": ["EXT-LEGAL-01", "INT-FLOW-01", "CRX-LEGAL-FLOW"], "reasons": ["司法立案 + 流水 ↓ 65%"]},
-      {"client_id": "CL-DUAL-311", "company_name": "中山大兴五金", "amount": "720 万", "risk_level": "red", "score": 0.87, "matched_rules": ["EXT-NEWS-01"], "reasons": ["舆情热搜 4 平台 · 实控人新闻"]}
+      {"client_id": "CL-DUAL-301", "company_name": "广州瑞河商贸", "amount": "2400 万", "tier": "red", "score": 0.97, "matched_rules": ["EXT-LEGAL-01", "EXT-NEWS-01", "INT-FLOW-01", "CRX-DUAL-LEGAL-NEWS"], "reasons": ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"]},
+      {"client_id": "CL-DUAL-302", "company_name": "深圳鸿祥建材", "amount": "1900 万", "tier": "red", "score": 0.95, "matched_rules": ["EXT-LEGAL-01", "EXT-NEWS-01", "INT-CONC-04"], "reasons": ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"]},
+      {"client_id": "CL-DUAL-303", "company_name": "佛山联铸贸易", "amount": "1280 万", "tier": "red", "score": 0.93, "matched_rules": ["EXT-CREDIT-02", "EXT-NEWS-01", "INT-FLOW-01"], "reasons": ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"]},
+      {"client_id": "CL-DUAL-304", "company_name": "东莞鼎华科技", "amount": "950 万", "tier": "red", "score": 0.91, "matched_rules": ["INT-CONC-04", "EXT-BIZ-03"], "reasons": ["对手方集中转出 75%", "工商变更 + 实控人股权质押"]},
+      {"client_id": "CL-DUAL-310", "company_name": "珠海亚兴贸易", "amount": "830 万", "tier": "red", "score": 0.89, "matched_rules": ["EXT-LEGAL-01", "INT-FLOW-01", "CRX-LEGAL-FLOW"], "reasons": ["司法立案 + 流水 ↓ 65%"]},
+      {"client_id": "CL-DUAL-311", "company_name": "中山大兴五金", "amount": "720 万", "tier": "red", "score": 0.87, "matched_rules": ["EXT-NEWS-01"], "reasons": ["舆情热搜 4 平台 · 实控人新闻"]}
     ],
     "yellow": [
-      {"client_id": "CL-DUAL-305", "company_name": "中山华业实业", "amount": "780 万", "risk_level": "yellow", "score": 0.66, "matched_rules": ["INT-UTIL-02"], "reasons": ["卡额度 92% + 还款延迟 5 天"]},
-      {"client_id": "CL-DUAL-320", "company_name": "惠州景宏纺织", "amount": "560 万", "risk_level": "yellow", "score": 0.62, "matched_rules": ["EXT-BIZ-03"], "reasons": ["工商变更 · 股东"]},
-      {"client_id": "CL-DUAL-321", "company_name": "肇庆信和家具", "amount": "450 万", "risk_level": "yellow", "score": 0.58, "matched_rules": ["INT-FLOW-01"], "reasons": ["流水 ↓ 39%"]}
+      {"client_id": "CL-DUAL-305", "company_name": "中山华业实业", "amount": "780 万", "tier": "yellow", "score": 0.66, "matched_rules": ["INT-UTIL-02"], "reasons": ["卡额度 92% + 还款延迟 5 天"]},
+      {"client_id": "CL-DUAL-320", "company_name": "惠州景宏纺织", "amount": "560 万", "tier": "yellow", "score": 0.62, "matched_rules": ["EXT-BIZ-03"], "reasons": ["工商变更 · 股东"]},
+      {"client_id": "CL-DUAL-321", "company_name": "肇庆信和家具", "amount": "450 万", "tier": "yellow", "score": 0.58, "matched_rules": ["INT-FLOW-01"], "reasons": ["流水 ↓ 39%"]}
     ],
     "green": []
   },
   "top_cases": [
-    {"id": "tc-1", "client_id": "CL-DUAL-301", "customer": "广州瑞河商贸", "amount": "2400 万", "risk_level": "red", "triggers": ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"], "advice": "立即停贷 · 资产保全申请", "lastUpdate": "5 分钟前"},
-    {"id": "tc-2", "client_id": "CL-DUAL-302", "customer": "深圳鸿祥建材", "amount": "1900 万", "risk_level": "red", "triggers": ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"], "advice": "立即升级风险分类 · 律师函", "lastUpdate": "18 分钟前"},
-    {"id": "tc-3", "client_id": "CL-DUAL-303", "customer": "佛山联铸贸易", "amount": "1280 万", "risk_level": "red", "triggers": ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"], "advice": "现场谈判 · 限额冻结", "lastUpdate": "32 分钟前"},
-    {"id": "tc-4", "client_id": "CL-DUAL-304", "customer": "东莞鼎华科技", "amount": "950 万", "risk_level": "red", "triggers": ["对手方集中转出 75%", "工商变更 + 实控人股权质押"], "advice": "立即调查关联方", "lastUpdate": "1 小时前"},
-    {"id": "tc-5", "client_id": "CL-DUAL-305", "customer": "中山华业实业", "amount": "780 万", "risk_level": "yellow", "triggers": ["卡额度 92% + 还款延迟 5 天"], "advice": "电话回访 + 升级评估", "lastUpdate": "2 小时前"}
+    {"id": "tc-1", "client_id": "CL-DUAL-301", "customer": "广州瑞河商贸", "amount": "2400 万", "tier": "red", "triggers": ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"], "advice": "立即停贷 · 资产保全申请", "lastUpdate": "5 分钟前"},
+    {"id": "tc-2", "client_id": "CL-DUAL-302", "customer": "深圳鸿祥建材", "amount": "1900 万", "tier": "red", "triggers": ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"], "advice": "立即升级风险分类 · 律师函", "lastUpdate": "18 分钟前"},
+    {"id": "tc-3", "client_id": "CL-DUAL-303", "customer": "佛山联铸贸易", "amount": "1280 万", "tier": "red", "triggers": ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"], "advice": "现场谈判 · 限额冻结", "lastUpdate": "32 分钟前"},
+    {"id": "tc-4", "client_id": "CL-DUAL-304", "customer": "东莞鼎华科技", "amount": "950 万", "tier": "red", "triggers": ["对手方集中转出 75%", "工商变更 + 实控人股权质押"], "advice": "立即调查关联方", "lastUpdate": "1 小时前"},
+    {"id": "tc-5", "client_id": "CL-DUAL-305", "customer": "中山华业实业", "amount": "780 万", "tier": "yellow", "triggers": ["卡额度 92% + 还款延迟 5 天"], "advice": "电话回访 + 升级评估", "lastUpdate": "2 小时前"}
   ],
   "industry_distribution": [
     {"industry": "建筑建材", "red": 8, "yellow": 9, "green": 23, "total": 40},
@@ -43,9 +43,9 @@
     {"id": "sh-cross", "label": "双路交叉命中", "score": 95, "desc": "司法+舆情同客户命中 14 户"}
   ],
   "reach_rate": [
-    {"risk_level": "red", "label": "红档 · 立即触达", "total": 25, "reached": 23, "reachedPct": 92.0, "channels": {"phone": 22, "sms": 25, "visit": 11}},
-    {"risk_level": "yellow", "label": "黄档 · 本周触达", "total": 35, "reached": 21, "reachedPct": 60.0, "channels": {"phone": 18, "sms": 35, "visit": 0}},
-    {"risk_level": "green", "label": "绿档 · 观察", "total": 140, "reached": 140, "reachedPct": 100, "channels": {"phone": 0, "sms": 140, "visit": 0}}
+    {"tier": "red", "label": "红档 · 立即触达", "total": 25, "reached": 23, "reachedPct": 92.0, "channels": {"phone": 22, "sms": 25, "visit": 11}},
+    {"tier": "yellow", "label": "黄档 · 本周触达", "total": 35, "reached": 21, "reachedPct": 60.0, "channels": {"phone": 18, "sms": 35, "visit": 0}},
+    {"tier": "green", "label": "绿档 · 观察", "total": 140, "reached": 140, "reachedPct": 100, "channels": {"phone": 0, "sms": 140, "visit": 0}}
   ],
   "dispositions": {
     "广州瑞河商贸": "立即停贷 · 资产保全申请",

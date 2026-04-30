@@ -10,13 +10,17 @@
  *   sess_manuf_policy_event  · 中等 · 制造业 + 政策升级 (Agent5 政策事件交叉)
  *   sess_judicial_news_dual  · 困难 · 司法+舆情双路命中
  *
- * 反 5 原则 #5 环境边界: fixture 不含 difficulty / risk_level 答案字段 ·
+ * 反 5 原则 #5 环境边界: fixture 不含 difficulty / tier 答案字段 ·
  * Agent 自己算 (HitList + RiskLevel mapping by scan_engine).
  *
- * cat 5 grade 三命名归一 → `risk_level` (snake_case · per A6 schema · Q-NNN 推 A).
- *   - TopCase / ReachRate / ScanQueueCase 全用 risk_level
+ * V2 fix (cat 5 grade 命名 · per A6 schema agent-handoff-schemas.md:421-422):
+ *   - frontend mock canon = `tier` ("red" | "yellow" | "green")  · 本文件
+ *   - 后端 export = `risk_level` ("high" | "medium" | "low")  · 不同 domain · 不混
+ *   - Agent3 runtime = `risk_grade` (字母 / 中文)            · 不同 domain · 不混
+ *   - V1 误把 frontend 改成 risk_level (违 A6 schema) · V2 revert 回 tier
  *   - HeatCell.level (热力 intensity ramp 0..4) NOT touched · 与 grade 同名不同义
- *   - Backend `RiskLevel.value` (red/yellow/green) → frontend risk_level enum 同字面值
+ *   - Backend SSE done envelope 也 emit `tier` (matches frontend canon) ·
+ *     normalizeAlertSession 仍兼容 risk_level / level / grade input fallback
  *
  * Backend SSE done envelope 通过 normalizeAlertSession 注入到 liveData ·
  * 形态对齐 §3 of docs/audit/A4-alert-draft.md.
@@ -77,7 +81,7 @@ export type HeatCell = {
 };
 
 export type ReachRate = {
-  risk_level: "red" | "yellow" | "green";
+  tier: "red" | "yellow" | "green";
   label: string;
   total: number;
   reached: number;
@@ -90,7 +94,7 @@ export type TopCase = {
   client_id: string;
   customer: string;
   amount: string;
-  risk_level: "red" | "yellow" | "green";
+  tier: "red" | "yellow" | "green";
   triggers: string[];
   advice: string;
   lastUpdate: string;
@@ -123,7 +127,7 @@ export type ScanQueueCase = {
   id: string;
   client_id: string;
   customer: string;
-  risk_level: "red" | "yellow";
+  tier: "red" | "yellow";
   reason: string;
   updated: string;
 };
@@ -140,7 +144,7 @@ export type ScanSnapshot = {
   warnCount: number;
   warnDelta: string;
   kbState: string;
-  tiers: { risk_level: "red" | "yellow" | "green"; count: number; caption: string }[];
+  tiers: { tier: "red" | "yellow" | "green"; count: number; caption: string }[];
   signals: {
     id: string;
     label: string;
@@ -269,25 +273,25 @@ const S1_HEAT: HeatCell[] = makeHeatStream(
 );
 
 const S1_REACH: ReachRate[] = [
-  { risk_level: "red", label: "红档 · 立即触达", total: 5, reached: 5, reachedPct: 100, channels: { phone: 5, sms: 5, visit: 2 } },
-  { risk_level: "yellow", label: "黄档 · 本周触达", total: 15, reached: 9, reachedPct: 60, channels: { phone: 6, sms: 15, visit: 0 } },
-  { risk_level: "green", label: "绿档 · 观察", total: 80, reached: 80, reachedPct: 100, channels: { phone: 0, sms: 80, visit: 0 } },
+  { tier: "red", label: "红档 · 立即触达", total: 5, reached: 5, reachedPct: 100, channels: { phone: 5, sms: 5, visit: 2 } },
+  { tier: "yellow", label: "黄档 · 本周触达", total: 15, reached: 9, reachedPct: 60, channels: { phone: 6, sms: 15, visit: 0 } },
+  { tier: "green", label: "绿档 · 观察", total: 80, reached: 80, reachedPct: 100, channels: { phone: 0, sms: 80, visit: 0 } },
 ];
 
 const S1_TOP: TopCase[] = [
-  { id: "tc-1", client_id: "CL-100-001", customer: "苏州金鼎电子", amount: "850 万", risk_level: "red", triggers: ["征信新增 M3+ 1 笔", "近 14 天流水 ↓ 47%"], advice: "电话 + 现场 · 评估补充担保", lastUpdate: "12 分钟前" },
-  { id: "tc-2", client_id: "CL-100-002", customer: "无锡安固塑业", amount: "620 万", risk_level: "red", triggers: ["新增被执行 86 万"], advice: "限额冻结 · 律师函", lastUpdate: "30 分钟前" },
-  { id: "tc-3", client_id: "CL-100-003", customer: "南京汇润商贸", amount: "480 万", risk_level: "red", triggers: ["税务降级 + 流水 ↓ 41%"], advice: "现场走访 · 重新评估", lastUpdate: "1 小时前" },
-  { id: "tc-4", client_id: "CL-100-004", customer: "常州江源建材", amount: "320 万", risk_level: "yellow", triggers: ["卡额度使用率 92% 持续 8 天"], advice: "电话回访 · 评估还款压力", lastUpdate: "2 小时前" },
-  { id: "tc-5", client_id: "CL-100-005", customer: "镇江盛达机械", amount: "260 万", risk_level: "yellow", triggers: ["流水 ↓ 41%"], advice: "短信提醒 · 下月重扫", lastUpdate: "3 小时前" },
+  { id: "tc-1", client_id: "CL-100-001", customer: "苏州金鼎电子", amount: "850 万", tier: "red", triggers: ["征信新增 M3+ 1 笔", "近 14 天流水 ↓ 47%"], advice: "电话 + 现场 · 评估补充担保", lastUpdate: "12 分钟前" },
+  { id: "tc-2", client_id: "CL-100-002", customer: "无锡安固塑业", amount: "620 万", tier: "red", triggers: ["新增被执行 86 万"], advice: "限额冻结 · 律师函", lastUpdate: "30 分钟前" },
+  { id: "tc-3", client_id: "CL-100-003", customer: "南京汇润商贸", amount: "480 万", tier: "red", triggers: ["税务降级 + 流水 ↓ 41%"], advice: "现场走访 · 重新评估", lastUpdate: "1 小时前" },
+  { id: "tc-4", client_id: "CL-100-004", customer: "常州江源建材", amount: "320 万", tier: "yellow", triggers: ["卡额度使用率 92% 持续 8 天"], advice: "电话回访 · 评估还款压力", lastUpdate: "2 小时前" },
+  { id: "tc-5", client_id: "CL-100-005", customer: "镇江盛达机械", amount: "260 万", tier: "yellow", triggers: ["流水 ↓ 41%"], advice: "短信提醒 · 下月重扫", lastUpdate: "3 小时前" },
 ];
 
 const S1_QUEUE: ScanQueueCase[] = [
-  { id: "sq-1", client_id: "CL-100-001", customer: "苏州金鼎电子", risk_level: "red", reason: "征信 M3+ + 流水 ↓ 47%", updated: "12 分钟前" },
-  { id: "sq-2", client_id: "CL-100-002", customer: "无锡安固塑业", risk_level: "red", reason: "被执行 86 万", updated: "30 分钟前" },
-  { id: "sq-3", client_id: "CL-100-003", customer: "南京汇润商贸", risk_level: "red", reason: "税务降级 + 流水 ↓ 41%", updated: "1 小时前" },
-  { id: "sq-4", client_id: "CL-100-004", customer: "常州江源建材", risk_level: "yellow", reason: "卡额度使用率 92% 持续 8 天", updated: "2 小时前" },
-  { id: "sq-5", client_id: "CL-100-005", customer: "镇江盛达机械", risk_level: "yellow", reason: "流水 ↓ 41%", updated: "3 小时前" },
+  { id: "sq-1", client_id: "CL-100-001", customer: "苏州金鼎电子", tier: "red", reason: "征信 M3+ + 流水 ↓ 47%", updated: "12 分钟前" },
+  { id: "sq-2", client_id: "CL-100-002", customer: "无锡安固塑业", tier: "red", reason: "被执行 86 万", updated: "30 分钟前" },
+  { id: "sq-3", client_id: "CL-100-003", customer: "南京汇润商贸", tier: "red", reason: "税务降级 + 流水 ↓ 41%", updated: "1 小时前" },
+  { id: "sq-4", client_id: "CL-100-004", customer: "常州江源建材", tier: "yellow", reason: "卡额度使用率 92% 持续 8 天", updated: "2 小时前" },
+  { id: "sq-5", client_id: "CL-100-005", customer: "镇江盛达机械", tier: "yellow", reason: "流水 ↓ 41%", updated: "3 小时前" },
 ];
 
 const S1_HEAT_BARS: SignalHeatBar[] = [
@@ -351,9 +355,9 @@ const SESSION_BASELINE_100: AlertSession = {
     warnDelta: "较扫描前 +1",
     kbState: "6 项联机中",
     tiers: [
-      { risk_level: "red", count: 5, caption: "强信号双路命中" },
-      { risk_level: "yellow", count: 15, caption: "弱风险组合持续" },
-      { risk_level: "green", count: 80, caption: "信号已缓和" },
+      { tier: "red", count: 5, caption: "强信号双路命中" },
+      { tier: "yellow", count: 15, caption: "弱风险组合持续" },
+      { tier: "green", count: 80, caption: "信号已缓和" },
     ],
     signals: [
       { id: "sg-1", label: "司法+流水双击穿", desc: "1 户客户被执行 + 流水骤降", severity: "high" },
@@ -420,25 +424,25 @@ const S2_HEAT: HeatCell[] = makeHeatStream(
 );
 
 const S2_REACH: ReachRate[] = [
-  { risk_level: "red", label: "红档 · 立即触达", total: 18, reached: 16, reachedPct: 88.9, channels: { phone: 14, sms: 18, visit: 6 } },
-  { risk_level: "yellow", label: "黄档 · 本周触达", total: 52, reached: 28, reachedPct: 53.8, channels: { phone: 18, sms: 52, visit: 0 } },
-  { risk_level: "green", label: "绿档 · 观察", total: 680, reached: 680, reachedPct: 100, channels: { phone: 0, sms: 680, visit: 0 } },
+  { tier: "red", label: "红档 · 立即触达", total: 18, reached: 16, reachedPct: 88.9, channels: { phone: 14, sms: 18, visit: 6 } },
+  { tier: "yellow", label: "黄档 · 本周触达", total: 52, reached: 28, reachedPct: 53.8, channels: { phone: 18, sms: 52, visit: 0 } },
+  { tier: "green", label: "绿档 · 观察", total: 680, reached: 680, reachedPct: 100, channels: { phone: 0, sms: 680, visit: 0 } },
 ];
 
 const S2_TOP: TopCase[] = [
-  { id: "tc-1", client_id: "CL-MFG-201", customer: "盐城绿能科技", amount: "1800 万", risk_level: "red", triggers: ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"], advice: "立即停增 · 评估退出路径", lastUpdate: "8 分钟前" },
-  { id: "tc-2", client_id: "CL-MFG-202", customer: "扬州精铸机械", amount: "1450 万", risk_level: "red", triggers: ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"], advice: "现场核查 · 启动风险分类", lastUpdate: "22 分钟前" },
-  { id: "tc-3", client_id: "CL-MFG-203", customer: "泰州瑞通模具", amount: "920 万", risk_level: "red", triggers: ["税务降级 A→B", "回款周期 +28 天"], advice: "限额冻结 · 现场谈判", lastUpdate: "45 分钟前" },
-  { id: "tc-4", client_id: "CL-MFG-204", customer: "南通启航重工", amount: "780 万", risk_level: "yellow", triggers: ["卡额度使用率 91% 持续 12 天", "政策升级影响"], advice: "电话 + 政策说明", lastUpdate: "1 小时前" },
-  { id: "tc-5", client_id: "CL-MFG-205", customer: "徐州恒达精工", amount: "560 万", risk_level: "yellow", triggers: ["流水 ↓ 38%"], advice: "短信提醒 · 重点观察", lastUpdate: "2 小时前" },
+  { id: "tc-1", client_id: "CL-MFG-201", customer: "盐城绿能科技", amount: "1800 万", tier: "red", triggers: ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"], advice: "立即停增 · 评估退出路径", lastUpdate: "8 分钟前" },
+  { id: "tc-2", client_id: "CL-MFG-202", customer: "扬州精铸机械", amount: "1450 万", tier: "red", triggers: ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"], advice: "现场核查 · 启动风险分类", lastUpdate: "22 分钟前" },
+  { id: "tc-3", client_id: "CL-MFG-203", customer: "泰州瑞通模具", amount: "920 万", tier: "red", triggers: ["税务降级 A→B", "回款周期 +28 天"], advice: "限额冻结 · 现场谈判", lastUpdate: "45 分钟前" },
+  { id: "tc-4", client_id: "CL-MFG-204", customer: "南通启航重工", amount: "780 万", tier: "yellow", triggers: ["卡额度使用率 91% 持续 12 天", "政策升级影响"], advice: "电话 + 政策说明", lastUpdate: "1 小时前" },
+  { id: "tc-5", client_id: "CL-MFG-205", customer: "徐州恒达精工", amount: "560 万", tier: "yellow", triggers: ["流水 ↓ 38%"], advice: "短信提醒 · 重点观察", lastUpdate: "2 小时前" },
 ];
 
 const S2_QUEUE: ScanQueueCase[] = [
-  { id: "sq-1", client_id: "CL-MFG-201", customer: "盐城绿能科技", risk_level: "red", reason: "政策升级未达标 + 流水 ↓ 58%", updated: "8 分钟前" },
-  { id: "sq-2", client_id: "CL-MFG-202", customer: "扬州精铸机械", risk_level: "red", reason: "环保限产 + 流水断流", updated: "22 分钟前" },
-  { id: "sq-3", client_id: "CL-MFG-203", customer: "泰州瑞通模具", risk_level: "red", reason: "税务降级 + 回款 +28 天", updated: "45 分钟前" },
-  { id: "sq-4", client_id: "CL-MFG-204", customer: "南通启航重工", risk_level: "yellow", reason: "卡额度 91% + 政策影响", updated: "1 小时前" },
-  { id: "sq-5", client_id: "CL-MFG-205", customer: "徐州恒达精工", risk_level: "yellow", reason: "流水 ↓ 38%", updated: "2 小时前" },
+  { id: "sq-1", client_id: "CL-MFG-201", customer: "盐城绿能科技", tier: "red", reason: "政策升级未达标 + 流水 ↓ 58%", updated: "8 分钟前" },
+  { id: "sq-2", client_id: "CL-MFG-202", customer: "扬州精铸机械", tier: "red", reason: "环保限产 + 流水断流", updated: "22 分钟前" },
+  { id: "sq-3", client_id: "CL-MFG-203", customer: "泰州瑞通模具", tier: "red", reason: "税务降级 + 回款 +28 天", updated: "45 分钟前" },
+  { id: "sq-4", client_id: "CL-MFG-204", customer: "南通启航重工", tier: "yellow", reason: "卡额度 91% + 政策影响", updated: "1 小时前" },
+  { id: "sq-5", client_id: "CL-MFG-205", customer: "徐州恒达精工", tier: "yellow", reason: "流水 ↓ 38%", updated: "2 小时前" },
 ];
 
 const S2_HEAT_BARS: SignalHeatBar[] = [
@@ -512,9 +516,9 @@ const SESSION_MANUF_POLICY_EVENT: AlertSession = {
     warnDelta: "较上周 +9",
     kbState: "5 项联机中 · 1 项升级",
     tiers: [
-      { risk_level: "red", count: 18, caption: "政策准入失格 + 双路命中" },
-      { risk_level: "yellow", count: 52, caption: "政策影响弱信号组合" },
-      { risk_level: "green", count: 680, caption: "未触发政策门槛" },
+      { tier: "red", count: 18, caption: "政策准入失格 + 双路命中" },
+      { tier: "yellow", count: 52, caption: "政策影响弱信号组合" },
+      { tier: "green", count: 680, caption: "未触发政策门槛" },
     ],
     signals: [
       { id: "sg-1", label: "政策准入失格", desc: "18 户在新政策门槛之下", severity: "high" },
@@ -582,25 +586,25 @@ const S3_HEAT: HeatCell[] = makeHeatStream(
 );
 
 const S3_REACH: ReachRate[] = [
-  { risk_level: "red", label: "红档 · 立即触达", total: 25, reached: 23, reachedPct: 92.0, channels: { phone: 22, sms: 25, visit: 11 } },
-  { risk_level: "yellow", label: "黄档 · 本周触达", total: 35, reached: 21, reachedPct: 60.0, channels: { phone: 18, sms: 35, visit: 0 } },
-  { risk_level: "green", label: "绿档 · 观察", total: 140, reached: 140, reachedPct: 100, channels: { phone: 0, sms: 140, visit: 0 } },
+  { tier: "red", label: "红档 · 立即触达", total: 25, reached: 23, reachedPct: 92.0, channels: { phone: 22, sms: 25, visit: 11 } },
+  { tier: "yellow", label: "黄档 · 本周触达", total: 35, reached: 21, reachedPct: 60.0, channels: { phone: 18, sms: 35, visit: 0 } },
+  { tier: "green", label: "绿档 · 观察", total: 140, reached: 140, reachedPct: 100, channels: { phone: 0, sms: 140, visit: 0 } },
 ];
 
 const S3_TOP: TopCase[] = [
-  { id: "tc-1", client_id: "CL-DUAL-301", customer: "广州瑞河商贸", amount: "2400 万", risk_level: "red", triggers: ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"], advice: "立即停贷 · 资产保全申请", lastUpdate: "5 分钟前" },
-  { id: "tc-2", client_id: "CL-DUAL-302", customer: "深圳鸿祥建材", amount: "1900 万", risk_level: "red", triggers: ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"], advice: "立即升级风险分类 · 律师函", lastUpdate: "18 分钟前" },
-  { id: "tc-3", client_id: "CL-DUAL-303", customer: "佛山联铸贸易", amount: "1280 万", risk_level: "red", triggers: ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"], advice: "现场谈判 · 限额冻结", lastUpdate: "32 分钟前" },
-  { id: "tc-4", client_id: "CL-DUAL-304", customer: "东莞鼎华科技", amount: "950 万", risk_level: "red", triggers: ["对手方集中转出 75%", "工商变更 + 实控人股权质押"], advice: "立即调查关联方", lastUpdate: "1 小时前" },
-  { id: "tc-5", client_id: "CL-DUAL-305", customer: "中山华业实业", amount: "780 万", risk_level: "yellow", triggers: ["卡额度 92% + 还款延迟 5 天"], advice: "电话回访 + 升级评估", lastUpdate: "2 小时前" },
+  { id: "tc-1", client_id: "CL-DUAL-301", customer: "广州瑞河商贸", amount: "2400 万", tier: "red", triggers: ["司法立案 320 万 · 已查封", "舆情热搜 5 平台联动", "对公流水 ↓ 71% (近 7 天)"], advice: "立即停贷 · 资产保全申请", lastUpdate: "5 分钟前" },
+  { id: "tc-2", client_id: "CL-DUAL-302", customer: "深圳鸿祥建材", amount: "1900 万", tier: "red", triggers: ["新增被执行 480 万", "媒体曝光资金链断裂", "信用卡额度 100% + 集中转出"], advice: "立即升级风险分类 · 律师函", lastUpdate: "18 分钟前" },
+  { id: "tc-3", client_id: "CL-DUAL-303", customer: "佛山联铸贸易", amount: "1280 万", tier: "red", triggers: ["征信 M3+ 2 笔", "舆情 3 平台爆负面", "回款断流 14 天"], advice: "现场谈判 · 限额冻结", lastUpdate: "32 分钟前" },
+  { id: "tc-4", client_id: "CL-DUAL-304", customer: "东莞鼎华科技", amount: "950 万", tier: "red", triggers: ["对手方集中转出 75%", "工商变更 + 实控人股权质押"], advice: "立即调查关联方", lastUpdate: "1 小时前" },
+  { id: "tc-5", client_id: "CL-DUAL-305", customer: "中山华业实业", amount: "780 万", tier: "yellow", triggers: ["卡额度 92% + 还款延迟 5 天"], advice: "电话回访 + 升级评估", lastUpdate: "2 小时前" },
 ];
 
 const S3_QUEUE: ScanQueueCase[] = [
-  { id: "sq-1", client_id: "CL-DUAL-301", customer: "广州瑞河商贸", risk_level: "red", reason: "司法立案 + 舆情 + 流水 ↓ 71%", updated: "5 分钟前" },
-  { id: "sq-2", client_id: "CL-DUAL-302", customer: "深圳鸿祥建材", risk_level: "red", reason: "被执行 480 万 + 媒体曝光", updated: "18 分钟前" },
-  { id: "sq-3", client_id: "CL-DUAL-303", customer: "佛山联铸贸易", risk_level: "red", reason: "征信 M3+ + 舆情 + 回款断流", updated: "32 分钟前" },
-  { id: "sq-4", client_id: "CL-DUAL-304", customer: "东莞鼎华科技", risk_level: "red", reason: "对手方集中转出 75%", updated: "1 小时前" },
-  { id: "sq-5", client_id: "CL-DUAL-305", customer: "中山华业实业", risk_level: "yellow", reason: "卡额度 92% + 还款延迟", updated: "2 小时前" },
+  { id: "sq-1", client_id: "CL-DUAL-301", customer: "广州瑞河商贸", tier: "red", reason: "司法立案 + 舆情 + 流水 ↓ 71%", updated: "5 分钟前" },
+  { id: "sq-2", client_id: "CL-DUAL-302", customer: "深圳鸿祥建材", tier: "red", reason: "被执行 480 万 + 媒体曝光", updated: "18 分钟前" },
+  { id: "sq-3", client_id: "CL-DUAL-303", customer: "佛山联铸贸易", tier: "red", reason: "征信 M3+ + 舆情 + 回款断流", updated: "32 分钟前" },
+  { id: "sq-4", client_id: "CL-DUAL-304", customer: "东莞鼎华科技", tier: "red", reason: "对手方集中转出 75%", updated: "1 小时前" },
+  { id: "sq-5", client_id: "CL-DUAL-305", customer: "中山华业实业", tier: "yellow", reason: "卡额度 92% + 还款延迟", updated: "2 小时前" },
 ];
 
 const S3_HEAT_BARS: SignalHeatBar[] = [
@@ -674,9 +678,9 @@ const SESSION_JUDICIAL_NEWS_DUAL: AlertSession = {
     warnDelta: "较上周 +14",
     kbState: "6 项联机中",
     tiers: [
-      { risk_level: "red", count: 25, caption: "司法+舆情/流水双路命中" },
-      { risk_level: "yellow", count: 35, caption: "弱风险组合 + 单路命中" },
-      { risk_level: "green", count: 140, caption: "未触发双路" },
+      { tier: "red", count: 25, caption: "司法+舆情/流水双路命中" },
+      { tier: "yellow", count: 35, caption: "弱风险组合 + 单路命中" },
+      { tier: "green", count: 140, caption: "未触发双路" },
     ],
     signals: [
       { id: "sg-1", label: "司法立案爆发", desc: "22 户客户出现司法立案", severity: "high" },

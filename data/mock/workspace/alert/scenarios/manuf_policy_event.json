@@ -6,25 +6,25 @@
   "metrics": {"red": 18, "yellow": 52, "green": 680, "total_scanned": 750},
   "hit_list": {
     "red": [
-      {"client_id": "CL-MFG-201", "company_name": "盐城绿能科技", "amount": "1800 万", "risk_level": "red", "score": 0.94, "matched_rules": ["EXT-POLICY-01", "INT-FLOW-01", "CRX-POLICY-FLOW"], "reasons": ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"]},
-      {"client_id": "CL-MFG-202", "company_name": "扬州精铸机械", "amount": "1450 万", "risk_level": "red", "score": 0.92, "matched_rules": ["EXT-POLICY-01", "EXT-BIZ-03", "INT-FLOW-01"], "reasons": ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"]},
-      {"client_id": "CL-MFG-203", "company_name": "泰州瑞通模具", "amount": "920 万", "risk_level": "red", "score": 0.89, "matched_rules": ["EXT-TAX-04", "INT-FLOW-01"], "reasons": ["税务降级 A→B", "回款周期 +28 天"]},
-      {"client_id": "CL-MFG-211", "company_name": "无锡精盛机械", "amount": "780 万", "risk_level": "red", "score": 0.86, "matched_rules": ["EXT-POLICY-01"], "reasons": ["政策准入失格 · 节能指标未达"]},
-      {"client_id": "CL-MFG-212", "company_name": "常州兆兴铸造", "amount": "650 万", "risk_level": "red", "score": 0.83, "matched_rules": ["EXT-POLICY-01", "INT-FLOW-01"], "reasons": ["政策影响 + 流水 ↓ 45%"]}
+      {"client_id": "CL-MFG-201", "company_name": "盐城绿能科技", "amount": "1800 万", "tier": "red", "score": 0.94, "matched_rules": ["EXT-POLICY-01", "INT-FLOW-01", "CRX-POLICY-FLOW"], "reasons": ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"]},
+      {"client_id": "CL-MFG-202", "company_name": "扬州精铸机械", "amount": "1450 万", "tier": "red", "score": 0.92, "matched_rules": ["EXT-POLICY-01", "EXT-BIZ-03", "INT-FLOW-01"], "reasons": ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"]},
+      {"client_id": "CL-MFG-203", "company_name": "泰州瑞通模具", "amount": "920 万", "tier": "red", "score": 0.89, "matched_rules": ["EXT-TAX-04", "INT-FLOW-01"], "reasons": ["税务降级 A→B", "回款周期 +28 天"]},
+      {"client_id": "CL-MFG-211", "company_name": "无锡精盛机械", "amount": "780 万", "tier": "red", "score": 0.86, "matched_rules": ["EXT-POLICY-01"], "reasons": ["政策准入失格 · 节能指标未达"]},
+      {"client_id": "CL-MFG-212", "company_name": "常州兆兴铸造", "amount": "650 万", "tier": "red", "score": 0.83, "matched_rules": ["EXT-POLICY-01", "INT-FLOW-01"], "reasons": ["政策影响 + 流水 ↓ 45%"]}
     ],
     "yellow": [
-      {"client_id": "CL-MFG-204", "company_name": "南通启航重工", "amount": "780 万", "risk_level": "yellow", "score": 0.65, "matched_rules": ["INT-UTIL-02", "EXT-POLICY-01"], "reasons": ["卡额度使用率 91% 持续 12 天", "政策升级影响"]},
-      {"client_id": "CL-MFG-205", "company_name": "徐州恒达精工", "amount": "560 万", "risk_level": "yellow", "score": 0.61, "matched_rules": ["INT-FLOW-01"], "reasons": ["流水 ↓ 38%"]},
-      {"client_id": "CL-MFG-220", "company_name": "镇江同丰金属", "amount": "440 万", "risk_level": "yellow", "score": 0.57, "matched_rules": ["INT-COLLAT-05"], "reasons": ["抵押物价值 ↓ 16%"]}
+      {"client_id": "CL-MFG-204", "company_name": "南通启航重工", "amount": "780 万", "tier": "yellow", "score": 0.65, "matched_rules": ["INT-UTIL-02", "EXT-POLICY-01"], "reasons": ["卡额度使用率 91% 持续 12 天", "政策升级影响"]},
+      {"client_id": "CL-MFG-205", "company_name": "徐州恒达精工", "amount": "560 万", "tier": "yellow", "score": 0.61, "matched_rules": ["INT-FLOW-01"], "reasons": ["流水 ↓ 38%"]},
+      {"client_id": "CL-MFG-220", "company_name": "镇江同丰金属", "amount": "440 万", "tier": "yellow", "score": 0.57, "matched_rules": ["INT-COLLAT-05"], "reasons": ["抵押物价值 ↓ 16%"]}
     ],
     "green": []
   },
   "top_cases": [
-    {"id": "tc-1", "client_id": "CL-MFG-201", "customer": "盐城绿能科技", "amount": "1800 万", "risk_level": "red", "triggers": ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"], "advice": "立即停增 · 评估退出路径", "lastUpdate": "8 分钟前"},
-    {"id": "tc-2", "client_id": "CL-MFG-202", "customer": "扬州精铸机械", "amount": "1450 万", "risk_level": "red", "triggers": ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"], "advice": "现场核查 · 启动风险分类", "lastUpdate": "22 分钟前"},
-    {"id": "tc-3", "client_id": "CL-MFG-203", "customer": "泰州瑞通模具", "amount": "920 万", "risk_level": "red", "triggers": ["税务降级 A→B", "回款周期 +28 天"], "advice": "限额冻结 · 现场谈判", "lastUpdate": "45 分钟前"},
-    {"id": "tc-4", "client_id": "CL-MFG-204", "customer": "南通启航重工", "amount": "780 万", "risk_level": "yellow", "triggers": ["卡额度使用率 91% 持续 12 天", "政策升级影响"], "advice": "电话 + 政策说明", "lastUpdate": "1 小时前"},
-    {"id": "tc-5", "client_id": "CL-MFG-205", "customer": "徐州恒达精工", "amount": "560 万", "risk_level": "yellow", "triggers": ["流水 ↓ 38%"], "advice": "短信提醒 · 重点观察", "lastUpdate": "2 小时前"}
+    {"id": "tc-1", "client_id": "CL-MFG-201", "customer": "盐城绿能科技", "amount": "1800 万", "tier": "red", "triggers": ["政策升级未达标 · 准入失格", "近 30 天流水 ↓ 58%"], "advice": "立即停增 · 评估退出路径", "lastUpdate": "8 分钟前"},
+    {"id": "tc-2", "client_id": "CL-MFG-202", "customer": "扬州精铸机械", "amount": "1450 万", "tier": "red", "triggers": ["环保限产通知", "工商经营范围变更", "对公流水断流 7 天"], "advice": "现场核查 · 启动风险分类", "lastUpdate": "22 分钟前"},
+    {"id": "tc-3", "client_id": "CL-MFG-203", "customer": "泰州瑞通模具", "amount": "920 万", "tier": "red", "triggers": ["税务降级 A→B", "回款周期 +28 天"], "advice": "限额冻结 · 现场谈判", "lastUpdate": "45 分钟前"},
+    {"id": "tc-4", "client_id": "CL-MFG-204", "customer": "南通启航重工", "amount": "780 万", "tier": "yellow", "triggers": ["卡额度使用率 91% 持续 12 天", "政策升级影响"], "advice": "电话 + 政策说明", "lastUpdate": "1 小时前"},
+    {"id": "tc-5", "client_id": "CL-MFG-205", "customer": "徐州恒达精工", "amount": "560 万", "tier": "yellow", "triggers": ["流水 ↓ 38%"], "advice": "短信提醒 · 重点观察", "lastUpdate": "2 小时前"}
   ],
   "industry_distribution": [
     {"industry": "制造业", "red": 15, "yellow": 36, "green": 399, "total": 450},
@@ -42,9 +42,9 @@
     {"id": "sh-internal", "label": "内部名单交叉", "score": 38, "desc": "审批备注与名单规则联动"}
   ],
   "reach_rate": [
-    {"risk_level": "red", "label": "红档 · 立即触达", "total": 18, "reached": 16, "reachedPct": 88.9, "channels": {"phone": 14, "sms": 18, "visit": 6}},
-    {"risk_level": "yellow", "label": "黄档 · 本周触达", "total": 52, "reached": 28, "reachedPct": 53.8, "channels": {"phone": 18, "sms": 52, "visit": 0}},
-    {"risk_level": "green", "label": "绿档 · 观察", "total": 680, "reached": 680, "reachedPct": 100, "channels": {"phone": 0, "sms": 680, "visit": 0}}
+    {"tier": "red", "label": "红档 · 立即触达", "total": 18, "reached": 16, "reachedPct": 88.9, "channels": {"phone": 14, "sms": 18, "visit": 6}},
+    {"tier": "yellow", "label": "黄档 · 本周触达", "total": 52, "reached": 28, "reachedPct": 53.8, "channels": {"phone": 18, "sms": 52, "visit": 0}},
+    {"tier": "green", "label": "绿档 · 观察", "total": 680, "reached": 680, "reachedPct": 100, "channels": {"phone": 0, "sms": 680, "visit": 0}}
   ],
   "dispositions": {
     "盐城绿能科技": "立即停增 · 评估退出路径",

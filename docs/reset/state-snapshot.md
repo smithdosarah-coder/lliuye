@@ -449,6 +449,47 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (Phase A · Week 3 night) · worker-A4-alert V2 fix · codex DISAGREE 4 issue 全修
+
+### What happened
+- codex review V1 给 DISAGREE · 4 issue (per `feat(alert): WORKER-A4-ALERT-ADAPTER-DONE` 6592a6e):
+  1. **grade-unified NO**: A6 schema (`agent-handoff-schemas.md:421-422`) 写 frontend = `tier` (red/yellow/green) · 后端 export = `risk_level` (high/medium/low) · 不同 domain · 不混. V1 把 frontend 改成 `risk_level` 违 onboarding §1 #6. revert frontend → `tier`. risk_level 仅 backend/export 兼容输入.
+  2. **4-gate partial**: V1 `normalizeAlertSession` 只更 4 panel · `scanQueueCases` + `scanSnapshotAfter.queue/heat/sources/kbState/summary` 没从 backend `hit_list.red/yellow/green` derive · live scan 显 live totals 但 queue 仍 fallback mock. V2 加 `rowToQueueCase` helper · queue 从 `hit_list.red + hit_list.yellow` derive · scanSnapshotAfter 全 derive (summary/warnCount/kbState/tiers/queue/heat).
+  3. **session_id 丢**: backend `make_done()` 顶层 session_id · V1 `runAlertScan` 只读 `evt.data.payload.type === "session"` · `scanSessionId` 没 set. V2 加 `evt.data.event === "done"` 时 read `evt.data.session_id` 路径 · canon path · per shared.sse_envelope.make_done 顶层位置.
+  4. **smoke 虚**: spec 8 env-guard skip 永远不跑真 backend · spec 4 不 assert hitlist 内容变化. V2 spec 4 加 (1) traffic light count 切 7/14/79 · (2) ScanQueueCase 显 `live 红档客户 ALPHA` + `live 黄档客户 BETA` (验 issue #2 fix) · (3) TopCase row data-client-id="CL-LIVE-RED-1". spec 8 改用 page.route mock + page.evaluate(fetch) · 不再 skip · 直接验 done envelope 字段 + V2 issue #1 fix verify (`"tier"` 不是 `"risk_level"`).
+
+- V2 触面 (8 文件):
+  - `web/src/lib/mock/agent-alert-sessions.ts`: 4 type field (TopCase/ReachRate/ScanQueueCase/ScanSnapshot.tiers) `risk_level` → `tier` · 全部 record literal 同步 · docstring 改 V2 注 (per A6 schema)
+  - `web/src/app/archive/alert/_components/AlertWorkspace.tsx`: 全 consumer (`c.risk_level` / `r.risk_level` / `l.risk_level`) → `c.tier` 等 · `normalizeAlertSession` 加 `rowToQueueCase` + scanSnapshotAfter full derive · ScanSnapshot type import 加 · normalize fallback 仍兼容 backend `risk_level/tier/level/grade` 任一输入键
+  - `web/src/lib/api/alert.ts:runAlertScan`: 加 `evt.data.event === "done"` 路径读顶层 session_id · 与 legacy `evt.data.payload.type === "session"` 双路并存
+  - `agent_alert/api.py:_to_compact_hit / _to_top_case`: 输出键 `risk_level` → `tier` (匹配 frontend canon)
+  - `data/mock/workspace/alert/scenarios/{baseline_100,manuf_policy_event,judicial_news_dual}.json`: 全 `"risk_level":` → `"tier":` (49 处)
+  - `web/tests/regression/alert-pilot-4gate.spec.ts`: spec 4 加内容断言 · spec 8 重写无 skip
+- 验:
+  - `npx tsc --noEmit` PASS
+  - py smoke: `_to_compact_hit` / `_to_top_case` 输出含 `tier` 不含 `risk_level` · 3 fixture 全 `tier` canonical
+  - V2 trailer attach `WORKER-A4-ALERT-V2-FIXED` + 4 issue 逐项 verify 链接
+
+### Triggered by
+- codex DISAGREE on V1 (commit `6592a6e WORKER-A4-ALERT-ADAPTER-DONE`) · 4 issue 列出 · 用户 paste 给 worker-A4-alert
+- A6 handoff schema (`agent-handoff-schemas.md:421-442`) 已明确 frontend `tier` vs backend export `risk_level` 不同 domain
+
+### State change (delta)
+- frontend grade canon: V1 `risk_level` → V2 `tier` (per A6 schema · 与 mock canon 一致)
+- backend SSE done envelope payload key: V1 `risk_level` → V2 `tier` (匹配 frontend canon)
+- backend export endpoint INPUT compat: 保留接受 `risk_level / level / tier` (word_export.py:22 已有)
+- normalizeAlertSession panel coverage: V1 4 panel → V2 5 panel (含 scanQueueCases + scanSnapshotAfter full derive)
+- runAlertScan session_id read: V1 single path (payload.type==session) → V2 dual path (含 evt.data.event==done 顶层)
+- Playwright spec 4: V1 仅断 data-attr → V2 加内容断言 (traffic light counts + queue customers + topcase customer)
+- Playwright spec 8: V1 env-guard skip → V2 route-mock + page.evaluate(fetch) · 不再跳过
+
+### Next
+- worker-A4-alert push V2 commit · 用户 attach codex re-review V2 触发
+- AGREE → cherry-pick A4-alert V1+V2 commits 到 chore/l0-infra
+- DISAGREE → V3 fix loop (per per Phase A 流程)
+
+---
+
 ## YYYY-MM-DD · <事件>
 
 ### Worker 状态变更

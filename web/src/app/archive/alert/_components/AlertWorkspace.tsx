@@ -16,8 +16,10 @@
  * Cat 4 done envelope: SSE done event 含 hit_list + totals + industry_distribution +
  *   signal_heatmap + reach_rate + top_cases + dispositions + kb_state · 通过
  *   normalizeAlertSession 注入 liveData.
- * Cat 5 grade: 三命名归一 risk_level (snake_case · per A6 schema · TopCase/ReachRate/
- *   ScanQueueCase 全切; HeatCell.level 热力 intensity ramp 0..4 不动).
+ * Cat 5 grade (V2 fix · per A6 schema agent-handoff-schemas.md:421-422):
+ *   - frontend canon = `tier` (red/yellow/green)         · 本文件 + agent-alert-sessions.ts
+ *   - 后端 export INPUT 接受 risk_level/level/tier       · POST /api/alert/export_docx
+ *   - HeatCell.level (热力 0..4) NOT touched             · 与 grade 同名不同义
  * Cat 11 banner: training-mode banner (selectedSessionId != default && !liveData) ·
  *   live-fail banner · scanError banner · export-error banner.
  *
@@ -49,6 +51,7 @@ import {
   type ReachRate,
   type ScanQueueCase,
   type ScanRangeOption,
+  type ScanSnapshot,
   type ScanStep,
   type SignalHeatBar,
   type TopCase,
@@ -119,7 +122,17 @@ const GRADE_LABEL: Record<RiskGrade, string> = {
  *   evt.kb_state / evt.summary / evt.data_source.
  *
  * 兜底 fallback chain: 字段缺 → 用 fallback session 同字段;
- * grade 命名兼容: backend 可能 risk_level / level / tier / grade 任一 → 统一收敛 risk_level.
+ * grade 命名兼容 (V2): backend 可能 risk_level / level / tier / grade 任一 → 统一收敛 frontend canon `tier`.
+ *
+ * V2 fix issue 2 · 5 panel 全 derive (不只 4 panel):
+ *   - scanQueueCases: 从 hit_list.red + hit_list.yellow derive (绿不入队列)
+ *   - scanSnapshotAfter.queue: 同上
+ *   - scanSnapshotAfter.heat: 直接用 signal_heatmap
+ *   - scanSnapshotAfter.summary: payload.summary
+ *   - scanSnapshotAfter.warnCount: totals.red (主要红档)
+ *   - scanSnapshotAfter.kbState: payload.kb_state
+ *   - scanSnapshotAfter.tiers: derive from totals (3 tier count + caption)
+ *   - scanSnapshotAfter.signals / sources: 保 fallback (无 backend 等价)
  *
  * 不让 LLM 算: 这里只是 schema 桥接 · 不做业务推断 · 不做幻觉补字段.
  */
@@ -128,54 +141,122 @@ function normalizeAlertSession(
   fallback: AlertSession,
 ): AlertSession {
   const sid = String((payload.session_id as string) ?? fallback.id);
-  const totals = (payload.totals as { red?: number; yellow?: number; green?: number } | undefined) ?? null;
+  const totalsIn = (payload.totals as { red?: number; yellow?: number; green?: number } | undefined) ?? null;
   const hitListRaw = (payload.hit_list as Record<string, unknown> | undefined) ?? null;
   const topCasesRaw =
     (payload.top_cases as Array<Record<string, unknown>> | undefined) ??
     (hitListRaw?.hits as Array<Record<string, unknown>> | undefined) ??
     null;
 
+  const totals = totalsIn
+    ? { red: totalsIn.red ?? 0, yellow: totalsIn.yellow ?? 0, green: totalsIn.green ?? 0 }
+    : fallback.totals;
+
+  // 行 → ScanQueueCase 共形 (issue #2 · 5 panel derive · V2)
+  function rowToQueueCase(c: Record<string, unknown>, idx: number): ScanQueueCase | null {
+    const t = normGrade(c.risk_level ?? c.tier ?? c.level ?? c.grade);
+    if (t === "green") return null;
+    const reasons = Array.isArray(c.reasons) ? (c.reasons as string[]) : [];
+    const matched = Array.isArray(c.matched_rules) ? (c.matched_rules as string[]) : [];
+    const reasonText = (reasons[0] || matched[0] || "命中规则").toString();
+    const cid = String(c.client_id ?? c.id ?? c.hit_id ?? `cl-${idx}`);
+    return {
+      id: String(c.id ?? c.hit_id ?? `sq-${idx}`),
+      client_id: cid,
+      customer: String(c.customer ?? c.company_name ?? c.name ?? "—"),
+      tier: t as "red" | "yellow",
+      reason: reasonText,
+      updated: String(c.lastUpdate ?? c.last_update ?? c.updated ?? "刚刚"),
+    };
+  }
+
+  // 红+黄 hit_list 拼成 queue · backend hit_list shape: {red:[], yellow:[], green:[]}
+  let queue: ScanQueueCase[] | null = null;
+  if (hitListRaw && (Array.isArray(hitListRaw.red) || Array.isArray(hitListRaw.yellow))) {
+    const red = (hitListRaw.red as Array<Record<string, unknown>> | undefined) ?? [];
+    const yellow = (hitListRaw.yellow as Array<Record<string, unknown>> | undefined) ?? [];
+    queue = [
+      ...red.map((c, i) => rowToQueueCase(c, i)).filter((q): q is ScanQueueCase => q !== null),
+      ...yellow.map((c, i) => rowToQueueCase(c, i + red.length)).filter((q): q is ScanQueueCase => q !== null),
+    ];
+  } else if (Array.isArray(topCasesRaw)) {
+    queue = topCasesRaw
+      .map((c, i) => rowToQueueCase(c, i))
+      .filter((q): q is ScanQueueCase => q !== null);
+  }
+
+  const heat = Array.isArray(payload.signal_heatmap)
+    ? (payload.signal_heatmap as SignalHeatBar[])
+    : fallback.signalHeatmap;
+
+  const distribution = Array.isArray(payload.industry_distribution)
+    ? (payload.industry_distribution as IndustryDistribution[])
+    : fallback.distribution;
+
+  const reach = Array.isArray(payload.reach_rate)
+    ? (payload.reach_rate as Array<Record<string, unknown>>).map((r) => ({
+        tier: normGrade(r.risk_level ?? r.tier ?? r.level ?? r.grade),
+        label: String(r.label ?? ""),
+        total: Number(r.total ?? 0),
+        reached: Number(r.reached ?? 0),
+        reachedPct: Number(r.reachedPct ?? r.reached_pct ?? 0),
+        channels: (r.channels as ReachRate["channels"]) ?? { phone: 0, sms: 0, visit: 0 },
+      }))
+    : fallback.reach;
+
+  const topCases = Array.isArray(topCasesRaw)
+    ? topCasesRaw.map((c, i) => ({
+        id: String(c.id ?? c.hit_id ?? `hit-${i}`),
+        client_id: String(c.client_id ?? c.id ?? c.hit_id ?? `cl-${i}`),
+        customer: String(c.customer ?? c.company_name ?? c.name ?? "—"),
+        amount: String(c.amount ?? c.credit_balance ?? "—"),
+        tier: normGrade(c.risk_level ?? c.tier ?? c.level ?? c.grade),
+        triggers: Array.isArray(c.triggers)
+          ? (c.triggers as string[])
+          : Array.isArray(c.matched_rules)
+            ? (c.matched_rules as string[])
+            : [],
+        advice: String(c.advice ?? c.disposition ?? ""),
+        lastUpdate: String(c.lastUpdate ?? c.last_update ?? c.updated ?? "刚刚"),
+      }))
+    : fallback.topCases;
+
+  const summary = String((payload.summary as string) ?? fallback.scanSnapshotAfter.summary);
+  const kbState = String((payload.kb_state as string) ?? fallback.scanSnapshotAfter.kbState);
+
+  // V2 issue #2 · scanSnapshotAfter 全 derive (queue / heat / kbState / summary / warnCount / tiers)
+  const snapshotAfter: ScanSnapshot = {
+    summary,
+    warnCount: totals.red,
+    warnDelta:
+      totals.red >= fallback.totals.red
+        ? `较上期 +${totals.red - fallback.totals.red}`
+        : `较上期 ${totals.red - fallback.totals.red}`,
+    kbState,
+    tiers: [
+      { tier: "red", count: totals.red, caption: "强信号双路命中" },
+      { tier: "yellow", count: totals.yellow, caption: "弱风险组合持续" },
+      { tier: "green", count: totals.green, caption: "信号已缓和" },
+    ],
+    signals: fallback.scanSnapshotAfter.signals,
+    queue: queue ?? fallback.scanSnapshotAfter.queue,
+    heat,
+    sources: fallback.scanSnapshotAfter.sources,
+  };
+
   const norm: AlertSession = {
     ...fallback,
     id: sid,
     objective: String((payload.objective as string) ?? fallback.objective),
-    stage: String((payload.summary as string) ?? fallback.stage),
+    stage: summary || fallback.stage,
     updated: "刚刚",
-    totals: totals
-      ? { red: totals.red ?? 0, yellow: totals.yellow ?? 0, green: totals.green ?? 0 }
-      : fallback.totals,
-    distribution: Array.isArray(payload.industry_distribution)
-      ? (payload.industry_distribution as IndustryDistribution[])
-      : fallback.distribution,
-    signalHeatmap: Array.isArray(payload.signal_heatmap)
-      ? (payload.signal_heatmap as SignalHeatBar[])
-      : fallback.signalHeatmap,
-    reach: Array.isArray(payload.reach_rate)
-      ? (payload.reach_rate as Array<Record<string, unknown>>).map((r) => ({
-          risk_level: normGrade(r.risk_level ?? r.tier ?? r.level ?? r.grade),
-          label: String(r.label ?? ""),
-          total: Number(r.total ?? 0),
-          reached: Number(r.reached ?? 0),
-          reachedPct: Number(r.reachedPct ?? r.reached_pct ?? 0),
-          channels: (r.channels as ReachRate["channels"]) ?? { phone: 0, sms: 0, visit: 0 },
-        }))
-      : fallback.reach,
-    topCases: Array.isArray(topCasesRaw)
-      ? topCasesRaw.map((c, i) => ({
-          id: String(c.id ?? c.hit_id ?? `hit-${i}`),
-          client_id: String(c.client_id ?? c.id ?? c.hit_id ?? `cl-${i}`),
-          customer: String(c.customer ?? c.company_name ?? c.name ?? "—"),
-          amount: String(c.amount ?? c.credit_balance ?? "—"),
-          risk_level: normGrade(c.risk_level ?? c.tier ?? c.level ?? c.grade),
-          triggers: Array.isArray(c.triggers)
-            ? (c.triggers as string[])
-            : Array.isArray(c.matched_rules)
-              ? (c.matched_rules as string[])
-              : [],
-          advice: String(c.advice ?? c.disposition ?? ""),
-          lastUpdate: String(c.lastUpdate ?? c.last_update ?? c.updated ?? "刚刚"),
-        }))
-      : fallback.topCases,
+    totals,
+    distribution,
+    signalHeatmap: heat,
+    reach,
+    topCases,
+    scanQueueCases: queue ?? fallback.scanQueueCases,
+    scanSnapshotAfter: snapshotAfter,
   };
   return norm;
 }
@@ -422,7 +503,7 @@ export default function AlertWorkspace() {
     try {
       const cases = sessionData.topCases.map((c) => ({
         customer: c.customer,
-        risk_level: c.risk_level,
+        risk_level: c.tier,
         triggers: c.triggers,
         amount: c.amount,
         advice: c.advice,
@@ -966,17 +1047,17 @@ function TrafficLightWall(p: {
 }) {
   const { red, yellow, green } = p.totals;
   const total = red + yellow + green;
-  const redCases = p.topCases.filter((c) => c.risk_level === "red");
+  const redCases = p.topCases.filter((c) => c.tier === "red");
 
-  const redReach = p.reach.find((r) => r.risk_level === "red");
-  const ylReach = p.reach.find((r) => r.risk_level === "yellow");
-  const greenReach = p.reach.find((r) => r.risk_level === "green");
+  const redReach = p.reach.find((r) => r.tier === "red");
+  const ylReach = p.reach.find((r) => r.tier === "yellow");
+  const greenReach = p.reach.find((r) => r.tier === "green");
 
   const activeRules = p.rules.filter((r) => r.enabled).length;
 
   const lights = [
     {
-      risk_level: "red" as RiskGrade,
+      tier: "red" as RiskGrade,
       label: GRADE_LABEL.red,
       count: red,
       pct: total ? Math.round((red / total) * 100) : 0,
@@ -985,7 +1066,7 @@ function TrafficLightWall(p: {
       animate: true,
     },
     {
-      risk_level: "yellow" as RiskGrade,
+      tier: "yellow" as RiskGrade,
       label: GRADE_LABEL.yellow,
       count: yellow,
       pct: total ? Math.round((yellow / total) * 100) : 0,
@@ -994,7 +1075,7 @@ function TrafficLightWall(p: {
       animate: false,
     },
     {
-      risk_level: "green" as RiskGrade,
+      tier: "green" as RiskGrade,
       label: GRADE_LABEL.green,
       count: green,
       pct: total ? Math.round((green / total) * 100) : 0,
@@ -1023,11 +1104,11 @@ function TrafficLightWall(p: {
       <ol className="alert-wall-list">
         {lights.map((l) => (
           <li
-            key={l.risk_level}
+            key={l.tier}
             className="alert-wall-light"
-            data-tier={l.risk_level}
+            data-tier={l.tier}
             data-animate={l.animate}
-            data-testid={`alert-traffic-light-${l.risk_level}`}
+            data-testid={`alert-traffic-light-${l.tier}`}
           >
             <div className="alert-wall-bulb" aria-hidden>
               <span className="alert-wall-bulb-inner" />
@@ -1058,8 +1139,8 @@ function TrafficLightWall(p: {
 /* ─── 预警客户队列 ─── */
 
 function ScanQueuePanel(p: { queue: ScanQueueCase[]; phase: ScanPhase }) {
-  const red = p.queue.filter((c) => c.risk_level === "red").length;
-  const yel = p.queue.filter((c) => c.risk_level === "yellow").length;
+  const red = p.queue.filter((c) => c.tier === "red").length;
+  const yel = p.queue.filter((c) => c.tier === "yellow").length;
   return (
     <section className="rpt-panel al-queue" aria-label="预警客户队列">
       <PanelPinHandle
@@ -1088,7 +1169,7 @@ function ScanQueuePanel(p: { queue: ScanQueueCase[]; phase: ScanPhase }) {
           <li
             key={c.id}
             className="al-queue__item"
-            data-tier={c.risk_level}
+            data-tier={c.tier}
             data-testid="alert-hitlist-row"
             data-client-id={c.client_id}
           >
@@ -1098,8 +1179,8 @@ function ScanQueuePanel(p: { queue: ScanQueueCase[]; phase: ScanPhase }) {
               <div className="al-queue__reason">{c.reason}</div>
             </div>
             <div className="al-queue__meta">
-              <span className="al-queue__tag" data-tier={c.risk_level}>
-                {c.risk_level === "red" ? "高风险" : "中风险"}
+              <span className="al-queue__tag" data-tier={c.tier}>
+                {c.tier === "red" ? "高风险" : "中风险"}
               </span>
               <span className="al-queue__time">{c.updated}</span>
             </div>
@@ -1574,7 +1655,7 @@ function OutputPanel(p: {
             ? `行业切片 ${p.distribution.length} 类 · 红 ${p.totals.red}`
             : p.tab === "heat"
               ? `30 天累计 ${p.heat.reduce((s, c) => s + c.count, 0)} 次`
-              : `红档触达率 ${p.reach.find((r) => r.risk_level === "red")?.reachedPct.toFixed(1) ?? "—"}%`,
+              : `红档触达率 ${p.reach.find((r) => r.tier === "red")?.reachedPct.toFixed(1) ?? "—"}%`,
         )}
       />
       <div className="rpt-panel__head al-out__head">
@@ -1682,7 +1763,7 @@ function DistView(p: {
 
       <div className="al-dv__ttl">Top 红档</div>
       <ul className="al-dv__tops">
-        {p.topCases.filter((c) => c.risk_level === "red").map((c) => (
+        {p.topCases.filter((c) => c.tier === "red").map((c) => (
           <li
             key={c.id}
             className="al-dv__tc"
@@ -1697,7 +1778,7 @@ function DistView(p: {
             style={{ cursor: "pointer" }}
           >
             <div className="al-dv__tc-head">
-              <span className="al-dv__tc-tier" data-tier={c.risk_level}>红</span>
+              <span className="al-dv__tc-tier" data-tier={c.tier}>红</span>
               <div className="al-dv__tc-name">{c.customer}</div>
               <span className="al-dv__tc-amt">{c.amount}</span>
             </div>
@@ -1758,10 +1839,10 @@ function ReachView({ reach }: { reach: ReachRate[] }) {
     <div className="al-rv">
       <ul className="al-rv__list">
         {reach.map((r) => (
-          <li key={r.risk_level} className="al-rv__item" data-tier={r.risk_level}>
+          <li key={r.tier} className="al-rv__item" data-tier={r.tier}>
             <div className="al-rv__head">
-              <span className="al-rv__tier" data-tier={r.risk_level}>
-                {r.risk_level === "red" ? "红" : r.risk_level === "yellow" ? "黄" : "绿"}
+              <span className="al-rv__tier" data-tier={r.tier}>
+                {r.tier === "red" ? "红" : r.tier === "yellow" ? "黄" : "绿"}
               </span>
               <div className="al-rv__lbl">{r.label}</div>
               <span className="al-rv__pct">{r.reachedPct.toFixed(1)}%</span>
@@ -1769,7 +1850,7 @@ function ReachView({ reach }: { reach: ReachRate[] }) {
             <div className="al-rv__bar">
               <div
                 className="al-rv__bar-fill"
-                data-tier={r.risk_level}
+                data-tier={r.tier}
                 style={{ width: `${r.reachedPct}%` } as CSSProperties}
               />
             </div>
@@ -2026,7 +2107,7 @@ function AlertDrillDrawer(p: {
 
   const fb = p.fallbackTopCase;
   const displayName = data?.company_name ?? fb?.customer ?? p.clientId;
-  const displayLevel = (data?.level as RiskGrade | undefined) ?? fb?.risk_level ?? "yellow";
+  const displayLevel = (data?.level as RiskGrade | undefined) ?? fb?.tier ?? "yellow";
   const triggers = fb?.triggers ?? [];
   const advice = (data?.disposition as { content?: string } | undefined)?.content ?? fb?.advice ?? "";
   const reasons = data?.reasons ?? [];

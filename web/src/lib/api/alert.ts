@@ -38,7 +38,12 @@ export type AlertScanResult = {
 
 
 /** Run alert scan SSE · 流式收 hit + done · 找 session_id 落 state.
- *  失败 (4xx/5xx/SSE error) 抛 LiveFailError → caller render banner. */
+ *  失败 (4xx/5xx/SSE error) 抛 LiveFailError → caller render banner.
+ *
+ *  V2 fix · session_id 读两路 (per shared.sse_envelope.make_done · 顶层位置):
+ *    - legacy: evt.data.payload.type === "session" → payload.session_id (旧 scan_engine yield)
+ *    - canon:  evt.data.event === "done" → evt.data.session_id (make_done 顶层 · cat 4 共形 envelope)
+ *  否则 done envelope 顶层的 session_id 会丢 · scanSessionId 永远空字符串. */
 export async function runAlertScan(
   req: AlertScanRequest,
   onEvent?: AlertSseHandler,
@@ -52,10 +57,19 @@ export async function runAlertScan(
   let mode = "";
   await streamSse(ENDPOINT_SCAN, body, (evt) => {
     onEvent?.(evt);
-    const payload = (evt.data?.payload as Record<string, unknown> | undefined) ?? {};
+    const data = (evt.data ?? {}) as Record<string, unknown>;
+    const payload = (data.payload as Record<string, unknown> | undefined) ?? {};
+
+    // legacy path · scan_engine yield {"type": "session", "session_id": ...}
     if (payload.type === "session" && payload.session_id) {
       sessionId = String(payload.session_id);
       if (payload.mode) mode = String(payload.mode);
+    }
+
+    // V2 fix · canon path · make_done 顶层 session_id (per shared.sse_envelope)
+    if (data.event === "done") {
+      if (data.session_id) sessionId = String(data.session_id);
+      if (data.mode) mode = String(data.mode);
     }
   });
   return { sessionId, mode };

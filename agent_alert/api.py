@@ -155,7 +155,7 @@ def _grade_value(level: Any) -> str:
 
 
 def _to_compact_hit(hit: Any) -> dict:
-    """HitItem → 前端 hit_list bucket 单条 (含 risk_level snake)."""
+    """HitItem → 前端 hit_list bucket 单条 (V2 · per A6 schema · `tier` red/yellow/green)."""
     payload = _hit_target_payload(hit)
     matched = list(getattr(hit, "matched_rules", None) or [])
     reasons = list(getattr(hit, "reasons", None) or [])
@@ -163,7 +163,7 @@ def _to_compact_hit(hit: Any) -> dict:
         "client_id": getattr(hit, "hit_id", None) or (hit.get("hit_id") if isinstance(hit, dict) else "") or "",
         "company_name": payload.get("company_name", ""),
         "amount": payload.get("credit_balance", "") or payload.get("amount", ""),
-        "risk_level": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
+        "tier": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
         "score": float(getattr(hit, "score", 0.0) if not isinstance(hit, dict) else hit.get("score", 0.0)),
         "matched_rules": matched,
         "reasons": reasons,
@@ -171,7 +171,7 @@ def _to_compact_hit(hit: Any) -> dict:
 
 
 def _to_top_case(hit: Any) -> dict:
-    """HitItem → 前端 topCases 单条 (含 client_id + risk_level snake + triggers)."""
+    """HitItem → 前端 topCases 单条 (V2 · per A6 schema · `tier` red/yellow/green + triggers)."""
     payload = _hit_target_payload(hit)
     reasons = list(getattr(hit, "reasons", None) or [])
     matched = list(getattr(hit, "matched_rules", None) or [])
@@ -181,7 +181,7 @@ def _to_top_case(hit: Any) -> dict:
         "client_id": getattr(hit, "hit_id", None) or (hit.get("hit_id") if isinstance(hit, dict) else ""),
         "customer": payload.get("company_name", ""),
         "amount": payload.get("credit_balance", "") or payload.get("amount", ""),
-        "risk_level": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
+        "tier": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
         "triggers": triggers,
         "advice": "",
         "lastUpdate": "刚刚",
