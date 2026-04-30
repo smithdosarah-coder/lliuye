@@ -77,7 +77,7 @@ test.describe("F-049 · Alert empty-state default render", () => {
     await expect(page.locator(".alert-wall")).toHaveCount(0);
   });
 
-  test("点 tertiary 历史 (示例) → setStarted true · 渲染完整 workspace + demo banner", async ({
+  test("点 tertiary 历史 (示例) → setStarted true · 渲染完整 workspace + training-mode banner", async ({
     page,
   }) => {
     await page.goto("/archive/alert", { waitUntil: "networkidle" });
@@ -91,8 +91,10 @@ test.describe("F-049 · Alert empty-state default render", () => {
     // EmptyState 不再渲染
     await expect(page.locator('[data-alert-started="no"]')).toHaveCount(0);
 
-    // demo banner 显示 (tertiary 触发标 (示例) 路径)
-    await expect(page.locator('[data-testid="alert-demo-banner"]')).toBeVisible();
+    // training-mode banner 显示 (tertiary 触发 handleSelectSession("sess_manuf_policy_event")
+    // → selectedSessionId !== DEFAULT_SESSION_ID && !liveData → showTrainingModeBanner=true)
+    // worker-A4-alert 4-gate · live-fallback-banner-spec §2 规则 2
+    await expect(page.locator('[data-testid="alert-training-mode-banner"]')).toBeVisible();
 
     // 完整 workspace 的老 TrafficLightWall 渲染 (含 hitlist row testid)
     await expect(page.locator(".alert-wall")).toBeVisible();
@@ -124,7 +126,8 @@ test.describe("F-049 · Alert empty-state default render", () => {
     // 完整 workspace 渲染 (TrafficLightWall · ScanProgress)
     await expect(page.locator(".alert-wall")).toBeVisible();
 
-    // primary trigger 不显 demo banner (只 tertiary 显)
-    await expect(page.locator('[data-testid="alert-demo-banner"]')).toHaveCount(0);
+    // primary trigger 不显 training-mode banner (只 tertiary 切 mock session 才显)
+    // worker-A4-alert: primary CTA 保持 DEFAULT_SESSION_ID · showTrainingModeBanner=false
+    await expect(page.locator('[data-testid="alert-training-mode-banner"]')).toHaveCount(0);
   });
 });
