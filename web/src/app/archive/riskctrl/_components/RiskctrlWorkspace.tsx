@@ -38,6 +38,7 @@ import {
   LiveFailError,
   runBacktest,
   runDslGen,
+  type BacktestDonePayload,
 } from "@/lib/api/riskctrl";
 import {
   RISKCTRL_GLOBAL_STATS,
@@ -74,6 +75,43 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
 }
 
 type RiskTrigger = "primary_dsl" | "secondary_preset" | "tertiary_history";
+
+/* ─── backtest done event → liveData session merge (Step 8 · Phase A worker-A4) ───
+ * 后端 backtest done 含 panels (ruleset/ks/samples/rule_stats) + metrics 顶层 KPI ·
+ * 前端将 backend snake_case 字段 normalize 为 RiskctrlSession camelCase shape ·
+ * 与 base mock session merge: ks/samples/ruleStats 切真数据 · 其他 (id/objective/
+ * stage/query/dsl/conversation/recent) 保 base · live 视觉壳保留. */
+function mergeBacktestIntoSession(
+  base: RiskctrlSession,
+  done: BacktestDonePayload,
+): RiskctrlSession {
+  return {
+    ...base,
+    id: done.session_id ?? base.id,
+    stage: "live · 回测完成",
+    updated: "刚刚",
+    ks: {
+      ksPeak: done.ks?.ksPeak ?? 0,
+      auc: done.ks?.auc ?? 0,
+      passRate: done.ks?.passRate ?? 0,
+      badRate: done.ks?.badRate ?? 0,
+      points: done.ks?.points ?? [],
+    },
+    samples: (done.samples ?? []).map((s) => ({
+      key: s.key,
+      label: s.label,
+      count: s.count,
+      pct: s.pct,
+      badRate: s.bad_rate,
+    })),
+    ruleStats: (done.rule_stats ?? []).map((r) => ({
+      ruleId: r.rule_id ?? "",
+      hit: r.hit,
+      fp: r.fp,
+      tn: r.tn,
+    })),
+  };
+}
 
 type ExportInfo = {
   status: "idle" | "running" | "done" | "error";
@@ -237,18 +275,26 @@ export default function RiskctrlWorkspace() {
     setScanError("");
     clearLiveFail();
     try {
-      await runBacktest({
+      const result = await runBacktest({
         ruleset: lastRuleset,
         csvPath: lastSampleCsvPath,
       });
       setScanned(true);
+      if (result) {
+        // Step 8 · backtest done → liveData · panel 整套切真数据
+        const base =
+          RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
+          RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
+        const merged = mergeBacktestIntoSession(base, result);
+        setLiveData(merged);
+      }
     } catch (e) {
       recordLiveFail("样本回测", e, () => triggerBacktest());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
       setScanRunning(false);
     }
-  }, [lastRuleset, lastSampleCsvPath]);
+  }, [lastRuleset, lastSampleCsvPath, selectedSession]);
 
   /* Word 导出 · POST /api/riskctrl/export_docx · 后端尚未 deliver · 优雅 fallback */
   const triggerExportDocx = useCallback(async () => {
