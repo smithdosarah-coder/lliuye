@@ -649,6 +649,91 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-30 (Phase A 收尾 + Phase B 准备) · 大段同步 (PM 反硬改 mindset 严守)
+
+### What happened (Day 2 morning → 现在)
+
+#### A. Phase A 5 V2 全 ship + production live
+- A4-{credit/alert/compli} V2 codex AGREE → merged main (1250081/31e7be6/79474f0) + push GitHub
+- A4-{riskctrl/report} V2 codex bg 卡 60+ min × 2 轮 → 主 CLI manual review fallback AGREE → merged main (7e40f86/4daedbe)
+- main HEAD = 4daedbe → push GitHub OK
+- ECS deploy 含 build (`bl25t16wa` ~10 min · 一次部署 5 V2 + Stage 4) → production live https://liuye.me
+
+#### B. Stage 4 compliance 全栈替换 (Q-042.B 落地)
+- 32 file (compli → compliance): backend rbac.py + api_server.py + frontend types/store/auth/event-type + 8 consumer + CSS data-attr + tests + SSOT
+- commit 76a5c08 + ECS deploy bl25t16wa 真生效
+- Stage 5a smoke verify: RBAC accessibleAgents 含 "compliance" verbatim ✅ (production live)
+
+#### C. Codex peer-review protocol v2 立 (Q-043 ratify)
+- Day 2 13:00+ codex bg 卡 60+ min × 2 轮 → 复盘真因 (`~/.codex/config.toml` 全局 xhigh + 复杂 prompt + 5 并发 + 主 CLI 没 monitor)
+- 立 5 条硬规: per-call reasoning override (默认 medium · 不依赖全局 xhigh) + sequential 不并发 + 90 min CPU=0 fallback + 复杂 prompt 拆段 + verdict commit trailer
+- PM verbatim ratify "我能等只要不卡死" (commit 058480a)
+- doc: `docs/contracts/codex-peer-protocol-v2.md` v1.1
+- CLAUDE.md §3.7.4 active rule 加 (与 §3.7.1/3.7.2/3.7.3 同列)
+
+#### D. 竞品分析 + 三方辩论 v3 完整版方案 (Q-044 ratify · 重启 v4 中)
+- sub-agent 竞品分析 (`a8d5ab867bc613475` · 5 借鉴 + 3 不借鉴 · 13.8 KB doc)
+- 主 CLI v1 action plan (12.6 KB · 6 action) + Codex v1 review (2.8 KB) + 融合 v2 (9.9 KB · 4 必做 + 1 可选)
+- 三方辩论 R1+R2+R3 (75 min wall-clock) → 完整版方案 v3 (820e64e · 14 action · ~5 周 · 5 PM 拍板项)
+- PM ultrathink 重启 v4: Codex 全扫 web/src + Gemini 看 12 view (PM 反"硬改" mindset · 要求 100% 了解后再 verdict)
+
+#### E. R1 v2 重启 (Codex 真扫 156 文件 → 6 个产品深 bug game-changer)
+- Codex R1 v2 (`blo0yym6g` · 5 min): 真扫 156 文件 (.tsx 103 + .ts 53)
+- 发现 6 个产品深 bug (v3 全漏 · 必修):
+  * P0 客户上下文断链
+  * P0 Evidence-First 假 fixture (反 north star §3.3 · 最严重)
+  * P1 Dispatch 双发送
+  * P1 Warroom rejected 消失
+  * P1 Audit 非可靠
+  * P2 ScanCTA 幽灵 API
+- 主 CLI R1 v2 (~5 min · 接受 Codex 100%)
+- Sub-agent 12 view 截图 (`a02245089e1cfcf98` · 17.3 MB · 12/12 全成)
+- Gemini R1 v2 sub-agent 上轮 fail (一次传 12 张超 Gemini 10 张上限) → 重 fire 分 2 批 (`a2edadaa3ad3d9558` · 跑中)
+
+#### F. Stage 5a backend smoke PRELIM (Phase A 真 exit 进度)
+- 12 HTML page 全 200 OK (login/today/archive + 6 archive workspace/dispatch/warroom)
+- 5 RBAC user accessibleAgents 全准确 (含 compliance ratify production verify)
+- 6 backend API SSE 真流 全 PASS (Agent1-6 含 demo scenario)
+- Phase A 8 硬线: 7/8 ✅ + 1 ⚠️ (#8 lint strict mode 90% · WARN-only 治理优化非阻塞)
+- doc: `docs/audit/STAGE-5A-INTEGRATION-SMOKE-2026-04-30.md` PRELIM (commit f724b31)
+
+#### G. SSOT 回写 (per CLAUDE.md §15 + Q-042 active decision 回写硬规)
+- decisions-log Q-043 (codex protocol v2 ratify) + Q-044 (三方辩论 ratify)
+- CLAUDE.md §3.7.4 加 active rule (codex protocol v2)
+- commit c7587f6 + push GitHub
+
+### Triggered by
+
+- PM 2026-04-30 早上 "开始今天的工作" → Day 2 morning resume
+- PM 2026-04-30 ultrathink "解决 codex 拉闸 + 三方辩论 + 100% 了解后重启 + 不硬改" 等多次决议
+- Codex bg 卡 60+ min × 2 轮 (Day 2 13:00+) 触发 protocol v2 立 + manual fallback ship
+
+### State change (delta · vs Day 2 morning)
+
+- Phase A: 6/8 ✅ → 7/8 ✅ (+1 #4 5 thin adapter 全完 V2 ship + ECS live)
+- main HEAD: 5e84b32 → c7587f6 (含 5 V2 merge + Stage 4 + 协议 v2 + 三方辩论 docs + Stage 5a + SSOT 回写)
+- ECS deploy 状态: 4 services active · production live
+- Codex 协作模式: protocol v1 (无 timeout 无 fallback) → v2 (5 条硬规 PM ratify · 已实战 5 次)
+- 三方辩论: 主 CLI 单方面规划 → 3 方 R1+R2+R3 ratified (v3 → 重启 v4)
+- 真 product 认知: v3 重 UI/视觉优化 → v4 重产品深层 bug 修 (Codex 全扫发现 6 bug)
+
+### Next
+
+- ⏳ Codex Phase A periodic final audit (`b680pl1mo` · ~30-60 min · 验 8 硬线 + cross-agent integration)
+- ⏳ Gemini R1 v2 sub-agent (`a2edadaa3ad3d9558` · 分 2 批传 12 张 + Codex 6 bug · ~10-15 min)
+- 等齐 → R2 互检 fire 3 路 → R3 主 CLI 综合 → 完整版方案 v4 doc
+- PM 拍 5+1 项 → 落 Phase B charter (worker-B3 RM workbench 14-21 action) + decisions-log Q-NNN
+- Phase B 启动 (worker-B1 数据飞轮 + worker-B2 商业化 doc + worker-B3 RM workbench)
+
+### 风险预警
+
+- **alidns 不 resolve liuye.me** (Cloudflare 国内 DNS 阻塞) — PM 端运维问题 · 不影响真实银行客户 (浏览器走系统 DNS 8.8.8.8/114.114.114.114 OK)
+- **Codex bg 历史卡 60+ min** — protocol v2 已立 + 实战 5 次 OK · 后续严守
+- **Gemini sub-agent 上传 12 张超上限** — 已 fix 分 2 批方案 (a2edadaa3ad3d9558 跑中 verify)
+- **v3 14 action 漏 6 个产品深 bug** — Codex R1 v2 全扫发现 · v4 必修 · Phase B 工程量 ~5 → ~6.5-7 周
+
+---
+
 (下次更新模板)
 ## YYYY-MM-DD · <事件>
 
