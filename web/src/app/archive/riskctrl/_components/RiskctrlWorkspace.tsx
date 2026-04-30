@@ -41,13 +41,17 @@ import {
 } from "@/lib/api/riskctrl";
 import {
   RISKCTRL_GLOBAL_STATS,
+  RISKCTRL_MOCK_SESSIONS_MAP,
+  RISKCTRL_MOCK_SESSIONS_LIST,
+  RISKCTRL_DEFAULT_SESSION_ID,
   RISKCTRL_SESSION,
   type ConversationMessage,
   type DslNode,
   type RiskctrlRecentSession,
+  type RiskctrlSession,
   type RuleRef,
   type SampleBar,
-} from "@/lib/mock/agent-riskctrl-session";
+} from "@/lib/mock/agent-riskctrl-sessions";
 
 const AGENT_KEY = "riskctrl";
 const AGENT_HREF = "/archive/riskctrl";
@@ -79,10 +83,13 @@ type ExportInfo = {
 
 type RecentLabel = { value: string; label: string; demo?: boolean };
 
-const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = [
-  { value: "demo-credit-v15-d3", label: "v1.5-d3 · KS 0.42 / 通过 32% (示例)", demo: true },
-  { value: "demo-credit-v15-d2", label: "v1.5-d2 · KS 0.38 / 通过 35% (示例)", demo: true },
-];
+/* Recent dropdown options 由 3 mock session array 派生 (workspace-state-protocol §3 mock array)
+ * 每条选中后 onSelectRecent 同步 setSelectedSession · 切下拉 panel 全跟切 (Step 3 panel props 化后生效) */
+const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = RISKCTRL_MOCK_SESSIONS_LIST.map((s) => ({
+  value: s.id,
+  label: `${s.objective} · KS ${s.ks.toFixed(2)} (示例)`,
+  demo: true,
+}));
 
 const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
   { value: "preset-credit-baseline", label: "信贷基线 · 通用 8 维评分卡" },
@@ -91,11 +98,26 @@ const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
 ];
 
 export default function RiskctrlWorkspace() {
-  /* Stage CF2 · empty-state-design-protocol v1.0 默认 started=false ·
-     用户写 DSL · 选预置 · 选历史 才 setStarted(true) · panel 真数据填入。
-     mock data 不 default load · 入口 dropdown 标 (示例) 与 production 路径分离。
-     既有 scanned state 保留 (post-scan 视觉解锁) · started 是更外层的"是否进入功能态"。 */
-  const [started, setStarted] = useState(false);
+  /* workspace-state-protocol v1.1 §2 强制 4 gate ·
+     (1) started · (2) selectedSession · (3) liveData · (4) selectedRuleOrSegment
+     sessionData = liveData ?? mock[selectedSession] · 5 panel 单点派生 · 切下拉全跟切。
+     started = "是否进入功能态" · empty-state-design-protocol v1.0 用户触发后才 setStarted(true)。 */
+  const [started, setStarted] = useState<boolean>(false);
+  const [selectedSession, setSelectedSession] = useState<string>(RISKCTRL_DEFAULT_SESSION_ID);
+  const [liveData, setLiveData] = useState<RiskctrlSession | null>(null);
+  const [selectedRuleOrSegment, setSelectedRuleOrSegment] = useState<
+    { kind: "rule"; id: string } | { kind: "segment"; key: SampleBar["key"] } | null
+  >(null);
+
+  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
+  const sessionData: RiskctrlSession =
+    liveData ??
+    RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
+    RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
+
+  const isLive = liveData !== null;
+
+  /* 3 CTA 触发分支 + 既有 trigger/recent/preset 选择 state */
   const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
   const [recent, setRecent] = useState<string>("");
   const [preset, setPreset] = useState<string>("");
@@ -167,12 +189,18 @@ export default function RiskctrlWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 */
+  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 ·
+     选 recent (mock session) 时同步切 selectedSession · 退 live mode · 清 selection */
   const onSelectPreset = useCallback((value: string) => {
     setPreset(value);
   }, []);
   const onSelectRecent = useCallback((value: string) => {
     setRecent(value);
+    if (value && RISKCTRL_MOCK_SESSIONS_MAP[value]) {
+      setSelectedSession(value);
+      setLiveData(null);
+      setSelectedRuleOrSegment(null);
+    }
   }, []);
   /* 单 "应用" button · preset 优先于 recent · 都没选则 disabled */
   const onApplySelection = useCallback(() => {
@@ -259,6 +287,8 @@ export default function RiskctrlWorkspace() {
         data-scanned={scanned ? "yes" : "no"}
         data-started={started ? "yes" : "no"}
         data-trigger={trigger ?? "none"}
+        data-session={sessionData.id}
+        data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
       >
         <RiskHero />
