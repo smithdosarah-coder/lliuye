@@ -280,4 +280,48 @@ test.describe("A5 V2 · Letterpress purge hermetic smoke", () => {
       "admin user should see 6 agent tiles after bootstrap",
     ).toHaveCount(6, { timeout: 10_000 });
   });
+
+  /**
+   * V3 · 4 themes × 6 agent workspace tile 截屏对比 (硬线 #5 verbatim)
+   *
+   * - viewport-only screenshot (1440×900) · fullPage 太大 baseline
+   * - mask live clock (Masthead .time · 20s tick · 不 mask 会 flake)
+   * - animations:"disabled" · drift / breathe / bodyBreath 全冻
+   * - maxDiffPixelRatio 0.02 (config 全局) · 抗 anti-alias 跨机漂
+   *
+   * 第一次跑无 baseline → playwright auto-create png (--update-snapshots 也行)
+   * 后续 run 与 baseline diff · 漂出容差 → fail
+   * baseline 落 web/tests/regression/letterpress-purge.spec.ts-snapshots/
+   */
+  const WORKSPACE_ROUTES = [
+    "/archive/report",
+    "/archive/channel",
+    "/archive/credit",
+    "/archive/alert",
+    "/archive/compliance",
+    "/archive/riskctrl",
+  ] as const;
+
+  for (const route of WORKSPACE_ROUTES) {
+    for (const theme of THEMES) {
+      test(`${route} · ${theme} · screenshot baseline`, async ({ page }) => {
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+
+        // 等 AuthGate bootstrap → ShellChrome 渲染 · main.shell-stage 是 protected route 的 shell 容器
+        await page.waitForSelector("main.shell-stage", { timeout: 10_000 });
+
+        await applyTheme(page, theme);
+
+        // 等主题切换 + workspace 内首屏渲染 settle (RbacGuard + Workspace mount)
+        // 不 networkidle (next dev 长 polling 永不 idle) · 用 waitForTimeout
+        await page.waitForTimeout(500);
+
+        const slug = route.replace(/^\/archive\//, "");
+        await expect(page).toHaveScreenshot(`workspace-${slug}-${theme}.png`, {
+          fullPage: false,
+          mask: [page.locator(".shell-bar .time")], // live clock 屏蔽
+        });
+      });
+    }
+  }
 });
