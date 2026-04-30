@@ -186,19 +186,32 @@ async def riskctrl_dsl_gen(req: DslGenRequest):
 
         yield encode_event(make_stage("build_prompt", "running", message="组装 LLM prompt..."))
 
-        # LLM 真接 (Step 5 后续迁 shared.llm_caller · 当前保留 LLMClient)
+        # LLM 真接 · A4 caller 5 迁 shared.llm_caller (CLAUDE.md §3.6 PIPL fallback chain)
+        # req.provider 非默认 deepseek 时 · 作为 chain leading entry · 仍兜底 dashscope
+        chain: list[str] | None = None
+        if req.provider and req.provider != "deepseek":
+            chain = [req.provider, "dashscope"]
         try:
-            from llm import LLMClient
-            llm = LLMClient(provider=req.provider, api_key=req.api_key)
-            yield encode_event(make_stage("build_prompt", "done"))
-            yield encode_event(make_stage("call_llm", "running", message="调 LLM 生成 DSL..."))
-            llm_json = llm.chat_json(
-                system_prompt=SYSTEM_RULE_PARSER,
-                user_content=user_prompt,
+            from shared.llm_caller import make_json_caller
+            caller = make_json_caller(
+                agent_id="riskctrl",
+                endpoint="/api/riskctrl/dsl_gen",
+                chain=chain,
+                api_key=req.api_key,
                 temperature=0.3,
             )
-        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
+            yield encode_event(make_stage("build_prompt", "done"))
+            yield encode_event(make_stage("call_llm", "running", message="调 LLM 生成 DSL..."))
+            llm_json = caller(SYSTEM_RULE_PARSER, user_prompt)
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, ImportError) as e:
             yield encode_event(make_error_from_exception(e, code="LLM_CALL_FAILED"))
+            return
+
+        if llm_json is None:
+            yield encode_event(make_error(
+                "LLM 调用失败 · fallback chain 全部不可用 · 请重试或换 provider",
+                code="LLM_FALLBACK_EXHAUSTED",
+            ))
             return
 
         yield encode_event(make_stage("call_llm", "done"))

@@ -114,17 +114,22 @@ class LLMJudge:
         return bool(self.api_key)
 
     def _get_client(self) -> Any | None:
-        """Lazy init LLMClient · 失败返回 None."""
+        """Lazy init LLMCaller · 失败返回 None.
+
+        Phase A worker-A4 (caller 3 deprecation) · 由 root llm.LLMClient 迁
+        shared.llm_caller.LLMCaller (per A2 V2 ACK trailer · CLAUDE.md §3.6).
+        cache_enabled 字段不再生效 (LLMCaller 内置 fallback chain · provider
+        cache 由 root llm.LLMClient 兜底层处理).
+        """
         if self._llm is not None:
             return self._llm
         if not self.api_key:
             return None
         try:
-            from llm import LLMClient
-            self._llm = LLMClient(
-                provider=self.provider,
-                api_key=self.api_key,
-                cache_enabled=self.cache_enabled,
+            from shared.llm_caller import LLMCaller
+            self._llm = LLMCaller(
+                agent_id="riskctrl",
+                endpoint="judge",
             )
             return self._llm
         except (ImportError, RuntimeError, ValueError, TypeError, OSError):
@@ -161,7 +166,8 @@ class LLMJudge:
                 "detail": {},
             }
         try:
-            raw = client.simple_chat(prompt["system"], prompt["user"])
+            # api_key 透传 LLMCaller.simple_chat (A4 caller 3 迁后 · api_key 由 caller 显式传)
+            raw = client.simple_chat(prompt["system"], prompt["user"], api_key=self.api_key)
         except Exception as e:  # 兜底所有 LLM provider / 网络 / 认证异常 (judge 失败不能 crash worker)
             return {
                 "score": None,
