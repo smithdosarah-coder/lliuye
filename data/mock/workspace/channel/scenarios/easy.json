@@ -1,0 +1,143 @@
+{
+  "scenario_id": "easy",
+  "difficulty": "简单 (信号密度高 · 候选清晰 · radar 8 维全亮)",
+  "_lineage": "锚定 A 股年报 + 工信部公告形态 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 脱敏再造",
+  "stage_messages": {
+    "parse": "解析意图 · 行业/区域/规模 3 个标签...",
+    "signal_scan": "5 路并行搜索 · 信号密度高...",
+    "aggregate": "实体聚合去重...",
+    "enrich": "企查查补全工商信息 + 产品匹配...",
+    "pitch": "生成个性化切入话术...",
+    "rank": "信号密度排序 · Top 8 候选..."
+  },
+  "metrics": { "signalTotal": 42, "companiesFound": 18, "final": 8, "kb_files_used": 3 },
+  "candidates": [
+    {
+      "id": "demo-easy-c1",
+      "name": "杭州智云数据科技有限公司",
+      "similarity": 0.91,
+      "score": 91,
+      "industry": "工业软件 · SaaS",
+      "geo": "浙江 · 杭州",
+      "scale": "营收 1.4 亿元",
+      "uscc": "91330106MA28T*****",
+      "registeredCapital": "5,000 万元",
+      "founded": "2018-03",
+      "legalRep": "王智云",
+      "employees": 168,
+      "signals": ["B+ 轮融资 · 红杉领投", "专精特新小巨人", "中标某央企 PMC"],
+      "riskTags": [],
+      "products": ["科创贷", "并购贷", "供应链金融"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-easy-c1-1", "dim_name": "行业", "display": "工业软件 SaaS ✓ 高度匹配", "hit_evidence": "kb-policy-1", "score": 95 },
+        { "id": "md-easy-c1-2", "dim_name": "区域", "display": "长三角 ✓ 浙江杭州", "hit_evidence": "qcc", "score": 92 },
+        { "id": "md-easy-c1-3", "dim_name": "营收", "display": "1.4 亿 ✓ 区间内 (1-3 亿)", "hit_evidence": "annual-report", "score": 88 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-easy-c1-1", "product_name": "科创贷", "fit_score": 0.92, "intro": "针对专精特新企业 · 利率优惠 LPR-50bp" },
+        { "id": "prod-easy-c1-2", "product_name": "供应链金融",   "fit_score": 0.85, "intro": "上游账款融资 · 适配 SaaS 应收" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-easy-c1-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 看到贵司近期完成 B+ 轮 · 又入选专精特新 · 我行科创贷正好适配 · 想约个时间聊聊?" }
+      ]
+    },
+    {
+      "id": "demo-easy-c2",
+      "name": "上海源策智能科技股份有限公司",
+      "similarity": 0.86,
+      "score": 86,
+      "industry": "工业软件 · MES",
+      "geo": "上海 · 浦东",
+      "scale": "营收 9,200 万元",
+      "uscc": "91310115MA1*****",
+      "registeredCapital": "3,000 万元",
+      "founded": "2019-07",
+      "legalRep": "李源策",
+      "employees": 95,
+      "signals": ["A 轮 1.2 亿", "省级专精特新", "ISO 27001"],
+      "riskTags": [],
+      "products": ["小微贷", "科创贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-easy-c2-1", "dim_name": "行业", "display": "MES ✓ 同行业", "hit_evidence": "qcc", "score": 88 },
+        { "id": "md-easy-c2-2", "dim_name": "区域", "display": "长三角 ✓ 上海", "hit_evidence": "qcc", "score": 85 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-easy-c2-1", "product_name": "科创贷", "fit_score": 0.86, "intro": "专精特新省级认定企业适用" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-easy-c2-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 上海科创贷可针对工业软件企业提供 LPR-50bp · 想了解一下?" }
+      ]
+    },
+    {
+      "id": "demo-easy-c3",
+      "name": "苏州博联工业互联网股份有限公司",
+      "similarity": 0.83,
+      "score": 83,
+      "industry": "工业软件 · IIoT",
+      "geo": "江苏 · 苏州",
+      "scale": "营收 1.8 亿元",
+      "uscc": "91320594MA*****",
+      "registeredCapital": "8,000 万元",
+      "founded": "2016-10",
+      "legalRep": "陈博联",
+      "employees": 245,
+      "signals": ["上市辅导备案", "中标 3 家央企", "省专精特新"],
+      "riskTags": [],
+      "products": ["上市贷", "供应链金融"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-easy-c3-1", "dim_name": "行业", "display": "IIoT ✓ 工业互联网", "hit_evidence": "qcc", "score": 82 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-easy-c3-1", "product_name": "上市贷", "fit_score": 0.84, "intro": "上市辅导期专项授信" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-easy-c3-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 注意到贵司已开始上市辅导 · 我行上市贷可提前介入 · 是否方便聊聊?" }
+      ]
+    }
+  ],
+  "signals": [
+    { "id": "src-biz",     "key": "biz",     "label": "工商变更",   "status": "active", "weight": 0.20, "freq": "实时", "coverage": 88, "hits": 12 },
+    { "id": "src-bidding", "key": "bidding", "label": "招投标",     "status": "active", "weight": 0.18, "freq": "实时", "coverage": 92, "hits": 8 },
+    { "id": "src-pr",      "key": "pr",      "label": "媒体公告",   "status": "active", "weight": 0.16, "freq": "实时", "coverage": 95, "hits": 11 },
+    { "id": "src-legal",   "key": "legal",   "label": "司法诉讼",   "status": "active", "weight": 0.10, "freq": "T+1",  "coverage": 78, "hits": 0  },
+    { "id": "src-social",  "key": "social",  "label": "社交舆情",   "status": "active", "weight": 0.08, "freq": "实时", "coverage": 70, "hits": 4  },
+    { "id": "src-tax",     "key": "tax",     "label": "税务",       "status": "active", "weight": 0.10, "freq": "T+30", "coverage": 60, "hits": 2  },
+    { "id": "src-hr",      "key": "hr",      "label": "招聘动态",   "status": "active", "weight": 0.08, "freq": "实时", "coverage": 82, "hits": 5  },
+    { "id": "src-funding", "key": "funding", "label": "融资动态",   "status": "active", "weight": 0.10, "freq": "T+1",  "coverage": 88, "hits": 0  }
+  ],
+  "radar": [
+    { "axis": "信号密度",   "score": 88, "benchmark": 50, "quadrant": "base",   "note": "5 类信号全亮" },
+    { "axis": "行业匹配",   "score": 95, "benchmark": 50, "quadrant": "base",   "note": "工业软件 SaaS 全部命中" },
+    { "axis": "区域匹配",   "score": 92, "benchmark": 50, "quadrant": "base",   "note": "长三角内核心城市" },
+    { "axis": "规模匹配",   "score": 86, "benchmark": 50, "quadrant": "base",   "note": "营收均落 1-3 亿目标区间" },
+    { "axis": "近期活跃度", "score": 90, "benchmark": 50, "quadrant": "demand", "note": "60 天内信号 ≥ 4 条" },
+    { "axis": "资质含金量", "score": 92, "benchmark": 50, "quadrant": "bonus",  "note": "专精特新 / 高新双证" },
+    { "axis": "技术强度",   "score": 88, "benchmark": 50, "quadrant": "bonus",  "note": "B 轮 + 研发占比 ≥ 50%" },
+    { "axis": "相似度",     "score": 86, "benchmark": 50, "quadrant": "market", "note": "Top1 91% · 均值 86%" }
+  ],
+  "funnel": [
+    { "id": "fn-1", "label": "信号池",   "count": 4280, "detail": "8 信号源 · 60 天" },
+    { "id": "fn-2", "label": "实体聚合", "count": 1620, "detail": "按 USCC 去重" },
+    { "id": "fn-3", "label": "Top 排序", "count": 580,  "detail": "信号密度加权" },
+    { "id": "fn-4", "label": "工商补全", "count": 282,  "detail": "企查查活跃企业" },
+    { "id": "fn-5", "label": "Top 推荐", "count": 8,    "detail": "相似度 ≥ 0.78" }
+  ],
+  "match_dimensions": [
+    { "id": "md-top-1", "dim_name": "行业", "display": "工业软件 SaaS ✓ 高度匹配", "hit_evidence": "kb-policy-1", "score": 95 },
+    { "id": "md-top-2", "dim_name": "区域", "display": "长三角 ✓ 上海/苏州/杭州",   "hit_evidence": "qcc",         "score": 92 },
+    { "id": "md-top-3", "dim_name": "营收", "display": "1-3 亿 ✓ 全部落区间内",     "hit_evidence": "annual",      "score": 88 }
+  ],
+  "product_recommendations": [
+    { "id": "prod-top-1", "product_name": "科创贷",       "fit_score": 0.92, "intro": "针对专精特新企业 · 利率 LPR-50bp" },
+    { "id": "prod-top-2", "product_name": "供应链金融",   "fit_score": 0.85, "intro": "SaaS 应收账款融资" },
+    { "id": "prod-top-3", "product_name": "上市辅导贷",   "fit_score": 0.84, "intro": "上市备案后专项授信" }
+  ],
+  "pitch_scripts": [
+    { "id": "ps-top-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 看到贵司近期 B+ 轮 + 入选专精特新 · 我行科创贷正好适配 · 想约个时间聊聊?" },
+    { "id": "ps-top-2", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 上海科创贷可针对工业软件企业提供 LPR-50bp · 想了解一下?" },
+    { "id": "ps-top-3", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 注意到贵司已开始上市辅导 · 我行上市贷可提前介入 · 方便聊聊吗?" }
+  ]
+}

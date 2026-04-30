@@ -16,13 +16,21 @@ import logging
 import os
 import re
 import traceback
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+from statistics import median
 from typing import Iterator
 
 from llm import LLMClient
 from shared.kb_scan.search_provider import MockSearchProvider
 from shared.kb_scan.tavily_client import TavilyClient, TavilySearchError
+from shared.sse_envelope import (
+    DATA_SOURCE_LIVE,
+    DATA_SOURCE_MOCK_FALLBACK,
+    DATA_SOURCE_MOCK_FORCED,
+    make_done,
+)
 
 # 诊断 log：走 uvicorn stderr。
 # 关键事件（数据源决策、0 命中降级）用 WARNING，便于线上排查；
@@ -137,10 +145,20 @@ def run_channel_search_stream(
       {"event":"stage","stage":"parse","status":"done","tags":[...]}
       ... (6 stage x running/done)
       {"event":"done","candidates":[...], "metrics":{...},
-       "data_source":"tavily"|"mock_forced"|"mock_fallback"}
+       "data_source":"live"|"mock_forced"|"mock_fallback",
+       "provider_source":"tavily" (only when data_source == live)}
       错误：{"event":"error","message":"...","traceback":"..."}
+
+    V2 fix · codex review issue 3 · data_source 必须是 sse-envelope canonical enum
+    (DATA_SOURCE_LIVE/MOCK_FORCED/MOCK_FALLBACK) · provider 细节 (e.g. tavily) 通过
+    provider_source 单独字段透传 · A4 worker 复用本模式时不要再用 "tavily" 作 data_source
     """
+    # C4 banner-spec rule 2 · warnings 收集 · 透传到 done envelope.warnings
+    # 触发源(目前):TAVILY_API_KEY 缺 / TavilyClient init 失败 → mock_fallback
+    warnings: list[str] = []
+
     try:
+        session_id = str(uuid.uuid4())
         # api_key 优先级：调用方显式传入 > env DEEPSEEK_API_KEY > 空（退化到无 LLM 路径）
         # 修根因：前端请求体默认 api_key="",此前直接送给 LLMClient → DeepSeek 401 →
         #         _extract_signal 全失败 → all_signals=0 → mock_fallback。
@@ -174,7 +192,11 @@ def run_channel_search_stream(
         yield {"event": "stage", "stage": "signal_scan", "status": "running",
                "message": "5 路信号并行搜索（中标/认可/技术/增长/获奖）..."}
         raw_signals: list[dict] = []
-        data_source = "tavily"
+        # V2 issue 3 · 初始值用 envelope canonical enum (非 "tavily")
+        # _parallel_signal_search_iter 仍 yield "tavily" 作内部 provider 标记 ·
+        # 在 final tuple 解构后 normalize 为 envelope enum + 拆出 provider_source
+        provider_source: str | None = None
+        data_source: str = DATA_SOURCE_LIVE
         route_progress = 0
         for item in _parallel_signal_search_iter(
             llm, industry, region, query, tags, force_mock=force_mock,
@@ -187,10 +209,32 @@ def run_channel_search_stream(
                 yield {"event": "progress", "stage": "signal_scan",
                        "route": route, "signals": count,
                        "routes_done": route_progress, "routes_total": 5}
+            elif kind == "warning":
+                # C4 banner-spec rule 2 · Tavily silent fallback 透明化 · 前端 banner 显
+                _, msg = item
+                warnings.append(msg)
+                yield {"event": "stage", "stage": "signal_scan",
+                       "status": "warning", "message": msg}
             elif kind == "final":
-                _, raw_signals, data_source = item
-        yield {"event": "stage", "stage": "signal_scan", "status": "done",
-               "count": len(raw_signals), "data_source": data_source}
+                _, raw_signals, raw_source = item
+                # V2 issue 3 · raw_source 是 _parallel_signal_search_iter 内部 provider
+                # 标记 ("tavily" / "mock_forced" / "mock_fallback") · 这里映射到 envelope enum
+                if raw_source == "tavily":
+                    data_source = DATA_SOURCE_LIVE
+                    provider_source = "tavily"
+                elif raw_source in (DATA_SOURCE_MOCK_FORCED, DATA_SOURCE_MOCK_FALLBACK):
+                    data_source = raw_source
+                    provider_source = None
+                else:
+                    data_source = raw_source  # 未知值不 silent 改写 · 让上层看到原值
+                    provider_source = None
+        # V2 issue 3 · stage event 也用 envelope enum · provider_source 单独字段
+        stage_done_evt: dict = {"event": "stage", "stage": "signal_scan",
+                                "status": "done", "count": len(raw_signals),
+                                "data_source": data_source}
+        if provider_source:
+            stage_done_evt["provider_source"] = provider_source
+        yield stage_done_evt
 
         # ===== Stage 3: aggregate — 按公司聚合 =====
         yield {"event": "stage", "stage": "aggregate", "status": "running",
@@ -225,16 +269,37 @@ def run_channel_search_stream(
         candidates = _build_final_output(enriched, tags, query=query, llm=llm)
         yield {"event": "stage", "stage": "rank", "status": "done"}
 
-        yield {
-            "event": "done",
-            "candidates": candidates,
-            "metrics": {
+        # C3 · workspace-state-protocol §4 + sse-envelope §3.1 · 7 panel canonical 共形
+        # shared/sse_envelope.py make_done(panels=...) 把 panels expand 到 done event 顶层
+        # V2 issue 3 · data_source 已在 final tuple 解构时 normalize · 这里直接透传 ·
+        # provider_source 通过 make_done **extras 进 done event 顶层 (UI 需展示 "tavily" 时读它)
+        done_extras: dict = {"warnings": warnings}
+        if provider_source:
+            done_extras["provider_source"] = provider_source
+        yield make_done(
+            panels={
+                "candidates": candidates,
+                "signals": _aggregate_signal_sources(raw_signals),
+                "radar": _build_radar_p50(candidates),
+                "funnel": _build_funnel(raw_signals, company_map, enriched, candidates),
+                "match_dimensions": _aggregate_match_dimensions(candidates),
+                "product_recommendations": _aggregate_product_recommendations(candidates),
+                "pitch_scripts": _aggregate_pitch_scripts(candidates),
+                # V3 fix · CHANNEL_PANEL_KEYS 8 key · ConversationPanel 显式从 done envelope 派生
+                # 当前 live 路径不生成 AI dialog turns · 默认 [] · 前端 normalizeBackendDone 兜底
+                # tplFallback.conversation (mock session 模板的对话) · A4-channel 生成 AI 复盘时再
+                # 真填 turns
+                "conversation": [],
+            },
+            metrics={
                 "signalTotal": len(raw_signals),
                 "companiesFound": len(company_map),
                 "final": len(candidates),
             },
-            "data_source": data_source,
-        }
+            data_source=data_source,
+            session_id=session_id,
+            **done_extras,
+        )
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         yield {
             "event": "error",
@@ -337,6 +402,8 @@ def _parallel_signal_search_core(
 
     if not tavily_key:
         logger.warning("[channel.signal_search] TAVILY_API_KEY missing → mock_fallback")
+        # C4 banner-spec rule 2 · 显式 warning · 不静默 · 前端 banner 提示
+        yield ("warning", "TAVILY_API_KEY 未配置 · 已降级为 mock 演示数据 · 配置 key 后可恢复 live")
         yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
         return
 
@@ -352,6 +419,7 @@ def _parallel_signal_search_core(
         client = TavilyClient(api_key=tavily_key)
     except TavilySearchError as e:
         logger.warning("[channel.signal_search] TavilyClient init failed: %s → mock_fallback", e)
+        yield ("warning", f"Tavily 客户端初始化失败 ({e}) · 已降级为 mock 演示数据")
         yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
         return
 
@@ -458,6 +526,7 @@ def _parallel_signal_search_core(
         "[channel.signal_search] all routes returned 0 signals → mock_fallback (route_stats=%s)",
         route_stats,
     )
+    yield ("warning", "Tavily 5 路搜索 0 命中 · 已降级为 mock 演示数据 · 检查 query / 网络代理")
     yield ("final", _mock_signal_fallback(query, tags), "mock_fallback")
 
 
@@ -997,6 +1066,155 @@ def _build_final_output(
 
 
 # ========== 工具函数 ==========
+
+# ============================================================================
+# C3 · 7 panel aggregator helpers (workspace-state-protocol §4 + sse-envelope §3.1)
+# 6 fns 把 _build_final_output 的 candidates + raw_signals + company_map 聚合到
+# done envelope 7 panel keys (CHANNEL_PANEL_KEYS = candidates / signals / radar /
+# funnel / match_dimensions / product_recommendations / pitch_scripts).
+# ============================================================================
+
+# signal_type → SignalSource.key (前端 8 信号源 enum)
+# 反模式禁止: 凭空编 hits/coverage 数字 · 必须从 raw_signals 真聚合
+_SIGNAL_TYPE_TO_KEY = {
+    "bidding": "bidding",
+    "recognition": "pr",
+    "tech": "pr",
+    "award": "pr",
+    "news": "pr",
+    "growth": "funding",
+    "biz": "biz",
+    "legal": "legal",
+    "tax": "tax",
+    "recruit": "hr",
+    "social": "social",
+}
+
+_SIGNAL_KEY_LABELS = {
+    "biz": "工商变更",
+    "bidding": "招投标",
+    "pr": "媒体公告",
+    "legal": "司法诉讼",
+    "social": "社交舆情",
+    "tax": "税务",
+    "hr": "招聘动态",
+    "funding": "融资动态",
+}
+
+
+def _aggregate_signal_sources(raw_signals: list[dict]) -> list[dict]:
+    """8 信号源 status / hits / coverage · 从 raw_signals 真聚合 (反模式: 假数据)."""
+    counts: dict[str, int] = {k: 0 for k in _SIGNAL_KEY_LABELS}
+    for s in raw_signals:
+        k = _SIGNAL_TYPE_TO_KEY.get(s.get("signal_type", ""), "pr")
+        counts[k] = counts.get(k, 0) + 1
+    total = sum(counts.values()) or 1
+    out = []
+    for i, (key, label) in enumerate(_SIGNAL_KEY_LABELS.items()):
+        hits = counts.get(key, 0)
+        out.append({
+            "id": f"src-{key}",
+            "key": key,
+            "label": label,
+            "status": "active" if hits > 0 else "off",
+            "weight": round(hits / total, 2),
+            "freq": "实时" if hits > 0 else "—",
+            "coverage": min(100, int(hits * 100 / max(1, total))),
+            "hits": hits,
+        })
+    return out
+
+
+# radar 8-axis key → frontend RadarQuadrant
+_RADAR_QUADRANT = {
+    "信号密度": "base",
+    "行业匹配": "base",
+    "区域匹配": "base",
+    "规模匹配": "base",
+    "近期活跃度": "demand",
+    "资质含金量": "bonus",
+    "技术强度": "bonus",
+    "相似度": "market",
+}
+
+
+def _build_radar_p50(candidates: list[dict]) -> list[dict]:
+    """8 维 P50 对标 · 用候选集 median 当 score · benchmark=50 (P50 锚)."""
+    if not candidates:
+        return []
+    # 收集每 axis 的所有候选 score · 取 median 作为 panel score
+    axis_scores: dict[str, list[float]] = {}
+    for c in candidates:
+        radar = c.get("radar_8axis") or {}
+        for axis, val in radar.items():
+            try:
+                axis_scores.setdefault(axis, []).append(float(val))
+            except (TypeError, ValueError):
+                continue
+    out = []
+    for axis, scores in axis_scores.items():
+        if not scores:
+            continue
+        out.append({
+            "axis": axis,
+            "score": int(round(median(scores))),
+            "benchmark": 50,  # P50 锚 · 行业中位
+            "quadrant": _RADAR_QUADRANT.get(axis, "base"),
+            "note": f"{len(scores)} 候选 · median",
+        })
+    return out
+
+
+def _build_funnel(
+    raw_signals: list[dict],
+    company_map: dict,
+    enriched: list[dict],
+    candidates: list[dict],
+) -> list[dict]:
+    """5 阶段扫描漏斗 · 数据来自 stage 实时计数 · 前端 FunnelStrip 消费."""
+    return [
+        {"id": "fn-1", "label": "信号池",     "count": len(raw_signals),
+         "detail": f"{len({s.get('signal_source') for s in raw_signals if s.get('signal_source')})} 源"},
+        {"id": "fn-2", "label": "实体聚合",   "count": len(company_map),
+         "detail": "按企业名/USCC 去重"},
+        {"id": "fn-3", "label": "Top 排序",   "count": len(enriched),
+         "detail": "信号密度 + 时效加权"},
+        {"id": "fn-4", "label": "工商补全",   "count": len(enriched),
+         "detail": "企查查 + 资质字段"},
+        {"id": "fn-5", "label": "Top 推荐",   "count": len(candidates),
+         "detail": "话术 + 产品匹配"},
+    ]
+
+
+def _aggregate_match_dimensions(candidates: list[dict]) -> list[dict]:
+    """top-level union · 取 top 候选所有 match_dimension (展示给 panel · 不去重 dim_name).
+    候选 detail drawer 仍消费 per-candidate match_dimensions (在 candidates[].match_dimensions)."""
+    out: list[dict] = []
+    for c in candidates[:3]:
+        for md in c.get("match_dimensions", []) or []:
+            out.append(md)
+    return out
+
+
+def _aggregate_product_recommendations(candidates: list[dict]) -> list[dict]:
+    """top-level Top3 · 跨候选选 fit_score 最高 3 个 (per-candidate 仍在 candidates[].product_recommendations)."""
+    flat: list[dict] = []
+    for c in candidates:
+        for p in c.get("product_recommendations", []) or []:
+            flat.append(p)
+    flat.sort(key=lambda p: p.get("fit_score", 0), reverse=True)
+    return flat[:3]
+
+
+def _aggregate_pitch_scripts(candidates: list[dict]) -> list[dict]:
+    """top-level pitch · top 3 候选各 1 (per-candidate 仍在 candidates[].pitch_scripts)."""
+    out: list[dict] = []
+    for c in candidates[:3]:
+        scripts = c.get("pitch_scripts") or []
+        if scripts:
+            out.append(scripts[0])
+    return out
+
 
 def _tags_to_filters(tags: list[dict]) -> dict:
     f: dict = {}

@@ -16,7 +16,7 @@ Phase A worker-A2 · 2026-04-29.
 API:
   EVENT_*                 · 4 event 名常量 (stage/section/done/error)
   DATA_SOURCE_*           · 5 data_source 常量 (live/mock/mock_forced/mock_fallback/cached)
-  CHANNEL_PANEL_KEYS      · workspace-state-protocol §4 Channel pilot canonical 7 keys
+  CHANNEL_PANEL_KEYS      · workspace-state-protocol §4 Channel pilot canonical 8 keys
   AGENT_PANEL_KEYS_RECOMMENDED · 6 agent recommended panel sets (initial · A4 worker spec)
   make_stage(stage, status, message="", **extras)            · → dict
   make_section(section_id, title, content, **extras)         · → dict (Agent6 报告章节)
@@ -85,8 +85,11 @@ DATA_SOURCE_MOCK_FORCED: str = "mock_forced"    # 前端显式切 DEMO (force_mo
 DATA_SOURCE_MOCK_FALLBACK: str = "mock_fallback"  # 主路径 fail · 自动降级 mock
 DATA_SOURCE_CACHED: str = "cached"              # 命中 LLM cache (无 LLM 调用)
 
-# Workspace-state-protocol §4 Channel pilot canonical · 7 keys
+# Workspace-state-protocol §4 Channel pilot canonical · 8 keys
 # (后续 A4 worker 5 子按 channel pilot 复制此 pattern)
+# V3 fix (2026-04-30): "conversation" 加为 8th key · 之前 ConversationPanel 走前端 mock
+# state · 不从 done envelope 派生 · codex review issue 1 partial 根因 · 现 backend 显式
+# 透传 conversation: [] (默认空) · 前端 normalizeBackendDone 读 evt.conversation 兜底
 CHANNEL_PANEL_KEYS: tuple[str, ...] = (
     "candidates",
     "signals",
@@ -95,6 +98,7 @@ CHANNEL_PANEL_KEYS: tuple[str, ...] = (
     "match_dimensions",
     "product_recommendations",
     "pitch_scripts",
+    "conversation",
 )
 
 # 6 agent recommended panel sets · INITIAL/RECOMMENDED · A4 worker spec 后调

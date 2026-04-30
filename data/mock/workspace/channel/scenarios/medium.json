@@ -1,0 +1,139 @@
+{
+  "scenario_id": "medium",
+  "difficulty": "中等 (信号密度中 · 候选 5 家 · radar 半亮)",
+  "_lineage": "锚定 A 股年报 + 银保监公告形态 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4",
+  "stage_messages": {
+    "parse": "解析意图 · 行业/规模 2 个标签...",
+    "signal_scan": "5 路并行搜索 · 部分路命中较少...",
+    "aggregate": "实体聚合去重...",
+    "enrich": "工商补全 · 部分企业资质缺失...",
+    "pitch": "话术生成...",
+    "rank": "Top 5 候选..."
+  },
+  "metrics": { "signalTotal": 21, "companiesFound": 9, "final": 5, "kb_files_used": 2 },
+  "candidates": [
+    {
+      "id": "demo-medium-c1",
+      "name": "宁波金石精密制造有限公司",
+      "similarity": 0.74,
+      "score": 74,
+      "industry": "精密零部件 · 数控加工",
+      "geo": "浙江 · 宁波",
+      "scale": "营收 6,800 万元",
+      "uscc": "913302055*****",
+      "registeredCapital": "2,000 万元",
+      "founded": "2014-05",
+      "legalRep": "金石强",
+      "employees": 88,
+      "signals": ["中标某汽车主机厂订单", "省专精特新"],
+      "riskTags": [],
+      "products": ["小微贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-medium-c1-1", "dim_name": "行业", "display": "精密零部件 ✓ 同行业", "hit_evidence": "qcc",   "score": 75 },
+        { "id": "md-medium-c1-2", "dim_name": "规模", "display": "营收 6800 万 · 偏小", "hit_evidence": "annual", "score": 60 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-medium-c1-1", "product_name": "小微贷", "fit_score": 0.72, "intro": "营收 < 1 亿 · 简化授信流程" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-medium-c1-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 注意到贵司中标主机厂订单 · 我行小微贷可快速审批 · 方便聊聊吗?" }
+      ]
+    },
+    {
+      "id": "demo-medium-c2",
+      "name": "苏州川和精工科技股份有限公司",
+      "similarity": 0.66,
+      "score": 66,
+      "industry": "精密零部件 · 模具",
+      "geo": "江苏 · 苏州",
+      "scale": "营收 1.1 亿元",
+      "uscc": "913205945*****",
+      "registeredCapital": "5,000 万元",
+      "founded": "2011-09",
+      "legalRep": "陈川和",
+      "employees": 142,
+      "signals": ["A 轮融资 6,000 万", "专利 2 项"],
+      "riskTags": ["关联企业司法诉讼 1 起"],
+      "products": ["科创贷", "信用贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-medium-c2-1", "dim_name": "行业", "display": "模具加工 ~ 精密零部件",   "hit_evidence": "qcc",    "score": 68 },
+        { "id": "md-medium-c2-2", "dim_name": "风险", "display": "关联诉讼 · 需复核",       "hit_evidence": "court",  "score": 45 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-medium-c2-1", "product_name": "信用贷", "fit_score": 0.64, "intro": "无抵押信用贷 · 复核风险后授信" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-medium-c2-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 我行了解到贵司 A 轮已完成 · 想了解一下信用贷产品吗? 我们可以先评估贵司风险情况。" }
+      ]
+    },
+    {
+      "id": "demo-medium-c3",
+      "name": "无锡精联智造装备有限公司",
+      "similarity": 0.59,
+      "score": 59,
+      "industry": "智能装备 · 机器人集成",
+      "geo": "江苏 · 无锡",
+      "scale": "营收 8,400 万元",
+      "uscc": "913202005*****",
+      "registeredCapital": "1,800 万元",
+      "founded": "2017-03",
+      "legalRep": "黄精联",
+      "employees": 76,
+      "signals": ["承接智能产线项目"],
+      "riskTags": [],
+      "products": ["设备贷"],
+      "timeline": [],
+      "match_dimensions": [
+        { "id": "md-medium-c3-1", "dim_name": "行业", "display": "机器人集成 ~ 关联行业", "hit_evidence": "qcc", "score": 60 }
+      ],
+      "product_recommendations": [
+        { "id": "prod-medium-c3-1", "product_name": "设备贷", "fit_score": 0.62, "intro": "智能装备采购融资" }
+      ],
+      "pitch_scripts": [
+        { "id": "ps-medium-c3-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 我行设备贷可针对智能装备项目 · 是否方便了解一下?" }
+      ]
+    }
+  ],
+  "signals": [
+    { "id": "src-biz",     "key": "biz",     "label": "工商变更",   "status": "active",   "weight": 0.20, "freq": "实时", "coverage": 70, "hits": 6 },
+    { "id": "src-bidding", "key": "bidding", "label": "招投标",     "status": "active",   "weight": 0.18, "freq": "实时", "coverage": 65, "hits": 5 },
+    { "id": "src-pr",      "key": "pr",      "label": "媒体公告",   "status": "active",   "weight": 0.16, "freq": "实时", "coverage": 75, "hits": 4 },
+    { "id": "src-legal",   "key": "legal",   "label": "司法诉讼",   "status": "active",   "weight": 0.10, "freq": "T+1",  "coverage": 60, "hits": 1 },
+    { "id": "src-social",  "key": "social",  "label": "社交舆情",   "status": "degraded", "weight": 0.08, "freq": "实时", "coverage": 35, "hits": 2 },
+    { "id": "src-tax",     "key": "tax",     "label": "税务",       "status": "off",      "weight": 0.10, "freq": "T+30", "coverage": 0,  "hits": 0 },
+    { "id": "src-hr",      "key": "hr",      "label": "招聘动态",   "status": "active",   "weight": 0.08, "freq": "实时", "coverage": 55, "hits": 3 },
+    { "id": "src-funding", "key": "funding", "label": "融资动态",   "status": "active",   "weight": 0.10, "freq": "T+1",  "coverage": 70, "hits": 0 }
+  ],
+  "radar": [
+    { "axis": "信号密度",   "score": 60, "benchmark": 50, "quadrant": "base",   "note": "5 路有 1 路降级 · 1 路 off" },
+    { "axis": "行业匹配",   "score": 68, "benchmark": 50, "quadrant": "base",   "note": "精密零部件 / 模具混合" },
+    { "axis": "区域匹配",   "score": 75, "benchmark": 50, "quadrant": "base",   "note": "长三角内 · 浙苏" },
+    { "axis": "规模匹配",   "score": 55, "benchmark": 50, "quadrant": "base",   "note": "部分企业偏小 (< 1 亿)" },
+    { "axis": "近期活跃度", "score": 62, "benchmark": 50, "quadrant": "demand", "note": "60 天内信号 ≈ 2 条" },
+    { "axis": "资质含金量", "score": 58, "benchmark": 50, "quadrant": "bonus",  "note": "省级专精特新 · 缺国家级" },
+    { "axis": "技术强度",   "score": 65, "benchmark": 50, "quadrant": "bonus",  "note": "A 轮居多 · 专利较少" },
+    { "axis": "相似度",     "score": 66, "benchmark": 50, "quadrant": "market", "note": "Top1 74% · 均值 66%" }
+  ],
+  "funnel": [
+    { "id": "fn-1", "label": "信号池",   "count": 1860, "detail": "8 信号源 · 部分降级" },
+    { "id": "fn-2", "label": "实体聚合", "count": 612,  "detail": "按 USCC 去重" },
+    { "id": "fn-3", "label": "Top 排序", "count": 158,  "detail": "信号密度加权" },
+    { "id": "fn-4", "label": "工商补全", "count": 92,   "detail": "工商活跃企业" },
+    { "id": "fn-5", "label": "Top 推荐", "count": 5,    "detail": "相似度 ≥ 0.55" }
+  ],
+  "match_dimensions": [
+    { "id": "md-top-1", "dim_name": "行业", "display": "精密零部件 / 模具 ~ 关联行业", "hit_evidence": "qcc", "score": 70 },
+    { "id": "md-top-2", "dim_name": "区域", "display": "长三角 · 浙江/江苏",        "hit_evidence": "qcc", "score": 75 }
+  ],
+  "product_recommendations": [
+    { "id": "prod-top-1", "product_name": "小微贷",   "fit_score": 0.72, "intro": "营收 < 1 亿 · 简化流程" },
+    { "id": "prod-top-2", "product_name": "信用贷",   "fit_score": 0.64, "intro": "无抵押 · 风险复核后授信" },
+    { "id": "prod-top-3", "product_name": "设备贷",   "fit_score": 0.62, "intro": "智能装备采购融资" }
+  ],
+  "pitch_scripts": [
+    { "id": "ps-top-1", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 我行小微贷可快速审批 · 方便聊聊吗?" },
+    { "id": "ps-top-2", "customer_name_placeholder": "{客户名}", "script_text": "{客户名} 您好 · 信用贷可先评估风险后授信 · 想了解一下吗?" }
+  ]
+}
