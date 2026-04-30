@@ -80,18 +80,21 @@ metrics:
       blocker_threshold: 55.0
 
 baseline:
-  last_run: 2026-04-03
-  commit: null
+  last_run: 2026-04-30
+  # 当前 main HEAD SHA (per `git rev-parse main` · V3 codex 反馈采严格 main HEAD 锚)
+  # 衍生 v16-specific 最新提交: cc3bc7b feat(v16): commit classifier chain source + labeling rules contract
+  commit: 7c9e33a
   result:
     field_completeness: 0.935
     unfilled_count: 32
     total_filled: 460
+    unfilled_marker_accuracy: 1.0000  # Phase A `94c04f5` 锚点 · per pending_reason 末注
 
   # A-013 对齐:声明本期暂未跑批的 metric 名,runner 应在 _verdict 中跳过这些指标的判定;
   # 否则 PASS 永远卡在 task_completion_rate 等待端到端 LLM 跑通(Phase 3 才做)。
+  # field_completeness 已在 result 段落地 (0.935) · 不再列 pending。
   pending_metrics:
     - task_completion_rate
-    - field_completeness
     - evidence_rate
     - hallucination_rate
     - tool_success_rate

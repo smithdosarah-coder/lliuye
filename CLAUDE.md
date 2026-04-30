@@ -9,7 +9,7 @@
 - **后端**：`py scripts/start_uvicorn.py`（自动从项目根 `.env` 加载 TAVILY / DEEPSEEK / PROXY 等 env，校验缺失 key 后调 uvicorn；首次部署 `cp .env.example .env` 填值即可。直接 `python api_server.py` 会缺 key）
 - **前端**：`cd web && npm run dev`（Next.js 16，路由拓扑见 §7 canon vs legacy）
 - **Agent6 主管线（v16）**：`py v16_pipeline.py --source samples/<模板>.docx --material samples`（classifier → generator → QC gate 全链路 · 项目根 10 个 `v16_*.py` 实现 · 见 `docs/contracts/rfc/20260418-v16-llm-abstraction-upgrade.md`）
-- **旧版 Gradio 报告助手**：已归档至 `legacy_gradio/`（2026-04-29）· 如需 fallback 演示从 archive 恢复
+- **旧版 Gradio 报告助手**：已归档至 `legacy_gradio/`（2026-04-29）· **全栈隔离** · 详 §16
 
 ## 3. 架构原则
 
@@ -96,6 +96,34 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **环境变量**：`LLM_PROVIDER`（默认 provider，不强制） / `LLM_FALLBACK_CHAIN`（覆盖默认 chain · e.g. `deepseek,qwen,dashscope`） / 各 provider 的 `*_API_KEY`（`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `NVIDIA_API_KEY`）。
 
 依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
+
+### 3.7 Active runtime rules (Q-NNN 回写区 · worker-A7 2026-04-29 落地)
+
+> 来自 decisions-log Q-NNN 的 **active rules**（持久改变 future worker 行为）必须在 root CLAUDE.md 留单一 SOT。本节集中三条 phase-a-charter 必须回写的规则；新增按时序 append。详见 SSOT §15 + decisions-log Q-042 (本次回写 batch entry)。
+
+#### 3.7.1 Agent2 backtest sample upper bound: `MAX_ROWS=50000` (Q-040 · 2026-04-26)
+
+- **位置**: `agent_riskctrl/backtesting.py:22, 67, 84` 三处常量
+- **规则**: 真实风控样本量 5-50 万行 · `MAX_ROWS=500` 的 MVP 上限**已废弃** · 强制 `MAX_ROWS=50000` (含 chunk read) · 任何 worker 不得回退到 ≤ 500 (Demo blocker · 客户走访演示当场翻车)
+- **理由**: 500 行算 KS 不可信 · mock 已有 7500 行 · 代码只读 500 = 浪费 93% 输入数据 · 银行客户对统计口径敏感
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit 加 `Authorized-By: PM` trailer · 否则 review 阻断
+- **回写来源**: decisions-log Q-040 + signal `AGENT2-MAX-ROWS-FIX`
+
+#### 3.7.2 Agent1 candidate metadata 必出 4 字段 (Q-041 · 2026-04-28)
+
+- **位置**: `agent_channel/api.py` SSE candidate event payload + `web/src/lib/api/channel.ts` consumer 类型
+- **规则**: 任何 `/api/channel/run` SSE 输出的 candidate 单条**必须**含 `industry` / `geo` / `scale` / `similarity` 四字段 · 任何字段缺失或值为 `null` / `"未知"` / `"[object Object]"` 视作 regression · 前端 banner 必显式 fail-fast
+- **理由**: 客户经理评估 look-alike 候选靠这 4 维度做 sanity check · 缺字段 = 候选不可决策 · 之前 production 出现 `[object Object]` 直接导致 Q-041 立项
+- **回写来源**: decisions-log Q-041 + signal `Q-041-RESOLVED` + Stage B.5 dispatch 注入
+- **配套硬线**: 候选不足 (即使 ≥ 1 但 < 5) 必触发 `banner-spec` 显示 `blocked_by_env` · 不 silent fallback (per §3.6 + bank delivery DoD)
+
+#### 3.7.3 PIPL fallback chain 全境内 (Stage E.3 · 2026-04-28 · §3.6 已展开)
+
+- **规则简述**: `DEFAULT_FALLBACK_CHAIN = ("deepseek", "dashscope")` 全境内 provider · `moonshot` (海外路由) 仅 `LLM_PROVIDER=moonshot` 显式触发 · audit log 必含 `region` 字段
+- **位置**: `shared/llm_caller/retry.py:DEFAULT_FALLBACK_CHAIN` + `shared/llm_caller/audit.py` audit ctx
+- **理由**: PIPL 跨境数据出境合规底线 · 银行客户审计必查 LLM 路由
+- **完整规则**: 见 §3.6 (LLM Caller 唯一化 + PIPL 合规 fallback chain)
+- **回写来源**: decisions-log Stage E.3 (2026-04-28) PIPL 境内优先决议
 
 ## 4. 6 Agent 功能边界（不可跨界）
 
@@ -361,3 +389,40 @@ PM 看 commit 内容 verify · 没漂 → GO · 漂了 → 退回让我重读。
 **Stale marker**: Tier 1-2 文档 stale 时不允许默默留着 · 标 `> ⚠️ **STALE** (since YYYY-MM-DD): ...` + Fix-forward owner · 见 SSOT §4。
 
 详细规则 / 冲突解决 3 步 / 子域 CLAUDE.md 规范 / 当前积压回写任务 → 见 `docs/arch/instruction-source-of-truth.md`。
+
+## 16. Archived: legacy_gradio (备用 · 全栈隔离 · 2026-04-29)
+
+v15 form_filler / narrative_pipeline / Gradio v7.5 + v9 单机版 (`legacy_gradio/{app.py, portal_app.py, form_filler.py, narrative_pipeline.py, run_form_fill_cli.py}` + 5 子目录) · 2026-04-29 全栈隔离 (worker-A7 落地)。v16 主管线 (`v16_pipeline.py`) 已替代 · 已用真实材料跑通。
+
+### 隔离方式 (5 件 · 落实 PM 拍板 #4)
+
+1. **Import guard**: `legacy_gradio/__init__.py` 默认抛 `ImportError` · 仅 `ALLOW_LEGACY_GRADIO=1` 解锁
+2. **工具排除**: `pyproject.toml` 中 `pytest.norecursedirs` / `ruff.extend-exclude` / `coverage.omit` / `mypy.exclude` 全含 `legacy_gradio/`
+3. **主线代码不允许 import legacy_gradio**: 任何 `from legacy_gradio import ...` 或 `import legacy_gradio` 视作 regression · review 阻断
+4. **CLAUDE.md §2 + §16**: 启动方式标"全栈隔离 · 详 §16"，本节为单一 SOT
+5. **Worker onboarding 默认提示**: `RESET_MASTER_PLAN.md` 红线区注明"不读 legacy_gradio/ 除非显式 ALLOW_LEGACY_GRADIO=1"
+
+### Emergency demo 解锁
+
+```bash
+ALLOW_LEGACY_GRADIO=1 py legacy_gradio/app.py     # v9 portal
+ALLOW_LEGACY_GRADIO=1 py legacy_gradio/portal_app.py  # v7.5 single
+```
+
+demo 完关掉 · commit 演示日期 + 用例到 `docs/handoff/decisions-log.md` 留底 (新 Q-NNN entry · 含 trigger 原因 + 演示成功/失败 + 是否需要 fix-forward)。
+
+### 真删条件
+
+PM 拍板"v16 真稳了" → 任何 worker 写 PR + PM `Authorized-By` trailer → `git rm -rf legacy_gradio/`。在此之前**保留物理目录**作为客户走访期间 v16 翻车时的最后 fallback。
+
+### 与 v16 主管线的关系
+
+| 项 | legacy_gradio (v15) | v16 主管线 (current) |
+|---|---|---|
+| 入口 | `app.py` / `portal_app.py` (Gradio UI) | `v16_pipeline.py` CLI + `agent_report/api.py` API |
+| 形态 | 单机 webapp | 后端 API + Next.js 前端 |
+| 字段填法 | form_filler (规则 + 启发) | classifier → generator → QC 三阶段 |
+| 报告生成 | narrative_pipeline (单 prompt 长文) | section_generator Evidence-First 三阶段 |
+| QC | 无 | quality_scorer 9 维度评分 (gate, 不进 prompt) |
+| 状态 | 物理保留 · 不维护 · 不修 bug | 主线 · 持续迭代 |
+

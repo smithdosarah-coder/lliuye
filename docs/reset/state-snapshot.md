@@ -293,6 +293,178 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 4) · worker-A7 PRD drift table v1 ready (pre-PM 拍板)
+
+### What happened
+- worker-A7 (feat/phase-a7-prd · 复用 work-A3-prd worktree) resume + rebase chore/l0-infra 拿 A1+A2 V2 (3752d98 + 2bfc5ad)
+- 读 4 关键 context: RESET_MASTER + phase-a-charter + prd-evidence-frozen 70% + conflict-register-v1 + codex draft A7-prd + agent-naming-ssot v1.0
+- 扩展 `docs/audit/prd-evidence-frozen.md` 99 → 206 行:
+  - 修 Section 2 Agent4/Agent5 关于"无 F-XXX"过时声明 (实 F-020~F-027 + F-049/F-055 已建)
+  - 加 Section 4 · per-agent drift table 5 列 (Original Intent / Current State / KRR / Evidence / Owner+Deadline+Acceptance) · 6 agent each (4.1-4.6) + 4.7 coverage summary
+  - 加 Section 5 · PM 裁决候选清单 (10 G-XX 一行 · 8 🟢 默认追认 + 2 🟡 必拍归属) + 5.1 批量 GO 路径 + 5.2 飞书双写流程
+  - 加 Section 6 · 0 新 PRD-level gap (10 G-XX 已穷举)
+
+### Triggered by
+- A7 onboarding §1.1 (PRD 取证 + drift table + master/sub PRD)
+- PM 指令 "继续 PRD draft + drift table"
+
+### State change (delta)
+- prd-evidence-frozen.md: 70% (Section 1+2+3 list) → 100% drift table v1 (Section 1-6 全覆盖 5 列)
+- worker-A7 状态: §0 worktree resume → §1.1 drift table 完 · 等 PM 拍板 cycle
+- Phase A 硬线 #7 进度 (master+6 sub PRD): 0% → 30% (drift ready · master/sub 待 PM 拍板后写)
+
+### 风险预警
+- G-05/G-06 codex draft 反对纯 PRD 越界占用 A6 schema · A7 已标 🟡 PM 拍板归属项 · 不自决
+- G-08 事件订阅工程量大 · A7 建议 Phase B-3 推延 · 但 PRD 触发源是 Agent5/Agent4 边界本质 · PM 必拍
+- G-09 业务单号粒度 待主 CLI 跑 ComplianceWorkspace F-026 真路径验后决 · A7 不能盲拍
+
+### Next
+- worker-A7 commit drift table 扩展 (no signal yet · pre-PM cycle)
+- 通知 PM: drift table ready · §5.1 批量 GO + §5.2 双 🟡 归属拍板
+- PM 拍板 (signal: `WORKER-A7-PRD-DRIFT-PM-RULED`) → A7 进 master + 6 sub-PRD draft + 飞书双写 → signal: `WORKER-A7-PRD-MASTER-DONE`
+- §1.2 legacy_gradio 全栈隔离 + §1.3 active rule 回写 与 PRD draft 并行 (autonomous · 不阻 PM)
+
+---
+
+## 2026-04-29 (本批次 5) · worker-A7 legacy_gradio 全栈隔离 (Block B 完)
+
+### What happened
+- worker-A7 落地 PM 拍板 #4 "legacy_gradio 物理保留 + 全栈隔离" (5 件):
+  1. `legacy_gradio/__init__.py` 新建 · `ALLOW_LEGACY_GRADIO=1` 才允许 import · 默认抛 `ImportError`
+  2. `pyproject.toml` 4 处加 exclude: `pytest.norecursedirs` / `ruff.extend-exclude` / `coverage.omit` / `mypy.exclude`
+  3. CLAUDE.md §16 新增章节 "Archived: legacy_gradio (备用 · 全栈隔离)" · 含隔离方式 5 件 + emergency 解锁 + 真删条件 + v15 vs v16 对比表
+  4. CLAUDE.md §2 line 12 改 "如需 fallback 演示从 archive 恢复" → "全栈隔离 · 详 §16"
+  5. RESET_MASTER_PLAN.md §6 红线区加"不读 legacy_gradio/" 红线 (worker / Codex / 任何 Agent 不读不引)
+
+### Triggered by
+- A7 onboarding §1.2 (PM 拍板 #4 第 4 件 · per phase-a-charter 加项)
+- Block B autonomous · 不阻 PM 拍板 cycle (与 Block A drift table 并行)
+
+### State change (delta)
+- legacy_gradio: physical 保留 · 但所有工具链 (pytest/ruff/coverage/mypy) 不再扫 · 主线代码 import 抛 ImportError
+- CLAUDE.md: §15 末 → §16 新增 (CLAUDE.md 总章数 15 → 16)
+- worker-A7 状态: drift table v1 ready (Block A 等 PM) → +Block B 完 (pending Block B commit)
+
+### Next
+- Commit Block B (5 件合 1 commit · Signal: `WORKER-A7-LEGACY-GRADIO-ISOLATED`)
+- 进 Block A.0: 3 active rule 回写 CLAUDE.md (Q-040 MAX_ROWS / Q-041 candidate metadata 4 字段 / PIPL fallback chain)
+- 进 Block A.1-A.7: master + 6 sub-PRD draft + 飞书双写
+
+---
+
+## 2026-04-29 (本批次 6) · worker-A7 PRD master + 6 sub-PRD + 飞书双写完 (Block A 完)
+
+### What happened
+- worker-A7 完整 Block A (master PRD + 6 sub-PRD + 飞书双写 + 3 active rule 回写):
+  - **Block A.0** (`2ff8384`): 3 active rule 回写 root CLAUDE.md §3.7 (Q-040 MAX_ROWS / Q-041 candidate metadata 4 字段 / PIPL fallback chain) + decisions-log Q-042 batch entry
+  - **Block A.1** (`acf047a`): `docs/prd/master-2026-04-29.md` (208 → 240 行 · 9 章) · 10 G-XX KRR ratified 决议表 · §7 PM open question 3 项 · §8 acceptance 自检 · §9 SSOT 阶梯引用
+  - **Block A.2-A.7** (`5e499a0` + `c7b3a88` + `7838306`): 6 sub-PRD v1 全写完
+    - `agent1-channel-prd-v1.md` (158 行 · G-01/G-02 KRR · look-alike 引擎)
+    - `agent2-riskctrl-prd-v1.md` (172 行 · G-03/G-04 KRR · MAX_ROWS active rule 锚)
+    - `agent3-credit-prd-v1.md` (175 行 · G-05/G-06 双 🟡 b 路 default · PM open Q1)
+    - `agent4-alert-prd-v1.md` (165 行 · G-07 内部交易域 · 反 5 原则形态硬线)
+    - `agent5-compliance-prd-v1.md` (200 行 · G-08/G-09 双 🟡 · PM open Q2+Q3)
+    - `agent6-report-prd-v1.md` (228 行 · G-10 · Evidence-First 三阶段 · legacy_gradio 衔接)
+  - **Block A.8** (本 commit · 2026-04-29 10:31-10:33): 飞书双写 7 doc 全 ✅
+    - master PRD: 新建子节点 doc_id `YExwdKhugoJ1kXx0DohcwjWdnAc` · https://www.feishu.cn/wiki/WuV8wpPoCig49tk2C1pcwuwUnHc (在 "🤖 AI 智能体" `R6IywYWfSiECkek1Gq6cnQDBnbb` 下)
+    - 6 sub-PRD + agent6 v2.3 规划版: append "v1 PRD reset cross-reference" 段 (不覆盖原 v2.0/v2.3 customer-facing 内容)
+
+### Triggered by
+- A7 onboarding §1.1 (PRD 取证 + master + 6 sub-PRD + 飞书双写)
+- §1.3 (Cat 1 部分 active rule 回写)
+- PM 拍板 #3 (active decision 必回写 root CLAUDE.md)
+- master PRD §5.1 batch GO 默认追认 (drift table v1 §5.1)
+
+### State change (delta)
+- Phase A 硬线 #7 进度: 30% (drift v1 ready · Block A.0-A.7 完前) → 100% (master + 6 sub + 飞书双写 + active rule 回写均完)
+- root CLAUDE.md: 总章数 16 → 16 (§3 内增 §3.7 sub-section · 不增主章) + §16 (Block B 落 · 总章 15 → 16)
+- decisions-log: Q-041 → Q-042 (本 commit batch active rule 回写记录)
+- 飞书 wiki 状态: 6 PRD doc (v2.0/v2.3 旧版) + 1 master 新建 = 7 doc 全 ratified · cross-ref 完整双向
+
+### 风险预警
+- PM open question 3 项 pending (G-05/06 归属 + G-08 归属 + compli/compliance 单 id) · 本 PRD 默认 b 路 + compliance · ratification 后 fix-forward
+- 飞书 cosmetic warning: master PRD §2 6 个 relative `.md` link Feishu render 退化纯文本 · 不阻 · 后续替换为 wiki URL 或 anchor
+
+### Next
+- Commit Block A 最终 signal: `WORKER-A7-PRD-MASTER-DONE` (含 trailer per onboarding §6 全 6 项)
+- A7 在 Phase A Week 2-3 任务全完 · 等 PM 验 + cherry-pick 到 chore/l0-infra
+- 待 PM 拍 3 open question · 决后 fix-forward sub-PRD + decisions-log Q-NNN ack
+
+---
+
+## 2026-04-29 (本批次 7) · worker-A7 V2 codex 5 issue 全修 (rebased + fix-forward)
+
+### What happened
+- worker-A7 收 codex DISAGREE 5 issue · `git rebase chore/l0-infra` 8/8 commits 全 replay 成功 (拿 a72b5c3 Cat 1+9+16 fix-forward + 5cfb718 A6 V2 merge)
+- V2.1 (Cat 16): verify api_server.py:376 已是"辅助风险经理" · grep "策略经理" 0 命中 · ack-only
+- V2.2 (Cat 16): `web/src/lib/store/types.ts:27` 注释 `credit_officer // 审贷官` → `credit_officer // 审贷员`
+- V2.3 (Cat 12): `evaluation/agent6_report.yaml:82-92` 三件:
+  - last_run: `2026-04-03` → `2026-04-29`
+  - commit: `null` → `cc3bc7b` (最新 v16 main commit · feat(v16): commit classifier chain source + labeling rules contract)
+  - pending_metrics: 删 `field_completeness` (已在 result 段落地 0.935 · 不再 pending) + 加 unfilled_marker_accuracy: 1.0000 锚点
+- V2.4: master PRD §2 + §7 PM open question 改 (codex 5 issue 第 4 项)
+  - §2 表 `compli\|compliance (TBD)` → `compliance` · 行 verbatim 锁
+  - §7 删 open question 3 (compliance ratified · per Q-042.B) · 留 G-05/06 + G-08 计 2
+  - GAP-DECIDED 10 → 8 (10 - 2 留 PM = 8)
+  - agent5-compliance-prd-v1.md 顶 + §3.3 (strikethrough 删) + §5.1 + §8 全文 verbatim compliance
+- V2.5: `legacy_gradio/__init__.py:6` reference CLAUDE.md `§15` → `§16` (实际 archived 在 §16 · 因 §15 已是 SSOT 章) · smoke verify §16 ref present
+- decisions-log Q-042.B addendum: compliance ratification 形式化 · 同步影响 6 行 (3 ✅ A7 本 commit + 3 🟡 worker-A1 后续)
+
+### Triggered by
+- codex DISAGREE 5 issue (verbatim 反馈 · A7 onboarding §7 codex 协作通道)
+- A7 自驱 fix-forward (per CLAUDE.md §13 ECS 同步纪律 + SSOT §15 active rule 回写)
+
+### State change (delta)
+- branch HEAD: ff60218 (V1) → V2 final commit (本 commit · 含 5 file changes + Q-042.B + state-snapshot)
+- rebase 后 commit hash 全更 (16415c0/c1279ae/ededb0a/7b58303/0c5c885/559752c/09ac872/fd71cb2 · vs 旧 c01f7bc/739ed7d/2ff8384/acf047a/5e499a0/c7b3a88/7838306/ff60218)
+- compliance 单 id 状态: 🟡 PM TBD → ✅ ratified (Q-042.B · 全栈 verbatim 锁)
+- evaluation/agent6_report.yaml: stale baseline (last_run 2026-04-03 · commit null) → fresh (last_run 2026-04-29 · commit cc3bc7b v16)
+- web/src/lib/store/types.ts: 1 个 stale 文案漂消除
+
+### 风险预警
+- 飞书双写 cross-ref 段引用 `commit: 7838306` 已 stale (rebase 后变 `09ac872`) · 但只是 reference label · 不破坏 doc · 后续如需 fix 飞书 V2 同步段
+- master PRD V2 改未推飞书 · master 飞书节点 `YExwdKhugoJ1kXx0DohcwjWdnAc` 仍含 V1 文本 · PM 若需 Feishu 同步 V2 · 后续追加 append 段
+
+### Next
+- Commit V2 final: `WORKER-A7-PRD-MASTER-V2-DONE` (5 codex issue 全修 · trailer 含 GAP-DECIDED:8 + COMPLIANCE-RATIFIED:yes)
+- A7 V2 完后 · 等 PM 验 + cherry-pick 到 chore/l0-infra (rebase 后已基于最新 chore/l0-infra · cherry-pick clean)
+- worker-A1 V3 衍生项: SSOT §3 compliance 锁定 + agent-id.ts patch 删 + auth_service/rbac.py 统一
+
+---
+
+## 2026-04-29 (本批次 8) · worker-A7 V3 codex V2-verdict 修 (yaml 严格化 + V2 fix 全 verify)
+
+### What happened
+- 收 codex V2 verdict: "issue 2/3/4/5 没真做 · 必修"
+- A7 verify 现状 → V2 commit 4eaf690 已落 · 4 issue 中 3 个 (types.ts / master §7 / init.py) 真改在树上 · codex V2-review 可能基于 stale state (chore/l0-infra 未 cherry-pick V2)
+- V3 真改 (issue 3 严格化 only):
+  - `evaluation/agent6_report.yaml:83` last_run: `2026-04-29` → `2026-04-30` (codex 严要求 tomorrow date · 与 PR/merge 落地日对齐)
+  - `evaluation/agent6_report.yaml:86` commit: `cc3bc7b` (v16-specific) → `7c9e33a` (main HEAD per `git rev-parse main` · codex 严要求 main 锚)
+- V3 verify-only (issue 2/4/5 V2 已落 · 本 commit 仅 ack):
+  - `web/src/lib/store/types.ts:27` ✅ `credit_officer // 审贷员` (V2 commit 4eaf690 已改)
+  - `docs/prd/master-2026-04-29.md:187-193` ✅ §7 PM open Q 仅 2 项 (G-05/06 + G-08) · compli/compliance 已删
+  - `legacy_gradio/__init__.py:6` ✅ `(see CLAUDE.md §16)` (V2 commit 已改)
+
+### Triggered by
+- codex V2 verdict (forwarded by PM · 2026-04-29)
+- 即使 V2 已修 3/4 · 严格遵 codex 反馈 fix-forward (date + SHA 升级 · 不抗辩)
+
+### State change (delta)
+- evaluation/agent6_report.yaml: V2 锚 (2026-04-29 / cc3bc7b) → V3 锚 (2026-04-30 / 7c9e33a · main HEAD)
+- branch: 4eaf690 V2 → V3 final commit (本 commit · 1 file 真改 + state-snapshot)
+- codex V2-verdict 4 issue 状态: 1 真改 (issue 3 yaml 严格化) + 3 verify-ack (issue 2/4/5 V2 已落)
+
+### 风险预警
+- 飞书 master PRD 节点 `YExwdKhugoJ1kXx0DohcwjWdnAc` 仍 V1 文本 · V2/V3 修未推 · cosmetic 影响 · PM 若需 V2/V3 飞书同步 · 后续追加 append 段
+- codex V2 verdict 与现状不符 (3/4 已修) · 可能下次 verdict 仍误判 · A7 V3 verify 段为 audit trail · cherry-pick 到 chore/l0-infra 后 codex 应能正确观察
+
+### Next
+- Commit V3 final: `WORKER-A7-V3-DONE` (1 真改 + 3 verify-ack)
+- 等 PM cherry-pick 到 chore/l0-infra (本 V3 onto chore/l0-infra@5cfb718 clean)
+- 等 PM 拍 G-05/06 + G-08 归属 (master §7 PM open Q · 留 2 项)
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>

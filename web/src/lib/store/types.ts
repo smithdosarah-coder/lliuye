@@ -24,7 +24,7 @@ export const AGENT_IDS: readonly AgentId[] = [
 
 export type Role =
   | "rm" // 客户经理
-  | "credit_officer" // 审贷官
+  | "credit_officer" // 审贷员
   | "compliance_officer" // 合规官
   | "risk_manager" // 风险经理
   | "admin";
