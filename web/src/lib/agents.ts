@@ -44,7 +44,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Report Generation",
     path: "/report",
     icon: FileText,
-    accent: "var(--color-ink)",
+    accent: "var(--t-report)",
   },
   {
     key: "channel",
@@ -57,7 +57,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Signal-Driven Prospecting",
     path: "/channel",
     icon: Search,
-    accent: "var(--color-brass)",
+    accent: "var(--t-channel)",
   },
   {
     key: "credit",
@@ -72,7 +72,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Credit Decision Assistant",
     path: "/credit",
     icon: Scale,
-    accent: "var(--color-sage)",
+    accent: "var(--t-credit)",
   },
   {
     key: "riskctrl",
@@ -85,7 +85,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Strategy Operations",
     path: "/riskctrl",
     icon: SlidersHorizontal,
-    accent: "var(--color-amber)",
+    accent: "var(--t-riskctrl)",
   },
   {
     key: "alert",
@@ -98,7 +98,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Portfolio Early Warning",
     path: "/alert",
     icon: Activity,
-    accent: "var(--color-ember)",
+    accent: "var(--t-alert)",
   },
   {
     key: "compliance",
@@ -111,7 +111,7 @@ export const AGENTS: AgentDef[] = [
     eyebrowLabel: "Policy Compliance Audit",
     path: "/compliance",
     icon: ShieldCheck,
-    accent: "var(--color-brass-dim)",
+    accent: "var(--t-compli)",
   },
 ];
 

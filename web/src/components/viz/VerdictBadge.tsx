@@ -7,10 +7,10 @@ type Verdict = "批准" | "有条件批准" | "拒绝" | string;
 export function VerdictBadge({ decision, grade }: { decision: Verdict; grade?: string }) {
   const tone =
     decision === "批准"
-      ? { bg: "var(--color-sage)", ink: "var(--color-paper)" }
+      ? { bg: "var(--safe)", ink: "var(--chalk)" }
       : decision === "有条件批准"
-      ? { bg: "var(--color-brass)", ink: "var(--color-paper)" }
-      : { bg: "var(--color-ember)", ink: "var(--color-paper)" };
+      ? { bg: "var(--accent)", ink: "var(--chalk)" }
+      : { bg: "var(--t-alert)", ink: "var(--chalk)" };
 
   return (
     <div className="inline-flex items-stretch font-display tracking-tight select-none">
@@ -24,8 +24,8 @@ export function VerdictBadge({ decision, grade }: { decision: Verdict; grade?: s
         <div
           className="px-4 py-3 text-[20px] leading-none border-l"
           style={{
-            background: "var(--color-ink)",
-            color: "var(--color-paper)",
+            background: "var(--ink)",
+            color: "var(--chalk)",
             borderColor: "rgba(255,255,255,0.15)",
           }}
         >
@@ -42,7 +42,7 @@ export function VerdictRibbon({ label }: { label: string }) {
     <div
       className={cn(
         "inline-block px-2 py-0.5 text-[10px] font-tabular tracking-[0.2em] uppercase",
-        "bg-[var(--color-ink)] text-[var(--color-brass-glow)]"
+        "bg-[var(--ink)] text-[var(--chalk)]"
       )}
     >
       {label}

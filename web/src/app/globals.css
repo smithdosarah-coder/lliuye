@@ -7,47 +7,20 @@
    Stage 6 银行私有化前迁自托管至 web/public/fonts/。 */
 @import "tailwindcss";
 
-/* Platform-shell-v1 token 层（4 主题 + 字体 + 圆角 + color-mix 滑块）
-   声明在 :root，与下方 legacy --color-* 平行存在，互不冲突。
-   旧 6 Agent 页面继续消费 --color-paper / --color-ink / --color-brass；
-   新 platform shell 消费 --g0..--g7 / --ink / --chalk / --accent。 */
+/* Platform-shell-v2 token 层（4 主题 + 字体 + 圆角 + color-mix 滑块）
+   全 repo 唯一颜色 token 来源 (--g0..--g7 / --ink / --chalk / --accent / --t-*).
+   Phase A5 (2026-04-29) 后旧 --color-* 全清 · grep 0 命中. */
 @import "./tokens.css";
 @import "./shell.css";
 @import "./views.css";
 
 /**
- * Zhongan Credit AI — Legacy Design Tokens (kept for /credit /channel /alert
- * /compliance /report /riskctrl 6 个 Agent 页面向下兼容)
- * Base theme: cream editorial (archive)
- * Ink theme: cinematic dark with hero photograph
+ * Globals · Phase A5 post-Letterpress purge (2026-04-29)
+ * 颜色 token 全收敛至 tokens.css (--g0..--g7 / --ink / --chalk / --accent / --t-*).
+ * 本文件仅留: tailwind import + 共享 elevation/motion + 基础 typography 类 + ink-pulse.
  */
 
 :root {
-  /* Surfaces */
-  --color-paper: #f4efe6;
-  --color-paper-raised: #fbf7ee;
-  --color-paper-sunken: #ece5d6;
-  --color-ink: #1a2e28;
-  --color-ink-soft: #2d3f39;
-  --color-ink-muted: #556962;
-
-  /* Brand / Accent —— 统一为亮金（与 ink theme 一致） */
-  --color-brass: #f0d488;
-  --color-brass-dim: #d4b370;
-  --color-brass-glow: #fff0c8;
-
-  /* Semantic */
-  --color-ember: #c8463a;
-  --color-ember-dim: #9e3a31;
-  --color-sage: #6b8578;
-  --color-sage-dim: #546b60;
-  --color-amber: #d49b2f;
-
-  /* Neutrals */
-  --color-line: rgba(26, 46, 40, 0.12);
-  --color-line-strong: rgba(26, 46, 40, 0.24);
-  --color-overlay: rgba(26, 46, 40, 0.04);
-
   /* Elevation */
   --shadow-sm: 0 1px 0 rgba(26, 46, 40, 0.05);
   --shadow-md: 0 4px 12px -4px rgba(26, 46, 40, 0.12);
@@ -59,23 +32,6 @@
 }
 
 @theme inline {
-  --color-paper: var(--color-paper);
-  --color-paper-raised: var(--color-paper-raised);
-  --color-paper-sunken: var(--color-paper-sunken);
-  --color-ink: var(--color-ink);
-  --color-ink-soft: var(--color-ink-soft);
-  --color-ink-muted: var(--color-ink-muted);
-  --color-brass: var(--color-brass);
-  --color-brass-dim: var(--color-brass-dim);
-  --color-brass-glow: var(--color-brass-glow);
-  --color-ember: var(--color-ember);
-  --color-ember-dim: var(--color-ember-dim);
-  --color-sage: var(--color-sage);
-  --color-sage-dim: var(--color-sage-dim);
-  --color-amber: var(--color-amber);
-  --color-line: var(--color-line);
-  --color-line-strong: var(--color-line-strong);
-
   --font-serif: var(--font-serif), "Noto Serif SC", "Songti SC", "STSong", serif;
   --font-sans: var(--font-sans), "Noto Sans SC", "PingFang SC", "Helvetica Neue", sans-serif;
   --font-mono: var(--font-mono), "JetBrains Mono", "SF Mono", Consolas, monospace;
@@ -89,8 +45,8 @@ html {
 }
 
 body {
-  background: var(--color-paper);
-  color: var(--color-ink);
+  background: var(--chalk);
+  color: var(--ink);
   font-family: var(--font-sans);
   letter-spacing: -0.002em;
   background-image:
@@ -100,13 +56,13 @@ body {
 }
 
 ::selection {
-  background: var(--color-brass);
-  color: var(--color-paper);
+  background: var(--accent);
+  color: var(--chalk);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-color: var(--ink-14) transparent;
 }
 
 .font-display {
@@ -122,13 +78,13 @@ body {
 
 .hr-fine {
   height: 1px;
-  background: var(--color-line);
+  background: var(--ink-08);
 }
 
 .hr-double {
   height: 3px;
-  border-top: 1px solid var(--color-ink);
-  border-bottom: 1px solid var(--color-ink);
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
 }
 
 @keyframes ink-pulse {
@@ -140,251 +96,8 @@ body {
   animation: ink-pulse 1.6s var(--ease-smooth) infinite;
 }
 
-/* ============================================================ */
-/* INK THEME — 电影级暗调 · 真·摄影 hero + 古铜金 accent         */
-/* ============================================================ */
-[data-theme="ink"] {
-  /* 深炭 surfaces —— 卡片保持原样（避免提亮后的灰蓝） */
-  --color-paper: #0d1116;
-  --color-paper-raised: #181d24;       /* 不动 */
-  --color-paper-sunken: #080a0e;
-
-  /* 文字 —— 全面向亮侧挪，但卡片底不变 */
-  --color-ink: #f6f8fb;                /* 标题近象牙白（= WAITING 亮度基准） */
-  --color-ink-soft: #d0d6de;           /* 副标 */
-  --color-ink-muted: #8a95a2;          /* muted 不再灰蒙 */
-
-  /* Accent —— 古铜金向暖白金提亮（与 WAITING 同级） */
-  --color-brass: #f0d488;
-  --color-brass-dim: #d4b370;
-  --color-brass-glow: #fff0c8;
-
-  /* Hairline —— 微亮 */
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.16);
-
-  /* Font overrides */
-  --font-sans: var(--font-geist-sans), "Noto Sans SC", sans-serif;
-  --font-mono: var(--font-geist-mono), "JetBrains Mono", monospace;
-  --font-display-editorial: var(--font-editorial-display), "Noto Serif SC", "Songti SC", serif;
-
-  /* 纯炭底色 —— 提亮版 */
-  background: #0d1116;
-  min-height: 100vh;
-  color: var(--color-ink);
-  position: relative;
-  isolation: isolate;
-}
-
-/* 整页 grain 覆盖 —— 统一氛围，消色带，填补"空白" */
-[data-theme="ink"]::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  background-image: url("/img/grain.png");
-  background-size: 256px 256px;
-  mix-blend-mode: overlay;
-  opacity: 0.06;
-}
-
-/* 主标题 —— Fraunces 衬线 */
-[data-theme="ink"] .font-display {
-  font-family: var(--font-display-editorial) !important;
-  font-weight: 300;
-  letter-spacing: -0.02em;
-}
-
-/* tabular 数字 —— Geist Mono */
-[data-theme="ink"] .font-tabular {
-  font-feature-settings: "tnum", "lnum", "zero" !important;
-}
-
-/* eyebrow 金字：加 text-shadow 发光 + 微加粗，补偿细字 antialiasing 在暗底上的视觉衰减 */
-[data-theme="ink"] [class*="text-[var(--color-brass)]"] {
-  color: #f0d488 !important;
-  text-shadow: 0 0 10px rgba(240, 212, 136, 0.35);
-  font-weight: 500;
-}
-[data-theme="ink"] [class*="text-[var(--color-brass-dim)]"] {
-  color: #d4b370 !important;
-}
-
-/* PipelineRail 完成态从 sage 绿改成 brass 金 */
-[data-theme="ink"] [class*="border-[var(--color-sage)]"] {
-  border-color: #f0d488 !important;
-}
-[data-theme="ink"] [class*="bg-[var(--color-sage)]"] {
-  background-color: #f0d488 !important;
-}
-
-/* ===== Cards ===== */
-[data-theme="ink"] [class*="paper-raised"] {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 60%),
-    var(--color-paper-raised) !important;
-  border: 1px solid var(--color-line) !important;
-  border-radius: 14px !important;
-  backdrop-filter: blur(8px) saturate(110%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 24px 48px -24px rgba(0, 0, 0, 0.6) !important;
-  transition: all 0.25s ease;
-  position: relative;
-}
-[data-theme="ink"] [class*="paper-raised"]:hover {
-  border-color: var(--color-line-strong) !important;
-  transform: translateY(-2px);
-}
-
-/* 卡内 hairline 分割 */
-[data-theme="ink"] .hr-fine {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--color-line-strong), transparent);
-}
-[data-theme="ink"] [class*="border-b"] {
-  border-color: var(--color-line) !important;
-}
-
-/* ===== Buttons ===== */
-/* Primary —— 纯 #f0d488 金，和 eyebrow 同色 */
-[data-theme="ink"] button[class*="bg-[var(--color-ink)]"] {
-  background-color: #f0d488 !important;
-  background-image: none !important;
-  background: #f0d488 !important;
-  color: #1a1208 !important;
-  position: relative;
-  z-index: 10;
-  border: none !important;
-  border-radius: 8px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow:
-    0 0 0 1px rgba(240, 212, 136, 0.25),
-    0 8px 24px -4px rgba(240, 212, 136, 0.35),
-    0 14px 32px -8px rgba(0, 0, 0, 0.5);
-  transition: all 0.25s ease;
-  position: relative;
-  overflow: hidden;
-}
-/* 扫光动画 */
-[data-theme="ink"] button[class*="bg-[var(--color-ink)]"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
-  transform: translateX(-120%);
-  transition: transform 0.7s ease;
-  pointer-events: none;
-}
-[data-theme="ink"] button[class*="bg-[var(--color-ink)]"]:hover {
-  background-color: #fff0c8 !important;
-  background: #fff0c8 !important;
-  transform: translateY(-1.5px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1.5px 0 rgba(120, 85, 30, 0.45),
-    0 0 0 1px rgba(230, 198, 138, 0.5),
-    0 14px 32px -4px rgba(255, 220, 150, 0.6),
-    0 22px 48px -10px rgba(230, 198, 138, 0.55),
-    0 0 40px rgba(255, 220, 150, 0.35),
-    0 4px 10px rgba(0, 0, 0, 0.5);
-}
-[data-theme="ink"] button[class*="bg-[var(--color-ink)]"]:hover::before {
-  transform: translateX(120%);
-}
-[data-theme="ink"] button[class*="bg-[var(--color-ink)]"]:active {
-  transform: translateY(0);
-  filter: brightness(0.95);
-}
-
-/* Secondary —— hairline 玻璃 */
-[data-theme="ink"] button[class*="bg-[var(--color-paper-raised)]"] {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid var(--color-line-strong) !important;
-  color: var(--color-ink) !important;
-  border-radius: 8px;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-}
-[data-theme="ink"] button[class*="bg-[var(--color-paper-raised)]"]:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Ghost —— 纯文字 */
-[data-theme="ink"] button[class*="bg-transparent"] {
-  background: transparent !important;
-  border: none !important;
-  color: var(--color-ink-soft) !important;
-  transition: all 0.2s ease;
-}
-[data-theme="ink"] button[class*="bg-transparent"]:hover {
-  color: var(--color-ink) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-}
-
-/* ===== 印章 / badges / seals 系统 2026-04-20 下架 =====
-   原 ink-source-badge / ink-seal-mini / -vermilion / -ink / -sage 全部移除。
-   替代：typography-only 标识（4px 功能色 spine + italic 2 字签名 + 8px 功能色圆点 chip）。
-   用户裁决："任何圆/方 seal + 单字 glyph-in-circle 读作老 DEMO"。 */
-
-/* ===== 整页固定摄影 bg（CSS 版，只覆盖 data-theme 容器内） ===== */
-.page-photo-bg-css {
-  background-image:
-    linear-gradient(180deg,
-      rgba(13, 17, 22, 0.2) 0%,
-      rgba(13, 17, 22, 0.45) 45%,
-      rgba(13, 17, 22, 0.78) 100%
-    ),
-    url("/img/hero-ocean.jpg");
-  background-size: cover, cover;
-  background-position: center top, center top;
-  background-attachment: fixed, fixed;
-  background-repeat: no-repeat, no-repeat;
-}
-/* 旧 class 保留兼容 */
-
-/* ===== Hero image + overlays (legacy, kept for non-breaking) ===== */
-.hero-photo-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.hero-photo-layer img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: contrast(1.02) saturate(1) brightness(1.05);
-}
-/* 两层 overlay：顶微压暗 + 底渐隐到 page-base（消分割） */
-.hero-photo-overlay-1 {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg,
-      rgba(7, 9, 11, 0.2) 0%,
-      rgba(7, 9, 11, 0) 20%,
-      rgba(7, 9, 11, 0) 55%,
-      rgba(7, 9, 11, 0.4) 80%,
-      rgba(13, 17, 22, 1) 100%);
-  pointer-events: none;
-}
-.hero-photo-overlay-2 {
-  position: absolute;
-  inset: 0;
-  background: rgba(7, 9, 11, 0.12);
-  pointer-events: none;
-}
-
-/* Editorial eyebrow */
-[data-theme="ink"] .editorial-eyebrow {
-  font-family: var(--font-editorial-body), Georgia, serif;
-  font-style: italic;
-  font-weight: 300;
-  font-size: 13px;
-  color: var(--color-brass);
-  letter-spacing: 0.04em;
-}
+/* Phase A5 (2026-04-29) · 旧 INK 主题电影级暗调/古铜金 + selector-form
+   override block 全删 (~250 行). 新 ink 主题视觉由 tokens.css [data-theme="ink"]
+   驱动 (水墨宣纸→深墨 · 替代 v1 Letterpress · CLAUDE.md §7).
+   page-photo-bg-css / hero-photo-* / editorial-eyebrow / 印章 system 已下架,
+   未在仓内被任何 consumer 引用 (grep verified). */
