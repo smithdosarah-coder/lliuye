@@ -404,6 +404,50 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 (下次更新模板)
 
+## 2026-04-29 · worker-A4-credit DONE · cat 0/3/4/13 fix + 4-gate hoist
+
+### What happened
+- 主 CLI (worker-A4-credit) resume 后按 `docs/audit/A4-credit-draft.md` §9 13 step 实施顺序 · 8 个独立 commit + 2 准备 commit (Step 3 mock 扩 + Step 13 inventory) 全交:
+  - Step 3 (`6bd5bfb`) · CREDIT_MOCK_SESSIONS 6 stratified sessions (反 5 原则 §3.5 难度分层 = 1 simple + 3 medium + 1 hard + 1 extreme · 不破现有 CREDIT_SESSIONS Record · Additive 出口)
+  - Step 4 (`c056d7a`) · 4-gate state hoist · workspace-state-protocol §2 (started/selectedSession/liveData/selectedCandidate)
+  - Step 6 (`f913c6e`) · backend done envelope symmetric · cat 4 修 (mock + live 路对称)
+  - Step 7 (`f79b446`) · SSE reader → streamSse + done-envelope normalize · cat 3 删 35 行内联 reader
+  - Step 8 endpoint (`ae31144`) + Step 8 scenarios (`83d61a5`) · `/api/credit/demo/run` + 6 file-backed scenario JSON (corp/retail × simple/medium/hard/extreme)
+  - Step 9 (`fa37572`) · EmptyState onPrimary → Agent6 handoff 真消费 · cat 0 北极星核心
+  - Step 10 (`f2828e9`) · CaseTable row → CaseDetailDrawer · selectedCandidate gate
+  - Step 11 (`9c3c359`) · export_docx error banner · cat 13 替 console.error 静默
+  - Step 12 (`7a74dcb`) · credit-pilot-4gate.spec.ts 6 cases (T1-T6 覆盖 4 gate + cat 0/3/4/13 fix)
+- 后端新增 endpoint 3 个: `GET /api/credit/reports/sessions` + `POST /api/credit/handoff/from_report` + `POST /api/credit/demo/run`
+- features-inventory 加 F-067 entry (cat 0/3/4/13 全覆盖)
+- Step 5 (panel split) deferred Phase B · panels 已 props-based (workspace-state-protocol §2.2 通过) · 文件大小不是 contract 强约束
+
+### Triggered by
+- worker-A4-credit DONE per `docs/onboarding/A4-credit.md` (chore/l0-infra)
+- A3 channel pilot V3 (`5876b7b`) 已 cherry-pick 进 chore/l0-infra · GO 信号 `A4-CREDIT-GO-AFTER-A3` 已发 (`ccfdc97`)
+- §0.5 硬 wait gate 已解除
+
+### State change (delta)
+- A4-credit verdict: GO-PENDING → DONE-PENDING-VERIFY (待 codex peer review)
+- audit conflict-register Cat 0 (credit Agent6 handoff 旁路) / Cat 3 (credit 内联 SSE reader) / Cat 4 (credit done envelope 不对称) / Cat 13 (credit export console.error 静默) · 4 项 credit 范围全部接 fix · 状态 active → resolved (待 PM verify)
+- 硬线 #4 (`phase-a-charter.md` §1) · 5 子 worker A4 之 credit 部分: GATES-IMPLEMENTED 4/4 · DONE-ENVELOPE-SYMMETRIC mock+live · AGENT6-HANDOFF-CONSUMED yes · 已满足
+- frontend `CreditWorkspace.tsx` 净 +600 行 (4-gate hoist + handoffSource state + handoffBanner JSX + runDecisionWithAgent6Handoff + runDemoScenario + CaseDetailDrawer + export error banner · 删 inline reader)
+- new `_components/_normalize.ts` 234 行 (backend done envelope → UI CreditSession shape mapper · 仅 hydrate 高价值字段 radar/overallScore/redLines/cases/limit/decision/profile.chips)
+- backend `agent_credit/api.py` 净 +228 行
+- mock `agent-credit-session.ts` 净 +897 行 (3 → 6 sessions · CREDIT_MOCK_SESSIONS array + MAP + DEFAULT_SESSION_ID 出口)
+- 6 demo scenario JSON 新建 (`data/mock/workspace/credit/scenarios/*.json`)
+- features-inventory 加 F-067 (4-gate + cat 0/3/4/13 全覆盖)
+- 5 子 worker mesh: A4-credit DONE → A4-{report,alert,compli,riskctrl} 仍 active (其余 4 子各自 worktree GO 已发)
+
+### Next
+- 主 CLI 等 codex post-DONE peer review (本 commit signal `WORKER-A4-CREDIT-ADAPTER-DONE` 触发)
+- Codex AGREE 后 → cherry-pick A4-credit 10 commit (Step 3/4/6/7/8 endpoint/8 scenarios/9/10/11/12 + Step 13 inventory + state-snapshot) 到 chore/l0-infra → push origin
+- A4 其余 4 子 worker 同样路径走 (各 worktree 独立 commit + cherry-pick · A4-credit 模板可 inherit · normalize.ts pattern + handoff banner pattern + case drawer pattern + export error banner pattern)
+- Playwright `credit-pilot-4gate.spec.ts` 6 case 待 CI / manual `npx playwright install chromium` 后跑
+
+---
+
+(下次更新模板)
+
 ## YYYY-MM-DD · <事件>
 
 ### Worker 状态变更

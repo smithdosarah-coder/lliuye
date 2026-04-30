@@ -1003,6 +1003,49 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
   - V3 fix (2026-04-30): scenario JSON 可填 `conversation: [...]` (默认 [] · backend `data.get("conversation", [])` 透传) · 前端 normalizeBackendDone 派生 ConversationPanel
   - scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不需重启后端
 
+## F-067 · Credit pilot 4-gate state model + Cat 0/3/4/13 fix (Phase A worker-A4-credit)
+
+- **location**:
+  - `web/src/app/archive/credit/_components/CreditWorkspace.tsx` (4-gate hoist + handoff banner + case drawer + export error banner + streamSse migration)
+  - `web/src/app/archive/credit/_components/_normalize.ts` (backend done envelope → UI CreditSession shape mapper)
+  - `web/src/lib/mock/agent-credit-session.ts` (`CREDIT_MOCK_SESSIONS` array + `CREDIT_MOCK_SESSIONS_MAP` + `CREDIT_DEFAULT_SESSION_ID` · 6 stratified sessions)
+  - `agent_credit/api.py` (cat 4 done envelope symmetric · `/api/credit/demo/run` + `/api/credit/reports/sessions` + `/api/credit/handoff/from_report`)
+- **selector**:
+  - 4-gate state: 顶层 `[data-credit-started="yes|no"]` + `[data-credit-mode]`
+  - handoff banner: `[data-testid="credit-handoff-banner"]` + `[data-testid="credit-handoff-stage-tab"]`
+  - case row + drawer: `[data-testid="credit-case-row"]` + `[data-case-id]` + `[data-testid="credit-case-drawer"]` + `[data-testid="credit-case-drawer-backdrop"]` + `[data-testid="credit-case-drawer-close"]` + `[data-testid="credit-case-drawer-decision"]`
+  - export error: `[data-testid="credit-export-error-banner"]` + `[data-testid="credit-export-retry"]` + `[data-testid="credit-export-dismiss"]`
+- **interaction**:
+  - 4-gate: `started/selectedSession/liveData/selectedCandidate` 顶层 useState · `sessionData = liveData ?? CREDIT_MOCK_SESSIONS_MAP[selectedSession] ?? CREDIT_MOCK_SESSIONS_MAP[CREDIT_DEFAULT_SESSION_ID]` · alias `mode/session` 派生不再独立 useState
+  - cat 0 北极星: primary CTA "从 Agent6 报告起决策" → fetch `/api/credit/reports/sessions` → POST `/api/credit/handoff/from_report` → enterprise_profile 注入 `body.report_json` → `/api/credit/decision` SSE → done envelope normalize → `setLiveData`
+  - cat 3 streamSse: 删 35 行内联 `res.body.getReader()+TextDecoder+buf.split()` reader · 改 `streamSse` from `@/lib/api/_live` (A2 SSOT · LiveFailError 4xx/5xx 显式)
+  - cat 4 done envelope: 后端 `_build_done_envelope()` helper · mock + live 路对称 · 含 segment/source/preset_name/decision_id/profile/scoring/rule_hits/case_matches/advice
+  - cat 13 export error: 替 `console.error` 静默 → exportError state + banner + retry/dismiss · 解析 backend 4xx/5xx detail (code + message)
+  - case drawer: row click → `setSelectedCandidate(c.id)` → CaseDetailDrawer overlay (similarity + amount + decision + note + tags) · ESC 关 + click backdrop 关
+  - demo scenarios: tertiary CTA → `/api/credit/demo/run` body `{scenario_id}` → 6 file-backed scenario JSON (corp/retail × simple/medium/hard/extreme)
+- **introduce**: 2026-04-29 Phase A worker-A4-credit · cherry-pick 后 7 commit (Step 4/6/7/8/9/10/11/12)
+- **lost_at**: N/A (新 feature · workspace-state-protocol §2 + agent-handoff-schemas §2 + draft `docs/audit/A4-credit-draft.md` 落地)
+- **contract**:
+  - `docs/contracts/workspace-state-protocol.md` §2 (4 gate model)
+  - `docs/contracts/workspace-state-protocol.md` §4 (done envelope)
+  - `docs/contracts/agent-handoff-schemas.md` §2 (Agent6.report_json → Agent3.decision_input)
+  - `docs/contracts/agent-credit-spec.md` §6 (mock sessions · 反 5 原则 §3.5)
+- **mock data 反 5 原则** (CLAUDE.md §3.5):
+  - 6 sessions = 1 simple + 3 medium + 1 hard + 1 extreme (难度分层)
+  - cs-zhongrui-network (hard · 关联交易 32% 软红线 + 应收 140 天 · approved-cut 380 万)
+  - cs-dingsheng-trade (extreme · 3 项硬红线齐 fail · rejected 0)
+  - cs-wangwu-decoration (simple · 810 优 + 房产抵押 53% LTV · approved 200 万 / LPR-10BP)
+  - 6 demo scenario JSON 同分层 (corp-dingsheng-001/ruiheng-002/zhongrui-003 + retail-zhangsan-001/lisi-002/wangwu-003)
+  - 数字真实形态锚定 (debt_ratio 0.78 不是 0.8 · current_ratio 0.82 · ar_days 140 · ltv_proposed 0.53)
+  - 公司/人名虚构 · 数字保银保监公开案例量级
+- **smoke_test**:
+  - `web/tests/regression/credit-pilot-4gate.spec.ts` · 6 cases (T1 empty / T2 板块 tab / T3 mock SSE liveData / T4 Agent6 handoff banner / T5 case drawer / T6 export error banner)
+  - tsc --noEmit pass
+  - backend smoke: `_mock_decision_events("corporate")` 12 events done.10 keys 全 present · `list_credit_reports() count=4` · `handoff_from_report ready_for_decision=true`
+- **NB**:
+  - Step 5 panel split (extract _components/*.tsx) 推迟 Phase B · 现 panels 已 props-based (workspace-state-protocol §2.2 通过) · 文件大小不是 contract 强约束
+  - normalize.ts 仅 hydrate 高价值字段 (radar/overallScore/redLines/cases/limit/decision/profile.chips) · 其余 (conversation/materials/dataSources/evidences/pipeline/generateSteps) 走 fallback (mock sessionData) · backend 不透传
+
 ---
 
 ## 维护规则
