@@ -15,11 +15,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...rest }, ref) => {
     const variantStyle = {
       primary:
-        "bg-[var(--color-ink)] text-[var(--color-paper)] hover:bg-[var(--color-ink-soft)] active:bg-[var(--color-ink)]",
+        "bg-[var(--ink)] text-[var(--chalk)] hover:bg-[var(--ink-65)] active:bg-[var(--ink)]",
       secondary:
-        "bg-[var(--color-paper-raised)] text-[var(--color-ink)] border border-[var(--color-line-strong)] hover:border-[var(--color-ink)]",
+        "bg-[var(--chalk)] text-[var(--ink)] border border-[var(--ink-14)] hover:border-[var(--ink)]",
       ghost:
-        "bg-transparent text-[var(--color-ink-soft)] hover:bg-[var(--color-overlay)]",
+        "bg-transparent text-[var(--ink-65)] hover:bg-[var(--ink-04)]",
     }[variant];
 
     const sizeStyle = {
@@ -32,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center gap-2 font-medium tracking-tight transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brass)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-paper)]",
+          "inline-flex items-center justify-center gap-2 font-medium tracking-tight transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--chalk)]",
           variantStyle,
           sizeStyle,
           className
@@ -56,7 +56,7 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex border border-[var(--color-line-strong)] p-0.5 bg-[var(--color-paper-raised)]">
+    <div className="inline-flex border border-[var(--ink-14)] p-0.5 bg-[var(--chalk)]">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -64,8 +64,8 @@ export function SegmentedControl<T extends string>({
           className={cn(
             "px-4 py-1.5 text-[12px] font-medium transition-all",
             value === opt.value
-              ? "bg-[var(--color-ink)] text-[var(--color-paper)]"
-              : "text-[var(--color-ink-soft)] hover:bg-[var(--color-overlay)]"
+              ? "bg-[var(--ink)] text-[var(--chalk)]"
+              : "text-[var(--ink-65)] hover:bg-[var(--ink-04)]"
           )}
         >
           {opt.label}

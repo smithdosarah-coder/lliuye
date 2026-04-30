@@ -69,7 +69,7 @@ export function QuestionnairePanel({
 
   return (
     <div className="space-y-4">
-      <div className="text-[11px] font-tabular tracking-wider text-[var(--color-ink-muted)]">
+      <div className="text-[11px] font-tabular tracking-wider text-[var(--ink-48)]">
         共 {questions.length} 项 · 已填 {filledCount} · 跳过 {skippedCount}
       </div>
 
@@ -82,18 +82,18 @@ export function QuestionnairePanel({
               key={q.id}
               className={`border-l-2 pl-3 transition-colors ${
                 isSkipped
-                  ? "border-[var(--color-line-strong)] opacity-50"
-                  : "border-[var(--color-ink)]"
+                  ? "border-[var(--ink-14)] opacity-50"
+                  : "border-[var(--ink)]"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="text-[13px] text-[var(--color-ink)] leading-relaxed flex-1">
+                <div className="text-[13px] text-[var(--ink)] leading-relaxed flex-1">
                   {q.question}
                 </div>
                 <button
                   type="button"
                   onClick={() => toggleSkip(q.id)}
-                  className="shrink-0 text-[10px] font-tabular tracking-wider text-[var(--color-ink-muted)] hover:text-[var(--color-ember)] underline underline-offset-2"
+                  className="shrink-0 text-[10px] font-tabular tracking-wider text-[var(--ink-48)] hover:text-[var(--t-alert)] underline underline-offset-2"
                 >
                   {isSkipped ? "恢复" : "跳过"}
                 </button>
@@ -103,7 +103,7 @@ export function QuestionnairePanel({
                 <button
                   type="button"
                   onClick={() => toggleHint(q.id)}
-                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-tabular tracking-wider text-[var(--color-brass)] hover:text-[var(--color-brass-dim)]"
+                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-tabular tracking-wider text-[var(--accent)] hover:text-[var(--ink-65)]"
                 >
                   {hintOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                   <HelpCircle size={10} />
@@ -111,7 +111,7 @@ export function QuestionnairePanel({
                 </button>
               )}
               {hintOpen && q.hint && (
-                <div className="mt-1.5 text-[11px] text-[var(--color-ink-muted)] leading-relaxed bg-[var(--color-overlay)] border-l border-[var(--color-brass)] px-2.5 py-1.5">
+                <div className="mt-1.5 text-[11px] text-[var(--ink-48)] leading-relaxed bg-[var(--ink-04)] border-l border-[var(--accent)] px-2.5 py-1.5">
                   {q.hint}
                 </div>
               )}
@@ -126,7 +126,7 @@ export function QuestionnairePanel({
         })}
       </ul>
 
-      <div className="pt-2 border-t border-[var(--color-line)]">
+      <div className="pt-2 border-t border-[var(--ink-08)]">
         <Button
           onClick={handleSubmit}
           disabled={busy || (filledCount === 0 && skippedCount === 0)}
@@ -146,7 +146,7 @@ function renderInput(
   disabled: boolean
 ) {
   const cls =
-    "w-full px-3 py-2 text-[13px] bg-[var(--color-paper)] border border-[var(--color-line-strong)] focus:border-[var(--color-ink)] focus:outline-none transition-colors text-[var(--color-ink)] disabled:opacity-50";
+    "w-full px-3 py-2 text-[13px] bg-[var(--chalk)] border border-[var(--ink-14)] focus:border-[var(--ink)] focus:outline-none transition-colors text-[var(--ink)] disabled:opacity-50";
 
   if (q.input_type === "number") {
     return (
