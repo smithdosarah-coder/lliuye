@@ -1,0 +1,96 @@
+{
+  "scenario_id": "hard",
+  "difficulty": "困难 (材料严重不全 · 多份扫描件 · QC 多警告 + 1 fatal)",
+  "_lineage": "锚定信用瑕疵小微企业场景 · 反 5 原则 §3.3+§3.4 脱敏再造 · QC 触发不通过路径",
+  "stage_messages": {
+    "ingest": "材料解析 · 7 份文件 · 3 份扫描件 OCR 失败 · 2 份格式异常",
+    "extract": "结构化预填 · 312/492 字段命中 · 180 项需补",
+    "infer": "财务事实库装载受限 · 缺 2023 年报 · 部分比率无法计算",
+    "write": "段落生成 · 4 章 · 第 3 章 evidence_rate < 0.5",
+    "audit": "QC 终审 · 9 维评分 52 · 1 fatal (现金流证据缺失) · 4 warn"
+  },
+  "profile": {
+    "company_name": "华南普华纺织实业有限公司",
+    "uscc": "91440605MA**P*****",
+    "industry": "纺织 · 印染 · 中游 OEM",
+    "business_line": "corporate",
+    "registered_capital_yuan": "1,500万元",
+    "founded": "2012-08",
+    "legal_rep": "张普华",
+    "employees": 180,
+    "revenue_yuan_2024": "1.2亿元",
+    "net_profit_yuan_2024": "-180万元"
+  },
+  "stats": {
+    "total_fields": 492,
+    "auto_filled": 312,
+    "unfilled": 180,
+    "evidence_rate": 0.48,
+    "avg_word_count": 1280
+  },
+  "qc": {
+    "passed": false,
+    "score": 52,
+    "fatal_fail": true,
+    "halluc_count": 0,
+    "warn_count": 4,
+    "info_count": 12,
+    "fatal_reason": "第 3 章财务现金流证据缺失 · 2023 年报材料未提供 · 比率推断置信度 < 阈值 0.6"
+  },
+  "pending_questions": [
+    {
+      "id": "pq-hard-1",
+      "label": "2023 年完整审计报告（必须）",
+      "recommended": "客户补提交后重跑财务章节",
+      "source_ref": "(缺失)"
+    },
+    {
+      "id": "pq-hard-2",
+      "label": "近 12 个月银行流水（缺 2024 Q3 部分月份）",
+      "recommended": "客户补提交完整流水",
+      "source_ref": "bank_statement.pdf · 仅含 7 个月"
+    },
+    {
+      "id": "pq-hard-3",
+      "label": "环保局排污许可证有效期及合规记录",
+      "recommended": "印染行业合规风险高 · 必查",
+      "source_ref": "(缺失)"
+    },
+    {
+      "id": "pq-hard-4",
+      "label": "近 2 年是否有诉讼 / 失信记录",
+      "recommended": "Agent5 合规扫描建议",
+      "source_ref": "(待 Agent5 联动)"
+    }
+  ],
+  "sections": [
+    {
+      "id": "chapter_1_background",
+      "title": "一、企业背景",
+      "content": "华南普华纺织实业有限公司成立于 2012 年 8 月，注册资本 1,500 万元，主营纺织印染中游 OEM 业务。法定代表人张普华，员工 180 人。公司位于广东佛山禅城区印染产业园，自有厂房 8,000 ㎡。\n\n[QC 警告] 实控人持股结构材料模糊（扫描件 ocr_shareholder.jpg 部分字段无法识别）· 已标 pq-hard-2 待客户提供工商备案材料补。\n\n证据：营业执照（business_license.pdf）、组织架构图（org_chart_scan.jpg, OCR conf 0.55）。",
+      "status": "done",
+      "word_count": 1180
+    },
+    {
+      "id": "chapter_2_operation",
+      "title": "二、经营情况",
+      "content": "公司主营印染 OEM 业务，下游客户 12 家（前三大占营收 67% · 集中度偏高）。2024 年营收约 1.2 亿元（YoY -8%），订单同比下滑主因：1）下游服装出口需求下行；2）2024 年 8 月环保局检查后产能停产 21 天；3）原材料染料价格年内上涨 18%。\n\n[QC 警告] 客户集中度 67% 高于 50% 行业警戒阈值 · 第一大客户预订单缩减 30% · 经营稳定性风险显著上升。\n\n证据：销售台账（sales_ledger.xlsx · 仅含 9 个月）、客户合同（client_contracts.pdf）、环保检查通知（env_notice_scan.jpg）。",
+      "status": "done",
+      "word_count": 1340
+    },
+    {
+      "id": "chapter_3_finance",
+      "title": "三、财务分析",
+      "content": "[QC FATAL] 此章节证据严重不足 · 2023 年完整审计报告未提供 · 部分财务比率无法以确定性方式计算 · evidence_rate = 0.48 < 阈值 0.6 · QC 终审阻断输出.\n\n基于现有材料（仅 2024 年部分月度报表）的初步观察：\n- 2024 年营收约 1.2 亿元（YoY -8%）· 归母净利润约 -180 万元（净利率 -1.5%）\n- 应收账款余额上升 32% · 平均账龄 142 天（远超行业 90 天阈值）· 存在坏账风险\n- 资产负债率约 71% （超 70% 高风险阈值）· 流动比率约 0.95（已低于 1.0）\n\n[QC 阻断] 上述数字仅为部分材料推断 · 不可作为决策依据 · 必须补 2023 年完整报表 + 完整 12 个月流水后重跑此章.\n\n证据缺失：2023 年审计报告（必须）、完整银行流水、税务申报表近 24 月。",
+      "status": "qc_blocked",
+      "word_count": 1380
+    },
+    {
+      "id": "chapter_4_conclusion",
+      "title": "四、审批意见（预留 Agent3 决策回写）",
+      "content": "[Agent3 信审智能体决策回写区 · 当前为 Agent6 报告生成阶段 · QC 已阻断]\n\nAgent6 协作要点（QC 不通过 · 报告不可作为正式决策依据）：\n- 第 3 章 fatal_fail · 必须补材料后重跑\n- 客户集中度、应收账龄、负债率三项均触发警戒阈值\n- 印染行业当前面临环保 + 出口双重压力 · 需 Agent5 合规扫描 + Agent4 在贷预警双联动\n- 强烈建议 Agent3 决策意见为 \"暂缓 · 等客户补全材料后重审\"",
+      "status": "done",
+      "word_count": 1080
+    }
+  ]
+}

@@ -1,11 +1,13 @@
 /**
- * Agent6 Report backend client · 4 endpoint helper · Stage C frontend (W-CF-A1).
+ * Agent6 Report backend client · 6 endpoint helper · Phase A worker-A4 (2026-04-29).
  *
- * 后端契约 (b014813 已 deliver):
+ * 后端契约 (Phase A worker-A4 align v16 · audit cat 4):
  *   POST /api/report/upload          → {report_id, file_summary, total_*}
- *   POST /api/report/v16/fill        → SSE stage / done events
+ *   POST /api/report/v16/fill        → SSE stage / done events (live · DEEPSEEK 必需)
+ *   POST /api/report/demo/run        → SSE 演示 (mock_forced · scenario_id easy/medium/hard)
  *   POST /api/report/refine_section  → {section, status, llm_used}
  *   POST /api/report/export_docx     → docx blob (attachment)
+ *   POST /api/report/export_pdf      → pdf blob (attachment · G-10 闭环)
  *   GET  /api/report/downloads/{id}  → docx blob (attachment alias)
  *
  * 设计:
@@ -203,6 +205,69 @@ function parseSseChunk(chunk: string): ReportV16Event | null {
   }
 }
 
+/* ── SSE consume: POST /api/report/demo/run ─────────────────────────────
+   Phase A worker-A4 (2026-04-29) · 纯 mock SSE · 不调 LLM · 客户走访稳定 demo 路径.
+   契约同 v16/fill done event (sections + qc + stats + profile + data_source=mock_forced). */
+
+export type ReportDemoRunRequest = {
+  scenario_id: "easy" | "medium" | "hard";
+};
+
+export async function streamReportDemoRun(
+  body: ReportDemoRunRequest,
+  callbacks: {
+    onEvent: (evt: ReportV16Event) => void;
+    onClose?: () => void;
+    onError?: (err: Error) => void;
+    signal?: AbortSignal;
+  },
+): Promise<void> {
+  const url = `${API_BASE}/api/report/demo/run`;
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: callbacks.signal,
+    });
+  } catch (e) {
+    callbacks.onError?.(e instanceof Error ? e : new Error(String(e)));
+    return;
+  }
+  if (!resp.ok || !resp.body) {
+    const txt = await resp.text().catch(() => "");
+    callbacks.onError?.(
+      new Error(`demo/run HTTP ${resp.status} · ${txt.slice(0, 120)}`),
+    );
+    return;
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buf = "";
+  try {
+    /* eslint-disable no-await-in-loop */
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const evt = parseSseChunk(chunk);
+        if (evt) callbacks.onEvent(evt);
+      }
+    }
+    /* eslint-enable no-await-in-loop */
+  } catch (e) {
+    callbacks.onError?.(e instanceof Error ? e : new Error(String(e)));
+    return;
+  } finally {
+    callbacks.onClose?.();
+  }
+}
+
 /* ── refine_section ─────────────────────────────────────────────────── */
 
 export async function refineReportSection(args: {
@@ -276,6 +341,30 @@ function parseFilenameFromContentDisposition(cd: string): string {
   const ascii = cd.match(/filename="?([^"';]+)"?/i);
   if (ascii) return ascii[1].trim();
   return "agent6_report.docx";
+}
+
+/**
+ * 调 export_pdf 端点 · 返 Blob (Phase A worker-A4 · prd-evidence-frozen G-10 闭环).
+ * 与 export_docx 共用 ReportExportPayload schema · 同源异格 (docx 走 word_export.py · pdf 走 reportlab).
+ */
+export async function exportReportPdf(
+  payload: ReportExportPayload,
+): Promise<{ blob: Blob; filename: string }> {
+  const url = `${API_BASE}/api/report/export_pdf`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    throw new Error(`export_pdf HTTP ${resp.status} · ${txt.slice(0, 120)}`);
+  }
+  const blob = await resp.blob();
+  const filename = parseFilenameFromContentDisposition(
+    resp.headers.get("content-disposition") || "",
+  );
+  return { blob, filename };
 }
 
 /**

@@ -1,0 +1,77 @@
+{
+  "scenario_id": "easy",
+  "difficulty": "简单 (材料齐全 · 结构标准 · 字段易抽取)",
+  "_lineage": "锚定 A 股年报 + 银保监授信申报书形态 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 脱敏再造",
+  "stage_messages": {
+    "ingest": "材料解析完成 · 6 份文件 · 全部已 OCR",
+    "extract": "结构化预填 · 482/492 字段命中 · 10 项标未填",
+    "infer": "财务比率 + 趋势 + 行业基准卡 全装载",
+    "write": "段落生成 · 4 章 evidence-grounded",
+    "audit": "QC 终审 · 9 维评分 88 · 0 fatal · 0 hallucination"
+  },
+  "profile": {
+    "company_name": "杭州方舟智能装备有限公司",
+    "uscc": "91330106MA**E*****",
+    "industry": "高端装备制造 · 工业母机",
+    "business_line": "corporate",
+    "registered_capital_yuan": "5000万元",
+    "founded": "2016-09",
+    "legal_rep": "陈方舟",
+    "employees": 220,
+    "revenue_yuan_2024": "2.8亿元",
+    "net_profit_yuan_2024": "3,200万元"
+  },
+  "stats": {
+    "total_fields": 492,
+    "auto_filled": 482,
+    "unfilled": 10,
+    "evidence_rate": 0.94,
+    "avg_word_count": 1620
+  },
+  "qc": {
+    "passed": true,
+    "score": 88,
+    "fatal_fail": false,
+    "halluc_count": 0,
+    "warn_count": 2,
+    "info_count": 5
+  },
+  "pending_questions": [
+    {
+      "id": "pq-easy-1",
+      "label": "近 6 个月是否有新一轮融资计划？",
+      "recommended": "暂无明确披露",
+      "source_ref": "company_introduction.docx · §3"
+    }
+  ],
+  "sections": [
+    {
+      "id": "chapter_1_background",
+      "title": "一、企业背景",
+      "content": "杭州方舟智能装备有限公司（以下简称\"方舟智装\"）成立于 2016 年 9 月，注册资本 5,000 万元，主要从事高端工业母机研发、生产与销售。法定代表人陈方舟，员工 220 人。公司持有发明专利 12 项、实用新型 28 项，2023 年通过\"专精特新\"小巨人认定。主要客户覆盖三一重工、徐工集团、海天精工等头部装备制造企业，2024 年营收 2.8 亿元，同比增长 24%。\n\n证据：营业执照（business_license.pdf, p.1）、专利清单（patents_list.xlsx, sheet1）、客户合同摘要（contracts_summary.pdf, p.3-5）。",
+      "status": "done",
+      "word_count": 1680
+    },
+    {
+      "id": "chapter_2_operation",
+      "title": "二、经营情况",
+      "content": "公司主营工业母机三大系列：高速精密车床、五轴加工中心、智能数控系统，对应营收占比 42% / 35% / 23%。产能利用率 92%，订单饱满至 2025 Q3。客户结构稳定（前五大客户营收占比 58%），账龄结构良好（90 天内应收占 86%）。供应链上游主要为机床铸件、伺服电机、数控系统模组，国产化率 78%。\n\n证据：销售台账（sales_ledger_2024.xlsx）、产能报表（capacity_report.pdf, p.2）、应收账龄（ar_aging.xlsx）。",
+      "status": "done",
+      "word_count": 1540
+    },
+    {
+      "id": "chapter_3_finance",
+      "title": "三、财务分析",
+      "content": "2024 年财务数据：营业收入 2.8 亿元（YoY +24%），归母净利润 3,200 万元（净利率 11.4%），毛利率 32.8%，资产负债率 41.5%，流动比率 2.1，速动比率 1.6。经营性现金流净额 4,100 万元，覆盖净利润 1.28 倍。整体财务状况稳健，盈利能力与现金流双优。\n\n关键比率（financial_analyzer.py 确定性计算）：\n- ROE 18.6% · ROA 9.8%\n- 营收复合增长率（3 年）26.4%\n- 应收周转 5.2 次 · 存货周转 4.8 次\n\n证据：审计报告 2022-2024（audit_report_3y.pdf）、银行流水（bank_statement_12m.pdf）。",
+      "status": "done",
+      "word_count": 1820
+    },
+    {
+      "id": "chapter_4_conclusion",
+      "title": "四、审批意见（预留 Agent3 决策回写）",
+      "content": "[Agent3 信审智能体决策回写区 · 当前为 Agent6 报告生成阶段 · 不预设决策意见]\n\nAgent6 协作要点：\n- 财务指标全部触发 \"绿区\" 阈值（净利率 ≥ 8%、流动比率 ≥ 1.5、负债率 ≤ 60%）\n- 客户集中度风险中等（前五大占 58% · 高于阈值 50% · 待审贷会判断）\n- 推荐 Agent3 关注：行业景气下行风险（高端装备出口环节关税敏感）",
+      "status": "done",
+      "word_count": 980
+    }
+  ]
+}
