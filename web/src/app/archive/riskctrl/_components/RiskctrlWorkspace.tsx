@@ -168,6 +168,12 @@ export default function RiskctrlWorkspace() {
     setRetryHandler(null);
   }
 
+  /* lastRuleset · dsl_gen done 后 store 整 ruleset 对象 · backtest 直消费 (Step 8 进 liveData) */
+  const [lastRuleset, setLastRuleset] = useState<Record<string, unknown> | null>(null);
+  const [lastSampleCsvPath, setLastSampleCsvPath] = useState<string>(
+    "samples/sample.csv",
+  );
+
   /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
   const triggerDslGen = useCallback(async (ruleText: string) => {
     const text = ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户";
@@ -177,8 +183,12 @@ export default function RiskctrlWorkspace() {
     setScanError("");
     clearLiveFail();
     try {
-      const { rulesetId: sid } = await runDslGen({ ruleText: text });
-      if (sid) setRulesetId(sid);
+      const result = await runDslGen({
+        strategyIntent: text,
+        sampleCsvPath: lastSampleCsvPath,
+      });
+      if (result?.ruleset_id) setRulesetId(result.ruleset_id);
+      if (result?.ruleset) setLastRuleset(result.ruleset);
     } catch (e) {
       recordLiveFail("DSL 生成", e, () => triggerDslGen(text));
       setScanError(e instanceof Error ? e.message : String(e));
@@ -186,7 +196,7 @@ export default function RiskctrlWorkspace() {
       setScanRunning(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lastSampleCsvPath]);
 
   /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 ·
      选 recent (mock session) 时同步切 selectedSession · 退 live mode · 清 selection */
@@ -216,16 +226,20 @@ export default function RiskctrlWorkspace() {
   }, [preset, recent]);
 
   /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发.
-     Stage Fix · 422 root cause: backend 必填 instruction + uploaded_files
-     (Pydantic list[str] 无 default factory) · 此处显式传 [] 防 422 · 失败 banner */
+     Phase A worker-A4 · backend SSE body 改 {ruleset, csv_path, ...} · 必须先 dsl_gen
+     拿 ruleset · lastRuleset 兜底空 (会 422 显示 banner 提示用户先 gen). */
   const triggerBacktest = useCallback(async () => {
+    if (!lastRuleset) {
+      setScanError("请先生成 DSL · 再跑回测 (backtest 必须含 ruleset)");
+      return;
+    }
     setScanRunning(true);
     setScanError("");
     clearLiveFail();
     try {
       await runBacktest({
-        instruction: "回测当前策略",
-        uploadedFiles: [],
+        ruleset: lastRuleset,
+        csvPath: lastSampleCsvPath,
       });
       setScanned(true);
     } catch (e) {
@@ -234,7 +248,7 @@ export default function RiskctrlWorkspace() {
     } finally {
       setScanRunning(false);
     }
-  }, []);
+  }, [lastRuleset, lastSampleCsvPath]);
 
   /* Word 导出 · POST /api/riskctrl/export_docx · 后端尚未 deliver · 优雅 fallback */
   const triggerExportDocx = useCallback(async () => {
