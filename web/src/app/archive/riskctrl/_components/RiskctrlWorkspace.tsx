@@ -44,7 +44,6 @@ import {
   RISKCTRL_MOCK_SESSIONS_MAP,
   RISKCTRL_MOCK_SESSIONS_LIST,
   RISKCTRL_DEFAULT_SESSION_ID,
-  RISKCTRL_SESSION,
   type ConversationMessage,
   type DslNode,
   type RiskctrlRecentSession,
@@ -291,7 +290,7 @@ export default function RiskctrlWorkspace() {
         data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
       >
-        <RiskHero />
+        <RiskHero sessionData={sessionData} />
 
         <RiskTriggerBar
           recent={recent}
@@ -372,12 +371,29 @@ export default function RiskctrlWorkspace() {
               </div>
             ) : null}
 
-            <RiskIndicatorRow />
+            <RiskIndicatorRow sessionData={sessionData} />
             <div className="rpt-body">
               <aside className="rpt-side">
-                <QueryPanel />
-                <RulesPanel />
-                <RecentPanel />
+                <QueryPanel sessionData={sessionData} />
+                <RulesPanel
+                  sessionData={sessionData}
+                  selectedRuleId={
+                    selectedRuleOrSegment?.kind === "rule"
+                      ? selectedRuleOrSegment.id
+                      : null
+                  }
+                  onSelectRule={(id) => setSelectedRuleOrSegment({ kind: "rule", id })}
+                />
+                <RecentPanel
+                  sessionData={sessionData}
+                  selectedSession={selectedSession}
+                  onSelectSession={(id) => {
+                    setSelectedSession(id);
+                    setLiveData(null);
+                    setSelectedRuleOrSegment(null);
+                    setRecent(id);
+                  }}
+                />
               </aside>
               <main className="rpt-main">
                 <div data-testid="riskctrl-backtest-cta">
@@ -397,15 +413,22 @@ export default function RiskctrlWorkspace() {
                     ]}
                   />
                 </div>
-                <ConversationPanel>
-                  <RiskComposer />
+                <ConversationPanel sessionData={sessionData}>
+                  <RiskComposer sessionData={sessionData} />
                 </ConversationPanel>
               </main>
               <aside className="rpt-aux">
                 <RiskOutputPanel
+                  sessionData={sessionData}
                   rulesetId={rulesetId}
                   exportInfo={exportInfo}
                   onExportDocx={triggerExportDocx}
+                  selectedSegmentKey={
+                    selectedRuleOrSegment?.kind === "segment"
+                      ? selectedRuleOrSegment.key
+                      : null
+                  }
+                  onSelectSegment={(key) => setSelectedRuleOrSegment({ kind: "segment", key })}
                 />
               </aside>
             </div>
@@ -547,8 +570,8 @@ function RiskEmptySkeleton() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function RiskHero() {
-  const s = RISKCTRL_SESSION;
+function RiskHero({ sessionData }: { sessionData: RiskctrlSession }) {
+  const s = sessionData;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -576,8 +599,8 @@ function RiskHero() {
 
 /* ── v2 Hero · KS / AUC / 通过率 三大指标卡 ──────────── */
 
-function RiskIndicatorRow() {
-  const s = RISKCTRL_SESSION;
+function RiskIndicatorRow({ sessionData }: { sessionData: RiskctrlSession }) {
+  const s = sessionData;
   const { ksPeak, auc, passRate, badRate } = s.ks;
   const samples = s.samples;
   const pass = samples.find((x) => x.key === "pass");
@@ -699,8 +722,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /* ── 左栏 · Query 策略目标 ──────────────────────────── */
 
-function QueryPanel() {
-  const q = RISKCTRL_SESSION.query;
+function QueryPanel({ sessionData }: { sessionData: RiskctrlSession }) {
+  const q = sessionData.query;
   return (
     <section className="rpt-panel rpt-panel--tpl">
       <PanelPinHandle
@@ -762,9 +785,17 @@ const RULE_STATUS_LABEL: Record<RuleRef["status"], string> = {
   retired: "下线",
 };
 
-function RulesPanel() {
-  const rules = RISKCTRL_SESSION.rules;
-  const current = RISKCTRL_SESSION.currentRule;
+function RulesPanel({
+  sessionData,
+  selectedRuleId,
+  onSelectRule,
+}: {
+  sessionData: RiskctrlSession;
+  selectedRuleId: string | null;
+  onSelectRule: (id: string) => void;
+}) {
+  const rules = sessionData.rules;
+  const current = sessionData.currentRule;
   const active = rules.filter((r) => r.status === "active").length;
   return (
     <section className="rpt-panel rpt-panel--mat">
@@ -793,6 +824,17 @@ function RulesPanel() {
             className="rc-rule-card"
             data-status={r.status}
             data-current={r.id === current.id ? "yes" : "no"}
+            data-selected={r.id === selectedRuleId ? "yes" : "no"}
+            data-testid={`riskctrl-rule-card-${r.id}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelectRule(r.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelectRule(r.id);
+              }
+            }}
           >
             <header className="rc-rule-head">
               <span className="rc-rule-code">{r.code}</span>
@@ -814,8 +856,16 @@ function RulesPanel() {
 
 /* ── 左栏 · Recent ────────────────────────────────── */
 
-function RecentPanel() {
-  const recent = RISKCTRL_SESSION.recentSessions;
+function RecentPanel({
+  sessionData,
+  selectedSession,
+  onSelectSession,
+}: {
+  sessionData: RiskctrlSession;
+  selectedSession: string;
+  onSelectSession: (id: string) => void;
+}) {
+  const recent = sessionData.recentSessions;
   return (
     <section className="rpt-panel rpt-panel--tl">
       <PanelPinHandle
@@ -835,11 +885,13 @@ function RecentPanel() {
         <select
           className="rpt-tl-switch"
           aria-label="切换 session"
-          defaultValue={RISKCTRL_SESSION.id}
+          value={selectedSession}
+          onChange={(e) => onSelectSession(e.target.value)}
+          data-testid="riskctrl-session-switch"
         >
-          {recent.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.objective}
+          {RISKCTRL_MOCK_SESSIONS_LIST.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.objective}
             </option>
           ))}
         </select>
@@ -876,9 +928,15 @@ function RecentRow({ row }: { row: RiskctrlRecentSession }) {
 
 /* ── 中栏 · Conversation / Composer（复用 canon 模式） ── */
 
-function ConversationPanel({ children }: { children?: React.ReactNode }) {
-  const msgs = RISKCTRL_SESSION.conversation;
-  const s = RISKCTRL_SESSION;
+function ConversationPanel({
+  sessionData,
+  children,
+}: {
+  sessionData: RiskctrlSession;
+  children?: React.ReactNode;
+}) {
+  const msgs = sessionData.conversation;
+  const s = sessionData;
   return (
     <section className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
       <PanelPinHandle
@@ -1074,7 +1132,7 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "field";
 
-function RiskComposer() {
+function RiskComposer({ sessionData }: { sessionData: RiskctrlSession }) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -1115,7 +1173,7 @@ function RiskComposer() {
   };
   const drop = usePinDrop<HTMLDivElement>(onPin);
 
-  const ruleCount = RISKCTRL_SESSION.rules.length;
+  const ruleCount = sessionData.rules.length;
 
   return (
     <div
@@ -1171,11 +1229,14 @@ const OUTPUT_ACTIONS = [
 ] as const;
 
 function RiskOutputPanel(p: {
+  sessionData: RiskctrlSession;
   rulesetId?: string;
   exportInfo?: ExportInfo;
   onExportDocx?: () => void;
+  selectedSegmentKey?: SampleBar["key"] | null;
+  onSelectSegment?: (key: SampleBar["key"]) => void;
 }) {
-  const s = RISKCTRL_SESSION;
+  const s = p.sessionData;
   const [tab, setTab] = useState<"dsl" | "ks" | "sample">("dsl");
   const exportStatus = p.exportInfo?.status ?? "idle";
   const exportLabel =
@@ -1200,7 +1261,7 @@ function RiskOutputPanel(p: {
       />
       <div className="rpt-panel-head">
         <div>
-          <div className="rpt-panel-eyebrow">OUTPUT · DSL v1.5-d3</div>
+          <div className="rpt-panel-eyebrow">OUTPUT · DSL {s.currentRule.version}</div>
           <h3 className="rpt-panel-title">
             KS {s.ks.ksPeak.toFixed(2)} · 通过 {s.ks.passRate}%
           </h3>
@@ -1258,14 +1319,20 @@ function RiskOutputPanel(p: {
       <div className="rpt-pv-paper-wrap">
         <article className="rpt-pv-paper rc-out-paper">
           <div className="rpt-pv-paper-head">
-            <div className="doc-title">策略 v1.5-d3 · 回测稿</div>
+            <div className="doc-title">策略 {s.currentRule.version} · 回测稿</div>
             <div className="doc-sub">
               样本 {s.query.sampleSize.toLocaleString()} · 窗口 {s.query.windowLabel}
             </div>
           </div>
           {tab === "dsl" && <DslView node={s.dsl} />}
           {tab === "ks" && <KSView ks={s.ks} targetKS={s.query.targetKS} />}
-          {tab === "sample" && <SampleView samples={s.samples} />}
+          {tab === "sample" && (
+            <SampleView
+              samples={s.samples}
+              selectedKey={p.selectedSegmentKey ?? null}
+              onSelectSegment={p.onSelectSegment}
+            />
+          )}
           <div className="rpt-pv-paper-foot">
             — 以上为 AI 初版策略稿 · 未经风险总监审批不得上线 —
           </div>
@@ -1422,35 +1489,66 @@ function KSView({
   );
 }
 
-function SampleView({ samples }: { samples: SampleBar[] }) {
+function SampleView({
+  samples,
+  selectedKey,
+  onSelectSegment,
+}: {
+  samples: SampleBar[];
+  selectedKey?: SampleBar["key"] | null;
+  onSelectSegment?: (key: SampleBar["key"]) => void;
+}) {
   const total = samples.reduce((a, b) => a + b.count, 0);
   return (
     <section className="rc-sp-sec" data-testid="riskctrl-sample-dist">
       <header className="rc-out-sec-head">
         <h4 className="rc-out-sec-title">
           <span className="rpt-pv-anchor">§三</span>
-          <span>样本分布 · 12,400 笔</span>
+          <span>样本分布 · {total.toLocaleString()} 笔</span>
         </h4>
         <div className="rc-sp-meta">
           总 <b>{total.toLocaleString()}</b>
         </div>
       </header>
       <ul className="rc-sp-list">
-        {samples.map((s) => (
-          <li key={s.key} className="rc-sp-row" data-k={s.key}>
-            <div className="rc-sp-head">
-              <span className="rc-sp-lbl">{s.label}</span>
-              <span className="rc-sp-count">{s.count.toLocaleString()}</span>
-              <span className="rc-sp-pct">{s.pct.toFixed(1)}%</span>
-              <span className="rc-sp-bad">
-                坏账 <b>{s.badRate.toFixed(1)}%</b>
-              </span>
-            </div>
-            <div className="rc-sp-bar" aria-hidden>
-              <div className="rc-sp-bar-fill" style={{ width: `${s.pct}%` }} />
-            </div>
-          </li>
-        ))}
+        {samples.map((s) => {
+          const clickable = !!onSelectSegment;
+          return (
+            <li
+              key={s.key}
+              className="rc-sp-row"
+              data-k={s.key}
+              data-selected={s.key === selectedKey ? "yes" : "no"}
+              data-testid={`riskctrl-sample-segment-${s.key}`}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => onSelectSegment(s.key) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectSegment(s.key);
+                      }
+                    }
+                  : undefined
+              }
+              style={clickable ? { cursor: "pointer" } : undefined}
+            >
+              <div className="rc-sp-head">
+                <span className="rc-sp-lbl">{s.label}</span>
+                <span className="rc-sp-count">{s.count.toLocaleString()}</span>
+                <span className="rc-sp-pct">{s.pct.toFixed(1)}%</span>
+                <span className="rc-sp-bad">
+                  坏账 <b>{s.badRate.toFixed(1)}%</b>
+                </span>
+              </div>
+              <div className="rc-sp-bar" aria-hidden>
+                <div className="rc-sp-bar-fill" style={{ width: `${s.pct}%` }} />
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
