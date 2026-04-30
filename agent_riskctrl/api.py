@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 """agent_riskctrl.api — Agent2 风控策略运营 FastAPI 路由模块。
 
-端点 (Stage C v4.0 · 2026-04-28 · onboarding W-C2-A2):
-  POST /api/riskctrl/dsl_gen          — 自然语言 → RuleSet JSON (LLM 真接 · 单 turn)
-  POST /api/riskctrl/backtest         — RuleSet + CSV → metrics JSON (KS/通过率/坏账率)
+端点 (Phase A worker-A4 · 2026-04-29 · sse-envelope.md §1.5 + workspace-state-protocol §4):
+  POST /api/riskctrl/dsl_gen          — SSE · 自然语言 → RuleSet JSON (LLM 真接 · stream)
+  POST /api/riskctrl/backtest         — SSE · RuleSet + CSV → metrics JSON (KS / 通过率 / 坏账率)
 
-设计：
-- 独立 FastAPI app，由 api_server.py 通过 routes 合并模式装载
-- v4.0 JSON 端点直调 LLMClient.chat_json + parse_natural_language_rules + run_backtest
-- mock=true 切 fixture RuleSet · 不调 LLM (curl 验 / 无 key 环境可用)
-- 输出前过 shared.qc.placeholder_guard
+设计:
+- 独立 FastAPI app · api_server.py routes 合并装载
+- 6 Agent SSE done envelope 共形 · 走 shared.sse_envelope.make_done · panel keys
+  riskctrl 域投影 = (ruleset, ks, samples, rule_stats) · metrics 顶层 KPI
+- mock=true 切预设 RuleSet · 不调 LLM · curl / 无 key 环境可演示
+- 输出过 shared.qc.placeholder_guard (V2 后续接入 · 当前不阻塞)
 
-字段契约：见 docs/contracts/field-naming.md
+字段契约: docs/contracts/field-naming.md + docs/contracts/sse-envelope.md
 """
 from __future__ import annotations
 
@@ -19,8 +20,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -36,7 +38,7 @@ except ImportError:
             return fn
         return _passthrough
 
-app = FastAPI(title="Agent2 Risk Control API", version="4.0")
+app = FastAPI(title="Agent2 Risk Control API", version="4.1")
 
 
 @app.get("/api/riskctrl/health")
@@ -46,8 +48,8 @@ async def riskctrl_health():
 
 
 # ============================================================================
-# Stage C v4.0 (2026-04-28 · onboarding W-C2-A2) · JSON 单 turn 端点
-# 直调 LLM + parse_natural_language_rules + run_backtest · 非 SSE
+# Phase A worker-A4 · 2026-04-29 · SSE 化 + done envelope 共形
+# 两端点 (dsl_gen / backtest) 走 StreamingResponse + shared.sse_envelope helper
 # ============================================================================
 
 
@@ -80,9 +82,16 @@ _MOCK_DSL_RESPONSE: dict[str, Any] = {
 
 
 class DslGenRequest(BaseModel):
-    """v4.0 JSON dsl_gen body."""
+    """SSE dsl_gen body. Pydantic alias 同时接受前端旧名 rule_text + 后端规范名 strategy_intent."""
 
-    strategy_intent: str = Field(..., description="自然语言策略意图描述")
+    # ConfigDict 允许 alias + field name 双向接受 (前端 v3.x 用 rule_text · A4 V2 后统一)
+    model_config = ConfigDict(populate_by_name=True)
+
+    strategy_intent: str = Field(
+        ...,
+        alias="rule_text",
+        description="自然语言策略意图描述 (前端可传 rule_text · 后端统一为 strategy_intent)",
+    )
     sample_csv_path: str | None = Field(
         default=None, description="(可选) 历史样本 CSV 路径 · 用于 LLM 对照字段"
     )
@@ -94,81 +103,143 @@ class DslGenRequest(BaseModel):
     )
 
 
-@app.post("/api/riskctrl/dsl_gen")
-@audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/dsl_gen", model="deepseek-chat")
-async def riskctrl_dsl_gen(req: DslGenRequest):
-    """自然语言 → RuleSet JSON · 单 turn LLM 真接.
-
-    Body: { strategy_intent, sample_csv_path?, provider?, api_key?, mock? }
-    Returns: { ruleset: RuleSet, source: "llm"|"mock", csv_columns?: [...] }
-    """
-    from agent_riskctrl.prompts import SYSTEM_RULE_PARSER
-    from agent_riskctrl.rule_engine import parse_natural_language_rules
-
-    # 可选: 读 sample csv 抓字段 · 注入 LLM prompt 让规则字段名对齐
-    csv_columns: list[str] | None = None
-    data_context = ""
-    if req.sample_csv_path:
-        csv_path = Path(req.sample_csv_path)
-        if not csv_path.is_absolute():
-            csv_path = PROJECT_ROOT / req.sample_csv_path
-        if csv_path.exists():
-            try:
-                from agent_riskctrl.backtesting import load_csv_data
-                df = load_csv_data(str(csv_path))
-                csv_columns = [str(c) for c in df.columns]
-                data_context = (
-                    f"\n\n参考数据字段:\n{', '.join(csv_columns)}\n"
-                    f"前 3 行示例:\n{df.head(3).to_string(index=False)}"
-                )
-            except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
-                # 失败软降级 · LLM 仍可工作 (无 csv hint)
-                data_context = f"\n\n[csv 加载失败: {type(e).__name__}: {e}]"
-
-    user_prompt = f"请将以下策略意图转换为结构化规则:\n\n{req.strategy_intent}{data_context}"
-
-    # mock 模式 (curl demo / 无 key) → 预设 RuleSet 不调 LLM
-    if req.mock:
-        ruleset = parse_natural_language_rules(_MOCK_DSL_RESPONSE)
-        return {
-            "ruleset": ruleset.model_dump(),
-            "source": "mock",
-            "csv_columns": csv_columns,
-        }
-
-    # LLM 真接
-    try:
-        from llm import LLMClient
-        llm = LLMClient(provider=req.provider, api_key=req.api_key)
-        llm_json = llm.chat_json(
-            system_prompt=SYSTEM_RULE_PARSER,
-            user_content=user_prompt,
-            temperature=0.3,
-        )
-    except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
-        raise HTTPException(
-            500, f"LLM call failed: {type(e).__name__}: {e}"
-        ) from e
-
-    if not isinstance(llm_json, dict):
-        # chat_json 可能返 list (rules 列表直接返) · normalize 一下
-        llm_json = {"rules": llm_json} if isinstance(llm_json, list) else {}
-
-    ruleset = parse_natural_language_rules(llm_json)
-    if not ruleset.rules:
-        raise HTTPException(
-            400,
-            "LLM 返回未能解析出有效规则 · 请尝试更具体的策略意图描述",
-        )
+def _sse_headers() -> dict[str, str]:
     return {
-        "ruleset": ruleset.model_dump(),
-        "source": "llm",
-        "csv_columns": csv_columns,
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
     }
 
 
+@app.post("/api/riskctrl/dsl_gen")
+@audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/dsl_gen", model="deepseek-chat")
+async def riskctrl_dsl_gen(req: DslGenRequest):
+    """自然语言 → RuleSet JSON · SSE stream · stage 流 + done envelope.
+
+    Body:    { strategy_intent | rule_text, sample_csv_path?, provider?, api_key?, mock? }
+    Stream:
+        event: stage   {stage: parse_intent | build_prompt | validate_dsl, status}
+        event: done    {ruleset, ruleset_id, source: llm|mock, csv_columns?, data_source}
+        event: error   {message, code}
+    """
+    from shared.sse_envelope import (
+        DATA_SOURCE_LIVE,
+        DATA_SOURCE_MOCK_FORCED,
+        encode_event,
+        make_done,
+        make_error,
+        make_error_from_exception,
+        make_stage,
+    )
+
+    def gen():
+        # Imports moved inside generator to keep error path SSE-friendly
+        try:
+            from agent_riskctrl.prompts import SYSTEM_RULE_PARSER
+            from agent_riskctrl.rule_engine import parse_natural_language_rules
+        except (ImportError, ModuleNotFoundError) as e:
+            yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
+            return
+
+        yield encode_event(make_stage("parse_intent", "running", message="解析策略意图..."))
+
+        # 可选: 读 sample csv 抓字段 · 注入 LLM prompt 让规则字段名对齐
+        csv_columns: list[str] | None = None
+        data_context = ""
+        if req.sample_csv_path:
+            csv_path = Path(req.sample_csv_path)
+            if not csv_path.is_absolute():
+                csv_path = PROJECT_ROOT / req.sample_csv_path
+            if csv_path.exists():
+                try:
+                    from agent_riskctrl.backtesting import load_csv_data
+                    df = load_csv_data(str(csv_path))
+                    csv_columns = [str(c) for c in df.columns]
+                    data_context = (
+                        f"\n\n参考数据字段:\n{', '.join(csv_columns)}\n"
+                        f"前 3 行示例:\n{df.head(3).to_string(index=False)}"
+                    )
+                except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+                    data_context = f"\n\n[csv 加载失败: {type(e).__name__}: {e}]"
+
+        yield encode_event(make_stage("parse_intent", "done"))
+
+        user_prompt = f"请将以下策略意图转换为结构化规则:\n\n{req.strategy_intent}{data_context}"
+
+        # mock 模式 (curl demo / 无 key) → 预设 RuleSet 不调 LLM
+        if req.mock:
+            yield encode_event(make_stage("build_prompt", "skipped", message="mock 模式 · 跳 LLM"))
+            ruleset = parse_natural_language_rules(_MOCK_DSL_RESPONSE)
+            ruleset_id = f"rs_mock_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+            yield encode_event(make_done(
+                panels={
+                    "ruleset": ruleset.model_dump(),
+                    "ruleset_id": ruleset_id,
+                    "csv_columns": csv_columns or [],
+                },
+                metrics={},
+                data_source=DATA_SOURCE_MOCK_FORCED,
+                session_id=ruleset_id,
+                source="mock",
+            ))
+            return
+
+        yield encode_event(make_stage("build_prompt", "running", message="组装 LLM prompt..."))
+
+        # LLM 真接 (Step 5 后续迁 shared.llm_caller · 当前保留 LLMClient)
+        try:
+            from llm import LLMClient
+            llm = LLMClient(provider=req.provider, api_key=req.api_key)
+            yield encode_event(make_stage("build_prompt", "done"))
+            yield encode_event(make_stage("call_llm", "running", message="调 LLM 生成 DSL..."))
+            llm_json = llm.chat_json(
+                system_prompt=SYSTEM_RULE_PARSER,
+                user_content=user_prompt,
+                temperature=0.3,
+            )
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
+            yield encode_event(make_error_from_exception(e, code="LLM_CALL_FAILED"))
+            return
+
+        yield encode_event(make_stage("call_llm", "done"))
+        yield encode_event(make_stage("validate_dsl", "running", message="校验 DSL 结构..."))
+
+        if not isinstance(llm_json, dict):
+            llm_json = {"rules": llm_json} if isinstance(llm_json, list) else {}
+
+        try:
+            ruleset = parse_natural_language_rules(llm_json)
+        except (ValueError, TypeError, KeyError) as e:
+            yield encode_event(make_error_from_exception(e, code="DSL_PARSE_FAILED"))
+            return
+
+        if not ruleset.rules:
+            yield encode_event(make_error(
+                "LLM 返回未能解析出有效规则 · 请尝试更具体的策略意图描述",
+                code="DSL_EMPTY_RULES",
+            ))
+            return
+
+        yield encode_event(make_stage("validate_dsl", "done"))
+
+        ruleset_id = f"rs_llm_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+        yield encode_event(make_done(
+            panels={
+                "ruleset": ruleset.model_dump(),
+                "ruleset_id": ruleset_id,
+                "csv_columns": csv_columns or [],
+            },
+            metrics={},
+            data_source=DATA_SOURCE_LIVE,
+            session_id=ruleset_id,
+            source="llm",
+        ))
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
 class BacktestRequest(BaseModel):
-    """v4.0 JSON backtest body."""
+    """SSE backtest body."""
 
     ruleset: dict = Field(..., description="RuleSet model_dump 结构")
     csv_path: str = Field(..., description="历史样本 CSV 路径 (相对 PROJECT_ROOT or 绝对)")
@@ -182,80 +253,212 @@ class BacktestRequest(BaseModel):
     )
 
 
+def _ks_curve_points(y_true: list[int], y_pred: list[int], bins: int = 10) -> list[dict[str, Any]]:
+    """11-point KS curve (bin 0..10) · TPR / FPR / KS @ 各分位 · 供前端 LineChart 消费.
+
+    确定性计算 (per CLAUDE.md §3.1) · 不让 LLM 现场算.
+    """
+    import numpy as np  # local import to avoid module load cost on path miss
+    if not y_true or len(y_true) != len(y_pred):
+        return []
+    yt = np.asarray(y_true, dtype=float)
+    yp = np.asarray(y_pred, dtype=float)
+    n_pos = float(yt.sum())
+    n_neg = float(len(yt) - n_pos)
+    if n_pos == 0 or n_neg == 0:
+        return []
+    order = np.argsort(-yp)
+    yt_sorted = yt[order]
+    n = len(yt_sorted)
+    points: list[dict[str, Any]] = []
+    for i in range(bins + 1):
+        cut = int(round(i * n / bins))
+        if cut == 0:
+            tpr = 0.0
+            fpr = 0.0
+        else:
+            tpr = float(yt_sorted[:cut].sum() / n_pos)
+            fpr = float((1 - yt_sorted[:cut]).sum() / n_neg)
+        ks = round(abs(tpr - fpr), 3)
+        points.append({"bin": i, "tpr": round(tpr, 3), "fpr": round(fpr, 3), "ks": ks})
+    return points
+
+
 @app.post("/api/riskctrl/backtest")
+@audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/backtest", model="deterministic")
 async def riskctrl_backtest(req: BacktestRequest):
-    """RuleSet + CSV 历史数据 → metrics JSON (KS / 通过率 / 坏账率 / 规则命中).
+    """RuleSet + CSV 历史数据 → metrics + KS curve + samples + rule_stats · SSE stream.
 
     Body: { ruleset, csv_path, label_column?, bad_threshold? }
-    Returns: { total_records, approved, rejected, manual_review, approval_rate,
-               bad_rate, ks, rule_stats: [...] }
+    Stream:
+        event: stage  {stage: load_csv | hit_rules | calc_ks, status}
+        event: done   panels={ruleset, ks: {ksPeak, auc, passRate, badRate, points},
+                               samples, rule_stats},
+                       metrics={total_records, approved, rejected, manual_review,
+                                approval_rate, bad_rate, ks_peak, label_column_used}
+        event: error  {message, code}
     """
-    from agent_riskctrl.backtesting import load_csv_data, run_backtest
-    from agent_riskctrl.metrics import calculate_ks
-    from agent_riskctrl.rule_engine import RuleSet
+    from shared.sse_envelope import (
+        DATA_SOURCE_LIVE,
+        encode_event,
+        make_done,
+        make_error,
+        make_error_from_exception,
+        make_stage,
+    )
 
-    # csv 路径解析
-    csv_path = Path(req.csv_path)
-    if not csv_path.is_absolute():
-        csv_path = PROJECT_ROOT / req.csv_path
-    if not csv_path.exists():
-        raise HTTPException(400, f"csv_path 不存在: {csv_path}")
-
-    # ruleset 反序列化
-    try:
-        ruleset = RuleSet.model_validate(req.ruleset)
-    except (ValueError, TypeError, KeyError) as e:
-        raise HTTPException(400, f"ruleset 反序列化失败: {type(e).__name__}: {e}") from e
-    if not ruleset.rules:
-        raise HTTPException(400, "ruleset.rules 不能为空")
-
-    # load + 决定 label_col (run_backtest 内部仅自检 label_default/label · 此处补 days_past_due)
-    try:
-        df = load_csv_data(str(csv_path))
-    except (OSError, ValueError) as e:
-        raise HTTPException(400, f"csv 加载失败: {e}") from e
-
-    label_col = req.label_column
-    if label_col is None:
-        for cand in ("days_past_due", "label_default", "label"):
-            if cand in df.columns:
-                label_col = cand
-                break
-
-    # 显式把 label_col 传给 run_backtest (per-rule FP/TN 依赖此参数)
-    result = run_backtest(df, ruleset, label_column=label_col)
-
-    bad_rate: float | None = None
-    ks: float | None = None
-
-    if label_col and label_col in df.columns:
+    def gen():
         try:
-            # bad = days_past_due > bad_threshold (or label==1 if 0/1 标签)
-            if label_col == "days_past_due":
-                bad_mask = df[label_col].fillna(0).astype(float) > req.bad_threshold
-            else:
-                bad_mask = df[label_col].fillna(0).astype(float) > 0.5
-            bad_rate = round(float(bad_mask.mean()), 4)
+            from agent_riskctrl.backtesting import load_csv_data, run_backtest
+            from agent_riskctrl.metrics import calculate_ks
+            from agent_riskctrl.rule_engine import RuleSet
+        except (ImportError, ModuleNotFoundError) as e:
+            yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
+            return
 
-            # KS: y_true=bad_mask · y_pred=拒绝/审查得 1 (用 hit_results action)
-            hit_results = result.metrics.get("hit_results", []) if result.metrics else []
-            y_true = bad_mask.astype(int).tolist()
-            y_pred = [1 if r["action"] in ("reject", "manual_review") else 0 for r in hit_results]
-            if len(y_true) == len(y_pred) and y_pred:
-                ks = calculate_ks(y_true, y_pred)
-        except (TypeError, ValueError, KeyError):
-            pass
+        # csv 路径解析
+        csv_path = Path(req.csv_path)
+        if not csv_path.is_absolute():
+            csv_path = PROJECT_ROOT / req.csv_path
+        if not csv_path.exists():
+            yield encode_event(make_error(
+                f"csv_path 不存在: {csv_path}",
+                code="CSV_NOT_FOUND",
+            ))
+            return
 
-    rule_stats = (result.metrics or {}).get("rule_stats", [])
+        # ruleset 反序列化
+        try:
+            ruleset = RuleSet.model_validate(req.ruleset)
+        except (ValueError, TypeError, KeyError) as e:
+            yield encode_event(make_error_from_exception(e, code="RULESET_INVALID"))
+            return
+        if not ruleset.rules:
+            yield encode_event(make_error("ruleset.rules 不能为空", code="RULESET_EMPTY"))
+            return
 
-    return {
-        "total_records": result.total_records,
-        "approved": result.approved,
-        "rejected": result.rejected,
-        "manual_review": result.manual_review,
-        "approval_rate": result.approval_rate,
-        "bad_rate": bad_rate,
-        "ks": ks,
-        "label_column_used": label_col,
-        "rule_stats": rule_stats,
-    }
+        yield encode_event(make_stage("load_csv", "running", message="读 CSV 数据..."))
+        try:
+            df = load_csv_data(str(csv_path))
+        except (OSError, ValueError) as e:
+            yield encode_event(make_error_from_exception(e, code="CSV_LOAD_FAILED"))
+            return
+        yield encode_event(make_stage("load_csv", "done", count=int(len(df))))
+
+        # label 列自动探测
+        label_col = req.label_column
+        if label_col is None:
+            for cand in ("days_past_due", "label_default", "label"):
+                if cand in df.columns:
+                    label_col = cand
+                    break
+
+        yield encode_event(make_stage("hit_rules", "running", message="规则命中扫描..."))
+        try:
+            result = run_backtest(df, ruleset, label_column=label_col)
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            yield encode_event(make_error_from_exception(e, code="BACKTEST_FAILED"))
+            return
+        yield encode_event(make_stage("hit_rules", "done"))
+
+        # KS / bad_rate / curve
+        bad_rate: float | None = None
+        ks_peak: float | None = None
+        ks_points: list[dict[str, Any]] = []
+
+        yield encode_event(make_stage("calc_ks", "running", message="计算 KS / 通过率..."))
+        if label_col and label_col in df.columns:
+            try:
+                if label_col == "days_past_due":
+                    bad_mask = df[label_col].fillna(0).astype(float) > req.bad_threshold
+                else:
+                    bad_mask = df[label_col].fillna(0).astype(float) > 0.5
+                bad_rate = round(float(bad_mask.mean()), 4)
+
+                hit_results = result.metrics.get("hit_results", []) if result.metrics else []
+                y_true = bad_mask.astype(int).tolist()
+                y_pred = [
+                    1 if r.get("action") in ("reject", "manual_review") else 0
+                    for r in hit_results
+                ]
+                if len(y_true) == len(y_pred) and y_pred:
+                    ks_peak = calculate_ks(y_true, y_pred)
+                    ks_points = _ks_curve_points(y_true, y_pred, bins=10)
+            except (TypeError, ValueError, KeyError):
+                pass
+
+        rule_stats_raw = (result.metrics or {}).get("rule_stats", [])
+        # snake_case 透传 · 前端 normalize() 转 camelCase (sse-envelope §3 共形规则)
+        rule_stats = [
+            {
+                "rule_id": r.get("rule_id") or r.get("ruleId"),
+                "hit": r.get("hit", 0),
+                "fp": r.get("fp", 0),
+                "tn": r.get("tn", 0),
+            }
+            for r in rule_stats_raw
+        ]
+
+        # samples 三档 (pass / review / block) · 由 backtest 结果派生
+        approved = int(result.approved)
+        rejected = int(result.rejected)
+        manual_review = int(result.manual_review)
+        total = int(result.total_records) or (approved + rejected + manual_review) or 1
+        samples = [
+            {
+                "key": "pass",
+                "label": "通过",
+                "count": approved,
+                "pct": round(approved * 100.0 / total, 1),
+                "bad_rate": round(((bad_rate or 0.0) * 100.0), 1),
+            },
+            {
+                "key": "review",
+                "label": "复核",
+                "count": manual_review,
+                "pct": round(manual_review * 100.0 / total, 1),
+                "bad_rate": 0.0,  # 细分坏账率需 hit_results 三档区分 · V2 计算
+            },
+            {
+                "key": "block",
+                "label": "拒绝",
+                "count": rejected,
+                "pct": round(rejected * 100.0 / total, 1),
+                "bad_rate": 0.0,
+            },
+        ]
+
+        # KS 顶层 panel object · 前端直 setLiveData.ks
+        ks_panel = {
+            "ksPeak": ks_peak or 0.0,
+            "auc": 0.0,  # V2 接 sklearn roc_auc_score
+            "passRate": round(approved * 100.0 / total, 1),
+            "badRate": round((bad_rate or 0.0) * 100.0, 1),
+            "points": ks_points,
+        }
+
+        yield encode_event(make_stage("calc_ks", "done"))
+
+        session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+        yield encode_event(make_done(
+            panels={
+                "ruleset": ruleset.model_dump(),
+                "ks": ks_panel,
+                "samples": samples,
+                "rule_stats": rule_stats,
+            },
+            metrics={
+                "total_records": result.total_records,
+                "approved": approved,
+                "rejected": rejected,
+                "manual_review": manual_review,
+                "approval_rate": result.approval_rate,
+                "bad_rate": bad_rate,
+                "ks_peak": ks_peak,
+                "label_column_used": label_col,
+            },
+            data_source=DATA_SOURCE_LIVE,
+            session_id=session_id,
+        ))
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
