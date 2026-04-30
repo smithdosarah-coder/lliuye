@@ -2384,3 +2384,57 @@ LoginForm.tsx:35-41 5 user/pwd 前端硬编 PASSWORD_MAP (`u_wangzhe/wangzhe / u
 - 衍生 Stage D.1 (将来): `STAGE-D1-AUTH-BACKEND-DONE`
 
 ---
+
+## Q-042 (2026-04-29 reset 工程 PM 拍板 + V2 推明天 + 主 CLI fix-forward 批 audit trail · 主 CLI 2026-04-30 morning 补登)
+
+### 提问
+
+reset 工程 Day 1 (2026-04-29) PM 在 Step 2 conflict register 87 entries 拍板 4 件 dissent 收敛 + V1 codex DISAGREE × 3 V2 推明天 + 主 CLI fix-forward 3 件 + GitHub PAT scope fix-forward。需正式 audit trail 登记。
+
+### 答 (decisions verbatim)
+
+**PM 拍板 4 件 (Step 2 STEP-2-PM-RULED · 28fb9db)**:
+1. agent_id 选 `compliance` 单 id (不是 compli) · A1 SSOT verbatim 写定 · A4 5 子后续全栈替换
+2. /today RM workbench 重写推 Phase B-3 (端到端 demo chain · 不堆 A6 + 不新建 A8)
+3. Cat 15 production sync 等 A1+A2 完后做 · ✅ 已解 (chore/l0-infra ↔ main 落差 10 commit · merged · ECS sync)
+4. legacy_gradio 全栈隔离 (v16 真稳前不真删) · A7 干 5 件 (import guard + pyproject 排除 + CLAUDE.md §15 + §2 + onboarding template) · 等 PM 拍 v16 真稳后 git rm
+
+**V1 codex DISAGREE × 3 · V2 推明天 (CODEX-REVIEW-A3-A6-DISAGREE d8055cb + CODEX-REVIEW-A5-DISAGREE 0a5e592)**:
+- A3 channel pilot 4 issue (issue 3 critical · agent_channel/realtime_stream.py data_source enum no-op · A4 模板会 spread bad pattern)
+- A5 design 4 issue (letterpress-purge.spec.ts smoke 不严 · 硬线 #5 验收要求 4 themes × 6 agent tile 截屏未达)
+- A6 handoff 3 issue (chain 3+4 schema UUID vs string 不一致 · target_agent vs fan_out_targets 撕裂)
+
+**主 CLI fix-forward 3 件 (FIX-FORWARD-CAT-1-9-16 · a72b5c3)**:
+- Cat 1 active rule 3 条回写 CLAUDE.md (Q-040 MAX_ROWS=50000 → §11 Agent2 · Q-041 candidate metadata 4 字段 → §11 Agent1 · PIPL fallback chain → §3.6)
+- Cat 9 §7 canon 删 /design (没人需要 · 目录未建访问 404)
+- Cat 16 api_server.py:376 IM prompt "策略经理→风险经理" (CLAUDE.md §1+§4 早统一 · runtime 漂修)
+
+**GitHub PAT scope fix-forward (FIX-FORWARD-WORKFLOW-PAT-SCOPE · 9e30f43)**:
+- A1 V2 加的 .github/workflows/lint-contracts.yml 触发 PAT 缺 workflow scope · push 拒
+- 删 workflow · scripts/lint/check_agent_naming_ssot.py (lint script) 保留 · 手动 `python scripts/lint/check_agent_naming_ssot.py` 可跑
+- 后续 PM 加 PAT workflow scope 后 · worker (或 main CLI) 恢复 workflow
+
+### Follow-up
+
+1. ✅ 主 CLI fix-forward 3 件 merged main + ECS deploy
+2. ✅ Cat 15 P0 production sync 解 (chore/l0-infra → main · 落差 10 commit 一次清掉)
+3. ✅ Step 2 完成 + 87 entries 各 worker owner 派
+4. ⏳ A3/A5/A6 V2 fix today · launch-tomorrow.bat 启 4 worker (含 A7 续)
+5. ⏳ A3 V2 cherry-pick 后 commit `A4-{X}-GO-AFTER-A3` × 5 · launch-A4-batch.bat 启 5 A4 子真动
+6. ⏳ A7 master + 6 sub PRD draft + 飞书双写 today
+7. ⏳ A1 compliance-ratify (optional minor)
+8. ⏳ A4 5 子真动 + integration cross-agent smoke today
+9. ⏳ Phase A 8 硬线 全 ✅ → neat-freak skill 收尾 → Phase B 启 (worker-B1 数据飞轮 + worker-B2 商业化)
+
+### Signals (verbatim · audit cross-ref)
+
+- Step 2 fire: STEP-2-FIRE-DISPATCHED (c175f74) · STEP-2-CONFLICT-REGISTER-V1-PREPARED (2db1107) · STEP-2-PM-RULED (28fb9db)
+- Phase A 7 worker dispatch: PHASE-A-A1/A2/A3/A4-{credit,alert,compli,riskctrl,report}/A5/A6/A7-DISPATCHED
+- A1 V2 + V3 merged: 3752d98 (V2 merge) · 1d04b94 (V3 minor cherry-pick)
+- A2 V2 + register update merged: 2bfc5ad (V2 merge) · 8223cad (register cherry-pick)
+- Codex reviews: A1 V1 DISAGREE 4594b87 · A1 V2 AGREE + A2 V2 AGREE 5ee1593 · A3 V1 DISAGREE + A6 V1 DISAGREE d8055cb · A5 V1 DISAGREE 0a5e592
+- 主 CLI fix-forward: FIX-FORWARD-CAT-1-9-16 a72b5c3 · FIX-FORWARD-WORKFLOW-PAT-SCOPE 9e30f43
+- Day 1 收尾: END-OF-DAY-1-RESET-STATE-SNAPSHOT 5ed5e82 · MORNING-REPORT-PLAN-DAY-2 2d05681
+
+---
+
