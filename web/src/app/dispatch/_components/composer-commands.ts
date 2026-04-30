@@ -56,13 +56,14 @@ const AGENT_ALIAS_TO_ID: Record<string, AgentId> = {
   agent2: "riskctrl",
   agent3: "credit",
   agent4: "alert",
-  agent5: "compli",
+  agent5: "compliance",
   agent6: "report",
   channel: "channel",
   riskctrl: "riskctrl",
   credit: "credit",
   alert: "alert",
-  compli: "compli",
+  compli: "compliance",
+  compliance: "compliance",
   report: "report",
 };
 
@@ -83,7 +84,7 @@ export const stageToAgent = (stage: CustomerStage | undefined): AgentId => {
     case "monitoring":
       return "alert";
     case "closed":
-      return "compli";
+      return "compliance";
     default:
       return "report";
   }

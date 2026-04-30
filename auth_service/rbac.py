@@ -7,11 +7,11 @@ from __future__ import annotations
 
 # 镜像 web/src/lib/store/auth-store.ts:61-67
 ACCESS: dict[str, list[str]] = {
-    "rm":                 ["channel", "report", "credit", "alert", "compli", "riskctrl"],
+    "rm":                 ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
     "credit_officer":     ["credit", "report", "alert"],
-    "compliance_officer": ["compli", "report", "alert"],
+    "compliance_officer": ["compliance", "report", "alert"],
     "risk_manager":       ["riskctrl", "alert", "credit"],
-    "admin":              ["channel", "report", "credit", "alert", "compli", "riskctrl"],
+    "admin":              ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
 }
 
 
@@ -20,26 +20,26 @@ HANDOFFS: dict[str, list[dict[str, str]]] = {
     "rm": [
         {"from": "channel", "to": "report"},
         {"from": "report",  "to": "credit"},
-        {"from": "alert",   "to": "compli"},
+        {"from": "alert",   "to": "compliance"},
     ],
     "credit_officer":     [{"from": "credit",  "to": "report"}],
-    "compliance_officer": [{"from": "compli",  "to": "report"}],
+    "compliance_officer": [{"from": "compliance",  "to": "report"}],
     "risk_manager": [
-        {"from": "alert", "to": "compli"},
+        {"from": "alert", "to": "compliance"},
         {"from": "alert", "to": "credit"},
     ],
     "admin": [
         {"from": "channel", "to": "report"},
         {"from": "report",  "to": "credit"},
-        {"from": "alert",   "to": "compli"},
+        {"from": "alert",   "to": "compliance"},
         {"from": "alert",   "to": "credit"},
         {"from": "credit",  "to": "report"},
-        {"from": "compli",  "to": "report"},
+        {"from": "compliance",  "to": "report"},
     ],
 }
 
 VALID_ROLES = tuple(ACCESS.keys())
-VALID_AGENTS = ("channel", "report", "credit", "alert", "compli", "riskctrl")
+VALID_AGENTS = ("channel", "report", "credit", "alert", "compliance", "riskctrl")
 
 
 def can_access(role: str, agent_id: str) -> bool:

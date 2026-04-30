@@ -11,7 +11,7 @@ export const EVENT_TEXT: Record<AgentEventType, string> = {
   "channel.lookalike_picked": "已选中 look-alike",
   "alert.raised": "触发预警",
   "alert.handled": "预警已处置",
-  "compli.conflict_found": "合规冲突待判",
+  "compliance.conflict_found": "合规冲突待判",
   "riskctrl.dsl_deployed": "风控规则上线",
   "handoff.requested": "发起 handoff",
   "handoff.accepted": "接收 handoff",
@@ -23,6 +23,6 @@ export const AGENT_LABEL: Record<AgentId, string> = {
   credit: "授信",
   channel: "获客",
   alert: "预警",
-  compli: "合规",
+  compliance: "合规",
   riskctrl: "风控",
 };

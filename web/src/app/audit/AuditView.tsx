@@ -11,7 +11,7 @@ const AGENT_LABEL: Record<AgentId, string> = {
   credit: "授信",
   channel: "获客",
   alert: "预警",
-  compli: "合规",
+  compliance: "合规",
   riskctrl: "风控",
 };
 
@@ -23,7 +23,7 @@ const EVENT_LABEL: Record<AgentEvent["type"], string> = {
   "channel.lookalike_picked": "相似企业选中",
   "alert.raised": "预警触发",
   "alert.handled": "预警处置",
-  "compli.conflict_found": "合规冲突",
+  "compliance.conflict_found": "合规冲突",
   "riskctrl.dsl_deployed": "规则上线",
   "handoff.requested": "发起交接",
   "handoff.accepted": "接收交接",
@@ -35,7 +35,7 @@ const ID_TO_KEY: Record<AgentId, AgentKey> = {
   credit: "credit",
   channel: "channel",
   alert: "alert",
-  compli: "compliance",
+  compliance: "compliance",
   riskctrl: "riskctrl",
 };
 

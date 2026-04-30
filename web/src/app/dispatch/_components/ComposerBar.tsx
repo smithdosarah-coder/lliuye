@@ -202,7 +202,7 @@ export function ComposerBar() {
       授信: "credit", agent3: "credit", credit: "credit",
       获客: "channel", agent1: "channel", channel: "channel",
       预警: "alert", agent4: "alert", alert: "alert",
-      合规: "compli", agent5: "compli", compli: "compli", compliance: "compli",
+      合规: "compliance", agent5: "compliance", compli: "compliance", compliance: "compliance",
       风控: "riskctrl", agent2: "riskctrl", riskctrl: "riskctrl",
     };
     const atMatch = value.match(AT_PATTERN);

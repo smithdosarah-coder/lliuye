@@ -138,7 +138,7 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 
 Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是对内对外；共享 `shared/kb_scan/` 矩阵扫描底座，不合并。
 
-**命名 SSOT**: 6 Agent × 8 维度 (id / 中文 / 业务名 / UI brand / route / 色彩 token / RBAC role / eval baseline) 单源在 `docs/contracts/agent-naming-ssot.md` v1.0 (Phase A worker-A1 ratified · 2026-04-29) · 任何 agent 相关 consumer 文件 (`web/src/lib/agents.ts` / `auth_service/rbac.py` / `evaluation/agent*.yaml` / `agent_*/api.py`) 一律 read-only 引用 · 修改走 RFC (`shared-change-protocol.md`)。`compli` vs `compliance` 单 id 选项见 SSOT §3 (PM 待拍板)。
+**命名 SSOT**: 6 Agent × 8 维度 (id / 中文 / 业务名 / UI brand / route / 色彩 token / RBAC role / eval baseline) 单源在 `docs/contracts/agent-naming-ssot.md` v1.1 (Stage 4 cleanup ratified · 2026-04-30) · 任何 agent 相关 consumer 文件 (`web/src/lib/agents.ts` / `auth_service/rbac.py` / `evaluation/agent*.yaml` / `agent_*/api.py`) 一律 read-only 引用 · 修改走 RFC (`shared-change-protocol.md`)。`compli` vs `compliance` 已锁定 `compliance` 全栈 (per Q-042.B PM 拍板 + Stage 4 全栈替换 · CSS 色彩 token `--t-compli` 例外保留)。
 
 ## 5. 评估框架（双轨制）
 

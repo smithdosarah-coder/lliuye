@@ -130,12 +130,12 @@ def test_access_matrix_credit_officer_only_3():
     """credit_officer 仅 credit/report/alert (per auth-store.ts:63)."""
     assert set(access_for("credit_officer")) == {"credit", "report", "alert"}
     assert not can_access("credit_officer", "channel")
-    assert not can_access("credit_officer", "compli")
+    assert not can_access("credit_officer", "compliance")
     assert not can_access("credit_officer", "riskctrl")
 
 
 def test_access_matrix_compliance_officer_only_3():
-    assert set(access_for("compliance_officer")) == {"compli", "report", "alert"}
+    assert set(access_for("compliance_officer")) == {"compliance", "report", "alert"}
     assert not can_access("compliance_officer", "channel")
 
 
@@ -155,11 +155,11 @@ def test_access_matrix_unknown_role_denied():
 
 
 def test_handoffs_rm_3_pairs():
-    """rm 3 pair: channel→report / report→credit / alert→compli (per auth-store.ts:73-77)."""
+    """rm 3 pair: channel→report / report→credit / alert→compliance (per auth-store.ts:73-77)."""
     assert can_handoff("rm", "channel", "report")
     assert can_handoff("rm", "report", "credit")
-    assert can_handoff("rm", "alert", "compli")
-    assert not can_handoff("rm", "channel", "compli")  # not in matrix
+    assert can_handoff("rm", "alert", "compliance")
+    assert not can_handoff("rm", "channel", "compliance")  # not in matrix
 
 
 def test_valid_roles_count():

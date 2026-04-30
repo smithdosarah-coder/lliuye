@@ -1920,7 +1920,7 @@
 .v-customer-timeline .tl-row[data-agent="credit"]   .tl-dot { background: var(--t-credit); }
 .v-customer-timeline .tl-row[data-agent="channel"]  .tl-dot { background: var(--t-channel); }
 .v-customer-timeline .tl-row[data-agent="alert"]    .tl-dot { background: var(--t-alert); }
-.v-customer-timeline .tl-row[data-agent="compli"]   .tl-dot { background: var(--t-compli); }
+.v-customer-timeline .tl-row[data-agent="compliance"]   .tl-dot { background: var(--t-compli); }
 .v-customer-timeline .tl-row[data-agent="riskctrl"] .tl-dot { background: var(--t-riskctrl); }
 .v-customer-timeline .tl-main {
   display: flex; flex-direction: column; gap: 2px; flex: 1;

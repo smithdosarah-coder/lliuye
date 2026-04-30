@@ -32,7 +32,7 @@ export type AuthAgentId =
   | "report"
   | "credit"
   | "alert"
-  | "compli"
+  | "compliance"
   | "riskctrl";
 
 export interface AuthUser {

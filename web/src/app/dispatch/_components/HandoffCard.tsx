@@ -22,7 +22,7 @@ const AGENT_TO_STAGE: Record<AgentId, CustomerStage> = {
   report: "report",
   credit: "credit",
   alert: "alert",
-  compli: "monitoring",
+  compliance: "monitoring",
   riskctrl: "monitoring",
 };
 

@@ -18,7 +18,7 @@ import type { AgentId } from "@/lib/store/types";
  * 前端 ACCESS check 是 instant guard · 减少无效请求 · 不替代 backend.
  */
 
-const AGENT_PATH_RE = /^\/archive\/(channel|report|credit|alert|compli|riskctrl)/;
+const AGENT_PATH_RE = /^\/archive\/(channel|report|credit|alert|compliance|riskctrl)/;
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";

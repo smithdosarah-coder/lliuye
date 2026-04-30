@@ -182,7 +182,7 @@ const seedMessages: Record<string, ImMessage[]> = {
     {
       id: "msg_tx_1",
       threadId: "thr_tongxin",
-      from: "compli",
+      from: "compliance",
       kind: "system_event",
       content: "Agent5 合规复核完成 · 无新增冲突点，沿用 Q1 制度版本。",
       refs: { eventId: "evt_seed_compli" },

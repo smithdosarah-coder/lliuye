@@ -33,32 +33,32 @@ export const DEMO_USERS: User[] = [
  * 改一定同步两边走 RFC.
  */
 const ACCESS: Record<Role, readonly AgentId[]> = {
-  rm:                 ["channel", "report", "credit", "alert", "compli", "riskctrl"],
+  rm:                 ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
   credit_officer:     ["credit", "report", "alert"],
-  compliance_officer: ["compli", "report", "alert"],
+  compliance_officer: ["compliance", "report", "alert"],
   risk_manager:       ["riskctrl", "alert", "credit"],
-  admin:              ["channel", "report", "credit", "alert", "compli", "riskctrl"],
+  admin:              ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
 };
 
 const HANDOFFS: Record<Role, { from: AgentId; to: AgentId }[]> = {
   rm: [
     { from: "channel", to: "report" },
     { from: "report",  to: "credit" },
-    { from: "alert",   to: "compli" },
+    { from: "alert",   to: "compliance" },
   ],
   credit_officer:     [{ from: "credit",  to: "report" }],
-  compliance_officer: [{ from: "compli",  to: "report" }],
+  compliance_officer: [{ from: "compliance",  to: "report" }],
   risk_manager: [
-    { from: "alert", to: "compli" },
+    { from: "alert", to: "compliance" },
     { from: "alert", to: "credit" },
   ],
   admin: [
     { from: "channel", to: "report" },
     { from: "report",  to: "credit" },
-    { from: "alert",   to: "compli" },
+    { from: "alert",   to: "compliance" },
     { from: "alert",   to: "credit" },
     { from: "credit",  to: "report" },
-    { from: "compli",  to: "report" },
+    { from: "compliance",  to: "report" },
   ],
 };
 

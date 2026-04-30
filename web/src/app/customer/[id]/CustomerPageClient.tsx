@@ -55,8 +55,8 @@ function seedEventsFor(id: string, stage: string, actor: string) {
     });
   } else if (stage === "monitoring") {
     base.push({
-      type: "compli.conflict_found",
-      agent: "compli",
+      type: "compliance.conflict_found",
+      agent: "compliance",
       customerId: id,
       actor,
       payload: { policy: "普惠-2026-03", clauses: 2 },

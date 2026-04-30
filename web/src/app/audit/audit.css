@@ -97,7 +97,7 @@
 .audit-row .agent-tag[data-agent="credit"]   { color: var(--t-credit);   border-color: color-mix(in srgb, var(--t-credit)   40%, var(--ink-14)); }
 .audit-row .agent-tag[data-agent="channel"]  { color: var(--t-channel);  border-color: color-mix(in srgb, var(--t-channel)  40%, var(--ink-14)); }
 .audit-row .agent-tag[data-agent="alert"]    { color: var(--t-alert);    border-color: color-mix(in srgb, var(--t-alert)    40%, var(--ink-14)); }
-.audit-row .agent-tag[data-agent="compli"]   { color: var(--t-compli);   border-color: color-mix(in srgb, var(--t-compli)   40%, var(--ink-14)); }
+.audit-row .agent-tag[data-agent="compliance"]   { color: var(--t-compli);   border-color: color-mix(in srgb, var(--t-compli)   40%, var(--ink-14)); }
 .audit-row .agent-tag[data-agent="riskctrl"] { color: var(--t-riskctrl); border-color: color-mix(in srgb, var(--t-riskctrl) 40%, var(--ink-14)); }
 .audit-row .type {
   font-weight: 500;

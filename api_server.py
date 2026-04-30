@@ -363,7 +363,7 @@ class ImSendRequest(BaseModel):
     message: str
     thread_id: str = ""
     customer_id: str = ""
-    target_agent: str = ""  # "" / "channel" / "credit" / "alert" / "compli" / "report" / "riskctrl"
+    target_agent: str = ""  # "" / "channel" / "credit" / "alert" / "compliance" / "report" / "riskctrl"
 
 
 # 6 Agent 角色 system prompt (2026-04-27 · 加 @agent 路由支持 + archive 内 ConversationPanel 真接)
@@ -372,7 +372,7 @@ _AGENT_SYSTEMS = {
     "report": "你是 Agent6 报告 · 辅助客户经理 / 审贷员处理材料 → 报告生成。回复 1-3 句·不编造内容。",
     "credit": "你是 Agent3 授信 · 辅助审贷员评分 / 红线判定。回复 1-3 句·不编造决策结果。",
     "alert": "你是 Agent4 预警 · 分析在贷客户行为信号 + 红/黄/绿榜单。回复 1-3 句·不编造预警事件。",
-    "compli": "你是 Agent5 合规 · 解析新政策与业务制度冲突点。回复 1-3 句·不编造政策条款。",
+    "compliance": "你是 Agent5 合规 · 解析新政策与业务制度冲突点。回复 1-3 句·不编造政策条款。",
     "riskctrl": "你是 Agent2 风控 · 辅助风险经理写 DSL + 回测。回复 1-3 句·不编造样本数。",
 }
 _AGENT_TO_ID = {
@@ -380,7 +380,7 @@ _AGENT_TO_ID = {
     "report": "agent_report",
     "credit": "agent_credit",
     "alert": "agent_alert",
-    "compli": "agent_compliance",
+    "compliance": "agent_compliance",
     "riskctrl": "agent_riskctrl",
 }
 _DEFAULT_SYSTEM = (

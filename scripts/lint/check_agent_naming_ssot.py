@@ -29,8 +29,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SSOT_PATH = REPO_ROOT / "docs/contracts/agent-naming-ssot.md"
 
-# PM-pending 集 · 校验降 WARN
-PM_PENDING_AGENT_IDS = {"compli", "compliance"}
+# PM-ratified 集 (Q-042.B 2026-04-29 · agent5 单 id = compliance) · 不再 WARN
+# 历史 compli 留作 deprecated alias · check 降为 INFO
+PM_RATIFIED_AGENT_IDS = {"compliance"}
+LEGACY_DEPRECATED_AGENT_IDS = {"compli"}  # → compliance · still tolerated in non-canonical paths
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +94,7 @@ def parse_ssot_table(md: str) -> list[dict]:
                 continue
             rows.append({
                 "agent_ids": ids,                    # canonical OR PM-pending alts
-                "is_pm_pending": len(ids) > 1 or any(i in PM_PENDING_AGENT_IDS for i in ids),
+                "is_pm_pending": len(ids) > 1 or any(i in LEGACY_DEPRECATED_AGENT_IDS for i in ids),
                 "zh": clean(zh),
                 "business": clean(biz),
                 "brand": clean(brand),
@@ -200,13 +202,13 @@ def run_checks() -> list[Issue]:
         # 验 prefixes 都在 SSOT 内
         for p in prefixes:
             if p not in by_id:
-                level = "WARN" if p in PM_PENDING_AGENT_IDS or any(a in PM_PENDING_AGENT_IDS for a in by_id) else "ERROR"
+                level = "WARN" if p in LEGACY_DEPRECATED_AGENT_IDS or any(a in LEGACY_DEPRECATED_AGENT_IDS for a in by_id) else "ERROR"
                 issues.append(Issue(level, "C1_BACKEND_MOUNT_NOT_IN_SSOT",
                                     p, f"{dir_name}/api.py 用 /api/{p}/* · SSOT §1 无此 agent_id"))
         # dir_name suffix 与 prefix 是否一致 (e.g. agent_compliance + /api/compliance/* 一致 OK · agent_compliance + /api/compli/* 警告)
         if prefixes and suffix not in prefixes:
             # PM-pending 期允许 mismatch (compli vs compliance) · 否则 ERROR
-            in_pending = (suffix in PM_PENDING_AGENT_IDS) or any(p in PM_PENDING_AGENT_IDS for p in prefixes)
+            in_pending = (suffix in LEGACY_DEPRECATED_AGENT_IDS) or any(p in LEGACY_DEPRECATED_AGENT_IDS for p in prefixes)
             level = "WARN" if in_pending else "ERROR"
             issues.append(Issue(level, "C5_DIR_PREFIX_MISMATCH",
                                 suffix, f"{dir_name}/ vs mount /api/{sorted(prefixes)} · dir suffix 与 prefix 不同"))

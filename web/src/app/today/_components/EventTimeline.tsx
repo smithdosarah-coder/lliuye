@@ -82,8 +82,8 @@ function buildSeeds(): SeedSpec[] {
     },
     {
       event: {
-        type: "compli.conflict_found",
-        agent: "compli",
+        type: "compliance.conflict_found",
+        agent: "compliance",
         customerId: "cust_tongxin",
         actor: "system",
         payload: { policy: "§214 新政", __seed: true },

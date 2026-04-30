@@ -23,7 +23,7 @@ export interface ScanStep {
   pct: number;
 }
 
-export type ScanTone = "channel" | "alert" | "compli" | "report" | "credit" | "riskctrl";
+export type ScanTone = "channel" | "alert" | "compliance" | "report" | "credit" | "riskctrl";
 
 export interface ScanCTAProps {
   /** idle 态按钮文字 */
@@ -74,7 +74,7 @@ export function ScanCTA({
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
       "";
-    const agentKey = tone === "compli" ? "compliance" : tone ?? "channel";
+    const agentKey = tone ?? "channel";
     fetch(`${apiBase}/api/run/${agentKey}`, { method: "POST" })
       .then((r) => r.json())
       .then((data) => {

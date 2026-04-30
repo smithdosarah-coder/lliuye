@@ -111,7 +111,6 @@ function agentToAccentVar(agentId: string): string | undefined {
     case "alert":
     case "agent_alert":
       return "--t-alert";
-    case "compli":
     case "compliance":
     case "agent_compliance":
       return "--t-compli";

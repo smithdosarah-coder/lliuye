@@ -7,15 +7,16 @@ import { useEventBus } from "@/lib/store";
 import type { AgentEvent, AgentId } from "@/lib/store/types";
 
 /**
- * agents.ts 与 store/types.ts 的 id 近同但不一 —— compli ↔ compliance。
- * 这里只在本组件内部映射，不泄漏到其他模块。
+ * agents.ts (AgentKey) 与 store/types.ts (AgentId) 现完全同值
+ * (per Q-042.B PM 拍板 2026-04-29 · agent5 单 id = compliance 全栈)。
+ * 本映射保留为 identity · 不再有命名漂移。
  */
 const TO_STORE_ID: Record<AgentKey, AgentId> = {
   report: "report",
   credit: "credit",
   channel: "channel",
   alert: "alert",
-  compliance: "compli",
+  compliance: "compliance",
   riskctrl: "riskctrl",
 };
 
@@ -44,7 +45,7 @@ function summarize(e: AgentEvent): string {
       return `预警 · ${(e.payload.level as string) ?? "—"}`;
     case "alert.handled":
       return "预警已处置";
-    case "compli.conflict_found":
+    case "compliance.conflict_found":
       return `合规冲突 · ${(e.payload.policy as string) ?? "—"}`;
     case "riskctrl.dsl_deployed":
       return "规则上线";

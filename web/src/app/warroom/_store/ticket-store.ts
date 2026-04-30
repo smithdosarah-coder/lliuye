@@ -97,7 +97,7 @@ const seed = (): HandoffTicket[] => [
   {
     id: "tkt_seed_3",
     fromAgent: "alert",
-    toAgent: "compli",
+    toAgent: "compliance",
     customerId: "cust_yunrong",
     reason: "预警命中 → 合规官复核",
     payload: { alertId: "alt_yunrong_7", severity: "yellow" },

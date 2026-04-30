@@ -10,7 +10,7 @@ export type AgentId =
   | "credit" // Agent3
   | "channel" // Agent1
   | "alert" // Agent4
-  | "compli" // Agent5
+  | "compliance" // Agent5
   | "riskctrl"; // Agent2
 
 export const AGENT_IDS: readonly AgentId[] = [
@@ -18,7 +18,7 @@ export const AGENT_IDS: readonly AgentId[] = [
   "credit",
   "channel",
   "alert",
-  "compli",
+  "compliance",
   "riskctrl",
 ] as const;
 
@@ -73,7 +73,7 @@ export type AgentEventType =
   | "channel.lookalike_picked" // Agent1 相似企业选中
   | "alert.raised" // Agent4 预警触发
   | "alert.handled" // Agent4 预警处置
-  | "compli.conflict_found" // Agent5 合规冲突
+  | "compliance.conflict_found" // Agent5 合规冲突
   | "riskctrl.dsl_deployed" // Agent2 规则上线
   | "handoff.requested" // 跨 Agent handoff
   | "handoff.accepted"

@@ -30,7 +30,7 @@ const BRIDGE_TYPES: AgentEventType[] = [
   "channel.lookalike_picked",
   "alert.raised",
   "alert.handled",
-  "compli.conflict_found",
+  "compliance.conflict_found",
   "riskctrl.dsl_deployed",
   "handoff.requested",
   "handoff.accepted",
@@ -105,7 +105,7 @@ function humanize(event: AgentEvent): string {
       return `${meta.name} · 预警触发${payload?.severity ? `（${payload.severity}）` : ""}：${payload?.reason ?? "—"}`;
     case "alert.handled":
       return `${meta.name} · 预警已处置${payload?.disposition ? `（${payload.disposition}）` : ""}。`;
-    case "compli.conflict_found":
+    case "compliance.conflict_found":
       return `${meta.name} · 合规冲突${payload?.policy ? `：${payload.policy}` : ""}。`;
     case "riskctrl.dsl_deployed":
       return `${meta.name} · DSL 规则上线${payload?.ruleId ? `（${payload.ruleId}）` : ""}。`;

@@ -23,7 +23,7 @@
 
 ## 1. 8 列 SSOT 表 (核心 · 单源)
 
-> ⚠️ `agent_id` 列对 `compliance/compli` 留 PM 占位 (§3) · 其余 5 行已锁。
+> ✅ 6 行全锁 (compliance ratified · per Q-042.B 2026-04-29 PM 拍板 · 详 §3)。
 
 | agent_id | 中文 | 业务名 | UI brand | route (canon) | 色彩 token | RBAC role | eval baseline |
 |---|---|---|---|---|---|---|---|
@@ -31,7 +31,7 @@
 | `report` | 信贷报告助手 | Agent6 报告 (Evidence-First 三阶段 + QC blocker) | 信贷报告助手 | `/archive/report` | `--t-report` (#B08640 棕赭) | `rm` / `credit_officer` / `compliance_officer` / `risk_manager` / `admin` | `evaluation/agent6_report.yaml` |
 | `credit` | 授信决策辅助 | Agent3 授信 (Agent6 下游 · 对公+对私+普惠 三板块四维评分) | 授信决策辅助 | `/archive/credit` | `--t-credit` (#3E6292 青蓝) | `rm` / `credit_officer` / `risk_manager` / `admin` | `evaluation/agent3_credit.yaml` |
 | `alert` | 贷中风险预警 | Agent4 预警 (客户行为变化驱动 · 红/黄/绿榜单) | 贷中风险预警 | `/archive/alert` | `--t-alert` (#C85A3C 赭红) | `rm` / `credit_officer` / `compliance_officer` / `risk_manager` / `admin` | `evaluation/agent4_alert.yaml` |
-| **🟡 compli\|compliance** (PM TBD §3) | 合规巡检 | Agent5 合规 (政策事件驱动 · 业务矩阵冲突点) | 合规巡检 | `/archive/<TBD>` | `--t-compli` (#5B7A48 墨绿) | `compliance_officer` / `admin` | `evaluation/agent5_compliance.yaml` (PM TBD 后改) |
+| `compliance` | 合规巡检 | Agent5 合规 (政策事件驱动 · 业务矩阵冲突点) | 合规巡检 | `/archive/compliance` | `--t-compli` (#5B7A48 墨绿) | `compliance_officer` / `admin` | `evaluation/agent5_compliance.yaml` |
 | `riskctrl` | 风控策略运营 | Agent2 风控 (DSL 生成 + 回测) | 风控策略运营 | `/archive/riskctrl` | `--t-riskctrl` (#6B4A6D 绛紫) | `risk_manager` / `admin` | `evaluation/agent2_riskctrl.yaml` |
 
 **触发 / 输入 / 产出 / 不做** 见 `CLAUDE.md` §4 (功能边界) · 本 SSOT 不重复 · 仅锁命名维度。
@@ -51,60 +51,39 @@
 | RBAC role | role[] · 5 user matrix | `auth_service/rbac.py:VALID_AGENTS` + `auth_service/users.py:46-50` (writer · backend) | `web/src/lib/store/auth-store.ts:36-40` ACCESS · `web/src/app/archive/[agent]/RbacGuard.tsx` · `web/src/components/shell/AuthGate.tsx` |
 | eval baseline | path string | 本 SSOT | `evaluation/runner/adapters/agent*_*.py` adapter loader · `docs/contracts/agent-*-spec.md` § "评估基线" |
 
-**红线**: consumer 一律 read-only 引用本 SSOT · 不允许在 consumer 文件**重复定义**或**镜像**字段值。`web/src/lib/auth/agent-id.ts` 补丁映射在 PM 拍板 §3 后由 worker-A4 删除。
+**红线**: consumer 一律 read-only 引用本 SSOT · 不允许在 consumer 文件**重复定义**或**镜像**字段值。`web/src/lib/auth/agent-id.ts` 现为 identity 映射 (compliance → compliance · per Q-042.B 全栈统一)。
 
 ---
 
-## 3. 🟡 PM 拍板待裁: `compli` vs `compliance` 单 id 选一
+## 3. ✅ RESOLVED · agent5 单 id = `compliance` (Q-042.B · 2026-04-29 PM 拍板)
 
-**背景**: 当前全栈双 id 分裂 · 补丁文件 `web/src/lib/auth/agent-id.ts:1-18` 是症状不是治本 (audit Cat 8 + 10)。
+**结论**: agent5 全栈统一 `compliance`。frontend AgentKey + AgentId + backend RBAC + sub-PRD 文件名 + LLM caller `agent_id` + route `/archive/compliance` 全部 verbatim。
 
-### 选项 A: 全栈统一 `compliance` (语义 · 与 eval baseline 一致)
+**Ratification source**: `docs/handoff/decisions-log.md` Q-042.B (worker-A7 V2 codex 5 issue 第 4 项 fix · effective ratification by 全栈 verbatim 使用)
 
-**优点**:
-- 与 `evaluation/agent5_compliance.yaml:3 agent: compliance` 一致 · eval baseline 不动
-- 与 `web/src/lib/agents.ts:20 AgentKey="compliance"` 一致 · 前端 6 import 不动
-- 语义完整 · "合规" → "compliance" 自然映射
-- 与 `auth_service/users.py` `compliance_officer` role 命名一致
+**真实落地** (Stage 4 cleanup · 主 CLI 2026-04-30 commit):
+- `auth_service/rbac.py` ACCESS / HANDOFFS / VALID_AGENTS 9 处 `compli` → `compliance`
+- `web/src/lib/store/types.ts` AgentId union + AGENT_IDS 数组
+- `web/src/lib/store/auth-store.ts` ACCESS / HANDOFFS 8 处
+- `web/src/lib/auth/agent-id.ts` mapping 改为 identity (compliance → compliance · 文件保留以维持 import API 稳定 · consumer code 不动)
+- `web/src/lib/api/auth.ts` AuthAgentId union
+- `web/src/lib/store/handoff-catalog.ts` recipe id (`alert_to_compli` → `alert_to_compliance` · `compli_to_report` → `compliance_to_report`) + event type (`compli.conflict_found` → `compliance.conflict_found`)
+- `web/src/components/shell/AuthGate.tsx` regex agent path
+- `web/src/components/shared/ScanCTA.tsx` ScanTone union + remove "compli"→"compliance" cast
+- 8 个 frontend consumer 文件 (today/dispatch/customer/audit/components/shell · event type + agent literal 同步)
+- `web/src/app/dispatch/_components/{composer-commands.ts, ComposerBar.tsx, MessageBubble.tsx}` AGENT_ALIAS map (legacy `compli` 别名 → `compliance` 输出 · 用户输入 `compli` 仍兼容)
+- 3 CSS 文件 `[data-tone="compli"]` / `[data-agent="compli"]` selector 改 `compliance` (色彩 token `--t-compli` 不动 · per CLAUDE.md §7)
+- `auth_service/tests/test_users_jwt_rbac.py` 4 assertion 改
+- `api_server.py` 3 处 (target_agent comment + _AGENT_SYSTEMS + _AGENT_TO_ID)
+- `scripts/lint/check_agent_naming_ssot.py` PM_PENDING 集 → LEGACY_DEPRECATED + 加注 Q-042.B ratify
 
-**改动量**: ~5 处 (backend 偏小)
-- `auth_service/rbac.py:42` VALID_AGENTS 改 `compli` → `compliance`
-- `web/src/lib/store/auth-store.ts:36-40` ACCESS key 改
-- `web/src/lib/store/types.ts:12` AgentId enum 改
-- `auth_service/tests/test_users_jwt_rbac.py` fixture 改
-- decisions-log 历史 Q-NNN 提及 `compli` 处加注 · 不实改
-- 删 `web/src/lib/auth/agent-id.ts` 补丁文件
+**例外保留** (Acceptable legacy)：
+- `--t-compli` CSS 色彩 token (per CLAUDE.md §7 · CSS token 命名独立于 agent_id)
+- `docs/audit/A4-compli-draft.md` (历史文件名 · 不改 git history)
+- `agent_compliance/scan_engine.py` 内部 scan_id prefix `compli-{uuid}` (内部 ID 风格 · 不影响 API 契约)
+- decisions-log 历史 Q-NNN 提及 `compli` (历史 audit trail · 不动)
 
-### 选项 B: 全栈统一 `compli` (短 · backend 已用)
-
-**优点**:
-- backend `auth_service/rbac.py` + `users.py` 已用 `compli` · backend 不动
-- `compli` 比 `compliance` 短 4 char · URL / token / log 节省
-- 与 `--t-compli` 色彩 token 一致
-
-**改动量**: ~12 处 (frontend + eval 偏大)
-- `web/src/lib/agents.ts:20` AgentKey 改 `compliance` → `compli` · 6 处 import 跟着改
-- `evaluation/agent5_compliance.yaml:3` agent: compli + 文件改名 `agent5_compli.yaml`
-- `evaluation/runner/adapters/agent5_compliance.py` 跟改
-- `docs/contracts/agent-compli-spec.md` 已是 compli (不用动)
-- `web/src/components/shell/AuthGate.tsx:21` regex 不动
-- 删 `web/src/lib/auth/agent-id.ts` 补丁文件
-
-### Tradeoff matrix
-
-| 维度 | 选项 A `compliance` | 选项 B `compli` |
-|---|---|---|
-| 语义清晰度 | ✅ 完整词 | ⚠️ 缩写 (但与 `riskctrl` 风格一致) |
-| 改动量 | ⭐⭐ 5 处 | ⭐ 12 处 |
-| URL/RBAC 长度 | ⚠️ 偏长 | ✅ 短 (与 `riskctrl` 一致) |
-| 与现有 evaluation yaml 兼容 | ✅ 不动 | ❌ rename 1 文件 + adapter 改 |
-| 与 backend 风格一致 | ❌ 反向改 backend | ✅ backend 不动 |
-| `compliance_officer` role 命名 | ✅ 一致 | ⚠️ role `compliance_officer` 但 agent_id `compli` (轻微割裂) |
-
-**主 CLI 不预决** · 留 PM 拍板 (per worker-A1 onboarding §3 #4)。一旦 PM 选定:
-- Worker-A1 同 commit 改本 SSOT §1 表 + §3 标 RESOLVED
-- 主 CLI fire 后续 worker (主线 worker-A4 或 fix-forward batch) 执行 §3 列出的具体 file 改动
-- `web/src/lib/auth/agent-id.ts` 补丁文件由 worker-A4 删除 + commit `Signal: COMPLI-AGENTID-PATCH-REMOVED`
+**Lint enforcement** (Phase A 验收硬线 #8): `scripts/lint/check_agent_naming_ssot.py` 已 ratify · 后续 worker 引入新 `\bcompli\b` 字面将 ERROR (`compliance` 才合法)。
 
 ---
 
@@ -142,17 +121,17 @@
 | `report` | `/api/report` | `/archive/report` |
 | `credit` | `/api/credit` | `/archive/credit` |
 | `alert` | `/api/alert` | `/archive/alert` |
-| `compli\|compliance` (TBD) | `/api/<id>` | `/archive/<id>` |
+| `compliance` | `/api/compliance` | `/archive/compliance` |
 | `riskctrl` | `/api/riskctrl` | `/archive/riskctrl` |
 
-> ⚠️ **当前现状** (V2 lint smoke 验证): backend 用 `/api/compliance/*` + frontend `/archive/compliance/` + eval `agent5_compliance.yaml` (3 处用 `compliance`) · RBAC 用 `compli` (1 处) · 选项 A 改动量是 1 处 (RBAC) · 选项 B 改动量是 3 处 — 比 §3 原列出更小。PM 拍板时此真实分布优于 §3 估算。
+> ✅ **现状** (Stage 4 cleanup 2026-04-30): 全栈 `compliance` (backend `/api/compliance/*` + frontend `/archive/compliance/` + eval `agent5_compliance.yaml` + RBAC `compliance`) · 跨栈共形完成 · C6 WARN 应自动消失。
 
-### 4.3 PM 拍板后 lint 收紧
+### 4.3 PM 拍板后 lint 已收紧 (Q-042.B 2026-04-29 + Stage 4 2026-04-30)
 
-PM 选定 compliance OR compli 后:
-1. 改本 SSOT §1 row 5 锁单 id + §3 标 RESOLVED + bump v1.1
-2. `.github/workflows/lint-contracts.yml` 加 `--strict` flag (WARN 也判 fail · C6 升 ERROR)
-3. 主 CLI 派 worker-A4 / fix-forward batch 真改 1 处 OR 3 处不一致点 + 删 `web/src/lib/auth/agent-id.ts` 补丁
+✅ Stage 4 cleanup 完成 · 已:
+1. SSOT §1 row 5 锁单 id `compliance` (本 commit)
+2. `scripts/lint/check_agent_naming_ssot.py` `PM_PENDING_AGENT_IDS` 改 `LEGACY_DEPRECATED_AGENT_IDS = {"compli"}` (新代码引入 `compli` 字面 ERROR · `compliance` 才合法)
+3. `web/src/lib/auth/agent-id.ts` 改 identity 映射 (consumer API 稳定不动 · 解 audit Cat 8/10 · 不删文件以避免连锁 import 改动)
 4. 重跑 lint · 0 WARN 0 ERROR · Phase A 硬线 #8 真 met
 
 ### 4.4 本地用法

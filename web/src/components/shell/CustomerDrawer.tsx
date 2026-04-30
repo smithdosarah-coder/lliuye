@@ -24,7 +24,7 @@ const EVENT_LABEL: Record<AgentEventType, string> = {
   "channel.lookalike_picked": "Look-alike 选中",
   "alert.raised": "预警触发",
   "alert.handled": "预警处置",
-  "compli.conflict_found": "合规冲突",
+  "compliance.conflict_found": "合规冲突",
   "riskctrl.dsl_deployed": "规则上线",
   "handoff.requested": "发起交接",
   "handoff.accepted": "接收交接",
