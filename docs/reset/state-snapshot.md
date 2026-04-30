@@ -352,6 +352,46 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-04-29 (本批次 6) · worker-A7 PRD master + 6 sub-PRD + 飞书双写完 (Block A 完)
+
+### What happened
+- worker-A7 完整 Block A (master PRD + 6 sub-PRD + 飞书双写 + 3 active rule 回写):
+  - **Block A.0** (`2ff8384`): 3 active rule 回写 root CLAUDE.md §3.7 (Q-040 MAX_ROWS / Q-041 candidate metadata 4 字段 / PIPL fallback chain) + decisions-log Q-042 batch entry
+  - **Block A.1** (`acf047a`): `docs/prd/master-2026-04-29.md` (208 → 240 行 · 9 章) · 10 G-XX KRR ratified 决议表 · §7 PM open question 3 项 · §8 acceptance 自检 · §9 SSOT 阶梯引用
+  - **Block A.2-A.7** (`5e499a0` + `c7b3a88` + `7838306`): 6 sub-PRD v1 全写完
+    - `agent1-channel-prd-v1.md` (158 行 · G-01/G-02 KRR · look-alike 引擎)
+    - `agent2-riskctrl-prd-v1.md` (172 行 · G-03/G-04 KRR · MAX_ROWS active rule 锚)
+    - `agent3-credit-prd-v1.md` (175 行 · G-05/G-06 双 🟡 b 路 default · PM open Q1)
+    - `agent4-alert-prd-v1.md` (165 行 · G-07 内部交易域 · 反 5 原则形态硬线)
+    - `agent5-compliance-prd-v1.md` (200 行 · G-08/G-09 双 🟡 · PM open Q2+Q3)
+    - `agent6-report-prd-v1.md` (228 行 · G-10 · Evidence-First 三阶段 · legacy_gradio 衔接)
+  - **Block A.8** (本 commit · 2026-04-29 10:31-10:33): 飞书双写 7 doc 全 ✅
+    - master PRD: 新建子节点 doc_id `YExwdKhugoJ1kXx0DohcwjWdnAc` · https://www.feishu.cn/wiki/WuV8wpPoCig49tk2C1pcwuwUnHc (在 "🤖 AI 智能体" `R6IywYWfSiECkek1Gq6cnQDBnbb` 下)
+    - 6 sub-PRD + agent6 v2.3 规划版: append "v1 PRD reset cross-reference" 段 (不覆盖原 v2.0/v2.3 customer-facing 内容)
+
+### Triggered by
+- A7 onboarding §1.1 (PRD 取证 + master + 6 sub-PRD + 飞书双写)
+- §1.3 (Cat 1 部分 active rule 回写)
+- PM 拍板 #3 (active decision 必回写 root CLAUDE.md)
+- master PRD §5.1 batch GO 默认追认 (drift table v1 §5.1)
+
+### State change (delta)
+- Phase A 硬线 #7 进度: 30% (drift v1 ready · Block A.0-A.7 完前) → 100% (master + 6 sub + 飞书双写 + active rule 回写均完)
+- root CLAUDE.md: 总章数 16 → 16 (§3 内增 §3.7 sub-section · 不增主章) + §16 (Block B 落 · 总章 15 → 16)
+- decisions-log: Q-041 → Q-042 (本 commit batch active rule 回写记录)
+- 飞书 wiki 状态: 6 PRD doc (v2.0/v2.3 旧版) + 1 master 新建 = 7 doc 全 ratified · cross-ref 完整双向
+
+### 风险预警
+- PM open question 3 项 pending (G-05/06 归属 + G-08 归属 + compli/compliance 单 id) · 本 PRD 默认 b 路 + compliance · ratification 后 fix-forward
+- 飞书 cosmetic warning: master PRD §2 6 个 relative `.md` link Feishu render 退化纯文本 · 不阻 · 后续替换为 wiki URL 或 anchor
+
+### Next
+- Commit Block A 最终 signal: `WORKER-A7-PRD-MASTER-DONE` (含 trailer per onboarding §6 全 6 项)
+- A7 在 Phase A Week 2-3 任务全完 · 等 PM 验 + cherry-pick 到 chore/l0-infra
+- 待 PM 拍 3 open question · 决后 fix-forward sub-PRD + decisions-log Q-NNN ack
+
+---
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>
