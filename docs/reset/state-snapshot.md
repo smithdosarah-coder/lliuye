@@ -404,6 +404,33 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 (下次更新模板)
 
+## 2026-04-29 · worker-A4-credit V2 fix · codex DISAGREE 4 issue resolved
+
+### What happened
+- 主 CLI (worker-A4-credit) 接 codex DISAGREE 4 issue 全 fix (单 commit `1d876fd`):
+  - **Issue 1** · `_normalize.ts:170+186` · 删 `if (!hits || hits.length === 0) return fallback` · 改 `if (hits == null) return fallback` · backend rule_hits/case_matches 显式空数组 → panel 显 "0 红线/0 案例" 而非 mock 假数字 (done envelope hydrate single source 原则)
+  - **Issue 2** · `agent_credit/api.py:298-385` · `list_credit_reports` 加 `_AGENT6_ARCHIVE_DIR` (data/handoff/report_to_credit/) 真 Agent6 v16 archive 双源扫描 · `_build_session_meta(path, source)` 双源参数化 (archive sid=stem · demo sid="demo_<stem>") · cat 0 北极星: EmptyState 现真发现真 Agent6 sessions
+  - **Issue 3** · `web/next.config.ts:22-33` · 加 `/api/credit/:path*` 走 CREDIT_BACKEND (默认 :8000) · 与 /api/report + /api/auth 同模式 · 否则前端 fetch 命中 Next 16 app router 404
+  - **Issue 4** · `credit-pilot-4gate.spec.ts:T5+T6` · 删原 silent skip (drawer/export 不 visible 不 fail) · 现 hard mock /api/credit/decision 注入 case_matches/liveAdvice · expect.toBeVisible enforced · 真验 normalize V2 + cat 13 fix
+- 验: tsc --noEmit PASS · AST parse PASS · in-process smoke (list_credit_reports archive=1 + demo=4 = 5 · handoff_from_report archive sid ready=true) PASS
+
+### Triggered by
+- codex DISAGREE V1 verdict · 4 issue (用户 paste 自 codex review)
+
+### State change (delta)
+- A4-credit verdict: DONE-PENDING-VERIFY → V2-PENDING-VERIFY (待 codex re-review V2)
+- normalize.ts done envelope hydrate 契约: backend 显式 [] 是合法 "0 entries" 信号 · panel 真 hydrate · 不再被 mock 污染
+- /api/credit/reports/sessions 双源 (archive 优先 · demo 兜底) · A4-{report,alert,compli,riskctrl} 4 子可 inherit dual-scan pattern (data/handoff/{source}_to_{target}/<id>.json)
+- /api/credit/* 前端 proxy 兼容 · A4 其余 4 子 worker 改 web/* 前必加 /api/{agent}/:path* rewrite (CLAUDE.md §13 web 改动 contract 隐式扩展)
+- Playwright spec 硬验 (no silent skip) · 范式 → A4 其余 worker 复制 spec 时不要重新引入 conditional skip pattern
+
+### Next
+- 主 CLI 等 codex re-review V2 (本 commit signal `A4-CREDIT-V2-DONE` 触发)
+- AGREE 后 → cherry-pick A4-credit 12 commit (Step 3..13 + V2) 到 chore/l0-infra → push origin
+- A4 其余 4 子 worker (alert/compli/report/riskctrl) 启动时 cross-ref 本 V2 fix · 避免 inherit 旧 silent-skip / empty-array-fallback 问题
+
+---
+
 ## 2026-04-29 · worker-A4-credit DONE · cat 0/3/4/13 fix + 4-gate hoist
 
 ### What happened
