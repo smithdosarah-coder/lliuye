@@ -7,7 +7,7 @@
  * 左 Query / Rules / Recent · 中 Conversation + Composer · 右 DSL 树 / KS 双线 / Sample bar
  *
  * 继承 canon A 章 · Agent tint: --t-riskctrl (绛紫)
- * 业务：策略经理协同 AI 写 DSL → 回测 KS/通过率/坏账 → 调参 → 送审
+ * 业务：风险经理协同 AI 写 DSL → 回测 KS/通过率/坏账 → 调参 → 送审
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,6 +35,8 @@ import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
   exportDocx as exportDocxApi,
+  exportPdf as exportPdfApi,
+  exportXlsx as exportXlsxApi,
   LiveFailError,
   runBacktest,
   runDslGen,
@@ -113,8 +115,12 @@ function mergeBacktestIntoSession(
   };
 }
 
+type ExportKind = "docx" | "xlsx" | "pdf";
+
 type ExportInfo = {
   status: "idle" | "running" | "done" | "error";
+  /** kind 标识本次正在 / 最近一次完成 / 失败的导出格式 (UI 三按钮分别 reflect status) */
+  kind?: ExportKind;
   message?: string;
 };
 
@@ -208,8 +214,10 @@ export default function RiskctrlWorkspace() {
 
   /* lastRuleset · dsl_gen done 后 store 整 ruleset 对象 · backtest 直消费 (Step 8 进 liveData) */
   const [lastRuleset, setLastRuleset] = useState<Record<string, unknown> | null>(null);
+  /* Default 指向真存在的 7500 行历史贷款 fixture (CLAUDE.md §10 agent2 mock).
+     旧默认 "samples/sample.csv" 不存在 · backtest 必返 400 (Q-040 Demo blocker). */
   const [lastSampleCsvPath, setLastSampleCsvPath] = useState<string>(
-    "samples/sample.csv",
+    "data/mock/agent2-samples/loans.csv",
   );
 
   /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
@@ -296,40 +304,49 @@ export default function RiskctrlWorkspace() {
     }
   }, [lastRuleset, lastSampleCsvPath, selectedSession]);
 
-  /* Word 导出 · POST /api/riskctrl/export_docx · 后端尚未 deliver · 优雅 fallback */
-  const triggerExportDocx = useCallback(async () => {
+  /* 三件套导出 · POST /api/riskctrl/export_{docx,xlsx,pdf} · backend Step 7 已实装
+     (agent_riskctrl/exports.py · python-docx / openpyxl / reportlab 本地渲染 · 不走境外 API) */
+  const triggerExport = useCallback(async (kind: ExportKind) => {
     if (!rulesetId && !scanned) {
       setExportInfo({
         status: "error",
+        kind,
         message: "尚无回测产物 · 先生成 DSL 或选预置 · 再跑回测",
       });
       return;
     }
-    setExportInfo({ status: "running" });
+    setExportInfo({ status: "running", kind });
     const sid = rulesetId || preset || "demo";
+    const apiByKind = {
+      docx: exportDocxApi,
+      xlsx: exportXlsxApi,
+      pdf: exportPdfApi,
+    } as const;
+    const labelByKind = { docx: "Word", xlsx: "Excel", pdf: "PDF" } as const;
     try {
-      const blob = await exportDocxApi(sid);
+      const blob = await apiByKind[kind](sid);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `riskctrl_backtest_${sid}.docx`;
+      a.download = `riskctrl_backtest_${sid}.${kind}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setExportInfo({ status: "done" });
+      setExportInfo({ status: "done", kind });
     } catch (e) {
       if (e instanceof LiveFailError && e.status === 404) {
-        /* 后端 endpoint 未上线 · 显式 pending 不算真错 · 不弹 banner */
         setExportInfo({
           status: "error",
-          message: "导出端点 /api/riskctrl/export_docx 待 Stage D 后端实装",
+          kind,
+          message: `导出端点 /api/riskctrl/export_${kind} 不可用`,
         });
         return;
       }
-      recordLiveFail("Word 导出", e, () => triggerExportDocx());
+      recordLiveFail(`${labelByKind[kind]} 导出`, e, () => triggerExport(kind));
       setExportInfo({
         status: "error",
+        kind,
         message: e instanceof Error ? e.message : String(e),
       });
     }
@@ -482,7 +499,7 @@ export default function RiskctrlWorkspace() {
                   sessionData={sessionData}
                   rulesetId={rulesetId}
                   exportInfo={exportInfo}
-                  onExportDocx={triggerExportDocx}
+                  onExport={triggerExport}
                   selectedSegmentKey={
                     selectedRuleOrSegment?.kind === "segment"
                       ? selectedRuleOrSegment.key
@@ -621,7 +638,7 @@ function RiskEmptySkeleton() {
           样本分布 (pass / review / block) · 回测完成显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="export">
-          回测报告导出 · 完成后可一键导出 Word
+          回测报告导出 · 完成后可一键导出 Word / Excel / PDF
         </div>
       </div>
     </section>
@@ -1157,11 +1174,11 @@ function AiThinkingMsg({ msg }: { msg: ConversationMessage }) {
 function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
   return (
     <li className="rpt-msg rpt-msg--user">
-      <MessagePinHandle {...msgPinProps(msg, "策略经理")} />
+      <MessagePinHandle {...msgPinProps(msg, "风险经理")} />
       <div className="rpt-msg-body rpt-msg-body--user">
         <div className="rpt-msg-meta rpt-msg-meta--user">
           <span className="rpt-msg-at">{msg.at}</span>
-          <span className="rpt-msg-who">策略经理 · 李敏</span>
+          <span className="rpt-msg-who">风险经理 · 李敏</span>
         </div>
         <div className="rpt-msg-card rpt-msg-card--user">{msg.content}</div>
       </div>
@@ -1173,11 +1190,11 @@ function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
 function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
   return (
     <li className="rpt-msg rpt-msg--user rpt-msg--cmd">
-      <MessagePinHandle {...msgPinProps(msg, "策略经理 · 指令")} />
+      <MessagePinHandle {...msgPinProps(msg, "风险经理 · 指令")} />
       <div className="rpt-msg-body rpt-msg-body--user">
         <div className="rpt-msg-meta rpt-msg-meta--user">
           <span className="rpt-msg-at">{msg.at}</span>
-          <span className="rpt-msg-who">策略经理 · /command</span>
+          <span className="rpt-msg-who">风险经理 · /command</span>
         </div>
         <div className="rpt-msg-card rpt-msg-card--cmd">
           <code>{msg.content}</code>
@@ -1292,22 +1309,29 @@ function RiskOutputPanel(p: {
   sessionData: RiskctrlSession;
   rulesetId?: string;
   exportInfo?: ExportInfo;
-  onExportDocx?: () => void;
+  onExport?: (kind: ExportKind) => void;
   selectedSegmentKey?: SampleBar["key"] | null;
   onSelectSegment?: (key: SampleBar["key"]) => void;
 }) {
   const s = p.sessionData;
   const [tab, setTab] = useState<"dsl" | "ks" | "sample">("dsl");
   const exportStatus = p.exportInfo?.status ?? "idle";
-  const exportLabel =
-    exportStatus === "running"
-      ? "导出中…"
-      : exportStatus === "done"
-      ? "重新导出 Word"
-      : exportStatus === "error"
-      ? "重试导出"
-      : "导出回测报告 Word";
+  const exportingKind = p.exportInfo?.kind;
+  /* 3 按钮各自从 exportInfo (running/done/error · kind 同) reflect 状态 ·
+     running 时全 disable 防并发 · done 仅自己 kind 显完成 · error 显重试 */
   const exportDisabled = exportStatus === "running";
+  const renderLabel = (kind: ExportKind, text: string): string => {
+    if (exportingKind !== kind) return text;
+    if (exportStatus === "running") return "导出中…";
+    if (exportStatus === "done") return `重新${text}`;
+    if (exportStatus === "error") return `重试${text}`;
+    return text;
+  };
+  const exportButtons: ReadonlyArray<{ kind: ExportKind; label: string; testId: string }> = [
+    { kind: "docx", label: "Word", testId: "riskctrl-export-docx-btn" },
+    { kind: "xlsx", label: "Excel", testId: "riskctrl-export-xlsx-btn" },
+    { kind: "pdf", label: "PDF", testId: "riskctrl-export-pdf-btn" },
+  ];
   return (
     <section className="rpt-panel rpt-panel--preview">
       <PanelPinHandle
@@ -1333,22 +1357,28 @@ function RiskOutputPanel(p: {
         </div>
         <div className="rpt-panel-meta">
           <span className="rpt-pv-pct">AUC {s.ks.auc.toFixed(3)}</span>
-          <button
-            type="button"
-            className="riskctrl-export-btn"
-            onClick={p.onExportDocx}
-            disabled={exportDisabled}
-            data-state={exportStatus}
-            data-testid="riskctrl-export-docx-btn"
-          >
-            {exportLabel}
-          </button>
+          <div className="riskctrl-export-group" role="group" aria-label="导出回测报告 三件套">
+            {exportButtons.map((b) => (
+              <button
+                key={b.kind}
+                type="button"
+                className="riskctrl-export-btn"
+                onClick={() => p.onExport?.(b.kind)}
+                disabled={exportDisabled}
+                data-state={exportingKind === b.kind ? exportStatus : "idle"}
+                data-kind={b.kind}
+                data-testid={b.testId}
+              >
+                {renderLabel(b.kind, b.label)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {exportStatus === "error" && p.exportInfo?.message ? (
         <div className="riskctrl-export-error" role="alert">
-          导出失败：{p.exportInfo.message}
+          {exportingKind ?? ""} 导出失败：{p.exportInfo.message}
         </div>
       ) : null}
 

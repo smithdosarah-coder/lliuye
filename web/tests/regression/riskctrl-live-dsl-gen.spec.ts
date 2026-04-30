@@ -91,15 +91,20 @@ test.describe("F-RISKCTRL-LIVE-DSL-GEN · primary CTA SSE wire", () => {
   test("primary CTA triggers /api/riskctrl/dsl_gen SSE · ruleset_id renders", async ({
     page,
   }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
-
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
     const workspace = page.locator('[data-testid="riskctrl-workspace"]');
+    await workspace.waitFor({ state: "visible" });
     await expect(workspace).toHaveAttribute("data-started", "no");
 
-    // Click primary CTA · 触发 dsl_gen SSE
+    // Click primary CTA · 触发 dsl_gen SSE · waitForResponse 确定性等响应而非 networkidle
     const primaryCta = page.locator('[data-testid="riskctrl-dsl-gen-cta"]');
     await expect(primaryCta).toBeVisible();
+    const dslGenResp = page.waitForResponse(
+      (r) => r.url().includes("/api/riskctrl/dsl_gen") && r.status() === 200,
+      { timeout: 5000 },
+    );
     await primaryCta.click();
+    await dslGenResp;
 
     // 等 SSE done event 完成 · workspace started=true
     await expect(workspace).toHaveAttribute("data-started", "yes", { timeout: 5000 });
@@ -122,9 +127,15 @@ test.describe("F-RISKCTRL-LIVE-DSL-GEN · primary CTA SSE wire", () => {
         body: "internal server error · LLM provider unavailable",
       });
     });
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
+    const dslGenResp = page.waitForResponse(
+      (r) => r.url().includes("/api/riskctrl/dsl_gen"),
+      { timeout: 5000 },
+    );
     await page.locator('[data-testid="riskctrl-dsl-gen-cta"]').click();
+    await dslGenResp;
 
     // banner 显式出现 (不 silent fallback mock)
     const banner = page.locator('[data-testid="riskctrl-live-fail-banner"]');

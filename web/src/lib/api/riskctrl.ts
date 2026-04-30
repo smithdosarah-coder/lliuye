@@ -2,7 +2,8 @@
  * Riskctrl/Forge API client (Phase A worker-A4 · 2026-04-29 · sse-envelope §1.5).
  *
  * Endpoints (按 backend agent_riskctrl/api.py v4.1 · SSE 化后):
- *   POST /api/riskctrl/dsl_gen     · SSE · {strategy_intent, sample_csv_path?, provider?, api_key?, mock?}
+ *   POST /api/riskctrl/dsl_gen     · SSE · {strategy_intent, sample_csv_path?, mock?}
+ *     (provider/api_key 不通过 body 暴露 · 一律 backend env · CLAUDE.md §3.6 PIPL fallback)
  *   POST /api/riskctrl/backtest    · SSE · {ruleset, csv_path, label_column?, bad_threshold?}
  *   POST /api/riskctrl/export_docx · binary blob · {ruleset_id}
  *   POST /api/riskctrl/export_xlsx · binary blob · {ruleset_id}
@@ -36,8 +37,6 @@ export type DslGenRequest = {
   strategyIntent: string;
   /** (可选) 历史样本 CSV 路径 · 用于 LLM 字段对齐 */
   sampleCsvPath?: string;
-  provider?: string;
-  apiKey?: string;
   /** true → backend 跳 LLM 走预设 mock RuleSet (无 key 环境演示) */
   mock?: boolean;
 };
@@ -83,8 +82,6 @@ export async function runDslGen(
   const body = {
     strategy_intent: req.strategyIntent,
     sample_csv_path: req.sampleCsvPath,
-    provider: req.provider ?? "deepseek",
-    api_key: req.apiKey ?? "",
     mock: req.mock ?? false,
   };
   let donePayload: DslGenDonePayload | null = null;

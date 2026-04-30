@@ -44,7 +44,8 @@ test.describe("F-RISKCTRL-MOCK-SWITCH · 4 gate session dropdown", () => {
   test("default empty state · click history dropdown + apply enters started=true with sess_credit_v15", async ({
     page,
   }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
     const workspace = page.locator('[data-testid="riskctrl-workspace"]');
     await expect(workspace).toBeVisible();
@@ -66,7 +67,8 @@ test.describe("F-RISKCTRL-MOCK-SWITCH · 4 gate session dropdown", () => {
   test("switch to sess_aml_kyc via session-switch dropdown refreshes 5 panels", async ({
     page,
   }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
     // Step 1 · 进入 started state via tertiary history
     const historyDropdown = page.locator('[data-testid="riskctrl-history-dropdown"]');
@@ -97,7 +99,8 @@ test.describe("F-RISKCTRL-MOCK-SWITCH · 4 gate session dropdown", () => {
   test("switch to sess_fraud_high (red zone) shows extreme tier values", async ({
     page,
   }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
     // 进入 started
     await page.locator('[data-testid="riskctrl-history-dropdown"]').selectOption("sess_credit_v15");

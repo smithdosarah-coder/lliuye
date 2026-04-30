@@ -42,7 +42,8 @@ test.describe("F-RISKCTRL-SAMPLE-SEGMENT-DETAIL · selection 4th gate", () => {
   test("click sample segment toggles data-selected · multi-segment exclusive", async ({
     page,
   }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
     // 进 started · 选 sess_credit_v15 (12,400 样本 · pass/review/block)
     await page.locator('[data-testid="riskctrl-history-dropdown"]').selectOption("sess_credit_v15");
@@ -80,7 +81,8 @@ test.describe("F-RISKCTRL-SAMPLE-SEGMENT-DETAIL · selection 4th gate", () => {
   });
 
   test("session switch clears selectedRuleOrSegment", async ({ page }) => {
-    await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+    await page.goto("/archive/riskctrl", { waitUntil: "domcontentloaded" });
+    await page.locator('[data-testid="riskctrl-workspace"]').waitFor({ state: "visible" });
 
     // 进 started · 选样本档
     await page.locator('[data-testid="riskctrl-history-dropdown"]').selectOption("sess_credit_v15");

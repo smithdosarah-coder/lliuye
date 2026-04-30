@@ -95,8 +95,6 @@ class DslGenRequest(BaseModel):
     sample_csv_path: str | None = Field(
         default=None, description="(可选) 历史样本 CSV 路径 · 用于 LLM 对照字段"
     )
-    provider: str = Field(default="deepseek", description="LLM provider")
-    api_key: str = Field(default="", description="LLM api_key (留空走 env)")
     mock: bool = Field(
         default=False,
         description="true → 返预设 RuleSet · 不调 LLM (无 key 环境可 demo)",
@@ -116,7 +114,8 @@ def _sse_headers() -> dict[str, str]:
 async def riskctrl_dsl_gen(req: DslGenRequest):
     """自然语言 → RuleSet JSON · SSE stream · stage 流 + done envelope.
 
-    Body:    { strategy_intent | rule_text, sample_csv_path?, provider?, api_key?, mock? }
+    Body:    { strategy_intent | rule_text, sample_csv_path?, mock? }
+    LLM provider/api_key 不通过 body 传 · 一律走 env (PIPL fallback chain · CLAUDE.md §3.6).
     Stream:
         event: stage   {stage: parse_intent | build_prompt | validate_dsl, status}
         event: done    {ruleset, ruleset_id, source: llm|mock, csv_columns?, data_source}
@@ -187,17 +186,12 @@ async def riskctrl_dsl_gen(req: DslGenRequest):
         yield encode_event(make_stage("build_prompt", "running", message="组装 LLM prompt..."))
 
         # LLM 真接 · A4 caller 5 迁 shared.llm_caller (CLAUDE.md §3.6 PIPL fallback chain)
-        # req.provider 非默认 deepseek 时 · 作为 chain leading entry · 仍兜底 dashscope
-        chain: list[str] | None = None
-        if req.provider and req.provider != "deepseek":
-            chain = [req.provider, "dashscope"]
+        # provider/api_key 不从 body 传 · 一律 env (DEFAULT_FALLBACK_CHAIN deepseek+dashscope)
         try:
             from shared.llm_caller import make_json_caller
             caller = make_json_caller(
                 agent_id="riskctrl",
                 endpoint="/api/riskctrl/dsl_gen",
-                chain=chain,
-                api_key=req.api_key,
                 temperature=0.3,
             )
             yield encode_event(make_stage("build_prompt", "done"))
@@ -209,7 +203,7 @@ async def riskctrl_dsl_gen(req: DslGenRequest):
 
         if llm_json is None:
             yield encode_event(make_error(
-                "LLM 调用失败 · fallback chain 全部不可用 · 请重试或换 provider",
+                "LLM 调用失败 · fallback chain 全部不可用 · 请重试或检查 env LLM key",
                 code="LLM_FALLBACK_EXHAUSTED",
             ))
             return
