@@ -39,20 +39,30 @@ codex exec -c 'model_reasoning_effort="medium"' --output-last-message <path> "<p
 
 **默认 `medium`** · 不主动选 `xhigh`。
 
-### 1.2 Hard timeout 30 min + auto fallback (强制)
+### 1.2 卡死监控 + manual fallback (PM 2026-04-30 ratify)
 
-主 CLI fire codex bg 后 · 30 min 内 verdict 文件不出 → **必 kill + 立即 fallback to manual review**。
+**PM 拍板: codex 慢 OK · 只要进程没死 · 主 CLI 真等 · 不要 30 min hard timeout 强 fallback**。
 
-```python
-# 监控伪代码
-fire_codex_bg(task_id="...")
-sleep(30 * 60)  # 30 min
-if not verdict_file_exists():
-    TaskStop(task_id)
-    fallback_to_manual_review()  # 主 CLI 自己 review · 写 verdict doc 标 review-mode=manual
-```
+理由: codex deep-think (xhigh / high reasoning) 真有用 · verdict 质量 > 速度 · PM 等得起。Day 2 真问题不是慢 · 是没人 monitor + main CLI 没并行干别的事。
 
-**不允许等 60+ min** · 之前 Day 2 卡 60+ min × 2 轮的犯错不重复。
+**真"卡死"判定 (3 选 1 才 fallback)**:
+- (a) codex.exe 进程消失 (PowerShell `Get-Process codex` count = 0 · process crashed)
+- (b) bg task status = "completed" (BashOutput) 但 verdict 文件 0 byte / 不存在 (codex CLI exit 但没写 output)
+- (c) bg task status = "running" 持续 ≥ 90 min 且 codex.exe CPU usage 0% (真 deadlock · 用 PowerShell `Get-Process codex | Select-Object CPU`)
+
+**正常慢 (允许等)**:
+- bg task status = "running" + codex.exe alive + CPU usage > 0% (codex 真在算)
+- 等 60-90 min OK · main CLI 同时干其他活 (cron tick 等 · 不空等)
+
+**监控节奏**:
+- 每 cron tick (5 min) check: `TaskOutput block=false` + codex.exe count
+- 每 30 min check: `Get-Process codex | Select CPU` (verify CPU > 0%)
+- 90 min 还没出 + CPU 0% → fallback manual
+
+**不允许的反模式**:
+- 等 2h+ 不监控 (Day 2 第 1 轮 bpm32m8n6 卡 2h 是 monitor 缺失 fault · 不是 codex fault)
+- 不 fallback (有真 deadlock 信号还硬等 · 浪费 main CLI 时间)
+- 见慢就 kill (codex 真在算 · CPU > 0% · 没死信号 · 不要预 kill)
 
 ### 1.3 Sequential not parallel (强制)
 
@@ -141,11 +151,14 @@ A4-alert DONE → fire codex (medium) → wait verdict ≤ 15 min → AGREE → 
 | 指标 | SLA | 违反 fallback |
 |---|---|---|
 | Codex health PONG | ≤ 60s | 跳过 codex · escalate PM |
-| Standard review (medium) | ≤ 15 min | 30 min hard timeout · manual fallback |
-| Complex review (high) | ≤ 30 min | 30 min hard timeout · manual fallback (high → medium 拆段重 fire) |
-| Manual review fallback | ≤ 10 min | 主 CLI 自己 review (这是 Day 2 验过的 baseline) |
+| Standard review (medium) | ≤ 15 min target · 60 min PM 容忍 | 90 min + CPU=0 → manual |
+| Complex review (high) | ≤ 30 min target · 90 min PM 容忍 | 90 min + CPU=0 → manual |
+| Deep review (xhigh · 主动 invoke) | ≤ 90 min · PM 等得起 | 真死信号 (process disappear) 才 fallback |
+| Manual review fallback | ≤ 10 min | 主 CLI 自己 review (Day 2 验过 baseline) |
 
-**理论上 Codex 健康 + protocol v2 严守 → manual fallback 出现率应 ≤ 10%** (主要 codex backend rate limit 时段)。Day 2 manual fallback 100% 是 protocol v1 失控 + reasoning effort xhigh 全局误配的双重 fault。
+**理论上 Codex 健康 + protocol v2 严守 + 主 CLI 持续 monitor → manual fallback 出现率应 ≤ 5%** (主要 codex CLI 真 crash / quota 问题)。Day 2 manual fallback 100% 是 protocol v1 失控 (无 monitor + 5 并发 + 全局 xhigh) 的多重 fault · 不是 codex fault。
+
+**PM 2026-04-30 ratify**: "我能等 · 只要他没卡死就行" → 协议优先 codex verdict 质量 · 不预设 hard timeout · 主 CLI 真 monitor 真 fallback 才 manual。
 
 ---
 
