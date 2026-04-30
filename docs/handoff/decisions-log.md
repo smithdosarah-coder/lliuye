@@ -2463,3 +2463,120 @@ PM 拍 **`compliance`** 为 agent5 单 id (frontend `AgentKey` + backend `RBAC A
 - 衍生 (worker-A1 V3): `WORKER-A1-SSOT-V3-COMPLIANCE-LOCKED`
 
 ---
+
+### Q-043 (2026-04-30 · Day 2 PM ratify) · Codex peer-review protocol v2 ratify
+
+**Type**: PM ratification (codex 协作模式硬规)
+**Triggered by**: Day 2 13:00+ Codex bg review A4-riskctrl + A4-report V2 卡 60+ min × 2 轮 · 主 CLI manual fallback ship 5/5 V2 · 暴露 protocol v1 缺陷 (无 timeout · 无 fallback · 无 reasoning gate · 全局 xhigh 误配)
+**Blocking**: no (本 entry 形式化 PM 拍板 · protocol v2 doc 9af8b12 已 commit)
+
+#### 决议
+
+PM 2026-04-30 ratify Codex peer-review protocol v2 (`docs/contracts/codex-peer-protocol-v2.md`)。
+
+5 条硬规:
+1. **Per-call reasoning effort override 强制** (`-c 'model_reasoning_effort="medium"'`) · 默认 medium · 不依赖全局 xhigh
+2. **PM 拍 "我能等只要不卡死"** · 不预设 30 min hard timeout · 进程没死 + CPU > 0% 真等 · 90 min CPU=0 才 fallback (PM verbatim ratify · commit 058480a)
+3. **Sequential 不并发** · 1 codex bg at a time · 5 并发是 Day 2 诱因之一
+4. **复杂 prompt 拆段** (推荐 · 6+ issue → 6 single-issue review)
+5. **Verdict commit 必含 trailer**: `REVIEW-MODE` (codex/manual) + `REASONING-EFFORT` (low/medium/high/xhigh) + `ELAPSED` (minutes)
+
+#### PM 视角 SLA (codex 协作 deliverability)
+
+| 指标 | SLA | 违反 fallback |
+|---|---|---|
+| Codex health PONG | ≤ 60s | 跳过 codex · escalate PM |
+| Standard review (medium) | ≤ 15 min target · 60 min PM 容忍 | 90 min + CPU=0 → manual |
+| Complex review (high) | ≤ 30 min target · 90 min PM 容忍 | 90 min + CPU=0 → manual |
+| Deep review (xhigh · 主动 invoke) | ≤ 90 min · PM 等得起 | 真死信号才 fallback |
+| Manual review fallback | ≤ 10 min | 主 CLI 自己 review (Day 2 验过 baseline) |
+
+**fallback rate target ≤ 5%** (主要 codex CLI 真 crash / quota · Day 2 100% 是 protocol v1 失控 · 不是 codex fault)。
+
+#### Active rule 回写到 root CLAUDE.md §3.7.4
+
+per CLAUDE.md §15 SSOT Tier 1-2 active decision 回写硬规 (Q-042) · 本 PM 拍板必须回写 root CLAUDE.md §3.7。
+
+worker (主 CLI 自己 · 同 commit batch · 见 commit message): 加 §3.7.4 Codex peer-review protocol v2 active rule:
+- 位置: CLAUDE.md §3.7 后 (与 3.7.1 + 3.7.2 + 3.7.3 同列)
+- 引用: `docs/contracts/codex-peer-protocol-v2.md`
+- 触发场景: 任何 codex bg fire (含 worker post-DONE review / Phase A audit / 三方辩论)
+- 谁可放宽: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer
+
+#### Follow-up
+
+1. ✅ 主 CLI 后续 codex 调用必加 `-c 'model_reasoning_effort="medium"'` (本 commit 立即生效)
+2. ✅ 主 CLI 后续 codex bg fire 后必 30 min 监控 + auto fallback (本 commit 立即生效 · 已实战验证 5 次 · Codex R1 v2 + Stage 4 verify + Phase A audit + 三方辩论 R1/R2 全 sequential single bg + monitor)
+3. 🟡 待 (worker-A1 SSOT lint v2): scripts/lint/check_agent_naming_ssot.py 加 codex protocol check (verdict commit trailer 必含 REVIEW-MODE)
+4. 🟡 待 PM 拍板: `~/.codex/config.toml` 是否改全局默认 `medium` (推荐改 · 但保 xhigh 作为 manual override 路径)
+
+#### Signals
+
+- 本 PM ratify entry signal: `Q-043-CODEX-PROTOCOL-V2-RATIFIED`
+- 主 CLI 后续 codex bg fire 必含 trailer `REVIEW-MODE: codex` + `REASONING-EFFORT: medium|high|xhigh` + `ELAPSED: <minutes>`
+
+---
+
+### Q-044 (2026-04-30 · Day 2 PM ratify) · 三方辩论 (Main CLI ↔ Codex ↔ Gemini) ratify
+
+**Type**: PM ratification (前端优化方案 · Phase B 规划)
+**Triggered by**: PM 2026-04-30 ultrathink "三方辩论至少 3 轮 · Gemini 审美权重重 · 不硬改 / 理有据有可行性 / 我们已最优就不改 / 保持产品特色"
+**Blocking**: no (本 entry 形式化 ratify · 完整版方案 doc 待 v4 出齐 commit)
+
+#### 决议
+
+PM 2026-04-30 ratify 三方辩论协议 + 完整版前端优化方案 v3 → v4 (重启后):
+
+**辩论参与者 + 权重**:
+- 主 CLI = 产品 PM 视角 (4 角色 + 银行金融场景 + Evidence-First)
+- Codex = 技术/逻辑视角 (file:line 证据 + 工程量精准 · R1 v2 全扫 web/src 156 文件)
+- Gemini Pro = 审美/IA 视角 (真截图 12 view · 审美权重重)
+
+**轮次**: R1 独立 → R2 互检 → R3 主 CLI 综合 (≥ 3 轮 per PM ratify)
+
+**v3 完整版方案 v3** (820e64e) → **v4** 重启 (R1 v2 全扫后 6 个产品深 bug 加补):
+
+v3 14 action (UI/视觉 + 部分产品) + Codex R1 v2 7 action (产品深 bug 修) = v4 ~21 action · ~6.5-7 周 (含并行 ~5-5.5 周)
+
+**Codex R1 v2 6 个 game-changer bug** (v3 全漏 · 必修):
+1. P0 客户上下文断链 (archive workspace 不读 ?customer query)
+2. P0 Evidence-First 假 fixture (6 workspace 全用固定 evidence · 反 north star §3.3)
+3. P1 Dispatch 双发送 bug (重复 fetch /api/im/send · RM 收重复回复)
+4. P1 Warroom rejected 工单消失 (drawer 可 reject · kanban 没 lane)
+5. P1 Audit 非可靠审计 (event-bus cap 200 不持久)
+6. P2 ScanCTA 幽灵 API (失败 warn 始终 onDone)
+
+**3 真冲突 R3 v3 已 verdict** (v4 仍沿用):
+- A5 跨 Agent 冲突 UI: 分阶段 (B-3 spike + Phase C 完整)
+- AI 助手卡路由: 分阶段 (B-1 修补 + B-3 ⌘+K 慢迁)
+- 登录页黑洞: 接受 Gemini 提权 P1 (B-1 做)
+
+**5 维度三方 v3 unanimously lock** (v4 沿用):
+- 视觉: 弃黑洞 + 全屏渐变折中 + 字体栈中文优先 + 删手写斜体
+- IA: /today 头重脚轻改造 + /archive 弱化
+- UX: 收敛圆角 + Action Card 组件族合并
+- 中文金融: ¥50,000,000.00 + Tabular Figures + 右对齐 + 术语纯中文
+- 产品深: Hero 真指标 + Agent6→Agent3 单链路 + Handoff 任务卡 + Agent3 segment-aware
+
+**5 PM 拍板项** (v3 已列 · v4 沿用 + 新增 1 条):
+1. 全屏渐变折中 (✅ 推荐 A)
+2. 登录页黑洞替换 (待 PM 校验是否舍弃 Interstellar 品牌实验)
+3. A5 分阶段 (✅ 推荐 A)
+4. AI 助手卡路由分阶段 (✅ 推荐 A)
+5. Action Card 组件族合并 (✅ 推荐 A)
+6. **(v4 新增) Codex R1 v2 6 bug 是否全接 v4 路径** (✅ 推荐 全接 · bug 不是优化 · 必修)
+
+#### Follow-up
+
+1. ⏳ 等 Gemini R1 v2 (sub-agent a2edadaa3ad3d9558 · 分 2 批传 12 张 · ~10-15 min)
+2. ⏳ R2 互检 fire 3 路 (主 CLI + Codex bg + Gemini sub-agent)
+3. ⏳ R3 主 CLI 综合 → 完整版方案 v4 doc
+4. PM 拍板 5+1 项后落 Phase B charter (`docs/reset/phase-b-charter.md` 加 worker-B1 + B-3 + B 末)
+
+#### Signals
+
+- 本 PM ratify entry signal: `Q-044-THREE-WAY-DEBATE-RATIFIED`
+- v4 完整版方案 commit signal: `FINAL-FRONTEND-OPTIMIZATION-PLAN-V4` (待 R3 v2 完后)
+- Phase B charter commit signal: `PHASE-B-CHARTER-V1` (待 PM 拍 5+1 项后)
+
+---

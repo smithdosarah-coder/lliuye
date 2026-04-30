@@ -125,6 +125,15 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **完整规则**: 见 §3.6 (LLM Caller 唯一化 + PIPL 合规 fallback chain)
 - **回写来源**: decisions-log Stage E.3 (2026-04-28) PIPL 境内优先决议
 
+#### 3.7.4 Codex peer-review protocol v2 (Q-043 · 2026-04-30 PM ratify)
+
+- **规则简述**: 任何 codex bg fire 必加 `-c 'model_reasoning_effort="medium"'` per-call override (默认 medium · 不依赖 `~/.codex/config.toml` 全局 xhigh) · sequential 不并发 (1 codex bg at a time) · 主 CLI 监控 90 min CPU=0 才 fallback to manual · verdict commit 必含 trailer `REVIEW-MODE` (codex/manual) + `REASONING-EFFORT` (low/medium/high/xhigh) + `ELAPSED` (minutes)
+- **位置**: `docs/contracts/codex-peer-protocol-v2.md` v1.1 (主 CLI 起草 · PM 2026-04-30 ratify "我能等只要不卡死")
+- **理由**: Day 2 13:00+ Codex bg review A4-riskctrl + A4-report V2 卡 60+ min × 2 轮 · 主 CLI manual fallback ship 5/5 V2 · 暴露 protocol v1 缺陷 (无 timeout · 无 fallback · 无 reasoning gate · 全局 xhigh 误配)。真因 verified: codex CLI healthy (PONG 24s OK with medium) · 但 xhigh + 复杂 prompt 进入"超深度思考" 60+ min · 主 CLI 没 monitor + 5 并发是诱因。
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断 (e.g. 跑 deep review xhigh 必 PM 显 invoke · 跑 parallel codex bg 必 PM 显 invoke)
+- **PM SLA**: standard medium ≤ 15 min target / 60 min PM 容忍 · complex high ≤ 30 min / 90 min · deep xhigh ≤ 90 min · manual fallback ≤ 10 min · fallback rate ≤ 5%
+- **回写来源**: decisions-log Q-043 (2026-04-30) + 5 实战验证 (Codex R1 v2 + Stage 4 verify + Phase A audit + 三方辩论 R1/R2 全 sequential single bg + monitor)
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
