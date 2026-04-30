@@ -15,7 +15,7 @@
 @import "./views.css";
 
 /**
- * Globals · Phase A5 post-Letterpress purge (2026-04-29)
+ * Globals · Phase A5 post-purge (2026-04-29 · 老主题已下架 per CLAUDE.md §7)
  * 颜色 token 全收敛至 tokens.css (--g0..--g7 / --ink / --chalk / --accent / --t-*).
  * 本文件仅留: tailwind import + 共享 elevation/motion + 基础 typography 类 + ink-pulse.
  */
@@ -98,6 +98,6 @@ body {
 
 /* Phase A5 (2026-04-29) · 旧 INK 主题电影级暗调/古铜金 + selector-form
    override block 全删 (~250 行). 新 ink 主题视觉由 tokens.css [data-theme="ink"]
-   驱动 (水墨宣纸→深墨 · 替代 v1 Letterpress · CLAUDE.md §7).
+   驱动 (水墨宣纸→深墨 · 替代历史老主题 · per CLAUDE.md §7).
    page-photo-bg-css / hero-photo-* / editorial-eyebrow / 印章 system 已下架,
    未在仓内被任何 consumer 引用 (grep verified). */

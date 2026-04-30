@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 type Theme = "canvas" | "matcha" | "dusk" | "ink";
 
 /**
- * 4 主题切换器（Canvas / Matcha / Dusk / Ink）。
- * Letterpress (crimson) / Nebula (紫粉) 已下架 — 用户判老 DEMO 视感 / 重 saturate。
+ * 4 主题切换器（Canvas / Matcha / Dusk / Ink · platform shell-v2 lock 定稿）。
+ * 历史下架的老主题 (per CLAUDE.md §7 红线) · 不复活。
  * 2026-04-23 · 改双态：
  *   - 缩略态（默认）· 单 pill 气泡（和 CanvasModeToggle 同大小），显示当前主题色圆点 + "主题"
  *   - 展开态 · 完整 4 主题横向 chip 栏
