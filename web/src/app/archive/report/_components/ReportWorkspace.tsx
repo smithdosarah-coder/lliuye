@@ -23,7 +23,9 @@ import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
   exportReportDocx,
+  exportReportPdf,
   refineReportSection,
+  streamReportDemoRun,
   streamReportV16Fill,
   triggerDownloadBlob,
   uploadReportMaterials,
@@ -44,9 +46,11 @@ import { REPORT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   REPORT_GLOBAL_STATS,
   REPORT_SESSION,
+  liveToReportSession,
   type ConversationMessage,
   type PreviewField,
   type PreviewSection,
+  type ReportSession,
   type TimelineEvent,
 } from "@/lib/mock/agent-report-session";
 
@@ -55,12 +59,19 @@ const AGENT_HREF = "/archive/report";
 const AGENT_ACCENT = "--t-report";
 
 export function ReportWorkspace() {
-  const s = REPORT_SESSION;
-  const coverPct = Math.round((s.coverage.filled / s.coverage.total) * 100);
+  /* Phase A worker-A4 V2 (codex DISAGREE issue 1 fix · 2026-04-29):
+     5 panel sessionData = liveData ?? REPORT_SESSION 单点派生 · 不再静态 mock 占主源.
+     liveToReportSession 把 v16 done envelope 标准化成 ReportSession shape ·
+     demo/run easy/medium/hard + real /v16/fill 都走同一管道 · 切换可见. */
 
-  /* W-CF-A1 · empty-state-design-protocol §3 · default false · DO NOT auto-fire LLM。
-     之前 `scanned` 也是 false 但被 ScanCTA onDone 解锁 · 现按规范升级:
-     started 由 user-trigger 改 · 3 CTA (上传 / 模板 / 历史) 显式控制。 */
+  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A4 (2026-04-29)
+     (1) started          · user-trigger gate · 3 CTA (上传 / 模板 / 历史) 显式 setStarted(true)
+     (2) selectedSession  · historyChoice · 选 mock 演示 session (training/demo)
+     (3) liveData         · v16 fill / demo/run done envelope · 5 panel 单点派生 · 之前叫 livePayload
+     (4) selectedSection  · 用户点 section nav 切到的章节 · 替代 ScanCTA onDone gate · ESC 关
+     5 panel: 材料 grid (MaterialPanel) / 时间流 (TimelinePanel) / A4 预览 (PreviewPanel)
+              / FieldChip 3 态 (FieldChip 内嵌 PreviewPanel) / 工具栏 (PreviewPanel toolbar) */
+
   const [started, setStarted] = useState(false);
   const [reportId, setReportId] = useState<string>("");
   const [mode, setMode] = useState<"mock" | "live">("mock");
@@ -68,11 +79,22 @@ export function ReportWorkspace() {
   const [templateChoice, setTemplateChoice] = useState<string>("");
   const [historyChoice, setHistoryChoice] = useState<string>("");
 
-  // v16 fill 流式状态
+  // v16 fill / demo/run 流式状态 · liveData = gate 3 (workspace-state-protocol §2)
   const [liveStages, setLiveStages] = useState<ReportV16StageEvent[]>([]);
-  const [livePayload, setLivePayload] = useState<ReportV16DoneEvent | null>(null);
+  const [liveData, setLiveData] = useState<ReportV16DoneEvent | null>(null);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  // gate 4 · selectedSection · TOC click 切章节 · ESC 关 (Channel 4-gate parity · drawer pattern 复用)
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+
+  /* sessionData 单点派生 (V2 issue 1 fix) · live > mock fallback ·
+     5 panel + Hero + PipelineBand 都消费此 derived value · 不再 import REPORT_SESSION 直读 */
+  const derivedFromLive = liveToReportSession(liveData);
+  const sessionData: ReportSession = derivedFromLive ?? REPORT_SESSION;
+  const s = sessionData;
+  const coverPct = Math.round((s.coverage.filled / Math.max(s.coverage.total, 1)) * 100);
   const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
@@ -113,6 +135,16 @@ export function ReportWorkspace() {
     };
   }, []);
 
+  /* gate 4 · ESC 关 selectedSection · 4-gate parity with ChannelWorkspace selectedCandidate */
+  useEffect(() => {
+    if (!selectedSection) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") setSelectedSection(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedSection]);
+
   /* ── handlers ───────────────────────────────────────────────────── */
 
   const triggerV16Fill = useCallback(
@@ -120,7 +152,7 @@ export function ReportWorkspace() {
       if (generating) return;
       setGenerating(true);
       setLiveStages([]);
-      setLivePayload(null);
+      setLiveData(null);
       setErrMsg(null);
       setLiveFailErr(null); // 重试时清旧 banner
 
@@ -141,7 +173,7 @@ export function ReportWorkspace() {
             if (evt.event === "stage") {
               setLiveStages((prev) => [...prev, evt as ReportV16StageEvent]);
             } else if (evt.event === "done") {
-              setLivePayload(evt as ReportV16DoneEvent);
+              setLiveData(evt as ReportV16DoneEvent);
             } else if (evt.event === "error") {
               const msg = (evt as ReportV16ErrorEvent).message;
               setErrMsg(msg);
@@ -221,7 +253,7 @@ export function ReportWorkspace() {
       setMode("mock");
       setStarted(true);
       setReportId(mid);
-      // 真 fire SSE → backend /v16/fill explicit_mock · livePayload + sections hydrate · 主列不再空白
+      // 真 fire SSE → backend /v16/fill explicit_mock · liveData + sections hydrate · 主列不再空白
       // pass reportIdOverride 因 setReportId 异步 · closure 里 reportId 仍是旧值
       setTimeout(() => triggerV16Fill({ reportIdOverride: mid, explicitMock: true }), 0);
       return;
@@ -266,7 +298,7 @@ export function ReportWorkspace() {
 
   const handleRefineSection = useCallback(
     async (sectionId: string, userEdit: string) => {
-      const sid = livePayload?.session_id;
+      const sid = liveData?.session_id;
       if (!sid) {
         setErrMsg("未拿到 session_id · 请先生成报告");
         return;
@@ -277,7 +309,7 @@ export function ReportWorkspace() {
           section_id: sectionId,
           user_edit: userEdit,
         });
-        setLivePayload((prev) => {
+        setLiveData((prev) => {
           if (!prev) return prev;
           const sections: ReportV16Section[] = prev.sections ?? [];
           const idx = sections.findIndex((sec) => sec.id === sectionId);
@@ -291,7 +323,7 @@ export function ReportWorkspace() {
         setErrMsg(e instanceof Error ? e.message : String(e));
       }
     },
-    [livePayload],
+    [liveData],
   );
 
   const handleExportDocx = useCallback(async () => {
@@ -299,18 +331,18 @@ export function ReportWorkspace() {
     setExporting(true);
     setErrMsg(null);
     try {
-      const payload: ReportExportPayload = livePayload
+      const payload: ReportExportPayload = liveData
         ? {
-            session_id: livePayload.session_id,
-            sections: livePayload.sections,
-            pending_questions: livePayload.pending_questions,
-            stats: (livePayload.stats ?? {}) as Record<string, unknown>,
-            qc: (livePayload.qc ?? {}) as Record<string, unknown>,
+            session_id: liveData.session_id,
+            sections: liveData.sections,
+            pending_questions: liveData.pending_questions,
+            stats: (liveData.stats ?? {}) as Record<string, unknown>,
+            qc: (liveData.qc ?? {}) as Record<string, unknown>,
             business_line: businessLine,
             client_manager: "客户经理",
           }
         : {
-            // 还没拿到 livePayload · 用 REPORT_SESSION mock 兜底 export demo
+            // 还没拿到 liveData · 用 REPORT_SESSION mock 兜底 export demo
             report_id: reportId || `demo-${Date.now()}`,
             profile: { company_name: REPORT_SESSION.clientName },
             sections: REPORT_SESSION.preview.map((p) => ({
@@ -330,7 +362,87 @@ export function ReportWorkspace() {
     } finally {
       setExporting(false);
     }
-  }, [exporting, livePayload, businessLine, reportId]);
+  }, [exporting, liveData, businessLine, reportId]);
+
+  /* Phase A worker-A4 · demo/run · scenario_id (easy/medium/hard) · 不调 LLM · 5 原则 §3.5 */
+  const handleDemoRun = useCallback(
+    (scenarioId: "easy" | "medium" | "hard") => {
+      if (generating) return;
+      setGenerating(true);
+      setLiveStages([]);
+      setLiveData(null);
+      setErrMsg(null);
+      setLiveFailErr(null);
+      setStarted(true);
+      setMode("mock");
+
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
+      streamReportDemoRun(
+        { scenario_id: scenarioId },
+        {
+          signal: ac.signal,
+          onEvent: (evt: ReportV16Event) => {
+            if (evt.event === "stage") {
+              setLiveStages((prev) => [...prev, evt as ReportV16StageEvent]);
+            } else if (evt.event === "done") {
+              const done = evt as ReportV16DoneEvent;
+              setLiveData(done);
+              if (done.session_id) setReportId(done.session_id);
+            } else if (evt.event === "error") {
+              setErrMsg((evt as ReportV16ErrorEvent).message);
+            }
+          },
+          onClose: () => setGenerating(false),
+          onError: (e) => {
+            setErrMsg(e.message);
+            setGenerating(false);
+          },
+        },
+      );
+    },
+    [generating],
+  );
+
+  /* G-10 闭环 · export PDF 真接 · 与 export Word 同源 payload · pdf 走 reportlab */
+  const handleExportPdf = useCallback(async () => {
+    if (exportingPdf) return;
+    setExportingPdf(true);
+    setErrMsg(null);
+    try {
+      const payload: ReportExportPayload = liveData
+        ? {
+            session_id: liveData.session_id,
+            sections: liveData.sections,
+            pending_questions: liveData.pending_questions,
+            stats: (liveData.stats ?? {}) as Record<string, unknown>,
+            qc: (liveData.qc ?? {}) as Record<string, unknown>,
+            business_line: businessLine,
+            client_manager: "客户经理",
+          }
+        : {
+            report_id: reportId || `demo-${Date.now()}`,
+            profile: { company_name: REPORT_SESSION.clientName },
+            sections: REPORT_SESSION.preview.map((p) => ({
+              id: p.id,
+              title: `${p.anchor} ${p.title}`,
+              content: p.content || "(暂无内容)",
+              status: "done" as const,
+              word_count: (p.content ?? "").length,
+            })),
+            business_line: businessLine,
+            client_manager: "客户经理 (示例)",
+          };
+      const { blob, filename } = await exportReportPdf(payload);
+      triggerDownloadBlob(blob, filename);
+    } catch (e) {
+      setErrMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [exportingPdf, liveData, businessLine, reportId]);
 
   const lastStage = liveStages.length
     ? liveStages[liveStages.length - 1]
@@ -347,7 +459,7 @@ export function ReportWorkspace() {
         data-mode={mode}
         data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
       >
-        <ReportHero coverPct={coverPct} />
+        <ReportHero coverPct={coverPct} sessionData={sessionData} />
         <ReportLiveFailBanner
           err={liveFailErr}
           onRetry={() => triggerV16Fill()}
@@ -379,26 +491,29 @@ export function ReportWorkspace() {
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
         />
+        {/* Phase A worker-A4 · 3-档 demo CTA · 5 原则 §3.5 难度分层 · 不调 LLM · 客户走访稳定 */}
+        <ReportDemoStrip onRun={handleDemoRun} disabled={generating} />
         {started ? (
           <>
-            {liveStages.length > 0 || livePayload ? (
+            {liveStages.length > 0 || liveData ? (
               <ReportLiveStrip
                 stages={liveStages}
                 lastStage={lastStage}
-                done={livePayload}
+                done={liveData}
                 generating={generating}
                 mode={mode}
               />
             ) : null}
-            <ReportPipelineBand />
+            <ReportPipelineBand sessionData={sessionData} />
             <div className="rpt-body">
               <aside className="rpt-side">
                 <TemplatePanel
                   onUploadTemplate={handleUploadTemplate}
                   uploadedTemplate={uploadedTemplate}
+                  sessionData={sessionData}
                 />
-                <MaterialPanel />
-                <TimelinePanel />
+                <MaterialPanel mode={mode} sessionData={sessionData} />
+                <TimelinePanel mode={mode} sessionData={sessionData} />
               </aside>
               <main className="rpt-main">
                 {/* B-cta · maxWidth 480 → 320 收紧 · 居中 · 解决 RM 抱怨"巨大不合理交互按钮" */}
@@ -419,19 +534,30 @@ export function ReportWorkspace() {
                     ]}
                   />
                 </div>
-                <ConversationPanel>
-                  <ReportComposer />
+                <ConversationPanel sessionData={sessionData}>
+                  <ReportComposer sessionData={sessionData} />
                 </ConversationPanel>
-                {livePayload?.sections && livePayload.sections.length > 0 ? (
+                {liveData?.sections && liveData.sections.length > 0 ? (
                   <ReportLiveSections
-                    sections={livePayload.sections}
+                    sections={liveData.sections}
                     onRefine={handleRefineSection}
                     mode={mode}
                   />
                 ) : null}
               </main>
               <aside className="rpt-aux">
-                <PreviewPanel coverPct={coverPct} />
+                <PreviewPanel
+                  coverPct={coverPct}
+                  mode={mode}
+                  sessionData={sessionData}
+                  isLive={derivedFromLive !== null}
+                  selectedSection={selectedSection}
+                  onSelectSection={setSelectedSection}
+                  onExportDocx={handleExportDocx}
+                  onExportPdf={handleExportPdf}
+                  exporting={exporting}
+                  exportingPdf={exportingPdf}
+                />
               </aside>
             </div>
             <section
@@ -463,8 +589,8 @@ export function ReportWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ReportHero({ coverPct }: { coverPct: number }) {
-  const s = REPORT_SESSION;
+function ReportHero({ coverPct, sessionData }: { coverPct: number; sessionData: ReportSession }) {
+  const s = sessionData;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -500,8 +626,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /* ── Hero Band · 文档解析 4 阶段进度带（v2 差异化） ─── */
 
-function ReportPipelineBand() {
-  const s = REPORT_SESSION;
+function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
+  const s = sessionData;
   const matTotal = s.materials.length;
   const matParsed = s.materials.filter((m) => m.parsed).length;
   const matPct = matTotal ? Math.round((matParsed / matTotal) * 100) : 0;
@@ -601,11 +727,12 @@ function ReportPipelineBand() {
 function TemplatePanel(props: {
   onUploadTemplate?: (files: File[]) => void;
   uploadedTemplate?: string;
+  sessionData: ReportSession;
 }) {
-  const tpl = REPORT_SESSION.template;
-  const avail = REPORT_SESSION.availableTemplates;
-  const cov = REPORT_SESSION.coverage;
-  const pct = Math.round((cov.filled / cov.total) * 100);
+  const tpl = props.sessionData.template;
+  const avail = props.sessionData.availableTemplates;
+  const cov = props.sessionData.coverage;
+  const pct = Math.round((cov.filled / Math.max(cov.total, 1)) * 100);
   const R = 26;
   const CIRC = 2 * Math.PI * R;
   const FILL = (pct / 100) * CIRC;
@@ -739,12 +866,16 @@ function TemplatePanel(props: {
 
 /* ── 左栏 · Material ────────────────────────────────── */
 
-function MaterialPanel() {
-  const mats = REPORT_SESSION.materials;
+function MaterialPanel({ mode, sessionData }: { mode: "mock" | "live"; sessionData: ReportSession }) {
+  const mats = sessionData.materials;
   const parsed = mats.filter((m) => m.parsed).length;
   const pending = mats.length - parsed;
   return (
-    <section className="rpt-panel rpt-panel--mat">
+    <section
+      className="rpt-panel rpt-panel--mat"
+      data-testid="report-pilot-materials"
+      data-mode={mode}
+    >
       <PanelPinHandle
         id="report:materials"
         title={`材料 · ${mats.length} 份`}
@@ -821,11 +952,15 @@ const TL_KIND_LABEL: Record<TimelineEvent["kind"], string> = {
   export: "导出",
 };
 
-function TimelinePanel() {
-  const evs = REPORT_SESSION.timeline;
-  const recent = REPORT_SESSION.recentSessions;
+function TimelinePanel({ mode, sessionData }: { mode: "mock" | "live"; sessionData: ReportSession }) {
+  const evs = sessionData.timeline;
+  const recent = sessionData.recentSessions;
   return (
-    <section className="rpt-panel rpt-panel--tl">
+    <section
+      className="rpt-panel rpt-panel--tl"
+      data-testid="report-pilot-timeline"
+      data-mode={mode}
+    >
       <PanelPinHandle
         id="report:timeline"
         title={`时间流 · ${evs.length} 事件`}
@@ -845,7 +980,7 @@ function TimelinePanel() {
         <select
           className="rpt-tl-switch"
           aria-label="切换 session"
-          defaultValue={REPORT_SESSION.id}
+          defaultValue={sessionData.id}
         >
           {recent.map((r) => (
             <option key={r.id} value={r.id}>
@@ -875,9 +1010,9 @@ function TimelinePanel() {
 
 /* ── 中栏 · Conversation (6 kinds) ──────────────────── */
 
-function ConversationPanel({ children }: { children?: React.ReactNode }) {
-  const msgs = REPORT_SESSION.conversation;
-  const s = REPORT_SESSION;
+function ConversationPanel({ children, sessionData }: { children?: React.ReactNode; sessionData: ReportSession }) {
+  const msgs = sessionData.conversation;
+  const s = sessionData;
   return (
     <section className="rpt-panel rpt-panel--conv rpt-panel--conv-docked">
       <PanelPinHandle
@@ -1108,7 +1243,7 @@ function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
 
 type ComposerHint = "idle" | "slash" | "mention" | "section";
 
-function ReportComposer() {
+function ReportComposer({ sessionData }: { sessionData: ReportSession }) {
   const [value, setValue] = useState("");
   const [hint, setHint] = useState<ComposerHint>("idle");
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -1149,8 +1284,8 @@ function ReportComposer() {
   };
   const drop = usePinDrop<HTMLDivElement>(onPin);
 
-  const materialCount = REPORT_SESSION.materials.length;
-  const sectionCount = REPORT_SESSION.preview.length;
+  const materialCount = sessionData.materials.length;
+  const sectionCount = sessionData.preview.length;
 
   return (
     <div
@@ -1207,21 +1342,39 @@ function ReportComposer() {
 
 /* ── 右栏 · 预览 (P4) ────────────────────────────────── */
 
-const TOOLBAR_ACTIONS = [
-  { key: "word",  glyph: "⇩", label: "Word",  title: "下载 Word (.docx)" },
-  { key: "pdf",   glyph: "⇩", label: "PDF",   title: "导出 PDF" },
-  { key: "share", glyph: "↗", label: "分享",  title: "生成只读分享链接" },
-  { key: "vers",  glyph: "⟳", label: "版本",  title: "版本时光机 · 对比历史稿" },
-  { key: "print", glyph: "⎙", label: "打印",  title: "打印预览" },
-] as const;
-
-function PreviewPanel({ coverPct }: { coverPct: number }) {
-  const s = REPORT_SESSION;
+function PreviewPanel({
+  coverPct,
+  mode,
+  sessionData,
+  isLive,
+  selectedSection,
+  onSelectSection,
+  onExportDocx,
+  onExportPdf,
+  exporting,
+  exportingPdf,
+}: {
+  coverPct: number;
+  mode: "mock" | "live";
+  sessionData: ReportSession;
+  isLive: boolean;
+  selectedSection: string | null;
+  onSelectSection: (id: string | null) => void;
+  onExportDocx: () => void;
+  onExportPdf: () => void;
+  exporting: boolean;
+  exportingPdf: boolean;
+}) {
+  /* V2 issue 1 fix · 5 panel sessionData = liveData ?? mock 单点派生 ·
+     PreviewPanel 直接消费 sessionData.preview · liveData 命中时 derivedFromLive 已
+     替换 sections (liveToReportSession 处理) · isLive 由父组件 derivedFromLive!==null 决定 */
+  const s = sessionData;
   const sections = s.preview;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeAnchor, setActiveAnchor] = useState<string>(sections[0]?.anchor ?? "§一");
 
   function scrollTo(id: string) {
+    onSelectSection(id);
     const root = scrollRef.current;
     if (!root) return;
     const el = root.querySelector<HTMLElement>(`#pv-${id}`);
@@ -1257,7 +1410,12 @@ function PreviewPanel({ coverPct }: { coverPct: number }) {
   }, [sections]);
 
   return (
-    <section className="rpt-panel rpt-panel--preview">
+    <section
+      className="rpt-panel rpt-panel--preview"
+      data-testid="report-pilot-preview"
+      data-mode={isLive ? "live" : mode}
+      data-selected-section={selectedSection ?? ""}
+    >
       <PanelPinHandle
         id="report:preview"
         title={`报告预览 · ${coverPct}%`}
@@ -1277,13 +1435,74 @@ function PreviewPanel({ coverPct }: { coverPct: number }) {
         </div>
       </div>
 
-      <div className="rpt-pv-toolbar" role="toolbar" aria-label="导出 / 分享 / 版本 / 打印">
-        {TOOLBAR_ACTIONS.map((a) => (
-          <button key={a.key} type="button" className="rpt-pv-btn" title={a.title}>
-            <span className="ic" aria-hidden>{a.glyph}</span>
-            <span>{a.label}</span>
-          </button>
-        ))}
+      <div
+        className="rpt-pv-toolbar"
+        role="toolbar"
+        aria-label="导出 / 分享 / 版本 / 打印"
+        data-testid="report-pilot-toolbar"
+      >
+        {/* Phase A worker-A4 · Word + PDF + Print 真接 · 分享 / 版本 标 Phase B carve-out
+            理由 (V2 codex audit · 2026-04-29):
+              - 分享链接 (/api/report/share) 需做权限/有效期/水印/PII 拦截 · 涉及 RBAC 接入 ·
+                Phase B 与统一登录/审计平台联动落地
+              - 版本时光机 (/api/report/versions) 需 docx diff + draft 历史持久 ·
+                Phase B 接知识库存储 (data/audit/versions/) 后开
+              - 当前 Phase A G-10 acceptable carve-out · Word + PDF 闭环已满足"客户带走" 的 KRR
+            两按钮 disabled + aria-disabled · 视觉占位 · 不诈骗用户. */}
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          title="下载 Word (.docx)"
+          data-testid="report-toolbar-word"
+          onClick={onExportDocx}
+          disabled={exporting}
+        >
+          <span className="ic" aria-hidden>⇩</span>
+          <span>{exporting ? "导出中…" : "Word"}</span>
+        </button>
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          title="导出 PDF (G-10)"
+          data-testid="report-toolbar-pdf"
+          onClick={onExportPdf}
+          disabled={exportingPdf}
+        >
+          <span className="ic" aria-hidden>⇩</span>
+          <span>{exportingPdf ? "导出中…" : "PDF"}</span>
+        </button>
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          title="生成只读分享链接 (Phase B)"
+          data-testid="report-toolbar-share"
+          disabled
+          aria-disabled
+        >
+          <span className="ic" aria-hidden>↗</span>
+          <span>分享</span>
+        </button>
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          title="版本时光机 · 对比历史稿 (Phase B)"
+          data-testid="report-toolbar-version"
+          disabled
+          aria-disabled
+        >
+          <span className="ic" aria-hidden>⟳</span>
+          <span>版本</span>
+        </button>
+        <button
+          type="button"
+          className="rpt-pv-btn"
+          title="打印预览"
+          data-testid="report-toolbar-print"
+          onClick={() => window.print()}
+        >
+          <span className="ic" aria-hidden>⎙</span>
+          <span>打印</span>
+        </button>
       </div>
 
       <nav className="rpt-pv-toc" aria-label="章节目录">
@@ -1291,8 +1510,13 @@ function PreviewPanel({ coverPct }: { coverPct: number }) {
           <button
             key={sec.id}
             type="button"
-            className={activeAnchor === sec.anchor ? "on" : undefined}
+            className={
+              activeAnchor === sec.anchor || selectedSection === sec.id
+                ? "on"
+                : undefined
+            }
             data-status={sec.status}
+            data-testid={`report-section-toc-${sec.id}`}
             onClick={() => scrollTo(sec.id)}
             title={`${sec.anchor} ${sec.title} · ${sec.filled}/${sec.total}`}
           >
@@ -1363,7 +1587,11 @@ function SectionView({ section }: { section: PreviewSection }) {
         </div>
       </header>
       {section.content && <p className="rpt-pv-sec-content">{section.content}</p>}
-      <div className="rpt-pv-fields" role="list">
+      <div
+        className="rpt-pv-fields"
+        role="list"
+        data-testid={`report-pilot-fields-${section.id}`}
+      >
         {section.fields.map((f) => (
           <FieldChip key={f.id} field={f} />
         ))}
@@ -1393,7 +1621,13 @@ function FieldChip({ field }: { field: PreviewField }) {
         : "i"
     : null;
   return (
-    <div className="rpt-pv-fc" data-state={field.state} data-qc={field.qc?.level} role="listitem">
+    <div
+      className="rpt-pv-fc"
+      data-testid="report-pilot-fieldchip"
+      data-state={field.state}
+      data-qc={field.qc?.level}
+      role="listitem"
+    >
       <div className="rpt-pv-fc-lbl">{field.label}</div>
       <div className="rpt-pv-fc-val">
         {field.state === "unfilled" ? (
@@ -1500,6 +1734,82 @@ const _LAUNCH_SELECT_STYLE: CSSProperties = {
   borderRadius: "var(--r-md)",
   cursor: "pointer",
 };
+
+/* Phase A worker-A4 (2026-04-29) · 3-档 demo CTA · scenario_id easy/medium/hard
+   反 5 原则 §3.5 难度分层 · 不调 LLM · 客户走访稳定 demo 路径 · POST /api/report/demo/run */
+function ReportDemoStrip({
+  onRun,
+  disabled,
+}: {
+  onRun: (scenarioId: "easy" | "medium" | "hard") => void;
+  disabled: boolean;
+}) {
+  const btnStyle: CSSProperties = {
+    fontFamily: "var(--cjk)",
+    fontSize: 12,
+    padding: "6px 12px",
+    background: "transparent",
+    color: "var(--ink)",
+    border: "1px solid var(--ink-14)",
+    borderRadius: "var(--r-md)",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+    whiteSpace: "nowrap",
+  };
+  return (
+    <section
+      data-testid="report-demo-strip"
+      style={{
+        margin: "12px 0",
+        padding: "10px 16px",
+        background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
+        border: "1px dashed var(--ink-14)",
+        borderRadius: "var(--r-md)",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        fontFamily: "var(--cjk)",
+        fontSize: 12,
+        color: "var(--ink)",
+      }}
+      aria-label="演示数据 · 难度分层"
+    >
+      <span style={{ color: "var(--ink-65)", textTransform: "uppercase", letterSpacing: ".04em", fontSize: 10 }}>
+        演示模式 · 5 原则 §3.5
+      </span>
+      <button
+        type="button"
+        data-testid="report-demo-easy"
+        style={btnStyle}
+        disabled={disabled}
+        onClick={() => onRun("easy")}
+      >
+        简单 · 材料齐全
+      </button>
+      <button
+        type="button"
+        data-testid="report-demo-medium"
+        style={btnStyle}
+        disabled={disabled}
+        onClick={() => onRun("medium")}
+      >
+        中等 · 部分缺
+      </button>
+      <button
+        type="button"
+        data-testid="report-demo-hard"
+        style={btnStyle}
+        disabled={disabled}
+        onClick={() => onRun("hard")}
+      >
+        困难 · QC 阻断
+      </button>
+      <span style={{ marginLeft: "auto", color: "var(--ink-65)", fontSize: 11, fontStyle: "italic" }}>
+        不调 LLM · 客户走访稳定路径
+      </span>
+    </section>
+  );
+}
 
 function ReportLaunchBar(p: {
   started: boolean;

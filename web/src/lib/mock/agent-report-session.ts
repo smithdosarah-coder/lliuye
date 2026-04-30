@@ -567,6 +567,80 @@ const RECENT: RecentSession[] = [
   { id: "rs-005", clientName: "瀚蓝智控 · 新增额度", updated: "1 小时前", progress: 1.0, stage: "已完成" },
 ];
 
+/* Phase A worker-A4 V2 (codex DISAGREE issue 1 fix · 2026-04-29):
+   liveToReportSession · 把 v16 done envelope 标准化成 ReportSession shape ·
+   让 5 panel (Hero / Material / Timeline / Preview / FieldChip) 单点从 sessionData 派生 ·
+   不再静态 REPORT_SESSION 占主源 (避免 demo/live 切换无视觉变化).
+
+   Backend 暂不暴露 materials / fields / timeline 真原型 · 这些字段先保留 mock 形态
+   (REPORT_SESSION fallback) · 真原型由 v16_runner 后续 stage 扩展契约 (Phase B). */
+
+type V16DoneShape = {
+  session_id?: string;
+  report_id?: string;
+  sections?: { id: string; title: string; content?: string; status?: string; word_count?: number }[];
+  profile?: Record<string, unknown>;
+  qc?: { passed?: boolean; score?: number; fatal_fail?: boolean; halluc_count?: number; warn_count?: number };
+  stats?: Record<string, unknown>;
+  pending_questions?: { id: string; label?: string }[];
+};
+
+const _ANCHORS = ["§一", "§二", "§三", "§四", "§五", "§六"];
+
+export function liveToReportSession(live: V16DoneShape | null | undefined): ReportSession | null {
+  if (!live) return null;
+  const profile = live.profile ?? {};
+  const company = (profile.company_name as string) || `Live · ${(live.session_id ?? "").slice(0, 8) || "—"}`;
+  const stats = live.stats ?? {};
+  const qc = live.qc ?? {};
+  const sections = live.sections ?? [];
+  const previewSections: PreviewSection[] = sections.map((s, i) => {
+    const anchor = _ANCHORS[i] ?? `§${i + 1}`;
+    const cleanTitle = (s.title || s.id || `章节 ${i + 1}`).replace(/^[一二三四五六七八九十]+、/, "");
+    const wc = s.word_count ?? (s.content ?? "").length;
+    let status: PreviewSection["status"] = "pending";
+    if (s.status === "done") status = "ok";
+    else if (s.status === "writing" || s.status === "running") status = "running";
+    else if (s.status === "qc_blocked") status = "needs-review";
+    return {
+      id: s.id,
+      anchor,
+      title: cleanTitle,
+      filled: wc,
+      total: Math.max(wc, 1),
+      marked: 0,
+      evidenceRate: qc.passed ? 0.9 : 0.6,
+      status,
+      content: s.content || "",
+      fields: [], // backend 暂不暴露 field-level · Phase B 扩展契约
+    };
+  });
+
+  const totalFields = (stats.total_fields as number) ?? sections.reduce((a, b) => a + (b.word_count ?? 0), 0);
+  const autoFilled = (stats.auto_filled as number) ?? totalFields;
+  const unfilled = (stats.unfilled as number) ?? Math.max(totalFields - autoFilled, 0);
+  const block = qc.fatal_fail ? 1 : 0;
+  const warn = (qc.warn_count as number) ?? 0;
+  const info = 0;
+
+  return {
+    id: live.session_id ?? live.report_id ?? `live-${Date.now()}`,
+    clientName: company,
+    amount: ((profile.revenue_yuan_2024 as string) || (profile.registered_capital_yuan as string) || "(待提取)") as string,
+    stage: qc.passed ? "已 QC 通过" : qc.fatal_fail ? "QC 阻断 · 待补材料" : `QC ${qc.score ?? "-"}`,
+    updated: "刚刚",
+    template: TEMPLATES[0],
+    availableTemplates: TEMPLATES,
+    materials: MATERIALS, // backend 暂不提供 · keep mock fallback (Phase B 扩展)
+    timeline: TIMELINE,   // backend 暂不提供 · keep mock fallback (Phase B 扩展)
+    conversation: CONVERSATION,
+    preview: previewSections.length > 0 ? previewSections : PREVIEW,
+    coverage: { filled: autoFilled, total: Math.max(totalFields, 1), marked: unfilled },
+    qcCounts: { block, warn, info },
+    recentSessions: RECENT,
+  };
+}
+
 export const REPORT_SESSION: ReportSession = {
   id: "rs-001",
   clientName: "福建惠民商贸 · 续授信",
