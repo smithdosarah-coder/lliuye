@@ -90,9 +90,9 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **底层 backing 不动**：root `llm.py:LLMClient` 保留为 caller 1（6+ production import）；`shared/llm_caller/provider._LLMClientWrapper` 委托它做实际 API 调用，复用 cache + provider config。
 - **向下兼容**：`shared/llm/{base, router, providers/*}` 保留为 re-export shim，`shared/kb_scan/impls/channel_signal.py:311` 的 1 production import 不破。
 - **Deprecation 路径**（A4 worker 5 子分别迁，本 worker 不动 agent_*/api.py）：
-  - caller 3 `agent_riskctrl/llm_judge.py` LLMJudge 基类 → 迁 `LLMCaller(agent_id="riskctrl", endpoint="judge").chat()`
+  - caller 3 `agent_riskctrl/llm_judge.py` LLMJudge 基类 → 迁 `LLMCaller(agent_id="riskctrl", endpoint="judge").chat()` ✅ **DONE** (Phase A worker-A4 · 2026-04-29)
   - caller 4 `agent_report/api.py:_build_llm_caller` 裸 `OpenAI(base_url=...)` → 迁 `LLMCaller(agent_id="report", endpoint="/api/report/v16/fill")`
-  - caller 5 `agent_alert/api.py` + `agent_compliance/scan_engine.py` + `agent_riskctrl/api.py` 直 `LLMClient(provider=...)` → 同上 · 各 agent 自有 `LLMCaller` 实例
+  - caller 5 `agent_alert/api.py` + `agent_compliance/scan_engine.py` + `agent_riskctrl/api.py` 直 `LLMClient(provider=...)` → 同上 · 各 agent 自有 `LLMCaller` 实例 (riskctrl/api.py 已 ✅ DONE worker-A4 2026-04-29 · alert/compliance 待 worker-A4 兄弟)
 - **环境变量**：`LLM_PROVIDER`（默认 provider，不强制） / `LLM_FALLBACK_CHAIN`（覆盖默认 chain · e.g. `deepseek,qwen,dashscope`） / 各 provider 的 `*_API_KEY`（`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `NVIDIA_API_KEY`）。
 
 依据：Phase A 验收硬线 #2（`docs/reset/phase-a-charter.md` §1）+ Cat 7 conflict register（4+1 套并行 caller）+ Stage E.3（2026-04-28）PIPL 境内优先决议。
@@ -230,6 +230,11 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `shared/sse_envelope.py` — Phase A worker-A2 · backend SSE event 共形 helper (make_stage / make_section / make_done / make_error / encode_event + `CHANNEL_PANEL_KEYS` per workspace-state-protocol §4 · `make_done` 拒空 payload) · spec 见 `docs/contracts/sse-envelope.md` v1.0 · 解决 audit Cat 4 · 6 agent A4 worker 后续迁此入口
 - `shared/prompts/contract.py` — Phase A worker-A2 · 8 段 LLM prompt template skeleton (safety/evidence/role/tools/schema/self-check/few-shot/eval-hook · `_PENDING_A1_SPEC` placeholder strict-only) · spec 见 `docs/contracts/llm-prompt-contract.md` v1.0 · 解决 audit Cat 6
 - `tests/shared/test_llm_caller.py` + `test_sse_envelope.py` — Phase A worker-A2 pytest coverage (69 tests · 含 backward-compat shim 验证)
+- `agent_riskctrl/exports.py` — Phase A worker-A4 (2026-04-29) · 回测报告三件套 builder (build_docx / build_xlsx / build_pdf · 本地 python-docx / openpyxl / reportlab · 不走境外 API)
+- `agent_riskctrl/demo.py` — Phase A worker-A4 · `/api/riskctrl/demo/run` 物理隔离 fixture loader (3 scenario · 反 5 原则 §3.5 难度分层)
+- `data/mock/workspace/riskctrl/scenarios/` — Phase A worker-A4 · 3 demo fixture (credit_v15/aml_kyc/fraud_high · KS 0.42/0.31/0.28 · 与 `web/src/lib/mock/agent-riskctrl-sessions.ts` 1:1)
+- `web/src/lib/mock/agent-riskctrl-sessions.ts` — Phase A worker-A4 · workspace-state-protocol §3 array · 3 sess 难度分层 · 替旧单 const file (已删)
+- `tests/agent_riskctrl/test_llm_caller_binding.py` — Phase A worker-A4 · LLMJudge → LLMCaller binding 验证 (4 case · isinstance check + lazy init + unavailable status)
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
