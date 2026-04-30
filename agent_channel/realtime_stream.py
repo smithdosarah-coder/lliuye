@@ -145,8 +145,13 @@ def run_channel_search_stream(
       {"event":"stage","stage":"parse","status":"done","tags":[...]}
       ... (6 stage x running/done)
       {"event":"done","candidates":[...], "metrics":{...},
-       "data_source":"tavily"|"mock_forced"|"mock_fallback"}
+       "data_source":"live"|"mock_forced"|"mock_fallback",
+       "provider_source":"tavily" (only when data_source == live)}
       错误：{"event":"error","message":"...","traceback":"..."}
+
+    V2 fix · codex review issue 3 · data_source 必须是 sse-envelope canonical enum
+    (DATA_SOURCE_LIVE/MOCK_FORCED/MOCK_FALLBACK) · provider 细节 (e.g. tavily) 通过
+    provider_source 单独字段透传 · A4 worker 复用本模式时不要再用 "tavily" 作 data_source
     """
     # C4 banner-spec rule 2 · warnings 收集 · 透传到 done envelope.warnings
     # 触发源(目前):TAVILY_API_KEY 缺 / TavilyClient init 失败 → mock_fallback
@@ -187,7 +192,11 @@ def run_channel_search_stream(
         yield {"event": "stage", "stage": "signal_scan", "status": "running",
                "message": "5 路信号并行搜索（中标/认可/技术/增长/获奖）..."}
         raw_signals: list[dict] = []
-        data_source = "tavily"
+        # V2 issue 3 · 初始值用 envelope canonical enum (非 "tavily")
+        # _parallel_signal_search_iter 仍 yield "tavily" 作内部 provider 标记 ·
+        # 在 final tuple 解构后 normalize 为 envelope enum + 拆出 provider_source
+        provider_source: str | None = None
+        data_source: str = DATA_SOURCE_LIVE
         route_progress = 0
         for item in _parallel_signal_search_iter(
             llm, industry, region, query, tags, force_mock=force_mock,
@@ -207,9 +216,25 @@ def run_channel_search_stream(
                 yield {"event": "stage", "stage": "signal_scan",
                        "status": "warning", "message": msg}
             elif kind == "final":
-                _, raw_signals, data_source = item
-        yield {"event": "stage", "stage": "signal_scan", "status": "done",
-               "count": len(raw_signals), "data_source": data_source}
+                _, raw_signals, raw_source = item
+                # V2 issue 3 · raw_source 是 _parallel_signal_search_iter 内部 provider
+                # 标记 ("tavily" / "mock_forced" / "mock_fallback") · 这里映射到 envelope enum
+                if raw_source == "tavily":
+                    data_source = DATA_SOURCE_LIVE
+                    provider_source = "tavily"
+                elif raw_source in (DATA_SOURCE_MOCK_FORCED, DATA_SOURCE_MOCK_FALLBACK):
+                    data_source = raw_source
+                    provider_source = None
+                else:
+                    data_source = raw_source  # 未知值不 silent 改写 · 让上层看到原值
+                    provider_source = None
+        # V2 issue 3 · stage event 也用 envelope enum · provider_source 单独字段
+        stage_done_evt: dict = {"event": "stage", "stage": "signal_scan",
+                                "status": "done", "count": len(raw_signals),
+                                "data_source": data_source}
+        if provider_source:
+            stage_done_evt["provider_source"] = provider_source
+        yield stage_done_evt
 
         # ===== Stage 3: aggregate — 按公司聚合 =====
         yield {"event": "stage", "stage": "aggregate", "status": "running",
@@ -246,11 +271,11 @@ def run_channel_search_stream(
 
         # C3 · workspace-state-protocol §4 + sse-envelope §3.1 · 7 panel canonical 共形
         # shared/sse_envelope.py make_done(panels=...) 把 panels expand 到 done event 顶层
-        ds_for_envelope = (
-            data_source if data_source in
-            (DATA_SOURCE_LIVE, DATA_SOURCE_MOCK_FORCED, DATA_SOURCE_MOCK_FALLBACK)
-            else data_source
-        )
+        # V2 issue 3 · data_source 已在 final tuple 解构时 normalize · 这里直接透传 ·
+        # provider_source 通过 make_done **extras 进 done event 顶层 (UI 需展示 "tavily" 时读它)
+        done_extras: dict = {"warnings": warnings}
+        if provider_source:
+            done_extras["provider_source"] = provider_source
         yield make_done(
             panels={
                 "candidates": candidates,
@@ -266,9 +291,9 @@ def run_channel_search_stream(
                 "companiesFound": len(company_map),
                 "final": len(candidates),
             },
-            data_source=ds_for_envelope,
+            data_source=data_source,
             session_id=session_id,
-            warnings=warnings,
+            **done_extras,
         )
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
         yield {

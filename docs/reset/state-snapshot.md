@@ -325,6 +325,43 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - A4 onboarding 必读 cross-ref: `docs/onboarding/A3-channel-pilot.md` + 本 design draft + ChannelWorkspace.tsx 4-gate 实装 + realtime_stream.py done envelope 形态
 - channel UI 'demo run' 按钮 wire (deferred 到 A4-channel 或独立任务) · 当前 `/api/channel/demo/run` 端点 ready 待 UI
 
+---
+
+## 2026-04-30 (Phase A · Week 3 morning) · worker-A3 V2 fix · codex 4 issue resolved
+
+### What happened
+- 主 CLI resume · 接 2026-04-29 codex DISAGREE 4 issue (verdict in `docs/audit/codex-reviews/WORKER-A3-CHANNEL-PILOT-DONE.md`):
+  - Issue 1 (cat 2 partial · ConversationPanel 不从 sessionData 派生)
+  - Issue 2 (UI demo button + Playwright 不验 demo run)
+  - Issue 3 CRITICAL (`agent_channel/realtime_stream.py` data_source="tavily" 没 map 到 envelope enum · A4 会 inherit bad pattern)
+  - Issue 4 (gate-4 smoke drawer optional · selectedCandidate 不 prove)
+- 4 issue 全 fix · 单 commit (含 inventory + state-snapshot 同步更新 per §13/§14.1):
+  - **Issue 3** · `agent_channel/realtime_stream.py` final tuple 解构后 normalize · "tavily" → `DATA_SOURCE_LIVE` + `provider_source="tavily"` 单独字段透传 done envelope **extras + stage signal_scan done event · 上游 `_parallel_signal_search_iter` API 不变 · 仅在消费侧 normalize
+  - **Issue 1** · `ChannelWorkspace.tsx` QueryBar 新增 setMessages + setSelectedCandidate prop · runRealSearch + runDemoScenario 在 setLiveData 后同步 setMessages(live.conversation) + setSelectedCandidate(null) · ConversationPanel 不再卡 stale mock
+  - **Issue 2** · `ChannelWorkspace.tsx` 加 `runDemoScenario` 函数 + 3 档 button (`channel-demo-{easy,medium,hard}` data-testid) → /api/channel/demo/run via streamSse · Playwright T5 case 走 page.route 拦 endpoint 验 scenario_id payload + done.data_source="mock_forced" + 5 panel hydrate
+  - **Issue 4** · Playwright T3 改 mandatory · `[data-testid="channel-candidate-card"]` click → `[data-testid="channel-candidate-drawer"]` toBeVisible → ESC → toBeHidden · 不再 conditional skip
+- formatChannelEvent 兼容: signal_scan done 显 `provider_source ?? data_source` · live UX "来源 tavily" 不退化
+- 验:
+  - `npx tsc --noEmit` PASS (web)
+  - `pytest tests/shared tests/agent_channel` 276/277 PASS (1 pre-existing Tavily 401 integration test · 与本 fix 无关)
+  - Playwright `channel-pilot-4gate.spec.ts` 5/5 PASS chromium (15.6s · 含新 T5 demo run case + 加固 T3)
+
+### Triggered by
+- 2026-04-29 d8055cb `CODEX-REVIEW-A3-A6-DISAGREE` PM 决: V2 fix tomorrow morning · then cherry-pick + push + ECS + A4 GO commit × 5
+- 用户 `morning resume · A3 V2 fix · 必修 4 issue`
+
+### State change (delta)
+- A3 verdict: DISAGREE (codex V1) → re-review pending (V2 commit signal `WORKER-A3-V2-DONE` 触发)
+- channel pilot SSE 契约: data_source 严格 envelope enum (live/mock_forced/mock_fallback) · provider 细节走 provider_source 顶层字段 · A4 worker 复用本模式 (不再让 "tavily" / "qichacha" 等污染 enum)
+- ConversationPanel 派生路径: live SSE done event 后同步刷 messages + 关 drawer · 不留 stale mock 状态
+- Playwright spec: 4 case → 5 case (新 T5 demo run · 加固 T3 drawer) · 全数据-testid 锚 · 无 conditional skip
+- features-inventory F-066: NB "demo button deferred" 改为 "wired (V2 fix 2026-04-30)" + smoke_test 加 T5 引用
+
+### Next
+- 主 CLI 等 codex re-review (V2 fix commit 触发)
+- Codex AGREE 后 → cherry-pick A3 8 commit (含本 V2) 到 chore/l0-infra → push origin → 启 A4 5 子 worker
+- A6 V2 fix 等 (3 issue · schema vs fixture 不一致 · medium · 与 A3 并行)
+
 (下次更新模板)
 
 ## YYYY-MM-DD · <事件>

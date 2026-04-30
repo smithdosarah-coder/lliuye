@@ -142,7 +142,7 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
     await expect(firstCand).toContainText("Test 测试候选公司");
   });
 
-  test("T3 · gate 4 selectedCandidate · candidate click → drawer · ESC 关", async ({
+  test("T3 · gate 4 selectedCandidate · candidate click → drawer 必显 · ESC 关", async ({
     page,
   }) => {
     await page.goto("/archive/channel", { waitUntil: "networkidle" });
@@ -152,22 +152,111 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
     await page.locator('[data-testid="channel-session-apply"]').click();
     await page.waitForTimeout(300);
 
-    // 候选第 1 家 click · drawer 出
-    await page.locator(".ch-cd-row, .ch-cand-row, .ch-cd-name").first().click();
-    await page.waitForTimeout(200);
+    // V2 issue 4 · drawer 必显 (不再 conditional) · click candidate card → drawer visible
+    const card = page.locator('[data-testid="channel-candidate-card"]').first();
+    await expect(card).toBeVisible();
+    await card.click();
 
-    const drawer = page.locator(".candidate-drawer, [data-testid='channel-candidate-drawer'], aside.ch-drawer, .ch-cd-drawer");
-    // drawer DOM 模糊 · 至少应该有一处 visible (或 keyboard ESC 后无差异 · 视为 spec OK)
-    const drawerOpened = await drawer.first().isVisible().catch(() => false);
-    if (drawerOpened) {
-      await page.keyboard.press("Escape");
-      await page.waitForTimeout(200);
-      await expect(drawer.first()).toBeHidden();
-    } else {
-      // 不强制失败 · gate 4 已在 C1 改 · click 路径若未 wire drawer DOM 也属现有 gap (F-042)
-      // 至少验证 candidate click 不抛错 · 页面仍可见
-      await expect(page.locator('[data-testid="channel-pilot-candidates"]')).toBeVisible();
+    const drawer = page.locator('[data-testid="channel-candidate-drawer"]');
+    await expect(drawer).toBeVisible();
+
+    // ESC 关闭 · drawer 隐
+    await page.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
+  });
+
+  test("T5 · demo run · /api/channel/demo/run wired · data_source=mock_forced + 5 panel hydrate", async ({
+    page,
+    context,
+  }) => {
+    // V2 issue 2 · 验 demo button 调对 endpoint + payload + done envelope data_source=mock_forced
+    let demoEndpointHit = false;
+    let demoScenarioPayload: string | null = null;
+    await context.route("**/api/channel/demo/run", async (route) => {
+      demoEndpointHit = true;
+      try {
+        const body = route.request().postDataJSON() as { scenario_id?: string };
+        demoScenarioPayload = body?.scenario_id ?? null;
+      } catch {
+        demoScenarioPayload = null;
+      }
+      const sse = [
+        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "parse", status: "done" })}\n\n`,
+        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "rank", status: "done" })}\n\n`,
+        `event: done\ndata: ${JSON.stringify({
+          event: "done",
+          data_source: "mock_forced",
+          session_id: "demo_medium_test",
+          metrics: { signalTotal: 12, companiesFound: 6, final: 4 },
+          candidates: [
+            {
+              id: "demo-1",
+              name: "Demo 演示候选公司",
+              similarity: 0.78,
+              industry: "演示行业",
+              geo: "演示区域",
+              scale: "演示规模",
+              signals: [],
+              riskTags: [],
+              products: [],
+              match_dimensions: [],
+              product_recommendations: [],
+              pitch_scripts: [],
+            },
+          ],
+          radar: [{ axis: "信号密度", score: 70, benchmark: 50, quadrant: "base" }],
+          signals: [
+            { id: "ds1", key: "biz", label: "工商", status: "active", weight: 0.2, freq: "T+1", coverage: 70, hits: 2 },
+          ],
+          funnel: [
+            { id: "df1", label: "信号池", count: 500 },
+            { id: "df2", label: "Top 推荐", count: 4 },
+          ],
+          match_dimensions: [],
+          product_recommendations: [],
+          pitch_scripts: [],
+        })}\n\n`,
+      ].join("");
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sse,
+      });
+    });
+
+    await page.goto("/archive/channel", { waitUntil: "networkidle" });
+
+    // 3 档按钮都应 visible
+    await expect(page.locator('[data-testid="channel-demo-easy"]')).toBeVisible();
+    await expect(page.locator('[data-testid="channel-demo-hard"]')).toBeVisible();
+
+    // 点 medium · 验 endpoint hit + scenario_id payload 正确
+    await page.locator('[data-testid="channel-demo-medium"]').click();
+    await page.waitForTimeout(500);
+
+    expect(demoEndpointHit).toBe(true);
+    expect(demoScenarioPayload).toBe("medium");
+
+    // candidates panel data-mode=live (liveData != null · demo 也走 setLiveData 路径)
+    await expect(
+      page.locator('[data-testid="channel-pilot-candidates"]'),
+    ).toHaveAttribute("data-mode", "live");
+
+    // 5 panel 全亮
+    for (const k of ["radar", "funnel", "candidates", "signals", "conversation"]) {
+      await expect(
+        page.locator(`[data-testid="channel-pilot-${k}"]`),
+      ).toBeVisible();
     }
+
+    // candidate 切到 demo 注入的 "Demo 演示候选公司"
+    await expect(page.locator(".ch-cd-name").first()).toContainText(
+      "Demo 演示候选公司",
+    );
+
+    // mock_forced 是显式 demo 选择 · 不应触发 mock_fallback banner (banner-spec rule 2)
+    const fallbackBanner = page.locator('[data-testid="channel-pilot-banner-mock-fallback"]');
+    await expect(fallbackBanner).toHaveCount(0);
   });
 
   test("T4 · banner-spec rule 2 · backend stage warning + done.warnings → mock-fallback banner", async ({

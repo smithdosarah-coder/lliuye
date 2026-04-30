@@ -997,9 +997,9 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
   - 锚定 A 股年报 + 工信部 + 银保监公告形态 · 改名改数字保量级 · 不含答案字段
 - **smoke_test**:
   - `python -c "..."` in-process: easy/medium/hard 各 12 stage + 1 done + 7/7 panels · INVALID 1 error code=DEMO_SCENARIO_INVALID
-  - Playwright T2/T4 走 page.route 注入 (UI demo button wire 后再加专属 spec)
+  - Playwright T5 (`channel-pilot-4gate.spec.ts`) · 验 `[data-testid="channel-demo-medium"]` click → /api/channel/demo/run hit · scenario_id="medium" · done.data_source="mock_forced" · 5 panel hydrate
 - **NB**:
-  - UI 上的 "demo run" 按钮尚未 wire (deferred · 留待客户演示场景明确后定 popover UX)
+  - V2 fix (2026-04-30): UI demo 按钮 wire 完成 · `[data-testid="channel-demo-{easy,medium,hard}"]` 3 档按钮 in QueryBar (走 `runDemoScenario` → streamSse → `/api/channel/demo/run` → setLiveData/setMessages/setSelectedCandidate)
   - scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不需重启后端
 
 ---

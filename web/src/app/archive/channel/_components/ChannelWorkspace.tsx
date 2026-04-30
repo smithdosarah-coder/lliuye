@@ -440,6 +440,8 @@ export default function ChannelWorkspace() {
         selectedSession={selectedSession}
         onSelectSession={handleSelectSession}
         setLiveData={setLiveData}
+        setMessages={setMessages}
+        setSelectedCandidate={setSelectedCandidate}
         setStarted={setStarted}
         externalTrigger={externalTrigger}
         onStreamError={setStreamFatal}
@@ -1166,8 +1168,11 @@ function formatChannelEvent(evt: ChannelStreamEvent): {
       if (status === "running") return { stage: baseStage, msg: "并行扫描 5 路信号源 (中标 / 认可 / 技术 / 增长 / 获奖)..." };
       if (status === "done") {
         const count = evt.count;
-        const ds = evt.data_source;
-        return { stage: baseStage, msg: `扫描完 · ${count ?? "?"} 条信号 · 来源 ${ds ?? "mock"}` };
+        /* V2 issue 3 · data_source 已 normalize 为 envelope enum (live/mock_forced/mock_fallback) ·
+           provider_source 是 backend 单独透传的 provider 标识 (e.g. "tavily") · 优先显 provider 细节 */
+        const provider = evt.provider_source as string | undefined;
+        const ds = provider ?? evt.data_source ?? "mock";
+        return { stage: baseStage, msg: `扫描完 · ${count ?? "?"} 条信号 · 来源 ${ds}` };
       }
     }
     if (evt.stage === "aggregate") {
@@ -1402,6 +1407,8 @@ function QueryBar({
   selectedSession,
   onSelectSession,
   setLiveData,
+  setMessages,
+  setSelectedCandidate,
   setStarted,
   externalTrigger,
   onStreamError,
@@ -1412,6 +1419,10 @@ function QueryBar({
   onSelectSession: (id: string) => void;
   /* C2 · 改 setLive(Candidate[]|null) → setLiveData(ChannelSession|null) · 整 session 形态注入 */
   setLiveData: (s: ChannelSession | null) => void;
+  /* V2 issue 1 · 与 setLiveData 一起 set live conversation · 防 ConversationPanel stale on mock */
+  setMessages: (msgs: ConversationMessage[]) => void;
+  /* V2 issue 1 · live 注入时关 drawer · 防 stale candidate id 指 mock session */
+  setSelectedCandidate: (id: string | null) => void;
   setStarted: (v: boolean) => void;
   /* F-045 · IdealProfile card "开始扫描" · external trigger · 不需要 user 再 click QueryBar */
   externalTrigger?: { input: string; nonce: number } | null;
@@ -1431,6 +1442,51 @@ function QueryBar({
   const [streaming, setStreaming] = useState(false);
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
+
+  /* V2 issue 2 · 显式 demo 模式 · 点 easy/medium/hard 按钮调 /api/channel/demo/run
+     纯 mock SSE · data_source=mock_forced · 客户走访稳定演示 / Playwright smoke 不依赖 Tavily */
+  async function runDemoScenario(scenarioId: "easy" | "medium" | "hard") {
+    if (streaming) return;
+    setStarted(true);
+    setStreaming(true);
+    setStreamEvents([]);
+    setStreamError(null);
+    onStreamError?.(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
+      "";
+    try {
+      await streamSse(
+        `${apiBase}/api/channel/demo/run`,
+        { scenario_id: scenarioId },
+        (sseEvt) => {
+          const data = sseEvt.data as ChannelStreamEvent;
+          setStreamEvents((prev) => [...prev, data]);
+          if (sseEvt.type === "done") {
+            const live = normalizeBackendDone(
+              data as Record<string, unknown>,
+              sessionData,
+            );
+            setLiveData(live);
+            setMessages(live.conversation);
+            setSelectedCandidate(null);
+          }
+        },
+      );
+    } catch (err) {
+      if (err instanceof LiveFailError) {
+        const msg = liveFailBannerText(err, "Channel /api/channel/demo/run");
+        setStreamError(msg);
+        onStreamError?.(msg);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setStreamError(msg);
+        onStreamError?.(msg);
+      }
+    } finally {
+      setStreaming(false);
+    }
+  }
 
   async function runRealSearch(queryOverride?: string) {
     const queryText = (queryOverride ?? input).trim();
@@ -1463,6 +1519,9 @@ function QueryBar({
               sessionData,
             );
             setLiveData(live);
+            /* V2 issue 1 · 与 setLiveData 一起 swap · ConversationPanel / drawer 不留 stale */
+            setMessages(live.conversation);
+            setSelectedCandidate(null);
             /* done envelope.warnings · backend mock_fallback 透传 · 顶部 banner 二级提示 */
             const wlist = (data as Record<string, unknown>).warnings;
             if (Array.isArray(wlist) && wlist.length > 0) {
@@ -1577,6 +1636,46 @@ function QueryBar({
         >
           <span>{streaming ? "AI 解析中…" : "AI 搜索"}</span>
           <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
+        </button>
+      </div>
+      {/* V2 issue 2 · DEMO 三档按钮 · /api/channel/demo/run · data_source=mock_forced
+         不依赖 Tavily / LLM key · 客户走访稳定路径 + Playwright smoke 锚定 */}
+      <div
+        className="ch-querybar-demo"
+        data-testid="channel-demo-controls"
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: "8px 0 0 0",
+          fontSize: 12,
+          color: "var(--ink-60, #555)",
+        }}
+      >
+        <span style={{ opacity: 0.7 }}>DEMO · 难度分层 (mock_forced):</span>
+        <button
+          type="button"
+          data-testid="channel-demo-easy"
+          onClick={() => void runDemoScenario("easy")}
+          disabled={streaming}
+        >
+          easy
+        </button>
+        <button
+          type="button"
+          data-testid="channel-demo-medium"
+          onClick={() => void runDemoScenario("medium")}
+          disabled={streaming}
+        >
+          medium
+        </button>
+        <button
+          type="button"
+          data-testid="channel-demo-hard"
+          onClick={() => void runDemoScenario("hard")}
+          disabled={streaming}
+        >
+          hard
         </button>
       </div>
       <div className="ch-querybar-tags">
