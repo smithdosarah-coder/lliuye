@@ -251,21 +251,24 @@ class FeedbackRequest(BaseModel):
 
 @app.post("/api/feedback")
 async def submit_feedback(req: FeedbackRequest):
-    """接收审贷员对 Agent 输出的修改反馈，按日 JSONL 沉淀。
+    """接收审贷员对 Agent 输出的修改反馈，按日 JSONL 沉淀 + 写 audit log。
 
-    写入路径：data/feedback/YYYY-MM-DD.jsonl
-    后续由离线脚本消费：提取 few-shot 示例注入 prompts.py（数据飞轮第 4 环）。
+    1. 写入路径：data/feedback/YYYY-MM-DD.jsonl（数据飞轮第 3 环 · 离线脚本消费）
+    2. 同时记一条 audit_service.LLMCall · endpoint=/api/feedback ·
+       admin 通过 GET /api/audit/llm_calls?endpoint=/api/feedback 可查 modify 流水
+       (Phase B BE10 · 银保监合规留痕 · 不重 A/B 平台)
     """
     allowed = {"channel", "credit", "alert", "compliance", "report", "riskctrl"}
     if req.agent not in allowed:
         raise HTTPException(400, f"agent must be one of {sorted(allowed)}")
 
-    date = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now()
+    date = now.strftime("%Y-%m-%d")
     path = PROJECT_ROOT / "data" / "feedback" / f"{date}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
 
     record = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now.isoformat(),
         "agent": req.agent,
         "session_id": req.session_id,
         "user_id": req.user_id,
@@ -278,6 +281,24 @@ async def submit_feedback(req: FeedbackRequest):
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except OSError as e:
         raise HTTPException(500, f"write feedback failed: {e}") from e
+
+    # Audit modify trail · silent fail · 不阻断主流程 (审贷员反馈不能因 audit 故障丢)
+    try:
+        from audit_service.recorder import LLMCall, default_recorder
+        original_json = json.dumps(req.original_output, ensure_ascii=False)
+        correction_json = json.dumps(req.user_correction, ensure_ascii=False)
+        default_recorder().record(LLMCall(
+            ts=now.isoformat(timespec="seconds"),
+            user_id=req.user_id,
+            agent_id=req.agent,
+            endpoint="/api/feedback",
+            model="user-feedback",
+            prompt=original_json,
+            response=correction_json,
+            error=req.correction_reason or None,
+        ))
+    except Exception as audit_err:  # noqa: BLE001
+        print(f"[api_server] audit modify record failed: {audit_err}", file=sys.stderr)
 
     return {"status": "ok", "path": str(path.relative_to(PROJECT_ROOT))}
 
