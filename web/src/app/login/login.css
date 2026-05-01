@@ -1,5 +1,8 @@
 /* ================================================================
-   Login view · 宇宙俯瞰地球主视觉 + 右侧 glass 登录卡
+   Login view · F4 (V4 plan · Phase B-1) 重设
+   极简磨砂玻璃 + 中性深灰蓝 · 撤 Interstellar 黑洞 (per V4 plan F4)
+   - 银行客户首屏不联想"资金被吞" (Gemini R2 提权 P1 + R2 v2 三方一致)
+   - 不依赖 R3F / three.js · 纯 CSS · 兼容性 + 加载性能优先
    作用域：仅 .login-root 内部
    ================================================================ */
 
@@ -9,16 +12,19 @@
   width: 100%;
   height: 100vh;
   font-family: var(--sans);
-  color: #e6edf7;
-  /* BH 全屏居中为主视觉 · glass card 改为浮动 absolute-positioned，不再抢栅格列 */
-  display: block;
+  color: #e6ebf2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  background: #02030a;
   isolation: isolate;
+  /* 中性深灰蓝主体 · 银行端正不张扬 */
+  background:
+    linear-gradient(180deg, #0e1620 0%, #131c28 50%, #0f1721 100%);
 }
 
-/* ═══ 跨栏星空层 · 左右两栏通吃的底图 ══════════════════════════════ */
-.login-sky {
+/* ═══ 装饰底层 · 极轻磨砂 + 边缘光晕 (无星空 · 无黑洞) ═════════════ */
+.login-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -26,164 +32,57 @@
   overflow: hidden;
 }
 
-/* Gargantua 场景 · 拉出 grid 变成全屏绝对 · 让 login-aside 浮在它之上 */
-.login-stage {
+/* 大块磨砂玻璃质感 · 远离工业感的纯色 · 给 login-form 衬底 */
+.login-bg__plate {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  background: transparent;
-  pointer-events: none;
-}
-
-.cosmic {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-/* 深层静态星尘 · 跨栏铺底；每个 radial-gradient 是一颗固定位置的星，无 tile 拼接 */
-.login-sky__field {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-color: #02030a;
-  background-image:
-    radial-gradient(1px 1px at 4% 8%, rgba(255, 255, 255, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 11% 34%, rgba(210, 225, 255, 0.65), transparent 60%),
-    radial-gradient(0.8px 0.8px at 18% 52%, rgba(230, 240, 255, 0.55), transparent 60%),
-    radial-gradient(1.1px 1.1px at 26% 14%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(0.9px 0.9px at 33% 46%, rgba(220, 230, 255, 0.6), transparent 60%),
-    radial-gradient(1px 1px at 42% 8%, rgba(255, 245, 220, 0.7), transparent 60%),
-    radial-gradient(0.8px 0.8px at 48% 70%, rgba(200, 215, 245, 0.55), transparent 60%),
-    radial-gradient(1.2px 1.2px at 56% 24%, rgba(255, 255, 255, 0.75), transparent 60%),
-    radial-gradient(0.9px 0.9px at 62% 60%, rgba(210, 225, 255, 0.6), transparent 60%),
-    radial-gradient(1px 1px at 70% 12%, rgba(255, 230, 200, 0.7), transparent 60%),
-    radial-gradient(0.8px 0.8px at 78% 40%, rgba(230, 240, 255, 0.55), transparent 60%),
-    radial-gradient(1.1px 1.1px at 84% 72%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(0.9px 0.9px at 92% 28%, rgba(220, 230, 255, 0.6), transparent 60%),
-    radial-gradient(1px 1px at 96% 56%, rgba(255, 245, 220, 0.65), transparent 60%),
-    radial-gradient(0.8px 0.8px at 6% 88%, rgba(210, 225, 255, 0.55), transparent 60%),
-    radial-gradient(1.2px 1.2px at 24% 92%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(0.9px 0.9px at 44% 94%, rgba(200, 215, 245, 0.6), transparent 60%),
-    radial-gradient(1px 1px at 66% 86%, rgba(255, 230, 200, 0.65), transparent 60%),
-    radial-gradient(0.8px 0.8px at 88% 96%, rgba(220, 230, 255, 0.55), transparent 60%);
-  background-repeat: no-repeat;
-  opacity: 0.88;
-}
-
-/* Gargantua R3F Canvas · 全屏 ray-march black hole */
-.cosmic__r3f-stage {
-  position: absolute;
-  inset: 0;
-}
-.cosmic__r3f-stage > canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-/* 前景星尘 twinkle 层 · 根级跨栏，覆盖整个 .login-root */
-.login-sky__stars {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(1.5px 1.5px at 8% 14%, rgba(255, 255, 255, 0.95), transparent 60%),
-    radial-gradient(1px 1px at 22% 58%, rgba(200, 220, 255, 0.8), transparent 60%),
-    radial-gradient(2px 2px at 44% 10%, rgba(255, 230, 210, 0.9), transparent 60%),
-    radial-gradient(1px 1px at 86% 76%, rgba(220, 200, 255, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 64% 32%, rgba(255, 255, 255, 0.7), transparent 60%),
-    radial-gradient(1.5px 1.5px at 16% 84%, rgba(210, 225, 255, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 92% 20%, rgba(255, 245, 215, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 76% 66%, rgba(230, 215, 255, 0.75), transparent 60%),
-    radial-gradient(1.2px 1.2px at 6% 42%, rgba(255, 255, 255, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 50% 92%, rgba(220, 235, 255, 0.7), transparent 60%);
-  animation: twinkle 5.5s ease-in-out infinite;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
-.login-sky__stars::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 34% 40%, rgba(255, 255, 255, 0.9), transparent 60%),
-    radial-gradient(1px 1px at 4% 62%, rgba(180, 210, 255, 0.75), transparent 60%),
-    radial-gradient(1.5px 1.5px at 58% 90%, rgba(255, 220, 200, 0.85), transparent 60%),
-    radial-gradient(1px 1px at 80% 6%, rgba(220, 230, 255, 0.8), transparent 60%),
-    radial-gradient(1px 1px at 28% 26%, rgba(255, 255, 255, 0.75), transparent 60%),
-    radial-gradient(1.2px 1.2px at 96% 48%, rgba(255, 240, 210, 0.75), transparent 60%),
-    radial-gradient(1px 1px at 12% 70%, rgba(210, 225, 255, 0.7), transparent 60%),
-    radial-gradient(1px 1px at 68% 82%, rgba(255, 255, 255, 0.7), transparent 60%);
-  animation: twinkle 7.8s ease-in-out infinite 1.2s;
-  mix-blend-mode: screen;
-}
-
-.cosmic__vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  /* 右侧更深的渐暗 · 为浮动 glass card 垫暗幕，让卡片内文字对比更高 */
+  inset: -10%;
   background:
-    radial-gradient(130% 95% at 50% 50%, transparent 55%, rgba(2, 3, 10, 0.6) 100%),
-    linear-gradient(90deg, transparent 55%, rgba(2, 3, 10, 0.72) 100%);
+    radial-gradient(60% 50% at 30% 30%, rgba(86, 116, 156, 0.18), transparent 70%),
+    radial-gradient(50% 40% at 75% 70%, rgba(64, 92, 130, 0.14), transparent 70%);
+  filter: blur(40px);
 }
 
-@keyframes twinkle {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
-}
-
-/* ═══ 右侧浮动玻璃卡容器 · 绝对定位在右侧，不再占 grid 列 ═══════════ */
-/* 构图原则：BH 居中，glass card 作为右侧浮动 lens，吸积盘从卡片背后穿过 */
-.login-aside {
+/* 极淡边缘光晕 · 让 form 浮起来 */
+.login-bg__halo {
   position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 50%, transparent 55%, rgba(8, 12, 18, 0.55) 100%);
+}
+
+/* ═══ Form 容器 · flex center · 不再"右侧浮动" ═══════════════════════ */
+.login-aside {
+  position: relative;
   z-index: 2;
-  top: 50%;
-  right: clamp(24px, 5vw, 80px);
-  transform: translateY(-50%);
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  padding: 0 16px;
   pointer-events: auto;
 }
 
-/* ═══ Form · 玻璃卡片 · 浮动透镜感，盘面在其背后流动可见 ═══════════ */
+/* ═══ Form · 极简磨砂玻璃卡 ═══════════════════════════════════════════ */
 .login-form {
   position: relative;
-  width: min(380px, 92vw);
+  width: min(400px, 92vw);
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: clamp(28px, 3vh, 40px) clamp(26px, 2.4vw, 36px);
-  /* 更透的背景 + 更强的 blur = 真实的 frosted-glass lens 感 · 不再是墙 */
+  padding: clamp(28px, 3vh, 40px) clamp(28px, 2.6vw, 38px);
   background:
     linear-gradient(180deg,
-      rgba(8, 12, 24, 0.48) 0%,
-      rgba(6, 9, 18, 0.62) 100%);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  border: 1px solid rgba(120, 155, 210, 0.22);
-  border-radius: 20px;
+      rgba(22, 30, 42, 0.78) 0%,
+      rgba(18, 26, 38, 0.82) 100%);
+  backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-backdrop-filter: blur(18px) saturate(1.05);
+  border: 1px solid rgba(150, 170, 200, 0.14);
+  border-radius: 16px;
   box-shadow:
-    0 30px 80px -30px rgba(0, 0, 0, 0.78),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    0 24px 60px -28px rgba(0, 0, 0, 0.6),
+    0 1px 0 rgba(255, 255, 255, 0.04) inset;
 }
 
-.login-form::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    radial-gradient(80% 40% at 100% 0%, rgba(106, 180, 255, 0.1), transparent 60%),
-    radial-gradient(60% 40% at 0% 100%, rgba(180, 120, 220, 0.06), transparent 65%);
-}
-
+/* ═══ Header · eyebrow + title + subtitle ════════════════════════════ */
 .lf-head {
   display: flex;
   flex-direction: column;
@@ -197,7 +96,7 @@
   gap: 10px;
   font-family: var(--mono);
   font-size: 11px;
-  color: rgba(180, 200, 230, 0.55);
+  color: rgba(170, 185, 210, 0.55);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -205,14 +104,14 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #6ab4ff;
-  box-shadow: 0 0 8px #6ab4ff;
+  background: #7fa3d4;
+  box-shadow: 0 0 6px rgba(127, 163, 212, 0.5);
 }
 .lf-eyebrow em {
   font-family: var(--italic);
   font-style: italic;
   font-size: 12px;
-  color: rgba(200, 215, 240, 0.72);
+  color: rgba(190, 205, 230, 0.7);
   text-transform: none;
   letter-spacing: 0.02em;
 }
@@ -221,13 +120,13 @@
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(30px, 3.2vw, 38px);
+  font-size: clamp(28px, 3.0vw, 36px);
   line-height: 1.05;
   letter-spacing: -0.02em;
   display: flex;
   align-items: baseline;
   gap: 14px;
-  color: #f2f5fb;
+  color: #f1f4f9;
 }
 .lf-title .cn {
   font-family: var(--cjk);
@@ -238,7 +137,7 @@
   font-family: var(--italic);
   font-style: italic;
   font-size: 0.55em;
-  color: rgba(180, 200, 230, 0.55);
+  color: rgba(170, 185, 210, 0.55);
   letter-spacing: 0.08em;
 }
 
@@ -246,10 +145,11 @@
   margin: 0;
   font-family: var(--cjk);
   font-size: 13px;
-  color: rgba(180, 200, 230, 0.62);
+  color: rgba(180, 195, 220, 0.62);
   letter-spacing: 0.02em;
 }
 
+/* ═══ Field · label + input/select ════════════════════════════════════ */
 .lf-field {
   display: flex;
   flex-direction: column;
@@ -262,13 +162,13 @@
   gap: 8px;
   font-family: var(--cjk);
   font-size: 12px;
-  color: rgba(180, 200, 230, 0.75);
+  color: rgba(180, 195, 220, 0.78);
   letter-spacing: 0.04em;
 }
 .lf-label .mono {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: rgba(150, 175, 210, 0.45);
+  color: rgba(150, 170, 200, 0.45);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -280,9 +180,9 @@
   padding: 11px 14px;
   font-family: var(--sans);
   font-size: 14px;
-  color: #eef2f8;
-  background: rgba(10, 16, 30, 0.55);
-  border: 1px solid rgba(120, 155, 210, 0.2);
+  color: #eef1f7;
+  background: rgba(14, 20, 30, 0.6);
+  border: 1px solid rgba(150, 170, 200, 0.18);
   border-radius: 10px;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
   outline: none;
@@ -291,14 +191,14 @@
 }
 
 .lf-input::placeholder {
-  color: rgba(160, 180, 210, 0.35);
+  color: rgba(160, 175, 200, 0.35);
 }
 
 .lf-input:focus,
 .lf-select:focus {
-  border-color: rgba(106, 180, 255, 0.7);
-  background: rgba(14, 22, 40, 0.75);
-  box-shadow: 0 0 0 3px rgba(106, 180, 255, 0.12);
+  border-color: rgba(127, 163, 212, 0.6);
+  background: rgba(18, 26, 38, 0.78);
+  box-shadow: 0 0 0 3px rgba(127, 163, 212, 0.12);
 }
 
 .lf-input:disabled {
@@ -306,27 +206,26 @@
   cursor: not-allowed;
 }
 
-.lf-select-wrap {
-  position: relative;
-}
+.lf-select-wrap { position: relative; }
 .lf-select {
   padding-right: 36px;
   cursor: pointer;
 }
 .lf-select option {
-  background: #0a1020;
-  color: #eef2f8;
+  background: #131c28;
+  color: #eef1f7;
 }
 .lf-select-chev {
   position: absolute;
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(180, 200, 230, 0.55);
+  color: rgba(180, 195, 220, 0.55);
   font-size: 12px;
   pointer-events: none;
 }
 
+/* ═══ Row · keep-login + forgot-link ═════════════════════════════════ */
 .lf-row {
   display: flex;
   align-items: center;
@@ -334,7 +233,7 @@
   gap: 12px;
   font-family: var(--cjk);
   font-size: 12px;
-  color: rgba(180, 200, 230, 0.62);
+  color: rgba(180, 195, 220, 0.62);
   margin-top: -4px;
 }
 .lf-check {
@@ -347,14 +246,15 @@
 .lf-check input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: #6ab4ff;
+  accent-color: #7fa3d4;
 }
 .lf-link {
   font-family: var(--cjk);
-  color: rgba(150, 175, 210, 0.5);
+  color: rgba(150, 170, 200, 0.5);
   letter-spacing: 0.02em;
 }
 
+/* ═══ Submit · 中性 slate-blue 主按钮 (端正 · 不闪 · 不发光) ══════════ */
 .lf-submit {
   margin-top: 4px;
   padding: 13px 18px;
@@ -362,10 +262,10 @@
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  color: #0a0f1c;
+  color: #f3f6fb;
   background:
-    linear-gradient(135deg, #d6e6fb 0%, #8fb7e8 45%, #6ab4ff 100%);
-  border: 1px solid rgba(200, 220, 250, 0.6);
+    linear-gradient(135deg, #4a6c96 0%, #3d5a80 50%, #354f72 100%);
+  border: 1px solid rgba(127, 163, 212, 0.32);
   border-radius: 12px;
   cursor: pointer;
   display: flex;
@@ -373,16 +273,16 @@
   justify-content: space-between;
   gap: 12px;
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.45) inset,
-    0 14px 30px -16px rgba(106, 180, 255, 0.55);
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 8px 22px -10px rgba(53, 79, 114, 0.55);
   transition: transform 0.18s, box-shadow 0.25s, filter 0.2s;
 }
 .lf-submit:hover {
   transform: translateY(-1px);
-  filter: brightness(1.05);
+  filter: brightness(1.06);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.5) inset,
-    0 18px 36px -16px rgba(106, 180, 255, 0.7);
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 12px 28px -10px rgba(53, 79, 114, 0.7);
 }
 .lf-submit:active { transform: translateY(0); }
 .lf-submit:disabled {
@@ -393,10 +293,11 @@
   font-family: var(--italic);
   font-style: italic;
   font-weight: 400;
-  color: rgba(10, 15, 28, 0.7);
+  color: rgba(243, 246, 251, 0.7);
   margin-right: 4px;
 }
 
+/* ═══ SSO · 备用入口 (仅展示 · 当前 disabled) ═════════════════════════ */
 .lf-sso {
   display: flex;
   flex-direction: column;
@@ -410,12 +311,12 @@
   font-family: var(--italic);
   font-style: italic;
   font-size: 11.5px;
-  color: rgba(150, 175, 210, 0.45);
+  color: rgba(150, 170, 200, 0.45);
 }
 .lf-sep i {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(120, 155, 210, 0.28), transparent);
+  background: linear-gradient(90deg, transparent, rgba(150, 170, 200, 0.22), transparent);
 }
 
 .lf-sso-row {
@@ -432,9 +333,9 @@
   padding: 10px 12px;
   font-family: var(--cjk);
   font-size: 12.5px;
-  color: rgba(200, 215, 240, 0.7);
-  background: rgba(10, 16, 30, 0.45);
-  border: 1px solid rgba(120, 155, 210, 0.18);
+  color: rgba(190, 205, 230, 0.7);
+  background: rgba(14, 20, 30, 0.5);
+  border: 1px solid rgba(150, 170, 200, 0.16);
   border-radius: 10px;
   cursor: not-allowed;
   letter-spacing: 0.04em;
@@ -445,9 +346,10 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(180, 200, 230, 0.38);
+  background: rgba(180, 195, 220, 0.38);
 }
 
+/* ═══ Footer · platform 标识 ═════════════════════════════════════════ */
 .lf-foot {
   display: flex;
   justify-content: space-between;
@@ -455,39 +357,19 @@
   flex-wrap: wrap;
   padding-top: 14px;
   margin-top: 6px;
-  border-top: 1px solid rgba(120, 155, 210, 0.12);
+  border-top: 1px solid rgba(150, 170, 200, 0.12);
   font-family: var(--cjk);
   font-size: 11.5px;
-  color: rgba(150, 175, 210, 0.5);
+  color: rgba(150, 170, 200, 0.5);
 }
 .lf-foot .mono {
   font-family: var(--mono);
   letter-spacing: 0.08em;
 }
 
-/* ═══ Responsive ═══════════════════════════════════════════════════ */
-@media (max-width: 880px) {
-  .login-root {
-    position: fixed;
-    height: 100vh;
-  }
-  /* 窄屏下 glass card 回到下半屏居中 · BH 仍然屏幕居中 */
-  .login-aside {
-    position: absolute;
-    top: auto;
-    bottom: 24px;
-    right: 50%;
-    transform: translateX(50%);
-    padding: 0 16px;
-    width: 100%;
-    box-sizing: border-box;
-  }
+/* ═══ Responsive ═════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
   .login-form {
-    width: min(380px, calc(100vw - 32px));
-  }
-  .cosmic__vignette {
-    background:
-      radial-gradient(130% 95% at 50% 30%, transparent 55%, rgba(2, 3, 10, 0.7) 100%),
-      linear-gradient(180deg, transparent 45%, rgba(2, 3, 10, 0.85) 100%);
+    width: min(400px, calc(100vw - 28px));
   }
 }
