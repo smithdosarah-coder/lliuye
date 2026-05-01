@@ -1,0 +1,80 @@
+name: Lint Contracts (Agent Naming SSOT + Letterpress Purge + Compliance Ratify)
+
+# Phase A 验收硬线 #8 · Q-043 codex peer-review protocol v2 配套 · per CLAUDE.md §3.7.4
+#
+# 触发: push to main/chore/feat/fix branches + PR
+# 检查: scripts/lint/check_agent_naming_ssot.py --strict (WARN 也 fail)
+# 阻塞: PR fail 阻塞 merge · 强制 enforce SSOT 不引入新违规
+#
+# 后续 worker (Phase B) 引入新 letterpress 字面 / compli 残留 / 新双 id /
+# agent_id mismatch 等 · CI 自动 fail · 不依赖主 CLI 手 review。
+
+on:
+  push:
+    branches:
+      - main
+      - 'chore/**'
+      - 'feat/**'
+      - 'fix/**'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+
+# Concurrency: 同 branch 旧 run 取消 (节省 actions runner 时间)
+concurrency:
+  group: lint-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-naming-ssot:
+    name: Agent Naming SSOT lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        # PyYAML 是 optional · script 用 stdlib 实现 fallback · 但加上更严格
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Run SSOT lint (strict mode + JSON report)
+        id: lint
+        # --strict: WARN 也 fail (Stage 4 ratify 后应 0 warn 0 error)
+        # --json: 输出机器可读 JSON · 后续 upload artifact
+        # 退出码: 0 (PASS) / 1 (有 issue · strict 下 WARN 也算)
+        run: |
+          python scripts/lint/check_agent_naming_ssot.py --strict --json > lint-report.json
+        continue-on-error: false
+
+      - name: Upload lint report
+        if: always()  # always upload · 即使 lint fail 也留 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssot-lint-report-${{ github.sha }}
+          path: lint-report.json
+          retention-days: 14
+
+      - name: Show lint report (for PR review visibility)
+        if: failure()
+        run: |
+          echo "=== SSOT lint FAILED · 见 lint-report.json artifact ==="
+          cat lint-report.json
+          echo ""
+          echo "Phase A 验收硬线 #8 (lint enforcement) · 不允许引入:"
+          echo "  - Letterpress / crimson / --color-brass / --color-ink / ink-brush-hr 字面"
+          echo "  - compli (Stage 4 ratify 后已统一 compliance · 不允许复活)"
+          echo "  - 新双 id (per CLAUDE.md §3.7.2 + Q-042.B)"
+          echo "  - agent_id mismatch (backend mount prefix vs SSOT vs frontend AgentKey)"
+          echo ""
+          echo "修复路径: 见 docs/contracts/agent-naming-ssot.md v1.1"

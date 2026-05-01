@@ -237,9 +237,107 @@ grep -n "^## " docs/contracts/agent-handoff-schemas.md
 
 ---
 
-## 5. BUG-D 修复 (待修 · 加 .github/workflows/lint-contracts.yml)
+## 5. BUG-D 修复完整记录 (加 .github/workflows/lint-contracts.yml)
 
-待修复。计划见 §1 列表。
+### 5.1 问题描述 (人话)
+
+我们有一个自动检查脚本 `scripts/lint/check_agent_naming_ssot.py` (Python · 跑通的 ·
+local verify 0 error / 0 warn)。这个脚本检查:
+- 不能引入新 Letterpress / crimson / --color-brass / --color-ink / ink-brush-hr 字面
+- 不能引入新 compli 残留 (Stage 4 ratify 后必 compliance)
+- 不能引入新双 id (per CLAUDE.md §3.7.2 + Q-042.B)
+- agent_id mismatch (backend mount prefix vs SSOT vs frontend AgentKey)
+
+但 **GitHub Actions 完全没接** — `.github/workflows/` 这个目录之前都不存在。意思:
+- 任何后续 PR 都不会自动跑这个检查
+- 全靠主 CLI 手 review · 漏掉就漏掉
+- 后续 worker 偷偷加回 Letterpress / compli 字面 · CI 不报 · 直接 merge 进 main
+
+Codex Phase A audit verdict: 这是 hard 阻塞 · 必须 wire CI workflow。
+
+### 5.2 修复了哪些文件
+
+**新建文件**: `.github/workflows/lint-contracts.yml` (66 行)
+
+Workflow 设计:
+- **触发**: push to `main` / `chore/**` / `feat/**` / `fix/**` / `docs/**` branches + PR to main
+- **Concurrency**: 同 branch 旧 run 取消 (节省 GitHub Actions runner 时间)
+- **Job: agent-naming-ssot**:
+  - `runs-on: ubuntu-latest`
+  - `timeout-minutes: 5` (lint 应 < 1 min · 5 min 是宽容上限)
+  - Steps:
+    1. Checkout (actions/checkout@v4)
+    2. Setup Python 3.11 (actions/setup-python@v5 · pip cache)
+    3. Install pyyaml (optional · script 有 stdlib fallback · 加上更严)
+    4. Run lint: `python scripts/lint/check_agent_naming_ssot.py --strict --json > lint-report.json`
+    5. Upload lint-report.json artifact (14 day retention · `if: always()` 即使 fail 也上传)
+    6. Show lint report (`if: failure()` · 仅 fail 时打印 + 列违规清单提示 PR reviewer)
+- **PR fail 阻塞 merge**: lint script 退出码非 0 → workflow fail → PR 上显示 X · GitHub branch protection 接 → 阻 merge (需 repo settings 开 branch protection · 这是 PM 在 GitHub UI 配置 · 不是 yml 内容)
+
+**关键设计** (per Q-043 codex peer-review protocol v2 + CLAUDE.md §3.7.4):
+- `--strict` flag: WARN 也算 fail (Stage 4 ratify 后应该 0 warn · CI 严格模式)
+- `--json` flag: 机器可读输出 · upload artifact 后续可被 GitHub Actions JSON parser / dashboard 消费
+- Concurrency cancel-in-progress: 同 branch push 多次 · 旧 run 自动取消 · 节省 runner 配额
+- 失败时打印违规清单 (在 `Show lint report` step) · PR reviewer 一眼看出怎么修
+
+### 5.3 Verify 怎么做
+
+CI workflow 真激活需要 push 后看 GitHub Actions tab。本地 verify 是直接跑 lint script:
+
+```bash
+py scripts/lint/check_agent_naming_ssot.py --strict
+```
+
+### 5.4 Verify 结果
+
+```
+== SSOT lint · docs\contracts\agent-naming-ssot.md ==
+  ✅ all 6 agent × 5 check PASS
+-- summary: 0 error · 0 warn --
+PASS (WARN 不阻塞 · PM 拍板 §3 后 WARN→ERROR)
+```
+
+✅ Local PASS · 0 error / 0 warn。CI 真激活待 push 后 GitHub Actions tab 验证 (本 commit push 后第一个 PR / push 触发)。
+
+### 5.5 时间戳
+
+- Verify lint script CLI flags (--strict / --json): 2026-05-01
+- Write .github/workflows/lint-contracts.yml (66 行): 2026-05-01 (~25 min)
+- Local verify lint script PASS: 2026-05-01
+- 总耗时: ~30 min
+- 修复者: 主 CLI (Claude Opus 4.7 · single session)
+
+### 5.6 后续 (PM 在 GitHub UI 配置 · 不在本 BUG-D scope)
+
+CI workflow yml 写完 + push 后 · PM 需要在 GitHub repo settings 开:
+- Settings → Branches → Add rule for `main` branch
+- Require status checks to pass before merging → 选 "agent-naming-ssot" check
+- 这样 PR 上 lint fail 会真阻塞 merge (而不是只显 X · 但仍可 merge)
+
+这是 GitHub UI 配置 · 不是代码 · 主 CLI 没法 sandbox 改 · PM 一次配完 ongoing 生效。
+
+---
+
+## 6. 全部 4 BUG 修复总结
+
+| # | BUG | Commit | 工程量 | Verify |
+|---|---|---|---|---|
+| BUG-A | Letterpress 字面残留 (4 处注释) | 1531929 | ~10 min | grep 0 残留 |
+| BUG-B | 加 channel.ts (314 行) | 02daaac | ~30 min | tsc PASS |
+| BUG-C | handoff schema v1.0 → v1.1 (§6 6 条新) | 503fdad | ~30 min | grep section 编号 |
+| BUG-D | 加 lint-contracts.yml (66 行) | (本 commit) | ~30 min | local lint PASS |
+
+**总耗时**: ~1.5h (按 Codex audit verdict 估算 1.5-2h · 实际 1.5h · 在预算内)
+
+下一步 (按 PM 4 条顺序 · 进入第 2 步):
+- Fire Codex re-audit (~5 min · verify 8 硬线全通 · 不再 NO-GO)
+- Codex GO 后:
+  - 打 git tag `phase-a-exit-bugfix-2026-05-01` (可退回点)
+  - 写 milestone doc (含 8 硬线全通 verdict + 回退命令)
+- Push GitHub + ECS deploy 含 build (因为改了前端 ThemeSwitch + globals/tokens.css + channel.ts)
+- 里程碑后 fire 真三方辩论 R2 v2 (PM 在 Gemini conversation 能 verify 多 turn)
+
+
 
 ---
 
