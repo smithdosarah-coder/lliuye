@@ -1,0 +1,89 @@
+name: Baseline Gate (6 Agent Evaluation Runner · BE10 + V4 plan F6)
+
+# F6 (V4 plan · Phase B-1) · Codex C14 加补 · 与 worker-B1 BE10 配套
+#
+# 触发: PR + push 到 main / chore/** / feat/** / fix/**
+# 检查: python -m evaluation.runner --all --gate
+#       blocker_threshold 触发时 cli 退出码 3 · CI 阻断 (per worker-B1
+#       commit aa289ea + e1238d3 V2 gate-semantics fix)
+# 验收: V4 plan F6 DoD "6 Agent evidence_rate / hallucination_rate /
+#       field_completeness baseline 跑通 · 红线接 CI"
+#
+# 启用条件 (PM 拍板 + main CLI 操作):
+# 1. worker-B1 (feat/phase-b1-flywheel) merge 进 main · 即 evaluation.runner
+#    --gate flag 在 main 上可用
+# 2. main CLI 设 GitHub repo variable `BASELINE_GATE_ENABLED=true`
+#    (设前 if-check 短路 · workflow 跳过 · 不阻断 PR)
+# 3. 跑通 1 次 baseline gate · 6 agent 全 PASS · 然后才能 enforce
+#
+# 当前状态 (2026-05-01): 默认 disabled · workflow 文件占位 · 等 worker-B1 merge
+
+on:
+  push:
+    branches:
+      - main
+      - 'chore/**'
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: baseline-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluation-baseline-gate:
+    name: 6 Agent Baseline Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # F6 · Feature gate · 默认 disabled · 等 worker-B1 merge + PM enable
+    if: ${{ vars.BASELINE_GATE_ENABLED == 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Evaluation runner 需要的最小依赖 (pydantic + pyyaml)
+          pip install pydantic pyyaml
+
+      - name: Run 6 Agent baseline gate (--all --gate)
+        id: gate
+        # 退出码: 0 PASS / 1 FAIL or PARTIAL / 2 adapter unimplemented /
+        #         3 blocker_threshold triggered (CI 阻断发布 · BE10)
+        run: |
+          python -m evaluation.runner --all --gate --out /tmp/baseline-gate.json
+        continue-on-error: false
+
+      - name: Upload gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-gate-report-${{ github.sha }}
+          path: /tmp/baseline-gate.json
+          retention-days: 30
+
+      - name: Show gate report (for PR review visibility)
+        if: failure()
+        run: |
+          echo "=== Baseline Gate FAILED (V4 plan F6 · BE10) ==="
+          cat /tmp/baseline-gate.json || echo "(no report file)"
+          echo ""
+          echo "退出码语义:"
+          echo "  · 1 = PARTIAL/FAIL · 至少一个 metric 没达 target"
+          echo "  · 2 = adapter 未实现 · 跳过 (不算 fail)"
+          echo "  · 3 = blocker_threshold 触发 · CI 阻断发布 (BE10 真红线)"
+          echo ""
+          echo "Runbook: docs/runbook/feedback-flywheel.md"
+          echo "Phase B charter: docs/reset/phase-b-charter.md §1.1"
