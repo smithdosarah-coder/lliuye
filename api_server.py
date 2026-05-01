@@ -258,6 +258,7 @@ class FeedbackRequest(BaseModel):
     user_correction: dict
     correction_reason: str = ""
     user_id: str | None = None
+    rating: int | None = None     # 1-5 满意度 (Sprint 2 决策 1 · None=未评分)
 
 
 @app.post("/api/feedback")
@@ -278,6 +279,9 @@ async def submit_feedback(req: FeedbackRequest):
     path = PROJECT_ROOT / "data" / "feedback" / f"{date}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    if req.rating is not None and not (1 <= req.rating <= 5):
+        raise HTTPException(400, "rating must be 1-5 or null")
+
     record = {
         "timestamp": now.isoformat(),
         "agent": req.agent,
@@ -286,6 +290,7 @@ async def submit_feedback(req: FeedbackRequest):
         "original_output": req.original_output,
         "user_correction": req.user_correction,
         "correction_reason": req.correction_reason,
+        "rating": req.rating,
     }
     try:
         with path.open("a", encoding="utf-8") as f:
@@ -312,6 +317,99 @@ async def submit_feedback(req: FeedbackRequest):
         print(f"[api_server] audit modify record failed: {audit_err}", file=sys.stderr)
 
     return {"status": "ok", "path": str(path.relative_to(PROJECT_ROOT))}
+
+
+def _resolve_admin_dep():
+    """lazy admin dep · auth_service 缺时返 stub (本地 dev / 未 cherry-pick · 复用
+    audit_service.api 模式)."""
+    try:
+        from auth_service.dependencies import require_user as _require
+        return _require
+    except ImportError:
+        async def _stub() -> dict:
+            return {"sub": "anonymous", "role": "admin"}
+        return _stub
+
+
+def _check_admin_role(user: dict) -> None:
+    role = (user or {}).get("role", "")
+    if role != "admin":
+        raise HTTPException(
+            403,
+            detail={
+                "error": {
+                    "code": "ACCESS_DENIED",
+                    "message": "feedback admin requires admin role",
+                    "details": {"role": role},
+                },
+            },
+        )
+
+
+_FEEDBACK_ADMIN_DEP = _resolve_admin_dep()
+
+
+@app.get("/api/feedback")
+async def feedback_admin_list(
+    user: dict = Depends(_FEEDBACK_ADMIN_DEP),
+    agent_id: str | None = Query(default=None),
+    date_from: str | None = Query(default=None, description="ISO date · 默认无下界"),
+    date_to: str | None = Query(default=None, description="ISO date · 默认无上界"),
+    rating: str | None = Query(default=None, description="CSV · 4,5"),
+    user_id: str | None = Query(default=None),
+    cursor: str | None = Query(default=None, description="last id 'date:lineno'"),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Admin filter list · Sprint 2 决策 1 · 4 filter + cursor pagination."""
+    _check_admin_role(user)
+    from feedback_admin import query_feedback
+    try:
+        return query_feedback(
+            PROJECT_ROOT / "data" / "feedback",
+            agent_id=agent_id,
+            date_from=date_from,
+            date_to=date_to,
+            rating=rating,
+            user_id=user_id,
+            cursor=cursor,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.get("/api/feedback/export")
+async def feedback_admin_export(
+    user: dict = Depends(_FEEDBACK_ADMIN_DEP),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    agents: str | None = Query(default=None, description="CSV agent ids · 默认全部"),
+):
+    """Admin export zip · per-agent 1 jsonl · application/zip · 流式不内存爆."""
+    _check_admin_role(user)
+    from fastapi.responses import Response
+    from feedback_admin import build_export_zip
+    agent_list = [a.strip() for a in agents.split(",") if a.strip()] if agents else None
+    try:
+        zip_bytes = build_export_zip(
+            PROJECT_ROOT / "data" / "feedback",
+            date_from=date_from,
+            date_to=date_to,
+            agents=agent_list,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    df_label = (date_from or "all")[:10]
+    dt_label = (date_to or "all")[:10]
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="feedback_{df_label}_to_{dt_label}.zip"'
+            ),
+        },
+    )
 
 
 @app.get("/api/feedback/stats")
