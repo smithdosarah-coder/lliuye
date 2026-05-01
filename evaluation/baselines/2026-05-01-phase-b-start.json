@@ -2,10 +2,10 @@
   {
     "run": {
       "agent_id": "alert",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:05.950678+00:00",
+      "timestamp": "2026-05-01T14:44:13.888564+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -138,7 +138,7 @@
     ],
     "verdict": "PASS",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.04592860001139343,
+    "duration_seconds": 0.04847229999722913,
     "blockers": [
       "signal_diversity"
     ]
@@ -146,10 +146,10 @@
   {
     "run": {
       "agent_id": "channel",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:06.066563+00:00",
+      "timestamp": "2026-05-01T14:44:14.011438+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -284,16 +284,16 @@
     ],
     "verdict": "PARTIAL",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.0011831999872811139,
+    "duration_seconds": 0.001854700007243082,
     "blockers": []
   },
   {
     "run": {
       "agent_id": "compliance",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:06.141247+00:00",
+      "timestamp": "2026-05-01T14:44:14.090345+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -422,7 +422,7 @@
     ],
     "verdict": "PARTIAL",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.0009735000203363597,
+    "duration_seconds": 0.0016585999983362854,
     "blockers": [
       "policy_coverage",
       "conflict_recall"
@@ -431,10 +431,10 @@
   {
     "run": {
       "agent_id": "credit",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:06.210444+00:00",
+      "timestamp": "2026-05-01T14:44:14.170331+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -565,16 +565,16 @@
     ],
     "verdict": "PARTIAL",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.0009453999809920788,
+    "duration_seconds": 0.001255400013178587,
     "blockers": []
   },
   {
     "run": {
       "agent_id": "report",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:06.282230+00:00",
+      "timestamp": "2026-05-01T14:44:14.252402+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -693,7 +693,7 @@
     ],
     "verdict": "PARTIAL",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.00013490000856108963,
+    "duration_seconds": 0.00012159999459981918,
     "blockers": [
       "task_completion_rate"
     ]
@@ -701,10 +701,10 @@
   {
     "run": {
       "agent_id": "riskctrl",
-      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "commit": "273ae83687e04ac6d0ea4c5d1cc3ec0127168bb2",
       "artifacts": [],
       "compare_baseline": false,
-      "timestamp": "2026-05-01T14:22:06.351844+00:00",
+      "timestamp": "2026-05-01T14:44:14.333561+00:00",
       "extra": {}
     },
     "common_metrics": [
@@ -837,7 +837,7 @@
     ],
     "verdict": "PARTIAL",
     "runner_version": "0.1.0-phase-a",
-    "duration_seconds": 0.005205800000112504,
+    "duration_seconds": 0.006478700001025572,
     "blockers": []
   }
 ]

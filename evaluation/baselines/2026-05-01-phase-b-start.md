@@ -1,9 +1,11 @@
 # 6 Agent 基线 · 2026-05-01 (Phase B 启动 · BE10 blocker_threshold gate first run)
 
-**Commit**: `47e7cad` (feat/phase-b1-flywheel)
+**Commit**: `273ae83` (feat/phase-b1-flywheel · V2 codex review 修复后)
 **Schema**: A-024 + A-025 双字段 + Phase B BE10 blocker_threshold gate 启用
 **Runner**: `py -m evaluation.runner --all --out evaluation/baselines/2026-05-01-phase-b-start.json`
 **Gate dry-run**: `py -m evaluation.runner --all --gate` 当前会退出码 3 (4 项 blocker 触发 · 见下)
+
+> **V2 codex review fix**: baseline 已基于 V2 修复后 HEAD (`273ae83`) 重生成 · 此前 `47e7cad` 版本系修方向推断 bug 之前的 stale snapshot · 已覆盖。
 
 ## 一览表
 
