@@ -95,5 +95,38 @@
     "conditions": [],
     "decision_reason": "[demo] 王五装修工头 PBOC 810 优等 · 综合评分 812/850 · 0 项红线 · 行业 18 年深耕 + 月均流水 8.6 万 + DTI 22% + 深圳自有住宅抵押 380 万 LTV 53% · 同业 3/3 案例均获批且利率均低于 LPR · 建议批准 200 万 60 期 · 利率 LPR-10BP · VIP 通道一档过 · 可主动 pre-approve 上调至 250 万。",
     "stage_tab": "retail"
+  },
+  "decision_graph": {
+    "schema_version": "1.0.0",
+    "engine": "agent3.decision_engine",
+    "engine_version": "v3.1",
+    "appetite": {"segment": "retail", "version": "default-2026-04", "client_id": ""},
+    "subject_name": "王五",
+    "segment": "retail",
+    "built_at": "2026-05-01T10:35:00",
+    "decision_summary": {
+      "decision": "批准",
+      "approved_amount": 200,
+      "approved_term_months": 60,
+      "interest_rate": 0.0355,
+      "rate_benchmark": "LPR-10BP",
+      "risk_grade": "优",
+      "composite_score": 812
+    },
+    "nodes": [
+      {"id": "decision::final", "type": "decision", "decision": "批准", "approved_amount": 200, "approved_term_months": 60, "interest_rate": 0.0355, "rate_benchmark": "LPR-10BP", "risk_grade": "优", "composite_score": 812, "rationale_anchor": "评分定档 优 + 无红线 → 批准 (VIP 通道)"},
+      {"id": "score::ability", "type": "score_dimension", "dimension": "ability", "score": 808, "weight": 0.30, "weighted": 242.4, "source": "scoring_model_retail.py::score::repayment_capacity", "sub_scores": {}},
+      {"id": "score::willingness", "type": "score_dimension", "dimension": "willingness", "score": 820, "weight": 0.25, "weighted": 205.0, "source": "scoring_model_retail.py::score::repayment_willingness", "sub_scores": {}},
+      {"id": "score::stability", "type": "score_dimension", "dimension": "stability", "score": 815, "weight": 0.25, "weighted": 203.75, "source": "scoring_model_retail.py::score::stability", "sub_scores": {}},
+      {"id": "score::collateral", "type": "score_dimension", "dimension": "collateral", "score": 805, "weight": 0.20, "weighted": 161.0, "source": "scoring_model_retail.py::score::collateral", "sub_scores": {}}
+    ],
+    "edges": [
+      {"from": "score::ability", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::willingness", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::stability", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::collateral", "to": "decision::final", "type": "evidenced_by"}
+    ],
+    "peer_gap_summary": {},
+    "missing_evidence": ["retail_peer_baselines_unavailable_in_v1.0_schema"]
   }
 }

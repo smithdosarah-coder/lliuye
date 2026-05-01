@@ -93,5 +93,38 @@
     "conditions": [],
     "decision_reason": "[demo] 张三个体户 PBOC 720 良好 · 综合评分 728/850 · 0 项红线 · 经营 9 年 + 月均流水 4.2 万 + DTI 34% + 营业用房产抵押 LTV 53% · 同业 3/3 案例同条件均获批 · 建议批准 50 万 36 期 · 利率 LPR+20BP · 可常规快速通道审批。",
     "stage_tab": "retail"
+  },
+  "decision_graph": {
+    "schema_version": "1.0.0",
+    "engine": "agent3.decision_engine",
+    "engine_version": "v3.1",
+    "appetite": {"segment": "retail", "version": "default-2026-04", "client_id": ""},
+    "subject_name": "张三",
+    "segment": "retail",
+    "built_at": "2026-05-01T10:33:00",
+    "decision_summary": {
+      "decision": "批准",
+      "approved_amount": 50,
+      "approved_term_months": 36,
+      "interest_rate": 0.043,
+      "rate_benchmark": "LPR+20BP",
+      "risk_grade": "良好",
+      "composite_score": 728
+    },
+    "nodes": [
+      {"id": "decision::final", "type": "decision", "decision": "批准", "approved_amount": 50, "approved_term_months": 36, "interest_rate": 0.043, "rate_benchmark": "LPR+20BP", "risk_grade": "良好", "composite_score": 728, "rationale_anchor": "评分定档 良好 + 无红线 → 批准"},
+      {"id": "score::ability", "type": "score_dimension", "dimension": "ability", "score": 720, "weight": 0.30, "weighted": 216.0, "source": "scoring_model_retail.py::score::repayment_capacity", "sub_scores": {}},
+      {"id": "score::willingness", "type": "score_dimension", "dimension": "willingness", "score": 745, "weight": 0.25, "weighted": 186.25, "source": "scoring_model_retail.py::score::repayment_willingness", "sub_scores": {}},
+      {"id": "score::stability", "type": "score_dimension", "dimension": "stability", "score": 730, "weight": 0.25, "weighted": 182.5, "source": "scoring_model_retail.py::score::stability", "sub_scores": {}},
+      {"id": "score::collateral", "type": "score_dimension", "dimension": "collateral", "score": 718, "weight": 0.20, "weighted": 143.6, "source": "scoring_model_retail.py::score::collateral", "sub_scores": {}}
+    ],
+    "edges": [
+      {"from": "score::ability", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::willingness", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::stability", "to": "decision::final", "type": "evidenced_by"},
+      {"from": "score::collateral", "to": "decision::final", "type": "evidenced_by"}
+    ],
+    "peer_gap_summary": {},
+    "missing_evidence": ["retail_peer_baselines_unavailable_in_v1.0_schema"]
   }
 }

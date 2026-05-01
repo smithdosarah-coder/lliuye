@@ -421,6 +421,105 @@ def test_demo_fixture_loads_and_matches_schema():
     }
 
 
+# ---------------------------------------------------------------------------
+# 6.1 All 6 demo scenarios carry schema-valid graphs (parameterized)
+# ---------------------------------------------------------------------------
+
+
+_SCENARIO_DIR = (
+    PROJECT_ROOT / "data" / "mock" / "workspace" / "credit" / "scenarios"
+)
+_ALL_SCENARIOS = [
+    "corp-dingsheng-001",
+    "corp-ruiheng-002",
+    "corp-zhongrui-003",
+    "retail-zhangsan-001",
+    "retail-lisi-002",
+    "retail-wangwu-003",
+]
+
+
+@pytest.mark.parametrize("scenario_id", _ALL_SCENARIOS)
+def test_every_scenario_has_valid_graph(scenario_id):
+    """Each Phase B-3 demo scenario must carry a decision_graph that:
+    - declares the pinned schema_version
+    - contains a decision::final node
+    - has score_dimension nodes evidencing the decision
+    - has no dangling edges (every from/to resolves)
+    Corporate scenarios additionally must carry the 4 peer_gap_summary
+    keys; retail scenarios must explicitly mark
+    `retail_peer_baselines_unavailable_in_v1.0_schema` in
+    missing_evidence (peer_gap is corporate-only in v1.0 per spec §4)."""
+    fixture = _SCENARIO_DIR / f"{scenario_id}.json"
+    data = json.loads(fixture.read_text(encoding="utf-8"))
+    assert "decision_graph" in data, (
+        f"{scenario_id}: missing decision_graph block"
+    )
+    g = data["decision_graph"]
+
+    # Schema invariants
+    assert g["schema_version"] == SCHEMA_VERSION, (
+        f"{scenario_id}: schema_version mismatch"
+    )
+    assert g["segment"] in {"corporate", "retail"}
+    assert g["engine"] == "agent3.decision_engine"
+
+    # Decision node exists
+    decision_nodes = [n for n in g["nodes"] if n["type"] == "decision"]
+    assert decision_nodes and decision_nodes[0]["id"] == "decision::final"
+
+    # At least one score_dimension evidences the decision
+    score_dims = {n["id"] for n in g["nodes"] if n["type"] == "score_dimension"}
+    evidenced = {
+        e["from"] for e in g["edges"]
+        if e["type"] == "evidenced_by" and e["to"] == "decision::final"
+    }
+    assert score_dims, f"{scenario_id}: no score_dimension nodes"
+    assert score_dims & evidenced, (
+        f"{scenario_id}: no score_dimension evidences the decision"
+    )
+
+    # No dangling edges
+    node_ids = {n["id"] for n in g["nodes"]}
+    for edge in g["edges"]:
+        assert edge["from"] in node_ids, (
+            f"{scenario_id}: dangling edge.from: {edge}"
+        )
+        assert edge["to"] in node_ids, (
+            f"{scenario_id}: dangling edge.to: {edge}"
+        )
+
+    # peer_gap policy by segment
+    if g["segment"] == "corporate":
+        assert set(g["peer_gap_summary"].keys()) == {
+            "debt_ratio_gap", "net_margin_gap",
+            "revenue_growth_gap", "ar_turnover_gap",
+        }, f"{scenario_id}: corporate scenario must carry 4 peer_gap keys"
+    else:  # retail
+        assert g["peer_gap_summary"] == {}, (
+            f"{scenario_id}: retail scenarios must keep peer_gap_summary "
+            f"empty in v1.0 schema (peer baselines are corporate-only)"
+        )
+        assert any(
+            "retail_peer_baselines" in m for m in g["missing_evidence"]
+        ), (
+            f"{scenario_id}: retail scenarios must annotate the missing "
+            f"peer baseline in missing_evidence"
+        )
+
+    # Rule hits, when present, must each cause the decision
+    hit_ids = {n["id"] for n in g["nodes"] if n["type"] == "rule_hit"}
+    if hit_ids:
+        caused = {
+            e["from"] for e in g["edges"]
+            if e["type"] == "caused" and e["to"] == "decision::final"
+        }
+        assert hit_ids <= caused, (
+            f"{scenario_id}: rule_hits without caused edge: "
+            f"{hit_ids - caused}"
+        )
+
+
 def test_industry_baseline_loader_returns_known_codes():
     baselines = load_industry_baselines()
     # I65 is a stable seed in industry_baselines_v2.json
