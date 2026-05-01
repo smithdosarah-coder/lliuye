@@ -160,10 +160,13 @@ class DecisionEngine:
         # Persists the decision + evidence chain (BE2 graph) to the
         # jurisdiction-scoped audit log. Same try/except discipline as
         # BE2: ledger 是观察层不是阻塞层 · 写入失败不破 decision flow.
+        # Uses the lower-level `default_ledger().record(...)` so we can
+        # surface the real `persisted` flag — the public `record_decision`
+        # façade silently swallows failure and only returns the id.
         yield "ledger_persisting", None
         try:
-            from shared.decision_ledger import record_decision
-            decision_id = record_decision(
+            from shared.decision_ledger import default_ledger
+            ledger_result = default_ledger().record(
                 agent_id="credit",
                 endpoint="/api/credit/decision",
                 input_payload=profile,
@@ -176,8 +179,14 @@ class DecisionEngine:
                 # add the field via the Agent6 → Agent3 handoff schema.
             )
             # Reuse advice_id slot · 1:1 mapping with ledger decision_id.
-            advice.advice_id = decision_id
-            yield "ledger_done", {"decision_id": decision_id, "persisted": True}
+            advice.advice_id = ledger_result.decision_id
+            event_payload: dict = {
+                "decision_id": ledger_result.decision_id,
+                "persisted": ledger_result.persisted,
+            }
+            if ledger_result.error:
+                event_payload["error"] = ledger_result.error
+            yield "ledger_done", event_payload
         except (RuntimeError, ValueError, TypeError, OSError,
                 AttributeError, KeyError, ImportError) as exc:
             yield "ledger_done", {
