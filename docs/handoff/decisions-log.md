@@ -2580,3 +2580,81 @@ v3 14 action (UI/视觉 + 部分产品) + Codex R1 v2 7 action (产品深 bug �
 - Phase B charter commit signal: `PHASE-B-CHARTER-V1` (待 PM 拍 5+1 项后)
 
 ---
+
+### Q-045 (2026-05-01 PM ratify) · Phase B charter v2 + 后端方案 v2.1 + 三方辩论 v4 全 ratify · Phase B 启动
+
+**Type**: PM 拍板 (Phase B charter v1 → v2 升级 · 真产品力大提升 · 痛点驱动)
+**Triggered by**: PM 2026-05-01 ultrathink 系列对话:
+- "B 一起干 · 我要产品力大提升"
+- "你的所有后端方案来自于哪里" (PM 看穿主 CLI v2 charter 8 项凭印象 ~17% evidence)
+- "主 CLI + Codex 对方案来一个至少三轮的辩论 · 深度考虑产品到底解决了什么痛点"
+- "前端后端任务一起推进 · 做好每一步的记录 · 留好一个回档节点 · 剩下的直接干"
+**Blocking**: no (本 entry 形式化 PM 拍板 · charter v2 doc 本 commit 落)
+
+#### 决议
+
+PM 2026-05-01 ratify 5 件:
+
+1. **Phase B charter v1 → v2 升级** (`docs/reset/phase-b-charter.md` v2 covers v1):
+   - v1: 2 worker (B1 + B2) · ~5 周 · 仅数据飞轮 thin MVP + 商业化 doc
+   - v2: 9 worker (B1 + B2 + B3 + B4-{credit/report/alert/compliance/channel/riskctrl} + B7) · ~14-18 周 wall-clock 含并行 · 含 v4 前端 + 后端 v2.1 BE1-BE13 + 跨 Agent decision ledger + 个人画像 POC
+
+2. **三方辩论 v4 final 前端方案** ratify (per Q-044 三方辩论协议 · `docs/research/FINAL-FRONTEND-OPTIMIZATION-PLAN-V4-2026-05-01.md`):
+   - 17 action 排期 (B-1 quick win + B-3 RM workbench 闭环 + B 末)
+   - Gemini conversation 5 turn 真发生 (PM chrome verify https://gemini.google.com/app/0da5b5fe5b4aecdd)
+   - 撤 3 项 Codex 反对 (一刀切删 selector / IM 边缘化 / Phase B 大改 Report+Riskctrl 布局)
+   - A5 跨冲突 UI 分阶段 (B-3 spike + Phase C 完整)
+   - C14 Evaluation Baseline Gate 加补 (Codex R2 v2 加补 · 三方都漏的真痛)
+
+3. **后端方案 v2.1 final** ratify (主 CLI + Codex 三轮辩论 · `docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md`):
+   - 13 BE 清单 (痛点驱动 · evidence ~85%)
+   - 真痛根本: 银行用户**不敢信 / 不敢签 / 不敢追责** (Codex R2 verbatim)
+   - Codex 全扫 6 agent_*/ 175 .py file:line evidence
+   - 主 CLI 自审撤 v2 charter 凭印象 3 项 (ML / embedding / ML rule mining 都是手段不是目的)
+   - 个人画像 POC = Agent1 子域 (复用 shared/personal_profile.py · 前端可叫 Agent7 · 后端 NOT 复制 · 撤主 CLI Agent7 凭印象错)
+   - 加补 game-changer: 跨 Agent decision ledger (统一结论账本)
+   - Enabler 缩 scope: 数据飞轮 Phase B gate 1.5 周 (vs 主 CLI 原 3 周) + 多租户 commercial architecture only 1 周 (vs 原 3-4 周)
+
+4. **回档节点机制** (per PM "做好每一步的记录 + 留好一个回档节点"):
+   - `phase-a-exit-bugfix-2026-05-01` (已落 · Phase A 真 exit baseline)
+   - `phase-b-start-2026-05-01` (本 commit + tag · Phase B 启动前 baseline)
+   - `phase-b-sprint{N}-end-YYYY-MM-DD` × 5 (每 sprint 结束打 tag · per PM 硬规)
+
+5. **Phase B 启动 GO** (per PM "剩下的直接干"):
+   - Sprint 1 (Week 1-3): worker-B1 + worker-B3 + worker-B4-credit + worker-B4-report 4 worker 并行
+   - Sprint 2 (Week 3-6): worker-B3 (B-3 阶段) + worker-B4-alert + worker-B4-compliance + worker-B2 4 worker
+   - Sprint 3 (Week 6-10): worker-B4-channel + worker-B4-riskctrl + worker-B7 3 worker
+   - Sprint 4 (Week 10-14): worker-B3 收尾 + 跨 worker 整合 + Codex periodic final audit
+   - Sprint 5 (Week 14-18): 6 Agent 端到端 demo chain + POC 4 维评价跑通 + video + 银行客户演示 ready
+
+#### Phase B 5 验收硬线 (vs v1 3 项)
+
+1. 数据飞轮 Phase B gate (vs v1 thin MVP)
+2. 商业化 doc + 多租户 architecture (vs v1 仅 doc)
+3. RM workbench v4 闭环 (新加)
+4. 6 Agent 后端真业务能力 (新加 · BE1-BE13 全 done)
+5. 6 Agent 端到端 demo chain + 银行客户 POC ready (vs v1 仅 1 客户全流程)
+
+#### 不做的边界 (双方共识 8 项)
+
+真 ML / 全 6 Agent modal / 5 角色含 PM / 投贷联动 / 全屏渐变全撤 / Agent7 新建后端 / 多租户 Phase B 真实装 / 数据飞轮 Phase B 重 A/B 平台
+
+#### Follow-up
+
+1. ✅ 主 CLI 落 charter v2 doc (本 commit)
+2. ✅ 主 CLI 落本 Q-045 entry (本 commit)
+3. ⏳ 主 CLI 立即:
+   - git tag `phase-b-start-2026-05-01` (本 commit 后立即打)
+   - push origin main + push tag
+4. ⏳ Sprint 1 启动 (主 CLI 写 4 onboarding doc + 更 mesh.json + launch-B-sprint1.bat 桌面)
+5. PM 双击 launch-B-sprint1.bat → 4 worker cmd window 启 → paste resume 提示
+6. Sprint 1 worker 跑中 · 主 CLI cron 巡逻 (per multi-cli-mesh skill auto-patrol) · post-DONE 触发 codex review (Q-043 protocol v2)
+
+#### Signals
+
+- 本 PM ratify entry signal: `Q-045-PHASE-B-CHARTER-V2-RATIFIED`
+- charter v2 commit signal: `PHASE-B-CHARTER-V2-COMMITTED`
+- git tag: `phase-b-start-2026-05-01` (Phase B 启动 baseline · 后续 sprint 完每个打 tag)
+- Sprint 1 启动 signal: `PHASE-B-SPRINT-1-DISPATCHED` (含 4 worker onboarding doc)
+
+---
