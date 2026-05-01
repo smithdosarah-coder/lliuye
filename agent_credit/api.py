@@ -123,6 +123,7 @@ def _build_done_envelope(
     case_matches: list | None,
     advice: dict | None,
     decision_id: str | None,
+    decision_graph: dict | None = None,
 ) -> dict[str, Any]:
     """Cat 4 fix (Phase A worker-A4-credit · 2026-04-29) · done event 完整 envelope.
 
@@ -131,6 +132,9 @@ def _build_done_envelope(
     本 helper 把 4 stage 关键 payload + segment/preset_name/source/decision_id 一次性灌入。
 
     前端 normalize 后整体注入 setLiveData → 5 panel 单点派生 · 不再分 stage 累积本地 state。
+
+    BE2 (Phase B-3 · 2026-05-01): 新增 `decision_graph` 字段 · null 兼容旧前端。
+    Schema: docs/contracts/agent-credit-decision-graph.md v1.0
     """
     return {
         "event": "done",
@@ -143,6 +147,7 @@ def _build_done_envelope(
         "rule_hits": rule_hits or [],        # rule_done payload (red lines list)
         "case_matches": case_matches or [],  # case_done payload (Top 5 similar)
         "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
+        "decision_graph": decision_graph,    # BE2 audit-grade evidence graph (null when absent)
     }
 
 
@@ -582,6 +587,7 @@ def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
             case_matches=case_done_payload,
             advice=advising_done_payload,
             decision_id=None,
+            decision_graph=None,  # in-memory fixture · scenario fixtures (demo/run) carry real graph
         ),
     ]
     return events
@@ -643,10 +649,12 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
 
             # Cat 4 fix (Phase A worker-A4-credit · 2026-04-29)
             # 串流时 capture 4 个关键 stage payload · done event 一次性灌完整 envelope
+            # BE2 (Phase B-3 · 2026-05-01): 新增 capture graph_done payload
             last_scoring: dict | None = None
             last_rules: list | None = None
             last_cases: list | None = None
             last_advice: dict | None = None
+            last_graph: dict | None = None
             for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
                 cleaned, hits = _qc_scrub(to_jsonable(payload))
                 if stage == "scoring_done" and isinstance(cleaned, dict):
@@ -657,6 +665,8 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                     last_cases = cleaned
                 elif stage == "advising_done" and isinstance(cleaned, dict):
                     last_advice = cleaned
+                elif stage == "graph_done" and isinstance(cleaned, dict):
+                    last_graph = cleaned
                 evt = {"event": "stage", "stage": stage, "payload": cleaned}
                 if hits:
                     evt["_qc_placeholder_hits"] = hits
@@ -685,6 +695,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 case_matches=last_cases,
                 advice=last_advice,
                 decision_id=decision_id,
+                decision_graph=last_graph,
             ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
@@ -816,7 +827,7 @@ def _credit_demo_event_stream(scenario_id: str):
         time.sleep(delay_ms / 1000)
         yield sse_encode({"event": "stage", "stage": done_stage, "payload": payload})
 
-    # done envelope (cat 4 共形)
+    # done envelope (cat 4 共形 + BE2 decision_graph passthrough)
     yield sse_encode(_build_done_envelope(
         stage_tab=stage_tab,
         source="mock",
@@ -827,6 +838,7 @@ def _credit_demo_event_stream(scenario_id: str):
         case_matches=data.get("case_matches", []),
         advice=data.get("advice"),
         decision_id=None,
+        decision_graph=data.get("decision_graph"),  # BE2 · per spec §6 · scenario JSON 可选字段
     ))
 
 
