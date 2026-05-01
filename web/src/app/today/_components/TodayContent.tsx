@@ -26,7 +26,12 @@ export function TodayContent() {
       <div className="v-grid-3">
         <FeedCard />
 
-        <Link href="/dispatch" className="card warm sheet-card">
+        <Link
+          href="/archive"
+          className="card warm sheet-card"
+          data-go="archive"
+          data-testid="today-assistant-card"
+        >
           <div className="tag">
             <span className="dash" />
             <span className="label">agent · 正在跑</span>
@@ -76,7 +81,7 @@ export function TodayContent() {
               运行中 <b>{String(TODAY_RUNNING_SHEETS.length).padStart(2, "0")}</b> · 空闲{" "}
               <b>{String(TODAY_IDLE_SHEETS.length).padStart(2, "0")}</b>
             </span>
-            <span className="tail">调度台 ↘</span>
+            <span className="tail">AI 助手 ↘</span>
           </div>
           <div className="badge">02.</div>
         </Link>
