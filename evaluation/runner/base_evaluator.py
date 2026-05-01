@@ -85,17 +85,55 @@ class BaseEvaluator(ABC):
         artifacts = self.load_artifacts(run)
         common = self.compute_common_metrics(artifacts)
         domain = self.compute_domain_metrics(artifacts)
-        verdict = self._verdict(common + domain)
+        all_metrics = common + domain
+        # Phase B BE10 · 标 blocker_triggered (改 metric in-place · pydantic frozen=False)
+        self._mark_blockers(all_metrics)
+        verdict = self._verdict(all_metrics)
+        blockers = [m.name for m in all_metrics if m.blocker_triggered]
         duration = time.perf_counter() - t0
         result = EvalResult(
             run=run,
             common_metrics=common,
             domain_metrics=domain,
             verdict=verdict,
+            blockers=blockers,
             duration_seconds=duration,
         )
         self._persist(result)
         return result
+
+    def _mark_blockers(self, metrics: list[MetricOutcome]) -> None:
+        """Phase B BE10 · 比对每条 metric value vs YAML blocker_threshold.
+
+        - blocker_threshold 缺失 → 跳过 (该指标无 publish gate)
+        - value=None → 跳过 (无法判定 · 不算触发)
+        - 方向: hint 命中 _LOWER_IS_BETTER_HINTS → value > threshold 触发;
+                       否则 → value < threshold 触发 (越大越好)
+        - blocker_threshold 默认应比 baseline_target 宽一档 (per evaluation/README.md §28)
+        """
+        # 按 name 索引 yaml metric (含 common + domain)
+        cfg_by_name: dict[str, dict] = {}
+        for kind in ("common", "domain"):
+            for m_cfg in self._metrics_config(kind):
+                cfg_by_name[m_cfg["name"]] = m_cfg
+
+        for m in metrics:
+            cfg = cfg_by_name.get(m.name)
+            if not cfg:
+                continue
+            threshold = cfg.get("blocker_threshold")
+            if threshold is None:
+                continue
+            try:
+                threshold_f = float(threshold)
+            except (TypeError, ValueError):
+                continue
+            m.blocker_threshold = threshold_f
+            if m.value is None:
+                continue
+            lower_is_better = any(h in m.name for h in _LOWER_IS_BETTER_HINTS)
+            triggered = (m.value > threshold_f) if lower_is_better else (m.value < threshold_f)
+            m.blocker_triggered = bool(triggered)
 
     def _verdict(self, metrics: list[MetricOutcome]) -> Verdict:
         pending = set(self.config.get("baseline", {}).get("pending_metrics", []))

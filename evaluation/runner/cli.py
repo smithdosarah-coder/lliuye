@@ -5,6 +5,7 @@ evaluation.runner.cli — 命令行入口
 用法:
   python -m evaluation.runner --agent report --artifacts outputs/普惠申报书_骨架型_v16.docx
   python -m evaluation.runner --all
+  python -m evaluation.runner --all --gate                # CI gate · blocker_threshold 阻断
   python -m evaluation.runner --agent report --compare-baseline
   python -m evaluation.runner --agent report --artifacts outputs/ --out /tmp/eval.json
 
@@ -12,6 +13,7 @@ evaluation.runner.cli — 命令行入口
   0 = 全部 PASS
   1 = 至少一个 FAIL / PARTIAL
   2 = adapter 未实现或其他异常
+  3 = blocker_threshold 触发 (CI 阻断发布 · 仅 --gate 启用 · Phase B BE10)
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ def _run_one(
     artifacts: list[str],
     compare_baseline: bool,
     collected: list[dict] | None = None,
+    gate: bool = False,
 ) -> int:
     try:
         evaluator = get_evaluator(agent_id)
@@ -61,8 +64,12 @@ def _run_one(
     )
     result = evaluator.run(run)
     print(result.summary_table())
+    if result.blockers:
+        print(f"    [BLOCKERS] {', '.join(result.blockers)}", file=sys.stderr)
     if collected is not None:
         collected.append(json.loads(result.model_dump_json()))
+    if gate and result.any_blocker:
+        return 3  # CI 阻断 (Phase B BE10)
     return 0 if result.verdict == "PASS" else 1
 
 
@@ -75,6 +82,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--artifacts", nargs="*", default=[], help="待评估产出物路径")
     parser.add_argument("--all", action="store_true", help="跑所有已注册 adapter")
     parser.add_argument("--compare-baseline", action="store_true")
+    parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="blocker_threshold 触发时退出码 3 (CI 阻断发布 · Phase B BE10)",
+    )
     parser.add_argument("--list", action="store_true", help="仅列出已注册 adapter")
     parser.add_argument(
         "--out",
@@ -97,10 +109,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.all:
         for agent_id in list_registered():
-            sub_rc = _run_one(agent_id, [], args.compare_baseline, collected)
+            sub_rc = _run_one(
+                agent_id, [], args.compare_baseline, collected, gate=args.gate,
+            )
             rc_final = max(rc_final, sub_rc)
     elif args.agent:
-        rc_final = _run_one(args.agent, args.artifacts, args.compare_baseline, collected)
+        rc_final = _run_one(
+            args.agent, args.artifacts, args.compare_baseline, collected,
+            gate=args.gate,
+        )
     else:
         parser.error("--agent required (or use --all / --list)")
 

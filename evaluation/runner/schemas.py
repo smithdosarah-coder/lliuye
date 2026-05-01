@@ -30,6 +30,12 @@ class MetricOutcome(BaseModel):
     method: MetricMethod = Field(..., description="如何算出的")
     evidence: list[str] = Field(default_factory=list, description="证据路径 / 段落 ID / URL")
     note: str = Field("", description="补充说明, 失败原因或方法细节")
+    blocker_threshold: float | None = Field(
+        None, description="跨此线阻断发布 (Phase B BE10 · 比 baseline_target 宽一档)",
+    )
+    blocker_triggered: bool = Field(
+        False, description="value 跨过 blocker_threshold = True (CI gate 阻断)",
+    )
 
 
 class EvalRun(BaseModel):
@@ -52,6 +58,15 @@ class EvalResult(BaseModel):
     verdict: Verdict = Field(..., description="PASS = 全过; FAIL = 任一 common 或 domain 过线闸门未过; PARTIAL = 混")
     runner_version: str = Field("0.1.0-phase-a")
     duration_seconds: float = Field(..., description="从 load_artifacts 到 save 的总耗时")
+    blockers: list[str] = Field(
+        default_factory=list,
+        description="跨过 blocker_threshold 的指标名 list (Phase B BE10 · CI gate 阻断发布)",
+    )
+
+    @property
+    def any_blocker(self) -> bool:
+        """是否有任何 blocker 触发 (CLI --gate 退出码 3 用)."""
+        return bool(self.blockers)
 
     def summary_table(self) -> str:
         """Plain-text 表格, stdout 用."""
@@ -73,4 +88,5 @@ class EvalResult(BaseModel):
     def _row(m: MetricOutcome) -> str:
         val = "N/A" if m.value is None else f"{m.value:.4f}"
         pass_mark = "?" if m.passed is None else ("OK" if m.passed else "X ")
-        return f"      {pass_mark} {m.name:<35} {val:>10}  (target {m.target})"
+        blk = " [BLOCKER]" if m.blocker_triggered else ""
+        return f"      {pass_mark} {m.name:<35} {val:>10}  (target {m.target}){blk}"
