@@ -183,6 +183,34 @@ stdout 标记：`OK` (PASS) / `~~` (PARTIAL) / `X ` (FAIL) / `??` (SKIP) / 后�
 
 ---
 
+## Step 7. Phase B-2 baseline regen（Sprint 2 末 · 决策 4）
+
+**触发条件**：`worker-B4-credit BE2 + worker-B4-report BE3 + worker-B4-compliance BE4` 全部 cherry-pick 到 main 后，主 CLI 给 worker-B1 commit signal `SPRINT-2-BASELINE-REGEN-GO`。worker-B1 收到信号即跑：
+
+```bash
+py -m evaluation.runner --all --out evaluation/baselines/2026-05-15-phase-b-sprint2-end.json
+# 然后产出 evaluation/baselines/2026-05-15-phase-b-sprint2-end.md
+```
+
+**新指标（Sprint 2 收口含进 baseline 的）**：
+
+| Agent | 新维度 | 来自 | 期望基线 |
+|---|---|---|---|
+| credit | `decision_graph_evidence_complete_rate` | worker-B4-credit BE2 (decision graph + peer_gap) | ≥ 0.85 |
+| report | `task_completion_rate` | worker-B4-report BE3 (现 0.0 → 完后 ≥ 0.85) | ≥ 0.85 |
+| report | `cross_section_coherence` | worker-B4-report BE3 (跨章节 sanity) | ≥ 0.90 |
+| compliance | `conflict_recall` | worker-B4-compliance BE4 (现 0.5 → 完后 ≥ 0.85) | ≥ 0.85 |
+
+**Sprint 2 末 (2026-05-15) 验收**：
+- 4 项 known blocker 是否清掉（`alert/signal_diversity` 仍由 worker-B4-alert 单独 sprint 推后）
+- baseline JSON commit hash 与 main HEAD 一致（per V2 codex review baseline-regen 红线）
+- 加 `phase-b-sprint2-end-2026-05-15` git tag
+- 写 `evaluation/baselines/2026-05-15-phase-b-sprint2-end.md` 含 verdict + delta vs `2026-05-01-phase-b-start`
+
+**当前 sprint 不做实际 regen**：BE2/BE3/BE4 还在并行 worker 推进，现在 regen 数据无变化（参 commit `1d1af95`）。等 main CLI 收齐 cherry-pick 再发 `SPRINT-2-BASELINE-REGEN-GO`。
+
+---
+
 ## PoC scope（only `agent_credit` consumes FEW_SHOT_EXAMPLES · 2026-05-01）
 
 **Production safety**（per Codex V2 review）：
