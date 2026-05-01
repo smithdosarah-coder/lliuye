@@ -36,6 +36,34 @@
     "warn_count": 2,
     "info_count": 8
   },
+  "material_gap_inputs": {
+    "_lineage": "Phase B Sprint 1 BE3 · 反 5 原则 §3.5 #5 · 仅 inputs · graph 是 computed output 不进 fixture",
+    "scenario_id": "medium",
+    "difficulty_tier": "medium",
+    "materials": [
+      {"id": "basic_info",      "name": "企业基本信息",       "status": "present"},
+      {"id": "shareholders",    "name": "股东结构清单",       "status": "partial"},
+      {"id": "controller",      "name": "实际控制人信息",     "status": "present"},
+      {"id": "r_and_d",         "name": "研发投入与专利",     "status": "missing"},
+      {"id": "business",        "name": "主营业务说明",       "status": "present"},
+      {"id": "upstream_top5",   "name": "前五大供应商",       "status": "missing"},
+      {"id": "downstream_top5", "name": "前五大客户",         "status": "partial"},
+      {"id": "orders",          "name": "在手订单清单",       "status": "missing"},
+      {"id": "affiliates",      "name": "关联企业清单",       "status": "present"},
+      {"id": "financing",       "name": "现有融资明细",       "status": "present"},
+      {"id": "bank_flows",      "name": "银行流水（12 个月）", "status": "partial"},
+      {"id": "tax_data",        "name": "纳税申报表",         "status": "present"},
+      {"id": "credit_history",  "name": "历史授信记录",       "status": "present"},
+      {"id": "risk_info",       "name": "诉讼与征信记录",     "status": "present"}
+    ],
+    "section_status": [
+      {"id": "chapter_1_background", "status": "done"},
+      {"id": "chapter_2_operation",  "status": "partial"},
+      {"id": "chapter_3_finance",    "status": "done"},
+      {"id": "chapter_4_conclusion", "status": "pending"}
+    ],
+    "cross_section_numbers": {}
+  },
   "pending_questions": [
     {
       "id": "pq-med-1",

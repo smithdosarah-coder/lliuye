@@ -37,6 +37,40 @@
     "info_count": 12,
     "fatal_reason": "第 3 章财务现金流证据缺失 · 2023 年报材料未提供 · 比率推断置信度 < 阈值 0.6"
   },
+  "material_gap_inputs": {
+    "_lineage": "Phase B Sprint 1 BE3 · 反 5 原则 §3.5 #5 · 仅 inputs · graph 是 computed output 不进 fixture · 困难档含跨章节数字冲突",
+    "scenario_id": "hard",
+    "difficulty_tier": "hard",
+    "materials": [
+      {"id": "basic_info",      "name": "企业基本信息",       "status": "present"},
+      {"id": "shareholders",    "name": "股东结构清单",       "status": "present"},
+      {"id": "controller",      "name": "实际控制人信息",     "status": "missing"},
+      {"id": "r_and_d",         "name": "研发投入与专利",     "status": "missing"},
+      {"id": "business",        "name": "主营业务说明",       "status": "partial"},
+      {"id": "upstream_top5",   "name": "前五大供应商",       "status": "missing"},
+      {"id": "downstream_top5", "name": "前五大客户",         "status": "missing"},
+      {"id": "orders",          "name": "在手订单清单",       "status": "missing"},
+      {"id": "affiliates",      "name": "关联企业清单",       "status": "missing"},
+      {"id": "financing",       "name": "现有融资明细",       "status": "partial"},
+      {"id": "bank_flows",      "name": "银行流水（12 个月）", "status": "missing"},
+      {"id": "tax_data",        "name": "纳税申报表",         "status": "missing"},
+      {"id": "credit_history",  "name": "历史授信记录",       "status": "partial"},
+      {"id": "risk_info",       "name": "诉讼与征信记录",     "status": "present"}
+    ],
+    "section_status": [
+      {"id": "chapter_1_background", "status": "partial"},
+      {"id": "chapter_2_operation",  "status": "partial"},
+      {"id": "chapter_3_finance",    "status": "pending"},
+      {"id": "chapter_4_conclusion", "status": "pending"}
+    ],
+    "cross_section_numbers": {
+      "_note": "跨章节数字冲突 · 触发 cross_section_coherence 第 5 维 BLOCK · 由 sections.content 自然提取 · 非预埋",
+      "revenue": [
+        {"section_id": "chapter_2_operation", "value": 12000, "snippet": "营收 1.2 亿元（章 2 经营情况）"},
+        {"section_id": "chapter_3_finance",   "value": 9500,  "snippet": "营业收入 9500 万元（章 3 财务分析 · 与章 2 数据冲突 21%）"}
+      ]
+    }
+  },
   "pending_questions": [
     {
       "id": "pq-hard-1",

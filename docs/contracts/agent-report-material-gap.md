@@ -116,11 +116,13 @@ per Codex 插入点 1 verdict Q3 战术修 (反 5 原则 §3.5 #5 必坚持):
 
 **3 难度分层** (per `CLAUDE.md` §3.5 反 5 原则 #2 难度分层):
 
-| 文件 | 难度 | inputs (shape) | 期望 graph (test assert · 不进 fixture) |
+> **C8 fixture 实装更新 (2026-05-01)**: 文件名沿用现有 convention `easy.json / medium.json / hard.json` (与 C8 commit 前已有 demo fixture align · 不另起文件名) · 期望范围按 `material_gap.build_graph` 实算公式校准 (公式 placeholder · Phase C / worker-B7 baseline 校准前的合理估值)。
+
+| 文件 | 难度 | inputs 配置 | 期望 graph (test assert · 不进 fixture) |
 |---|---|---|---|
-| `easy_full_materials.json` | 简单 (20%) | 1 missing material (e.g. `headcount_roster`) · 4 section 全 done | nodes ≥ 3 · edges ≥ 2 · `max_score_impact ≤ 5` |
-| `medium_missing_critical.json` | 中等 (50%) | 3 missing material (含历史数据) · 1 section partial | nodes ≥ 6 · edges ≥ 5 · `max_score_impact 12-20` (跨 ≥ 2 dim) |
-| `hard_cross_section_conflict.json` | 困难 (20%) | 2 missing material + `cross_section_numbers` 含数字冲突 (e.g. `revenue` 章 2 5000 万 vs 章 3 1 亿) | nodes ≥ 5 · edges ≥ 4 · `max_score_impact ≥ 15` · cross_section_coherence BLOCK ≥ 1 |
+| `easy.json` | 简单 (20%) | 1 missing advisory material (`controller` → chapter_1_background advisory · 2 affected fields) · 4 section 全 done | `max_score_impact ≤ 20` · `affected_scoring_dimensions ⊇ {industry, operational}` · blocking_section=0 |
+| `medium.json` | 中等 (50%) | 3 missing + 3 partial (含 historical material `r_and_d` / blocking material `upstream_top5` + `bank_flows`) · 1 section partial · 1 section pending | `max_score_impact ≥ 50` · 4 dim 全命中 · blocking_section ≥ 2 |
+| `hard.json` | 困难 (20%) | 8 missing + 3 partial · `cross_section_numbers.revenue` 含 ch2 (1.2 亿) vs ch3 (9500 万) 21% 冲突 | `max_score_impact ≥ 80` (近 cap 100) · cross_section_coherence BLOCK ≥ 1 (用 sections 跑 quality_blocker 第 5 维触发) |
 
 **极端档** (10%) Sprint 1 不落 · 留 Sprint 2 (per Codex 插入点 1 Q4 v2 final verdict)。
 

@@ -29,7 +29,7 @@ v16_pipeline (不动) → quality_blocker (加第 5 维 · 向下兼容) → mat
 | 2 | section impact | (同 1 module · `_compute_section_impact()` private) | — |
 | 3 | cross-section coherence (第 5 维) | `agent_report/cross_section_coherence.py` + `quality_blocker.run_blocker(..., sections=None)` | `check_cross_section_coherence(sections, anchor, tolerance_pct=1.0) -> list[BlockerIssue]` |
 | 4 | §6.2 handoff endpoint scaffold | `agent_report/handoff_section_supplement.py` + `api.py` route | `POST /api/report/section_supplement` |
-| 5 | fixture (3 难度分层) | `data/mock/workspace/report/scenarios/easy_full_materials.json` + `medium_missing_critical.json` + `hard_cross_section_conflict.json` | — |
+| 5 | fixture (3 难度分层) | `data/mock/workspace/report/scenarios/{easy,medium,hard}.json` (沿用现有 demo fixture convention · 加 `material_gap_inputs` 段 · 不另起) | — |
 | 6 | 单元测试 | `tests/agent_report/test_material_gap.py` | 6 test case |
 
 **对方弱点**
@@ -51,7 +51,7 @@ Sprint 1 范围 lock:
 2. quality_blocker.run_blocker 加 sections=None 参数 (向下兼容)
 3. handoff_section_supplement.py + `POST /api/report/section_supplement` endpoint scaffold (接 payload + 校验 + 返 **ack** event · per V2 战术修 Q2)
 4. v16_runner.done_payload 注入 material_gap_graph 字段
-5. fixture 3 难度档 (data/mock/workspace/report/scenarios/{easy_full_materials, medium_missing_critical, hard_cross_section_conflict}.json) · **仅 inputs · graph 是 computed output 不进 fixture** (per V2 战术修 Q3)
+5. fixture 3 难度档 (data/mock/workspace/report/scenarios/{easy, medium, hard}.json) · **仅 inputs · graph 是 computed output 不进 fixture** (per V2 战术修 Q3)
 6. tests/agent_report/test_material_gap.py 6 case (graph build / impact magnitude / cross-section drift / handoff scaffold ack / 向下兼容 sections=None / **fixture_no_graph_field fail-fast** 防回归 + build_graph_deterministic 同 inputs 输出一致)
 
 ### V2 战术修 (Codex 插入点 1 verdict NEEDS-WORK · 3 question · 不触决策翻转)
@@ -107,11 +107,13 @@ Sprint 1 范围 lock:
 
 **3 难度档** (per `CLAUDE.md` §3.5 #2 · 极端档 10% Sprint 1 不落 · 留 Sprint 2):
 
-| 文件 | 难度 | inputs | 期望 graph (test assert) |
+> **C8 fixture 实装范围 (2026-05-01)**: 文件名沿用现有 `easy.json / medium.json / hard.json` (与 demo run path align · 不另起) · 范围按 `build_graph` 实算公式校准 (公式 placeholder · Phase C / worker-B7 baseline 校准前合理估值)。
+
+| 文件 | 难度 | inputs | 实算 max_score_impact (per build_graph) |
 |---|---|---|---|
-| `easy_full_materials.json` | 简单 | 1 missing | `max_score_impact ≤ 5` |
-| `medium_missing_critical.json` | 中等 | 3 missing 含历史数据 + 1 partial section | `max_score_impact 12-20` 跨 ≥ 2 dim |
-| `hard_cross_section_conflict.json` | 困难 | 2 missing + cross_section 数字冲突 | `max_score_impact ≥ 15` + cross_section_coherence BLOCK ≥ 1 |
+| `easy.json` | 简单 | 1 missing advisory (`controller`) · 4 section 全 done | 12 (`{industry, operational}`) |
+| `medium.json` | 中等 | 3 missing + 3 partial · 多 blocking section | 84 (4 dim 全命中) |
+| `hard.json` | 困难 | 8 missing + 3 partial + cross-section conflict | 100 (cap · `revenue` ch2 1.2 亿 vs ch3 9500 万 21% drift · 跑 quality_blocker 第 5 维 BLOCK ≥ 1) |
 
 **Test 校验** (反 5 原则 #5 防回归):
 - `test_fixture_no_graph_field`: 遍历 3 fixture · assert `"material_gap_graph" not in fixture` (fail-fast)
