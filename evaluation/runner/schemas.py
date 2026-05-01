@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 MetricMethod = Literal["deterministic", "llm-judge", "heuristic", "manual"]
+# Sprint 2 决策 3 加 SKIP 维度 · per-metric 4 状态: PASS / PARTIAL / FAIL / SKIP
+MetricStatus = Literal["PASS", "PARTIAL", "FAIL", "SKIP"]
 Verdict = Literal["PASS", "FAIL", "PARTIAL"]
 
 
@@ -35,6 +37,17 @@ class MetricOutcome(BaseModel):
     )
     blocker_triggered: bool = Field(
         False, description="value 跨过 blocker_threshold = True (CI gate 阻断)",
+    )
+    # Sprint 2 决策 3 · per-metric PARTIAL 维度
+    status: MetricStatus = Field(
+        "SKIP",
+        description=(
+            "PASS=value≥0.95×baseline / PARTIAL=[0.80,0.95)×baseline / "
+            "FAIL=<0.80×baseline / SKIP=value None or no baseline_target"
+        ),
+    )
+    baseline_target: float | None = Field(
+        None, description="用于 PARTIAL 维度阈值计算 (PASS=0.95×bt · PARTIAL=0.80×bt)",
     )
 
 
@@ -62,11 +75,28 @@ class EvalResult(BaseModel):
         default_factory=list,
         description="跨过 blocker_threshold 的指标名 list (Phase B BE10 · CI gate 阻断发布)",
     )
+    partial_metrics: list[str] = Field(
+        default_factory=list,
+        description="status=PARTIAL 的 metric name list (Sprint 2 决策 3 · PM 评审用)",
+    )
+    failed_metrics: list[str] = Field(
+        default_factory=list,
+        description="status=FAIL 的 metric name list (Sprint 2 决策 3 · 必修)",
+    )
+    skipped_metrics: list[str] = Field(
+        default_factory=list,
+        description="status=SKIP 的 metric name list (value=None 或缺 baseline_target)",
+    )
 
     @property
     def any_blocker(self) -> bool:
         """是否有任何 blocker 触发 (CLI --gate 退出码 3 用)."""
         return bool(self.blockers)
+
+    @property
+    def any_fail(self) -> bool:
+        """是否有 status=FAIL (Sprint 2 决策 3 · 必修 · 不可豁免与 blocker 不同 · exit 1)."""
+        return bool(self.failed_metrics)
 
     def summary_table(self) -> str:
         """Plain-text 表格, stdout 用."""
@@ -87,6 +117,13 @@ class EvalResult(BaseModel):
     @staticmethod
     def _row(m: MetricOutcome) -> str:
         val = "N/A" if m.value is None else f"{m.value:.4f}"
-        pass_mark = "?" if m.passed is None else ("OK" if m.passed else "X ")
+        # Sprint 2 决策 3 · 4-state 色标
+        marker_map = {
+            "PASS": "OK",     # 绿
+            "PARTIAL": "~~",  # 黄
+            "FAIL": "X ",     # 橙/红
+            "SKIP": "??",     # 灰
+        }
+        pass_mark = marker_map.get(m.status, "??")
         blk = " [BLOCKER]" if m.blocker_triggered else ""
         return f"      {pass_mark} {m.name:<35} {val:>10}  (target {m.target}){blk}"

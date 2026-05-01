@@ -90,6 +90,10 @@ class BaseEvaluator(ABC):
         self._mark_blockers(all_metrics)
         verdict = self._verdict(all_metrics)
         blockers = [m.name for m in all_metrics if m.blocker_triggered]
+        # Sprint 2 决策 3 · 4-state per-metric 分桶
+        partial_metrics = [m.name for m in all_metrics if m.status == "PARTIAL"]
+        failed_metrics = [m.name for m in all_metrics if m.status == "FAIL"]
+        skipped_metrics = [m.name for m in all_metrics if m.status == "SKIP"]
         duration = time.perf_counter() - t0
         result = EvalResult(
             run=run,
@@ -97,6 +101,9 @@ class BaseEvaluator(ABC):
             domain_metrics=domain,
             verdict=verdict,
             blockers=blockers,
+            partial_metrics=partial_metrics,
+            failed_metrics=failed_metrics,
+            skipped_metrics=skipped_metrics,
             duration_seconds=duration,
         )
         self._persist(result)
@@ -196,9 +203,22 @@ class BaseEvaluator(ABC):
         note: str = "",
         kind: str = "domain",
     ) -> MetricOutcome:
-        """按 config 里的 target 自动打分. adapter 用这个而不是裸构造 MetricOutcome."""
+        """按 config 里的 target 自动打分. adapter 用这个而不是裸构造 MetricOutcome.
+
+        Sprint 2 决策 3: 同时算 status (PASS / PARTIAL / FAIL / SKIP) per-metric 阈值
+        从 baseline_target 推 0.95 / 0.80 倍 (per dispatch SPEC-DECISIONS).
+        """
         target = self._lookup_target(name, kind)
         passed = self.evaluate_target(value, target) if target else None
+        cfg = self._lookup_metric_config(name, kind) or {}
+        baseline_target = cfg.get("baseline_target")
+        try:
+            baseline_target_f = (
+                float(baseline_target) if baseline_target is not None else None
+            )
+        except (TypeError, ValueError):
+            baseline_target_f = None
+        status = _classify_status(value, baseline_target_f, target)
         return MetricOutcome(
             name=name,
             value=value,
@@ -207,7 +227,15 @@ class BaseEvaluator(ABC):
             method=method,  # type: ignore[arg-type]
             evidence=evidence or [],
             note=note,
+            status=status,
+            baseline_target=baseline_target_f,
         )
+
+    def _lookup_metric_config(self, name: str, kind: str) -> dict | None:
+        for m in self._metrics_config(kind):
+            if m.get("name") == name:
+                return m
+        return None
 
     def _lookup_target(self, name: str, kind: str) -> str | None:
         """查某条指标的 target 字符串.
@@ -262,6 +290,41 @@ _LOWER_IS_BETTER_HINTS = (
     "unresolvable",
     "defect_rate",
 )
+
+
+def _classify_status(
+    value: float | None,
+    baseline_target: float | None,
+    target: str | None,
+) -> str:
+    """Sprint 2 决策 3 · per-metric 4-state 分类.
+
+    PASS    : 满足 0.95 × baseline_target 维度阈值 (达 95%+)
+    PARTIAL : 落 [0.80, 0.95) × baseline_target 区间 (80% 但未达 95%)
+    FAIL    : < 0.80 × baseline_target (低于 80% · 必修)
+    SKIP    : value=None (无法计算) 或 baseline_target 缺失 (无法定阈值)
+
+    方向: target ">= X" → 越大越好 · "<= X" → 越小越好。
+          越大: PASS=value>=0.95×bt / PARTIAL=value>=0.80×bt / 否则 FAIL
+          越小: PASS=value<=0.95×bt? 不对 · 0.95 倍数对 lower-is-better 应是 1.05 / 1.20
+                即 PASS=value<=1.05×bt · PARTIAL=value<=1.20×bt · 否则 FAIL
+                (语义: 越接近 / 不超过 baseline 越好 · 5% 容差 PASS · 20% 容差 PARTIAL)
+    """
+    if value is None or baseline_target is None:
+        return "SKIP"
+    lower_better = _direction_lower_is_better("", target)
+    if lower_better:
+        if value <= baseline_target * 1.05:
+            return "PASS"
+        if value <= baseline_target * 1.20:
+            return "PARTIAL"
+        return "FAIL"
+    # higher is better (default)
+    if value >= baseline_target * 0.95:
+        return "PASS"
+    if value >= baseline_target * 0.80:
+        return "PARTIAL"
+    return "FAIL"
 
 
 def _direction_lower_is_better(name: str, target: str | None) -> bool:

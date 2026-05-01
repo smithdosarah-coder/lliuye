@@ -9,15 +9,16 @@ evaluation.runner.cli — 命令行入口
   python -m evaluation.runner --agent report --compare-baseline
   python -m evaluation.runner --agent report --artifacts outputs/ --out /tmp/eval.json
 
-退出码:
-  0 = 全部 PASS · 安全发布
-  1 = 至少一个 FAIL / PARTIAL · 默认阻断发布 · 需 PM 评审豁免才能放行
-  2 = adapter 未实现或其他异常 · 修代码后重跑
-  3 = blocker_threshold 触发 (CI 阻断发布 · 仅 --gate 启用 · Phase B BE10 · 不可豁免)
+退出码 (Sprint 2 决策 3 · per-metric 4-state):
+  0 = 全部 metric status=PASS (≥ 0.95 × baseline_target) · 安全发布 (绿)
+  1 = 任一 PARTIAL (0.80-0.95 × baseline_target) 或 FAIL (< 0.80) · 默认阻断 · 需 PM 评审豁免 (黄/橙)
+  2 = adapter 未实现或其他异常 · 修代码后重跑 (灰)
+  3 = blocker_threshold 命中 (仅 --gate 触发 · 不可豁免) · 必回滚 prompt (红)
 
-发布闸门语义 (per BE10 + Codex V2 review):
+发布闸门语义 (per BE10 + Codex V2 + Sprint 2 决策 3):
   * 退出码 0 才算"自动放行"
   * 1 / 2 / 3 都阻断 · 强度递增 (1 可豁免 / 2 必修 / 3 不可豁免)
+  * SKIP metric (value=None / 缺 baseline_target) 不算 fail · 但纳入 PARTIAL 风险 hint
 """
 
 from __future__ import annotations
@@ -70,11 +71,18 @@ def _run_one(
     print(result.summary_table())
     if result.blockers:
         print(f"    [BLOCKERS] {', '.join(result.blockers)}", file=sys.stderr)
+    if result.failed_metrics:
+        print(f"    [FAIL]     {', '.join(result.failed_metrics)}", file=sys.stderr)
+    if result.partial_metrics:
+        print(f"    [PARTIAL]  {', '.join(result.partial_metrics)}", file=sys.stderr)
     if collected is not None:
         collected.append(json.loads(result.model_dump_json()))
     if gate and result.any_blocker:
         return 3  # CI 阻断 (Phase B BE10)
-    return 0 if result.verdict == "PASS" else 1
+    # Sprint 2 决策 3 · per-metric status 驱动 exit
+    if result.failed_metrics or result.partial_metrics:
+        return 1
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

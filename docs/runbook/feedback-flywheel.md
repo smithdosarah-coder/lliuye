@@ -136,14 +136,32 @@ py -m evaluation.runner --all --gate
 echo $?    # 0 = 全 PASS · 1 = 至少 1 PARTIAL/FAIL · 3 = blocker_threshold 触发(阻断发布)
 ```
 
-**退出码 + 发布闸门语义**（per BE10 + Codex V2 review · 2026-05-01 修正）：
+**退出码 + 发布闸门语义**（per BE10 + Codex V2 + Sprint 2 决策 3 · 2026-05-01 4-state 升级）：
 
-| 码 | 含义 | 动作 |
-|---|---|---|
-| 0 | 6 agent 全 PASS | **安全发布**（唯一允许自动放行） |
-| 1 | 至少 1 个 PARTIAL / FAIL（无 blocker_threshold 命中） | **默认阻断**，需 PM 评审豁免才能放行 |
-| 2 | adapter 未实现 / 异常 | **必修代码**后重跑 |
-| 3 | 任一 metric 跨 `blocker_threshold`（仅 `--gate` 触发） | **不可豁免阻断**，回滚 prompt 改动 |
+| 码 | 含义 | per-metric 状态 | 动作 |
+|---|---|---|---|
+| 0 | 全 metric `PASS` (≥ 0.95 × baseline_target) 或 `SKIP` | 🟢 PASS / ⚪ SKIP | **安全发布**（唯一允许自动放行） |
+| 1 | 任一 metric `PARTIAL` (0.80-0.95 × bt) 或 `FAIL` (< 0.80) | 🟡 PARTIAL / 🟠 FAIL | **默认阻断**，需 PM 评审豁免才能放行 |
+| 2 | adapter 未实现 / 异常 | — | **必修代码**后重跑 |
+| 3 | 任一 metric 跨 `blocker_threshold`（仅 `--gate` 触发） | 🔴 BLOCKER | **不可豁免阻断**，回滚 prompt 改动 |
+
+**Per-metric 4-state 阈值**（决策 3）：
+
+```
+越大越好 (target ">= X"):
+  PASS    : value ≥ 0.95 × baseline_target   🟢
+  PARTIAL : value ≥ 0.80 × baseline_target   🟡
+  FAIL    : value < 0.80 × baseline_target   🟠
+  SKIP    : value=None or no baseline_target ⚪
+
+越小越好 (target "<= X"):
+  PASS    : value ≤ 1.05 × baseline_target   🟢
+  PARTIAL : value ≤ 1.20 × baseline_target   🟡
+  FAIL    : value > 1.20 × baseline_target   🟠
+  SKIP    : 同上 ⚪
+```
+
+stdout 标记：`OK` (PASS) / `~~` (PARTIAL) / `X ` (FAIL) / `??` (SKIP) / 后缀 `[BLOCKER]`。
 
 > 红线：只有退出码 0 才视作"自动放行"。1/2/3 都属于阻断，强度递增（1 可 PM 评审豁免 / 2 必修 / 3 不可豁免）。
 > 早期版本运行手册曾把 1 写成"可发布"——已修正为"默认阻断需豁免"，避免审贷员/合规官误解。
