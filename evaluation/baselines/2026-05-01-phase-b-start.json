@@ -1,0 +1,843 @@
+[
+  {
+    "run": {
+      "agent_id": "alert",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:05.950678+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "field_completeness",
+        "value": null,
+        "target": ">= 0.95",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: B1 新加, adapter 未实装 runtime 四键完整率探针 (yaml baseline.pending_metrics)",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "task_completion_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "100/100 customers status==completed",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "10/10 red|yellow customers have non-empty evidence · trigger_reasons[cross_hit=2, external_signal=7, internal_rule=1]",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": 0.0,
+        "target": "<= 0.01",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "0/100 entity_id outside whitelist",
+        "blocker_threshold": 0.05,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": 1.0,
+        "target": ">= 0.90",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "200/200 tool calls succeeded",
+        "blocker_threshold": 0.7,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "cross_hit_precision",
+        "value": null,
+        "target": ">= 0.80",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: Phase 2 Batch 2 — 需业务方标注 known-bad 清单 + 真实外部源接入（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）",
+        "blocker_threshold": 0.6,
+        "blocker_triggered": false
+      },
+      {
+        "name": "recall_on_known_bad",
+        "value": null,
+        "target": ">= 0.90",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: Phase 2 Batch 2 — 需已知问题客户标注库（yaml baseline.pending_metrics 白名单，A-013 kernel 免算）",
+        "blocker_threshold": 0.7,
+        "blocker_triggered": false
+      },
+      {
+        "name": "grade_distribution_sanity",
+        "value": 1.0,
+        "target": "pass",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "red=3.00% (<5%), green=90.00% (>70%)",
+        "blocker_threshold": 0.0,
+        "blocker_triggered": false
+      },
+      {
+        "name": "signal_diversity",
+        "value": 0.0,
+        "target": ">= 0.60",
+        "passed": false,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "0/10 red/yellow 客户 trigger_reasons 种类 ≥ 2",
+        "blocker_threshold": 0.4,
+        "blocker_triggered": true
+      },
+      {
+        "name": "scan_latency_p95",
+        "value": 1.3333333333333334e-06,
+        "target": "<= 30",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\4_20260419.yaml"
+        ],
+        "note": "P95=0.1ms (0.0000 min) over 100 customers",
+        "blocker_threshold": 60.0,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PASS",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.04592860001139343,
+    "blockers": [
+      "signal_diversity"
+    ]
+  },
+  {
+    "run": {
+      "agent_id": "channel",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:06.066563+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "field_completeness",
+        "value": 1.0,
+        "target": ">= 0.85",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "51/51 候选带 entity_id+name+signals+evidence",
+        "blocker_threshold": 0.6,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "51/51 候选带 evidence",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": 0.0,
+        "target": "<= 0.02",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "0/51 entity_id resolvable=False",
+        "blocker_threshold": 0.05,
+        "blocker_triggered": false
+      },
+      {
+        "name": "task_completion_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "51 候选产出 (≥ Top_N)",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": 1.0,
+        "target": ">= 0.90",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "3/3 工具调用成功 (Tavily+企查查)",
+        "blocker_threshold": 0.7,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "portrait_match_precision",
+        "value": 0.5,
+        "target": ">= 0.70",
+        "passed": null,
+        "method": "heuristic",
+        "evidence": [],
+        "note": "stub_awaiting_code_arch_b2 · stub precision@10=0.5 · 待 code-arch Batch 2 BATCH-2-INTEGRATION-TEST-DONE 交付 evaluation\\manual\\1_oracle.json oracle 标注后 re-run",
+        "blocker_threshold": 0.5,
+        "blocker_triggered": false
+      },
+      {
+        "name": "signal_diversity",
+        "value": 1.0,
+        "target": ">= 0.70",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "51/51 候选含 ≥ 2 种 signal.type",
+        "blocker_threshold": 0.5,
+        "blocker_triggered": false
+      },
+      {
+        "name": "ndcg_at_10",
+        "value": null,
+        "target": ">= 0.75",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: 需人工 gold top10 排序真值集 (Phase 2 业务方提供)",
+        "blocker_threshold": 0.55,
+        "blocker_triggered": false
+      },
+      {
+        "name": "retrieval_recall",
+        "value": 1.0,
+        "target": ">= 0.60",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "10/10 gold look-alike 被召回 · runtime-dump (stub gold)",
+        "blocker_threshold": 0.4,
+        "blocker_triggered": false
+      },
+      {
+        "name": "candidate_dedup_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\1_latest.json"
+        ],
+        "note": "51/51 唯一 entity_id",
+        "blocker_threshold": 0.85,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PARTIAL",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.0011831999872811139,
+    "blockers": []
+  },
+  {
+    "run": {
+      "agent_id": "compliance",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:06.141247+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "field_completeness",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\5_latest.json"
+        ],
+        "note": "20/20 冲突项 4 键完整",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "task_completion_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\5_latest.json"
+        ],
+        "note": "20 冲突点产出",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": 1.0,
+        "target": ">= 0.98",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\5_latest.json"
+        ],
+        "note": "20/20 双锚齐全",
+        "blocker_threshold": 0.9,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": null,
+        "target": "<= 0.01",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: 需政策/制度原文库做 anchor 可解析性校验",
+        "blocker_threshold": 0.05,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\5_latest.json"
+        ],
+        "note": "4/4 工具调用成功",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "policy_coverage",
+        "value": 0.5,
+        "target": ">= 0.90",
+        "passed": null,
+        "method": "heuristic",
+        "evidence": [],
+        "note": "stub_awaiting_code_arch_b2 · stub coverage=0.5 · 待 code-arch Batch 2 oracle evaluation\\manual\\5_oracle.json 落地 re-run",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": true
+      },
+      {
+        "name": "conflict_recall",
+        "value": 0.5,
+        "target": ">= 0.90",
+        "passed": null,
+        "method": "heuristic",
+        "evidence": [],
+        "note": "stub_awaiting_code_arch_b2 · stub recall=0.5 stub fpr=0.2 · 待 code-arch Batch 2 oracle 落地",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": true
+      },
+      {
+        "name": "defect_classification_accuracy",
+        "value": null,
+        "target": ">= 0.80",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: 需人工缺陷严重度标注真值 (gold_severity_map)",
+        "blocker_threshold": 0.65,
+        "blocker_triggered": false
+      },
+      {
+        "name": "terminology_compliance",
+        "value": null,
+        "target": ">= 0.90",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: Phase 2 需监管合规术语表 v1.0 + 冲突描述文本抽取",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_completeness",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\evaluation\\manual\\5_latest.json"
+        ],
+        "note": "20/20 冲突点含 3 要素 (policy+business+diff/evidence)",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PARTIAL",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.0009735000203363597,
+    "blockers": [
+      "policy_coverage",
+      "conflict_recall"
+    ]
+  },
+  {
+    "run": {
+      "agent_id": "credit",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:06.210444+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "field_completeness",
+        "value": 0.926,
+        "target": ">= 0.90",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "463/500 字段非空 (10 键×50 cases)",
+        "blocker_threshold": 0.7,
+        "blocker_triggered": false
+      },
+      {
+        "name": "task_completion_rate",
+        "value": 1.0,
+        "target": ">= 0.98",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "50/50 cases 带 composite_score + decision",
+        "blocker_threshold": 0.85,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "50/50 cases 带 decision_reason",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": 0.0,
+        "target": "<= 0.01",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "0/50 cases decision↔approved_amount 自相矛盾",
+        "blocker_threshold": 0.05,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": null,
+        "target": ">= 0.95",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: mock cases 无 runtime tool_calls 元数据 · 待 Agent3 api.py 埋点后补",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "redline_detection_accuracy",
+        "value": 0.9743589743589743,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "38/39 (拒绝↔红线 或 批准↔无红线) · 有条件批准灰区剔除",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "credit_limit_reasonability",
+        "value": 0.0,
+        "target": "<= 0.20",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_credit\\mock_data\\corporate_cases.json"
+        ],
+        "note": "median |log10(req/app)| = 0.0000 over 39 approved>0 cases",
+        "blocker_threshold": 0.4,
+        "blocker_triggered": false
+      },
+      {
+        "name": "ratio_calc_consistency",
+        "value": null,
+        "target": ">= 0.99",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: 需 Agent3 runtime 比率输出 + financial_analyzer 对照 · code-urgent §3.1 接入后可算",
+        "blocker_threshold": 0.99,
+        "blocker_triggered": false
+      },
+      {
+        "name": "score_human_agreement",
+        "value": null,
+        "target": ">= 0.85",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: Phase 2 需业务方人工复核真值集",
+        "blocker_threshold": 0.65,
+        "blocker_triggered": false
+      },
+      {
+        "name": "terminology_compliance",
+        "value": null,
+        "target": ">= 0.90",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "pending: Phase 2 需信贷术语表 v1.0 + 审批意见文本抽取",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PARTIAL",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.0009453999809920788,
+    "blockers": []
+  },
+  {
+    "run": {
+      "agent_id": "report",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:06.282230+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "task_completion_rate",
+        "value": 0.0,
+        "target": ">= 0.98",
+        "passed": false,
+        "method": "deterministic",
+        "evidence": [],
+        "note": "0 paragraphs",
+        "blocker_threshold": 0.85,
+        "blocker_triggered": true
+      },
+      {
+        "name": "field_completeness",
+        "value": null,
+        "target": ">= 0.93",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "Phase B stub — v16 summary 未暴露 filled/expected 字段统计",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": null,
+        "target": ">= 0.95",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "fallback: 无 v16 summary 或 QC md 未找到",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": null,
+        "target": "<= 0.01",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "fallback: 无 v16 summary",
+        "blocker_threshold": 0.03,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": null,
+        "target": ">= 0.95",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "Phase B stub — v16 summary 未暴露 tool_calls 元数据",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "template_leakage_rate",
+        "value": null,
+        "target": "<= 0.02",
+        "passed": null,
+        "method": "heuristic",
+        "evidence": [],
+        "note": "缺 artifact 或 baseline, 跳过",
+        "blocker_threshold": 0.08,
+        "blocker_triggered": false
+      },
+      {
+        "name": "unfilled_marker_accuracy",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "heuristic",
+        "evidence": [],
+        "note": "placeholder_residue=0, unfilled_marks=0",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "quality_score_total",
+        "value": null,
+        "target": ">= 65.0",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "fallback: 无 v16 summary · 需 quality_scorer runtime",
+        "blocker_threshold": 55.0,
+        "blocker_triggered": false
+      },
+      {
+        "name": "financial_ratio_consistency",
+        "value": null,
+        "target": ">= 0.99",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "由 evaluation.runner.cross_agent.ratio_consistency 跨 5 DP 聚合算 (baseline JSON 顶层 ev_12_ratio_calc_consistency 字段, method 升级为 deterministic_cross_agent)",
+        "blocker_threshold": 0.99,
+        "blocker_triggered": false
+      },
+      {
+        "name": "section_length_calibration",
+        "value": null,
+        "target": "<= 0.30",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "Phase B stub — 真人范文库依赖 (Batch 3)",
+        "blocker_threshold": 0.6,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PARTIAL",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.00013490000856108963,
+    "blockers": [
+      "task_completion_rate"
+    ]
+  },
+  {
+    "run": {
+      "agent_id": "riskctrl",
+      "commit": "47e7cad1b89bd2b43732ce54c0dddaf5cde626a6",
+      "artifacts": [],
+      "compare_baseline": false,
+      "timestamp": "2026-05-01T14:22:06.351844+00:00",
+      "extra": {}
+    },
+    "common_metrics": [
+      {
+        "name": "field_completeness",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+        ],
+        "note": "5/5 规则四要素齐 (rule_id+conditions+action+backtest); missing_breakdown={}",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      },
+      {
+        "name": "task_completion_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+        ],
+        "note": "5/5 DSL 输出成功",
+        "blocker_threshold": 0.75,
+        "blocker_triggered": false
+      },
+      {
+        "name": "evidence_rate",
+        "value": 1.0,
+        "target": ">= 0.98",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+        ],
+        "note": "5/5 规则含 ks/approve_rate/bad_rate",
+        "blocker_threshold": 0.9,
+        "blocker_triggered": false
+      },
+      {
+        "name": "hallucination_rate",
+        "value": 0.0,
+        "target": "<= 0.01",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\sample_schema.json"
+        ],
+        "note": "0/6 字段 ∉ schema.columns",
+        "blocker_threshold": 0.05,
+        "blocker_triggered": false
+      },
+      {
+        "name": "tool_success_rate",
+        "value": 1.0,
+        "target": ">= 0.95",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\backtest.json"
+        ],
+        "note": "7/7 工具调用成功",
+        "blocker_threshold": 0.8,
+        "blocker_triggered": false
+      }
+    ],
+    "domain_metrics": [
+      {
+        "name": "false_positive_rate",
+        "value": 0.0673076923076923,
+        "target": "<= 0.15",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\backtest.json"
+        ],
+        "note": "FP=7, TN=97, FPR=0.0673",
+        "blocker_threshold": 0.25,
+        "blocker_triggered": false
+      },
+      {
+        "name": "per_rule_fpr_spread",
+        "value": null,
+        "target": "<= 0.03",
+        "passed": null,
+        "method": "deterministic",
+        "evidence": [],
+        "note": "有效规则不足 2 条（共 5 规则，skip=5）；spread 不适用",
+        "blocker_threshold": 0.08,
+        "blocker_triggered": false
+      },
+      {
+        "name": "ks_improvement",
+        "value": null,
+        "target": ">= 0.02",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "baseline_compare.json 缺失 · 待 runtime 跑 agent_riskctrl.backtesting.compare_with_baseline(df, current) 产 sidecar artifact (P3F 轨 8b Task B)",
+        "blocker_threshold": 0.0,
+        "blocker_triggered": false
+      },
+      {
+        "name": "rule_interpretability",
+        "value": null,
+        "target": ">= 4.0",
+        "passed": null,
+        "method": "manual",
+        "evidence": [],
+        "note": "judge unavailable/all-failed · status=unavailable breakdown={} · DEEPSEEK_API_KEY missing (env unset)",
+        "blocker_threshold": 3.0,
+        "blocker_triggered": false
+      },
+      {
+        "name": "dsl_syntax_correctness",
+        "value": 1.0,
+        "target": ">= 0.98",
+        "passed": true,
+        "method": "deterministic",
+        "evidence": [
+          "D:\\claude code\\work-B1-flywheel\\agent_riskctrl\\tests\\fixtures\\baseline_v1\\rules.json"
+        ],
+        "note": "5/5 规则 parser round-trip 通过 (rule_id+conditions数+action 等价); failures={}",
+        "blocker_threshold": 0.9,
+        "blocker_triggered": false
+      }
+    ],
+    "verdict": "PARTIAL",
+    "runner_version": "0.1.0-phase-a",
+    "duration_seconds": 0.005205800000112504,
+    "blockers": []
+  }
+]

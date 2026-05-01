@@ -132,6 +132,28 @@ class BlockerGateTest(unittest.TestCase):
         self.assertIn("hallucination_rate", result.blockers)
         self.assertTrue(result.any_blocker)
 
+    def test_target_operator_overrides_name_hint(self):
+        """credit_limit_reasonability target=<=0.20 应当被识别为越小越好,
+        即使 name 不在 _LOWER_IS_BETTER_HINTS 中 (修自 baseline run 出现的 OK+BLOCKER 矛盾)。"""
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as td:
+            yaml_path = Path(td) / "_test.yaml"
+            yaml_path.write_text(textwrap.dedent("""
+                agent_id: stub
+                baseline:
+                  pending_metrics: []
+                metrics:
+                  common: []
+                  domain:
+                    - name: credit_limit_reasonability
+                      target: "<= 0.20"
+                      baseline_target: 0.20
+                      blocker_threshold: 0.40
+            """).strip(), encoding="utf-8")
+            ev = _StubEvaluator(yaml_path, {"credit_limit_reasonability": 0.0})
+            result = ev.run(EvalRun(agent_id="stub"))
+            self.assertEqual(result.blockers, [], "value=0.0 应在 [0, 0.40] 内, 不该 trigger")
+
     def test_all_passing_no_blockers(self):
         with self._tmp_yaml() as yaml_path:
             ev = _StubEvaluator(yaml_path, {

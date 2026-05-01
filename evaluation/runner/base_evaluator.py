@@ -107,8 +107,10 @@ class BaseEvaluator(ABC):
 
         - blocker_threshold 缺失 → 跳过 (该指标无 publish gate)
         - value=None → 跳过 (无法判定 · 不算触发)
-        - 方向: hint 命中 _LOWER_IS_BETTER_HINTS → value > threshold 触发;
-                       否则 → value < threshold 触发 (越大越好)
+        - 方向优先级:
+            1. target 操作符 (">= X" → 越大越好 · "<= X" → 越小越好)
+            2. fallback name hint (_LOWER_IS_BETTER_HINTS)
+            3. 默认越大越好
         - blocker_threshold 默认应比 baseline_target 宽一档 (per evaluation/README.md §28)
         """
         # 按 name 索引 yaml metric (含 common + domain)
@@ -131,7 +133,7 @@ class BaseEvaluator(ABC):
             m.blocker_threshold = threshold_f
             if m.value is None:
                 continue
-            lower_is_better = any(h in m.name for h in _LOWER_IS_BETTER_HINTS)
+            lower_is_better = _direction_lower_is_better(m.name, cfg.get("target"))
             triggered = (m.value > threshold_f) if lower_is_better else (m.value < threshold_f)
             m.blocker_triggered = bool(triggered)
 
@@ -260,6 +262,24 @@ _LOWER_IS_BETTER_HINTS = (
     "unresolvable",
     "defect_rate",
 )
+
+
+def _direction_lower_is_better(name: str, target: str | None) -> bool:
+    """判定指标方向 · target 操作符优先 · fallback name hint.
+
+    - "<= X" / "< X" → True (越小越好)
+    - ">= X" / "> X" / "== X" / "!= X" → False (越大越好或精确)
+    - target 缺失 → name hint
+    """
+    if isinstance(target, str):
+        m = _TARGET_RE.match(target.strip())
+        if m:
+            op = m.group(1)
+            if op in ("<=", "<"):
+                return True
+            if op in (">=", ">"):
+                return False
+    return any(h in name for h in _LOWER_IS_BETTER_HINTS)
 
 
 def _parse_legacy_target_to_float(target: str) -> float | None:
