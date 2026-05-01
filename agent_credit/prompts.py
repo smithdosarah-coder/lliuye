@@ -177,22 +177,60 @@ RETAIL_REDLINE_USER = """
 # 看到"审贷员历史改动样例" → 收敛输出风格。
 #
 # PoC 范围: 只 agent_credit · 其他 5 agent 下一迭代接入 (per runbook §PoC scope)。
+#
+# Production 安全 (per Codex V2 review):
+#   - LIUYE_FEWSHOT_POC_ENABLED env 默认 "0" · 关 → build 直返 base · 无副作用
+#   - PII redaction (手机/身份证/银行卡/邮箱) 在喂 LLM 前 mask · per Evidence-First 自审层
 # ---------------------------------------------------------------------------
 
+import os
+import re
+
 FEW_SHOT_EXAMPLES: list[dict] = []  # default; injected block at file end shadows
+
+POC_FLAG_ENV = "LIUYE_FEWSHOT_POC_ENABLED"
+
+# 中国常见 PII pattern · 进 LLM 前 mask · 保 LLM 看不到具体值但保留字段语义
+_PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b1[3-9]\d{9}\b"), "<MOBILE>"),                      # 手机号
+    (re.compile(r"\b\d{17}[\dXx]\b"), "<ID-CARD>"),                    # 身份证 18
+    (re.compile(r"\b\d{15}\b"), "<ID-CARD-15>"),                       # 旧身份证 15
+    (re.compile(r"\b\d{16,19}\b"), "<BANK-CARD>"),                     # 银行卡 16-19
+    (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"), "<EMAIL>"),         # 邮箱
+)
+
+
+def _redact_pii(text: str) -> str:
+    """对单条字符串扫 PII pattern 并 mask · 多条 pattern 顺序应用."""
+    if not isinstance(text, str):
+        text = str(text)
+    for pat, repl in _PII_PATTERNS:
+        text = pat.sub(repl, text)
+    return text
+
+
+def _redact_value(value):
+    """递归对 dict / list / scalar 走 _redact_pii."""
+    if isinstance(value, dict):
+        return {k: _redact_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_value(v) for v in value]
+    if isinstance(value, str):
+        return _redact_pii(value)
+    return value
 
 
 def _format_fewshot_block(examples: list[dict]) -> str:
     """把 candidates examples 渲染成 prompt 末尾追加的 markdown 块.
 
-    跳过缺关键字段的条目 · 保护 prompt 不被脏数据污染。
+    跳过缺关键字段的条目 + 喂 LLM 前 PII redact · 保护 prompt 不被脏数据 / 隐私污染。
     """
     rendered = []
     for ex in examples:
-        reason = (ex.get("reason") or "").strip()
-        sample_input = ex.get("sample_input") or {}
-        preferred = ex.get("preferred_output") or {}
-        diff = (ex.get("diff_summary") or "").strip()
+        reason = _redact_pii((ex.get("reason") or "").strip())
+        sample_input = _redact_value(ex.get("sample_input") or {})
+        preferred = _redact_value(ex.get("preferred_output") or {})
+        diff = _redact_pii((ex.get("diff_summary") or "").strip())
         if not reason or not preferred:
             continue
         rendered.append(
@@ -212,8 +250,13 @@ def _format_fewshot_block(examples: list[dict]) -> str:
 def build_system_prompt(base: str) -> str:
     """把 base system prompt + few-shot 块拼成最终 system prompt.
 
-    无 FEW_SHOT_EXAMPLES 注入时退化为返回原 base · 完全向下兼容。
+    Production 默认安全 (per Codex V2):
+      LIUYE_FEWSHOT_POC_ENABLED != "1" → 直返 base (PoC opt-in · 无副作用)
+      = "1" + 无 FEW_SHOT_EXAMPLES → 返 base (向下兼容)
+      = "1" + 有 examples → 返 base + few-shot block (PII redacted)
     """
+    if os.environ.get(POC_FLAG_ENV, "0") != "1":
+        return base
     block = _format_fewshot_block(FEW_SHOT_EXAMPLES)
     if not block:
         return base

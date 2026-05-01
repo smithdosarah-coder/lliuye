@@ -10,10 +10,14 @@ evaluation.runner.cli — 命令行入口
   python -m evaluation.runner --agent report --artifacts outputs/ --out /tmp/eval.json
 
 退出码:
-  0 = 全部 PASS
-  1 = 至少一个 FAIL / PARTIAL
-  2 = adapter 未实现或其他异常
-  3 = blocker_threshold 触发 (CI 阻断发布 · 仅 --gate 启用 · Phase B BE10)
+  0 = 全部 PASS · 安全发布
+  1 = 至少一个 FAIL / PARTIAL · 默认阻断发布 · 需 PM 评审豁免才能放行
+  2 = adapter 未实现或其他异常 · 修代码后重跑
+  3 = blocker_threshold 触发 (CI 阻断发布 · 仅 --gate 启用 · Phase B BE10 · 不可豁免)
+
+发布闸门语义 (per BE10 + Codex V2 review):
+  * 退出码 0 才算"自动放行"
+  * 1 / 2 / 3 都阻断 · 强度递增 (1 可豁免 / 2 必修 / 3 不可豁免)
 """
 
 from __future__ import annotations

@@ -136,14 +136,17 @@ py -m evaluation.runner --all --gate
 echo $?    # 0 = 全 PASS · 1 = 至少 1 PARTIAL/FAIL · 3 = blocker_threshold 触发(阻断发布)
 ```
 
-**`--gate` 退出码**：
+**退出码 + 发布闸门语义**（per BE10 + Codex V2 review · 2026-05-01 修正）：
 
 | 码 | 含义 | 动作 |
 |---|---|---|
-| 0 | 6 agent 全 PASS | 安全发布 |
-| 1 | 至少 1 个 PARTIAL / FAIL（但无 blocker） | 提示有 gap，可发布 |
-| 2 | adapter 未实现 / 异常 | 修代码 |
-| 3 | **任一 metric 跨 blocker_threshold** | **阻断发布**，回滚 prompt 改动 |
+| 0 | 6 agent 全 PASS | **安全发布**（唯一允许自动放行） |
+| 1 | 至少 1 个 PARTIAL / FAIL（无 blocker_threshold 命中） | **默认阻断**，需 PM 评审豁免才能放行 |
+| 2 | adapter 未实现 / 异常 | **必修代码**后重跑 |
+| 3 | 任一 metric 跨 `blocker_threshold`（仅 `--gate` 触发） | **不可豁免阻断**，回滚 prompt 改动 |
+
+> 红线：只有退出码 0 才视作"自动放行"。1/2/3 都属于阻断，强度递增（1 可 PM 评审豁免 / 2 必修 / 3 不可豁免）。
+> 早期版本运行手册曾把 1 写成"可发布"——已修正为"默认阻断需豁免"，避免审贷员/合规官误解。
 
 每条 metric 在 `evaluation/agent*.yaml` 的 `blocker_threshold` 字段定义阻断线。方向自动从 `target` 操作符推导（`>= X` → 越大越好 · `<= X` → 越小越好），name hint 仅作 fallback（修自 2026-05-01 baseline run 误判 case）。
 
@@ -163,6 +166,11 @@ echo $?    # 0 = 全 PASS · 1 = 至少 1 PARTIAL/FAIL · 3 = blocker_threshold 
 ---
 
 ## PoC scope（only `agent_credit` consumes FEW_SHOT_EXAMPLES · 2026-05-01）
+
+**Production safety**（per Codex V2 review）：
+
+- **Feature flag**：`LIUYE_FEWSHOT_POC_ENABLED` 默认 **off**。`build_system_prompt(base)` 在 flag 关时直接返 `base`，完全 no-op。要让 PoC 真生效需在 `.env` / 启动脚本里 `export LIUYE_FEWSHOT_POC_ENABLED=1`。
+- **PII redaction**：`_format_fewshot_block` 在喂 LLM 前对 `sample_input` / `preferred_output` / `reason` / `diff_summary` 走 `_redact_pii`，mask 手机 / 身份证 (15 + 18) / 银行卡 (16-19 位) / 邮箱。回归见 `tests/test_fewshot_poc_e2e.py::test_pii_redaction_masks_phone_idcard_bankcard_email`。
 
 **当前**：只 `agent_credit/prompts.py` 实现 `build_system_prompt(base)` + `_format_fewshot_block`，并在 `agent_credit/advisor_formatter.py` 的对公/零售决策路径调用。
 

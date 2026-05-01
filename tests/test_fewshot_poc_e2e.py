@@ -30,7 +30,8 @@ PROMPTS_PATH = PROJECT_ROOT / "agent_credit" / "prompts.py"
 # Unit: build_system_prompt 行为 (无 IO · 直接 stub FEW_SHOT_EXAMPLES)
 # ---------------------------------------------------------------------------
 
-def test_build_system_prompt_empty_returns_base():
+def test_build_system_prompt_empty_returns_base(monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "1")
     from agent_credit import prompts as credit_prompts
     importlib.reload(credit_prompts)
     assert credit_prompts.FEW_SHOT_EXAMPLES == []
@@ -39,6 +40,7 @@ def test_build_system_prompt_empty_returns_base():
 
 
 def test_build_system_prompt_with_examples_appends_block(monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "1")
     from agent_credit import prompts as credit_prompts
     importlib.reload(credit_prompts)
     monkeypatch.setattr(credit_prompts, "FEW_SHOT_EXAMPLES", [
@@ -58,6 +60,7 @@ def test_build_system_prompt_with_examples_appends_block(monkeypatch):
 
 
 def test_build_system_prompt_skips_malformed_entries(monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "1")
     from agent_credit import prompts as credit_prompts
     importlib.reload(credit_prompts)
     monkeypatch.setattr(credit_prompts, "FEW_SHOT_EXAMPLES", [
@@ -67,6 +70,71 @@ def test_build_system_prompt_skips_malformed_entries(monkeypatch):
     out = credit_prompts.build_system_prompt("BASE")
     # 一条有效条目 → 块出现一次
     assert out.count("反馈原因: ok") == 1
+
+
+# ---------------------------------------------------------------------------
+# V2 Codex review fix · feature flag + PII redaction
+# ---------------------------------------------------------------------------
+
+def test_poc_flag_default_off_returns_base(monkeypatch):
+    """Production 默认 LIUYE_FEWSHOT_POC_ENABLED 未设 → build 必返 base · 即使 examples 非空."""
+    monkeypatch.delenv("LIUYE_FEWSHOT_POC_ENABLED", raising=False)
+    from agent_credit import prompts as credit_prompts
+    importlib.reload(credit_prompts)
+    monkeypatch.setattr(credit_prompts, "FEW_SHOT_EXAMPLES", [
+        {"reason": "should NOT leak", "sample_input": {"a": 1},
+         "preferred_output": {"a": 2}, "diff_summary": "a:1→2"},
+    ])
+    out = credit_prompts.build_system_prompt("BASE")
+    assert out == "BASE"
+    assert "few-shot" not in out
+    assert "should NOT leak" not in out
+
+
+def test_poc_flag_explicit_zero_returns_base(monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "0")
+    from agent_credit import prompts as credit_prompts
+    importlib.reload(credit_prompts)
+    monkeypatch.setattr(credit_prompts, "FEW_SHOT_EXAMPLES", [
+        {"reason": "X", "sample_input": {"a": 1}, "preferred_output": {"a": 2}},
+    ])
+    assert credit_prompts.build_system_prompt("BASE") == "BASE"
+
+
+def test_pii_redaction_masks_phone_idcard_bankcard_email(monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "1")
+    from agent_credit import prompts as credit_prompts
+    importlib.reload(credit_prompts)
+    monkeypatch.setattr(credit_prompts, "FEW_SHOT_EXAMPLES", [
+        {
+            "reason": "联系电话 13812345678 客户邮箱 zhang@example.com 身份证 110101199001011234",
+            "sample_input": {
+                "phone": "18900001111",
+                "id_card": "11010119800101567X",
+                "bank_card": "6222021234567890123",
+                "name": "张三",  # 姓名不 mask
+            },
+            "preferred_output": {
+                "remark": "客户身份证 110101199001011234 已核实, 银行卡 6222021234567890123",
+            },
+            "diff_summary": "remark 加身份核实",
+        },
+    ])
+    out = credit_prompts.build_system_prompt("BASE")
+    # 原值不应出现
+    assert "13812345678" not in out
+    assert "18900001111" not in out
+    assert "zhang@example.com" not in out
+    assert "110101199001011234" not in out
+    assert "6222021234567890123" not in out
+    assert "11010119800101567X" not in out
+    # mask token 应出现
+    assert "<MOBILE>" in out
+    assert "<EMAIL>" in out
+    assert "<ID-CARD>" in out
+    assert "<BANK-CARD>" in out
+    # 非 PII 字段保留
+    assert "张三" in out
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +196,8 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def test_e2e_feedback_to_fewshot_to_inject_to_prompt(fewshot_e2e_sandbox):
+def test_e2e_feedback_to_fewshot_to_inject_to_prompt(fewshot_e2e_sandbox, monkeypatch):
+    monkeypatch.setenv("LIUYE_FEWSHOT_POC_ENABLED", "1")
     fb_dir, fewshot_dir, _ = fewshot_e2e_sandbox
 
     # Step 1: aggregate feedback → candidates
