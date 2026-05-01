@@ -13,7 +13,9 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -21,6 +23,23 @@ import pytest
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# scripts/ 不是 package · 用 spec 直接 load 避免模块解析顺序坑
+# (evaluation/runner/tests/ 先跑会污染 namespace package 解析 · 改 spec import 稳)
+if "scripts.feedback_auto_pipeline" not in sys.modules:
+    _spec = importlib.util.spec_from_file_location(
+        "scripts.feedback_auto_pipeline",
+        PROJECT_ROOT / "scripts" / "feedback_auto_pipeline.py",
+    )
+    _mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
+    # 假装有 parent package 'scripts'
+    if "scripts" not in sys.modules:
+        import types
+        scripts_pkg = types.ModuleType("scripts")
+        scripts_pkg.__path__ = [str(PROJECT_ROOT / "scripts")]  # type: ignore[attr-defined]
+        sys.modules["scripts"] = scripts_pkg
+    sys.modules["scripts.feedback_auto_pipeline"] = _mod
+    _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
 
 
 @pytest.fixture
