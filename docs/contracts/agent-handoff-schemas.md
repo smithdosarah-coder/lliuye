@@ -1,12 +1,21 @@
-# 6 Agent Handoff Data Contract · v1.0
+# 6 Agent Handoff Data Contract · v1.1
 
-**版本**: v1.0
-**发布日期**: 2026-04-29
-**作者**: worker-A6 (Phase A · Week 2-3)
+**版本**: v1.1 (2026-05-01 · 加补反向链 + Agent2 风控触发链 · per Codex Phase A audit BUG-C)
+**v1.0 发布日期**: 2026-04-29 (worker-A6 · 4 主链 + Export 共形)
+**作者**: worker-A6 (Phase A · Week 2-3) · 主 CLI v1.1 加补 (2026-05-01)
 **适用范围**: 6 Agent 跨域数据流 / handoff 载荷 / export 契约共形
 **主 CLI dispatch signal**: `PHASE-A-A6-DISPATCHED` (commit b19c139)
 **phase A 验收硬线 #6** (`docs/reset/phase-a-charter.md` §1):
 > 6 Agent handoff data contract · `docs/contracts/agent-handoff-schemas.md` 定义清楚 (不要求自动跑通 · 仅 schema 定)。
+
+## Changelog
+
+- **v1.1** (2026-05-01 · 主 CLI 加补 · per Codex Phase A audit BUG-C):
+  - §0.1 范围声明: 反向链 + Agent2 风控触发链 从 ❌ 移到 ✅ scope
+  - §6 新增: 4 条反向链 + 2 条 Agent2 风控触发链 schema (共 6 条)
+  - §7 (Fixture index) 从 §6 renumber 而来 · §8 (维护与变更) 从 §7 renumber
+  - 新增 fixture: `data/mock/handoff/agent5-to-3-block.json` (反向 · 合规阻断后授信重评 · v1.1 待 worker-B1 数据飞轮 stub) 等 6 个 fixture (v1.1 仅 placeholder · v1.2 实装)
+- **v1.0** (2026-04-29): 4 主链 (channel→report → credit → alert · compliance→alert+report) + Export Contract 共形
 
 ---
 
@@ -34,7 +43,7 @@ Step 2 conflict scan (`docs/audit/conflict-register-v1.md`) Cat 0 验证 6 Agent
 
 ## 0.1 范围声明
 
-**本文档 spec 4 条主链路 + 1 个 export 共形契约**:
+**本文档 spec 4 条主链路 + 4 条反向链 + 2 条 Agent2 风控触发链 + 1 个 export 共形契约**:
 
 | # | 链路 | 触发方 | 消费方 | 节 |
 |---|---|---|---|---|
@@ -43,15 +52,21 @@ Step 2 conflict scan (`docs/audit/conflict-register-v1.md`) Cat 0 验证 6 Agent
 | 3 | `Agent3.decision → Agent4.client_pool_signal` | Agent3 决策出 (含模拟放款) | Agent4 (在贷预警) | §3 |
 | 4 | `Agent5.policy_event → Agent4 / Agent6` | Agent5 检出新政策违规 | Agent4 重扫 + Agent6 报告补充 | §4 |
 | Cat 13 | export contract 共形 | 6 Agent 任意 | 客户/审贷员下载 | §5 |
+| **6.1** | `Agent5.violation_blocked → Agent3.re_decision` (反向 · v1.1) | Agent5 BLOCK 一单 | Agent3 重评授信 | §6.1 |
+| **6.2** | `Agent3.report_gap → Agent6.section_supplement` (反向 · v1.1) | Agent3 评分发现报告缺章节 | Agent6 补章节 | §6.2 |
+| **6.3** | `Agent4.alert_escalated → Agent5.compliance_review` (反向 · v1.1) | Agent4 红色预警命中 | Agent5 升合规复核 | §6.3 |
+| **6.4** | `Agent4.pattern_detected → Agent2.rule_proposal` (反向 · v1.1) | Agent4 发现新模式 | Agent2 评估加规则 | §6.4 |
+| **6.5** | `Agent2.dsl_deployed → Agent4.scan_trigger` (Agent2 · v1.1) | Agent2 新风控规则部署 | Agent4 重扫在贷客户 | §6.5 |
+| **6.6** | `Agent2.dsl_versioned → Agent3.rubric_sync` (Agent2 · v1.1) | Agent2 DSL 版本变更 | Agent3 评分 rubric 同步 | §6.6 |
 
-**不在本文档范围**:
+**不在本文档范围** (v1.1 后):
 
 - ❌ `/today` RM workbench 重写 (PM 拍板推 Phase B-3 端到端 demo chain)
 - ❌ Workspace 4 gate state 实装 (worker-A3 + 5 子 worker 干)
 - ❌ shared LLM caller 接管 (worker-A2 干)
-- ❌ Agent2 (riskctrl · DSL + 回测) handoff — Agent2 是策略经理面向的工具 · 不在 6 Agent 闭环路径中
 - ❌ Agent5 巡检 / Agent4 单点查询 — 已在 north-star §1.3 钉死 Agent5 = 政策事件驱动 / Agent4 = 客户变化驱动
-- ❌ 反向链 (Agent3 → Agent1 / Agent4 → Agent3 / etc.) — 反向流另开契约
+- ❌ Agent2 → Agent6 / Agent2 → Agent5 直跳 — Agent2 是后台风控规则引擎 · 不直 handoff 给报告 / 合规 (跨 Agent3 + Agent4)
+- ❌ Agent1 → Agent3 / Agent4 / Agent5 直跳 — Agent1 必经 Agent6 (north-star §1.4 闭环路径)
 
 ---
 
@@ -767,7 +782,122 @@ CI 共形 lint 由 worker-A1 SSOT lint 同步加规则:
 
 ---
 
-## 6. Fixture index
+## 6. 反向链 + Agent2 风控触发链 (v1.1 加补 · 2026-05-01)
+
+> 加补缘由 (per `docs/audit/PHASE-A-FINAL-AUDIT-2026-04-30.md` BUG-C):
+> Codex Phase A periodic final audit (2026-04-30) verdict: 当前 schema 仅 4 主链 ·
+> 排除 Agent2 + 反向链 = 不全。本节加 6 条 schema (4 反向 + 2 Agent2 风控触发链)
+> 满足 6 Agent × 6 Agent 矩阵的合理 handoff 子集 (不强填全 30 条 · 仅含真业务场景)。
+>
+> **本节 schema 仅 spec · v1.1 不实装** — 实装走 Phase B worker-B1 数据飞轮 / worker-B3
+> RM workbench 真接 handoff event 时落 (per Q-044 三方辩论 + Codex C2 必做)。
+> Fixture 走 v1.2 (Phase B-1 完后)。
+
+### 6.0 表述约定
+
+本节每条 schema 用紧凑表格列出 (不重复 §1-§4 的 5 段全展开 · 引用 §0.4 同模式) ·
+含: 触发与时序 / 传输信封 / payload 关键字段 / 消费侧约束 / fixture 路径占位。
+
+### 6.1 反向链 · Agent5.violation_blocked → Agent3.re_decision
+
+**目的**: Agent5 (合规) 检出某单贷款命中红线 BLOCK · 触发 Agent3 (授信) 对该客户重评 ·
+RM 收到"合规阻断 · 授信意见调整"通知。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent5 SSE done event payload `violation_status == "BLOCK"` (新增 status enum) |
+| 时序 | 异步 · 同 §3 链路 3 反向 (Agent3 是消费方) |
+| 传输 | `POST /api/credit/re_decision` (新 endpoint · spec 仅 · A4-credit V3 fix-forward 实装) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "violation_to_re_decision"` · `source_agent: "compliance"` · `target_agent: "credit"` · `client_id` · `violation_id` · `violation_clause` · `original_decision_id` · `original_risk_grade` · `original_amount_yuan` · `re_decision_required_at: ISO8601` |
+| 消费侧约束 (Agent3) | 必读 client_id + violation_clause + original_decision_id · 重新跑四维评分 + segment-aware rubric (per Q-044 v4 Action 7 · 科创六维 etc.) · 输出新 decision_id |
+| Fixture 路径 | `data/mock/handoff/agent5-to-3-block.json` (v1.1 placeholder · v1.2 Phase B-1 实装) |
+
+### 6.2 反向链 · Agent3.report_gap → Agent6.section_supplement
+
+**目的**: Agent3 评分时发现 Agent6 报告缺关键章节 (e.g. 缺供应商集中度章节 · 影响经营评分) ·
+回调 Agent6 补章节 · 报告完成后 Agent3 重评。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent3 评分逻辑发现某 ReportJSON 字段为 `__UNFILLED__` 且属于评分必需字段 |
+| 时序 | 同步 (HTTP) · 阻塞 Agent3 评分流 · Agent6 补完后回调 |
+| 传输 | `POST /api/report/section_supplement` (新 endpoint · spec 仅) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "report_gap_supplement"` · `source_agent: "credit"` · `target_agent: "report"` · `report_id` · `gap_sections: list[str]` (e.g. ["supplier_concentration", "downstream_buyers"]) · `requesting_decision_id` · `urgency: "blocking" | "advisory"` |
+| 消费侧约束 (Agent6) | 必读 report_id + gap_sections · 跑 v16 pipeline 仅这些 sections · 不重跑全 report · 完后 emit `section_supplement_done` event 含 supplemented sections · Agent3 接到后重评 |
+| Fixture 路径 | `data/mock/handoff/agent3-to-6-gap.json` (v1.1 placeholder · v1.2 Phase B-1 实装) |
+
+### 6.3 反向链 · Agent4.alert_escalated → Agent5.compliance_review
+
+**目的**: Agent4 (预警) 红色预警命中某客户 · 触发 Agent5 (合规) 复核该客户是否需新增制度
+检查 (e.g. 集团关联交易 · 大额异常) · 跟 §4 链路 4 (Agent5→Agent4) 反向。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent4 SSE done event payload 含 `risk_level == "red"` 且 `escalate_to_compliance == true` (新字段) |
+| 时序 | 异步 · Agent4 fire-and-forget · Agent5 收到后独立跑 |
+| 传输 | `POST /api/compliance/review_request` (新 endpoint · spec 仅) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "alert_escalation"` · `source_agent: "alert"` · `target_agent: "compliance"` · `client_id` · `alert_id` · `alert_signals: list[dict]` (触发信号) · `recommended_clauses: list[str]` (Agent4 推荐查的合规条款) · `escalated_at` |
+| 消费侧约束 (Agent5) | 必读 client_id + alert_signals · 在制度库扫描相关 clauses · 输出 violation list (可空) · 落 `data/handoff/alert_to_compliance/<alert_id>.json` |
+| Fixture 路径 | `data/mock/handoff/agent4-to-5-escalate.json` (v1.1 placeholder) |
+
+### 6.4 反向链 · Agent4.pattern_detected → Agent2.rule_proposal
+
+**目的**: Agent4 在贷扫描发现新风险模式 (e.g. 同一行业多家客户同时出现某信号) ·
+通知 Agent2 评估是否加新风控规则。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent4 跨客户聚合分析 detect "≥ 3 客户共同模式" (新增 batch analytics) |
+| 时序 | 异步 · Agent2 排队评估 · 不阻塞 Agent4 |
+| 传输 | `POST /api/riskctrl/rule_proposal` (新 endpoint · spec 仅) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "pattern_to_rule_proposal"` · `source_agent: "alert"` · `target_agent: "riskctrl"` · `pattern_id` · `pattern_description` · `affected_clients: list[client_id]` (≥ 3) · `signal_features: list[dict]` · `proposal_type: "new_rule" | "rule_update"` · `urgency_score: int 0-100` |
+| 消费侧约束 (Agent2) | 必读 pattern_features + affected_clients · 风险经理 review · 决定是否生成 DSL · 不强制 (Agent2 是后台引擎 · 风险经理拍板) |
+| Fixture 路径 | `data/mock/handoff/agent4-to-2-pattern.json` (v1.1 placeholder) |
+
+### 6.5 Agent2 触发链 · Agent2.dsl_deployed → Agent4.scan_trigger
+
+**目的**: Agent2 新风控规则部署 (DSL 上线) · 触发 Agent4 用新规则重扫**全部在贷客户**
+(不只新增 · 因为新规则可能命中老客户)。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent2 DSL deploy 成功 (riskctrl backtest 通过 + 风险经理签字) |
+| 时序 | 异步 · Agent4 排队 (低优先 · 在贷扫描批处理) |
+| 传输 | `POST /api/alert/rebuild_index` (新 endpoint · spec 仅 · A4-alert V3 fix-forward 实装) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "dsl_deployed"` · `source_agent: "riskctrl"` · `target_agent: "alert"` · `dsl_version` · `dsl_rule_count` · `affected_segments: list[str]` (e.g. ["科创", "对公"]) · `deployed_at` · `requesting_full_rescan: bool` |
+| 消费侧约束 (Agent4) | 必读 dsl_version + affected_segments · 触发 batch scan job (~4-6h 跑) · 完成后 emit `rescan_done` event 含 new_hits/new_alerts 统计 |
+| Fixture 路径 | `data/mock/handoff/agent2-to-4-dsl-deploy.json` (v1.1 placeholder) |
+
+### 6.6 Agent2 触发链 · Agent2.dsl_versioned → Agent3.rubric_sync
+
+**目的**: Agent2 DSL 版本变更 (rule 字段语义变 / 阈值调整) · 触发 Agent3 评分 rubric
+同步更新 (e.g. 新规则要求"研发投入 ≥ 营收 5%" 才能给 A 评分 · Agent3 rubric 要 sync)。
+
+| 项 | 内容 |
+|---|---|
+| 触发 | Agent2 DSL version bump (semver minor / major) |
+| 时序 | 同步 · Agent3 必须先 sync 完才能跑新评分 |
+| 传输 | `POST /api/credit/rubric_sync` (新 endpoint · spec 仅 · A4-credit V3 实装) |
+| Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "dsl_versioned"` · `source_agent: "riskctrl"` · `target_agent: "credit"` · `dsl_version_old` · `dsl_version_new` · `affected_rubric_dimensions: list[str]` · `affected_segments: list[str]` (科创六维 / 对公财务 / 普惠团队 等 segment) · `rubric_diff: dict` (新增/修改/删除 rule 字段) |
+| 消费侧约束 (Agent3) | 必读 affected_rubric_dimensions + segments · 更新 `evaluation/agent_credit_<segment>.yaml` 内对应 rubric · 跑 evaluation baseline 验证不破现有 sample · ack `rubric_synced` event 给 Agent2 |
+| Fixture 路径 | `data/mock/handoff/agent2-to-3-rubric.json` (v1.1 placeholder) |
+
+### 6.7 实装 owner + Phase 排期
+
+| 链路 | 实装 owner | Phase | 依赖 |
+|---|---|---|---|
+| 6.1 | A4-credit V3 (fix-forward) | B-1 | Agent5 SSE done 加 violation_status enum |
+| 6.2 | A4-credit V3 + A4-report V3 (双侧) | B-3 (与 Agent6→Agent3 单链路同 sprint) | Agent6 v16 pipeline 支持 partial section run |
+| 6.3 | A4-alert V3 + A4-compliance V3 (双侧) | B-3 | Agent4 SSE done 加 escalate_to_compliance flag |
+| 6.4 | A4-alert V3 + A4-riskctrl V3 (双侧) | B 末 | Agent4 跨客户 batch analytics (新功能) |
+| 6.5 | A4-riskctrl V3 + A4-alert V3 (双侧) | B-3 | Agent2 DSL deploy ack 流程 |
+| 6.6 | A4-riskctrl V3 + A4-credit V3 (双侧) | B-3 (与 6.1 同 sprint) | Agent3 segment-aware rubric (Q-044 v4 Action 7 必做) |
+
+**v1.2 升级触发**: 6 条 fixture 全实装 + Phase B-1 数据飞轮跑通后 · 主 CLI 升 v1.2 (含 fixture 路径 ✅ + ack endpoint 全实装 verify)。
+
+---
+
+## 7. Fixture index
 
 每条链路 1 个真实形态 fixture · 落 `data/mock/handoff/`:
 
@@ -789,13 +919,16 @@ Fixture 必须符合 §3.5 反结果导向 5 原则 (`CLAUDE.md` §3.5):
 
 ---
 
-## 7. 维护与变更
+## 8. 维护与变更
 
 - **维护人**: 主 CLI (本契约属 contract-5 — `docs/contracts/instruction-source-of-truth.md` SSOT 优先级见 worker-A1 v1.0)
 - **下次审查**: 2026-05-29 (Phase B-3 端到端 demo chain 启动前必看)
 - **下游 worker 必读**: A3 (Channel pilot · 链路 1 触发端) / 5 子 worker (Credit / Alert / Compli / Riskctrl / Report adapter · 链路 2/3/4 消费端)
+- **v1.1 加补 owner**: 主 CLI (2026-05-01 · 6 条新链路 spec · per Codex Phase A audit BUG-C)
+- **v1.2 升级 owner**: 主 CLI 协调 5 子 worker V3 fix-forward (Phase B-1 后) · 实装全 6 条 fixture + ack endpoint
 
 ---
 
-**Author**: worker-A6 · 2026-04-29
-**Phase A Week 2-3 · 与 A5 + A7 并行**
+**Author**: worker-A6 · 2026-04-29 (v1.0)
+**v1.1 Author**: 主 CLI · 2026-05-01 (per Codex Phase A audit BUG-C · 加 §6 反向链 + Agent2)
+**Phase A Week 2-3 · 与 A5 + A7 并行 · v1.1 Phase A 真 exit fix-forward**

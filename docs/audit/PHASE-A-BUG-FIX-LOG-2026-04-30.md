@@ -141,9 +141,101 @@ cd web && npx tsc --noEmit
 
 ---
 
-## 4. BUG-C 修复 (待修 · 补 handoff schema)
+## 4. BUG-C 修复完整记录 (补 handoff schema · v1.0 → v1.1)
 
-待修复。计划见 §1 列表。
+### 4.1 问题描述 (人话)
+
+`docs/contracts/agent-handoff-schemas.md` v1.0 (worker-A6 · 2026-04-29) 只定义了
+**4 条主链路** (Agent1→Agent6 / Agent6→Agent3 / Agent3→Agent4 / Agent5→Agent4+Agent6) +
+1 个 Export Contract。
+
+显式标"不在范围"的 ❌ 项含:
+- ❌ Agent2 (riskctrl) handoff — 注释说 "Agent2 是策略经理面向的工具 · 不在 6 Agent 闭环路径中"
+- ❌ 反向链 (Agent3→Agent1 / Agent4→Agent3 / etc.) — 注释说 "反向流另开契约"
+
+Codex Phase A periodic final audit (2026-04-30) verdict: 这两条 ❌ 实际是真痛 · 必补:
+- 银行真实业务: Agent5 BLOCK 后 Agent3 必重评 · Agent3 评分缺章节回 Agent6 补 ·
+  Agent4 红色预警升合规 · Agent2 DSL 部署后 Agent4 必重扫 · 这些反向 / Agent2 链路
+  缺 schema 会让 Phase B 任务看板做时 spike 受限 (无 contract 撑)
+- north-star §1.4 主闭环不含 Agent2 是对的 · 但 Agent2 跟 Agent4 / Agent3 的真实
+  辅助链路应该在 schema · 不影响主闭环
+
+### 4.2 修复了哪些文件
+
+**修改文件**: `docs/contracts/agent-handoff-schemas.md`
+
+**改动总览**:
+1. Header bump v1.0 → v1.1 + 加 Changelog 段 (含 v1.1 加补理由 · v1.0 历史)
+2. §0.1 范围声明: 4 主链表加 6 条新链路 (6.1-6.6) · ❌ 项移除 Agent2 + 反向链 (改 ✅)
+   · 加新 ❌ 项 (Agent2→Agent6/Agent5 直跳 · Agent1 直跳非 Agent6 · 这些仍违
+   north-star 闭环必经路径 · 不补)
+3. §6 新增整段 "反向链 + Agent2 风控触发链 (v1.1 加补)":
+   - §6.0 表述约定 (紧凑表格 · 不重复 §1-§4 5 段全展开 · 引用 §0.4 同模式)
+   - §6.1 反向 · Agent5.violation_blocked → Agent3.re_decision (合规阻断后授信重评)
+   - §6.2 反向 · Agent3.report_gap → Agent6.section_supplement (评分缺章节回报告)
+   - §6.3 反向 · Agent4.alert_escalated → Agent5.compliance_review (预警升合规)
+   - §6.4 反向 · Agent4.pattern_detected → Agent2.rule_proposal (新模式回风控加规则)
+   - §6.5 Agent2 · Agent2.dsl_deployed → Agent4.scan_trigger (新规则触发预警重扫)
+   - §6.6 Agent2 · Agent2.dsl_versioned → Agent3.rubric_sync (DSL 版本变 Agent3 rubric 同步)
+   - §6.7 实装 owner + Phase 排期 (5 子 worker V3 fix-forward · B-1/B-3/B 末)
+4. 现有 §6 (Fixture index) renumber 为 §7
+5. 现有 §7 (维护与变更) renumber 为 §8 · 加 v1.1 owner + v1.2 升级 owner
+6. Footer 加 v1.1 Author 标识 (主 CLI · 2026-05-01)
+
+**每条新链路 schema 关键字段** (per §0.4 表述约定 · 紧凑版):
+- 触发与时序 (谁在什么 UI 操作触发 · 同步/异步 · 失败回退)
+- 传输信封 (HTTP POST endpoint · spec 仅 · 不实装)
+- Payload 关键字段 (含 schema_version + intent_type + source/target_agent + 业务字段)
+- 消费侧约束 (接收方必读字段 · 处理 SLA · ack 流程)
+- Fixture 路径占位 (`data/mock/handoff/<chain>.json` · v1.1 placeholder · v1.2 实装)
+
+**关键设计决策** (per CLAUDE.md §3 红线 + north-star §1.4):
+- 不强填 6 Agent × 6 Agent = 30 条全链 · 仅含真业务场景的 6 条 (避免 schema 膨胀)
+- v1.1 仅 spec · 不实装 fixture (per §6.7 实装走 Phase B worker-B1/B-3 V3 fix-forward · 5 子 worker 双侧实装)
+- v1.2 升级触发条件: 6 条 fixture 全实装 + Phase B-1 数据飞轮跑通
+
+### 4.3 Verify 怎么做
+
+```bash
+grep -n "^## " docs/contracts/agent-handoff-schemas.md
+```
+
+应输出 9 个 section (§0 + §0.1-§0.5 + §1-§5 + §6 + §7 + §8) · 编号无重复无跳跃。
+
+### 4.4 Verify 结果
+
+```
+13:  ## 0. 为什么有这份契约
+35:  ## 0.1 范围声明
+58:  ## 0.2 命名 / 单位 / 类型 SSOT 引用
+82:  ## 0.3 与现有 contract 的关系
+95:  ## 0.4 schema 表述约定
+109: ## 0.5 schema_version + 演进规则
+121: ## 1. 链路 1 · Agent1 → Agent6
+235: ## 2. 链路 2 · Agent6 → Agent3
+327: ## 3. 链路 3 · Agent3 → Agent4
+471: ## 4. 链路 4 · Agent5 → Agent4 / Agent6
+606: ## 5. Export Contract 共形 spec
+770: ## 6. 反向链 + Agent2 风控触发链 (v1.1 加补)  ← 新加
+8XX: ## 7. Fixture index  ← renumber from §6
+8XX: ## 8. 维护与变更  ← renumber from §7
+```
+
+✅ section 编号正确 · 无重复无跳跃 · BUG-C 修复完毕。
+
+### 4.5 时间戳
+
+- Read schema doc 全文 (801 行) + pattern 摸清: 2026-05-01
+- Edit header bump v1.1 + Changelog: 2026-05-01
+- Edit §0.1 范围声明: 2026-05-01
+- Edit §6 新加 (6.0-6.7 · 7 sub-section): 2026-05-01
+- Edit §7 (Fixture renumber): 2026-05-01 (隐式 · 同 §6 insert)
+- Edit §8 (维护 renumber + v1.1 owner): 2026-05-01
+- Verify section 编号: 2026-05-01
+- 总耗时: ~30 min
+- 修复者: 主 CLI (Claude Opus 4.7 · single session)
+
+---
 
 ## 5. BUG-D 修复 (待修 · 加 .github/workflows/lint-contracts.yml)
 
