@@ -7,6 +7,39 @@
 **责任人**：AI 产品经理（刘野 / 代理人）
 **节奏**：每周一固定时段；或 `/api/feedback/stats` 某 agent 累计 ≥ 20 条时临时触发
 
+> **2026-05-01 update (Phase B BE10 worker-B1)**: 加了 3 件 ——
+> (1) /api/feedback 同步写 audit log (银保监合规留痕 · §Step 0)
+> (2) `evaluation.runner --gate` blocker_threshold 真接 publish 闸门 (§Step 6)
+> (3) PoC 范围 = `agent_credit` 闭环 · 其余 5 agent 下一迭代接入 (§PoC scope)
+> 详 `docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md` BE10 + Codex R2 §1.6 (缩 scope · 不重 A/B 平台 · 真 production Phase C)。
+
+---
+
+## Step 0. Audit modify 流水（自动 · 无需 PM 操作）
+
+每次 `POST /api/feedback`（审贷员前端点"修改并保存"按钮）端点除写 `data/feedback/YYYY-MM-DD.jsonl` 外，**同步**写 `audit_service` 的 `llm_calls` 表 ——
+
+| audit 字段 | 来源 |
+|---|---|
+| `endpoint` | `/api/feedback` |
+| `model` | `user-feedback` |
+| `user_id` | feedback payload 的 `user_id` |
+| `agent_id` | feedback payload 的 `agent` |
+| `prompt` | original_output JSON (LLM 原输出) |
+| `response` | user_correction JSON (审贷员改后) |
+| `error` | correction_reason (改的原因 · 可空) |
+
+**用途**：银保监合规留痕 + 倒推某客户的人工干预历史。admin 查询：
+
+```bash
+curl -H "Authorization: Bearer <admin-token>" \
+  "https://demo.liuye.me/api/audit/llm_calls?endpoint=/api/feedback&agent_id=credit&limit=100"
+```
+
+**故障容忍**：audit 写盘失败时主流程仍 200，jsonl 不丢（审贷员反馈是飞轮源头，不能因 audit 故障而丢）。日志会打 `[api_server] audit modify record failed: ...`。
+
+**回归测试**：`tests/test_feedback_audit_modify.py` 三 case（happy / 400 / audit 故障 silent）。
+
 ---
 
 ## 数据流
@@ -94,6 +127,66 @@ py scripts/inject_fewshot_to_prompts.py --revert
 
 ---
 
+## Step 6. blocker_threshold gate（CI 阻断发布 · BE10）
+
+注入 few-shot 后 / 任何 prompt 改动后必须跑：
+
+```bash
+py -m evaluation.runner --all --gate
+echo $?    # 0 = 全 PASS · 1 = 至少 1 PARTIAL/FAIL · 3 = blocker_threshold 触发(阻断发布)
+```
+
+**`--gate` 退出码**：
+
+| 码 | 含义 | 动作 |
+|---|---|---|
+| 0 | 6 agent 全 PASS | 安全发布 |
+| 1 | 至少 1 个 PARTIAL / FAIL（但无 blocker） | 提示有 gap，可发布 |
+| 2 | adapter 未实现 / 异常 | 修代码 |
+| 3 | **任一 metric 跨 blocker_threshold** | **阻断发布**，回滚 prompt 改动 |
+
+每条 metric 在 `evaluation/agent*.yaml` 的 `blocker_threshold` 字段定义阻断线。方向自动从 `target` 操作符推导（`>= X` → 越大越好 · `<= X` → 越小越好），name hint 仅作 fallback（修自 2026-05-01 baseline run 误判 case）。
+
+**Phase B 启动时的 known blocker（不阻 worker-B1）**：
+
+| Agent | metric | value | threshold | owner |
+|---|---|---|---|---|
+| alert | signal_diversity | 0.0 | ≥ 0.60 | worker-B4-alert BE5 |
+| compliance | policy_coverage | 0.5 | ≥ 0.90 | worker-B4-compliance BE4 |
+| compliance | conflict_recall | 0.5 | ≥ 0.90 | worker-B4-compliance BE4 |
+| report | task_completion_rate | 0.0 | ≥ 0.98 | worker-B4-report BE3 |
+
+每个 worker-B4-* 自验：自家 agent 这条 blocker 清掉后才能 phase-b-sprint{N}-end tag。
+
+**回归测试**：`evaluation/runner/tests/test_blocker_gate.py` 7 case。
+
+---
+
+## PoC scope（only `agent_credit` consumes FEW_SHOT_EXAMPLES · 2026-05-01）
+
+**当前**：只 `agent_credit/prompts.py` 实现 `build_system_prompt(base)` + `_format_fewshot_block`，并在 `agent_credit/advisor_formatter.py` 的对公/零售决策路径调用。
+
+**其他 5 agent**（channel / alert / compliance / report / riskctrl）下一迭代接入 —— 当前 `inject_fewshot_to_prompts.py` 仍会把 `FEW_SHOT_EXAMPLES = [...]` 写入它们的 `prompts.py`，但还无消费者，常量是死的。这是有意的 PoC 缩 scope ——
+
+- 防一次接 6 处出问题难定位
+- 6 agent prompt token 同时爆有成本
+- 先让 PM 验 agent_credit 端到端效果，确认 few-shot 收敛风格真有用，再展开
+
+**展开做法**（每 agent 5 分钟）：
+
+1. 在 `agent_<name>/prompts.py` 末尾 append（marker 之前）：
+   ```python
+   FEW_SHOT_EXAMPLES: list[dict] = []
+
+   def _format_fewshot_block(examples: list[dict]) -> str: ...  # 抄 agent_credit
+   def build_system_prompt(base: str) -> str: ...               # 抄 agent_credit
+   ```
+2. 在主消费点（找 `llm_chat(SYSTEM_*, ...)`）替换为 `llm_chat(build_system_prompt(SYSTEM_*), ...)`
+3. 跑 `tests/test_fewshot_poc_e2e.py` 同款 e2e 验证
+4. 后续考虑抽到 `shared/prompts/fewshot.py` 单源（现版本 PoC 优先，不抽抽象）
+
+---
+
 ## 红线
 
 - 🔴 **绝不自动 inject**：Step 2 的人工 review 不能省；脚本层已刻意拆成两步。
@@ -117,13 +210,21 @@ py scripts/inject_fewshot_to_prompts.py --revert
 
 ## 相关文件
 
-- `scripts/feedback_to_fewshot.py`
-- `scripts/inject_fewshot_to_prompts.py`
-- `api_server.py:85-115` `/api/feedback` 端点
+- `scripts/feedback_to_fewshot.py` — Step 1 聚合
+- `scripts/inject_fewshot_to_prompts.py` — Step 3 注入
+- `api_server.py` `/api/feedback` 端点（含 audit modify · Step 0）
+- `audit_service/recorder.py` — audit log sqlite 后端
+- `audit_service/api.py` — admin GET `/api/audit/llm_calls`
+- `evaluation/runner/cli.py` — `--gate` flag · Step 6
+- `evaluation/runner/base_evaluator.py` — `_mark_blockers` + `_direction_lower_is_better`
+- `agent_credit/prompts.py` — `build_system_prompt` + `FEW_SHOT_EXAMPLES`（PoC scope · 唯一接入点）
+- `agent_credit/advisor_formatter.py` — 对公 + 零售决策路径调 `build_system_prompt`
 - `data/feedback/` JSONL 沉淀目录（**gitignored**，含真实审贷员反馈可能含 PII）
 - `data/fewshot/` 候选 + archive 目录（**gitignored**）
-- `agent_*/prompts.py` 注入目标
-- `tests/fixtures/feedback/2026-04-23.jsonl` 10 条合成样本（用于冒烟测试，不入生产目录）
+- `tests/fixtures/feedback/2026-04-23.jsonl` 10 条合成样本（冒烟测试用，不入生产目录）
+- `tests/test_feedback_audit_modify.py` — Step 0 audit-modify 回归
+- `tests/test_fewshot_poc_e2e.py` — PoC 端到端冒烟
+- `evaluation/runner/tests/test_blocker_gate.py` — Step 6 blocker gate 7 case
 
 首次部署本脚本时想跑个 demo：
 
