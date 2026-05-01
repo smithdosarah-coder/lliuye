@@ -72,6 +72,13 @@ data/compliance/latest.json
 data/im/*.db
 data/im/*.db-*
 !data/im/.gitkeep
+data/ledger/*.sqlite
+data/ledger/*.sqlite-journal
+data/ledger/*.sqlite-wal
+data/ledger/*.sqlite-shm
+data/ledger/*.db
+data/ledger/*.db-journal
+!data/ledger/.gitkeep
 data/monitoring/
 evaluation/results/*.yaml
 evaluation/results/**/*.json

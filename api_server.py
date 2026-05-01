@@ -236,6 +236,17 @@ except ImportError as _audit_import_err:
 
 
 # ---------------------------------------------------------------------------
+# Phase B-3 BE7 · Cross-agent decision ledger (银保监 jurisdiction-scoped audit)
+# Distinct from audit_service.LLMCall — see docs/contracts/decision-ledger.md
+# ---------------------------------------------------------------------------
+try:
+    from ledger_service.api import register_ledger_routes
+    register_ledger_routes(app)
+except ImportError as _ledger_import_err:
+    print(f"[api_server] ledger_service unavailable: {_ledger_import_err}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # Data Flywheel — feedback ingestion (第 3 环：动态经验)
 # 跨 Agent 通用，留在 portal 而非单 Agent
 # ---------------------------------------------------------------------------
