@@ -413,6 +413,21 @@ def _run_v16_in_thread(
             "pending_questions": pending_questions,
         }
 
+        # ---- Phase B Sprint 1 BE3 · 注 material_gap_graph 字段 ----
+        # real path Sprint 1: v16_summary 无显式 material status · build_graph_from_v16_summary
+        # 返 None · 不破 done_payload 既有形态 (前端 sibling 字段 · 缺时 hide panel)
+        # Phase B-3 fix-forward 后接 material_kb scan output 推断 missing/partial
+        try:
+            from agent_report.material_gap import build_graph_from_v16_summary
+            _gap_graph = build_graph_from_v16_summary(
+                summary, material_gap_inputs=None, report_id=session_id,
+            )
+            if _gap_graph is not None:
+                done_payload["material_gap_graph"] = _gap_graph
+        except Exception:
+            # 计算失败不阻断 v16 真路径 · sibling 字段缺时前端 hide panel
+            pass
+
         # done_payload 持久 (refine_section / export_docx / export_pdf 共消费)
         try:
             from agent_report.session_store import store as _store2

@@ -1035,6 +1035,21 @@ async def report_demo_run(req: ReportDemoRunRequest):
             "qc": qc_data,
             "pending_questions": pending_data,
         }
+
+        # ---- Phase B Sprint 1 BE3 · 从 fixture material_gap_inputs 算 graph 注 done_payload ----
+        # mock 路径 · scenarios/<id>.json 仅含 inputs (反 5 原则 §3.5 #5 fixture 不预埋答案) ·
+        # graph 由 material_gap.build_graph 当场算 · 单测 test_fixture_no_graph_field 防回归
+        material_gap_inputs = data.get("material_gap_inputs")
+        if material_gap_inputs:
+            try:
+                from agent_report.material_gap import build_graph
+                done_payload["material_gap_graph"] = build_graph(
+                    material_gap_inputs, report_id=session_id,
+                )
+            except Exception:
+                # 计算失败不阻断 demo · sibling 字段缺时前端 hide panel
+                pass
+
         # done_payload 持久化 · /api/report/export_docx + /api/report/export_pdf +
         # /api/report/refine_section 都靠它从 store 拿 sections / profile / pending
         store.update(session_id, {"done_payload": done_payload})
