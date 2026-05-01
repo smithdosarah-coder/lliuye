@@ -21,6 +21,7 @@ from .feature_extractor import FeatureExtractor
 from .rule_engine_v2 import RuleEngineV2, RedLineHit
 from .case_retriever import CaseRetriever, CaseMatch
 from .advisor_formatter import AdvisorFormatter, DecisionAdvice
+from .decision_graph import build_decision_graph, load_industry_baselines
 from .risk_appetite_config import RiskAppetiteConfig
 
 Segment = Literal["corporate", "retail"]
@@ -125,6 +126,35 @@ class DecisionEngine:
             scoring=scoring_result, rule_hits=rule_hits, cases=case_matches,
         )
         yield "advising_done", advice
+
+        # BE2 (Phase B-3 · 2026-05-01) — wrapper above the 4 deterministic
+        # steps. Builds an audit-grade evidence graph; the existing pipeline
+        # is untouched. Failure here MUST NOT break the decision flow.
+        yield "graph_building", None
+        try:
+            features_snapshot = {
+                k: v for k, v in features.items()
+                if not k.startswith("chapters") and not k.startswith("_")
+            }
+            graph = build_decision_graph(
+                features=features_snapshot,
+                scoring=scoring_result,
+                rule_hits=rule_hits,
+                advice=advice,
+                segment=segment,
+                appetite=self._get_appetite(segment),
+                baselines=load_industry_baselines(),
+            )
+            advice.decision_graph = graph.to_dict()
+            yield "graph_done", advice.decision_graph
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
+            advice.decision_graph = {
+                "schema_version": "1.0.0",
+                "error": f"{type(exc).__name__}: {exc}",
+                "nodes": [],
+                "edges": [],
+            }
+            yield "graph_done", advice.decision_graph
 
         yield "all_done", DecisionPipelineResult(
             features=features,

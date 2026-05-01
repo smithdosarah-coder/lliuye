@@ -54,6 +54,12 @@ class DecisionAdvice:
     scoring_snapshot: dict = field(default_factory=dict)
     amount_methods: dict = field(default_factory=dict)
 
+    # BE2 (Phase B-3 · 2026-05-01) audit-grade evidence graph
+    # Filled by DecisionEngine.run_stream() after `advising_done`.
+    # Consumers (export_docx / Agent6 writeback) ignore unknown fields,
+    # so empty dict is a safe default.
+    decision_graph: dict = field(default_factory=dict)
+
     approval_section_text: str = ""
 
     def to_dict(self) -> dict:

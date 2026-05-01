@@ -49,10 +49,11 @@ decision graph 是 **审贷员可复核证据图** · 它解释:
   "nodes": [ /* 见 §2 */ ],
   "edges": [ /* 见 §3 */ ],
   "peer_gap_summary": {                // 同业对标快照 · 4 关键比率 · 来源 industry_baselines_v2.json
+    // key naming 与 CorporateScoringResult.industry_peer_gap (scoring_model_corporate.py:215-223) 保持一致 · 前端可复用同一 dict key
     "debt_ratio_gap": 0.23,
     "net_margin_gap": -0.02,
     "revenue_growth_gap": -0.13,
-    "ar_turnover_gap": 30
+    "ar_turnover_gap": 30                // metric=ar_turnover_days · 但 summary key 沿用历史名 ar_turnover_gap
   },
   "missing_evidence": []               // 关键证据缺失列表 · 字段名 · 例 ["industry.code"] (无法 peer-compare)
 }
