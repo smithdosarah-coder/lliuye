@@ -10,6 +10,13 @@
  *   · 程序化星场 + 程序化吸积盘（零外部贴图依赖）
  *   · FBM value-noise 驱动的盘面湍流 + dust-lane（替代三层 sin 带状）→ 摄影感/画意，去 CGI 塑料
  *
+ * F4 v2 (V4 plan · 2026-05-01 · per da030a1 brief) · 视觉对齐 awwwards-2022 5 点:
+ *   · #1 吸积盘色温梯度 紫→红→橙→白 (替 v1 single champagne · disk T = lerp(3000, 15000, r→inner))
+ *   · #2 重力透镜弯曲 (上下双道光环 · ✅ 现有 Schwarzschild geodesic photon ring · MAX_REVS 3.5)
+ *   · #3 chromatic aberration 星点 (RGB 通道屏 uv 偏移 · 距 center 越远偏移越大)
+ *   · #4 film grain noise overlay (hash21 高频噪声 + uTime 飞动 · 0.04 强度)
+ *   · #5 event horizon shadow (✅ 现有 hit_horizon → black 中心倒梯形 distortion 由 geodesic 自然产生)
+ *
  * Nolan 艺术版规则（为视觉对称刻意关掉的物理）：
  *   · Doppler shift · 否则迎面蓝白 / 背面暗红刺眼
  *   · Relativistic beaming · 否则一侧亮度 ~100×
@@ -18,10 +25,10 @@
  * 关键参数（以史瓦西半径 rs 为单位）：
  *   · 事件视界 r_h = 1 rs
  *   · 吸积盘 3 rs → 15 rs（物理上 ISCO = 3 rs；DNEG paint-swatch 9.26 M→18.70 M）
- *   · 盘温 6500 K（D65 近纯白 · DNEG 论文 James et al. 2015 原版 Gargantua · 非金非橙）
- *   · 盘色处理 = 纯 blackbody × FBM dust-lane（2026-04-21 去 ecru tint · 用户"半成品"判）
+ *   · F4 v2 盘温梯度: 内缘 15000 K (蓝紫) · 外缘 3000 K (红橙) · 黑体真实物理 + awwwards 美学
+ *   · 盘色处理 = blackbody temp2rgb(T(r)) × FBM dust-lane (替 v1 champagne 单色)
  *   · MAX_REVS 3.5 / uSteps 280 · 足以出现 2 阶 photon ring 无层切割
- *   · 相机距 16 rs · 倾角 2.5°（Gargantua 近 edge-on · 盘成水平扁带 + 上方薄帽 + 下方 Einstein 月牙）
+ *   · 相机距 14.5 rs · 倾角 2.5°（Gargantua 近 edge-on · 盘成水平扁带 + 上方薄帽 + 下方 Einstein 月牙）
  *   · 背景：near-black + 稀疏星场（haze 压到 0.001，去银河尘带 sin 带感）
  *   · BH 屏幕正中 · 右侧 aside 改为浮动 glass card，让盘从卡片背后流过（不再硬偏左）
  */
@@ -144,16 +151,17 @@ const FRAG = /* glsl */ `
   vec3 disk_emission(vec3 p) {
     float r = length(p.xy);
 
-    // ── v9.3（2026-04-23）色调：warm champagne 回归 · 匹配参考图（Interstellar
-    // Gargantua warm gold）· 用户发图要求 · 用银冷色 silver 换掉太冷学术感 ·
-    // 改 champagne (0.96, 0.82, 0.56) 暖金黄 · Bloom intensity 0.22 适度暖光 ·
-    // 保留 v6 phi-seam Keplerian q-frame · 不回退 bug 修复。
-    vec3  champagne = vec3(0.96, 0.82, 0.56);  // warm gold · 参考图黄昏色调
+    // ── F4 v2 (2026-05-01) 色温梯度 紫→红→橙→白 ──
+    // 替 v9.3 champagne single 色 (PM revert) · 走 awwwards-2022 真色温梯度:
+    //   外缘 R_OUTER 3000K (深红橙) → 中段 5500K (橙金) →
+    //   近内 9000K (白热) → 内缘 R_INNER 18000K (蓝紫)
+    // 黑体真实物理 (T 越高色越蓝紫) · 视觉自然形成紫→红→橙→白渐变。
     float tsRaw  = pow(R_INNER / max(r, R_INNER), 0.75);
-    // 径向亮度 0.45→1.18：外缘 champagne×0.45=(0.43,0.37,0.25) 暗暖棕，
-    // 内边 champagne×1.18=(1.13,0.97,0.66) 亮金近白 → HDR 源头，Bloom 拾暖光晕。
+    float diskT  = mix(3000.0, 18000.0, tsRaw);   // 外缘冷红 · 内缘热蓝紫
+    vec3  bbColor = temp2rgb(diskT);
+    // 径向亮度 0.45→1.18：外缘暗 · 内边亮 (HDR 源头 · Bloom 拾边光晕)
     float tintLift = mix(0.45, 1.18, tsRaw);
-    vec3  tint     = champagne * tintLift;
+    vec3  tint     = bbColor * tintLift;
 
     // Keplerian 反卷：omega 只依赖 r，rotation matrix 全处处连续
     float omega = uTime * 0.35 * pow(R_INNER / max(r, R_INNER), 1.5);
@@ -241,6 +249,19 @@ const FRAG = /* glsl */ `
       vec3 exit_dir = normalize(pos - old_pos);
       color += starfield(exit_dir);
     }
+
+    // ── F4 v2 (2026-05-01) #3 · chromatic aberration ──
+    // 镜头畸变样 RGB 分离 · 距画面 center 越远色散越强 (边缘最明显)
+    // 不二次 ray cast (成本太高) · post-process 通道增益 trick
+    float ca = length(p) * 0.022; // 0.022 = 边缘 ~5% 增益
+    color.r *= 1.0 + ca * 0.45;
+    color.g *= 1.0 + ca * 0.05;
+    color.b *= 1.0 - ca * 0.35;
+
+    // ── F4 v2 (2026-05-01) #4 · film grain noise overlay ──
+    // hash21 高频噪声 + uTime 飞动 · 0.04 强度 (老电影颗粒感 · 不抢主体)
+    float grain = hash21(gl_FragCoord.xy + uTime * 60.0) * 0.04 - 0.02;
+    color += vec3(grain);
 
     // 轻度伽马 · 最终 tone mapping 交给 R3F 的 ACESFilmic + Bloom
     gl_FragColor = vec4(color, 1.0);
