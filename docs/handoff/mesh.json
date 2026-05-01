@@ -128,6 +128,58 @@
       "stage_a_close_signal": "STAGE-A-3-WORKERS-MERGED-APPROVED",
       "active_for_next_batch": true,
       "recovery_note": "git worktree 误 removed 2026-04-28 · 即 git worktree add --force 恢复 · physical dir + worker CLI 完好"
+    },
+    {
+      "name": "B1-flywheel",
+      "path": "D:/claude code/work-B1-flywheel",
+      "branch": "feat/phase-b1-flywheel",
+      "role": "worker",
+      "description": "Phase B Sprint 1 · 数据飞轮 Phase B gate (Codex R2 缩 scope 1.5 周 · 不重 A/B 平台) · /api/feedback 真接 + 6 agent baseline + blocker_threshold + few-shot 注入 PoC + runbook",
+      "onboarding": "docs/onboarding/B1-flywheel.md",
+      "phase": "B",
+      "sprint": 1,
+      "be_id": "BE10",
+      "expected_done_signal": "WORKER-B1-FLYWHEEL-DONE",
+      "expected_elapsed": "1.5 weeks"
+    },
+    {
+      "name": "B3-rm-workbench",
+      "path": "D:/claude code/work-B3-rm-workbench",
+      "branch": "feat/phase-b3-rm-workbench",
+      "role": "worker",
+      "description": "Phase B Stream 1 · RM workbench v4 前端 17 action (Sprint 1 B-1 阶段 F1-F6 · Sprint 2-3 B-3 阶段 F7-F17 · Sprint 4 B 末 C11-C18) · 总 5-6 周 · 三方辩论 R3 ratify",
+      "onboarding": "docs/onboarding/B3-rm-workbench.md",
+      "phase": "B",
+      "sprint": "1+2+3+4",
+      "stream": 1,
+      "expected_done_signal": "WORKER-B3-RM-WORKBENCH-V4-DONE",
+      "expected_elapsed": "5-6 weeks (含并行 4-5 weeks wall-clock)"
+    },
+    {
+      "name": "B4-credit",
+      "path": "D:/claude code/work-B4-credit",
+      "branch": "feat/phase-b4-credit",
+      "role": "worker",
+      "description": "Phase B Sprint 1 · Stream 2 后端 deep work · BE2 P0 · Agent3 decision graph (feature snapshot + rule hit + 阈值 + 来源段落 + 版本) + peer_gap (同业对标) · 解审贷员痛点 1.2.1+4 · 不引入 ML",
+      "onboarding": "docs/onboarding/B4-credit.md",
+      "phase": "B",
+      "sprint": 1,
+      "be_id": "BE2",
+      "expected_done_signal": "WORKER-B4-CREDIT-DECISION-GRAPH-DONE",
+      "expected_elapsed": "2 weeks"
+    },
+    {
+      "name": "B4-report",
+      "path": "D:/claude code/work-B4-report",
+      "branch": "feat/phase-b4-report",
+      "role": "worker",
+      "description": "Phase B Sprint 1 · Stream 2 后端 deep work · BE3 P0 · Agent6 material gap graph + section impact + cross-section coherence + handoff Agent3 · 解 RM + 审贷员痛点 1.2.3 (报告章节不一致 + 缺材料闭环) · 不重写 v16",
+      "onboarding": "docs/onboarding/B4-report.md",
+      "phase": "B",
+      "sprint": 1,
+      "be_id": "BE3",
+      "expected_done_signal": "WORKER-B4-REPORT-MATERIAL-GAP-DONE",
+      "expected_elapsed": "1.5-2 weeks"
     }
   ],
   "frozen_branches_no_worktree": [
