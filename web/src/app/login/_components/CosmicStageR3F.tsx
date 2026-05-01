@@ -113,27 +113,42 @@ const FRAG = /* glsl */ `
   }
 
   // ── 程序化星场 · 深空近黑底 · 稀疏星点（2026-04-21 用户要"真实宇宙的深邃"） ──
+  // F4 v2 (2026-05-01 · iter 2) · PM brief #3 verbatim "chromatic aberration starfield"
+  //   星点 RGB 三通道分别 sample dir + 微偏移 → 红绿蓝色散星 (rim 透镜畸变样)
+  //   偏移量与星点距 cell center 距相关 · cell 边缘色散最强 (镜头边缘畸变规律)
   vec3 starfield(vec3 dir) {
-    vec2 uv = vec2(atan(dir.y, dir.x) / (2.0 * PI) + 0.5,
-                   asin(clamp(dir.z, -1.0, 1.0)) / PI + 0.5);
+    // 三通道 dir 略偏 (RGB chromatic aberration) · 偏移轴线 dir.xz 螺旋方向
+    // 偏移强度 0.0018 = 边缘星点视觉可见红绿色散 · 不破中心精度
+    vec3 dirR = normalize(dir + vec3( 0.0018, 0.0,  0.0009));
+    vec3 dirB = normalize(dir + vec3(-0.0018, 0.0, -0.0009));
     vec3 col = vec3(0.0);
-    for (int L = 0; L < 2; L++) {
-      float scale = 380.0 + float(L) * 220.0;
-      vec2 g    = uv * scale;
-      vec2 cell = floor(g);
-      float h   = hash21(cell + float(L) * 17.19);
-      // 阈值调高 → 星点密度降一半（0.9968 → 0.9986 / 0.9978）
-      float th  = 0.9986 - float(L) * 0.0008;
-      if (h > th) {
-        vec2 local = fract(g) - 0.5 -
-          (vec2(hash21(cell + 3.7), hash21(cell + 7.1)) - 0.5) * 0.5;
-        float d = length(local);
-        float b = smoothstep(0.10, 0.0, d) * (0.4 + 0.6 * hash21(cell + 11.3));
-        float T = 3000.0 + hash21(cell + 13.7) * 9000.0;
-        col += temp2rgb(T) * b * (1.0 - float(L) * 0.3);
+
+    for (int CH = 0; CH < 3; CH++) {
+      // 通道 0=R · 1=G · 2=B · 用对应 dir variant
+      vec3 d = (CH == 0) ? dirR : (CH == 2) ? dirB : dir;
+      vec2 uv = vec2(atan(d.y, d.x) / (2.0 * PI) + 0.5,
+                     asin(clamp(d.z, -1.0, 1.0)) / PI + 0.5);
+      for (int L = 0; L < 2; L++) {
+        float scale = 380.0 + float(L) * 220.0;
+        vec2 g    = uv * scale;
+        vec2 cell = floor(g);
+        float h   = hash21(cell + float(L) * 17.19);
+        float th  = 0.9986 - float(L) * 0.0008;
+        if (h > th) {
+          vec2 local = fract(g) - 0.5 -
+            (vec2(hash21(cell + 3.7), hash21(cell + 7.1)) - 0.5) * 0.5;
+          float dist = length(local);
+          float b = smoothstep(0.10, 0.0, dist) * (0.4 + 0.6 * hash21(cell + 11.3));
+          float T = 3000.0 + hash21(cell + 13.7) * 9000.0;
+          vec3 starCol = temp2rgb(T) * b * (1.0 - float(L) * 0.3);
+          // 仅取对应通道 · 三 dir variant 三通道叠加 = 真 chromatic aberration
+          if (CH == 0) col.r += starCol.r;
+          else if (CH == 1) col.g += starCol.g;
+          else              col.b += starCol.b;
+        }
       }
     }
-    // 去银河尘带 sin 带（老版带来灰雾感）· 只保留极暗 ambient，读作黑
+    // 极暗 ambient · 读作黑
     col += vec3(0.0008, 0.001, 0.0022);
     return col;
   }
@@ -151,16 +166,18 @@ const FRAG = /* glsl */ `
   vec3 disk_emission(vec3 p) {
     float r = length(p.xy);
 
-    // ── F4 v2 (2026-05-01) 色温梯度 紫→红→橙→白 ──
-    // 替 v9.3 champagne single 色 (PM revert) · 走 awwwards-2022 真色温梯度:
-    //   外缘 R_OUTER 3000K (深红橙) → 中段 5500K (橙金) →
-    //   近内 9000K (白热) → 内缘 R_INNER 18000K (蓝紫)
-    // 黑体真实物理 (T 越高色越蓝紫) · 视觉自然形成紫→红→橙→白渐变。
-    float tsRaw  = pow(R_INNER / max(r, R_INNER), 0.75);
-    float diskT  = mix(3000.0, 18000.0, tsRaw);   // 外缘冷红 · 内缘热蓝紫
+    // ── F4 v2 (2026-05-01 · iter 2) 色温梯度 紫→红→橙→白 ──
+    // PM brief #1 verbatim · iter 1 (22b12c4) tsRaw=pow(0.75) 集中中高温 · 外缘没真红
+    // iter 2: tsRaw 改 smoothstep(R_OUTER, R_INNER, r) · linear remap 真展开全段
+    //   r=R_OUTER (15) → tsRaw=0 → diskT=2800K (深红橙)
+    //   r=10 → tsRaw=0.42 → diskT=10000K (黄白)
+    //   r=R_INNER (3) → tsRaw=1 → diskT=21000K (蓝紫)
+    // 4 段色温阶: 2800→6000→12000→21000 · 视觉真"紫→红→橙→白"全段
+    float tsRaw  = smoothstep(R_OUTER, R_INNER, r);
+    float diskT  = mix(2800.0, 21000.0, tsRaw);    // 外缘红 → 内缘紫 (黑体真物理)
     vec3  bbColor = temp2rgb(diskT);
-    // 径向亮度 0.45→1.18：外缘暗 · 内边亮 (HDR 源头 · Bloom 拾边光晕)
-    float tintLift = mix(0.45, 1.18, tsRaw);
+    // 径向亮度 0.40→1.25：外缘更暗 · 内边更亮 (HDR 源头 · iter 2 加强 Bloom 拾光)
+    float tintLift = mix(0.40, 1.25, tsRaw);
     vec3  tint     = bbColor * tintLift;
 
     // Keplerian 反卷：omega 只依赖 r，rotation matrix 全处处连续
@@ -360,13 +377,14 @@ export function CosmicStageR3F() {
           <color attach="background" args={["#010106"]} />
           <BlackHoleQuad />
           <EffectComposer multisampling={0}>
-            {/* 2026-04-23 · visual-v3/P7 · Bloom 再收一档 · Codex "吞噬空间"方向
-                threshold 0.96 → 0.97（只拾取最亮盘内缘）
-                intensity 0.25 → 0.18（halo 外溢再降 · 让黑洞看起来更锋利） */}
+            {/* F4 v2 (2026-05-01 · iter 2) · awwwards 色彩感强化
+                threshold 0.95 → 0.85 (中段色温也拾 bloom · 紫蓝光真出来)
+                intensity 0.26 → 0.42 (色彩晕开更显 · 不抢主体)
+                · 配合 disk 色温梯度 2800K-21000K 全段展开 · 紫红橙白真渲 */}
             <Bloom
-              luminanceThreshold={0.95}
-              luminanceSmoothing={0.9}
-              intensity={0.26}
+              luminanceThreshold={0.85}
+              luminanceSmoothing={0.85}
+              intensity={0.42}
               mipmapBlur
             />
           </EffectComposer>
