@@ -156,6 +156,36 @@ class DecisionEngine:
             }
             yield "graph_done", advice.decision_graph
 
+        # BE7 (Phase B-3 · 2026-05-01) — cross-agent decision ledger.
+        # Persists the decision + evidence chain (BE2 graph) to the
+        # jurisdiction-scoped audit log. Same try/except discipline as
+        # BE2: ledger 是观察层不是阻塞层 · 写入失败不破 decision flow.
+        yield "ledger_persisting", None
+        try:
+            from shared.decision_ledger import record_decision
+            decision_id = record_decision(
+                agent_id="credit",
+                endpoint="/api/credit/decision",
+                input_payload=profile,
+                output_payload=advice.to_dict(),
+                evidence_chain=advice.decision_graph,
+                subject_name=getattr(advice, "subject_name", None) or None,
+                # subject_id intentionally not threaded through yet — Agent3
+                # currently doesn't carry the 统一社会信用代码 / 身份证号 in
+                # the standard profile shape. Phase C (multi-tenant) will
+                # add the field via the Agent6 → Agent3 handoff schema.
+            )
+            # Reuse advice_id slot · 1:1 mapping with ledger decision_id.
+            advice.advice_id = decision_id
+            yield "ledger_done", {"decision_id": decision_id, "persisted": True}
+        except (RuntimeError, ValueError, TypeError, OSError,
+                AttributeError, KeyError, ImportError) as exc:
+            yield "ledger_done", {
+                "decision_id": getattr(advice, "advice_id", "") or "",
+                "persisted": False,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
         yield "all_done", DecisionPipelineResult(
             features=features,
             scoring_result=scoring_result,

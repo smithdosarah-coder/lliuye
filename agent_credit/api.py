@@ -124,6 +124,7 @@ def _build_done_envelope(
     advice: dict | None,
     decision_id: str | None,
     decision_graph: dict | None = None,
+    ledger: dict | None = None,
 ) -> dict[str, Any]:
     """Cat 4 fix (Phase A worker-A4-credit · 2026-04-29) · done event 完整 envelope.
 
@@ -148,6 +149,7 @@ def _build_done_envelope(
         "case_matches": case_matches or [],  # case_done payload (Top 5 similar)
         "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
         "decision_graph": decision_graph,    # BE2 audit-grade evidence graph (null when absent)
+        "ledger": ledger,                    # BE7 ledger persist result {decision_id, persisted, error?} (null when absent)
     }
 
 
@@ -588,6 +590,7 @@ def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
             advice=advising_done_payload,
             decision_id=None,
             decision_graph=None,  # in-memory fixture · scenario fixtures (demo/run) carry real graph
+            ledger=None,          # in-memory fixture skips ledger persist (no real decision_id needed)
         ),
     ]
     return events
@@ -650,11 +653,13 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
             # Cat 4 fix (Phase A worker-A4-credit · 2026-04-29)
             # 串流时 capture 4 个关键 stage payload · done event 一次性灌完整 envelope
             # BE2 (Phase B-3 · 2026-05-01): 新增 capture graph_done payload
+            # BE7 (Phase B-3 · 2026-05-01): 新增 capture ledger_done payload
             last_scoring: dict | None = None
             last_rules: list | None = None
             last_cases: list | None = None
             last_advice: dict | None = None
             last_graph: dict | None = None
+            last_ledger: dict | None = None
             for stage, payload in agent.run_decision_stream(profile, segment):  # type: ignore
                 cleaned, hits = _qc_scrub(to_jsonable(payload))
                 if stage == "scoring_done" and isinstance(cleaned, dict):
@@ -667,6 +672,8 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                     last_advice = cleaned
                 elif stage == "graph_done" and isinstance(cleaned, dict):
                     last_graph = cleaned
+                elif stage == "ledger_done" and isinstance(cleaned, dict):
+                    last_ledger = cleaned
                 evt = {"event": "stage", "stage": stage, "payload": cleaned}
                 if hits:
                     evt["_qc_placeholder_hits"] = hits
@@ -696,6 +703,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 advice=last_advice,
                 decision_id=decision_id,
                 decision_graph=last_graph,
+                ledger=last_ledger,
             ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
@@ -827,7 +835,7 @@ def _credit_demo_event_stream(scenario_id: str):
         time.sleep(delay_ms / 1000)
         yield sse_encode({"event": "stage", "stage": done_stage, "payload": payload})
 
-    # done envelope (cat 4 共形 + BE2 decision_graph passthrough)
+    # done envelope (cat 4 共形 + BE2 decision_graph passthrough + BE7 ledger passthrough)
     yield sse_encode(_build_done_envelope(
         stage_tab=stage_tab,
         source="mock",
@@ -839,6 +847,7 @@ def _credit_demo_event_stream(scenario_id: str):
         advice=data.get("advice"),
         decision_id=None,
         decision_graph=data.get("decision_graph"),  # BE2 · per spec §6 · scenario JSON 可选字段
+        ledger=data.get("ledger"),                  # BE7 · scenario JSON 可选字段 · demo path skips real persist
     ))
 
 
