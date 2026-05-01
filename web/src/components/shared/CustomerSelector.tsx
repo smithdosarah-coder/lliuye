@@ -8,10 +8,19 @@
  *
  * F1 (V4 plan · Phase B-1) · 金额从 string "800 万" 改 number 8_000_000 +
  * formatCurrencyWan 渲染 · 千分位 + 严格 ¥X,XXX.XX 万元 格式 · 0 中英混排。
+ *
+ * F5 (V4 plan · Phase B-1) · 双向同步 customer-store:
+ * - mount 时读 store.currentId · 若在 DEMO_CUSTOMERS 列表 · 自动选中
+ *   (来源: CustomerContextGateway 读 ?customer query → store.focus(id))
+ * - onChange 时反向写 store.focus(newId) · 同 view 跨工作台一致
+ * - 不删 selector (V4 plan 红线 · 保留 demo / 异常切换入口)
+ * - DEMO_CUSTOMERS id 与 customer-store seed id 不同集合 (data foundation
+ *   worker-B1 后续统一 · 当前不强行映射)
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatCurrencyWan } from "@/lib/format";
+import { useCustomerStore } from "@/lib/store";
 
 export interface DemoCustomer {
   id: string;
@@ -44,9 +53,23 @@ export interface CustomerSelectorProps {
 
 export function CustomerSelector({ value, onChange, className }: CustomerSelectorProps) {
   /* 2026-04-23 · demo 空态默认空选 · 用户必须先选客户才"有数据"
-     否则 hero 一进入就显示"福建惠民商贸·对公经营贷·800 万" · 看起来像"已加载" */
+     否则 hero 一进入就显示"福建惠民商贸·对公经营贷·800 万" · 看起来像"已加载"
+     F5 (V4 plan · 2026-05-01) · 加 store.currentId sync · 接 ?customer query */
   const [selectedId, setSelectedId] = useState(value ?? "");
+  const storeCurrentId = useCustomerStore((s) => s.currentId);
+  const focusCustomer = useCustomerStore((s) => s.focus);
   const selected = DEMO_CUSTOMERS.find((c) => c.id === selectedId);
+
+  // F5 · store.currentId 变 (gateway focus) · 若在 DEMO_CUSTOMERS · 自动选中
+  // 不在 list 时 · 静默 (DEMO_CUSTOMERS / customer-store seed 是两套 id · 详
+  // 文件头 docstring · data foundation worker-B1 后续统一)
+  useEffect(() => {
+    if (!storeCurrentId) return;
+    const matched = DEMO_CUSTOMERS.find((c) => c.id === storeCurrentId);
+    if (matched && matched.id !== selectedId) {
+      setSelectedId(matched.id);
+    }
+  }, [storeCurrentId, selectedId]);
 
   return (
     <div className={`customer-selector${className ? ` ${className}` : ""}`}>
@@ -59,6 +82,7 @@ export function CustomerSelector({ value, onChange, className }: CustomerSelecto
             const next = DEMO_CUSTOMERS.find((c) => c.id === e.target.value);
             if (next) {
               setSelectedId(next.id);
+              focusCustomer(next.id);
               onChange?.(next);
             } else {
               setSelectedId("");

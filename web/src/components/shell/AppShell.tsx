@@ -9,6 +9,7 @@ import {
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
 import { AuthGate } from "./AuthGate";
 import { CanvasModeToggle } from "./CanvasModeToggle";
+import { CustomerContextGateway } from "./CustomerContextGateway";
 import { CustomerDrawer } from "./CustomerDrawer";
 import { Desk } from "./Desk";
 import { FreePanelLayer } from "./FreePanelLayer";
@@ -114,6 +115,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell-root">
+      <CustomerContextGateway />
       <Desk />
       <Whiteboard />
       <PanelCanvas />
