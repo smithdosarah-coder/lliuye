@@ -1052,6 +1052,71 @@ async def report_demo_run(req: ReportDemoRunRequest):
 
 
 # ============================================================================
+# POST /api/report/section_supplement · Phase B Sprint 1 BE3 §6.2 反向链 scaffold
+#   per docs/contracts/agent-handoff-schemas.md v1.1 §6.2 ·
+#   Agent3.report_gap → Agent6.section_supplement
+#   Sprint 1 = scaffold (received not processed) · 不实装 partial section run ·
+#   留 Phase B-3 fix-forward · per Codex 插入点 1 V2 final answer Q2 +
+#   PM 拍板 GO (4 件全接)
+# ============================================================================
+
+
+@app.post("/api/report/section_supplement")
+async def report_section_supplement(req: dict):
+    """§6.2 反向链 endpoint scaffold · Agent3 → Agent6.
+
+    Sprint 1: 接 payload + Pydantic 校验 + emit ack event (received not processed).
+    frontend Sprint 1 不应触发 Agent3 re-score (等 Phase B-3 fix-forward).
+
+    Phase B-3 升级: ack → done · received_sections → supplemented_sections ·
+    supplement_status: scaffold_ack → ran_partial · 移除 partial_section_run_pending.
+    """
+    # 延迟 import 避循环 (handoff_section_supplement module 不 import api.py)
+    from pydantic import ValidationError
+
+    from agent_report.handoff_section_supplement import (
+        SectionSupplementRequest,
+        handle_section_supplement,
+    )
+
+    # ---- 1. Pydantic 校验 (gap_sections must be known · 否则 422) ----
+    try:
+        request = SectionSupplementRequest.model_validate(req)
+    except ValidationError as e:
+        # ctx.error 是 ValueError 实例 · 非 JSON serializable · 用 include_context=False
+        # 滤掉 (loc/msg/type 已足够 frontend 显示错因)
+        try:
+            errs = e.errors(include_context=False)
+        except TypeError:
+            # 老 pydantic 不支持 include_context kwargs · fallback 手剥 ctx
+            errs = [{k: v for k, v in err.items() if k != "ctx"} for err in e.errors()]
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "SECTION_SUPPLEMENT_PAYLOAD_INVALID",
+                "message": "§6.2 payload 校验失败",
+                "errors": errs,
+            }},
+        ) from e
+
+    # ---- 2. (Optional) report_id 在 session_store 必存 · Sprint 1 暂不强校验 ----
+    # · session_store 只在 v16_runner 真路径 / demo/run 路径 create · §6.2 调用方
+    #   是 Agent3 (跨 worktree) · 该 report_id 可能由 Agent3 直传 · Sprint 1 不阻断
+    # · Phase B-3 partial section run 实装时再加严校验 (需 store.get 命中)
+
+    # ---- 3. emit SSE ack stream ----
+    return StreamingResponse(
+        handle_section_supplement(request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
 # POST /api/report/export_pdf · Phase A worker-A4 (2026-04-29)
 #   prd-evidence-frozen G-10 · export_pdf 真接 (前端 toolbar PDF 按钮 wire)
 #   实现: reportlab 直接渲 sections (不经过 .docx → .pdf 的 LibreOffice 链路 · 避部署依赖)
