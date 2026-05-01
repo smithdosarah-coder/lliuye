@@ -166,3 +166,55 @@ RETAIL_REDLINE_USER = """
   {{"rule_id": "...", "explanation": "...", "severity": "高/中/低", "waiver_advice": "..."}}
 ]
 """
+
+
+# ---------------------------------------------------------------------------
+# Phase B BE10 · few-shot 注入接入点 (数据飞轮第 4 环)
+#
+# scripts/inject_fewshot_to_prompts.py 会在文件末尾注入 marker 包围的
+# FEW_SHOT_EXAMPLES = [...] 常量 (后赋值覆盖此处默认 [])。
+# build_system_prompt(base) 把 examples 拼到 base prompt 末尾, 让 LLM
+# 看到"审贷员历史改动样例" → 收敛输出风格。
+#
+# PoC 范围: 只 agent_credit · 其他 5 agent 下一迭代接入 (per runbook §PoC scope)。
+# ---------------------------------------------------------------------------
+
+FEW_SHOT_EXAMPLES: list[dict] = []  # default; injected block at file end shadows
+
+
+def _format_fewshot_block(examples: list[dict]) -> str:
+    """把 candidates examples 渲染成 prompt 末尾追加的 markdown 块.
+
+    跳过缺关键字段的条目 · 保护 prompt 不被脏数据污染。
+    """
+    rendered = []
+    for ex in examples:
+        reason = (ex.get("reason") or "").strip()
+        sample_input = ex.get("sample_input") or {}
+        preferred = ex.get("preferred_output") or {}
+        diff = (ex.get("diff_summary") or "").strip()
+        if not reason or not preferred:
+            continue
+        rendered.append(
+            f"- 反馈原因: {reason}\n"
+            f"  原输出关键字段: {sample_input}\n"
+            f"  审贷员偏好输出: {preferred}\n"
+            f"  改动摘要: {diff}",
+        )
+    if not rendered:
+        return ""
+    header = (
+        "\n\n## 历史反馈学到的偏好示例（few-shot · 仅供风格收敛 · 不复制具体数字）\n"
+    )
+    return header + "\n".join(rendered)
+
+
+def build_system_prompt(base: str) -> str:
+    """把 base system prompt + few-shot 块拼成最终 system prompt.
+
+    无 FEW_SHOT_EXAMPLES 注入时退化为返回原 base · 完全向下兼容。
+    """
+    block = _format_fewshot_block(FEW_SHOT_EXAMPLES)
+    if not block:
+        return base
+    return base + block

@@ -20,6 +20,7 @@ from .prompts import (
     CORPORATE_REDLINE_USER,
     RETAIL_DECISION_SYSTEM,
     RETAIL_DECISION_USER,
+    build_system_prompt,
 )
 from .reason_codes import derive_top_reason_codes
 from .risk_appetite_config import RiskAppetiteConfig
@@ -239,7 +240,8 @@ class AdvisorFormatter:
                     rate_benchmark=benchmark,
                     conditions="；".join(conditions) if conditions else "无",
                 )
-                llm_out = self.llm_chat(CORPORATE_DECISION_SYSTEM, user_msg)
+                # Phase B BE10 PoC · 把 FEW_SHOT_EXAMPLES (审贷员历史改动) 拼到 system prompt
+                llm_out = self.llm_chat(build_system_prompt(CORPORATE_DECISION_SYSTEM), user_msg)
                 if llm_out and len(llm_out) > 40:
                     decision_reason = llm_out[:1500]
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
@@ -351,7 +353,8 @@ class AdvisorFormatter:
                     approved_amount=amount,
                     interest_rate=f"{rate*100:.2f}%",
                 )
-                llm_out = self.llm_chat(RETAIL_DECISION_SYSTEM, user_msg)
+                # Phase B BE10 PoC · few-shot 同接零售决策路径
+                llm_out = self.llm_chat(build_system_prompt(RETAIL_DECISION_SYSTEM), user_msg)
                 if llm_out and len(llm_out) > 30:
                     decision_reason = llm_out[:800]
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):

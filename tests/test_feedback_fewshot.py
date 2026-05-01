@@ -106,11 +106,11 @@ def test_inject_fewshot_roundtrip(sandbox: tuple[Path, Path], tmp_path: Path) ->
         assert inject_res.returncode == 0, inject_res.stderr
 
         after = prompts_path.read_text(encoding="utf-8")
-        assert "FEW_SHOT_EXAMPLES" in after
+        # marker 块出现 (Phase B BE10 PoC 后, FEW_SHOT_EXAMPLES 默认 [] 也在 prompts.py)
         assert "auto-injected" in after
         assert after != baseline
 
-        # Step 4: revert
+        # Step 4: revert (抹 marker 块 · 默认 FEW_SHOT_EXAMPLES = [] 保留)
         revert_res = _run([
             "scripts/inject_fewshot_to_prompts.py",
             "--agent", agent,
@@ -119,7 +119,6 @@ def test_inject_fewshot_roundtrip(sandbox: tuple[Path, Path], tmp_path: Path) ->
         ])
         assert revert_res.returncode == 0
         reverted = prompts_path.read_text(encoding="utf-8")
-        assert "FEW_SHOT_EXAMPLES" not in reverted
         assert "auto-injected" not in reverted
     finally:
         # 始终恢复原 prompts.py，哪怕断言失败
