@@ -134,6 +134,26 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **PM SLA**: standard medium ≤ 15 min target / 60 min PM 容忍 · complex high ≤ 30 min / 90 min · deep xhigh ≤ 90 min · manual fallback ≤ 10 min · fallback rate ≤ 5%
 - **回写来源**: decisions-log Q-043 (2026-04-30) + 5 实战验证 (Codex R1 v2 + Stage 4 verify + Phase A audit + 三方辩论 R1/R2 全 sequential single bg + monitor)
 
+#### 3.7.5 Cross-agent decision ledger defaults (BE7 · Phase B-3 · 2026-05-01)
+
+- **规则简述**: 跨 Agent 决策必上链 `shared/decision_ledger/` (sqlite at `data/ledger/decisions.sqlite`)。jurisdiction default = `HQ` (env `LIUYE_LEDGER_JURISDICTION` 可覆盖 · 允许枚举 `银 / 保 / 证 / HQ / BRANCH`)。Per-agent retention class default per spec §1.3:
+
+  | agent_id | retention | rationale |
+  |---|---|---|
+  | `credit` | `standard` (5y) | 银保监 archive |
+  | `report` | `long` (10y) | 审贷会底稿 |
+  | `alert` | `short` (90d) | routine 预警 (red severity 升 standard) |
+  | `compliance` | `standard` (5y) | 银保监 archive |
+  | `channel` | `short` (90d) | 候选/推荐非决策 |
+  | `riskctrl` | `standard` (5y) | DSL 上线决策 |
+
+  **subject_id 必须 hash** (16-hex prefix · `hash_subject_id()`) · plain PII (统一社会信用代码 / 身份证号) 禁入。
+- **位置**: `docs/contracts/decision-ledger.md` v1.0 (本 sprint 立) + `shared/decision_ledger/schema.py` (代码常量)
+- **理由**: 4 角色"不敢信/不敢签/不敢追责"真痛 (Codex R2 verbatim) · 决策级账本 (而非 LLM 调用流水 · 后者是 `audit_service.LLMCall`) · 让审贷员 / 合规官 / 监管员可外部审计任何一次决策回到原始 evidence chain (BE2 graph / BE3 supplement / BE5 violation)
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断 (改 retention default · 改 jurisdiction enum · 删 subject_id hash · 加 plain-PII 字段都需 PM 审批)
+- **失败隔离**: ledger 写入失败 silent-fail · decision flow 不破 (per Agent3 BE2 wrapper try/except 模式) · ledger 是观察层不是阻塞层
+- **回写来源**: 本 sprint Phase B-3 BE7 · `feat/phase-b4-credit-be7` 分支
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
@@ -244,6 +264,11 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `data/mock/workspace/riskctrl/scenarios/` — Phase A worker-A4 · 3 demo fixture (credit_v15/aml_kyc/fraud_high · KS 0.42/0.31/0.28 · 与 `web/src/lib/mock/agent-riskctrl-sessions.ts` 1:1)
 - `web/src/lib/mock/agent-riskctrl-sessions.ts` — Phase A worker-A4 · workspace-state-protocol §3 array · 3 sess 难度分层 · 替旧单 const file (已删)
 - `tests/agent_riskctrl/test_llm_caller_binding.py` — Phase A worker-A4 · LLMJudge → LLMCaller binding 验证 (4 case · isinstance check + lazy init + unavailable status)
+- `shared/decision_ledger/` — **Phase B-3 worker-B4-credit (2026-05-01) · BE7 跨 Agent 决策账本** · 4 模块: `schema.py` (LedgerEntry + jurisdiction enum + retention defaults table) · `hashing.py` (canonical SHA-256 + PII subject_id hash) · `store.py` (DecisionLedger sqlite-backed · silent-fail · default_ledger singleton) · `__init__.py` (façade: record_decision / get_decision / query_agent / query_jurisdiction / export_jurisdiction / record_review) · 详 §3.7.5 + spec `docs/contracts/decision-ledger.md` v1.0
+- `ledger_service/api.py` — Phase B-3 worker-B4-credit · 5 admin REST endpoints (decision/{id} · agent/{id} · jurisdiction/{j} · audit_export zip · review POST) · auth 复用 `auth_service.dependencies.require_user` · 挂 `api_server.py` via register_ledger_routes
+- `tests/shared/test_decision_ledger.py` + `tests/agent_credit/test_decision_engine_ledger.py` + `tests/ledger_service/test_api.py` — Phase B-3 worker-B4-credit · 56 tests (35 unit + 6 Agent3 integration + 15 REST API · 含 PII never-plain + failure isolation + idempotency 关键守卫)
+- `agent_credit/decision_graph.py` + `tests/agent_credit/test_decision_graph.py` — Phase B-3 worker-B4-credit (Sprint 1 · BE2 · 2026-05-01) · audit-grade evidence graph (7 node + 6 edge type · peer_gap evidence linkage 把 `scoring_model_corporate.py:215-223` industry_peer_gap leaf 升级为可复核三角) · spec `docs/contracts/agent-credit-decision-graph.md` v1.0 · 26 tests
+- `data/ledger/` — Phase B-3 ledger sqlite store dir · `.gitkeep` 入库 · `*.sqlite` / `*.db` / journals 走 `.gitignore`
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
