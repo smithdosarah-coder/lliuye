@@ -1,9 +1,10 @@
-# Worker-B4-report · Codex Pre-Dispatch Draft (插入点 1)
+# Worker-B4-report · Codex Pre-Dispatch Draft (插入点 1) · V2
 
 > **Sprint**: Phase B Sprint 1 · 4 of 4 · BE3 P0 必做
 > **Branch**: `feat/phase-b4-report` · worktree `D:\claude code\work-B4-report`
-> **依据**: `docs/onboarding/B4-report.md` (6 件 verbatim) + `docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md` BE3 + `docs/contracts/agent-report-material-gap.md` v1.0 (本 worker 同 sprint 写)
+> **依据**: `docs/onboarding/B4-report.md` (6 件 verbatim) + `docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md` BE3 + `docs/contracts/agent-report-material-gap.md` v1.0 V2 (本 worker 同 sprint 写)
 > **PM 拍板** (4 件 GO · 2026-05-01): 4 设计决策全接 · fixture 落 `data/mock/workspace/report/scenarios/*.json` · cross_section_coherence = quality_blocker 第 5 维 · Codex 插入点 1 = main CLI 责任
+> **V2 状态**: Codex 插入点 1 verdict NEEDS-WORK (review id `b3p9svuh3` · medium · sequential) · 3 战术 question (不触决策翻转) 已 V2 修 · 等 main CLI fire codex V2 review verdict
 > **Reasoning effort target**: medium (per Q-043 codex protocol v2 默认 · sequential single bg)
 
 ---
@@ -48,10 +49,76 @@ Codex 看完 onboarding 可能挑 4 处:
 Sprint 1 范围 lock:
 1. material_gap.py + material_gap_rules.py + cross_section_coherence.py 3 新模块全实装
 2. quality_blocker.run_blocker 加 sections=None 参数 (向下兼容)
-3. handoff_section_supplement.py + `POST /api/report/section_supplement` endpoint scaffold (接 payload + 校验 + 返 ack event)
+3. handoff_section_supplement.py + `POST /api/report/section_supplement` endpoint scaffold (接 payload + 校验 + 返 **ack** event · per V2 战术修 Q2)
 4. v16_runner.done_payload 注入 material_gap_graph 字段
-5. fixture 3 难度档 (data/mock/workspace/report/scenarios/{easy_full_materials, medium_missing_critical, hard_cross_section_conflict}.json)
-6. tests/agent_report/test_material_gap.py 6 case (graph build / impact magnitude / cross-section drift / handoff scaffold ack / 向下兼容 sections=None / 反 5 原则 fixture 不含答案字段 verify)
+5. fixture 3 难度档 (data/mock/workspace/report/scenarios/{easy_full_materials, medium_missing_critical, hard_cross_section_conflict}.json) · **仅 inputs · graph 是 computed output 不进 fixture** (per V2 战术修 Q3)
+6. tests/agent_report/test_material_gap.py 6 case (graph build / impact magnitude / cross-section drift / handoff scaffold ack / 向下兼容 sections=None / **fixture_no_graph_field fail-fast** 防回归 + build_graph_deterministic 同 inputs 输出一致)
+
+### V2 战术修 (Codex 插入点 1 verdict NEEDS-WORK · 3 question · 不触决策翻转)
+
+#### Q1 v2 final answer: Sprint 1 用 current code IDs · 不 wait BE2
+
+**问**: scoring_dimension.id 与 BE2 worker-B4-credit decision graph rubric_dim 字段命名 align — 但 BE2 是 Sprint 2/3 future · 我现在拿啥 align?
+
+**v2 final**: Sprint 1 接 **current code IDs**:
+- 来源: `agent_credit/scoring_model_corporate.py:79-84` `DEFAULT_WEIGHTS`
+- 取值集合 (corporate · 4 dims): `"financial"` (35%) · `"industry"` (15%) · `"operational"` (25%) · `"guarantee"` (25%)
+- 中文 name: `财务情况` / `行业情况` / `经营情况` / `担保情况`
+- BE2 ratify 后由本 worker fix-forward 升级 (e.g. `operational` 拆 `operation_stability` + `management_quality` 时 · 同步改 `material_gap_rules.py:_SECTION_TO_DIM_WEIGHTS`)
+- retail (对私) 业务线现 shape 不同 (FICO 300-850 + category_scores · `scoring_model_retail.py`) · Sprint 1 不覆盖 · 留 reserved/inclusive 业务线扩展时同 BE2 fix-forward
+
+**改动位置**: `agent-report-material-gap.md` §2.2 nodes 表 + 规则段
+
+#### Q2 v2 final answer: endpoint return key `section_supplement_ack` (received not processed)
+
+**问**: §6.2 Sprint 1 = scaffold (PM 拍板) · 但 endpoint 返 `event: section_supplement_done` 会让 frontend 以为 partial section run 完了 → 触发 Agent3 re-score · 实际 scaffold 啥都没做 → 误导。
+
+**v2 final**: 改 endpoint event name + payload key:
+- `event: section_supplement_done` → `event: section_supplement_ack` (Sprint 1 仅 received not processed)
+- `supplemented_sections` → `received_sections` (避免误导"已补完")
+- `supplement_status: "scaffold_ack"` (Sprint 1 不变 · B-3 改 `"ran_partial"`)
+- 加 `next_step` 字段明确"Sprint 1 frontend 不应触发 re-score · 等 B-3 fix-forward"
+- Phase B-3 升级路径 (与 worker-B4-credit BE2 V3 双侧):
+  - `event: section_supplement_ack` → `event: section_supplement_done`
+  - `received_sections` → `supplemented_sections`
+  - `supplement_status: "scaffold_ack"` → `"ran_partial"`
+  - `partial_section_run_pending` 字段移除
+
+**改动位置**: `agent-report-material-gap.md` §4.3 SSE response
+
+#### Q3 v2 final answer: fixture 只存 inputs · graph 是 computed output (反 5 原则 §3.5 #5 必坚持)
+
+**问**: 我 v1 contract §2.4 写"`material_gap_graph` 进 fixture 但由 build_graph 当场算" — Codex 挑这两句矛盾 · 字段进 fixture file = 预埋答案 (违反 §3.5 #5 fixture 不含答案字段)。
+
+**v2 final**: fixture **完全不含** `material_gap_graph` 字段 · shape 改为:
+```jsonc
+{
+  // 既有 fixture 字段不动 (mock_v16_stream done shape · profile / sections / qc / pending_questions)
+  "material_gap_inputs": {
+    "scenario_id": "<id>",
+    "difficulty_tier": "easy | medium | hard",
+    "materials": [{"id": "...", "name": "...", "status": "present|partial|missing"}],
+    "section_status": [{"id": "chapter_<n>_<name>", "status": "done|pending|partial"}],
+    "cross_section_numbers": {/* hard 档专用 · {canonical_key: [{section_id, value, snippet}]} */}
+  }
+  // ❌ 不允许: "material_gap_graph" / "section_impact" / "max_score_impact" 等 computed output 字段
+}
+```
+
+**3 难度档** (per `CLAUDE.md` §3.5 #2 · 极端档 10% Sprint 1 不落 · 留 Sprint 2):
+
+| 文件 | 难度 | inputs | 期望 graph (test assert) |
+|---|---|---|---|
+| `easy_full_materials.json` | 简单 | 1 missing | `max_score_impact ≤ 5` |
+| `medium_missing_critical.json` | 中等 | 3 missing 含历史数据 + 1 partial section | `max_score_impact 12-20` 跨 ≥ 2 dim |
+| `hard_cross_section_conflict.json` | 困难 | 2 missing + cross_section 数字冲突 | `max_score_impact ≥ 15` + cross_section_coherence BLOCK ≥ 1 |
+
+**Test 校验** (反 5 原则 #5 防回归):
+- `test_fixture_no_graph_field`: 遍历 3 fixture · assert `"material_gap_graph" not in fixture` (fail-fast)
+- `test_build_graph_deterministic`: 同 inputs 多次 build 输出一致 (verify 纯函数)
+- `test_build_graph_correctness`: 每 fixture 调 `material_gap.build_graph(inputs)` · assert 期望 `max_score_impact` 落预期区间 + `affected_scoring_dimensions` 含期望 dim ID
+
+**改动位置**: `agent-report-material-gap.md` §2.4 整段重写
 
 DONE signal commit trailer:
 ```
@@ -119,7 +186,16 @@ per `docs/onboarding/B4-report.md` §3 + Codex R2 双方共识:
 
 ## Block E · Sign-off
 
-- author: worker-B4-report · 2026-05-01
-- contract sibling: `docs/contracts/agent-report-material-gap.md` v1.0 (本 worker 同 commit 写)
-- 等 main CLI fire Codex insertion point 1 (medium · sequential · in worker-B1-flywheel V2 + worker-B4-credit codex review queue 后)
-- Codex verdict 后再开 Build phase (commit 粒度 = TaskCreate 粒度 · 8 commits per `agent-report-material-gap.md` §5 + verify commit 1)
+- v1 author: worker-B4-report · 2026-05-01 (DRAFT-PREPARED commit `79e9098`)
+- v2 author: worker-B4-report · 2026-05-01 (DRAFT-V2 含 Q1/Q2/Q3 战术修)
+- contract sibling: `docs/contracts/agent-report-material-gap.md` v1.0 V2 (本 worker 同 commit 写)
+- 等 main CLI fire Codex V2 review verdict (medium · sequential · in queue 后)
+- Codex V2 verdict GO 后再开 Build phase (commit 粒度 = TaskCreate 粒度 · 8 commits per `agent-report-material-gap.md` §5 + verify commit 1)
+
+### V2 战术修 summary (3 categories · 不触决策翻转)
+
+| Category | Q | 改动 | Files |
+|---|---|---|---|
+| **dim-ids** | Q1 | scoring_dimension.id Sprint 1 = current code IDs (`financial / industry / operational / guarantee`) · 不 wait BE2 future | contract §2.2 + Block A v2 final |
+| **endpoint-key** | Q2 | endpoint event: `section_supplement_done` → `section_supplement_ack` (received not processed · 避免 frontend 误触 Agent3 re-score) | contract §4.3 + Block A v2 final |
+| **fixture-input-only** | Q3 | fixture 完全不含 `material_gap_graph` 字段 (graph 是 computed output · 反 5 原则 §3.5 #5 必坚持) · 加 `test_fixture_no_graph_field` fail-fast 防回归 | contract §2.4 + Block A v2 final |
