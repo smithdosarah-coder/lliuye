@@ -1,25 +1,34 @@
-# HANDOFF · TO NEXT MAIN CLI · 2026-05-02
+# HANDOFF · TO NEXT MAIN CLI · 2026-05-02 (v3 · Q-047 视觉冻结后)
 
-> PM 重启电脑 · 当前主 CLI session 不 resume · 新主 CLI 读本 doc + §14 5 必读 + 写 `NEW-MAIN-CLI-RESUMED` commit。
+> PM 重启电脑 · 当前主 CLI session 不 resume · 新主 CLI 读本 doc + §14 5 必读 + decisions-log Q-046/Q-047 + 写 `NEW-MAIN-CLI-RESUMED` commit。
 
-## 1. 实时状态快照 (2026-05-02 PDT)
+## 0. ⚠️ MAJOR UPDATE 2026-05-02 (v3 · 必读)
+
+**Q-047 视觉方案全面冻结** (PM verbatim "视觉方案全面暂停 · 只提升产品本身能力"):
+- F4 v2 黑洞 + F1-F17 所有视觉成果 → **全部 git checkout 回退到 phase-b-start-2026-05-01** (commit 413a9ab · 18 file -572 +98 + 8 PNG 删 + F12 spec doc 删)
+- production https://liuye.me/login 现在是 **Phase A exit 视觉 (Cosmic 黑洞 R3F 第一版 + shell-v2 base · PM 接受 verbatim "看了 · 是原来的方案")**
+- worker-B3 **release · cmd window 关** (视觉路线待 PM 后期重新规划 · 不再启)
+- launch-all-LIUYE.bat 改 **5 → 4 cmd window** (MAIN-CLI + B4-alert + B4-compliance + B2 · 不含 B3)
+- decisions-log Q-047 ratify (commit f3dc86c)
+
+## 1. 实时状态快照 (2026-05-02 PDT · post-Q-047)
 
 ### Production (https://liuye.me/login)
-- F4 v2 黑洞已 ship (cherry-pick + ECS deploy 完 · 22:43 PDT)
-- 4 view + 6 Agent workspace + Glassmorphism LoginForm 全可用
-- F4 v2 verdict 仍**待 PM**: 自评不到 awwwards 顶级 (色温梯度纯白 / chromatic aberration 不明显) · 比 v1 极简强 · PM 需上看给 A 接受 / B 派 V2 fix
+- 视觉: **Phase A exit 状态** (Cosmic 黑洞 R3F 第一版 + 4 主题渐变 + 6 Agent tile · 没 F1-F17 任何改动)
+- 后端: BE2 + BE3 + BE7 + BE10 全 ship (Agent3 decision graph + Agent6 material gap + cross-agent ledger + 数据飞轮 thin gate enrich)
+- F4 v2 黑洞 (oseiskar/MIT · 3 iter · PM 嫌"色温纯白") + F1-F17 视觉改动: **已全部 revert · 不再存在**
 
-### 4 旧 worker 状态 (前主 CLI commit 485fe21 已声明释放)
-- ❌ worker-B1-flywheel — Sprint 1 BE10 + 误派 Sprint 2 enrich 都 ship · **释放退役** · PM 应关 cmd window
-- ❌ worker-B4-credit — Sprint 1 BE2 + 误派 Sprint 2 BE7 都 ship · **释放退役** (BE7 提前完成 · Sprint 3 worker-B7 工作量减半)
-- ❌ worker-B4-report — Sprint 1 BE3 ship · charter Sprint 2 不参与 · **Sprint 4 整合时再启**
-- 🟢 worker-B3 — F4 v2 ship · 续干 Sprint 2 B-3 phase · 已 commit 3/4 (F11+F14+F17) · 等 F12 (视觉清洗 + F1c mock 中文术语合并)
+### 4 worker 状态 (post-Q-047)
+- ❌ worker-B1-flywheel — Sprint 1 BE10 + 误派 Sprint 2 enrich 都 ship · **release · cmd 关**
+- ❌ worker-B4-credit — Sprint 1 BE2 + 误派 Sprint 2 BE7 都 ship · **release · cmd 关** (BE7 提前完成 · Sprint 3 worker-B7 工作量减半)
+- ❌ worker-B4-report — Sprint 1 BE3 ship · **release · cmd 关** (Sprint 4 整合时再启)
+- ❌ worker-B3 — Sprint 1 F1-F6 + F4 v2 + Sprint 2 B-3 phase 4 件全 ship · **但视觉成果全被 Q-047 visual reset 撤** · **release · cmd 关** (视觉路线待 PM 后期重新规划)
 
-### Sprint 2 真主线 3 新 worker (前主 CLI commit 412f516 创建 worktree + onboarding)
-- 🆕 worker-B4-alert (BE5+BE9 · 3 周) — worktree `D:\claude code\work-B4-alert` · branch `feat/phase-b4-alert` · 待 PM 双击 launch.bat 启
-- 🆕 worker-B4-compliance (BE4 · 2-2.5 周) — worktree `D:\claude code\work-B4-compliance` · branch `feat/phase-b4-compliance` · 待启
-- 🆕 worker-B2 (BE11 商业化 doc only · 1 周) — worktree `D:\claude code\work-B2-biz` · branch `feat/phase-b2-biz` · 待启
-- launcher: `C:\Users\Mr.S\Desktop\launch-B-sprint2-NEW.bat`
+### Sprint 2 真主线 3 新 worker (待 PM 双击 launch-all-LIUYE.bat 启)
+- 🆕 worker-B4-alert (BE5+BE9 · 3 周) — worktree `D:\claude code\work-B4-alert` · branch `feat/phase-b4-alert`
+- 🆕 worker-B4-compliance (BE4 · 2-2.5 周) — worktree `D:\claude code\work-B4-compliance` · branch `feat/phase-b4-compliance`
+- 🆕 worker-B2 (BE11 商业化 doc only · 1 周) — worktree `D:\claude code\work-B2-biz` · branch `feat/phase-b2-biz`
+- launcher: `C:\Users\Mr.S\Desktop\launch-all-LIUYE.bat` (4 cmd window: MAIN-CLI + 3 后端 worker)
 
 ## 2. 关键 decisions/承诺 (新主 CLI 必守 · 不重蹈)
 
@@ -56,26 +65,26 @@ PM 重启后启新 cron · prompt verbatim:
 ... (按之前 cron prompt 完整复制 · 加 5 worker branch 名 + sequential codex fallback to manual)
 ```
 
-## 4. F4 v2 verdict 待 PM (新主 CLI 接手第一问)
+## 4. F4 v2 verdict ⚠️ OBSOLETE (Q-047 后 reset 撤了)
 
-PM 上 https://liuye.me/login 给 verdict:
-- A 接受当前 F4 v2 (打 git tag · Sprint 1 收尾)
-- B 派 V2 fix gap (色温梯度真做 + chromatic aberration 真做 + Bloom 强化)
-- C 你已上看了 (告诉新主 CLI verdict)
+~~PM 上 https://liuye.me/login 给 verdict A/B/C~~
 
-参考截图: `design_mockups/login-v2-references/awwwards-workshop-fullpage.png` (PM 嫌"垃圾极简"后锁定的视觉目标)
+**Q-047 后实际**: F4 v2 黑洞已被 visual reset 撤 (commit 413a9ab) · production 是 Phase A exit 视觉 (Cosmic R3F 第一版) · PM 接受 verbatim "看了 · 是原来的方案"
 
-## 5. Phase B 整体进度 (前主 CLI 写)
+视觉路线全部冻结直到 PM 后期重新规划。新主 CLI **不要再问 F4 v2 verdict** · 不要再做任何视觉改动。
 
-| Sprint | 真主线 | 完成度 |
+## 5. Phase B 整体进度 (post-Q-047)
+
+| Sprint | 真主线 | 完成度 (post visual reset) |
 |---|---|---|
-| Sprint 1 (Week 1-3) | 4 worker · BE10/BE2/BE3/v4 B-1 | **100%** |
-| Sprint 2 (Week 3-6) | 4 worker · v4 B-3/BE5+BE9/BE4/BE11 | **5%** (B3 续 75% B-3 phase · 3 新 worker 0%) |
+| Sprint 1 (Week 1-3) | 4 worker · BE10/BE2/BE3/v4 B-1 | **后端 100% · v4 前端 0%** (visual reset 撤了) |
+| Sprint 2 (Week 3-6) | 后端 only 3 worker · BE5+BE9/BE4/BE11 (v4 B-3 视觉冻结) | **0%** (3 新 worker 待 PM 双击 launch.bat 启) |
 | Sprint 3 (Week 6-10) | 3 worker · BE1+BE12/BE6+BE8/BE7+BE13 | **15%** (BE7 已提前 ship) |
 | Sprint 4 (Week 10-14) | 整合 + Codex final audit | 0% |
 | Sprint 5 (Week 14-18) | demo + POC 4 维评价 | 0% |
 
-**总体**: ~25-30% · 1 天 wall-clock · 真预计 ~10-14 周完整 ship
+**总体**: 后端 ~25-30% · 前端 ~0% (Q-047 reset 全撤 · 视觉路线待 PM 重新规划)
+**真预计**: 后端 ~10-14 周完整 ship · 视觉额外 (depends on PM 重新规划方案)
 
 ## 6. 新主 CLI 起手第 1 件事 (verbatim 模板)
 
@@ -88,28 +97,35 @@ cd "D:/claude code/credit_report_agent_work"
 git log --oneline -30 --all
 py scripts/orchestrator/scoreboard.py
 
-git commit --allow-empty -m "chore(resume): NEW-MAIN-CLI-RESUMED · 2026-05-02
+git commit --allow-empty -m "chore(resume): NEW-MAIN-CLI-RESUMED · 2026-05-02 (post-Q-047)
 
-产品 north star: 6 Agent 矩阵 RM workbench v4 闭环 · /today 单链路 Agent6→Agent3 + handoff
-6 Agent 闭环路径: Agent6 报告 → Agent3 授信 → Agent5 合规 → Agent4 预警 (跨客户) · Agent1 获客 + Agent2 风控 平行
-走歪表征 (top 5):
+产品 north star: 6 Agent 矩阵后端能力 (视觉冻结 · Q-047 PM 2026-05-02 ratify)
+6 Agent 后端闭环路径: Agent6 报告 → Agent3 授信 → Agent5 合规 → Agent4 预警 · Agent1 获客 + Agent2 风控 平行
+走歪表征 (top 5 · 必守 Q-046):
   1. 凭印象决策 (视觉 + 架构 + 派单)
   2. idle 焦虑驱动派单 (charter 真主线被忽略)
   3. Sprint 转换无 mental switch (沿用现有 team)
   4. P0 任务无写死优先级 (worker 自己跳)
   5. PM 高频提醒诱反应 > 思考
 
-当前 Phase: Phase B · Day 2 · Sprint 2 真主线启动中
-待启 worker: B4-alert + B4-compliance + B2 (PM 双击 launch.bat 后启)
+视觉冻结硬规 (Q-047):
+  - 视觉方案全面暂停 · 只提升后端能力
+  - worker-B3 已 release · 不再启
+  - 任何视觉变更必先问 PM (PM 重新规划后才启)
+  - launch-all-LIUYE.bat 4 cmd (MAIN-CLI + 3 后端 worker · 不含 B3)
+
+当前 Phase: Phase B · Day 2 · Sprint 2 后端 only 真主线启动中
+待启 worker: B4-alert (BE5+BE9 3 周) + B4-compliance (BE4 2-2.5 周) + B2 (BE11 1 周) · 视觉无关
 PM 已拍板:
-  - F4 v2 ship 但视觉 verdict 仍待 (A/B/C 选项)
-  - 3 旧 worker 释放退役 (B1 + B4-credit + B4-report)
-  - B3 续 Sprint 2 B-3 phase (3/4 已 commit · F12 待)
+  - Q-046 Sprint 2 真主线 + 5 跑偏硬规
+  - Q-047 视觉冻结 · 后端 only
+  - 4 worker 全 release (B1 + B4-credit + B4-report + B3)
+  - production = Phase A exit 视觉 (PM 接受 "原来的方案")
 
 我下一步动作:
-  1. 等 PM 双击 launch.bat 启 3 新 worker
-  2. 等 PM 给 F4 v2 verdict
-  3. 启 cron 5 min 巡逻
+  1. 等 PM 双击 launch-all-LIUYE.bat 启 3 后端 worker
+  2. 启 cron 5 min 巡逻 (扫 3 worker branch · B3 已 release 不扫)
+  3. 后续 worker DONE → manual review (codex 用尽 until 5/8 fallback) → cherry-pick → ECS deploy --skip-build
 
 Signal: NEW-MAIN-CLI-RESUMED"
 git push origin main

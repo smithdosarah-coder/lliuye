@@ -734,6 +734,104 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
+## 2026-05-02 · Phase B Day 1+2 完整盘点 + Q-046/Q-047 + visual reset + HANDOFF v3
+
+### Worker 状态变更
+
+**Phase B Day 1 (2026-05-01) 4 worker 全 ship**:
+- B1-flywheel BE10 V1+V2 (`d7f0f01..97ced9d` 9 commit)
+- B4-credit BE2 (`a8d2da6..17d9da8` 7 commit + 5 scenario enrich)
+- B4-report BE3 (`5b88bb6` 链 12 commit · DRAFT-V2 + Build 9 + DONE)
+- B3 Sprint 1 6 件 F1-F6 (`1a1af69..4454e15` 10 commit · F4 v1 极简磨砂玻璃被 PM 嫌"垃圾")
+
+**Phase B Day 1 末 误派** (我跑偏 · 但已 ship 不 revert):
+- B1 Sprint 2 enrich (admin endpoint + few-shot pipeline + cron + PARTIAL · charter B1 完 BE10 后释放)
+- B4-credit Sprint 2 BE7 ledger (charter BE7 是 Sprint 3 worker-B7 工作)
+
+**Phase B Day 1 末 F4 v2 重做**:
+- F4 v1 revert (a007c02) · production 暂回 Interstellar
+- F4 v2 黑洞 oseiskar/MIT base + 3 iter (`bf698e8..19ec48c` 5 commit)
+- 主 CLI 自审 F4 v2 LIVE 不到 awwwards 顶级 (色温纯白 / CA 无色散)
+
+**Phase B Day 2 (2026-05-02) 收尾**:
+- worker-B3 续 Sprint 2 B-3 phase (F11 + F14 + F17 + F12 partial)
+- F11/F14/F17/F12 partial cherry-pick + ECS deploy 含 build (b3dda65)
+- HANDOFF doc v1 + v2 写 (前主 CLI 准备 PM 重启)
+
+**Q-047 PM 决断 visual reset**:
+- PM verbatim "所有的视觉方案都回退到存档点 · 功能方案保留 · 视觉方案回退后删除多余的 · 不要让我再看到这些垃圾"
+- `git checkout phase-b-start-2026-05-01 -- web/` (commit 413a9ab · 18 file -572 +98)
+- 删 design_mockups/login-v2-references/ (8 PNG · awwwards + F4 LIVE + 5 顶级登录页 ref)
+- 删 design_mockups/login-v2-mockups/ (空 dir)
+- 删 docs/runbook/F12-visual-cleanup-sprint-3.md
+- ECS deploy 含 build · production = Phase A exit 视觉 (Cosmic R3F base + shell-v2)
+- PM 接受 verbatim "看了 · 是原来的方案"
+- PM verbatim "下一步: 视觉方案全面暂停 · 只提升产品本身能力"
+
+**4 worker 全 release** (post-Q-047):
+- B1-flywheel · B4-credit · B4-report · **B3** 都 release · cmd window 关
+- launch-all-LIUYE.bat 改 5 → 4 cmd (MAIN-CLI + B4-alert + B4-compliance + B2 · 不含 B3)
+
+### 决策变更
+
+**Q-046 Sprint 2 真主线 + 5 跑偏 root cause 硬规** (commit 412f516 + Q-046 entry):
+1. 任何派单前 grep charter verify 真排期
+2. PM 提"worker idle" → 先读 charter 再回
+3. Sprint 边界 mental switch (新 sprint 是不同 worker)
+4. P0 任务 commit body 写死优先级
+5. PM 高频提醒时 STOP 5s · 不立即响应
+
+**Q-047 视觉冻结** (commit f3dc86c · Q-047 entry):
+- 视觉方案全面暂停 · 只提升后端能力
+- worker-B3 release · 视觉路线待 PM 后期重新规划
+- 任何视觉变更必先问 PM (PM 重新规划后才启)
+
+**4 视觉硬约束** (前主 CLI 承诺 · F4 v1 翻车后立 · 即使 Q-047 后仍守):
+1. 任何视觉决策前必先建参考库 3+ 顶级截图
+2. ECS deploy 后主 CLI 必先亲眼上看
+3. 不满意立即 fix · 不直接给 PM
+4. PM 是 final 视觉判官
+
+**Codex 用尽 until 2026-05-08**:
+- 全 manual review by 主 CLI · trailer `REVIEW-MODE: manual`
+- 5/8 Codex 恢复后建议 fire Phase B periodic audit (插入点 4 提前用)
+
+**HANDOFF doc v3** (commit 待 push):
+- §0 加 MAJOR UPDATE Q-047 视觉冻结
+- §1 实时状态快照 update 4 worker 全 release + production = Phase A exit 视觉
+- §4 F4 v2 verdict OBSOLETE 标记
+- §5 Phase B 进度 update (后端 25-30% / 前端 0% Q-047 reset)
+- §6 NEW-MAIN-CLI-RESUMED commit 模板加 Q-047 视觉冻结 awareness
+
+### 风险预警
+
+- **新主 CLI 100% 承接不可能** — HANDOFF v3 + 5 必读 + state-snapshot Day 2 段 + decisions-log Q-046/Q-047 都得读 · 漂了立即停 + 重读 + 问 PM
+- **视觉路线不明** — PM 已冻结 · 待 PM 想清楚后重新规划 (可能用真设计师 / Gemini / Codex / 自己设计) · 主 CLI 不主动推
+- **Phase B 后端 进度 ~25-30% · 前端 ~0%** — 真预计后端 ~10-14 周 · 视觉额外 (PM 决断后估)
+
+### Triggered by
+
+- PM 重启电脑前 audit "确定交接好了是吧 ultrathink"
+- 主 CLI 发现 HANDOFF v1/v2 已过时 (F4 v2 + worker-B3 active 都已变化) · v3 紧急 fix
+
+### State change (delta)
+
+- worker count: Day 1 末 4 worker active → Day 2 末 0 worker active (全 release · 等 PM 启 3 后端 worker)
+- production 视觉: F4 v2 黑洞 → Phase A exit 视觉 (Cosmic R3F base · PM 接受)
+- main HEAD: ae17ad8 (Day 1 末) → fae4c81 (HANDOFF v1) → 0f6c065 (HANDOFF v2 + Q-046) → 413a9ab (visual reset) → f3dc86c (Q-047) → (HANDOFF v3 待 push)
+
+### Next
+
+- PM 重启电脑 + 双击 launch-all-LIUYE.bat
+- 新主 CLI 自动读 HANDOFF v3 + 5 必读 + Q-046/Q-047 + 写 NEW-MAIN-CLI-RESUMED commit
+- PM verify GO
+- 新主 CLI 启 cron 5 min 巡逻 (扫 3 worker branch · 4 旧 worker 已 release 不扫)
+- 等 worker DONE 序列 (B2 1 周 / B4-compliance 2-2.5 周 / B4-alert 3 周) · 序贯 ship · 全后端 · ECS deploy --skip-build
+- Sprint 3 真主线 (3 worker · BE1+BE12 / BE6+BE8 / BE13 · BE7 已 ship 减半) · charter 续启
+- 视觉路线: 待 PM 重新规划
+
+---
+
 (下次更新模板)
 ## YYYY-MM-DD · <事件>
 
