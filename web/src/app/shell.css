@@ -6,7 +6,12 @@
    Keyframes (bodyBreath / drift / breathe 等) 定义在 tokens.css
    ================================================================ */
 
-/* ═══ ROOT (替代 body 渐变背景，限定在 shell 内) ═══ */
+/* ═══ ROOT (主区中性 #F7F9FC · F14 V4 plan 折中) ═══
+   F14 (V4 plan · Phase B · Sprint 2 · 三方 R2 lock):
+   主区 #F7F9FC 中性灰白 · 装饰区 4 主题保留在 Masthead 底色 + 选中导航 + 主按钮 hover
+   旧版 4 主题 8 档全屏渐变 (--g0..--g7) 撤至装饰区 · WCAG 2.1 contrast 达标
+   ::before drift 装饰漂移 + ::after 噪声 multiply 全删 (主区中性不要装饰)
+*/
 .shell-root {
   min-height: 100vh;
   width: 100%;
@@ -18,39 +23,16 @@
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   cursor: var(--cursor-default);
+  /* F14 · 主区中性 #F7F9FC + 极轻顶部 tonal (不抢内容 · 仅区分 viewport edge) */
   background:
-    radial-gradient(78% 55% at 15% -8%,  color-mix(in srgb, var(--g0b) 85%, transparent) 0%, transparent 55%),
-    radial-gradient(55% 42% at 100% 22%, color-mix(in srgb, var(--g1)  55%, transparent) 0%, transparent 65%),
-    linear-gradient(180deg,
-      var(--g0)  0%, var(--g0)  11%, var(--g1)  27%, var(--g2)  41%,
-      var(--g3)  54%, var(--g4)  68%, var(--g5)  84%, var(--g6)  96%, var(--g7)  100%
-    );
+    linear-gradient(180deg, #F7F9FC 0%, #F2F5F9 100%);
   background-attachment: fixed;
   transition: background .9s cubic-bezier(.2,.8,.25,1);
-  /* NOTE: bodyBreath animation **不得**挂在 .shell-root 上 —— filter 非 none 会让
-     position:fixed 的子元素（.wb-fab / .pc-fab / .theme-sw / Desk / Whiteboard
-     面板）以 .shell-root 为容器而非 viewport。现挂到 ::after 的噪声层上，只影
-     响背景，不打破 fixed 定位语义。 */
   overflow-x: hidden;
 }
-.shell-root::before {
-  content:""; position: fixed; inset: -15%;
-  background:
-    radial-gradient(42% 34% at 28% 66%, color-mix(in srgb, var(--g2) 35%, transparent), transparent 60%),
-    radial-gradient(38% 28% at 82% 38%, color-mix(in srgb, var(--g4) 28%, transparent), transparent 62%),
-    radial-gradient(32% 22% at 54% 92%, color-mix(in srgb, var(--g6) 35%, transparent), transparent 60%);
-  filter: blur(12px);
-  animation: drift 38s ease-in-out infinite alternate, breathe 8.5s ease-in-out infinite;
-  pointer-events: none; z-index: 0;
-}
-.shell-root::after {
-  content:""; position: fixed; inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
-  mix-blend-mode: multiply; opacity: .28;
-  pointer-events: none; z-index: 0;
-  /* bodyBreath 下沉到 ::after ——伪元素无子孙，filter 不会影响任何 fixed 子元素 */
-  animation: bodyBreath 22s ease-in-out infinite;
-}
+/* F14 · ::before drift 装饰漂移 + ::after 噪声 multiply 全撤
+   旧版 .shell-root::before/::after 4 主题渐变 + bodyBreath 动画 → 主区中性
+   装饰区 (Masthead .shell-bar L72-82 已保留 4 主题 + 选中导航 + button hover) */
 
 .shell-stage {
   position: relative; z-index: 1;
@@ -94,8 +76,14 @@
 .shell-tabs a .cn { font-family: var(--cjk); font-weight: 500; }
 .shell-tabs a:hover { color: var(--ink); }
 .shell-tabs a .n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-48); font-variant-numeric: tabular-nums; }
-.shell-tabs a.on { background: var(--ink); color: var(--chalk); }
-.shell-tabs a.on .n { color: var(--ch-55); }
+/* F14 · 选中导航高亮条 · 用主题 accent 色 (装饰区保留主题 verbatim) */
+.shell-tabs a.on { background: var(--accent); color: var(--chalk); }
+.shell-tabs a.on .n { color: color-mix(in srgb, var(--chalk) 70%, transparent); }
+.shell-tabs a:hover:not(.on) {
+  /* F14 · hover 态预热 · 用主题 accent 弱版 (装饰区保留 4 主题) */
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+}
 
 .shell-op { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-65); }
 .shell-op .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--safe); box-shadow: 0 0 0 3px color-mix(in srgb, var(--safe) 22%, transparent); }
