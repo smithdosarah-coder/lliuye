@@ -2658,3 +2658,46 @@ PM 2026-05-01 ratify 5 件:
 - Sprint 1 启动 signal: `PHASE-B-SPRINT-1-DISPATCHED` (含 4 worker onboarding doc)
 
 ---
+
+---
+
+## Q-046 · Sprint 2 真主线 dispatch + 跑偏纠正 (2026-05-02 PDT)
+
+### Question
+
+PM 让重温主线方案 · 主 CLI 重读 phase-b-charter v2 · 发现跑偏:
+1. 派 B1 做 Sprint 2 enrich (charter B1 完 BE10 后释放)
+2. 派 B4-credit 做 Sprint 2 BE7 (charter BE7 是 Sprint 3 worker-B7)
+3. 没创建 Sprint 2 真主线 3 新 worker (B4-alert + B4-compliance + B2)
+
+PM 选 C: 主 CLI 自决创建 3 新 worker · PM 只双击 launch.bat。
+
+### Resolution
+
+**接受跑偏既成事实** (B1 enrich + B4-credit BE7 已 ship · 不 revert) · **Sprint 3 worker-B7 工作量减半** (BE7 已提前)
+
+**创建 Sprint 2 真主线 3 worker**:
+- worker-B4-alert (BE5 + BE9 · 3 周)
+- worker-B4-compliance (BE4 · 2-2.5 周)
+- worker-B2 (BE11 商业化 doc · 1 周)
+- worktree + onboarding doc + mesh-prompt + launch-B-sprint2-NEW.bat 全配齐
+
+**3 旧 worker release**:
+- B1-flywheel · B4-credit · B4-report 都 idle 退役 (B4-report Sprint 4 再启)
+
+**5 跑偏 root cause 硬规** 写入 commit 412f516 + HANDOFF doc §2.1:
+1. 任何派单前 grep charter verify
+2. PM 提 idle → 先读 charter 再回
+3. Sprint 边界 mental switch
+4. P0 任务 commit 写死优先级
+5. PM 高频提醒 STOP 5s
+
+### Active rule (回写到 Tier 1-2 · per CLAUDE.md §15)
+
+新 main CLI 任何 fresh session 必读 5 必读 + HANDOFF + state-snapshot + 本 Q-046 entry · 写 NEW-MAIN-CLI-RESUMED commit · 5 跑偏 root cause 硬规 必守。
+
+**回写来源**: PM 2026-05-02 反馈 "重温主线" + "确保新的能 100% 承接"
+
+### Author
+
+主 CLI Claude Opus 4.7 (1M context) · PM 拍板 ratify

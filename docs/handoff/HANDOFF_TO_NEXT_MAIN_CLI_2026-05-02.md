@@ -124,7 +124,107 @@ git push origin main
 - ECS deploy script: `bash scripts/deploy_to_ecs.sh` (含 build · 前端) / `--skip-build` (后端)
 - Production: `https://liuye.me/login` · 后端 ECS 139.196.30.69 · Cloudflare tunnel
 
-## 8. 紧急 fallback (如果新主 CLI 也跑偏)
+## 8. ⚠️ Critical Gap (前主 CLI 现有 doc 没明写 · 但新 CLI 必须知道 · 防再跑偏)
+
+### 8.1 awwwards 参考的真技术分析 (避免新 CLI 又混 Three.js)
+
+PM 锁定视觉参考: https://awwwards-2022-workshop.vercel.app/
+- **canvas**: 2560x1432 (Hi-DPI)
+- **context**: WebGL2 (NOT webgl1)
+- **框架**: NOT Three.js · NOT Next.js · 纯 Vite SPA + raw WebGL2 raymarching
+- **bundle**: 单 file `index.4dcf536c.js` (压缩闭源)
+- **视觉 stack**: raymarching black hole shader + 重力透镜 + 吸积盘色温梯度 (紫→红→橙→白) + chromatic aberration starfield + film grain
+
+**红线**: 新 CLI **不要**推 "抓 awwwards bundle 反编译" 路径 (闭源版权风险)。F4 v2 用 oseiskar/black-hole MIT base 是合规路径。
+
+### 8.2 PM 审美门槛 verbatim (F4 v1 翻车 PM 原话)
+
+PM 嫌 F4 v1 极简磨砂玻璃: **"垃圾中的垃圾 · 20 年前网页 · 毫无特效 · 没设计感"**
+
+PM 想要: **设计感 + 银行端正 + 现代时代感 + 高质感动效**。
+PM 不要: **极简到无聊** (端正 ≠ 无聊 · Goldman Sachs / Morgan Stanley 都高级不无聊)。
+
+### 8.3 F4 v2 当前 LIVE 自评 gap (新 CLI 如果 PM 选 V2 fix · 改这些)
+
+| 维度 | awwwards 参考 | F4 v2 LIVE | gap |
+|---|---|---|---|
+| 重力透镜 | 上下双道弯曲 | ✅ 有 (但线条感强) | 小 |
+| event horizon shadow | 中心黑色倒梯形 | ✅ 有 (但偏小) | 小 |
+| **吸积盘色温梯度** | 紫→红→橙→白 | ❌ 纯白/银 · **没色温** | 🔴 大 |
+| **CA starfield** | 红绿蓝色散星 | ❌ 星点白色 · **没色散** | 🔴 大 |
+| film grain | 细 | ⚠️ 偏重 (像旧电视雪花) | 中 |
+| 整体色调 | 温暖 (紫红橙) | 冷 (银白) | 🔴 大 |
+
+V2 fix 重点: 加色温 palette LUT + chromatic aberration shader uniform + film grain noise 减弱。
+
+### 8.4 完整 cherry-pick commit hash 链 (如果回档 trace)
+
+| Worker | Sprint 1 | Sprint 2 |
+|---|---|---|
+| B1-flywheel | `d7f0f01..97ced9d` (V1+V2 9 commit) | `0636904..ae17ad8` (enrich 6 commit · 我误派) |
+| B4-credit | `a8d2da6..17d9da8` (BE2 7 commit) | `9a99f71..68fded5` (BE7 7 commit · 我误派 · Sprint 3 worker-B7 工作) |
+| B4-report | (Sprint 2 不参与) | `5b88bb6` 链 (BE3 12 commit) |
+| B3 | `1a1af69..4454e15` (Sprint 1 10 commit) | F4 v2 `bf698e8..19ec48c` (5 commit) + Sprint 2 B-3 phase `a0782cb/fcfe384/62e1b84` (3 commit · 还**没 cherry-pick · 在 worker branch · 等 F12 + DONE 一起 cherry-pick**) |
+
+### 8.5 Codex protocol v2 (Q-043) trailer 模板
+
+任何 commit 必含:
+```
+REVIEW-MODE: manual (codex 用尽 until 2026-05-08 fallback)
+REASONING-EFFORT: medium
+ELAPSED: <min>
+```
+
+改 web/ 加:
+```
+PRESERVES: F-001..F-007 (per docs/features-inventory.md)
+NEW-DOM: <具体新增 element 列表>
+SMOKE-PASS: tsc-clean + next-build-success + <spec.spec.ts>
+```
+
+视觉/shader 改加:
+```
+SHADER-SOURCE: <URL · LICENSE> (e.g. https://github.com/oseiskar/black-hole · MIT)
+```
+
+PM 放宽时加:
+```
+Authorized-By: PM
+```
+
+### 8.6 5 sub-agent 历史 (新 CLI 派 sub-agent 避坑)
+
+前主 CLI 派过 5 sub-agent:
+- Gemini chrome operate 出 5 方向 — Gemini 用尽 (PM 给的 Gemini Pro 账号也限额)
+- Screenshot Stripe/Linear/Vercel/Notion/Figma — 5 中只 1 成功 (Vercel) · 4 失败因 chrome focus 抢 tab + Stripe/Linear CDP block + Notion GFW
+- 主 CLI 自己 chrome operate awwwards-2022-workshop · screenshot 成功
+- 主 CLI 自己 chrome operate https://liuye.me/login · screenshot F4 v2 LIVE
+
+**坑**:
+- chrome session 是共享 (用户 + sub-agent + 主 CLI 同 chrome) · select tab 后 200ms race 内被抢
+- Stripe/Notion 等大厂检测 CDP automation 拒渲染
+- Gemini 一次最多 10 张图
+
+### 8.7 Sprint 2 B-3 phase F12 待 (B3 当前唯一工作)
+
+worker-B3 已 commit (worker branch 但**未 cherry-pick**):
+- F11 ✅ A5 spike conflict banner
+- F14 ✅ 全屏渐变折中
+- F17 ✅ Warroom rejected lane
+- F12 待 (视觉清洗 + F1c mock 中文术语合并)
+
+worker-B3 完 F12 后会 commit DONE signal `WORKER-B3-SPRINT-2-B3-PHASE-DONE` · 新主 CLI 必 manual review + cherry-pick (含 F11+F14+F17+F12 · 4 commit + DONE · 5 commit) + push + ECS deploy 含 build。
+
+### 8.8 100% 承接不可能 · 新 CLI 必守 4 条
+
+1. **漂了立即停** — 不确定就重读 HANDOFF + state-snapshot + decisions-log · 不凭印象决策
+2. **不懂立即问 PM** — 任何 architectural / 视觉 / 派单决策不确定 · 5s STOP · 问 PM
+3. **5 跑偏 root cause 硬规** (§2.1) + **4 视觉硬约束** (§2.2) 守住
+4. **每次 cron tick 完写 state-snapshot 段** (CLAUDE.md §14.1 硬规 · 前主 CLI 违反过 · 新 CLI 不能违)
+
+---
+
+## 9. 紧急 fallback (如果新主 CLI 也跑偏)
 
 PM 可:
 - 退回最近 git tag: `git reset --hard phase-a-exit-bugfix-2026-05-01` (Phase A 真 exit 状态 · 8 硬线全过 · 4 BUG 修完)
