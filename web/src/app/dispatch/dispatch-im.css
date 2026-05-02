@@ -1053,3 +1053,97 @@
 .dpx-banner__dismiss:hover {
   background: var(--ink);
 }
+
+/* F11 (V4 plan · Phase B · Sprint 2 spike) · 冲突显性化 banner
+   Agent3 + Agent5 决议冲突时 dispatch 顶部显式 ⚠️ + 列冲突点 + 跳 warroom 链接
+   severity red (阻断) / yellow (提醒) 双视觉 */
+.conflict-alerts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 12px 0;
+}
+.conflict-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid;
+  font-family: var(--cjk);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.conflict-alert--red {
+  background: color-mix(in srgb, #c1392b 10%, transparent);
+  border-color: color-mix(in srgb, #c1392b 32%, transparent);
+  color: var(--ink);
+}
+.conflict-alert--yellow {
+  background: color-mix(in srgb, #c89c1e 10%, transparent);
+  border-color: color-mix(in srgb, #c89c1e 32%, transparent);
+  color: var(--ink);
+}
+.conflict-alert .conflict-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+}
+.conflict-alert--red .conflict-icon {
+  background: #c1392b;
+  color: #fff;
+}
+.conflict-alert--yellow .conflict-icon {
+  background: #c89c1e;
+  color: #fff;
+}
+.conflict-alert .conflict-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.conflict-alert .conflict-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.conflict-alert .conflict-customer {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.conflict-alert .conflict-sources {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+  font-family: var(--italic);
+  font-style: italic;
+}
+.conflict-alert .conflict-summary {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+.conflict-alert .conflict-jump {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  font-size: 12px;
+  font-family: var(--cjk);
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.18s, transform 0.18s;
+}
+.conflict-alert .conflict-jump:hover {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  transform: translateX(1px);
+}
