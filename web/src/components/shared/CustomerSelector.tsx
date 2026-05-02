@@ -5,45 +5,23 @@
  *
  * 替代各 agent Hero 硬编客户名。demo 时用户选不同客户 · 触发不同数据扫描。
  * 本组件是"视觉占位 + 选择回调" · 实际数据切换由上层 workspace 处理。
- *
- * F1 (V4 plan · Phase B-1) · 金额从 string "800 万" 改 number 8_000_000 +
- * formatCurrencyWan 渲染 · 千分位 + 严格 ¥X,XXX.XX 万元 格式 · 0 中英混排。
- *
- * F5 (V4 plan · Phase B-1) · 双向同步 customer-store:
- * - mount 时读 store.currentId · 若在 DEMO_CUSTOMERS 列表 · 自动选中
- *   (来源: CustomerContextGateway 读 ?customer query → store.focus(id))
- * - onChange 时反向写 store.focus(newId) · 同 view 跨工作台一致
- * - 不删 selector (V4 plan 红线 · 保留 demo / 异常切换入口)
- * - DEMO_CUSTOMERS id 与 customer-store seed id 不同集合 (data foundation
- *   worker-B1 后续统一 · 当前不强行映射)
  */
 
-import { useEffect, useState } from "react";
-import { formatCurrencyWan } from "@/lib/format";
-import { useCustomerStore } from "@/lib/store";
+import { useState } from "react";
 
 export interface DemoCustomer {
   id: string;
   name: string;
-  /** 业务产品名 (中文术语 · 不含金额 · 金额走 amount 字段) */
-  productKind: string;
-  /** 金额 · 元 (整数 · 渲染时 formatCurrencyWan 转 ¥X,XXX.XX 万元) */
-  amount: number;
+  product: string;
 }
 
 export const DEMO_CUSTOMERS: DemoCustomer[] = [
-  { id: "hm800",  name: "福建惠民商贸", productKind: "对公经营贷", amount:  8_000_000 },
-  { id: "mh1200", name: "美禾食品",     productKind: "对公流动贷", amount: 12_000_000 },
-  { id: "rz300",  name: "瑞鼎物流",     productKind: "对私经营贷", amount:  3_000_000 },
-  { id: "dq500",  name: "德丰建材",     productKind: "对公授信",   amount:  5_000_000 },
-  { id: "hs200",  name: "华盛纺织",     productKind: "对公贸融",   amount:  2_000_000 },
+  { id: "hm800",  name: "福建惠民商贸", product: "对公经营贷 · 800 万" },
+  { id: "mh1200", name: "美禾食品",     product: "对公流动贷 · 1200 万" },
+  { id: "rz300",  name: "瑞鼎物流",     product: "对私经营贷 · 300 万" },
+  { id: "dq500",  name: "德丰建材",     product: "对公授信 · 500 万" },
+  { id: "hs200",  name: "华盛纺织",     product: "对公贸融 · 200 万" },
 ];
-
-/** 渲染客户产品摘要 · 例 "对公经营贷 · ¥800.00 万元"。
- *  consumer 用此 helper 保证 4 角色 view 全口径一致。 */
-export function formatCustomerProduct(customer: DemoCustomer): string {
-  return `${customer.productKind} · ${formatCurrencyWan(customer.amount, { fractionDigits: 0 })}`;
-}
 
 export interface CustomerSelectorProps {
   value?: string;
@@ -53,23 +31,9 @@ export interface CustomerSelectorProps {
 
 export function CustomerSelector({ value, onChange, className }: CustomerSelectorProps) {
   /* 2026-04-23 · demo 空态默认空选 · 用户必须先选客户才"有数据"
-     否则 hero 一进入就显示"福建惠民商贸·对公经营贷·800 万" · 看起来像"已加载"
-     F5 (V4 plan · 2026-05-01) · 加 store.currentId sync · 接 ?customer query */
+     否则 hero 一进入就显示"福建惠民商贸·对公经营贷·800 万" · 看起来像"已加载" */
   const [selectedId, setSelectedId] = useState(value ?? "");
-  const storeCurrentId = useCustomerStore((s) => s.currentId);
-  const focusCustomer = useCustomerStore((s) => s.focus);
   const selected = DEMO_CUSTOMERS.find((c) => c.id === selectedId);
-
-  // F5 · store.currentId 变 (gateway focus) · 若在 DEMO_CUSTOMERS · 自动选中
-  // 不在 list 时 · 静默 (DEMO_CUSTOMERS / customer-store seed 是两套 id · 详
-  // 文件头 docstring · data foundation worker-B1 后续统一)
-  useEffect(() => {
-    if (!storeCurrentId) return;
-    const matched = DEMO_CUSTOMERS.find((c) => c.id === storeCurrentId);
-    if (matched && matched.id !== selectedId) {
-      setSelectedId(matched.id);
-    }
-  }, [storeCurrentId, selectedId]);
 
   return (
     <div className={`customer-selector${className ? ` ${className}` : ""}`}>
@@ -82,7 +46,6 @@ export function CustomerSelector({ value, onChange, className }: CustomerSelecto
             const next = DEMO_CUSTOMERS.find((c) => c.id === e.target.value);
             if (next) {
               setSelectedId(next.id);
-              focusCustomer(next.id);
               onChange?.(next);
             } else {
               setSelectedId("");
@@ -94,7 +57,7 @@ export function CustomerSelector({ value, onChange, className }: CustomerSelecto
           </option>
           {DEMO_CUSTOMERS.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name} · {formatCustomerProduct(c)}
+              {c.name} · {c.product}
             </option>
           ))}
         </select>
@@ -104,9 +67,7 @@ export function CustomerSelector({ value, onChange, className }: CustomerSelecto
         <div className="customer-selector-display" aria-hidden>
           <span className="customer-selector-name">{selected.name}</span>
           <span className="customer-selector-sep">·</span>
-          <span className="customer-selector-product num">
-            {formatCustomerProduct(selected)}
-          </span>
+          <span className="customer-selector-product">{selected.product}</span>
         </div>
       ) : null}
     </div>

@@ -10,13 +10,6 @@
  *   · 程序化星场 + 程序化吸积盘（零外部贴图依赖）
  *   · FBM value-noise 驱动的盘面湍流 + dust-lane（替代三层 sin 带状）→ 摄影感/画意，去 CGI 塑料
  *
- * F4 v2 (V4 plan · 2026-05-01 · per da030a1 brief) · 视觉对齐 awwwards-2022 5 点:
- *   · #1 吸积盘色温梯度 紫→红→橙→白 (替 v1 single champagne · disk T = lerp(3000, 15000, r→inner))
- *   · #2 重力透镜弯曲 (上下双道光环 · ✅ 现有 Schwarzschild geodesic photon ring · MAX_REVS 3.5)
- *   · #3 chromatic aberration 星点 (RGB 通道屏 uv 偏移 · 距 center 越远偏移越大)
- *   · #4 film grain noise overlay (hash21 高频噪声 + uTime 飞动 · 0.04 强度)
- *   · #5 event horizon shadow (✅ 现有 hit_horizon → black 中心倒梯形 distortion 由 geodesic 自然产生)
- *
  * Nolan 艺术版规则（为视觉对称刻意关掉的物理）：
  *   · Doppler shift · 否则迎面蓝白 / 背面暗红刺眼
  *   · Relativistic beaming · 否则一侧亮度 ~100×
@@ -25,10 +18,10 @@
  * 关键参数（以史瓦西半径 rs 为单位）：
  *   · 事件视界 r_h = 1 rs
  *   · 吸积盘 3 rs → 15 rs（物理上 ISCO = 3 rs；DNEG paint-swatch 9.26 M→18.70 M）
- *   · F4 v2 盘温梯度: 内缘 15000 K (蓝紫) · 外缘 3000 K (红橙) · 黑体真实物理 + awwwards 美学
- *   · 盘色处理 = blackbody temp2rgb(T(r)) × FBM dust-lane (替 v1 champagne 单色)
+ *   · 盘温 6500 K（D65 近纯白 · DNEG 论文 James et al. 2015 原版 Gargantua · 非金非橙）
+ *   · 盘色处理 = 纯 blackbody × FBM dust-lane（2026-04-21 去 ecru tint · 用户"半成品"判）
  *   · MAX_REVS 3.5 / uSteps 280 · 足以出现 2 阶 photon ring 无层切割
- *   · 相机距 14.5 rs · 倾角 2.5°（Gargantua 近 edge-on · 盘成水平扁带 + 上方薄帽 + 下方 Einstein 月牙）
+ *   · 相机距 16 rs · 倾角 2.5°（Gargantua 近 edge-on · 盘成水平扁带 + 上方薄帽 + 下方 Einstein 月牙）
  *   · 背景：near-black + 稀疏星场（haze 压到 0.001，去银河尘带 sin 带感）
  *   · BH 屏幕正中 · 右侧 aside 改为浮动 glass card，让盘从卡片背后流过（不再硬偏左）
  */
@@ -113,42 +106,27 @@ const FRAG = /* glsl */ `
   }
 
   // ── 程序化星场 · 深空近黑底 · 稀疏星点（2026-04-21 用户要"真实宇宙的深邃"） ──
-  // F4 v2 (2026-05-01 · iter 2) · PM brief #3 verbatim "chromatic aberration starfield"
-  //   星点 RGB 三通道分别 sample dir + 微偏移 → 红绿蓝色散星 (rim 透镜畸变样)
-  //   偏移量与星点距 cell center 距相关 · cell 边缘色散最强 (镜头边缘畸变规律)
   vec3 starfield(vec3 dir) {
-    // 三通道 dir 略偏 (RGB chromatic aberration) · 偏移轴线 dir.xz 螺旋方向
-    // 偏移强度 0.0018 = 边缘星点视觉可见红绿色散 · 不破中心精度
-    vec3 dirR = normalize(dir + vec3( 0.0018, 0.0,  0.0009));
-    vec3 dirB = normalize(dir + vec3(-0.0018, 0.0, -0.0009));
+    vec2 uv = vec2(atan(dir.y, dir.x) / (2.0 * PI) + 0.5,
+                   asin(clamp(dir.z, -1.0, 1.0)) / PI + 0.5);
     vec3 col = vec3(0.0);
-
-    for (int CH = 0; CH < 3; CH++) {
-      // 通道 0=R · 1=G · 2=B · 用对应 dir variant
-      vec3 d = (CH == 0) ? dirR : (CH == 2) ? dirB : dir;
-      vec2 uv = vec2(atan(d.y, d.x) / (2.0 * PI) + 0.5,
-                     asin(clamp(d.z, -1.0, 1.0)) / PI + 0.5);
-      for (int L = 0; L < 2; L++) {
-        float scale = 380.0 + float(L) * 220.0;
-        vec2 g    = uv * scale;
-        vec2 cell = floor(g);
-        float h   = hash21(cell + float(L) * 17.19);
-        float th  = 0.9986 - float(L) * 0.0008;
-        if (h > th) {
-          vec2 local = fract(g) - 0.5 -
-            (vec2(hash21(cell + 3.7), hash21(cell + 7.1)) - 0.5) * 0.5;
-          float dist = length(local);
-          float b = smoothstep(0.10, 0.0, dist) * (0.4 + 0.6 * hash21(cell + 11.3));
-          float T = 3000.0 + hash21(cell + 13.7) * 9000.0;
-          vec3 starCol = temp2rgb(T) * b * (1.0 - float(L) * 0.3);
-          // 仅取对应通道 · 三 dir variant 三通道叠加 = 真 chromatic aberration
-          if (CH == 0) col.r += starCol.r;
-          else if (CH == 1) col.g += starCol.g;
-          else              col.b += starCol.b;
-        }
+    for (int L = 0; L < 2; L++) {
+      float scale = 380.0 + float(L) * 220.0;
+      vec2 g    = uv * scale;
+      vec2 cell = floor(g);
+      float h   = hash21(cell + float(L) * 17.19);
+      // 阈值调高 → 星点密度降一半（0.9968 → 0.9986 / 0.9978）
+      float th  = 0.9986 - float(L) * 0.0008;
+      if (h > th) {
+        vec2 local = fract(g) - 0.5 -
+          (vec2(hash21(cell + 3.7), hash21(cell + 7.1)) - 0.5) * 0.5;
+        float d = length(local);
+        float b = smoothstep(0.10, 0.0, d) * (0.4 + 0.6 * hash21(cell + 11.3));
+        float T = 3000.0 + hash21(cell + 13.7) * 9000.0;
+        col += temp2rgb(T) * b * (1.0 - float(L) * 0.3);
       }
     }
-    // 极暗 ambient · 读作黑
+    // 去银河尘带 sin 带（老版带来灰雾感）· 只保留极暗 ambient，读作黑
     col += vec3(0.0008, 0.001, 0.0022);
     return col;
   }
@@ -166,19 +144,16 @@ const FRAG = /* glsl */ `
   vec3 disk_emission(vec3 p) {
     float r = length(p.xy);
 
-    // ── F4 v2 (2026-05-01 · iter 2) 色温梯度 紫→红→橙→白 ──
-    // PM brief #1 verbatim · iter 1 (22b12c4) tsRaw=pow(0.75) 集中中高温 · 外缘没真红
-    // iter 2: tsRaw 改 smoothstep(R_OUTER, R_INNER, r) · linear remap 真展开全段
-    //   r=R_OUTER (15) → tsRaw=0 → diskT=2800K (深红橙)
-    //   r=10 → tsRaw=0.42 → diskT=10000K (黄白)
-    //   r=R_INNER (3) → tsRaw=1 → diskT=21000K (蓝紫)
-    // 4 段色温阶: 2800→6000→12000→21000 · 视觉真"紫→红→橙→白"全段
-    float tsRaw  = smoothstep(R_OUTER, R_INNER, r);
-    float diskT  = mix(2800.0, 21000.0, tsRaw);    // 外缘红 → 内缘紫 (黑体真物理)
-    vec3  bbColor = temp2rgb(diskT);
-    // 径向亮度 0.40→1.25：外缘更暗 · 内边更亮 (HDR 源头 · iter 2 加强 Bloom 拾光)
-    float tintLift = mix(0.40, 1.25, tsRaw);
-    vec3  tint     = bbColor * tintLift;
+    // ── v9.3（2026-04-23）色调：warm champagne 回归 · 匹配参考图（Interstellar
+    // Gargantua warm gold）· 用户发图要求 · 用银冷色 silver 换掉太冷学术感 ·
+    // 改 champagne (0.96, 0.82, 0.56) 暖金黄 · Bloom intensity 0.22 适度暖光 ·
+    // 保留 v6 phi-seam Keplerian q-frame · 不回退 bug 修复。
+    vec3  champagne = vec3(0.96, 0.82, 0.56);  // warm gold · 参考图黄昏色调
+    float tsRaw  = pow(R_INNER / max(r, R_INNER), 0.75);
+    // 径向亮度 0.45→1.18：外缘 champagne×0.45=(0.43,0.37,0.25) 暗暖棕，
+    // 内边 champagne×1.18=(1.13,0.97,0.66) 亮金近白 → HDR 源头，Bloom 拾暖光晕。
+    float tintLift = mix(0.45, 1.18, tsRaw);
+    vec3  tint     = champagne * tintLift;
 
     // Keplerian 反卷：omega 只依赖 r，rotation matrix 全处处连续
     float omega = uTime * 0.35 * pow(R_INNER / max(r, R_INNER), 1.5);
@@ -266,19 +241,6 @@ const FRAG = /* glsl */ `
       vec3 exit_dir = normalize(pos - old_pos);
       color += starfield(exit_dir);
     }
-
-    // ── F4 v2 (2026-05-01) #3 · chromatic aberration ──
-    // 镜头畸变样 RGB 分离 · 距画面 center 越远色散越强 (边缘最明显)
-    // 不二次 ray cast (成本太高) · post-process 通道增益 trick
-    float ca = length(p) * 0.022; // 0.022 = 边缘 ~5% 增益
-    color.r *= 1.0 + ca * 0.45;
-    color.g *= 1.0 + ca * 0.05;
-    color.b *= 1.0 - ca * 0.35;
-
-    // ── F4 v2 (2026-05-01) #4 · film grain noise overlay ──
-    // hash21 高频噪声 + uTime 飞动 · 0.04 强度 (老电影颗粒感 · 不抢主体)
-    float grain = hash21(gl_FragCoord.xy + uTime * 60.0) * 0.04 - 0.02;
-    color += vec3(grain);
 
     // 轻度伽马 · 最终 tone mapping 交给 R3F 的 ACESFilmic + Bloom
     gl_FragColor = vec4(color, 1.0);
@@ -377,14 +339,13 @@ export function CosmicStageR3F() {
           <color attach="background" args={["#010106"]} />
           <BlackHoleQuad />
           <EffectComposer multisampling={0}>
-            {/* F4 v2 (2026-05-01 · iter 2) · awwwards 色彩感强化
-                threshold 0.95 → 0.85 (中段色温也拾 bloom · 紫蓝光真出来)
-                intensity 0.26 → 0.42 (色彩晕开更显 · 不抢主体)
-                · 配合 disk 色温梯度 2800K-21000K 全段展开 · 紫红橙白真渲 */}
+            {/* 2026-04-23 · visual-v3/P7 · Bloom 再收一档 · Codex "吞噬空间"方向
+                threshold 0.96 → 0.97（只拾取最亮盘内缘）
+                intensity 0.25 → 0.18（halo 外溢再降 · 让黑洞看起来更锋利） */}
             <Bloom
-              luminanceThreshold={0.85}
-              luminanceSmoothing={0.85}
-              intensity={0.42}
+              luminanceThreshold={0.95}
+              luminanceSmoothing={0.9}
+              intensity={0.26}
               mipmapBlur
             />
           </EffectComposer>

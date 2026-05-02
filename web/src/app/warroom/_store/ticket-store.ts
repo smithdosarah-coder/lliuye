@@ -26,14 +26,12 @@ import {
   type HandoffTicket,
 } from "@/lib/store";
 
-/** 看板可见的 5 列 (F17 V4 plan · Codex C10 P1 · 加 rejected lane) ·
- *  之前 4 列 + rejected 留 store · 用户找不到拒绝后卡片 · 真 bug · 加 5th 列 lane */
+/** 看板可见的 4 列（`rejected` 不在 kanban 呈现，留在 store 里供 audit / drawer） */
 export const KANBAN_STATUSES: readonly HandoffStatus[] = [
   "requested",
   "accepted",
   "in_progress",
   "completed",
-  "rejected",
 ] as const;
 
 export type KanbanStatus = (typeof KANBAN_STATUSES)[number];
@@ -49,7 +47,6 @@ export const COLUMNS: ColumnConfig[] = [
   { status: "accepted", label: "已受理" },
   { status: "in_progress", label: "进行中" },
   { status: "completed", label: "已完成", done: true },
-  { status: "rejected", label: "已退回", done: true },
 ];
 
 export interface TicketFilters {

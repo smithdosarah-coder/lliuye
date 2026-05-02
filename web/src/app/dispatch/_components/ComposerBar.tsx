@@ -210,17 +210,6 @@ export function ComposerBar() {
       ? AGENT_NAME_TO_ID[atMatch[1].toLowerCase()] ?? ""
       : "";
 
-    /* F16 (V4 plan · Codex C9 P1) · 触发 LLM reply 走 legacy /api/im/send
-     *
-     * 当前架构 (per api_server.py L415 + L599):
-     *   - POST /api/im/messages = 持久化 user message + WS broadcast (sendMessageRest 上面已调)
-     *   - POST /api/im/send = 触发 DeepSeek LLM reply (本块)
-     * 两个 endpoint 不同职责 · 前端无法单 POST · 真合并需 backend
-     *   (api_server.py:426 注释 "后续 deprecate 后改走 /api/im/messages") · 留 worker-B4-* sprint 改
-     *
-     * F16 前端范围修: silent fallback console.warn → setSendFailError banner
-     *   (V4 plan DoD "失败可见 banner" 满足 · 用户能看到 LLM 失败 · 不再静默)
-     */
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
       "";
@@ -246,20 +235,9 @@ export function ComposerBar() {
           kind: "text",
           content: reply,
         });
-        // 成功 · 清 banner (LLM reply 来了)
-        setSendFailError(null);
       })
-      .catch((err: unknown) => {
-        // F16 · 失败 → 触发顶部 banner (V4 plan DoD "失败可见 banner")
-        // 不再 silent fallback console.warn · 用户能看到 LLM trigger 失败
-        const isError = err instanceof Error;
-        const status = (err as { status?: number })?.status;
-        setSendFailError({
-          message: isError
-            ? `LLM 反馈失败: ${err.message}`
-            : "LLM 反馈失败 · 网络异常",
-          code: typeof status === "number" ? status : undefined,
-        });
+      .catch((err) => {
+        console.warn("[ComposerBar] IM send failed · silent fallback:", err);
       });
   }
 

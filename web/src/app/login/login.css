@@ -83,56 +83,6 @@
   display: block;
 }
 
-/* F4 v2 iter 3 · 静态 CSS fallback (移动端 / prefers-reduced-motion) ·
-   模拟 awwwards 黑洞色温梯度 紫→红→橙→白 · 中心 event horizon 黑圆 ·
-   不依赖 R3F/three.js · GPU 0 cost · 银行内网 / 低端设备稳。 */
-.cosmic--fallback {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: #02030a;
-}
-.cosmic__fallback-disk {
-  position: absolute;
-  inset: 0;
-  background:
-    /* 内缘紫蓝 (高温 21000K) */
-    radial-gradient(
-      ellipse 35% 8% at 50% 50%,
-      rgba(180, 150, 255, 0.42) 0%,
-      rgba(140, 110, 230, 0.28) 30%,
-      transparent 60%
-    ),
-    /* 中段白热 (10000K) */
-    radial-gradient(
-      ellipse 50% 12% at 50% 50%,
-      rgba(255, 240, 220, 0.32) 0%,
-      rgba(255, 200, 140, 0.18) 50%,
-      transparent 70%
-    ),
-    /* 外缘红橙 (3000K) */
-    radial-gradient(
-      ellipse 75% 18% at 50% 50%,
-      rgba(255, 140, 80, 0.18) 30%,
-      rgba(200, 70, 50, 0.10) 60%,
-      transparent 85%
-    ),
-    /* event horizon 中心黑圆 (#5 视觉点) */
-    radial-gradient(
-      circle 90px at 50% 50%,
-      #000 0%,
-      #000 50%,
-      transparent 100%
-    );
-  filter: blur(2px);
-}
-.cosmic__fallback-vignette {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(130% 95% at 50% 50%, transparent 50%, rgba(2, 3, 10, 0.7) 100%);
-}
-
 /* 前景星尘 twinkle 层 · 根级跨栏，覆盖整个 .login-root */
 .login-sky__stars {
   position: absolute;

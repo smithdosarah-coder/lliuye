@@ -76,21 +76,6 @@ body {
   font-feature-settings: "tnum", "zero";
 }
 
-/* F1 (V4 plan · Phase B-1) · 金融数字 utilities · 4 角色 view 全数字达金融规范
-   - .num  — Tabular Figures (font-variant-numeric: tabular-nums) · 不强制 mono
-   - .num-right — 严格右对齐 (text-align: right + font-variant-numeric: tabular-nums)
-   - 配套 utils: web/src/lib/format/index.ts (formatCurrency / formatCurrencyWan / formatNumber / formatPercent / formatCurrencySmart) */
-.num {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-}
-
-.num-right {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-  text-align: right;
-}
-
 .hr-fine {
   height: 1px;
   background: var(--ink-08);

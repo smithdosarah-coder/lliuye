@@ -7,7 +7,7 @@
  * - auth-store — 当前 persona（未登录 → 硬编 u_wangzhe 兜底，CLI-4 AuthGate 就绪后改 /login 跳转）
  * - customer-store — 今日有活动的客户（assignedTo / sharedWith 归属过滤）
  * - event-bus — 今日 alert 事件
- * - warroom ticket-store — F3 (Phase B-1) 已接：mine + 未完成（status != completed）票数
+ * - warroom ticket store — 未建成，用 mock fallback（CLI-2 落地后换订阅）
  *
  * 视觉 1:1 延续 mockup `.eyebrow` + `.hero-h1` glyph-rise + `.hero-meta--row`
  * 源: design_mockups/rm-assistant-final-2026-04-19.html L2791-2809
@@ -21,9 +21,7 @@ import {
   useAuthStore,
   useCustomerStore,
   useEventBus,
-  type HandoffTicket,
 } from "@/lib/store";
-import { useTicketStore } from "@/app/warroom/_store/ticket-store";
 
 import { StatCell } from "./StatCell";
 
@@ -33,6 +31,10 @@ const STAGGER_STEP = 0.045;
 const CLOCK_TICK_MS = 20_000;
 const STATS_TICK_MS = 30_000;
 const FALLBACK_USER = "u_wangzhe";
+
+// CLI-2 (warroom) 尚未暴露 ticket store, 临时兜底常量
+// TODO: 切 `@/app/warroom/_store/ticket-store` 的 openTicketsForUser 只读 selector
+const TICKET_FALLBACK_COUNT = 4;
 
 function greetingOf(d: Date): string {
   const h = d.getHours();
@@ -74,7 +76,6 @@ export function MorningBrief() {
   const login = useAuthStore((s) => s.login);
   const customers = useCustomerStore((s) => s.customers);
   const history = useEventBus((s) => s.history);
-  const tickets = useTicketStore((s) => s.tickets);
 
   // ———— client-only state (avoid SSR/hydration mismatch on persisted auth)
   const [mounted, setMounted] = useState(false);
@@ -126,7 +127,7 @@ export function MorningBrief() {
   // ———— derived stats
   const stats = useMemo(() => {
     if (!mounted || !currentUser) {
-      return { tickets: 0, alerts: 0, active: 0, hydrated: false };
+      return { tickets: 0, alerts: 0, active: 0 };
     }
     const now = new Date();
     const mine = (cid: string, shared: readonly string[]) =>
@@ -141,22 +142,13 @@ export function MorningBrief() {
       (e) => e.agent === "alert" && isSameDay(e.createdAt, now),
     ).length;
 
-    // F3 (V4 plan · Phase B-1) · 替 TICKET_FALLBACK_COUNT 真 ticket-store
-    // mine = 我作为 assignedTo 或 requestedBy · 未完成 (status !== completed)
-    const myOpenTickets = tickets.filter(
-      (t: HandoffTicket) =>
-        t.status !== "completed" &&
-        (t.assignedTo === currentUser.id || t.requestedBy === currentUser.id),
-    ).length;
-
     return {
-      tickets: myOpenTickets,
+      tickets: TICKET_FALLBACK_COUNT,
       alerts,
       active,
-      hydrated: true,
     };
     // statsTick forces recompute on 30s boundary for "today" rollover
-  }, [mounted, currentUser, customers, history, tickets, statsTick]);
+  }, [mounted, currentUser, customers, history, statsTick]);
 
   const userName = mounted && currentUser ? currentUser.name : "王哲";
 
@@ -192,15 +184,9 @@ export function MorningBrief() {
       <div className="hero-meta hero-meta--row">
         <StatCell
           label="待办 · Tickets"
-          value={
-            stats.hydrated ? String(stats.tickets).padStart(2, "0") : "—"
-          }
+          value={String(stats.tickets).padStart(2, "0")}
           unit="项"
-          hint={
-            stats.hydrated
-              ? "warroom ticket-store · 我未完成 (assignee 或 requester)"
-              : "数据加载中（fallback 标识）"
-          }
+          hint="warroom 未交付,先用 mock fallback"
         />
         <StatCell
           label="今日预警 · Alerts"
