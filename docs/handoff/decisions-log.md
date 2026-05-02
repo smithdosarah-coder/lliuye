@@ -2701,3 +2701,39 @@ PM 选 C: 主 CLI 自决创建 3 新 worker · PM 只双击 launch.bat。
 ### Author
 
 主 CLI Claude Opus 4.7 (1M context) · PM 拍板 ratify
+
+---
+
+## Q-047 · 视觉方案全面暂停 · 只提升产品本身能力 (2026-05-02 PDT)
+
+### Question
+
+PM 看完 ECS deploy 含 build 后视觉 reset 到 phase-b-start-2026-05-01 状态 · verbatim 反馈:
+- "看了，是原来的方案"
+- "下一步：视觉方案全面暂停，只提升产品本身能力"
+
+### Resolution
+
+**视觉方案全面冻结**:
+- worker-B3 release (cmd window 关 · 后续不启)
+- launch-all-LIUYE.bat 改 5 → 4 cmd window (删 worker-B3 entry · 只启 MAIN-CLI + 3 后端 worker)
+- 视觉路线待 PM 后期重新规划 (PM 想清楚后再启 · 可能用真设计师 / Gemini 三方辩论 / 自己设计)
+
+**产品能力 only · 后端 BE 推**:
+- Sprint 2 真主线启 3 后端 worker (B4-alert BE5+BE9 + B4-compliance BE4 + B2 BE11)
+- Sprint 3 真主线 (charter 后续启): B4-channel (BE1+BE12) + B4-riskctrl (BE6+BE8) + B7 (BE13 · BE7 已提前 ship)
+- Sprint 4 整合 + Codex periodic audit
+- Sprint 5 demo + POC 4 维评价
+
+### Active rule (回写到 Tier 2 · per CLAUDE.md §15)
+
+新 main CLI 任何 fresh session 必读本 Q-047 entry · 知道:
+- 视觉方案冻结 · 不再派视觉 worker
+- 任何视觉变更必先问 PM (PM 重新规划后才启)
+- 只 ship 后端 BE · 5 跑偏 root cause 硬规 (Q-046) + 4 视觉硬约束 (HANDOFF v2 §2.2) 仍守
+
+**回写来源**: PM 2026-05-02 verbatim "视觉方案全面暂停，只提升产品本身能力"
+
+### Author
+
+主 CLI Claude Opus 4.7 (1M context) · PM 拍板 ratify
