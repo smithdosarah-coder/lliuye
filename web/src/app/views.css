@@ -991,18 +991,20 @@
 }
 
 /* ═══ Task I · WARROOM view · mockup L1464-1510 + L3353-3478 1:1 ═══
-   4 列 kanban: 待处理 / 进行中 / 冒出 / 已归档 (.kcol.done 深色) · ~50 kcard
+   F17 (V4 plan · Codex C10 P1 · 2026-05-02): 4 列 → 5 列 kanban · 加 rejected lane
+   待受理 / 已受理 / 进行中 / 已完成 / 已退回 (.kcol.done 深色 · 末两列)
    7 priority pill (P0/P1/P2/P3/compli/law/risk) + 3 mockup status (urg/wait/cn)
    .kcol rise 逐列 stagger (mockup) + .kcard case-in 逐卡 stagger (onboarding 追加) */
 .v-warroom { padding-top: 6px; }
 
 .v-warroom .kanban {
   margin-top: 12px;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
   height: calc(100vh - 352px); min-height: 480px;
 }
-@media (max-width: 1100px) { .v-warroom .kanban { grid-template-columns: repeat(2, 1fr); height: auto; } }
-@media (max-width: 700px)  { .v-warroom .kanban { grid-template-columns: 1fr; } }
+@media (max-width: 1280px) { .v-warroom .kanban { grid-template-columns: repeat(3, 1fr); height: auto; } }
+@media (max-width: 900px)  { .v-warroom .kanban { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .v-warroom .kanban { grid-template-columns: 1fr; } }
 
 .v-warroom .kcol {
   border-radius: var(--r-lg);
