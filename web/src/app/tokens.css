@@ -29,8 +29,17 @@
   --cjk:      var(--font-sans), "Noto Sans SC", system-ui, sans-serif;
   --cjkserif: var(--font-serif), "Noto Serif SC", Georgia, serif;
 
+  /* F12 (V4 plan · Phase B · Sprint 2 准备 · 大重塑 Sprint 3 worker-B3 跟 Gemini design 一起):
+     PingFang / MiSans / Inter 字体栈 · 端正商务 (Gemini R1+R2 主张 · Codex 同意)
+     当前不替 --display / --sans / --cjk default · 仅加 token 备 Sprint 3 渐进迁移 */
+  --pingfang: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  --misans:   "MiSans", "PingFang SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --inter:    "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+
   --r-md: 18px;
   --r-lg: 26px;
+  /* F12 · 圆角收敛 ≤ 8px (Gemini 主张端正) 推 Sprint 3 大重塑 · 当前 mockup 18/26 保留 */
+  --r-sharp: 8px;
 
   /* Ink opacity ramps */
   --ink-04: color-mix(in srgb, var(--ink) 4%,  transparent);
