@@ -641,6 +641,102 @@ def load_scan_result(scan_id: str = "") -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _registry_rules_for_policy(
+    policy_doc: str, policy_meta: dict | None,
+) -> tuple[list[dict], dict]:
+    """Run the deterministic loader path when policy_meta has enough metadata.
+
+    Returns (rules, registry_info). When metadata is too thin to register
+    a stable policy (title + issuer required), returns ([], {}) so the
+    caller falls back to the LLM/heuristic path.
+
+    BE4 (Phase B Sprint 2 · 2026-05-04): registry rules carry
+    clause_id/policy_id/version_id so downstream matrix_check violations
+    can be enriched with auditable ViolationReason rows. When this path
+    runs, every "violate" cell yields a fully-populated 7-field reason.
+    """
+    meta = policy_meta or {}
+    title = (meta.get("title") or "").strip()
+    issuer = (meta.get("issuer") or "").strip()
+    if not (title and issuer):
+        return [], {}
+    try:
+        from agent_compliance.policy_loader import (
+            clauses_to_scan_rules,
+            load_policy,
+        )
+        from shared.policy_registry import get_clauses
+    except ImportError:
+        return [], {}
+
+    try:
+        result = load_policy(
+            title=title,
+            issuer=issuer,
+            body_text=policy_doc,
+            effective_date=str(meta.get("effective_date") or ""),
+            source_url=str(meta.get("source_url") or ""),
+            category=str(meta.get("category") or ""),
+            description=str(meta.get("description") or ""),
+        )
+    except (RuntimeError, ValueError, OSError, AttributeError):
+        return [], {}
+
+    clauses = get_clauses(result.version_id)
+    rules = clauses_to_scan_rules(clauses)
+    # Stamp the policy_id / version_id so build_violation_reason can read them.
+    for r in rules:
+        r["policy_id"] = result.policy_id
+        r["version_id"] = result.version_id
+
+    return rules, {
+        "policy_id": result.policy_id,
+        "version_id": result.version_id,
+        "is_new_version": result.is_new_version,
+        "clause_count": len(clauses),
+    }
+
+
+def _enrich_violations_with_reasons(
+    violations: list[dict],
+    rules_by_id: dict[str, dict],
+    events_by_id: dict[str, dict],
+) -> list[dict]:
+    """Attach a 7-field ViolationReason to every registry-aware violation.
+
+    For non-registry rules (LLM fallback path with no clause_id/POL-/VER-),
+    sets `reason = None` so the SSE schema is still consistent — frontends
+    can render "未能自动填写" rather than guessing.
+
+    Pure-additive: existing violation keys (rule_id, severity, evidence,
+    match_reason, …) are untouched.
+    """
+    try:
+        from agent_compliance.violation_schema import build_violation_reason
+    except ImportError:
+        for v in violations:
+            v.setdefault("reason", None)
+        return violations
+
+    for v in violations:
+        rule = rules_by_id.get(v.get("rule_id", ""))
+        event = events_by_id.get(v.get("event_id", ""))
+        if not rule or not event:
+            v.setdefault("reason", None)
+            continue
+        cell = {
+            "status": "violate",
+            "evidence": v.get("evidence", ""),
+            "match_reason": v.get("match_reason", ""),
+        }
+        try:
+            reason = build_violation_reason(rule=rule, event=event, cell=cell)
+        except (RuntimeError, ValueError, AttributeError):
+            reason = None
+        v["reason"] = reason.to_dict() if reason is not None else None
+    return violations
+
+
 def run_policy_scan_and_persist(
     *,
     policy_doc: str,
@@ -651,10 +747,10 @@ def run_policy_scan_and_persist(
     """走完整 4 阶段 + 生成修订 + 持久化 · yield SSE-friendly events · 返 scan_id.
 
     阶段:
-      1. rule_extract       · 政策 → 规则 list
+      1. rule_extract       · 政策 → 规则 list (registry-aware when policy_meta has title+issuer)
       2. event_extract      · 业务 → 事件 list
       3. matrix_match       · N×M 矩阵 + 命中违规 list
-      4. revision_generate  · 每违规生成 改/补/强
+      4. revision_generate  · 每违规生成 改/补/强 + 7-field ViolationReason
     """
     _, mode_label = build_compli_provider(force_mock=force_mock)
     yield {"type": "tool_result", "tool": "compli_provider",
@@ -665,12 +761,16 @@ def run_policy_scan_and_persist(
     yield {"type": "tool_result", "tool": "llm",
            "result": f"deepseek={'live' if has_llm else 'unavailable_template_fallback'}"}
 
-    # Phase 1
+    # Phase 1 · prefer deterministic registry path; fall back to LLM/heuristic
     yield {"type": "stage", "stage": "rule_extract", "status": "running"}
     t0 = time.time()
-    rules = extract_rules_from_policy_text(policy_doc, llm_json_caller=llm_json)
+    rules, registry_info = _registry_rules_for_policy(policy_doc, policy_meta)
+    rule_path = "registry" if rules else "heuristic"
+    if not rules:
+        rules = extract_rules_from_policy_text(policy_doc, llm_json_caller=llm_json)
     yield {"type": "stage", "stage": "rule_extract", "status": "done",
-           "count": len(rules), "duration_s": round(time.time() - t0, 2)}
+           "count": len(rules), "duration_s": round(time.time() - t0, 2),
+           "path": rule_path}
 
     # Phase 2
     yield {"type": "stage", "stage": "event_extract", "status": "running"}
@@ -688,7 +788,7 @@ def run_policy_scan_and_persist(
            "violations": len(matrix["violations"]),
            "duration_s": round(time.time() - t2, 2)}
 
-    # Phase 4 · revisions for each violation
+    # Phase 4 · revisions for each violation + 7-field ViolationReason
     yield {"type": "stage", "stage": "revision_generate", "status": "running",
            "total": len(matrix["violations"])}
     t3 = time.time()
@@ -697,14 +797,24 @@ def run_policy_scan_and_persist(
         revisions = generate_revisions(v, llm_json_caller=llm_json)
         v["revisions"] = revisions
         enriched_violations.append(v)
+
+    rules_by_id = {r.get("rule_id", ""): r for r in rules}
+    events_by_id = {e.get("event_id", ""): e for e in events}
+    enriched_violations = _enrich_violations_with_reasons(
+        enriched_violations, rules_by_id, events_by_id,
+    )
+    reason_count = sum(1 for v in enriched_violations if v.get("reason"))
     yield {"type": "stage", "stage": "revision_generate", "status": "done",
-           "duration_s": round(time.time() - t3, 2)}
+           "duration_s": round(time.time() - t3, 2),
+           "reason_filled": reason_count}
 
     # Persist
     payload = {
         "scan_id": "",
         "mode": mode_label,
         "policy_meta": policy_meta or {},
+        "rule_path": rule_path,
+        "registry_info": registry_info,
         "rule_count": matrix["rule_count"],
         "event_count": matrix["event_count"],
         "cell_count": matrix["cell_count"],
@@ -717,6 +827,7 @@ def run_policy_scan_and_persist(
             "event_count": matrix["event_count"],
             "cell_count": matrix["cell_count"],
             "violation_count": len(enriched_violations),
+            "reason_filled_count": reason_count,
             "severe_count": sum(1 for v in enriched_violations if v.get("severity") == "critical"),
             "normal_count": sum(1 for v in enriched_violations if v.get("severity") == "major"),
             "observation_count": sum(1 for v in enriched_violations if v.get("severity") == "minor"),
