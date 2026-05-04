@@ -2737,3 +2737,47 @@ PM 看完 ECS deploy 含 build 后视觉 reset 到 phase-b-start-2026-05-01 状�
 ### Author
 
 主 CLI Claude Opus 4.7 (1M context) · PM 拍板 ratify
+
+---
+
+## Q-048 · 双 AI 两轮辩论 · "下一步 1-3 周 plan" · synthesis (2026-05-04 PDT)
+
+### Question
+
+PM verbatim "去和 codex 讨论下一步方案 · 至少两轮辩论 · 不是单方面听谁的 · 说人话 · 文档删了占空间"
+
+### Resolution
+
+R1 双 AI 独立 v1 (anti-bias rule 1) · R2 互评 v2 · R3 跳过 (实质 dissent 0)
+
+**Codex catch 主 CLI 漏的 2 件**:
+1. `docs/contracts/agent-handoff-schemas.md:17` 自述 "v1.1 仅 placeholder · v1.2 实装" · placeholder 部分 = 6 反向链 + Agent2 链 = B4-alert (Agent4↔Agent5) + B4-compliance (Agent5→Agent4/Agent6) worker 即将碰的字段。主 CLI v2 假设 64KB 看着够 · 错。必须 onboarding 加警告 + worker 自写 fixture · 不等 Sprint 3。
+2. B2 DONE signal: 主 CLI v1 typo `WORKER-B2-BIZ-DONE` · 真 onboarding `WORKER-B2-BIZ-DOC-DONE` (主 CLI v2 已 catch · Codex 独立 catch 双重验证)
+
+**主 CLI catch Codex 漏的 1 件**:
+- 三 onboarding trailer 仍写"codex 用尽 until 2026-05-08" · codex 已恢复 (双 AI 辩论本身就是证据 · 2026-05-04 medium PONG OK + 2 bg 全完成) · 必须改 `REVIEW-MODE: codex` · 否则 worker DONE 默认 manual review 浪费 codex peer review 双闸
+
+**R2 后双方换位** (双方接受对方多数):
+- 主 CLI 接 Codex 4 件: review granularity (periodic 先行 + P0/P1 才拆 sequential) / observability timing (Week 1 checklist 不改代码) / ECS phrasing (按 touched service · 不预写 service 名) / handoff schema 警告
+- Codex 接主 CLI 5 件: Phase A 全 8 项 yes/partial/no / 集中 audit 替代 sequential 3 review / Sprint 3 charter v2.2 prep / 不补完 Phase A 再启 Sprint 2 / 三 onboarding trailer update
+
+**Final plan 15 deliverable** (synthesis · git history 留底 commit `6393249` / `b63c308` / `0b478c4` · 过程 doc 已 git rm PM 嫌占空间):
+- D0 (today): 三 onboarding trailer + signal alias + handoff schema 警告 / Phase A 8 status doc / pre-Sprint-2 Codex periodic audit fire bg / cron 5 min 启 / PM 双击 launch.bat
+- Week 1: B2 BE11 doc-only DONE + review + cherry-pick (doc-only 不 deploy) / observability checklist runbook 起草
+- Week 2-3: B4-compliance + B4-alert DONE 序列 + ECS deploy 按 touched service / Sprint 3 charter v2.2 + onboarding 草稿 prep
+- ~5/25: sprint-end tag `phase-b-sprint2-end-2026-05-25` + decisions-log Q-049+
+
+### Active rule (回写到 Tier 2 · per CLAUDE.md §15)
+
+新规则 2 条:
+1. **Sprint 2 启动前必跑 pre-Sprint-2 Codex periodic audit** (插入点 4 提前用 · 不阻 worker 启 · 但 audit verdict P0/P1 阻塞 merge / deploy)
+2. **Sprint 2 worker (B4-alert + B4-compliance) onboarding 必加 `agent-handoff-schemas.md:17` v1.1 placeholder 警告**: 6 反向链 + Agent2 链 fixture v1.1 仅 placeholder · v1.2 实装 · worker 触及反向链请自写 fixture + 在 v1.2 spec section 标记 file:line · 不等 Sprint 3 补
+3. **Sprint 1 已 ship 后端 review 流程**: audit 先行 (集中 1 次 periodic) · 仅 P0/P1 case 才拆 sequential post-DONE review (cost 控制 · 30 min budget per case)
+4. **ECS deploy phrasing**: 不预写 specific service 名 · 按 touched service healthcheck (Codex R2 catch · 防 "restart compliance" 但实际改 alert 类错位)
+
+**回写来源**: 双 AI 辩论 R2 synthesis + PM verbatim "至少两轮辩论 · 说人话"
+
+### Author
+
+主 CLI Claude Opus 4.7 + Codex gpt-5.5-codex (R1 task `bof3lf0b3` + R2 task `b8m8x8789` · 各 medium reasoning sequential bg) · 等 PM verdict GO / NOGO
+

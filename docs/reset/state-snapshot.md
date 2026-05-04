@@ -840,3 +840,42 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 ### 决策变更
 
 ### 风险预警
+
+---
+
+## 2026-05-04 (Day 3 · post-Q-047) · 双 AI 两轮辩论 · synthesis 给 PM 拍板
+
+### What happened
+
+- 新 main CLI fresh session resume · 读完 §14 5 必读 + HANDOFF v3 + state-snapshot 末 80 + decisions-log Q-046/Q-047 · 写 NEW-MAIN-CLI-RESUMED commit (`d3f6e66`) 等 PM verify
+- PM verbatim "CODEX 恢复了 · 去和他讨论一下下一步方案 · 我要听人话 · 至少两轮辩论 · 不是单方面听谁的"
+- Codex ping verify 4 秒回 PONG (2026-05-04T14:46:27Z · medium reasoning · cache 暖)
+- R1 双 AI 独立 v1 (anti-bias rule 1) 并行 fire: main-cli-v1 主 CLI 自写 · codex-v1 codex bg task `bof3lf0b3` · 各 ~30-60 min wall · medium reasoning
+- R2 互评 v2 并行 (主 CLI 看 codex-v1 写 main-cli-v2 · codex bg task `b8m8x8789` 看 main-cli-v1 写 codex-v2)
+- R3 跳过 (Codex R2 §7 列 5 项 dissent · 实际收敛后真实 dissent = 0 · 双方实质换位)
+- synthesis 写完 · PM 看完一次 · 嫌过程 doc 占空间 · `git rm` 7 份 cross-ai-debate/ 文件 (git history 留底 commit `6393249` / `b63c308` / `0b478c4` 永远可恢复)
+- decisions-log Q-048 entry + state-snapshot 本段 (本 commit) 是回写 active rule (2 条新硬规)
+
+### Triggered by
+
+- PM 重启电脑后 fresh session + Codex 恢复 + PM 显式要求双 AI 辩论 + PM verbatim "说人话 · 删过程 doc"
+
+### State change (delta)
+
+- Codex 状态: 用尽 until 2026-05-08 → **已恢复 (2026-05-04)** · 双辩论用了 2 次 medium bg sequential
+- main HEAD: cf9c821 (HANDOFF v3) → d3f6e66 (resume) → 6393249 (R1 fire) → b63c308 (R2 start) → 0b478c4 (synthesis) → 本 commit (Q-048 + state-snapshot Day 3 + git rm 过程 doc)
+- Sprint 2 启动 prep: pending PM "GO" → today 4 件 + PM 双击 launch.bat
+- Active rule 新增 4 条 (Q-048 §Active rule): pre-Sprint-2 audit 必跑 / Sprint 2 onboarding handoff schema placeholder 警告 / Sprint 1 review = audit 先行 P0/P1 才拆 / ECS deploy 按 touched service
+
+### Next
+
+- PM verdict GO / NOGO
+- GO 后 sequence (T+30m 内并行):
+  1. 三 onboarding trailer + signal alias + handoff schema placeholder 警告 (主 CLI · 30 min)
+  2. Phase A 8 硬线现状 doc (主 CLI · 1-2 hr)
+  3. Pre-Sprint-2 Codex periodic audit fire bg (主 CLI · 60-90 min wall)
+  4. cron 5 min 巡逻启 (主 CLI ScheduleWakeup)
+  5. PM 双击 launch-all-LIUYE.bat 启 3 后端 worker (PM · 5 min)
+- T+90m: Codex audit verdict 回 → P0/P1 决定 sequential review 触发与否
+- Week 1-3 worker DONE 序列 · ECS deploy 按 touched service · ~5/25 sprint-end tag
+
