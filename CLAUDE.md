@@ -154,6 +154,15 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **失败隔离**: ledger 写入失败 silent-fail · decision flow 不破 (per Agent3 BE2 wrapper try/except 模式) · ledger 是观察层不是阻塞层
 - **回写来源**: 本 sprint Phase B-3 BE7 · `feat/phase-b4-credit-be7` 分支
 
+#### 3.7.6 Compliance ViolationReason 7-field invariant (BE4 · Phase B Sprint 2 · 2026-05-04)
+
+- **规则简述**: Agent5 任何违规行 (SSE → frontend / persisted scan / ledger / docx export) 必带 `ViolationReason` 7 字段 (`policy_id` / `policy_version` / `clause_id` / `conflict_field` / `business_excerpt` / `policy_excerpt` / `confidence`) · 缺字段或填半 = block。当 registry 三元组缺失时显式 `reason: null` (per §3.3 Evidence-First "未能自动填写" 优于编半值)。
+- **位置**: `docs/contracts/agent-compliance-policy-registry.md` v1.0 (本 sprint 立) + `agent_compliance/violation_schema.py` (Pydantic 模型) + `shared/policy_registry/` (sqlite 三元组源)
+- **理由**: 合规官痛 1.3.1+2 (政策版本管理 + 冲突解释签字) · `policy_coverage` / `conflict_recall` 之前 stub=0.5 因为缺确定性 clause_id round-trip · BE4 通过 `shared/policy_registry/` deterministic id triplet 让 metric 真测且 ≥ 0.85
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断 (改 7 字段定义 · 删 prefix 校验 · 改 confidence 默认值都需 PM 审批)
+- **失败隔离**: registry 写入失败 silent-fail · scan_engine 4 阶段 pipeline 不破 (additive 接入 · 0 改既有 SSE key)
+- **回写来源**: 本 sprint Phase B Sprint 2 BE4 · `feat/phase-b4-compliance` 分支
+
 ## 4. 6 Agent 功能边界（不可跨界）
 
 | Agent | 触发 | 输入 | 产出 | 不做 |
@@ -269,6 +278,12 @@ Agent4 vs Agent5 的边界是**触发源**（客户变 vs 政策变），不是�
 - `tests/shared/test_decision_ledger.py` + `tests/agent_credit/test_decision_engine_ledger.py` + `tests/ledger_service/test_api.py` — Phase B-3 worker-B4-credit · 56 tests (35 unit + 6 Agent3 integration + 15 REST API · 含 PII never-plain + failure isolation + idempotency 关键守卫)
 - `agent_credit/decision_graph.py` + `tests/agent_credit/test_decision_graph.py` — Phase B-3 worker-B4-credit (Sprint 1 · BE2 · 2026-05-01) · audit-grade evidence graph (7 node + 6 edge type · peer_gap evidence linkage 把 `scoring_model_corporate.py:215-223` industry_peer_gap leaf 升级为可复核三角) · spec `docs/contracts/agent-credit-decision-graph.md` v1.0 · 26 tests
 - `data/ledger/` — Phase B-3 ledger sqlite store dir · `.gitkeep` 入库 · `*.sqlite` / `*.db` / journals 走 `.gitignore`
+- `shared/policy_registry/` — **Phase B Sprint 2 worker-B4-compliance (2026-05-04) · BE4 versioned policy + clause sqlite store** · 4 模块: `schema.py` (PolicyDocument + PolicyVersion + PolicyClause dataclasses) · `hashing.py` (deterministic policy_id / version_id / clause_id · case-folded) · `store.py` (PolicyRegistry sqlite-backed · idempotent register_version · silent-fail · default_registry singleton) · `__init__.py` (façade: register_policy_version / get_policy / list_versions / latest_version / get_clauses / mark_superseded) · 详 §3.7.6 + spec `docs/contracts/agent-compliance-policy-registry.md` v1.0
+- `agent_compliance/policy_loader.py` — Phase B Sprint 2 worker-B4-compliance · BE4 deterministic clause segmentation (article + paragraph level + 6 threshold templates + 8 category buckets + critical/major/minor severity classifier · 0 LLM · stable clause_id 跨 re-import) · 20 tests
+- `agent_compliance/policy_diff.py` — Phase B Sprint 2 worker-B4-compliance · BE4 difflib SequenceMatcher clause-level diff (3-pass: 精确键 → fuzzy 0.55 → 残余 add/delete · ndiff hunks 输出 · 0 LLM) · 13 tests
+- `agent_compliance/violation_schema.py` — Phase B Sprint 2 worker-B4-compliance · BE4 7-field auditable ViolationReason (Pydantic · POL-/VER-/CL- prefix-validated · 300-char excerpts · confidence ∈ [0,1] · derived review_reason 单句 narrative · build_violation_reason 单调 None-on-missing-triplet) · 22 tests
+- `tests/agent_compliance/test_policy_registry_integration.py` — Phase B Sprint 2 worker-B4-compliance · BE4 e2e 验 policy_coverage ≥ 0.85 + conflict_recall ≥ 0.85 (实测 1.0/1.0 on fixture · 替代 STUB_COVERAGE/STUB_CONFLICT_RECALL = 0.5)
+- `data/policy_registry/` — Phase B Sprint 2 policy registry sqlite store dir · `LIUYE_POLICY_REGISTRY_DB_PATH` 可覆盖 · `*.sqlite` 走 `.gitignore`
 - `agent_*/sources_config.py` — 各 Agent 域的源偏好链配置
 - `test_sources_smoke.py` — 新架构冒烟测试
 
