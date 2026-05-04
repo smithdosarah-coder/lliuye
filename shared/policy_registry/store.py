@@ -167,7 +167,10 @@ class PolicyRegistry:
             if not isinstance(c, dict):
                 continue
             article = str(c.get("article") or "")
-            para_idx = int(c.get("paragraph_index") or idx)
+            # paragraph_index=0 is valid; only fall back to enumerate idx
+            # when the key is missing/None (truthy-or would lose 0).
+            raw_pi = c.get("paragraph_index")
+            para_idx = int(raw_pi if raw_pi is not None else idx)
             text = str(c.get("text") or "").strip()
             if not text:
                 continue
