@@ -690,3 +690,110 @@ async def channel_profile(req: ChannelProfileRequest):
         ) from e
 
     return result.model_dump()
+
+
+# ============================================================================
+# GET /api/channel/personal_insight/{candidate_id} — Phase B Sprint 3 BE12 (2026-05-05)
+# 候选客户/候选企业个人画像 · 后端 only · 不改 frontend layout (B5 owns layout)
+# 实施 status: contract sub-PR 1 (本) · stub schema · sub-PR 2 接 LLM 业务逻辑
+# 消费者: B7 BE13 4 维度评价 (个人画像 35% / 产品适配 25% / 合规+话术 20% / PII+latency 20%)
+# ============================================================================
+
+
+@app.get("/api/channel/personal_insight/{candidate_id}")
+async def channel_personal_insight(candidate_id: str):
+    """GET /api/channel/personal_insight/{candidate_id} — BE12 schema stub.
+
+    sub-PR 1 (此): endpoint signature + Pydantic-like TypedDict schema + stub body
+    sub-PR 2 (next): 接 shared/llm_caller (LLM grounded talking_points) + shared/sources
+                     (compliance_check via pbc_gov + ofac) + PII redact (shared/personal_profile)
+
+    Response payload schema (per BACKEND-DEEP-WORK-V2-1-FINAL.md:54-59):
+    {
+        candidate_id, person_features, product_fit, compliance_check,
+        talking_points, pii_redacted, latency_ms
+    }
+    """
+    cid = (candidate_id or "").strip()
+    if not cid:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "candidate_id 不能为空",
+                              "details": {"field": "candidate_id"}}},
+        )
+
+    try:
+        from agent_channel.personal_insight import build_personal_insight_stub
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"personal_insight module unavailable: {e}"}},
+        ) from e
+
+    return build_personal_insight_stub(cid)
+
+
+# ============================================================================
+# GET /api/channel/sources_health — Phase B Sprint 3 BE1 (2026-05-05)
+# SearchProvider 健康检查 + UI banner payload (Tavily / akshare / QCC)
+# 用途: 前端 banner 显示数据源 health · live-fallback-banner-spec §1.5
+# ============================================================================
+
+
+@app.get("/api/channel/sources_health")
+async def channel_sources_health():
+    """SearchProvider 健康检查 · 返各 provider 状态供前端 banner 显示.
+
+    返 payload schema:
+    {
+        "providers": [
+            {"name": "tavily", "configured": bool, "status": "ok"|"degraded"|"down", "reason": str},
+            {"name": "akshare", ...},
+            {"name": "qcc", ...}
+        ],
+        "live_search_available": bool,
+        "fallback_chain_active": bool,
+        "checked_at": ISO timestamp
+    }
+    """
+    import datetime
+    providers = []
+
+    tavily_configured = bool(os.environ.get("TAVILY_API_KEY"))
+    providers.append({
+        "name": "tavily",
+        "configured": tavily_configured,
+        "status": "ok" if tavily_configured else "down",
+        "reason": "" if tavily_configured else "TAVILY_API_KEY 未配置",
+    })
+
+    try:
+        import akshare as _ak  # noqa: F401
+        akshare_ok = True
+    except ImportError:
+        akshare_ok = False
+    providers.append({
+        "name": "akshare",
+        "configured": akshare_ok,
+        "status": "ok" if akshare_ok else "down",
+        "reason": "" if akshare_ok else "akshare 未安装",
+    })
+
+    qcc_configured = bool(os.environ.get("QCC_API_KEY"))
+    providers.append({
+        "name": "qcc",
+        "configured": qcc_configured,
+        "status": "ok" if qcc_configured else "down",
+        "reason": "" if qcc_configured else "QCC_API_KEY 未配置 (sub-PR 2 wire)",
+    })
+
+    live_available = any(p["status"] == "ok" for p in providers)
+
+    return {
+        "providers": providers,
+        "live_search_available": live_available,
+        "fallback_chain_active": not live_available,
+        "checked_at": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    }
