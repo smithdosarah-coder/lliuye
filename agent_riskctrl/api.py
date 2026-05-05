@@ -446,6 +446,42 @@ async def riskctrl_backtest(req: BacktestRequest):
 
         yield encode_event(make_stage("calc_ks", "done"))
 
+        # BE6.4 业务指标双轨 (业务方 demo 必备 · 行长汇报场景)
+        # KS/AUC = 统计口径 · 通过率/坏账率/利润影响 = 业务口径 · 同 commit ship
+        try:
+            from agent_riskctrl.business_metrics import (
+                calculate_business_metrics,
+            )
+            actual_avg_amt: float | None = None
+            if "loan_amount_wan" in df.columns:
+                try:
+                    actual_avg_amt = float(df["loan_amount_wan"].mean())
+                except (ValueError, TypeError):
+                    actual_avg_amt = None
+            business_panel = calculate_business_metrics(
+                {
+                    "total_records": result.total_records,
+                    "approved": approved,
+                    "rejected": rejected,
+                    "manual_review": manual_review,
+                    "approval_rate": result.approval_rate,
+                },
+                avg_loan_amount_wan_actual=actual_avg_amt,
+                bad_rate=bad_rate,
+            )
+        except (ImportError, KeyError, ValueError, TypeError):
+            business_panel = {}
+
+        # BE6.3 collision report (静态 + 动态 dead-rule · 业务方 banner)
+        try:
+            from agent_riskctrl.rule_collision import analyze_collisions
+            sample_records = df.head(500).to_dict(orient="records")
+            collision_panel = analyze_collisions(
+                ruleset, records=sample_records,
+            ).to_dict()
+        except (ImportError, KeyError, ValueError, TypeError):
+            collision_panel = {}
+
         session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
         yield encode_event(make_done(
             panels={
@@ -453,6 +489,8 @@ async def riskctrl_backtest(req: BacktestRequest):
                 "ks": ks_panel,
                 "samples": samples,
                 "rule_stats": rule_stats,
+                "business_metrics": business_panel,  # BE6.4 业务口径
+                "collision": collision_panel,        # BE6.3 互斥/遮蔽
             },
             metrics={
                 "total_records": result.total_records,
@@ -463,6 +501,10 @@ async def riskctrl_backtest(req: BacktestRequest):
                 "bad_rate": bad_rate,
                 "ks_peak": ks_peak,
                 "label_column_used": label_col,
+                # BE6.4 顶层 KPI · 业务方面板可直消费
+                "profit_total_wan": business_panel.get("profit_total_wan"),
+                "pass_rate": business_panel.get("pass_rate"),
+                "reject_rate": business_panel.get("reject_rate"),
             },
             data_source=DATA_SOURCE_LIVE,
             session_id=session_id,
