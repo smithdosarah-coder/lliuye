@@ -29,6 +29,7 @@ import os
 import sys
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -49,6 +50,7 @@ from shared.sse_envelope import (  # noqa: E402
     DATA_SOURCE_MOCK_FORCED,
     encode_event,
     make_done,
+    make_error,
     make_error_from_exception,
     make_stage,
 )
@@ -577,6 +579,166 @@ async def alert_demo_run(req: AlertDemoRunRequest):
     """
     def gen():
         yield from _alert_demo_event_stream(req)
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/alert/scan/replay/{scan_id} — BE5.5 历史 scan 重放
+# ============================================================================
+
+
+def _alert_replay_event_stream(scan_id: str):
+    """BE5.5 (Phase B Sprint 2 · 2026-05-04): 历史 scan 重放 SSE 流.
+
+    用途 (audit 需求):
+    - 监管 / 内审复核某客户最初触发预警时的完整证据链
+    - 客户经理回顾历史告警 · 对比当前扫描差异
+    - 培训 / 演示用历史 case 重放 · 不消耗外部搜索 quota
+
+    与 /api/alert/scan 共形 SSE shape · 但:
+    - mode=replay · data_source=cached (per sse-envelope DATA_SOURCE_CACHED)
+    - 不调 KB / 不调 LLM / 不调 SearchProvider
+    - stage event 标 replay 节拍 (kb_load → external_scan → internal_match → cross → summary)
+    - done envelope 复刻原 panels (hit_list/top_cases/dispositions) + replayed_at + original_generated_at
+
+    Failure mode:
+    - scan_id 不存在 → SSE error event (HITLIST_NOT_FOUND)
+    - payload 格式异常 → SSE error event (REPLAY_PAYLOAD_INVALID)
+    """
+    try:
+        from agent_alert.scan_engine import HitListNotFoundError, load_hitlist
+    except ImportError as e:
+        yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+        return
+
+    try:
+        payload = load_hitlist(session_id=scan_id)
+    except HitListNotFoundError as e:
+        yield encode_event(make_error(str(e), code="HITLIST_NOT_FOUND"))
+        return
+    except (RuntimeError, ValueError, OSError, AttributeError, KeyError) as e:
+        yield encode_event(make_error_from_exception(e, code="REPLAY_PAYLOAD_INVALID"))
+        return
+
+    # 5 stage 节拍 · 与 /scan 共形 stage 名 · 标 mode=replay
+    stages = ["kb_load", "external_scan", "internal_match", "cross", "summary"]
+    original_generated_at = str(payload.get("generated_at", ""))
+    for stage in stages:
+        yield encode_event(make_stage(
+            stage,
+            "done",
+            message=f"replay · {stage} · session={scan_id} · original={original_generated_at}",
+        ))
+        time.sleep(0.05)  # 轻节拍 · 让前端有 stage flow 感觉 · 不假装真扫描
+
+    # 复刻 done envelope panels
+    hit_list_dict = payload.get("hit_list") or {}
+    hits = hit_list_dict.get("hits") or []
+
+    by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
+    for h in hits:
+        level = (h.get("level") or "").lower()
+        if level in by_grade:
+            by_grade[level].append({
+                "client_id": h.get("hit_id", ""),
+                "company_name": (h.get("target") or {}).get("payload", {}).get("company_name", ""),
+                "amount": (h.get("target") or {}).get("payload", {}).get("credit_balance", "")
+                          or (h.get("target") or {}).get("payload", {}).get("amount", ""),
+                "tier": level,
+                "score": float(h.get("score", 0.0) or 0.0),
+                "matched_rules": h.get("matched_rules", []) or [],
+                "reasons": h.get("reasons", []) or [],
+            })
+
+    sorted_hits = sorted(hits, key=lambda h: float(h.get("score", 0.0) or 0.0), reverse=True)
+    top_cases = []
+    for h in sorted_hits[:10]:
+        target_payload = (h.get("target") or {}).get("payload", {})
+        triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
+        top_cases.append({
+            "id": h.get("hit_id", ""),
+            "client_id": h.get("hit_id", ""),
+            "customer": target_payload.get("company_name", ""),
+            "amount": target_payload.get("credit_balance", "") or target_payload.get("amount", ""),
+            "tier": (h.get("level") or "").lower(),
+            "triggers": triggers,
+            "advice": "",
+            "lastUpdate": "历史 (replay)",
+        })
+
+    red_count = int(hit_list_dict.get("red_count", 0))
+    yellow_count = int(hit_list_dict.get("yellow_count", 0))
+    green_count = int(hit_list_dict.get("green_count", 0))
+    total_scanned = int(hit_list_dict.get("total_scanned", red_count + yellow_count + green_count))
+
+    summary = (
+        f"replay · 重放 {scan_id} (生成于 {original_generated_at}) · "
+        f"原扫描 {total_scanned} 户 · 红 {red_count} / 黄 {yellow_count} / 绿 {green_count}"
+    )
+
+    done_evt = make_done(
+        panels={
+            "hit_list": by_grade,
+            "top_cases": top_cases,
+            "dispositions": payload.get("dispositions") or {},
+        },
+        metrics={
+            "red": red_count,
+            "yellow": yellow_count,
+            "green": green_count,
+            "total_scanned": total_scanned,
+        },
+        # cached enum · sse-envelope DATA_SOURCE_CACHED · frontend 渲染 "历史重放" banner
+        data_source="cached",
+        session_id=scan_id,
+        summary=summary,
+        scenario_key=str(payload.get("scenario_key", "")),
+        kb_state="replay · 不读 KB",
+        mode="replay",
+        original_mode=str(payload.get("mode", "")),
+        original_generated_at=original_generated_at,
+        replayed_at=datetime.now().isoformat(timespec="seconds"),
+        totals={"red": red_count, "yellow": yellow_count, "green": green_count},
+    )
+    # replay 也有 banner · 透明告知"当前看的是历史" (per live-fallback-banner-spec §1)
+    done_evt["fallback"] = {
+        "source": "Replay",
+        "reason": "scan_replay",
+        "severity": "info",
+        "message": f"历史扫描重放 · session={scan_id} · 生成于 {original_generated_at}",
+        "hint": "如需最新数据 · 调 POST /api/alert/scan 重新扫描",
+        "retried": False,
+    }
+    yield encode_event(done_evt)
+
+
+@app.post("/api/alert/scan/replay/{scan_id}")
+async def alert_scan_replay(scan_id: str):
+    """BE5.5 (2026-05-04): 历史 scan 重放端点 · audit 复核 / 培训 / 演示场景.
+
+    与 /api/alert/scan 共形 SSE 流形态 · 但:
+    - mode=replay · data_source=cached
+    - 不调 KB / 不调 LLM / 不调 SearchProvider · 100% 确定性回放
+    - 复刻原 panels (hit_list/top_cases/dispositions) + replayed_at + original_generated_at
+    - 错误 404 (HITLIST_NOT_FOUND) 走 SSE error event · frontend 显 banner
+
+    Path param:
+        scan_id: data/alert/sessions/<scan_id>.json 的文件名 (= persist_hitlist 返回的 session_id)
+    """
+    if not scan_id or not scan_id.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail=f"invalid scan_id={scan_id!r}")
+
+    def gen():
+        yield from _alert_replay_event_stream(scan_id)
+
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",
