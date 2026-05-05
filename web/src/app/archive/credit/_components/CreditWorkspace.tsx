@@ -31,6 +31,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
+import { ActionGate } from "@/components/shell/AuthGate";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
@@ -896,14 +897,35 @@ function PrimaryProfileHero(p: {
               {p.qcCounts.info} 提
             </span>
           </div>
-          <button
-            type="button"
-            className="credit-hero__cta"
-            onClick={p.onGenerate}
-            disabled={p.progress.running}
+          {/*
+           * Phase B Sprint 3 sub-PR 2 V2-FIX (2026-05-05 · per Codex review critical 2):
+           * "生成授信辅助" = credit.invoke action · ActionGate row-level gate ·
+           * RM credit.read-only → fallback 显仅查看 badge · 不可发起 (per Q-052 #8 收窄)
+           * credit_officer / risk_manager / admin → 真 button · 可调
+           */}
+          <ActionGate
+            agent="credit"
+            action="invoke"
+            fallback={
+              <span
+                className="credit-hero__cta credit-hero__cta--readonly"
+                data-testid="credit-invoke-readonly"
+                aria-disabled="true"
+                role="note"
+              >
+                仅查看 · 无 invoke 权限 (联系审贷员)
+              </span>
+            }
           >
-            {p.progress.running ? "生成中…" : "生成授信辅助"}
-          </button>
+            <button
+              type="button"
+              className="credit-hero__cta"
+              onClick={p.onGenerate}
+              disabled={p.progress.running}
+            >
+              {p.progress.running ? "生成中…" : "生成授信辅助"}
+            </button>
+          </ActionGate>
           <div className="credit-hero__progress" aria-hidden={!p.progress.step && !p.progress.running}>
             <div className="credit-hero__progress-label">{p.progress.label}</div>
             <div className="credit-hero__progress-track">

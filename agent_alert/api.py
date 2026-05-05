@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -42,6 +42,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from auth_service.dependencies import require_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.sse_envelope import (  # noqa: E402
     DATA_SOURCE_LIVE,
@@ -491,7 +492,10 @@ def _alert_event_stream(req: AlertScanRequest):
 
 
 @app.post("/api/alert/scan")
-async def alert_scan(req: AlertScanRequest):
+async def alert_scan(
+    req: AlertScanRequest,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """贷中预警批量扫描 SSE — 装载 KB → 双路交叉 → 进度/命中事件 → 处置建议汇总 → 持久化.
 
     QC blocker (CLAUDE.md §8): 每条 SSE payload 前置走 placeholder_guard,
@@ -502,6 +506,9 @@ async def alert_scan(req: AlertScanRequest):
 
     Done envelope (worker-A4-alert · 2026-04-29): 共形 panels + metrics + data_source ·
     panels = {hit_list, top_cases, dispositions} · 前端 normalizeAlertSession 注入 liveData。
+
+    Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("alert", "invoke")
+    enforce row-level/action gate · risk_manager/admin 可调 · RM/credit_officer/compliance_officer read-only 403.
     """
     def gen():
         yield from _alert_event_stream(req)
@@ -1046,7 +1053,10 @@ async def alert_scan_replay(scan_id: str):
 
 
 @app.post("/api/alert/export_docx")
-async def alert_export_docx(req: AlertExportDocxRequest):
+async def alert_export_docx(
+    req: AlertExportDocxRequest,
+    _user: dict = Depends(require_action("alert", "export")),
+):
     """W-FIX2 bug #6 修 · 命中清单 Word 报告本地导出.
 
     监管底线: 渲染全 BytesIO 本地完成 · 禁海外 API · attachment 下载.

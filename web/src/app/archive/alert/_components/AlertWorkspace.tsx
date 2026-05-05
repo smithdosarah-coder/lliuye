@@ -56,6 +56,7 @@ import {
   type SignalHeatBar,
   type TopCase,
 } from "@/lib/mock/agent-alert-sessions";
+import { ActionGate } from "@/components/shell/AuthGate";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import {
@@ -582,13 +583,45 @@ export default function AlertWorkspace() {
                 </button>
               </div>
             ) : null}
-            <AlertEmptyState
-              onPrimary={triggerPrimaryScan}
-              onSecondary={triggerSecondaryScan}
-              onTertiary={triggerTertiaryDemo}
-              scanRunning={phase === "scanning"}
-              scanError={scanError}
-            />
+            {/*
+             * Phase B Sprint 3 sub-PR 2 V2-FIX (2026-05-05 · per Codex review critical 2):
+             * AlertEmptyState 3 CTA (primary scan / secondary / demo) 全是 alert.invoke action ·
+             * ActionGate row-level gate · RM alert.read-only → fallback 仅查看 banner ·
+             * risk_manager / admin → 真 EmptyState · 可调 (per Q-052 #8 + ACCESS_V2)
+             */}
+            <ActionGate
+              agent="alert"
+              action="invoke"
+              fallback={
+                <div
+                  className="alert-empty"
+                  data-testid="alert-empty-readonly"
+                  role="note"
+                  aria-label="读取权限 · 不可发起扫描"
+                >
+                  <header className="alert-empty__hero">
+                    <div className="alert-empty__hero-eyebrow">
+                      AGENT · 04 · TOWER · 贷中预警引擎
+                    </div>
+                    <h1 className="alert-empty__hero-title">
+                      贷中风险预警 · 当前角色仅 read 权限
+                    </h1>
+                    <p className="alert-empty__hero-sub">
+                      您可查看历史扫描结果与预警榜单 · 不可发起新扫描 (POST /api/alert/scan)
+                      · 联系风险经理 (陈凯) 触发批量扫描
+                    </p>
+                  </header>
+                </div>
+              }
+            >
+              <AlertEmptyState
+                onPrimary={triggerPrimaryScan}
+                onSecondary={triggerSecondaryScan}
+                onTertiary={triggerTertiaryDemo}
+                scanRunning={phase === "scanning"}
+                scanError={scanError}
+              />
+            </ActionGate>
           </>
         ) : (
           <>

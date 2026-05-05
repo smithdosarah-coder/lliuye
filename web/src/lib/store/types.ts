@@ -163,10 +163,37 @@ export interface ImThread {
 }
 
 /**
+ * RBAC Action enum · row-level/action gate (Phase B Sprint 3 contract sub-PR 1 · 2026-05-05)
+ * 镜像 backend auth_service/rbac.py:Action · auth-protocol.md §3.4 红区契约 · 改一定同步两边走 RFC.
+ */
+export type Action = "invoke" | "read" | "export" | "handoff" | "approve";
+
+export const VALID_ACTIONS: readonly Action[] = [
+  "invoke",
+  "read",
+  "export",
+  "handoff",
+  "approve",
+] as const;
+
+/**
+ * Row-level access map · role → agent → action set
+ * 镜像 backend ACCESS_V2 · agent 不在 dict 表示该 role 不可调该 agent (per Q-052 #8 RM 收窄).
+ */
+export type RoleAccessV2 = Record<
+  Role,
+  Partial<Record<AgentId, readonly Action[]>>
+>;
+
+/**
  * Permission action — RBAC 判定的细粒度动作。
+ *
+ * - `agent.access` (binary backward compat · 任 1 action 允许)
+ * - `agent.action` (Phase B Sprint 3 row-level/action gate · per Q-052 #8)
  */
 export type PermissionAction =
   | { kind: "agent.access"; agent: AgentId }
+  | { kind: "agent.action"; agent: AgentId; action: Action }
   | { kind: "handoff.create"; from: AgentId; to: AgentId }
   | { kind: "handoff.accept"; agent: AgentId }
   | { kind: "customer.assign" }

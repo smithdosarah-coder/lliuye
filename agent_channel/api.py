@@ -27,7 +27,7 @@ import traceback
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -35,6 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from auth_service.dependencies import require_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
@@ -122,7 +123,10 @@ class ChannelRunRequest(BaseModel):
 
 
 @app.post("/api/channel/run")
-async def channel_run(req: ChannelRunRequest):
+async def channel_run(
+    req: ChannelRunRequest,
+    _user: dict = Depends(require_action("channel", "invoke")),
+):
     """全渠道获客真实搜索流 SSE — 5 阶段事件推送 + 最终候选清单。
 
     无 TAVILY_API_KEY 自动降级到 mock_fallback。
@@ -130,6 +134,9 @@ async def channel_run(req: ChannelRunRequest):
     Audit (W-FIX2 修 bug #11): generator finally 内调 audit_stream_event ·
     latency 含真实 LLM 调用时延 · 不再用 @audit_llm_call decorator
     (decorator 在 route function return StreamingResponse 即记 · 失真)。
+
+    Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("channel", "invoke")
+    enforce row-level/action gate · RM/admin 可调 · 其他角色 403.
     """
     def gen():
         t0 = time.time()
@@ -320,7 +327,10 @@ _EXPORT_COLUMNS: list[tuple[str, str]] = [
 
 
 @app.post("/api/channel/export_xlsx")
-async def channel_export_xlsx(req: ChannelExportRequest):
+async def channel_export_xlsx(
+    req: ChannelExportRequest,
+    _user: dict = Depends(require_action("channel", "export")),
+):
     """将候选企业清单导出为 xlsx（本地生成，禁止境外传输）。
 
     输入 candidates 是 /api/channel/run done 事件的 candidates 数组（带 camelCase 字段）。
@@ -402,7 +412,10 @@ class ChannelExportDocxRequest(BaseModel):
 
 
 @app.post("/api/channel/export_docx")
-async def channel_export_docx(req: ChannelExportDocxRequest):
+async def channel_export_docx(
+    req: ChannelExportDocxRequest,
+    _user: dict = Depends(require_action("channel", "export")),
+):
     """生成 Agent1 候选线索 Word 报告并作为 attachment 返回。
 
     内容含: 客户经理 + 日期 / IdealProfile 12 维卡 / TopN 候选概览表 /
@@ -485,7 +498,10 @@ class ChannelHandoffRequest(BaseModel):
 
 
 @app.post("/api/channel/handoff")
-async def channel_handoff(req: ChannelHandoffRequest):
+async def channel_handoff(
+    req: ChannelHandoffRequest,
+    _user: dict = Depends(require_action("channel", "handoff")),
+):
     """将候选企业 dict 转为 CandidateProfile，按契约写入本地 handoff JSON。
 
     返回各 profile_id + 相对路径，供 Agent3 按 profile_id 拉取。

@@ -40,7 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -52,6 +52,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  # noqa: E402
 from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
+from auth_service.dependencies import require_action  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
 try:
@@ -549,7 +550,11 @@ class V16FillRequest(BaseModel):
 
 
 @app.post("/api/report/v16/fill")
-async def report_v16_fill(req: V16FillRequest, request: Request):
+async def report_v16_fill(
+    req: V16FillRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """v16 主管线 SSE · classifier (复用) → generator → QC gate.
 
     自动选 mock / real (依 ``DEEPSEEK_API_KEY`` + classifier 产物存在与否) ·
@@ -559,6 +564,9 @@ async def report_v16_fill(req: V16FillRequest, request: Request):
     return StreamingResponse 即记 latency · 失真) · 改在 gen() finally 内调
     audit_stream_event · latency 含真实 SSE 流时延。
     内部 _emit_audit (写 session_store) 不动。
+
+    Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("report", "invoke")
+    enforce row-level/action gate · RM/credit_officer/compliance_officer/admin 可调 (read 各自).
     """
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
@@ -800,7 +808,11 @@ class ExportDocxRequest(BaseModel):
 
 
 @app.post("/api/report/export_docx")
-async def report_export_docx(req: ExportDocxRequest, request: Request):
+async def report_export_docx(
+    req: ExportDocxRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "export")),
+):
     """从 session 数据(或直接 payload)渲 .docx · 返 attachment 下载."""
     from urllib.parse import quote
     from agent_report.word_export import build_filename, export
@@ -1139,7 +1151,11 @@ async def report_section_supplement(req: dict):
 
 
 @app.post("/api/report/export_pdf")
-async def report_export_pdf(req: ExportDocxRequest, request: Request):
+async def report_export_pdf(
+    req: ExportDocxRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "export")),
+):
     """从 session 数据(或显式 payload)渲 .pdf · 返 attachment 下载.
 
     与 /api/report/export_docx 共用 ExportDocxRequest schema · 同源异格输出 · 给客户的
