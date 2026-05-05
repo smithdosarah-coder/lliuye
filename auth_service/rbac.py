@@ -24,9 +24,10 @@ VALID_AGENTS = ("channel", "report", "credit", "alert", "compliance", "riskctrl"
 
 # 镜像 web/src/lib/store/auth-store.ts:ACCESS_V2 (row-level/action gate)
 # Q-052 #8 RM 权限契约目标 收窄:
-#   - 主调 channel + report (full action set)
-#   - 看 credit + alert (read-only)
-#   - 不可调 riskctrl + compliance (NOT in dict)
+#   - 主调 channel + report (operational 4 actions: invoke/read/export/handoff)
+#     - 不含 approve · RM 不是审批方 (审贷员/合规官/风险经理才 approve)
+#   - 看 credit + alert (read-only · 仅 read)
+#   - 不可调 riskctrl + compliance (NOT in dict · 任何 action 都 False)
 ACCESS_V2: dict[str, dict[str, frozenset[Action]]] = {
     "rm": {
         "channel": frozenset({"invoke", "read", "export", "handoff"}),

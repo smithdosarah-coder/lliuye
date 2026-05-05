@@ -40,9 +40,10 @@ export const DEMO_USERS: User[] = [
  * 镜像 backend auth_service/rbac.py:ACCESS_V2 · auth-protocol.md §3.4 红区契约 · 改一定同步两边走 RFC.
  *
  * Q-052 #8 RM 权限契约目标 收窄:
- *   - 主调 channel + report (full action set)
- *   - 看 credit + alert (read-only)
- *   - 不可调 riskctrl + compliance (NOT in dict)
+ *   - 主调 channel + report (operational 4 actions: invoke/read/export/handoff)
+ *     - 不含 approve · RM 不是审批方 (审贷员/合规官/风险经理才 approve)
+ *   - 看 credit + alert (read-only · 仅 read)
+ *   - 不可调 riskctrl + compliance (NOT in dict · 任何 action 都 false)
  */
 const ACCESS_V2: RoleAccessV2 = {
   rm: {

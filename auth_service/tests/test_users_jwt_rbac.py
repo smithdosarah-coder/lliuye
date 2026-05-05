@@ -120,10 +120,36 @@ def test_jwt_empty_token_raises():
 # ============================================================================
 
 
-def test_access_matrix_rm_full():
-    """rm 全 6 Agent 可访问 (per auth-store.ts:62)."""
-    for ag in VALID_AGENTS:
+def test_access_matrix_rm_narrowed():
+    """RM 收窄 (Phase B Sprint 3 · per Q-052 #8): 主调 channel/report · 看 credit/alert read-only · 不可调 riskctrl/compliance."""
+    # 主调 + read-only (4 agent)
+    for ag in ("channel", "report", "credit", "alert"):
         assert can_access("rm", ag), f"rm should access {ag}"
+    # 不可调 (per Q-052 #8 收窄)
+    assert not can_access("rm", "riskctrl"), "rm should NOT access riskctrl (Q-052 #8 收窄)"
+    assert not can_access("rm", "compliance"), "rm should NOT access compliance (Q-052 #8 收窄)"
+
+
+def test_access_v2_rm_action_gate():
+    """RM row-level/action gate (Phase B Sprint 3 contract sub-PR 1)."""
+    from auth_service.rbac import can_action
+
+    # 主调 channel + report: invoke/read/export/handoff (operational 4 actions · 不含 approve · RM 不是审批方)
+    for ag in ("channel", "report"):
+        for act in ("invoke", "read", "export", "handoff"):
+            assert can_action("rm", ag, act), f"rm should have {act} on {ag}"
+        assert not can_action("rm", ag, "approve"), f"rm should NOT have approve on {ag} (RM 不是审批方)"
+
+    # 看 credit + alert: read only
+    for ag in ("credit", "alert"):
+        assert can_action("rm", ag, "read"), f"rm should have read on {ag}"
+        for act in ("invoke", "export", "handoff", "approve"):
+            assert not can_action("rm", ag, act), f"rm should NOT have {act} on {ag} (read-only · per Q-052 #8)"
+
+    # 不可调 riskctrl + compliance: 任何 action 都 false
+    for ag in ("riskctrl", "compliance"):
+        for act in ("invoke", "read", "export", "handoff", "approve"):
+            assert not can_action("rm", ag, act), f"rm should NOT have {act} on {ag} (Q-052 #8 收窄)"
 
 
 def test_access_matrix_credit_officer_only_3():

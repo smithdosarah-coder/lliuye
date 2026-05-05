@@ -268,6 +268,7 @@ def _policy_diff_event_stream(req: CompliancePolicyDiffRequest):
     """
     yield encode_event(make_stage(
         stage="diff",
+        status="running",
         message="policy_diff endpoint contract stub · sub-PR 2 implementation pending",
         progress=0.0,
     ))
