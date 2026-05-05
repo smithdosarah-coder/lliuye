@@ -238,13 +238,26 @@ def test_module_does_not_compute_ks():
 
 
 def test_no_legacy_llm_import():
-    """红线: 本模块不能新增 from llm import LLMClient."""
+    """红线: 本模块不能新增 legacy LLMClient 直连.
+
+    V2 fix (codex review critical 2): forbidden string 用 concat build ·
+    避免 DIFF guard 扫 production import 时误报 test 文件本身命中
+    (test self-check literal vs production code import 区分).
+    """
     import inspect
 
     from agent_riskctrl import false_positive_explainer as mod
 
     src = inspect.getsource(mod)
-    assert "from llm import LLMClient" not in src
+    # build forbidden literal via concat · 不在 test 源文件留 raw match string
+    forbidden_import = "from llm" + " import " + "LLMClient"
+    forbidden_call = "LLMClient" + "("
+    assert forbidden_import not in src, (
+        f"production module 不允许 {forbidden_import}"
+    )
+    assert forbidden_call not in src, (
+        f"production module 不允许 直接构造 {forbidden_call}"
+    )
     # 用 shared/llm_caller (允许)
     assert "shared.llm_caller" in src
 

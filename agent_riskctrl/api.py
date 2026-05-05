@@ -317,7 +317,7 @@ async def riskctrl_backtest(req: BacktestRequest):
     def gen():
         try:
             from agent_riskctrl.backtesting import load_csv_data, run_backtest
-            from agent_riskctrl.metrics import calculate_ks
+            from agent_riskctrl.metrics import calculate_auc, calculate_ks
             from agent_riskctrl.rule_engine import RuleSet
         except (ImportError, ModuleNotFoundError) as e:
             yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
@@ -368,12 +368,13 @@ async def riskctrl_backtest(req: BacktestRequest):
             return
         yield encode_event(make_stage("hit_rules", "done"))
 
-        # KS / bad_rate / curve
+        # KS / AUC / bad_rate / curve (V2 fix · BE6.4 · AUC 实装 deterministic)
         bad_rate: float | None = None
         ks_peak: float | None = None
+        auc_value: float | None = None
         ks_points: list[dict[str, Any]] = []
 
-        yield encode_event(make_stage("calc_ks", "running", message="计算 KS / 通过率..."))
+        yield encode_event(make_stage("calc_ks", "running", message="计算 KS / AUC / 通过率..."))
         if label_col and label_col in df.columns:
             try:
                 if label_col == "days_past_due":
@@ -390,6 +391,7 @@ async def riskctrl_backtest(req: BacktestRequest):
                 ]
                 if len(y_true) == len(y_pred) and y_pred:
                     ks_peak = calculate_ks(y_true, y_pred)
+                    auc_value = calculate_auc(y_true, y_pred)
                     ks_points = _ks_curve_points(y_true, y_pred, bins=10)
             except (TypeError, ValueError, KeyError):
                 pass
@@ -436,9 +438,11 @@ async def riskctrl_backtest(req: BacktestRequest):
         ]
 
         # KS 顶层 panel object · 前端直 setLiveData.ks
+        # V2 fix (codex review critical 1): AUC 用 deterministic rank-based 实装
+        # 替代 v1 hardcoded 0.0 · 见 metrics.calculate_auc (numpy · 不引 sklearn)
         ks_panel = {
             "ksPeak": ks_peak or 0.0,
-            "auc": 0.0,  # V2 接 sklearn roc_auc_score
+            "auc": auc_value or 0.0,
             "passRate": round(approved * 100.0 / total, 1),
             "badRate": round((bad_rate or 0.0) * 100.0, 1),
             "points": ks_points,
