@@ -103,6 +103,23 @@ class AlertDemoRunRequest(BaseModel):
     scenario_key: str = "baseline_100"
 
 
+class AlertBatchScanRequest(BaseModel):
+    """BE9.1 (Phase B Sprint 2 · 2026-05-04): 跨多 scenario 批量扫描请求.
+
+    一次扫多客户场景 · 内 streaming 进度 · 产出聚合 hitlist + per-scenario breakdown ·
+    给 BE9.2 alert clustering 做前置 (≥ 3 客户共同 pattern 跨 scenario detect)。
+
+    红线 (per CLAUDE.md §3.7.1): max_total_customers ≤ 50000 (与 Agent2 MAX_ROWS 同
+    口径 · banking 客户不会一次扫 5 万 · 这是 abuse 防御不是 quota)。
+    """
+    scenarios: list[str] = []                # 1+ scenario key (KB 已知 demo_data/agent_alert/<key>)
+    client_ids: list[str] = []               # 可选 filter · 空 = scenario 内全扫
+    force_mock: bool = True                  # 默认 mock · live 路径要 caller 显式开
+    provider: str | None = None
+    api_key: str | None = None
+    max_total_customers: int = 50000         # CLAUDE.md §3.7.1 active rule 上限
+
+
 # ============================================================================
 # stage 名映射 + done envelope builder
 # ============================================================================
@@ -579,6 +596,279 @@ async def alert_demo_run(req: AlertDemoRunRequest):
     """
     def gen():
         yield from _alert_demo_event_stream(req)
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/alert/batch_scan — BE9.1 跨 scenario 批量扫描 + 聚合
+# ============================================================================
+
+
+def _alert_batch_event_stream(req: AlertBatchScanRequest):
+    """BE9.1 (Phase B Sprint 2 · 2026-05-04): 多 scenario 批量扫描 SSE 流.
+
+    形态:
+    - 接 scenarios (1+) · 顺序跑每个 scenario · 内 streaming per-client tick
+    - 可选 client_ids filter (跨 scenario 都按同一 client_id list 过)
+    - aggregate done event 含: 全聚合 hit_list (red/yellow/green) + per_scenario breakdown
+    - mode=batch · data_source 与最严 fallback 对齐 (任一 scenario fallback → 整体 mock_fallback)
+
+    红线:
+    - max_total_customers ≤ 50000 (per CLAUDE.md §3.7.1) · 防 abuse
+    - LLM 调用经 shared/llm_caller (复用 run_scan_and_persist 内逻辑 · 不裸 init)
+    - 不破 4 步 pipeline · 每 scenario 走 run_scan_and_persist (含 fallback chain)
+
+    后续 (BE9.2):
+    - alert_clusterer 消费 aggregate hits · jaccard ≥ 0.7 跨客户聚合
+    - cluster pattern → Agent4→Agent2 §6.4 handoff
+    """
+    if not req.scenarios:
+        yield encode_event(make_error(
+            "scenarios 列表不能为空 · 至少给 1 个 scenario_key",
+            code="EMPTY_SCENARIOS",
+        ))
+        return
+
+    try:
+        from agent_alert.scan_engine import run_scan_and_persist
+    except ImportError as e:
+        yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+        return
+
+    aggregate_hits: list[dict] = []
+    per_scenario_breakdown: dict[str, dict] = {}
+    fallback_modes: list[str] = []
+    total_scanned = 0
+    client_id_filter = set(req.client_ids or [])
+
+    yield encode_event(make_stage(
+        "batch_init",
+        "running",
+        message=(
+            f"批量扫描启动 · scenarios={len(req.scenarios)} · "
+            f"filter={len(client_id_filter)} client_ids · max={req.max_total_customers}"
+        ),
+        scenarios=list(req.scenarios),
+    ))
+
+    for scenario_idx, scenario_key in enumerate(req.scenarios, start=1):
+        if total_scanned >= req.max_total_customers:
+            yield encode_event(make_stage(
+                "batch_capped",
+                "warn",
+                message=(
+                    f"已扫 {total_scanned} 户 · 达到 max_total_customers={req.max_total_customers} "
+                    f"· 余 {len(req.scenarios) - scenario_idx + 1} scenarios 跳过"
+                ),
+                scenario_key=scenario_key,
+            ))
+            break
+
+        scenario_hits: list[dict] = []
+        scenario_red = scenario_yellow = scenario_green = 0
+        scenario_mode = ""
+        scenario_session_id = ""
+        scenario_total = 0
+
+        yield encode_event(make_stage(
+            "scenario_start",
+            "running",
+            message=f"开始扫 scenario={scenario_key} ({scenario_idx}/{len(req.scenarios)})",
+            scenario_key=scenario_key,
+        ))
+
+        try:
+            for evt in run_scan_and_persist(
+                scenario_key=scenario_key,
+                api_key=req.api_key or "dummy",
+                provider=req.provider or "deepseek",
+                force_mock=bool(req.force_mock),
+            ):
+                etype = evt.get("type", "") if isinstance(evt, dict) else ""
+
+                if etype == "hit":
+                    hit_obj = evt.get("hit")
+                    if hit_obj is None:
+                        continue
+                    # client_id filter (跨 scenario 通用)
+                    target_id = (
+                        getattr(hit_obj, "hit_id", None)
+                        or (getattr(hit_obj, "target", None) and getattr(hit_obj.target, "target_id", None))
+                        or ""
+                    )
+                    if client_id_filter and target_id not in client_id_filter:
+                        continue
+                    scenario_total += 1
+                    if total_scanned + scenario_total > req.max_total_customers:
+                        # 超 cap 则 break 当前 scenario
+                        scenario_total -= 1
+                        break
+                    compact = _to_compact_hit(hit_obj)
+                    extras = getattr(hit_obj, "extras", None) or {}
+                    compact["signal_kinds"] = list(extras.get("signal_kinds") or [])
+                    compact["scenario_key"] = scenario_key
+                    scenario_hits.append(compact)
+                    bucket = compact.get("tier", "")
+                    if bucket == "red":
+                        scenario_red += 1
+                    elif bucket == "yellow":
+                        scenario_yellow += 1
+                    elif bucket == "green":
+                        scenario_green += 1
+
+                    yield encode_event(make_stage(
+                        "client_tick",
+                        "running",
+                        message=f"{scenario_key} · {compact.get('company_name', '')} · {bucket}",
+                        scenario_key=scenario_key,
+                        tier=bucket,
+                    ))
+
+                elif etype == "session":
+                    scenario_session_id = str(evt.get("session_id", ""))
+                    scenario_mode = str(evt.get("mode", ""))
+                    if scenario_mode and scenario_mode != "web_live":
+                        fallback_modes.append(scenario_mode)
+
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+            yield encode_event(make_stage(
+                "scenario_error",
+                "error",
+                message=f"{scenario_key} 扫描异常: {type(e).__name__}: {e}",
+                scenario_key=scenario_key,
+            ))
+            per_scenario_breakdown[scenario_key] = {
+                "session_id": "",
+                "mode": "",
+                "error": f"{type(e).__name__}: {e}",
+                "red": 0, "yellow": 0, "green": 0, "total": 0,
+            }
+            continue
+
+        aggregate_hits.extend(scenario_hits)
+        total_scanned += scenario_total
+        per_scenario_breakdown[scenario_key] = {
+            "session_id": scenario_session_id,
+            "mode": scenario_mode,
+            "red": scenario_red,
+            "yellow": scenario_yellow,
+            "green": scenario_green,
+            "total": scenario_total,
+        }
+
+        yield encode_event(make_stage(
+            "scenario_done",
+            "done",
+            message=(
+                f"{scenario_key} 完 · 红 {scenario_red} / 黄 {scenario_yellow} / 绿 {scenario_green} "
+                f"· session={scenario_session_id} · mode={scenario_mode}"
+            ),
+            scenario_key=scenario_key,
+            session_id=scenario_session_id,
+        ))
+
+    # aggregate done envelope
+    by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
+    for h in aggregate_hits:
+        bucket = h.get("tier", "")
+        if bucket in by_grade:
+            by_grade[bucket].append(h)
+
+    sorted_hits = sorted(aggregate_hits, key=lambda h: float(h.get("score", 0.0) or 0.0), reverse=True)
+    top_cases = []
+    for h in sorted_hits[:20]:  # batch 给 20 (vs scan 10) · 跨 scenario 可见
+        triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
+        top_cases.append({
+            "id": h.get("client_id", ""),
+            "client_id": h.get("client_id", ""),
+            "customer": h.get("company_name", ""),
+            "amount": h.get("amount", ""),
+            "tier": h.get("tier", ""),
+            "triggers": triggers,
+            "scenario_key": h.get("scenario_key", ""),
+            "lastUpdate": "刚刚",
+        })
+
+    red_total = sum(s.get("red", 0) for s in per_scenario_breakdown.values())
+    yellow_total = sum(s.get("yellow", 0) for s in per_scenario_breakdown.values())
+    green_total = sum(s.get("green", 0) for s in per_scenario_breakdown.values())
+
+    # data_source 取最严 (任一 scenario fallback → mock_fallback / 全 live → live)
+    if not fallback_modes:
+        data_source = DATA_SOURCE_LIVE
+    elif any(m.startswith("web_fallback_") for m in fallback_modes):
+        data_source = DATA_SOURCE_MOCK_FALLBACK
+    elif any(m == "demo_forced" for m in fallback_modes):
+        data_source = DATA_SOURCE_MOCK_FORCED
+    else:
+        data_source = DATA_SOURCE_MOCK
+
+    summary = (
+        f"batch · 扫 {len(per_scenario_breakdown)} scenario · {total_scanned} 户 · "
+        f"红 {red_total} / 黄 {yellow_total} / 绿 {green_total}"
+    )
+
+    done_evt = make_done(
+        panels={
+            "hit_list": by_grade,
+            "top_cases": top_cases,
+            "per_scenario": per_scenario_breakdown,
+            "aggregate_hits": aggregate_hits,  # 给 BE9.2 alert_clusterer 消费
+        },
+        metrics={
+            "red": red_total,
+            "yellow": yellow_total,
+            "green": green_total,
+            "total_scanned": total_scanned,
+            "scenarios_run": len(per_scenario_breakdown),
+        },
+        data_source=data_source,
+        session_id=f"batch-{int(time.time())}",
+        summary=summary,
+        scenarios=list(req.scenarios),
+        client_id_filter=list(client_id_filter),
+        mode="batch",
+        totals={"red": red_total, "yellow": yellow_total, "green": green_total},
+    )
+    # batch fallback banner (按最严 mode)
+    worst_mode = next(
+        (m for m in fallback_modes if m.startswith("web_fallback_")),
+        next((m for m in fallback_modes if m), "web_live"),
+    )
+    fallback_banner = _resolve_fallback_banner(worst_mode)
+    if fallback_banner:
+        done_evt["fallback"] = fallback_banner
+    yield encode_event(done_evt)
+
+
+@app.post("/api/alert/batch_scan")
+async def alert_batch_scan(req: AlertBatchScanRequest):
+    """BE9.1 (2026-05-04): 跨 scenario 批量扫描端点.
+
+    输入 1+ scenario_key + 可选 client_ids filter · 顺序跑每个 scenario ·
+    SSE 流 per-client tick + per-scenario aggregate · 最终 done event 含跨
+    scenario 聚合 hit_list + per_scenario breakdown + aggregate_hits (给 BE9.2 消费).
+
+    红线 (per CLAUDE.md §3.7.1): max_total_customers ≤ 50000 (默认 50000).
+
+    Body:
+    {
+      "scenarios": ["baseline_100", "manuf_policy_event"],  // required 1+
+      "client_ids": [],                                     // 可选 filter
+      "force_mock": true,                                   // 默认 mock
+      "max_total_customers": 50000
+    }
+    """
+    def gen():
+        yield from _alert_batch_event_stream(req)
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",
