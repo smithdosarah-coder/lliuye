@@ -62,6 +62,9 @@ data/audit/*.db-journal
 data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep
+data/riskctrl/psi/*.jsonl
+!data/riskctrl/psi/.gitkeep
+!data/riskctrl/psi/README.md
 data/exports/
 data/alert/sessions/
 data/alert/latest.json
