@@ -188,3 +188,82 @@ Phase B (~14-18 周 wall-clock):
 **Author**: 主 CLI · 2026-05-01
 **v2 supersede v1**: ✓
 **git tag baseline**: phase-b-start-2026-05-01 (本 commit + tag)
+
+---
+
+## v2.2 · Sprint 3 排期 + 4 worker 阶梯启 (2026-05-04 PM ratify · post-Q-052 audit dispose synthesis)
+
+### 触发
+
+- Codex Phase B periodic audit (`bx2wmkcwp` · 2026-05-04) verdict NEEDS-FIX · 4 P1 + 4 P2 + 2 P3 finding
+- R1/R2 audit dispose 双辩论 synthesis (主 CLI v1+v2 · Codex `btx6e1616` + `b23cpqfz5` · R3 跳 dissent ≤ 1)
+- PM 2026-05-04 GO 拍板 + Codex R2 catch 2 项: B5 V2-issue-3 endpoint DoD 明确 + P2.6 grep guard 防复制污染
+
+### Sprint 3 4 worker 阶梯启 (Week 6-8)
+
+| Week | Day | worker | 任务 |
+|---|---|---|---|
+| Week 6 | Day 1-3 (~5/14-5/16) | **B5-role-workbench-logic** (新加) | **contract-first sub-PR**: ACCESS v2 + row-level Depends schema (action enum `invoke/read/export/handoff/approve`) + RM 权限收窄 contract (主调 Agent1/Agent6 · 看 Agent3/Agent4 read-only · 不可调 Agent2/Agent5) + V2-issue-3 policy_diff endpoint contract (POST /api/compliance/policy_diff + sse_envelope) |
+| Week 6 | Day 1-3 同启 | **B4-channel** (BE1+BE12) | backend-only · 不碰 shell/today/auth/dispatch 公共区 · approve/export/action 集成等 B5 schema freeze |
+| Week 6 | Day 1-3 同启 | **B4-riskctrl** (BE6+BE8) | backend-only · DSL/backtest/business metrics · approve/export 集成等 B5 schema freeze |
+| Week 6 | Day 4-5 (~5/17-5/18) | **B5 implementation sub-PR** | atomic 跨前后端: rbac.py + auth-store.ts + AuthGate.tsx + 5 role home view (F5/F7/F8/F9/F10/F15) + policy_diff endpoint consumer + frontend listener + endpoint test |
+| Week 6 | Day 4-5 同启 | B4-channel | 接 Agent1 workspace + personal_insight payload (不改 today layout) |
+| Week 6 | Day 4-5 同启 | B4-riskctrl | 接 Agent2 DSL/backtest + Agent2→4/3 链路 fixture |
+| Week 7-8 (~5/19-6/15) | 插空 | **B7-BE13** | BE13 个人画像 POC (减半 · 0.75-1 周 · BE7 已被 B4-credit Sprint 2 提前 ship) |
+
+### 4 worker 边界 ownership (per Codex audit dispose R2 synthesis)
+
+| worker | owns | 不 owns |
+|---|---|---|
+| **B5-role-workbench-logic** | `auth_service/rbac.py` · `auth_service/dependencies.py` · `web/src/lib/store/auth-store.ts` · `web/src/components/shell/AuthGate.tsx` · `/today` role shell (5 角色 differentiation) · `/dispatch` handoff task card frame/action gate · handoff/action schema · V2-issue-3 endpoint (POST /api/compliance/policy_diff + sse_envelope + endpoint test) | Agent1/2/3/4/5/6 业务 BE · workspace 内容 |
+| **B4-channel** | `agent_channel/` · channel API/types · `/archive/channel` workspace · Agent1 candidate evidence card · `personal_insight` payload (BE12 后端 + payload schema) | `/today` layout · auth · dispatch · shell |
+| **B4-riskctrl** | `agent_riskctrl/` · DSL/backtest/business metrics (BE6+BE8) · Agent2→4/3 链路 fixture (写真业务深度 · per Q-052 P2.5) | shell/today/auth/dispatch |
+| **B7** | `evaluation/agent_riskctrl.yaml` BE13 个人画像 POC + ledger integration verify | 其他 |
+
+### Sprint 3 启动前 DoD (~5/14 ratify before)
+
+主 CLI 自决执行 (~3 hr 总 · per Q-052 audit dispose synthesis):
+
+1. ✅ P2.7 Sprint 2 baseline regen 跑 + commit (~30 min) — `evaluation/baselines/2026-05-04-sprint2-end.md`
+2. ⏳ P2.6 legacy LLMClient (3 file `shared/base_agent.py:16,30` + `enterprise_info.py:294-295` + `rule_extractor.py:53-54`) 主 CLI pre-Sprint 小 PR 迁 (~30-45 min if testable) OR Sprint 4 waiver + grep guard `rg "from llm import LLMClient|LLMClient\("`
+3. ✅ P2.5 主 CLI 修 stale + schema-valid 最小 fixture × 5 (`agent5-to-3-block.json` · `agent3-to-6-gap.json` · `agent4-to-5-escalate.json` · `agent2-to-4-dsl-deploy.json` · `agent2-to-3-rubric.json`) — 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)
+4. ✅ P3.9 contract stale 改 (6 line · §6.1-6.6 fixture status update · §6.4 标 done with commit f9cfcc9)
+5. ✅ PRD master v1.1 update (post-Q-052 reframe · 8 active rule + Sprint 3 排期)
+6. ✅ charter v2.2 段写 (本段)
+7. ⏳ 4 worker onboarding 起草 (B5 + B4-channel + B4-riskctrl + B7 · ~1 hr)
+8. ⏳ Codex pre-dispatch review **一次批量 4 onboarding** (per Q-049 双辩论 + Codex R2 audit dispose 建议 · ~30-60 min · 验跨 worker 写集 + DoD 含 P1/P2 + Q-048/Q-049/Q-050/Q-052 + B5 V2-issue-3 endpoint DoD 明确 + 禁止新增 legacy LLMClient grep guard)
+
+完了 PM:
+- ratify charter v2.2 (本段 · ~10 min)
+- ratify 4 worker onboarding (~10 min)
+- ratify PRD master v1.1 (~30 sec · 已 status ✅)
+- ~5/14 双击 launch-all-LIUYE.bat 启 4 sub CLI (B5 + B4-channel + B4-riskctrl + B7)
+
+### Sprint 3 风险 (5 项 · post-Codex R2 audit dispose)
+
+| # | 风险 | 缓解 |
+|---|---|---|
+| 1 | B5 scope 膨胀 (权限 + home + dispatch + endpoint + UI overhaul) | contract-first sub-PR + implementation sub-PR 分两段 atomic commit chain · 每段跨前后端 · 守 PM 5/4 "禁止先改一端" |
+| 2 | B4-channel + B5 同改 `/today`/`dispatch` merge conflict | 边界严格 ownership (上表) · review block 跨 worker file edit |
+| 3 | row-level schema 没真实 customer assignment 数据 | 先 skeleton + demo fixture · Sprint 3 中 B4-channel BE12 / B4-credit history 真数据接入 · `web/src/lib/store/types.ts:49-60` `Customer.assignedTo/sharedWith` shape |
+| 4 | policy_diff endpoint 再次只 ship lib (类 V2-issue-3 历史) | B5 DoD 必含 `POST /api/compliance/policy_diff` route + sse_envelope · `tests/agent_compliance/test_policy_diff_endpoint.py` 真 ship · 不只 lib |
+| 5 | Codex review file:line 幻觉 (5/4 V2-issue-3 教训) | R2 + Codex review 必人工 verify file:line · 不盲信 AGREE |
+
+### 替代方案 rejected (post-Codex R2 audit dispose)
+
+| # | 替代 | 拒理由 |
+|---|---|---|
+| A | 主 CLI 现在直接 fix P1.1 RM 权限 | break 当前 RM 前端 view · 必跟 row-level schema atomic · 留 B5 |
+| B | Sprint 4 整合时改 P2.6 legacy LLMClient | Codex catch · 越拖 Sprint 3 worker 复用 shared 会再加一份 · 改 Sprint 3 启前 OR waiver + grep guard |
+| C | 4 worker 不阶梯启 (Sprint 3 全 4 worker 同时启) | cron + review capacity 超载 · 反 Q-046 5 跑偏硬规 #3 |
+| D | B5 单巨 PR | Review cost 过高 (跨 5+ file 全前后端 + endpoint + 5 home view) |
+| E | 4 worker onboarding 4 sequential bg 双辩论 | Codex catch · cost 4× · 一次包 4 看跨 worker 冲突更全 |
+| F | 反向链 fixture worker 触到时全自写 (没主 CLI 修 stale) | Codex catch · contract `:855` 仍 placeholder 但本地 fixture 已存在 = SSOT 漂移 · 主 CLI 必修 stale + 写 schema-valid 最小 (业务深度 worker 扩展) |
+| G | 直接 ratify PRD v1 (不 v1.1) | 内容跟 Q-052 reframe 不一致 · 误导后续 worker |
+
+### Sign-off
+
+- v2 author: 主 CLI 2026-05-01 (5 项验收硬线 · 9 worker · BE1-BE13)
+- v2.2 author: 主 CLI 2026-05-04 (Sprint 3 排期 + 4 worker 阶梯启 + B5 contract-first + 4 worker 边界 ownership · post-Q-052 audit dispose synthesis)
+- ratify: PM 2026-05-04 GO
+

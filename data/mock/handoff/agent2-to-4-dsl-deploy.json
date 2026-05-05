@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "intent_type": "dsl_deployed",
+  "source_agent": "riskctrl",
+  "target_agent": "alert",
+  "dsl_version": "v0.0.0-placeholder",
+  "dsl_rule_count": 0,
+  "affected_segments": [
+    "科创"
+  ],
+  "deployed_at": "2026-05-04T00:00:00Z",
+  "requesting_full_rescan": true,
+  "_metadata": {
+    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
+    "created_by": "main-cli-2026-05-04",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.5 Agent2 触发链 Agent2.dsl_deployed → Agent4.scan_trigger",
+    "implements_owner": "B4-riskctrl + B4-alert (V3 fix-forward 已实装 endpoint) Phase B-1 per contract §6.7"
+  }
+}

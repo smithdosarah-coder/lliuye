@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "intent_type": "report_gap_supplement",
+  "source_agent": "credit",
+  "target_agent": "report",
+  "report_id": "RPT-PLACEHOLDER-001",
+  "gap_sections": [
+    "supplier_concentration",
+    "downstream_buyers"
+  ],
+  "requesting_decision_id": "DEC-PLACEHOLDER-001",
+  "urgency": "blocking",
+  "_metadata": {
+    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
+    "created_by": "main-cli-2026-05-04",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.2 反向链 Agent3.report_gap → Agent6.section_supplement",
+    "implements_owner": "B4-report (V3 后续) Phase B-1 per contract §6.7"
+  }
+}

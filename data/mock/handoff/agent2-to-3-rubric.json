@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "intent_type": "dsl_versioned",
+  "source_agent": "riskctrl",
+  "target_agent": "credit",
+  "dsl_version_old": "v0.0.0-placeholder",
+  "dsl_version_new": "v0.0.1-placeholder",
+  "affected_rubric_dimensions": [
+    "PLACEHOLDER-DIMENSION"
+  ],
+  "affected_segments": [
+    "科创"
+  ],
+  "rubric_diff": {
+    "added": [],
+    "modified": [],
+    "removed": []
+  },
+  "_metadata": {
+    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
+    "created_by": "main-cli-2026-05-04",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.6 Agent2 触发链 Agent2.dsl_versioned → Agent3.rubric_sync",
+    "implements_owner": "B4-riskctrl + B4-credit V3 Phase B-1 per contract §6.7"
+  }
+}

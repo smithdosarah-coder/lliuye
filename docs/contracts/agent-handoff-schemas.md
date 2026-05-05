@@ -810,7 +810,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/credit/re_decision` (新 endpoint · spec 仅 · A4-credit V3 fix-forward 实装) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "violation_to_re_decision"` · `source_agent: "compliance"` · `target_agent: "credit"` · `client_id` · `violation_id` · `violation_clause` · `original_decision_id` · `original_risk_grade` · `original_amount_yuan` · `re_decision_required_at: ISO8601` |
 | 消费侧约束 (Agent3) | 必读 client_id + violation_clause + original_decision_id · 重新跑四维评分 + segment-aware rubric (per Q-044 v4 Action 7 · 科创六维 etc.) · 输出新 decision_id |
-| Fixture 路径 | `data/mock/handoff/agent5-to-3-block.json` (v1.1 placeholder · v1.2 Phase B-1 实装) |
+| Fixture 路径 | `data/mock/handoff/agent5-to-3-block.json` ✅ schema-valid placeholder ship 2026-05-04 (主 CLI 修 stale per Q-052 P2.5 audit dispose) · 业务深度 worker A4-credit V3 触链路时扩展 (per §3.5 #5 mock 边界) |
 
 ### 6.2 反向链 · Agent3.report_gap → Agent6.section_supplement
 
@@ -824,7 +824,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/report/section_supplement` (新 endpoint · spec 仅) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "report_gap_supplement"` · `source_agent: "credit"` · `target_agent: "report"` · `report_id` · `gap_sections: list[str]` (e.g. ["supplier_concentration", "downstream_buyers"]) · `requesting_decision_id` · `urgency: "blocking" | "advisory"` |
 | 消费侧约束 (Agent6) | 必读 report_id + gap_sections · 跑 v16 pipeline 仅这些 sections · 不重跑全 report · 完后 emit `section_supplement_done` event 含 supplemented sections · Agent3 接到后重评 |
-| Fixture 路径 | `data/mock/handoff/agent3-to-6-gap.json` (v1.1 placeholder · v1.2 Phase B-1 实装) |
+| Fixture 路径 | `data/mock/handoff/agent3-to-6-gap.json` ✅ schema-valid placeholder ship 2026-05-04 (主 CLI 修 stale per Q-052 P2.5 audit dispose) · 业务深度 worker B4-report 触链路时扩展 (per §3.5 #5 mock 边界) |
 
 ### 6.3 反向链 · Agent4.alert_escalated → Agent5.compliance_review
 
@@ -838,7 +838,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/compliance/review_request` (新 endpoint · spec 仅) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "alert_escalation"` · `source_agent: "alert"` · `target_agent: "compliance"` · `client_id` · `alert_id` · `alert_signals: list[dict]` (触发信号) · `recommended_clauses: list[str]` (Agent4 推荐查的合规条款) · `escalated_at` |
 | 消费侧约束 (Agent5) | 必读 client_id + alert_signals · 在制度库扫描相关 clauses · 输出 violation list (可空) · 落 `data/handoff/alert_to_compliance/<alert_id>.json` |
-| Fixture 路径 | `data/mock/handoff/agent4-to-5-escalate.json` (v1.1 placeholder) |
+| Fixture 路径 | `data/mock/handoff/agent4-to-5-escalate.json` ✅ schema-valid placeholder ship 2026-05-04 (主 CLI 修 stale per Q-052 P2.5 audit dispose) · 业务深度 worker B4-alert + B4-compliance 触链路时扩展 (per §3.5 #5 mock 边界) |
 
 ### 6.4 反向链 · Agent4.pattern_detected → Agent2.rule_proposal
 
@@ -852,7 +852,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/riskctrl/rule_proposal` (新 endpoint · spec 仅) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "pattern_to_rule_proposal"` · `source_agent: "alert"` · `target_agent: "riskctrl"` · `pattern_id` · `pattern_description` · `affected_clients: list[client_id]` (≥ 3) · `signal_features: list[dict]` · `proposal_type: "new_rule" | "rule_update"` · `urgency_score: int 0-100` |
 | 消费侧约束 (Agent2) | 必读 pattern_features + affected_clients · 风险经理 review · 决定是否生成 DSL · 不强制 (Agent2 是后台引擎 · 风险经理拍板) |
-| Fixture 路径 | `data/mock/handoff/agent4-to-2-pattern.json` (v1.1 placeholder) |
+| Fixture 路径 | `data/mock/handoff/agent4-to-2-pattern.json` ✅ **DONE 业务深度** ship 2026-05-04 (B4-alert BE9.3 V2 commit `f9cfcc9` · per Q-048 ⚠️ 警告 · `build_pattern_proposal` affected_clients ≥ 3 校验) |
 
 ### 6.5 Agent2 触发链 · Agent2.dsl_deployed → Agent4.scan_trigger
 
@@ -866,7 +866,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/alert/rebuild_index` (新 endpoint · spec 仅 · A4-alert V3 fix-forward 实装) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "dsl_deployed"` · `source_agent: "riskctrl"` · `target_agent: "alert"` · `dsl_version` · `dsl_rule_count` · `affected_segments: list[str]` (e.g. ["科创", "对公"]) · `deployed_at` · `requesting_full_rescan: bool` |
 | 消费侧约束 (Agent4) | 必读 dsl_version + affected_segments · 触发 batch scan job (~4-6h 跑) · 完成后 emit `rescan_done` event 含 new_hits/new_alerts 统计 |
-| Fixture 路径 | `data/mock/handoff/agent2-to-4-dsl-deploy.json` (v1.1 placeholder) |
+| Fixture 路径 | `data/mock/handoff/agent2-to-4-dsl-deploy.json` ✅ schema-valid placeholder ship 2026-05-04 (主 CLI 修 stale per Q-052 P2.5 audit dispose) · 业务深度 worker B4-riskctrl + B4-alert (V3 fix-forward 已实装 endpoint) 触链路时扩展 (per §3.5 #5 mock 边界) |
 
 ### 6.6 Agent2 触发链 · Agent2.dsl_versioned → Agent3.rubric_sync
 
@@ -880,7 +880,7 @@ RM 收到"合规阻断 · 授信意见调整"通知。
 | 传输 | `POST /api/credit/rubric_sync` (新 endpoint · spec 仅 · A4-credit V3 实装) |
 | Payload 关键字段 | `schema_version: "1.0"` · `intent_type: "dsl_versioned"` · `source_agent: "riskctrl"` · `target_agent: "credit"` · `dsl_version_old` · `dsl_version_new` · `affected_rubric_dimensions: list[str]` · `affected_segments: list[str]` (科创六维 / 对公财务 / 普惠团队 等 segment) · `rubric_diff: dict` (新增/修改/删除 rule 字段) |
 | 消费侧约束 (Agent3) | 必读 affected_rubric_dimensions + segments · 更新 `evaluation/agent_credit_<segment>.yaml` 内对应 rubric · 跑 evaluation baseline 验证不破现有 sample · ack `rubric_synced` event 给 Agent2 |
-| Fixture 路径 | `data/mock/handoff/agent2-to-3-rubric.json` (v1.1 placeholder) |
+| Fixture 路径 | `data/mock/handoff/agent2-to-3-rubric.json` ✅ schema-valid placeholder ship 2026-05-04 (主 CLI 修 stale per Q-052 P2.5 audit dispose) · 业务深度 worker B4-riskctrl + A4-credit V3 触链路时扩展 (per §3.5 #5 mock 边界) |
 
 ### 6.7 实装 owner + Phase 排期
 

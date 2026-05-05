@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "intent_type": "violation_to_re_decision",
+  "source_agent": "compliance",
+  "target_agent": "credit",
+  "client_id": "PLACEHOLDER-CLIENT-001",
+  "violation_id": "VIO-PLACEHOLDER-001",
+  "violation_clause": "PLACEHOLDER · clause text · worker (B4-credit V3 fix-forward) 触链路时填真实条款引用",
+  "original_decision_id": "DEC-PLACEHOLDER-001",
+  "original_risk_grade": "B",
+  "original_amount_yuan": 0,
+  "re_decision_required_at": "2026-05-04T00:00:00Z",
+  "_metadata": {
+    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
+    "created_by": "main-cli-2026-05-04",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.1 反向链 Agent5.violation_blocked → Agent3.re_decision",
+    "implements_owner": "A4-credit V3 (fix-forward) Phase B-1 per contract §6.7"
+  }
+}
