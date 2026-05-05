@@ -1,0 +1,113 @@
+{
+  "_doc": "Agent4→Agent2 §6.4 反向链 fixture · pattern_detected → rule_proposal",
+  "_spec": "docs/contracts/agent-handoff-schemas.md v1.1 §6.4",
+  "_owner": "worker-B4-alert (Phase B Sprint 2 · BE9.3 · 2026-05-04)",
+  "_consumer": "Agent2 riskctrl 风险经理 review · 决定是否生成 DSL",
+  "_compatibility": "schema_version 1.0 · 与 §6.4 verbatim 对齐 · 加字段走 v1.2 minor bump",
+  "_generation": "Agent4 batch_scan + alert_clusterer 输出 cluster · 经 build_pattern_proposal 转换",
+  "schema_version": "1.0",
+  "intent_type": "pattern_to_rule_proposal",
+  "source_agent": "alert",
+  "target_agent": "riskctrl",
+  "pattern_id": "PTN-a1b2c3d4",
+  "pattern_description": "5 客户共触发 industry_signal+legal_signal · IND-001+LAW-001 · 跨光伏/汽车零部件双行业 · 建议风控 review 是否需新增跨行业关联 rule",
+  "affected_clients": [
+    "LC10501",
+    "LC10502",
+    "LC10503",
+    "LC10504",
+    "LC10505"
+  ],
+  "signal_features": [
+    {
+      "feature_type": "matched_rule",
+      "value": "IND-001",
+      "source": "agent4.cross_matcher",
+      "occurrence": 5
+    },
+    {
+      "feature_type": "matched_rule",
+      "value": "LAW-001",
+      "source": "agent4.cross_matcher",
+      "occurrence": 5
+    },
+    {
+      "feature_type": "signal_kind",
+      "value": "industry_signal",
+      "source": "agent4.signal_quality",
+      "occurrence": 5
+    },
+    {
+      "feature_type": "signal_kind",
+      "value": "legal_signal",
+      "source": "agent4.signal_quality",
+      "occurrence": 5
+    },
+    {
+      "feature_type": "industry",
+      "value": "光伏",
+      "source": "agent4.cross_matcher",
+      "occurrence": 3
+    },
+    {
+      "feature_type": "industry",
+      "value": "汽车零部件",
+      "source": "agent4.cross_matcher",
+      "occurrence": 2
+    },
+    {
+      "feature_type": "tier_distribution",
+      "value": {
+        "red": 3,
+        "yellow": 2
+      },
+      "source": "agent4.alert_clusterer",
+      "occurrence": 5
+    }
+  ],
+  "proposal_type": "new_rule",
+  "urgency_score": 78,
+  "generated_at": "2026-05-04T16:30:00",
+  "evidence_pointers": [
+    {
+      "client_id": "LC10501",
+      "company_name": "光伏A公司",
+      "score": 0.91,
+      "top_rule": "IND-001",
+      "tier": "red",
+      "scenario_key": "industry_downturn_2026"
+    },
+    {
+      "client_id": "LC10502",
+      "company_name": "光伏B公司",
+      "score": 0.88,
+      "top_rule": "IND-001",
+      "tier": "red",
+      "scenario_key": "industry_downturn_2026"
+    },
+    {
+      "client_id": "LC10503",
+      "company_name": "光伏C公司",
+      "score": 0.85,
+      "top_rule": "LAW-001",
+      "tier": "red",
+      "scenario_key": "industry_downturn_2026"
+    },
+    {
+      "client_id": "LC10504",
+      "company_name": "汽车零部件D公司",
+      "score": 0.62,
+      "top_rule": "IND-001",
+      "tier": "yellow",
+      "scenario_key": "auto_parts_supply_chain"
+    },
+    {
+      "client_id": "LC10505",
+      "company_name": "汽车零部件E公司",
+      "score": 0.58,
+      "top_rule": "LAW-001",
+      "tier": "yellow",
+      "scenario_key": "auto_parts_supply_chain"
+    }
+  ]
+}
