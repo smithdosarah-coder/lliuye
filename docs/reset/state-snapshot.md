@@ -1044,3 +1044,64 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - B4-compliance worker 释放
 - Sprint 3 charter v2.2 起草留下次 (Sprint 2 全 ship 后)
 
+
+---
+
+## 2026-05-04 (Day 3 part 6) · Sprint 3 启动前 DoD 执行 · 主 CLI 自跑 audit dispose
+
+### What happened
+
+- PM 5/4 GO + Codex R1+R2 audit dispose 双辩论 synthesis (主 CLI v1+v2 + Codex `btx6e1616` + `b23cpqfz5` · R3 跳 dissent ≤ 1)
+- 主 CLI 自跑 Sprint 3 启动前 DoD 7/8 件 (commit `269aba1` ship 5 件 + 本 commit ship 2 件 fix-forward)
+- Codex 用量今 5/4 = 14 次 bg (PONG + 10 review/audit/draft + Phase B periodic + R1+R2 audit dispose + Sprint 3 onboarding pre-dispatch review)
+
+### Sprint 3 启动前 DoD 执行明细 (8 件)
+
+| # | DoD 项 | 状态 | commit |
+|---|---|---|---|
+| 1 | P2.5 反向链 fixture (5 file schema-valid 最小) | ✅ ship | `269aba1` |
+| 2 | P2.7 Sprint 2 baseline regen (3/4 blocker 解 · 1 partial) | ✅ ship | `269aba1` |
+| 3 | P2.8 PRD master v1.1 ratify (Q-052 reframe 加) | ✅ ship | `269aba1` |
+| 4 | P3.9 contract stale (6 line edit) | ✅ ship | `269aba1` |
+| 5 | charter v2.2 段 (Sprint 3 排期 + 4 worker 边界) | ✅ ship | `269aba1` |
+| 6 | 4 worker onboarding 起草 (B5 + B4-channel + B4-riskctrl + B7) | ✅ Write 完 + Codex pre-dispatch review NEEDS-FIX 后 fix-forward | 本 commit |
+| 7 | Codex pre-dispatch review 一次批量 (4 onboarding) | ✅ verdict NEEDS-FIX (3 issue) → 主 CLI fix-forward 后 ratify | bg `br86ghgdt` |
+| 8 | P2.6 legacy LLMClient (Sprint 4 waiver + grep guard) | ✅ deferred Sprint 4 + 4 onboarding 加 grep guard 修正版 (BASELINE=30 + DIFF=0) | 本 commit |
+
+### Codex pre-dispatch review NEEDS-FIX 3 issue (主 CLI fix-forward)
+
+1. **legacy LLMClient grep guard 错** (Codex catch · 我 onboarding 写"3 file" 但实际 `rg "from llm import LLMClient|LLMClient\(" --type py` BASELINE=30 hits / 14 file)
+   - Fix: 4 onboarding 统一改 BASELINE=30; DIFF guard `git diff origin/main...HEAD` 必 0 新增 · DONE trailer `GREP-GUARD-LEGACY-LLM: BASELINE=30; NEW=0`
+
+2. **B4-channel BE12 schema 口径错** (Codex catch · 我写 RM 业绩画像 · 实际是 Agent1 客户/候选个人画像 POC per `BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md:54-59`)
+   - Fix: B4-channel onboarding BE12 schema 改 `{candidate_id, person_features, product_fit, compliance_check, talking_points, pii_redacted, latency_ms}` · RM 业绩仅作为经营策略维度输入
+
+3. **B7 写集不够可 cherry-pick** (Codex catch · 我写依赖 BE12 但没指定 evaluation adapter)
+   - Fix: B7 onboarding 明确写集 = `docs/runbook/be13-personal-insight-poc.md` + 新 `evaluation/runner/adapters/agent1_personal_insight.py` + `evaluation/agent1_personal_insight.yaml` · `agent_channel/personal_insight*` + `shared/decision_ledger/` read-only verify · charter v2.2 line 221 B7 ownership 同步改
+
+### Triggered by
+
+- PM 5/4 GO 拍板执行 audit dispose synthesis (8 DoD 件)
+- Codex Sprint 3 onboarding pre-dispatch review (`br86ghgdt`) verdict NEEDS-FIX
+
+### State change (delta)
+
+- main HEAD: cb1bc03 → de34c8e → 0893e0c → cb1bc03 → ... → 269aba1 (DoD 5/8 ship) → 本 commit (4 onboarding fix-forward + charter line 221 fix)
+- Sprint 3 启动前 DoD: 全完 (8/8)
+- Codex review 双闸再次救场: pre-dispatch review NEEDS-FIX catch 主 CLI 3 个 onboarding issue (legacy LLM 错列 / BE12 口径错 / B7 写集 unclear) · 主 CLI fix-forward 后 ship
+
+### Next
+
+- 等 PM ratify charter v2.2 + 4 onboarding (~10 min)
+- ~5/14 PM 双击 launch-all-LIUYE.bat 启 4 sub CLI (worker-B5 + B4-channel + B4-riskctrl + B7)
+- 4 worker 干 Sprint 3 (Week 6-8) · 主 CLI cron 巡 + post-DONE Codex review (per Q-049)
+- Sprint 3 全 ship → Sprint 4 整合 (含 P2.6 legacy LLMClient 整合改) → Sprint 5 demo + POC ready
+
+### Codex 用量教训 (per PM 5/4 "充分用 codex")
+
+- 今 5/4 共 14 次 codex bg · 真"充分用"
+- 教训 1 (5/4 V2-issue-3): Codex review file:line 幻觉 · 主 CLI 必 verify 不盲信
+- 教训 2 (5/4 audit dispose R1): Codex catch 我 v1 漏 5 项 · R2 全接受 (P2.5 折中 + P2.6 timing + B5 PR 策略 C + 4 onboarding 一次批量 + V2-issue-3 endpoint DoD)
+- 教训 3 (本次 Sprint 3 onboarding pre-dispatch review): Codex 又 catch 我 onboarding 3 issue (grep guard baseline + BE12 口径 + B7 写集) · 主 CLI fix-forward
+- 双辩论 + pre-dispatch review 双闸是 worker 派单前必走 · 不省
+

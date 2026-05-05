@@ -218,7 +218,7 @@ Phase B (~14-18 周 wall-clock):
 | **B5-role-workbench-logic** | `auth_service/rbac.py` · `auth_service/dependencies.py` · `web/src/lib/store/auth-store.ts` · `web/src/components/shell/AuthGate.tsx` · `/today` role shell (5 角色 differentiation) · `/dispatch` handoff task card frame/action gate · handoff/action schema · V2-issue-3 endpoint (POST /api/compliance/policy_diff + sse_envelope + endpoint test) | Agent1/2/3/4/5/6 业务 BE · workspace 内容 |
 | **B4-channel** | `agent_channel/` · channel API/types · `/archive/channel` workspace · Agent1 candidate evidence card · `personal_insight` payload (BE12 后端 + payload schema) | `/today` layout · auth · dispatch · shell |
 | **B4-riskctrl** | `agent_riskctrl/` · DSL/backtest/business metrics (BE6+BE8) · Agent2→4/3 链路 fixture (写真业务深度 · per Q-052 P2.5) | shell/today/auth/dispatch |
-| **B7** | `evaluation/agent_riskctrl.yaml` BE13 个人画像 POC + ledger integration verify | 其他 |
+| **B7** | `docs/runbook/be13-personal-insight-poc.md` (POC report) + `evaluation/runner/adapters/agent1_personal_insight.py` + `evaluation/agent1_personal_insight.yaml` (新 BE13 evaluation adapter · per Codex Sprint 3 onboarding pre-dispatch review NEEDS-FIX 修正 · 不是 agent_riskctrl yaml) + `agent_channel/personal_insight*` 和 `shared/decision_ledger/` read-only verify | 其他 |
 
 ### Sprint 3 启动前 DoD (~5/14 ratify before)
 
