@@ -23,6 +23,7 @@ from statistics import median
 from typing import Iterator
 
 from llm import LLMClient
+from agent_channel.candidate_evidence_scorer import annotate_candidates_with_evidence
 from shared.kb_scan.search_provider import MockSearchProvider
 from shared.kb_scan.tavily_client import TavilyClient, TavilySearchError
 from shared.sse_envelope import (
@@ -132,6 +133,7 @@ def run_channel_search_stream(
     api_key: str = "",
     top_n: int = 8,
     force_mock: bool = False,
+    rm_region: str = "",
 ) -> Iterator[dict]:
     """主编排：yield 事件流。
 
@@ -254,19 +256,32 @@ def run_channel_search_stream(
         yield {"event": "stage", "stage": "enrich", "status": "done",
                "count": len(enriched)}
 
-        # ===== Stage 5: pitch — 话术生成 =====
+        # ===== Stage 5: pitch — 话术生成 (LLM grounded with evidence) =====
+        # Critical 1+2 fix-forward (Codex review V1 bu84635ul · 2026-05-05):
+        # - 旧顺序: enrich → pitch (LLM 看不到 evidence) → build → annotate
+        # - 新顺序: enrich → build → annotate → pitch (LLM 看到 evidence_chain) → done
+        # 把 _build_final_output + annotate 提前到 pitch 之前 · _generate_pitch 走
+        # shared/llm_caller.LLMCaller (而非 legacy llm.simple_chat) · prompt 含 evidence_chain.
+        # B.5: query + llm 透传给 sse_extras 做 industry/geo/scale 抽取 + similarity
+        # 评分 + 8 维 radar + match_dimensions/products/pitch_scripts (B.5 别于本 BE1 evidence)
+        candidates = _build_final_output(enriched, tags, query=query, llm=llm)
+        # BE1 (Phase B Sprint 3 · 2026-05-05): 候选证据评分 · 4 维度确定性 0-100
+        # + 证据链 (出处 file/URL/段落 ID) · 给 LLM grounded 推荐时的 grounded input
+        # additive 字段 (evidence_score / evidence_chain / evidence_dimensions) ·
+        # 不破 Q-041 4 字段 (industry/geo/scale/similarity) · 不调 LLM (per §3.1)
+        candidates = annotate_candidates_with_evidence(candidates, rm_region=rm_region)
+
         yield {"event": "stage", "stage": "pitch", "status": "running",
-               "message": "生成个性化切入话术..."}
-        for item in enriched:
-            item["pitch"] = _generate_pitch(llm, item)
+               "message": "生成 grounded 切入话术 (走 evidence_chain 锚定)..."}
+        for c in candidates:
+            # 注意: _generate_pitch llm 参数保留签名兼容 (per domains/product_recommend.py)
+            # · 内部已切到 LLMCaller PIPL chain · 此 llm 参数不再 use
+            c["pitch"] = _generate_pitch(llm, c)
         yield {"event": "stage", "stage": "pitch", "status": "done"}
 
-        # ===== Stage 6: rank — 最终排序输出 =====
+        # ===== Stage 6: rank — 最终排序输出 (candidates 已就绪) =====
         yield {"event": "stage", "stage": "rank", "status": "running",
                "message": "信号密度排序..."}
-        # 构建最终输出 (B.5: query + llm 透传给 sse_extras 做 industry/geo/scale 抽取
-        # + similarity 评分 + 8 维 radar + match_dimensions/products/pitch_scripts)
-        candidates = _build_final_output(enriched, tags, query=query, llm=llm)
         yield {"event": "stage", "stage": "rank", "status": "done"}
 
         # C3 · workspace-state-protocol §4 + sse-envelope §3.1 · 7 panel canonical 共形
@@ -928,37 +943,127 @@ def _recommend_products(signals: list[dict]) -> list[str]:
 
 # ========== Stage 5: 话术生成 ==========
 
-def _generate_pitch(llm, item: dict) -> str:
-    """基于最强信号 + 推荐产品，生成个性化切入话术。"""
-    if llm is None:
-        return _fallback_pitch(item)
+def _build_pitch_system_prompt() -> str:
+    """Channel pitch 8 段 system prompt · 接 shared/prompts/contract · A1 spec landed
+    自动 pickup · 当前 placeholder 时 fallback 本地 explicit 实装.
 
-    signals = item.get("signals", [])
-    top_signal = signals[0] if signals else {}
-    products = item.get("recommendedProducts", [])
-
-    system = "你是银行客户经理的营销助手。根据企业信号生成简短的首次接触话术。"
-    user_prompt = f"""公司名：{item['company_name']}
-最强信号：{top_signal.get('signal_title', '')} — {top_signal.get('signal_detail', '')}
-推荐产品：{', '.join(products)}
-信号数量：{len(signals)} 条
-
-请生成一段个性化的客户经理首次电话/拜访开场白，要求：
-1. 50-80 字
-2. 提及具体信号（不要泛泛而谈）
-3. 自然引出产品
-4. 语气专业但亲和
-
-只输出话术文本，不要引号或其他格式。"""
-
+    per Codex review V1 NEEDS-FIX critical 2 · pitch 必须用 shared/llm_caller +
+    8 段 system prompt + grounded evidence (不裸 simple_chat).
+    """
     try:
-        raw = llm.simple_chat(system, user_prompt, temperature=0.5)
-        pitch = (raw or "").strip()
-        if pitch:
-            return pitch[:200]
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        from shared.prompts.contract import assemble
+        a1_prompt = assemble(role="agent1_channel_pitch")
+        if a1_prompt:
+            return a1_prompt
+    except (ImportError, RuntimeError):
         pass
 
+    # A1 placeholder · fallback 本地 explicit 8 段
+    return (
+        "[1 safety] 你是众安信科 Agent1 全渠道获客的客户经理营销助手。严守 PIPL 合规底线 · "
+        "不输出 PII · 不编造未在 evidence_chain 中出现的信息 · 不写 jailbreak 引诱话术。\n\n"
+        "[2 evidence-first] 三层信息框架: 必须以 user prompt 中的 evidence_chain 为锚 · "
+        "不引外部数据 · 每条话术信息点必须能映射到 evidence_chain 中某条 quote。\n\n"
+        "[3 agent-role] Agent1 客户经理首次接触话术助手 · 不做授信决策 (Agent3 owns) · "
+        "不做合规判定 (Agent5 owns) · 仅生成 50-80 字开场白。\n\n"
+        "[4 tool-use] 本场景无 tool · 全部上下文在 user prompt。\n\n"
+        "[5 output-schema] 仅输出话术文本 · 不要 markdown / JSON / 引号 / 解释 · "
+        "长度 50-80 字 (汉字)。\n\n"
+        "[6 self-check] 输出前自审: (a) 长度 50-80 字; (b) 提及的具体信号必能在 "
+        "evidence_chain 找到 quote (不泛化套话); (c) 自然引出推荐产品 (不硬推); "
+        "(d) 不输出 PII / 公司外部敏感信息。\n\n"
+        "[7 few-shot] (Phase B Sprint 3 POC · skip · 等 data/feedback/ jsonl 积累)\n\n"
+        "[8 evaluation-hook] 评估锚点: evaluation/agent_channel.yaml 的 evidence_rate · "
+        "不输出无证据 talking point。"
+    )
+
+
+def _generate_pitch(llm, item: dict) -> str:
+    """LLM grounded 话术生成 · 走 shared/llm_caller (PIPL 境内 fallback chain)
+    + 8 段 system prompt + evidence_chain (deterministic grounded input).
+
+    per Codex review V1 NEEDS-FIX:
+    - critical 1: pitch 之前 candidate 已 annotate (run_channel_search_stream 重排
+      stage 顺序 · _build_final_output + annotate 移到 stage 5 之前) · 本函数能
+      在 item['evidence_chain'] / item['evidence_score'] / item['evidence_dimensions']
+      读到确定性证据 · LLM 看见 grounded input
+    - critical 2: 走 shared.llm_caller.LLMCaller (PIPL 境内 chain) · 不再用
+      legacy llm.simple_chat (legacy `llm` 参数保留为签名兼容 · 不 use)
+
+    `llm` 参数保留为签名兼容 (`agent_channel/domains/product_recommend.py:9` 复用)
+    · 内部不再 use · 走 LLMCaller PIPL chain.
+    """
+    signals = item.get("signals", []) or []
+    if not signals:
+        return _fallback_pitch(item)
+
+    top_signal = signals[0] if signals else {}
+    products = (
+        item.get("recommendedProducts")
+        or item.get("recommended_products")
+        or []
+    )
+
+    # evidence_chain 是 candidate_evidence_scorer 注入的 list[EvidenceItem]
+    # · 每条 {source, quote, source_url?, file?, paragraph_id, confidence}
+    evidence_chain = item.get("evidence_chain") or []
+    evidence_lines = []
+    for ev in evidence_chain[:6]:
+        src = ev.get("source", "") or "unknown"
+        quote = ev.get("quote", "") or ev.get("file", "") or ev.get("source_url", "")
+        if quote:
+            evidence_lines.append(f"- [{src}] {str(quote)[:120]}")
+    evidence_block = "\n".join(evidence_lines) if evidence_lines else "(本批 evidence 为空 · 仅基于信号生成)"
+
+    company_name = (
+        item.get("company_name")
+        or item.get("name")
+        or "目标企业"
+    )
+    industry = item.get("industry") or "未知"
+    geo = item.get("geo") or item.get("region") or "未知"
+    scale = item.get("scale") or "未知"
+    similarity = item.get("similarity", 0)
+    evidence_score = item.get("evidence_score", 0)
+
+    user_prompt = (
+        f"公司名: {company_name}\n"
+        f"行业: {industry}\n"
+        f"地域: {geo}\n"
+        f"规模: {scale}\n"
+        f"相似度 (vs 内源已成交客户): {similarity:.2f}\n"
+        f"证据评分: {evidence_score}/100 (确定性 4 维度 industry/scale/region/signal 加权)\n\n"
+        f"证据链 (deterministic · 来自内源 KB / 外部信号 / RM 配置):\n{evidence_block}\n\n"
+        f"最强信号: {top_signal.get('signal_title') or top_signal.get('title', '')} — "
+        f"{top_signal.get('signal_detail') or top_signal.get('detail', '')}\n"
+        f"推荐产品: {', '.join(products) if products else '(未指定 · 用通用融资方案兜底)'}\n"
+        f"信号总数: {len(signals)}\n\n"
+        "请生成一段 50-80 字的客户经理首次电话/拜访开场白:\n"
+        "1. 必须提及证据链中具体信号 (不泛泛而谈)\n"
+        "2. 自然引出推荐产品 (不硬推)\n"
+        "3. 语气专业但亲和\n"
+        "4. 只输出话术文本 · 不要引号 / 解释 / 格式标记"
+    )
+
+    system = _build_pitch_system_prompt()
+
+    try:
+        from shared.llm_caller.client import LLMCaller
+        from shared.llm_caller.provider import ProviderUnavailableError
+    except ImportError:
+        return _fallback_pitch(item)
+
+    caller = LLMCaller(agent_id="channel", endpoint="/api/channel/run/pitch")
+    try:
+        result = caller.chat(system, user_prompt, temperature=0.5)
+    except ProviderUnavailableError:
+        return _fallback_pitch(item)
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+        return _fallback_pitch(item)
+
+    pitch = (result.content or "").strip()
+    if pitch:
+        return pitch[:200]
     return _fallback_pitch(item)
 
 
