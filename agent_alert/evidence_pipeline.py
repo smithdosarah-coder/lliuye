@@ -18,6 +18,10 @@ from shared.evidence import (
     UNFILLED_MARKER,
 )
 
+# BE5 (Phase B Sprint 2 · 2026-05-04): 把 confidence 从静态 0.75/0.5 升级为
+# freshness × source_confidence 综合 · 旧/低置信信号自动降权。
+from .signal_quality import quality_bundle
+
 
 @dataclass
 class AlertSummaryContext:
@@ -49,34 +53,65 @@ class AlertSummaryPipeline(EvidenceFirstPipeline[AlertSummaryContext]):
         for i, hit in enumerate(ctx.external_hits or []):
             title = _get(hit, "title") or _get(hit, "summary") or ""
             url = _get(hit, "url") or ""
+            # BE5: 用 quality_bundle 替静态 0.75/0.5 · freshness × source_confidence
+            published_at = (
+                _get(hit, "published_at")
+                or _get(hit, "observed_at")
+                or _get(hit, "date")
+            )
+            source_label = _get(hit, "source") or _get(hit, "source_label") or ""
+            qb = quality_bundle(
+                rule_id=_get(hit, "rule_id") or "",
+                route="external",
+                observed_at=published_at,
+                source_label=source_label,
+                source_url=url,
+            )
             bundle.add(EvidenceItem(
                 source="external_scan",
                 snippet=title[:120],
                 ref_id=f"ext_{i}",
-                confidence=0.75 if url else 0.5,
-                meta={"url": url},
+                confidence=qb["confidence"],
+                meta={"url": url, **qb},
             ))
 
         for i, sig in enumerate(ctx.internal_signals or []):
             level = _get(sig, "level") or ""
             desc = _get(sig, "description") or _get(sig, "metric") or ""
+            observed_at = _get(sig, "observed_at") or _get(sig, "date")
+            qb = quality_bundle(
+                rule_id=_get(sig, "rule_id") or "",
+                route="internal",
+                observed_at=observed_at,
+                source_type="internal_txn",
+            )
             bundle.add(EvidenceItem(
                 source="internal_txn",
                 snippet=f"[{level}] {desc}"[:120],
                 ref_id=f"int_{i}",
-                confidence=0.9,
-                meta={"level": level},
+                confidence=qb["confidence"],
+                meta={"level": level, **qb},
             ))
 
         for i, h in enumerate(ctx.cross_hits or []):
             rule_id = _get(h, "rule_id") or f"R{i}"
             route = _get(h, "route") or ""
+            observed_at = _get(h, "observed_at") or _get(h, "date")
+            source_label = _get(h, "source") or _get(h, "evidence_source") or ""
+            source_url = _get(h, "url") or _get(h, "evidence_url") or ""
+            qb = quality_bundle(
+                rule_id=rule_id,
+                route=route,
+                observed_at=observed_at,
+                source_label=source_label,
+                source_url=source_url,
+            )
             bundle.add(EvidenceItem(
                 source="cross_match",
                 snippet=f"{rule_id}@{route}",
                 ref_id=f"xh_{i}",
-                confidence=0.85,
-                meta={"route": route},
+                confidence=qb["confidence"],
+                meta={"route": route, **qb},
             ))
 
         return bundle

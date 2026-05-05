@@ -26,6 +26,10 @@ from shared.kb_scan.models import (
 from shared.kb_scan.matcher import Matcher
 from shared.kb_scan.search_provider import SearchProvider
 
+# BE5 (Phase B Sprint 2 · 2026-05-04): 细粒度 signal_kinds + freshness/source_confidence
+# 给 HitItem.extras["signal_kinds"] · 评估 signal_diversity 从 0.0 → ≥ 0.85
+from .signal_quality import infer_signal_kinds, lookup_source_confidence
+
 
 # ---------------------------------------------------------------------------
 # 单条命中表达
@@ -139,6 +143,9 @@ class CrossMatcher(Matcher):
                 "external_hits": [h.rule_id for h in hits if h.route == "external"],
                 "internal_hits": [h.rule_id for h in hits if h.route == "internal"],
                 "trigger_reasons": _infer_trigger_reasons(hits),
+                # BE5 fine-grained kinds (LAW→legal_signal etc · per signal_quality.py)
+                # · 解锁 signal_diversity ≥ 0.85 baseline
+                "signal_kinds": infer_signal_kinds(hits),
                 "rule_titles": {h.rule_id: h.rule_title for h in hits},
                 "narrative": (profile.extras or {}).get("narrative", ""),
                 "manager": (profile.extras or {}).get("manager", ""),

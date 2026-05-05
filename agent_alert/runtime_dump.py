@@ -36,6 +36,7 @@ from shared.kb_scan.search_provider import build_search_provider
 from .cross_matcher import CrossMatcher
 from .customer_scanner import CustomerScanner
 from .knowledge_base import AlertKnowledgeBase
+from .signal_quality import lookup_source_confidence
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -86,24 +87,38 @@ def _git_head() -> str:
 
 def _serialize_hit(hit, scan_time_ms: float) -> dict[str, Any]:
     grade = hit.level.value if isinstance(hit.level, RiskLevel) else str(hit.level)
-    evidence = [
-        {
-            "type": "external"
-            if ev.source and ("搜索" in ev.source or "舆情" in ev.source
-                              or "裁判" in ev.source or "标签" in ev.source)
-            else "internal",
+    evidence = []
+    for ev in (hit.evidences or []):
+        ev_type = (
+            "external"
+            if ev.source and (
+                "搜索" in ev.source or "舆情" in ev.source
+                or "裁判" in ev.source or "标签" in ev.source
+            )
+            else "internal"
+        )
+        # BE5 (2026-05-04): per-evidence source_confidence 暴露 · 评估可算 source 多样性
+        source_conf = lookup_source_confidence(
+            source_label=ev.source or "",
+            source_url=ev.url or "",
+        )
+        evidence.append({
+            "type": ev_type,
             "signal": ev.snippet[:80] if ev.snippet else "",
             "source": ev.source,
             "url": ev.url or "",
-        }
-        for ev in (hit.evidences or [])
-    ]
-    trigger_reasons = (hit.extras or {}).get("trigger_reasons", [])
+            "source_confidence": source_conf,
+        })
+    extras = hit.extras or {}
+    trigger_reasons = extras.get("trigger_reasons", [])
+    # BE5: signal_kinds 细粒度 (LAW→legal_signal · etc) · 解锁 signal_diversity ≥ 0.85
+    signal_kinds = extras.get("signal_kinds", [])
     return {
         "entity_id": hit.target.target_id,
         "name": hit.target.payload.get("company_name", ""),
         "grade": grade,
         "trigger_reasons": trigger_reasons,
+        "signal_kinds": signal_kinds,
         "evidence": evidence,
         "scan_time_ms": round(scan_time_ms, 2),
         "status": "completed",

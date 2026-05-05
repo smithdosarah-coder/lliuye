@@ -281,12 +281,22 @@ class Agent4AlertEvaluator(BaseEvaluator):
                 )
             )
 
-        # --- signal_diversity (B1 新加, 可算 · red/yellow 客户 trigger_reasons 种类数 ≥ 2 的占比) ---
+        # --- signal_diversity (BE5 · Phase B Sprint 2 · 2026-05-04) ---
+        # 优先用 signal_kinds (BE5 细粒度 LAW/FIN/BIZ/IND/REL/POL · per signal_quality.py)
+        # · backward compat fallback to trigger_reasons (3 enum coarse · pre-BE5)
         red_yellow = [c for c in customers if c.get("grade") in ("red", "yellow")]
         if red_yellow:
-            with_ge2 = sum(
-                1 for c in red_yellow
-                if len(set(c.get("trigger_reasons", []) or [])) >= 2
+            def _kinds_for(c: dict) -> set:
+                kinds = c.get("signal_kinds") or []
+                if not kinds:
+                    # Pre-BE5 dump fallback (无 signal_kinds 字段)
+                    kinds = c.get("trigger_reasons") or []
+                return set(kinds)
+
+            with_ge2 = sum(1 for c in red_yellow if len(_kinds_for(c)) >= 2)
+            note_field = (
+                "signal_kinds" if any(c.get("signal_kinds") for c in red_yellow)
+                else "trigger_reasons (pre-BE5 fallback)"
             )
             out.append(
                 self.mark(
@@ -294,7 +304,7 @@ class Agent4AlertEvaluator(BaseEvaluator):
                     with_ge2 / len(red_yellow),
                     method="deterministic",
                     evidence=[art_path] if art_path else [],
-                    note=f"{with_ge2}/{len(red_yellow)} red/yellow 客户 trigger_reasons 种类 ≥ 2",
+                    note=f"{with_ge2}/{len(red_yellow)} red/yellow 客户 {note_field} 种类 ≥ 2",
                 )
             )
         else:
