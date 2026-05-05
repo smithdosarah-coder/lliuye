@@ -919,3 +919,45 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - 同时: PM 在 B4-alert sub CLI 窗口推 "按 onboarding 开干 · 完了 commit DONE" (1 句话)
 - Cron v2 5 min 自动巡逻 (扫 main + 3 worker worktree local)
 
+
+---
+
+## 2026-05-04 (Day 3 part 3) · B4-compliance fix-forward push + B2 path-filter cherry-pick + Q-050
+
+### What happened
+
+- **B4-compliance Codex review verdict DISAGREE** (bg task `bnsyoxbfw` · medium reasoning · ~15 min)
+  - 4 项 fix-forward: Issue 1 (violation_schema 字段名违 onboarding · HARD) + Issue 2 (baseline 1.0 self-fulfilling fixture · HARD §3.5) + Issue 3 (policy_diff SSE 缺 · PARTIAL) + Issue 4 (scan-time vs startup load · PARTIAL)
+  - 红线 5 条 ✅ 全过 · Strengths: registry 真不是 stub + diff deterministic + 73 tests 真过 + scan_engine wiring additive
+  - main commit `de34c8e` push (含 4 fix-forward 详情 + worker 起手 5 步)
+  - Worker B4-compliance 等 V2 (PM 在 sub CLI window 一句"git fetch + rebase + 改 4 项 + commit DONE-V2")
+- **B2 self-verify (跳 codex bg · doc-only 简单)**:
+  - 0 代码改动 ✅ + 4 doc 齐 ✅ + trailer 齐 ✅
+  - 发现 base 漂: worker 父 commit `ae17ad8` 不是 `412f516` · diff 含"删 3 onboarding"伪删
+  - PM 选 A: path-filter cherry-pick · 跳双辩论 · Q-050 立项
+- **path-filter cherry-pick**: `git checkout d9c61e2 -- docs/biz/` · 4 doc 拷进 main working tree · 不取 onboarding 删除 part
+- **Q-050 立**: worker worktree base 漂硬规 (4 条 · 含 launch.bat rebase + worker resume rebase + 主 CLI path-filter cherry-pick + 与 Q-049 互补)
+
+### Triggered by
+
+- Codex review B4-compliance verdict DISAGREE
+- B2 self-verify 发现 base 漂
+- PM 5/4 "按你推荐来" 选 A
+
+### State change (delta)
+
+- main HEAD: `b5340c8` → `de34c8e` (B4-compliance review) → 本 commit (B2 4 doc cherry-pick + Q-050)
+- Sprint 2 mesh:
+  - B4-alert: RESUMED only · 等 PM 推
+  - B4-compliance: DONE → DISAGREE → 等 worker V2 (4 fix-forward)
+  - B2: DONE → AGREE (4 doc cherry-pick) · worker 释放 (sub CLI window 可关)
+- 新 active rule (Q-050): worker worktree base 漂硬规 4 条
+
+### Next
+
+- B4-compliance worker V2 (PM 在 sub CLI window 推 · git fetch + rebase + 改 4 fix-forward + commit DONE-V2)
+- B4-alert 等 PM 推 (前面提的 · 还没 confirm)
+- B2 worker 释放 · sub CLI window 可关
+- Cron v2 自动巡到 V2 / B4-alert DONE 立即 chat PM
+- 待启: B2 cherry-pick 后无 codex post-DONE review (因为 self-verify 已通过 + 越界已 path-filter 跳) · 或 PM 决要不要补 codex review B2 (低 ROI)
+

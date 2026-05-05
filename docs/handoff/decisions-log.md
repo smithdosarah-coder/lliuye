@@ -2824,3 +2824,34 @@ R1 双 AI 独立 v1 (anti-bias rule 1) · R2 互评 v2 · R3 跳过 (实质 diss
 
 主 CLI Claude Opus 4.7 + PM 2026-05-04 拍板 (新准则 + A 选项)
 
+
+---
+
+## Q-050 · B2 worker worktree base 漂 + path-filter cherry-pick (2026-05-04 PDT)
+
+### Question
+
+B2 worker commit `d9c61e2` 父 commit 是 `ae17ad8` (5/1 09:33 B1 Sprint 2 DONE) · 不是 `412f516` (5/1 15:40 Sprint 2 dispatch · 加 3 onboarding)。`d9c61e2 diff 412f516..d9c61e2` 含 "删 3 onboarding" (B2-biz / B4-alert / B4-compliance)。worker 没主动删 — 是 **git base 漂**: worker 启动时 worktree base 是 `ae17ad8` · 那时 onboarding 文件不存在。直接 cherry-pick d9c61e2 进 main 会真删主 CLI 5/4 update 的 onboarding (含 trailer codex resumed + ⚠️ Q-048 警告 commit `0661607`)。
+
+### Resolution
+
+**path-filter cherry-pick** (PM 5/4 选 A · 跳双辩论 · 因为是 SOP 修复非新决策):
+- `git checkout d9c61e2 -- docs/biz/` 仅取 4 doc 文件 (不取 onboarding 删除 part)
+- 4 doc 内容已 self-verify: 0 代码改动 (`git diff -- '*.py' '*.ts'` 空) + 4 doc 齐 (1458 lines insertion · `pricing-assumptions.md` 227 / `multi-tenant-assumptions.md` 499 / `trial-flow-assumptions.md` 300 / `sales-playbook-v1.md` 432) + DOC-FILES + BE-DELIVERED + PRESERVES trailer 齐
+- B2 worker 不需 V2 (内容 OK · 越界是 git base 漂非主动删)
+- B2 worker 释放 (sub CLI window 可关)
+
+### Active rule (回写 Tier 2 · 加固 Q-046 5 跑偏 root cause + Q-049 sub CLI SOP)
+
+**新硬规 (Q-050)**:
+1. **Worker worktree dispatch 必 rebase main 最新**: launch.bat / launch-all.ps1 启 worker 前 · `git -C "<worker_worktree>" fetch origin && git -C "<worker_worktree>" rebase --onto origin/main HEAD` · 让 worker base 上最新 main · 防 base 漂
+2. **Worker resume 起手第一步**: 加 `git fetch origin && git rebase origin/main`(在 commit RESUMED signal 之前) · 防止 worker 启后 main 又有 update (e.g. 主 CLI 派单后 5 min 改 onboarding)
+3. **主 CLI cherry-pick 时**: 若发现 worker diff 含跨 main commit 的删除 (即 base 漂导致伪删) · 用 path-filter `git checkout <worker_commit> -- <subpath>` · 跳删除部分 · 不让 worker 改 V2 (除非内容真 issue)
+4. 此规则与 Q-049 "Sub CLI SOP 漂时接受既成 + Codex review 双闸" 互补 — Q-049 管 worker 跳 RESUMED 流程漂 · Q-050 管 worker base 漂
+
+### Author
+
+主 CLI Claude Opus 4.7 · PM 2026-05-04 选 A 拍板
+
+**回写来源**: B2 self-verify 发现 base 漂 + PM "按你推荐来" · path-filter cherry-pick + Q-050 立项
+
