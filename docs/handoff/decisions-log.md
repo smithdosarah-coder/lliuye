@@ -2781,3 +2781,46 @@ R1 双 AI 独立 v1 (anti-bias rule 1) · R2 互评 v2 · R3 跳过 (实质 diss
 
 主 CLI Claude Opus 4.7 + Codex gpt-5.5-codex (R1 task `bof3lf0b3` + R2 task `b8m8x8789` · 各 medium reasoning sequential bg) · 等 PM verdict GO / NOGO
 
+
+---
+
+## Q-049 · 双 AI 辩论默认准则 + Sprint 2 sub CLI 跳 RESUMED 既成事实接受 (2026-05-04 PDT)
+
+### Question
+
+1. **PM verbatim 新准则**: "凡是涉及到决策 · 出方案等 · 都和 codex 进行辩论后再给我方案 · 他的额度挺多 · 多用用"
+2. **Sprint 2 sub CLI 状况**: PM 双击 launch.bat 后 · 3 sub CLI auto-resume · **2/3 跳过 onboarding 第 75 行 "等主 CLI verify · GO 后开干" SOP · 直接 commit DONE**:
+   - B4-alert 07:41 RESUMED only (守 SOP)
+   - B4-compliance 07:42-07:59 共 17 min · 6 commit (C1 sqlite + C2 loader + C3 diff + C4 schema + C5 wire + DONE) · 跳 RESUMED 直接 DONE
+   - B2-biz 07:49 单 commit DONE 4 doc · 跳 RESUMED 直接 DONE
+3. PM 拍板: 选 A (接受既成事实 · Codex post-DONE review)
+
+### Resolution
+
+**接受既成事实** (Q-046 先例 · 干的内容是 charter 真主线 BE4 + BE11 没漂 · 干的方式漂 SOP 但任务本身 OK)。
+
+**3 件立即执行**:
+1. main CLI 在 worker worktree 跑 git push origin · 3 worker branch 上 origin (let main CLI fetch 完整 diff)
+2. fire Codex post-DONE review for B4-compliance (插入点 2 · sequential bg · medium reasoning · 重点查 17 min 速度可疑性) · task `bnsyoxbfw`
+3. AGREE → cherry-pick → push main · DISAGREE → 双辩论 (新准则)
+
+**Cron 巡逻 v2** (`15ad1a9c` · 替代旧 `7ed7ad6d`): Step 1 main worktree origin · Step 2 3 worker worktree local (修复 SOP 缺陷: worker commit 但没 push 主 CLI 看不到 · v2 直接 git -C worker worktree log)
+
+### Active rule (回写 Tier 2 · per CLAUDE.md §15 + PM 拍板 #3)
+
+**新准则 (高优先级)**:
+- 凡决策 / 出方案 (重大 charter / scope / 资源 / 派 worker / cherry-pick verdict DISAGREE 时 / Q-NNN 立项 / synthesis / runbook 起草 / onboarding 大改) **默认双 AI 辩论 R1/R2** (anti-bias rule 1 · sequential bg · medium reasoning · ~60-90 min wall) 后再给 PM
+- 不需双辩论: 时间敏感 (worker blocker / 即时 verdict on PM 直接询) · 低 ROI hygiene (typo / trailer fix) · 纯执行 (cherry-pick 在 codex AGREE 后 / push / deploy / git rm) · codex post-DONE review 本身
+- 守 Q-043 v2: sequential 1 bg at a time · 90 min monitor fallback manual
+- 过程 doc 不留 (PM 2026-05-04 verbatim "文档删了占空间") · 关键决策回写 decisions-log + state-snapshot · git history 留底
+- 详 `~/.claude/projects/.../memory/feedback_codex_debate_default.md`
+
+**Sub CLI SOP 漂的硬规** (Q-046 5 跑偏延伸 · 加第 6 条):
+- onboarding "起手第一步" 段写 "等主 CLI verify · GO 后开干" · 但 sub CLI 习惯性跳过 (B4-compliance + B2 既成事实)
+- **决议**: 任务本身没漂 charter 时 · 接受既成 + Codex post-DONE review 双闸 (类 Q-046)
+- **加固**: 后续 onboarding 改 "起手第一步" 段措辞硬 (commit body 必含 "我等主 CLI GO" verbatim · 缺 verbatim 视作 SOP 违规)
+
+### Author
+
+主 CLI Claude Opus 4.7 + PM 2026-05-04 拍板 (新准则 + A 选项)
+

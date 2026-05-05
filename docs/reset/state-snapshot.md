@@ -879,3 +879,43 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - T+90m: Codex audit verdict 回 → P0/P1 决定 sequential review 触发与否
 - Week 1-3 worker DONE 序列 · ECS deploy 按 touched service · ~5/25 sprint-end tag
 
+
+---
+
+## 2026-05-04 (Day 3 · PM GO 选 A · Sprint 2 既成事实接受) · 新准则立项 + Codex review fire
+
+### What happened
+
+- PM 选 A (接受 sub CLI 跳 RESUMED 既成事实 + Codex post-DONE review · 类 Q-046 先例)
+- PM verbatim 新准则: "凡是涉及到决策 · 出方案等 · 都和 codex 进行辩论后再给我方案 · 他的额度挺多 · 多用用"
+- 3 worker branch push origin (main CLI 直接在 worker worktree 跑 git push · low risk · 不影响 worker session):
+  - `feat/phase-b4-alert` HEAD `d7d1140` RESUMED
+  - `feat/phase-b4-compliance` HEAD `50bbae7` DONE (6 commit C1-C5 + DONE)
+  - `feat/phase-b2-biz` HEAD `d9c61e2` DONE (1 commit 4 doc)
+- Codex post-DONE review B4-compliance fire bg (task `bnsyoxbfw` · medium reasoning · 7 项 suspicious 重点查 · 17 min 速度可疑性)
+- Cron v2 启 (`15ad1a9c` · 替代旧 `7ed7ad6d` · 修 SOP 缺陷扫 worker worktree local)
+- Q-049 立 (新准则 + Sub CLI SOP 漂硬规 · 加固 Q-046 5 跑偏)
+- Memory 加 `feedback_codex_debate_default.md` (双 AI 辩论默认)
+
+### Triggered by
+
+- PM 双击 launch.bat 启 3 sub CLI · 2/3 跳 RESUMED → DONE 既成事实
+- PM 选 A 接受 + 新准则要求双辩论默认 + 多用 Codex
+
+### State change (delta)
+
+- main HEAD: 0661607 → 加 push 3 worker branch origin · MEMORY + Q-049 + state-snapshot append (本 commit 即将 push)
+- Codex 状态: PONG OK + R1+R2 双辩论用 2 bg + B4-compliance review bg (3 bg 总 · sequential)
+- 新 active rule: 双 AI 辩论默认 (高 ROI 决策必跑) + Sub CLI SOP 漂时接受既成 + Codex review 双闸
+- B4-alert: RESUMED only · PM 需在 sub CLI 窗口推一把 "按 onboarding 开干"
+- B4-compliance / B2: 已 DONE · 等 codex review verdict · cherry-pick 路径走通
+
+### Next
+
+- B4-compliance Codex review 30-60 min 内回 verdict
+- AGREE → cherry-pick · main + push · ECS deploy `--skip-build` (按 touched service · agent_compliance/ scan_engine restart · per Q-048)
+- DISAGREE → 双辩论解 dissent (新准则) → 派 worker 改 → 重 review
+- 同时: 串 fire B2 post-DONE review (B4-compliance 完后 sequential)
+- 同时: PM 在 B4-alert sub CLI 窗口推 "按 onboarding 开干 · 完了 commit DONE" (1 句话)
+- Cron v2 5 min 自动巡逻 (扫 main + 3 worker worktree local)
+
