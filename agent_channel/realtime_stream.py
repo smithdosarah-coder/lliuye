@@ -23,6 +23,7 @@ from statistics import median
 from typing import Iterator
 
 from llm import LLMClient
+from agent_channel.candidate_evidence_scorer import annotate_candidates_with_evidence
 from shared.kb_scan.search_provider import MockSearchProvider
 from shared.kb_scan.tavily_client import TavilyClient, TavilySearchError
 from shared.sse_envelope import (
@@ -132,6 +133,7 @@ def run_channel_search_stream(
     api_key: str = "",
     top_n: int = 8,
     force_mock: bool = False,
+    rm_region: str = "",
 ) -> Iterator[dict]:
     """主编排：yield 事件流。
 
@@ -267,6 +269,11 @@ def run_channel_search_stream(
         # 构建最终输出 (B.5: query + llm 透传给 sse_extras 做 industry/geo/scale 抽取
         # + similarity 评分 + 8 维 radar + match_dimensions/products/pitch_scripts)
         candidates = _build_final_output(enriched, tags, query=query, llm=llm)
+        # BE1 (Phase B Sprint 3 · 2026-05-05): 候选证据评分 · 4 维度确定性 0-100
+        # + 证据链 (出处 file/URL/段落 ID) · 给 LLM grounded 推荐时的 grounded input
+        # additive 字段 (evidence_score / evidence_chain / evidence_dimensions) ·
+        # 不破 Q-041 4 字段 (industry/geo/scale/similarity) · 不调 LLM (per §3.1)
+        candidates = annotate_candidates_with_evidence(candidates, rm_region=rm_region)
         yield {"event": "stage", "stage": "rank", "status": "done"}
 
         # C3 · workspace-state-protocol §4 + sse-envelope §3.1 · 7 panel canonical 共形

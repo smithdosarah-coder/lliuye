@@ -6,9 +6,16 @@
 """
 
 from __future__ import annotations
+import hashlib
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
+
+# PII redact 默认 salt · 与 shared/decision_ledger/hashing.py 风格一致
+_DEFAULT_SALT = "liuye-personal-profile-v1"
+# PII 字段白名单 (redact 时强 hash · 不存原文)
+_PII_FIELDS_TO_HASH = {"name", "id_card_tail"}
+_PII_FIELDS_TO_BUCKET = {"age"}  # 数值字段做粗化区间
 
 
 class PersonalProfile(BaseModel):
@@ -90,6 +97,33 @@ class PersonalProfile(BaseModel):
         if not known.get("created_at"):
             known["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
         return cls(**known)
+
+    def redact(self, *, salt: str = _DEFAULT_SALT) -> dict[str, Any]:
+        """PII 脱敏 · 返 dict (非新 PersonalProfile · 因 hash 后字段不再符合原 type).
+
+        - name / id_card_tail: SHA-256(salt + value) 16-hex prefix · 原文丢
+        - age: 5 岁区间桶 (e.g. 32 → "30-34") · 不暴露具体年龄
+        - 其他字段: 透传不动 (occupation/income/credit 等已是粗类别 · 非高 PII)
+
+        per CLAUDE.md §3.5 反 5 原则 + §3.7.5 (subject_id hash) + Q-052 永不 multi-tenant
+        本 redact 用于 BE12 personal_insight payload 输出前 · 返 pii_redacted=True 标记.
+        """
+        data = self.model_dump()
+        for fld in _PII_FIELDS_TO_HASH:
+            v = data.get(fld)
+            if v:
+                hashed = hashlib.sha256((salt + str(v)).encode("utf-8")).hexdigest()[:16]
+                data[fld] = f"hash:{hashed}"
+        # 年龄桶 5 岁
+        if data.get("age"):
+            try:
+                age = int(data["age"])
+                if age > 0:
+                    lo = (age // 5) * 5
+                    data["age"] = f"{lo}-{lo + 4}"
+            except (ValueError, TypeError):
+                pass
+        return data
 
     def to_summary(self) -> str:
         """渲染成摘要文本（前端左侧面板 / LLM 上下文）"""

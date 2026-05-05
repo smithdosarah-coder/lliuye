@@ -116,6 +116,9 @@ class ChannelRunRequest(BaseModel):
     top_n: int = 8
     # True → 前端显式切 DEMO MODE，后端跳过 Tavily，直接走 mock 池
     mock: bool = False
+    # BE1 Sprint 3 · RM 辖区 (e.g. "华东" / "上海") · 给候选证据评分 region 维度用
+    # 空则 region 维度走 default low · 不破 candidate metadata 4 字段
+    rm_region: str = ""
 
 
 @app.post("/api/channel/run")
@@ -159,6 +162,7 @@ async def channel_run(req: ChannelRunRequest):
                     api_key=req.api_key,
                     top_n=req.top_n,
                     force_mock=req.mock,
+                    rm_region=req.rm_region,
                 ):
                     # QC blocker: 占位符残留软降级为"未能自动填写"
                     yield sse_encode(_qc_clean_event(
@@ -701,18 +705,38 @@ async def channel_profile(req: ChannelProfileRequest):
 
 
 @app.get("/api/channel/personal_insight/{candidate_id}")
-async def channel_personal_insight(candidate_id: str):
-    """GET /api/channel/personal_insight/{candidate_id} — BE12 schema stub.
+async def channel_personal_insight(
+    candidate_id: str,
+    industry: str = "",
+    role: str = "",
+    risk_appetite: str = "",
+    decision_path: str = "",
+    age: int = 0,
+    education: str = "",
+    industry_yr: int = 0,
+    name: str = "",
+    stub: bool = False,
+):
+    """GET /api/channel/personal_insight/{candidate_id} — BE12 真业务实装.
 
-    sub-PR 1 (此): endpoint signature + Pydantic-like TypedDict schema + stub body
-    sub-PR 2 (next): 接 shared/llm_caller (LLM grounded talking_points) + shared/sources
-                     (compliance_check via pbc_gov + ofac) + PII redact (shared/personal_profile)
+    走 shared/personal_profile.redact (PII hash) + shared/sources Router (pbc_gov 政策扫
+    + 本地 PEP/sanction 关键词 stub · 真 OFAC 集成留 Phase C) + shared/llm_caller
+    (LLM grounded talking_points · 8 段 system prompt · A1 spec landed 自动 pickup)
+    + 端到端 latency_ms 测量.
 
     Response payload schema (per BACKEND-DEEP-WORK-V2-1-FINAL.md:54-59):
     {
         candidate_id, person_features, product_fit, compliance_check,
         talking_points, pii_redacted, latency_ms
     }
+
+    Query params (可选 · 用于派生 person_features 与合规扫):
+        industry         · 候选企业行业 · 给 pbc_gov policy keyword
+        role             · 决策角色
+        risk_appetite    · "保守" / "稳健" / "激进"
+        decision_path    · "单点决策" / "委员会"
+        age / education / industry_yr / name · PII (将 hash · 不存原文)
+        stub=true        · 测试模式 · 不调 LLM/源 · 返 stub payload
     """
     cid = (candidate_id or "").strip()
     if not cid:
@@ -724,7 +748,10 @@ async def channel_personal_insight(candidate_id: str):
         )
 
     try:
-        from agent_channel.personal_insight import build_personal_insight_stub
+        from agent_channel.personal_insight import (
+            build_personal_insight,
+            build_personal_insight_stub,
+        )
     except ImportError as e:
         raise HTTPException(
             status_code=500,
@@ -732,7 +759,29 @@ async def channel_personal_insight(candidate_id: str):
                               "message": f"personal_insight module unavailable: {e}"}},
         ) from e
 
-    return build_personal_insight_stub(cid)
+    if stub:
+        return build_personal_insight_stub(cid)
+
+    person_features: dict = {}
+    for k, v in (
+        ("role", role),
+        ("risk_appetite", risk_appetite),
+        ("decision_path", decision_path),
+        ("education", education),
+        ("name", name),
+    ):
+        if v:
+            person_features[k] = v
+    if age:
+        person_features["age"] = int(age)
+    if industry_yr:
+        person_features["industry_yr"] = int(industry_yr)
+
+    return build_personal_insight(
+        cid,
+        person_features=person_features or None,
+        candidate_industry=industry,
+    )
 
 
 # ============================================================================
@@ -797,3 +846,77 @@ async def channel_sources_health():
         "fallback_chain_active": not live_available,
         "checked_at": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
     }
+
+
+# ============================================================================
+# POST /api/channel/conversion — Phase B Sprint 3 BE1 Step 4 (2026-05-05)
+# RM 决策候选后追踪是否真成单 · 落 data/feedback/<rm_id>/<candidate_id>.jsonl
+# 与 /api/feedback (Agent6 audit modify · worker-B1 BE10) 业务隔离
+# 只追踪 Agent1 候选 → 实际成单 conversion 链路
+# ============================================================================
+
+
+class ChannelConversionRequest(BaseModel):
+    candidate_id: str
+    rm_id:        str
+    stage:        str  # "contacted" | "quoted" | "approved" | "won" | "lost" | "on_hold"
+    notes:        str = ""
+    amount_yuan:  int = 0
+    next_action:  str = ""
+    metadata:     dict | None = None
+
+
+@app.post("/api/channel/conversion")
+async def channel_conversion(req: ChannelConversionRequest):
+    """记录候选 → 成单 conversion 链 · 1 条 jsonl 行 append 到 candidate 文件.
+
+    Returns:
+        {path, rm_id, candidate_id, stage, timestamp}
+
+    Errors:
+        400 · candidate_id / rm_id / stage 校验失败 (含 path traversal 防护)
+        500 · 文件 IO 失败
+    """
+    try:
+        from agent_channel.conversion_tracker import (
+            ConversionValidationError,
+            record_conversion,
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"conversion_tracker unavailable: {e}"}},
+        ) from e
+
+    payload = req.model_dump(exclude_none=True)
+    try:
+        result = record_conversion(payload)
+    except ConversionValidationError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": str(e)}},
+        ) from e
+    except OSError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"conversion write failed: {e}"}},
+        ) from e
+    return result
+
+
+@app.get("/api/channel/conversion/{rm_id}/{candidate_id}")
+async def channel_conversion_list(rm_id: str, candidate_id: str):
+    """读单候选的 conversion 链 · jsonl 行序 (插入序)."""
+    try:
+        from agent_channel.conversion_tracker import list_conversions
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"conversion_tracker unavailable: {e}"}},
+        ) from e
+    events = list_conversions(rm_id, candidate_id)
+    return {"rm_id": rm_id, "candidate_id": candidate_id, "events": events, "count": len(events)}

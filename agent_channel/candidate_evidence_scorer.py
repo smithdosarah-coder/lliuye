@@ -16,7 +16,14 @@ per Q-052 #2 永不 multi-tenant + Q-041 4 字段 metadata (industry/geo/scale/s
 """
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal, TypedDict
+
+# 内源已成交客户 KB 路径 (per onboarding · BE1 Step 3 · 反 5 原则脱敏再造)
+_KB_ROOT = Path(__file__).resolve().parent.parent / "data" / "channel_kb"
+_KB_SEED_FILE = _KB_ROOT / "seed_companies.jsonl"
 
 
 # 评分维度权重 (per Agent1 v4.0 信号驱动搜索 + Q-041 4 字段)
@@ -297,3 +304,62 @@ def score_candidates(
     ]
     out.sort(key=lambda x: x["total_score"], reverse=True)
     return out
+
+
+@lru_cache(maxsize=1)
+def load_internal_kb() -> tuple[dict[str, Any], ...]:
+    """加载内源已成交客户 KB · jsonl 解析 · 缓存读 1 次.
+
+    走 functools.lru_cache · 进程级缓存 · 防 SSE 流每条 candidate 都重读文件.
+    返 tuple 不返 list 因 lru_cache 要 hashable (内部为 dict 不 hash · 但 tuple wrapper OK).
+
+    Returns:
+        tuple of dict · 每 dict 至少含 row_id/name/industry/scale/region/amount_credit_wan.
+        文件缺 / parse fail 返 () · 上层降级到 rm_region only 评分.
+    """
+    if not _KB_SEED_FILE.exists():
+        return ()
+    items: list[dict[str, Any]] = []
+    try:
+        with _KB_SEED_FILE.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    items.append(json.loads(line))
+                except (json.JSONDecodeError, ValueError):
+                    continue
+    except OSError:
+        return ()
+    return tuple(items)
+
+
+def annotate_candidates_with_evidence(
+    candidates: list[dict[str, Any]],
+    rm_region: str = "",
+) -> list[dict[str, Any]]:
+    """SSE pipeline 入口 · 接 _build_final_output 后 · 给每个 candidate 注入证据评分.
+
+    在原 candidate dict 上添加 (per Q-041 4 字段不破 · 仅 additive):
+      - evidence_score: int 0-100
+      - evidence_chain: list[EvidenceItem] (flat · 给 LLM grounded)
+      - evidence_dimensions: list[DimensionScore] (4 维度详情)
+
+    保留原顺序 (不做 sort · 调用方按 signalScore 已排过).
+    确定性: 全 Python (per §3.1) · 不调 LLM.
+
+    Args:
+        candidates: SSE _build_final_output 输出 list (含 industry/geo/scale/similarity)
+        rm_region:  RM 辖区 · 空则 region 维度走 default low
+
+    Returns:
+        同输入 candidates list (原对象 mutated · additive 字段).
+    """
+    kb = list(load_internal_kb())
+    for c in candidates:
+        score = score_candidate(c, internal_kb_companies=kb, rm_region=rm_region)
+        c["evidence_score"] = score["total_score"]
+        c["evidence_chain"] = score["evidence_chain"]
+        c["evidence_dimensions"] = score["dimensions"]
+    return candidates
