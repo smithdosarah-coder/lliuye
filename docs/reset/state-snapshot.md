@@ -1105,3 +1105,49 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - 教训 3 (本次 Sprint 3 onboarding pre-dispatch review): Codex 又 catch 我 onboarding 3 issue (grep guard baseline + BE12 口径 + B7 写集) · 主 CLI fix-forward
 - 双辩论 + pre-dispatch review 双闸是 worker 派单前必走 · 不省
 
+---
+
+## 2026-05-05 00:50 · Sprint 3 GO Day 1-3 · 4 worker RESUMED 全 verify · main GO commit ship
+
+### What happened
+
+- PM 双击 `D:\claude code\.mesh-launcher\launch-all-LIUYE.bat` 启 5 cmd window (MAIN-CLI + B5-role-workbench-logic + B4-channel + B4-riskctrl + B7-final)
+- launch.bat MAIN-CLI auto-resume 写 `f219cc3 NEW-MAIN-CLI-RESUMED · DoD 8/8 ack` (idle session · PM 没 chat 那个 window)
+- 4 worker 各自 git fetch + rebase origin/main + read 9-13 文件 + 写 RESUMED commit · push origin (per onboarding 起手第一步 · per Q-050 worker base 防漂):
+  - B5 (1927c9f): contract-first sub-PR + implementation sub-PR atomic · 红线全懂 (LLM 走 shared/llm_caller / BASELINE=30 / Q-047 仅冻视觉打磨不冻工作台逻辑 / 不破 5 fixed user)
+  - B4-channel (08c1729): BE1 candidate_evidence_scorer + SearchProvider banner + 内源 KB + conversion + BE12 personal_insight (payload schema verbatim per BACKEND-DEEP-WORK-V2-1-FINAL.md:54-59)
+  - B4-riskctrl (93d7e1b): BE6 dsl_field_dict + 单位归一 + 互斥/遮蔽 + 双轨指标 (KS/AUC + 通过率/坏账率/利润影响 同 commit) + BE8 Champion/Challenger + PSI + 分月 + 误杀解释 · MAX_ROWS=50000 verbatim
+  - B7-final (078bb77): BE13 4 维度评价 (个人画像 35% / 产品适配 25% / 合规+话术 20% / PII+latency 20%) + ledger integration · 等 BE12 ship 不抢跑 · Week 7-8 插空
+- 主 CLI cron v3 巡 5 min tick 1 命中 5 signal commit (4 worker RESUMED + main CLI auto-resume) · verify 4 RESUMED content 全 OK 没漂 Q-052 + charter v2.2
+- 主 CLI 写 GO commit `af1e7a5 SPRINT-3-GO-DAY-1-3-START` push origin (`f219cc3..af1e7a5`) · worker 看到 GO 后开干
+
+### Triggered by
+
+- PM 双击 launch.bat 启 5 cmd window (~00:34-00:35 PDT)
+- 主 CLI cron v3 (`eaf91e1c`) 5 min 自动巡 tick 1
+- onboarding 硬规 "完了等主 CLI verify · 主 CLI GO 后开干"
+
+### State change (delta)
+
+- main HEAD: 269aba1 (Sprint 3 onboarding 4 fix-forward) → f219cc3 (launch.bat MAIN-CLI auto-resume) → af1e7a5 (主 CLI Sprint 3 GO Day 1-3 START)
+- Sprint 3 状态: Day 1-3 启动期 (Week 6) · 3 worker active backend-only (B5 contract-first + B4-channel BE1 + B4-riskctrl BE6) · B7 standby Week 7-8
+- 4 worker base: 0d73d47 (rebased origin/main · clean) → 各自 RESUMED commit + 等 GO
+- 边界 ownership 落实: B5 owns shell/today/auth/dispatch/V2-issue-3 endpoint · B4-channel owns Agent1 + personal_insight payload · B4-riskctrl owns DSL/backtest/Agent2链路 · B7 owns evaluation/runner/adapters/agent1_personal_insight.py + .yaml + docs/runbook/be13-personal-insight-poc.md
+- launch.bat MAIN-CLI 状态: idle (写完 NEW-MAIN-CLI-RESUMED 后没 chat 输入 · 我 chat session 是真 main CLI 接节奏)
+
+### Next
+
+- 主 CLI cron v3 (`eaf91e1c`) 5 min 自动巡 main + 4 worker worktree (含 worker DONE signal 检测)
+- 任何 worker DONE signal → fire codex post-DONE review (sequential bg medium reasoning per Q-043 v2 + Q-049 充分用 codex · 必 verify file:line 不盲信 AGREE per 5/4 V2-issue-3 教训)
+- AGREE → cherry-pick + ECS deploy --skip-build (按 touched service)
+- DISAGREE → 主 CLI fix-forward OR 派 worker V2 (per codex-mesh-protocol §6 · 守 PM 5/4 "禁止先改一端")
+- 任何 BLOCKER → 立即 chat PM
+- B5 contract-first sub-PR 预计 ~5/16 ship (Day 3) · 后续 B4-channel + B4-riskctrl 看 schema freeze 后接 frontend integration
+
+### 主 CLI 接节奏自跑约定 (PM 不操心 · per 5/4 PM verbatim "你自跑")
+
+- cron 巡逻自动 fire (PM 不需手动 trigger)
+- worker DONE → codex review → cherry-pick → ECS deploy 全自跑
+- BLOCKER 才 chat PM (≤ 100 字 · sha + signal + 我建议)
+- 任何 PM 拍板 / Q-NNN 决策 / 阶段转换 → 同 commit 同更 state-snapshot (per §14.1 硬规)
+
