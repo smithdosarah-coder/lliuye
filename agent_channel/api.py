@@ -699,7 +699,11 @@ async def channel_profile(req: ChannelProfileRequest):
 # ============================================================================
 # GET /api/channel/personal_insight/{candidate_id} — Phase B Sprint 3 BE12 (2026-05-05)
 # 候选客户/候选企业个人画像 · 后端 only · 不改 frontend layout (B5 owns layout)
-# 实施 status: contract sub-PR 1 (本) · stub schema · sub-PR 2 接 LLM 业务逻辑
+# 实施 status: 真业务实装 (V2-FIX 2026-05-05) · 走 shared/personal_profile.redact
+#   (PII hash) + shared/sources Router (pbc_gov 政策扫) + 本地 PEP/sanction stub
+#   (OFAC 真集成留 Phase C) + shared/llm_caller.LLMCaller (LLM grounded talking_points
+#   · 8 段 system prompt · A1 spec landed 自动 pickup) + 端到端 latency_ms.
+#   stub=true query param 保留作 schema 验证路径.
 # 消费者: B7 BE13 4 维度评价 (个人画像 35% / 产品适配 25% / 合规+话术 20% / PII+latency 20%)
 # ============================================================================
 

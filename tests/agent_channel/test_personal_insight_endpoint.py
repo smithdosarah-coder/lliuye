@@ -73,6 +73,25 @@ def test_personal_insight_compliance_pep_hit():
     assert any("local_pep" in f for f in flags)
 
 
+def test_personal_insight_compliance_sanction_hit():
+    """Sanction 关键词命中 (industry 含"黑名单") → sanction=True · aml_risk=高 · flag local_sanction.
+
+    per Codex review V1 NEEDS-FIX major 4 · sanction 路径必须有 test 覆盖.
+    本 test 用 industry 字段作触发载体 (该字段在 _check_local_sanction 内联扫).
+    """
+    client = TestClient(app)
+    resp = client.get(
+        "/api/channel/personal_insight/cand_test_sanction"
+        "?industry=黑名单贸易&role=实际控制人"
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["compliance_check"]["sanction"] is True
+    assert body["compliance_check"]["aml_risk"] == "高"
+    flags = body["compliance_check"]["flags"]
+    assert any("local_sanction" in f for f in flags)
+
+
 def test_personal_insight_empty_candidate_id_400():
     """candidate_id 空 (path 全 whitespace) → 验空校验 · 注意 path '/' 空段会被 FastAPI 直接 404."""
     client = TestClient(app)

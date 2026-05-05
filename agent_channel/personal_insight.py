@@ -234,10 +234,21 @@ def _query_pbc_policy_flags(role: str, industry: str) -> tuple[list[str], list[s
     return flags, sources
 
 
-def _check_local_sanction(role: str, name_hashed: str, person_features: dict) -> tuple[bool, bool, list[str]]:
+def _check_local_sanction(
+    role: str,
+    name_hashed: str,
+    person_features: dict,
+    candidate_industry: str = "",
+) -> tuple[bool, bool, list[str]]:
     """本地 PEP / sanction 关键词命中扫 (OFAC stub · 真 OFAC 集成留 Phase C).
 
-    走 hashed name 字段后 · 不接触原 PII · 仅扫 person_features 的角色 / 标签字段.
+    走 hashed name 字段后 · 不接触原 PII · 仅扫:
+    - role: 角色字段 (PEP 政治公众人物识别)
+    - person_features: 已脱敏特征 dict (sanction 关键词)
+    - candidate_industry: 候选企业行业 (sanction 关键词 · 防"黑名单贸易公司"等)
+
+    per Codex review V1 NEEDS-FIX major 4 fix · 加 industry 维度扫使 sanction
+    可被 industry param 触发 (test 用例需要).
 
     Returns:
         (pep, sanction, hit_keywords) · hit_keywords 命中明细供 audit.
@@ -249,9 +260,13 @@ def _check_local_sanction(role: str, name_hashed: str, person_features: dict) ->
     if any(pep_role in role_norm for pep_role in _LOCAL_PEP_ROLES):
         pep = True
         hits.append(f"local_pep:{role_norm}")
+
+    # sanction 扫 person_features + candidate_industry 联合 text
     feature_text = " ".join(str(v) for v in person_features.values() if v)
+    industry_text = (candidate_industry or "").strip()
+    combined_text = f"{feature_text} {industry_text}"
     for kw in _LOCAL_SANCTION_KEYWORDS:
-        if kw in feature_text:
+        if kw in combined_text:
             sanction = True
             hits.append(f"local_sanction:{kw}")
             break
@@ -435,7 +450,10 @@ def build_personal_insight(
     # Step 3 · compliance check · 走 pbc_gov 政策扫 + 本地 PEP/sanction 关键词
     role = str(redacted_features_dict.get("role", ""))
     name_hashed = str(person_features.get("name", "") if person_features else "")  # 已 hash by upstream
-    pep, sanction, local_hits = _check_local_sanction(role, name_hashed, redacted_features_dict)
+    pep, sanction, local_hits = _check_local_sanction(
+        role, name_hashed, redacted_features_dict,
+        candidate_industry=candidate_industry,
+    )
     pbc_flags, pbc_sources = _query_pbc_policy_flags(role, candidate_industry)
     all_flags = list(pbc_flags) + list(local_hits)
     sources = list(pbc_sources)
