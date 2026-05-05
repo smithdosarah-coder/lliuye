@@ -325,7 +325,7 @@ async def riskctrl_backtest(req: BacktestRequest):
     def gen():
         try:
             from agent_riskctrl.backtesting import load_csv_data, run_backtest
-            from agent_riskctrl.metrics import calculate_ks
+            from agent_riskctrl.metrics import calculate_auc, calculate_ks
             from agent_riskctrl.rule_engine import RuleSet
         except (ImportError, ModuleNotFoundError) as e:
             yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
@@ -376,12 +376,13 @@ async def riskctrl_backtest(req: BacktestRequest):
             return
         yield encode_event(make_stage("hit_rules", "done"))
 
-        # KS / bad_rate / curve
+        # KS / AUC / bad_rate / curve (V2 fix · BE6.4 · AUC 实装 deterministic)
         bad_rate: float | None = None
         ks_peak: float | None = None
+        auc_value: float | None = None
         ks_points: list[dict[str, Any]] = []
 
-        yield encode_event(make_stage("calc_ks", "running", message="计算 KS / 通过率..."))
+        yield encode_event(make_stage("calc_ks", "running", message="计算 KS / AUC / 通过率..."))
         if label_col and label_col in df.columns:
             try:
                 if label_col == "days_past_due":
@@ -398,6 +399,7 @@ async def riskctrl_backtest(req: BacktestRequest):
                 ]
                 if len(y_true) == len(y_pred) and y_pred:
                     ks_peak = calculate_ks(y_true, y_pred)
+                    auc_value = calculate_auc(y_true, y_pred)
                     ks_points = _ks_curve_points(y_true, y_pred, bins=10)
             except (TypeError, ValueError, KeyError):
                 pass
@@ -444,9 +446,11 @@ async def riskctrl_backtest(req: BacktestRequest):
         ]
 
         # KS 顶层 panel object · 前端直 setLiveData.ks
+        # V2 fix (codex review critical 1): AUC 用 deterministic rank-based 实装
+        # 替代 v1 hardcoded 0.0 · 见 metrics.calculate_auc (numpy · 不引 sklearn)
         ks_panel = {
             "ksPeak": ks_peak or 0.0,
-            "auc": 0.0,  # V2 接 sklearn roc_auc_score
+            "auc": auc_value or 0.0,
             "passRate": round(approved * 100.0 / total, 1),
             "badRate": round((bad_rate or 0.0) * 100.0, 1),
             "points": ks_points,
@@ -454,13 +458,74 @@ async def riskctrl_backtest(req: BacktestRequest):
 
         yield encode_event(make_stage("calc_ks", "done"))
 
+        # BE6.4 业务指标双轨 (业务方 demo 必备 · 行长汇报场景)
+        # KS/AUC = 统计口径 · 通过率/坏账率/利润影响 = 业务口径 · 同 commit ship
+        try:
+            from agent_riskctrl.business_metrics import (
+                calculate_business_metrics,
+            )
+            actual_avg_amt: float | None = None
+            if "loan_amount_wan" in df.columns:
+                try:
+                    actual_avg_amt = float(df["loan_amount_wan"].mean())
+                except (ValueError, TypeError):
+                    actual_avg_amt = None
+            business_panel = calculate_business_metrics(
+                {
+                    "total_records": result.total_records,
+                    "approved": approved,
+                    "rejected": rejected,
+                    "manual_review": manual_review,
+                    "approval_rate": result.approval_rate,
+                },
+                avg_loan_amount_wan_actual=actual_avg_amt,
+                bad_rate=bad_rate,
+            )
+        except (ImportError, KeyError, ValueError, TypeError):
+            business_panel = {}
+
+        # BE6.3 collision report (静态 + 动态 dead-rule · 业务方 banner)
+        try:
+            from agent_riskctrl.rule_collision import analyze_collisions
+            sample_records = df.head(500).to_dict(orient="records")
+            collision_panel = analyze_collisions(
+                ruleset, records=sample_records,
+            ).to_dict()
+        except (ImportError, KeyError, ValueError, TypeError):
+            collision_panel = {}
+
         session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+
+        # V2 fix (codex review major 1): 单次 backtest 决策上链 (retention=short
+        # 90 天 · §3.7.5 alert 同档 · 银保监审计每次跑过的回测可追溯).
+        # silent-fail 不破 stream · 见 ledger_integration.record_backtest_decision.
+        try:
+            from agent_riskctrl.ledger_integration import (
+                record_backtest_decision,
+            )
+            record_backtest_decision(
+                ruleset_id=session_id,
+                csv_path=str(req.csv_path),
+                metrics={
+                    "total_records": result.total_records,
+                    "approval_rate": result.approval_rate,
+                    "bad_rate": bad_rate,
+                    "ks_peak": ks_peak,
+                    "auc": auc_value,
+                },
+                business_metrics=business_panel or None,
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError):
+            pass  # silent-fail per §3.7.5 失败隔离
+
         yield encode_event(make_done(
             panels={
                 "ruleset": ruleset.model_dump(),
                 "ks": ks_panel,
                 "samples": samples,
                 "rule_stats": rule_stats,
+                "business_metrics": business_panel,  # BE6.4 业务口径
+                "collision": collision_panel,        # BE6.3 互斥/遮蔽
             },
             metrics={
                 "total_records": result.total_records,
@@ -471,12 +536,103 @@ async def riskctrl_backtest(req: BacktestRequest):
                 "bad_rate": bad_rate,
                 "ks_peak": ks_peak,
                 "label_column_used": label_col,
+                # BE6.4 顶层 KPI · 业务方面板可直消费
+                "profit_total_wan": business_panel.get("profit_total_wan"),
+                "pass_rate": business_panel.get("pass_rate"),
+                "reject_rate": business_panel.get("reject_rate"),
             },
             data_source=DATA_SOURCE_LIVE,
             session_id=session_id,
         ))
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
+# ============================================================================
+# V2 fix (codex review major 1) · BE7 ledger 接入 production endpoint
+#   POST /api/riskctrl/dsl/deploy: 风险经理签字 DSL 上线决策 · 上链 jurisdiction=HQ
+#   retention=standard (5y · §3.7.5) · 触发 Agent4 全量重扫 + Agent3 rubric 同步
+# ============================================================================
+
+
+class DslDeployRequest(BaseModel):
+    """DSL 部署决策请求体."""
+
+    ruleset_id: str = Field(..., description="策略 ID (来自 dsl_gen ruleset_id)")
+    dsl_version: str = Field(..., description="语义化版本号 e.g. v1.2.0")
+    rule_count: int = Field(..., description="规则条数")
+    affected_segments: list[str] = Field(
+        default_factory=list,
+        description="影响的客群 segment list (科创/对公财务/普惠 等)",
+    )
+    backtest_summary: dict = Field(
+        default_factory=dict,
+        description="回测元信息 (KS/AUC/通过率/坏账率/利润/KS_improvement)",
+    )
+    approver_user_id: str | None = Field(
+        default=None, description="签字人 user_id (None 时上链不带 reviewer)",
+    )
+    trigger_alert_rebuild: bool = Field(
+        default=True,
+        description="是否触 Agent4 全量重扫 (per handoff §6.5)",
+    )
+    trigger_credit_rubric_sync: bool = Field(
+        default=True,
+        description="是否触 Agent3 rubric 同步 (per handoff §6.6)",
+    )
+
+
+@app.post("/api/riskctrl/dsl/deploy")
+@audit_llm_call(
+    agent_id="riskctrl", endpoint="/api/riskctrl/dsl/deploy",
+    model="deterministic",
+)
+async def riskctrl_dsl_deploy(req: DslDeployRequest):
+    """DSL 部署决策 (production caller for ledger_integration.record_dsl_deploy).
+
+    流程:
+      1. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
+      2. 返 decision_id + handoff 触发标记
+      3. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
+
+    Body: DslDeployRequest
+    Returns: { decision_id, handoff_triggers: [], dsl_version, deployed_at }
+    """
+    try:
+        from agent_riskctrl.ledger_integration import record_dsl_deploy
+        decision_id = record_dsl_deploy(
+            ruleset_id=req.ruleset_id,
+            dsl_version=req.dsl_version,
+            rule_count=req.rule_count,
+            affected_segments=req.affected_segments,
+            backtest_summary=req.backtest_summary,
+            approver_user_id=req.approver_user_id,
+            deploy_endpoint="/api/riskctrl/dsl/deploy",
+        )
+    except (RuntimeError, ValueError, TypeError, ImportError) as e:
+        raise HTTPException(
+            500,
+            detail={"error": {
+                "code": "LEDGER_WRITE_FAILED",
+                "message": f"ledger 写入失败 (但决策本身仍生效): {type(e).__name__}: {e}",
+            }},
+        ) from e
+
+    handoff_triggers: list[str] = []
+    if req.trigger_alert_rebuild:
+        handoff_triggers.append("§6.5 dsl_deployed → alert.scan_trigger")
+    if req.trigger_credit_rubric_sync:
+        handoff_triggers.append("§6.6 dsl_versioned → credit.rubric_sync")
+
+    from datetime import datetime, timezone
+    return {
+        "decision_id": decision_id,
+        "ruleset_id": req.ruleset_id,
+        "dsl_version": req.dsl_version,
+        "deployed_at": datetime.now(timezone.utc).isoformat(),
+        "handoff_triggers": handoff_triggers,
+        "ledger_persisted": "import-failed" not in decision_id and "write-failed" not in decision_id,
+    }
 
 
 # ============================================================================

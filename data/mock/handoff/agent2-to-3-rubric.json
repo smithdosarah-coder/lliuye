@@ -3,23 +3,92 @@
   "intent_type": "dsl_versioned",
   "source_agent": "riskctrl",
   "target_agent": "credit",
-  "dsl_version_old": "v0.0.0-placeholder",
-  "dsl_version_new": "v0.0.1-placeholder",
+  "dsl_version_old": "v1.1.0",
+  "dsl_version_new": "v1.2.0",
   "affected_rubric_dimensions": [
-    "PLACEHOLDER-DIMENSION"
+    "财务杠杆",
+    "经营稳定性",
+    "或有负债"
   ],
   "affected_segments": [
-    "科创"
+    "科创",
+    "对公财务",
+    "普惠"
   ],
   "rubric_diff": {
-    "added": [],
-    "modified": [],
-    "removed": []
+    "added": [
+      {
+        "rubric_id": "RU_FINLEV_DEBT_TIGHTEN",
+        "dimension": "财务杠杆",
+        "field": "debt_ratio",
+        "scoring_rule": "若 debt_ratio > 0.65 · 财务杠杆维度扣 8 分 (上限 100)",
+        "rationale": "对齐 Agent2 R001 阈值 0.65 · DSL/Rubric 一致性",
+        "applies_to_segments": ["对公财务", "科创"]
+      },
+      {
+        "rubric_id": "RU_STAB_GUARANTEE_BURDEN",
+        "dimension": "或有负债",
+        "field": "guarantee_times_1y",
+        "scoring_rule": "guarantee_times_1y ≥ 5 · 或有负债维度扣 12 分",
+        "rationale": "对齐 Agent2 R004 · 担保敞口纳入授信评分",
+        "applies_to_segments": ["对公财务", "普惠"]
+      }
+    ],
+    "modified": [
+      {
+        "rubric_id": "RU_FINLEV_DEBT_BASE",
+        "dimension": "财务杠杆",
+        "field": "debt_ratio",
+        "old_rule": "若 debt_ratio > 0.7 · 扣 5 分",
+        "new_rule": "若 debt_ratio > 0.65 · 扣 8 分",
+        "rationale": "Q1 行业负债中位数升至 0.68 · 阈值同步收紧",
+        "applies_to_segments": ["对公财务", "科创", "普惠"]
+      },
+      {
+        "rubric_id": "RU_STAB_CASHFLOW",
+        "dimension": "经营稳定性",
+        "field": "bank_balance_stddev_3m",
+        "old_rule": "若波动 > 15 · 扣 4 分",
+        "new_rule": "若波动 > 12.5 · 扣 6 分",
+        "rationale": "对齐 Agent2 R002 manual_review 阈值",
+        "applies_to_segments": ["科创", "普惠"]
+      }
+    ],
+    "removed": [
+      {
+        "rubric_id": "RU_FINLEV_FA_TURNOVER",
+        "dimension": "财务杠杆",
+        "field": "fixed_asset_turnover",
+        "old_rule": "若 turnover < 0.5 · 扣 3 分",
+        "rationale": "字段在 Agent2 v1.2 已弃用 (与 debt_ratio 共线性 0.78) · 删避免重复扣分",
+        "applies_to_segments": ["对公财务"]
+      }
+    ]
   },
+  "rubric_baseline_metrics": {
+    "before_segment_科创": {
+      "samples_n": 1200,
+      "avg_score": 72.3,
+      "approval_rate": 0.71
+    },
+    "after_segment_科创_estimated": {
+      "samples_n": 1200,
+      "avg_score_estimated": 70.1,
+      "approval_rate_estimated": 0.68,
+      "delta_explanation": "新增 debt 收紧 + guarantee 扣分 · 平均分↓2.2 分"
+    }
+  },
+  "sync_required_by": "2026-05-12T17:00:00Z",
+  "ack_endpoint": "/api/credit/rubric_sync_ack",
   "_metadata": {
-    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
-    "created_by": "main-cli-2026-05-04",
-    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.6 Agent2 触发链 Agent2.dsl_versioned → Agent3.rubric_sync",
-    "implements_owner": "B4-riskctrl + B4-credit V3 Phase B-1 per contract §6.7"
+    "fixture_status": "业务深度 ship 2026-05-05 · worker-B4-riskctrl Sprint 3 BE6+BE8 完成时落 (per Q-052 P2.5 业务深度 worker 触链路时扩展)",
+    "created_by": "worker-B4-riskctrl-2026-05-05",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.6 Agent2.dsl_versioned → Agent3.rubric_sync",
+    "implements_owner": "B4-riskctrl (Sprint 3 done) + B4-credit V3 (Phase B-1 待实装)",
+    "evidence_acquired_from": [
+      "agent_riskctrl/dsl_field_dict.py FIELD_DICT debt_ratio/guarantee_times_1y/bank_balance_stddev_3m (BE6.1)",
+      "agent_riskctrl/rule_collision.py shadow detection 验 RU_FINLEV_FA_TURNOVER 与 RU_FINLEV_DEBT_BASE 共线性 (BE6.3)",
+      "config: Q1 行业负债中位数 0.68 (per default profile · post-Sprint 4 接 risk_economics.yaml)"
+    ]
   }
 }

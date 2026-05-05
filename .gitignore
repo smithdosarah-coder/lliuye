@@ -62,6 +62,13 @@ data/audit/*.db-journal
 data/feedback/*.jsonl
 !data/feedback/.gitkeep
 !data/audit/.gitkeep
+# B4-riskctrl Sprint 3 BE8.6 PSI 月度跑产物 (jsonl per month · runtime 数据 · 不入库)
+# Owner: B4-riskctrl · Justification (codex review V2 major 2):
+#   PSI jsonl 是 agent_riskctrl.psi_monthly.write_psi_jsonl 输出 · BE8.6 owns ·
+#   与 data/audit/*.jsonl + data/feedback/*.jsonl 同性质 (runtime data · gitkeep 保结构)
+data/riskctrl/psi/*.jsonl
+!data/riskctrl/psi/.gitkeep
+!data/riskctrl/psi/README.md
 data/exports/
 data/alert/sessions/
 data/alert/latest.json

@@ -53,6 +53,62 @@ def calculate_ks(y_true: list, y_pred: list) -> float:
 
 
 # ======================================================================
+# AUC (V2 fix · BE6.4 codex review critical 1)
+#   纯 numpy rank-based 实现 · 等价 sklearn roc_auc_score · 不引新 dep
+#   公式: AUC = (sum_pos_ranks - n_pos*(n_pos+1)/2) / (n_pos * n_neg)
+#   等价 Mann-Whitney U test · 平均处理 ties (rankdata average)
+# ======================================================================
+
+
+def _rankdata_average(arr: np.ndarray) -> np.ndarray:
+    """numpy 实现 scipy.stats.rankdata(method='average') · 处理 ties."""
+    sorter = np.argsort(arr, kind="mergesort")
+    inv = np.empty_like(sorter)
+    inv[sorter] = np.arange(len(arr))
+    sorted_arr = arr[sorter]
+    # 1-indexed ranks · 同值取平均
+    n = len(arr)
+    ranks = np.empty(n, dtype=float)
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and sorted_arr[j + 1] == sorted_arr[i]:
+            j += 1
+        avg_rank = (i + j) / 2.0 + 1.0
+        ranks[i:j + 1] = avg_rank
+        i = j + 1
+    return ranks[inv]
+
+
+def calculate_auc(y_true: list, y_pred: list) -> float:
+    """计算 AUC (Area Under ROC Curve) · 等价 sklearn roc_auc_score.
+
+    Args:
+        y_true: 真实标签 (0/1)
+        y_pred: 预测分数 (越高越坏 / risk score)
+
+    Returns:
+        AUC ∈ [0, 1] · 0.5 = 随机 · 1.0 = 完美区分
+        edge: y_true 全同类 / 长度不一致 / 空 → 0.0
+    """
+    y_true_arr = np.array(y_true, dtype=float)
+    y_pred_arr = np.array(y_pred, dtype=float)
+
+    if len(y_true_arr) == 0 or len(y_true_arr) != len(y_pred_arr):
+        return 0.0
+
+    n_pos = float((y_true_arr == 1).sum())
+    n_neg = float((y_true_arr == 0).sum())
+    if n_pos == 0 or n_neg == 0:
+        return 0.0
+
+    ranks = _rankdata_average(y_pred_arr)
+    sum_pos_ranks = float(ranks[y_true_arr == 1].sum())
+    auc = (sum_pos_ranks - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
+    return round(float(auc), 4)
+
+
+# ======================================================================
 # PSI 稳定性指标
 # ======================================================================
 

@@ -3,17 +3,102 @@
   "intent_type": "dsl_deployed",
   "source_agent": "riskctrl",
   "target_agent": "alert",
-  "dsl_version": "v0.0.0-placeholder",
-  "dsl_rule_count": 0,
+  "dsl_version": "v1.2.0",
+  "dsl_rule_count": 5,
   "affected_segments": [
-    "科创"
+    "科创",
+    "对公财务",
+    "普惠"
   ],
-  "deployed_at": "2026-05-04T00:00:00Z",
+  "deployed_at": "2026-05-05T09:30:00Z",
   "requesting_full_rescan": true,
+  "rules_summary": [
+    {
+      "rule_id": "R001",
+      "name": "高负债拒绝",
+      "field": "debt_ratio",
+      "operator": ">",
+      "threshold": 0.65,
+      "previous_threshold": 0.7,
+      "action": "reject",
+      "priority": 1,
+      "rationale": "Q1 行业负债率中位数从 0.62 升至 0.68 · 阈值收紧 5pp 控杠杆"
+    },
+    {
+      "rule_id": "R002",
+      "name": "流水大幅波动转人工",
+      "field": "bank_balance_stddev_3m",
+      "operator": ">",
+      "threshold": 12.5,
+      "action": "manual_review",
+      "priority": 3,
+      "rationale": "近 3 月流水波动 > 12.5 倍 · 经营稳定性存疑"
+    },
+    {
+      "rule_id": "R003",
+      "name": "跨省高频交易关注",
+      "field": "cross_province_count_1m",
+      "operator": ">",
+      "threshold": 25,
+      "action": "manual_review",
+      "priority": 5,
+      "rationale": "近 1 月跨省交易 > 25 笔 · 触发反洗钱补审"
+    },
+    {
+      "rule_id": "R004",
+      "name": "近年多次对外担保拒绝",
+      "field": "guarantee_times_1y",
+      "operator": ">=",
+      "threshold": 5,
+      "action": "reject",
+      "priority": 2,
+      "rationale": "近 1 年对外担保 ≥ 5 次 · 或有负债敞口大"
+    },
+    {
+      "rule_id": "R005",
+      "name": "亏损企业拒绝",
+      "field": "net_margin",
+      "operator": "<",
+      "threshold": -10,
+      "action": "reject",
+      "priority": 4,
+      "rationale": "净利率 < -10% · 持续经营不可持续"
+    }
+  ],
+  "deployment_metadata": {
+    "approver_role": "risk_manager",
+    "approver_user_id": "u_chenkai",
+    "backtest_summary": {
+      "sample_n": 7500,
+      "ks_peak": 0.32,
+      "approval_rate": 0.78,
+      "bad_rate": 0.041,
+      "profit_total_wan": 318.5,
+      "champion_ks_was": 0.27,
+      "ks_improvement": 0.05
+    },
+    "expected_alert_volume_delta_pct": 12.5,
+    "deployment_window_hours": 6
+  },
+  "scan_request": {
+    "scope": "full",
+    "estimated_clients_affected": 420,
+    "priority_segments_first": [
+      "科创",
+      "对公财务"
+    ],
+    "deadline_hours": 8
+  },
   "_metadata": {
-    "fixture_status": "schema-valid placeholder · 主 CLI 修 stale (Q-052 P2.5 audit dispose) · 业务深度 worker 触链路时扩展 (per §3.5 #5 mock 边界)",
-    "created_by": "main-cli-2026-05-04",
-    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.5 Agent2 触发链 Agent2.dsl_deployed → Agent4.scan_trigger",
-    "implements_owner": "B4-riskctrl + B4-alert (V3 fix-forward 已实装 endpoint) Phase B-1 per contract §6.7"
+    "fixture_status": "业务深度 ship 2026-05-05 · worker-B4-riskctrl Sprint 3 BE6+BE8 完成时落 (per Q-052 P2.5 业务深度 worker 触链路时扩展)",
+    "created_by": "worker-B4-riskctrl-2026-05-05",
+    "schema_ref": "docs/contracts/agent-handoff-schemas.md §6.5 Agent2.dsl_deployed → Agent4.scan_trigger",
+    "implements_owner": "B4-riskctrl (Sprint 3 done) + B4-alert V3 (endpoint 已 ship per f9cfcc9)",
+    "evidence_acquired_from": [
+      "agent_riskctrl/dsl_field_dict.py FIELD_DICT (BE6.1)",
+      "agent_riskctrl/business_metrics.py NIM/LGD default (BE6.4)",
+      "agent_riskctrl/champion_challenger.py KS_DELTA_SIGNIFICANT 0.02 (BE8.5)",
+      "data/mock/agent2-samples/loans.csv 7500 sample baseline"
+    ]
   }
 }
