@@ -487,6 +487,29 @@ async def riskctrl_backtest(req: BacktestRequest):
             collision_panel = {}
 
         session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+
+        # V2 fix (codex review major 1): 单次 backtest 决策上链 (retention=short
+        # 90 天 · §3.7.5 alert 同档 · 银保监审计每次跑过的回测可追溯).
+        # silent-fail 不破 stream · 见 ledger_integration.record_backtest_decision.
+        try:
+            from agent_riskctrl.ledger_integration import (
+                record_backtest_decision,
+            )
+            record_backtest_decision(
+                ruleset_id=session_id,
+                csv_path=str(req.csv_path),
+                metrics={
+                    "total_records": result.total_records,
+                    "approval_rate": result.approval_rate,
+                    "bad_rate": bad_rate,
+                    "ks_peak": ks_peak,
+                    "auc": auc_value,
+                },
+                business_metrics=business_panel or None,
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError):
+            pass  # silent-fail per §3.7.5 失败隔离
+
         yield encode_event(make_done(
             panels={
                 "ruleset": ruleset.model_dump(),
@@ -515,6 +538,93 @@ async def riskctrl_backtest(req: BacktestRequest):
         ))
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
+# ============================================================================
+# V2 fix (codex review major 1) · BE7 ledger 接入 production endpoint
+#   POST /api/riskctrl/dsl/deploy: 风险经理签字 DSL 上线决策 · 上链 jurisdiction=HQ
+#   retention=standard (5y · §3.7.5) · 触发 Agent4 全量重扫 + Agent3 rubric 同步
+# ============================================================================
+
+
+class DslDeployRequest(BaseModel):
+    """DSL 部署决策请求体."""
+
+    ruleset_id: str = Field(..., description="策略 ID (来自 dsl_gen ruleset_id)")
+    dsl_version: str = Field(..., description="语义化版本号 e.g. v1.2.0")
+    rule_count: int = Field(..., description="规则条数")
+    affected_segments: list[str] = Field(
+        default_factory=list,
+        description="影响的客群 segment list (科创/对公财务/普惠 等)",
+    )
+    backtest_summary: dict = Field(
+        default_factory=dict,
+        description="回测元信息 (KS/AUC/通过率/坏账率/利润/KS_improvement)",
+    )
+    approver_user_id: str | None = Field(
+        default=None, description="签字人 user_id (None 时上链不带 reviewer)",
+    )
+    trigger_alert_rebuild: bool = Field(
+        default=True,
+        description="是否触 Agent4 全量重扫 (per handoff §6.5)",
+    )
+    trigger_credit_rubric_sync: bool = Field(
+        default=True,
+        description="是否触 Agent3 rubric 同步 (per handoff §6.6)",
+    )
+
+
+@app.post("/api/riskctrl/dsl/deploy")
+@audit_llm_call(
+    agent_id="riskctrl", endpoint="/api/riskctrl/dsl/deploy",
+    model="deterministic",
+)
+async def riskctrl_dsl_deploy(req: DslDeployRequest):
+    """DSL 部署决策 (production caller for ledger_integration.record_dsl_deploy).
+
+    流程:
+      1. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
+      2. 返 decision_id + handoff 触发标记
+      3. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
+
+    Body: DslDeployRequest
+    Returns: { decision_id, handoff_triggers: [], dsl_version, deployed_at }
+    """
+    try:
+        from agent_riskctrl.ledger_integration import record_dsl_deploy
+        decision_id = record_dsl_deploy(
+            ruleset_id=req.ruleset_id,
+            dsl_version=req.dsl_version,
+            rule_count=req.rule_count,
+            affected_segments=req.affected_segments,
+            backtest_summary=req.backtest_summary,
+            approver_user_id=req.approver_user_id,
+            deploy_endpoint="/api/riskctrl/dsl/deploy",
+        )
+    except (RuntimeError, ValueError, TypeError, ImportError) as e:
+        raise HTTPException(
+            500,
+            detail={"error": {
+                "code": "LEDGER_WRITE_FAILED",
+                "message": f"ledger 写入失败 (但决策本身仍生效): {type(e).__name__}: {e}",
+            }},
+        ) from e
+
+    handoff_triggers: list[str] = []
+    if req.trigger_alert_rebuild:
+        handoff_triggers.append("§6.5 dsl_deployed → alert.scan_trigger")
+    if req.trigger_credit_rubric_sync:
+        handoff_triggers.append("§6.6 dsl_versioned → credit.rubric_sync")
+
+    from datetime import datetime, timezone
+    return {
+        "decision_id": decision_id,
+        "ruleset_id": req.ruleset_id,
+        "dsl_version": req.dsl_version,
+        "deployed_at": datetime.now(timezone.utc).isoformat(),
+        "handoff_triggers": handoff_triggers,
+        "ledger_persisted": "import-failed" not in decision_id and "write-failed" not in decision_id,
+    }
 
 
 # ============================================================================
