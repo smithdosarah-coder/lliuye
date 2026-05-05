@@ -79,6 +79,13 @@ data/ledger/*.sqlite-shm
 data/ledger/*.db
 data/ledger/*.db-journal
 !data/ledger/.gitkeep
+data/policy_registry/*.sqlite
+data/policy_registry/*.sqlite-journal
+data/policy_registry/*.sqlite-wal
+data/policy_registry/*.sqlite-shm
+data/policy_registry/*.db
+data/policy_registry/*.db-journal
+!data/policy_registry/.gitkeep
 data/monitoring/
 evaluation/results/*.yaml
 evaluation/results/**/*.json

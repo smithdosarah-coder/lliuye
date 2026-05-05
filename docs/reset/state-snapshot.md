@@ -1003,3 +1003,44 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - 等 B4-compliance V2 review verdict + B4-alert V2 commit DONE-V2 + cherry-pick + ECS deploy 按 touched service
 - Sprint 3 charter v2.2 起草留下次 (Sprint 2 全 ship 后 · 加 worker-B5-role-workbench-logic ~3 周 + 后端 row-level Depends)
 
+
+---
+
+## 2026-05-04 (Day 3 part 5) · B4-compliance V2 partial cherry-pick · V2-issue-3 endpoint 留 worker-B5
+
+### What happened
+
+- Codex review V2 (`bvb8ed495`) verdict AGREE · 但主 CLI verify 发现 **V2-issue-3 file:line 幻觉** (`api.py:40-44, :566-700` 引用 · 但 main vs worker hash 完全一致 `3ddbf194` · `test_policy_diff_endpoint.py` 不存在 worker branch · `policy_diff.py` docstring 自己写 "planned in BE4 #5")
+- V2 真实状态: 3.5/4 fix-forward (字段名 ✅ + baseline ✅ + lib 实装 ✅ · endpoint partial)
+- PM 5/4 GO 选 A: 接受 partial · endpoint 留 Sprint 3 worker-B5 跟前端 F8 同步加
+- **事故 + 修复**: 第 1 次 commit `git add .` 误 staged untracked (376K insertions / 2021 file 含 `_review_b1_zip_*` 204MB / `.codex-review-*` / `docs/_archive/` / `docs/research/screenshots/`) · push 被 GitHub 100MB limit pre-receive hook 拒绝 (_review_b1_*.zip 204MB) · `git reset --hard origin/main` 回到 cb1bc03 干净 · 重做 specific path-filter (13 BE4 path · 不 git add .)
+- **Codex review 双闸首次 file:line 幻觉**: 主 CLI 必 verify Codex verdict 引用 · 不盲信 AGREE
+- **新硬规**: 后续 commit 严禁 `git add .` / `git add -A` · 必 specific path
+
+### Triggered by
+
+- Codex review V2 AGREE 误判 + 主 CLI verify 修正 partial
+- PM "按你推荐来" 选 A
+- git add . 事故触发 GitHub pre-receive 100MB limit hook 拒绝 · 自然防止灾难 push origin
+
+### State change (delta)
+
+- main HEAD: cb1bc03 → 本 commit (BE4 V2 lib + tests + handoff fixture · 13 BE4 file 严格 scope)
+- B4-compliance worker: V2 partial ship (3.5/4 fix-forward · endpoint 留 worker-B5)
+- Sprint 3 worker-B5-role-workbench-logic 任务清单加: V2-issue-3 SSE endpoint (POST /api/compliance/policy_diff route · sse_envelope.encode_event 包装 · test_policy_diff_endpoint.py 加 · 跟前端 F8 handoff 任务卡 + SSE listener 同步)
+- 黑洞 unfreeze 决: PM 5/4 verbatim "按你推荐来" → Phase B 主线完后 Sprint 5 demo 录之前显式 unfreeze · 当前不动
+
+### 教训 + 加固硬规
+
+- **Codex review 双闸首次 file:line 幻觉** (bvb8ed495 verdict AGREE 引 api.py + test_policy_diff_endpoint 都不存在): 主 CLI 必 verify codex verdict 引 file:line · 不盲信 verdict (后续 cron prompt + onboarding 加固)
+- **commit 严禁 `git add .` / `git add -A`** (per CLAUDE.md "Git Safety Protocol"): 必 specific path add · 否则 untracked file (review artifacts / screenshots / large binary) 误进 commit · 灾难
+- **GitHub 100MB pre-receive hook 救场**: _review_b1_*.zip 204MB 触发 hook 拒绝 push · 自然防止 secret / large binary 上 origin · 教训意义重大
+
+### Next
+
+- 本 commit + push (~1 min) + ECS deploy --skip-build bg (~5-10 min wall · 按 touched service `agent_compliance/` restart per Q-048)
+- PM 在 B4-alert sub CLI 推 verbatim (signal_diversity 0.50 → 0.85 真升 · §3.5 红线)
+- 等 B4-alert worker 改 V2 commit DONE-V2 → 主 CLI fire codex review **必 verify file:line** 不盲信 AGREE
+- B4-compliance worker 释放
+- Sprint 3 charter v2.2 起草留下次 (Sprint 2 全 ship 后)
+
