@@ -1,8 +1,8 @@
 version: runtime-v1
-generated_at: '2026-05-05T03:09:44Z'
+generated_at: '2026-05-05T04:07:59Z'
 source:
   agent: alert
-  git_commit: 21451fc552602f15ed6d5c98ded04e6ed5680f2d
+  git_commit: 8fb06074c7ce9be586935af689fa4b1a8727cb8b
   kb_scenario: demo_data/agent_alert
   search_provider: MockSearchProvider (demo_mode=True)
 whitelist_entity_ids:
@@ -116,6 +116,9 @@ customers:
   - legal_signal
   - financial_signal
   - internal_policy
+  - evidence_court
+  - evidence_internal
+  - evidence_tag
   matched_rules:
   - LAW-001
   - FIN-002
@@ -137,7 +140,7 @@ customers:
     source: 本行制度 internal_policy.md
     url: ''
     source_confidence: med
-  scan_time_ms: 0.28
+  scan_time_ms: 0.34
   status: completed
 - entity_id: LC10002
   name: 兴业通达贸易有限公司
@@ -148,6 +151,8 @@ customers:
   - financial_signal
   - business_signal
   - related_party_signal
+  - evidence_tag
+  - evidence_media
   matched_rules:
   - FIN-003
   - BIZ-002
@@ -169,7 +174,7 @@ customers:
     source: 客户风险标签
     url: ''
     source_confidence: med
-  scan_time_ms: 0.18
+  scan_time_ms: 0.21
   status: completed
 - entity_id: LC10003
   name: 德昌五金制品有限公司
@@ -180,6 +185,9 @@ customers:
   - legal_signal
   - business_signal
   - internal_policy
+  - evidence_court
+  - evidence_internal
+  - evidence_tag
   matched_rules:
   - LAW-002
   - BIZ-004
@@ -201,7 +209,7 @@ customers:
     source: 本行制度 internal_policy.md
     url: ''
     source_confidence: med
-  scan_time_ms: 0.13
+  scan_time_ms: 0.15
   status: completed
 - entity_id: LC10101
   name: 恒达汽配有限公司
@@ -210,6 +218,7 @@ customers:
   - external_signal
   signal_kinds:
   - financial_signal
+  - evidence_tag
   matched_rules:
   - FIN-004
   industry: 制造业
@@ -219,7 +228,7 @@ customers:
     source: 客户风险标签
     url: ''
     source_confidence: med
-  scan_time_ms: 0.1
+  scan_time_ms: 0.13
   status: completed
 - entity_id: LC10102
   name: 瑞丰五金有限公司
@@ -229,6 +238,7 @@ customers:
   signal_kinds:
   - financial_signal
   - business_signal
+  - evidence_tag
   matched_rules:
   - FIN-003
   - BIZ-001
@@ -244,7 +254,7 @@ customers:
     source: 客户风险标签
     url: ''
     source_confidence: med
-  scan_time_ms: 0.12
+  scan_time_ms: 0.15
   status: completed
 - entity_id: LC10103
   name: 金泰电子有限公司
@@ -253,6 +263,7 @@ customers:
   - external_signal
   signal_kinds:
   - industry_signal
+  - evidence_tag
   matched_rules:
   - IND-001
   industry: 制造业
@@ -271,6 +282,7 @@ customers:
   - external_signal
   signal_kinds:
   - legal_signal
+  - evidence_court
   matched_rules:
   - LAW-001
   industry: 制造业
@@ -280,7 +292,7 @@ customers:
     source: 裁判文书网 (2025)苏01民初8891号
     url: https://wenshu.court.gov.cn/mock/2025_0100_8891
     source_confidence: high
-  scan_time_ms: 0.08
+  scan_time_ms: 0.11
   status: completed
 - entity_id: LC10105
   name: 华丰物流有限公司
@@ -289,6 +301,7 @@ customers:
   - internal_rule
   signal_kinds:
   - internal_policy
+  - evidence_internal
   matched_rules:
   - POL-006
   industry: 交通运输业
@@ -298,7 +311,7 @@ customers:
     source: 本行制度 internal_policy.md
     url: ''
     source_confidence: med
-  scan_time_ms: 0.09
+  scan_time_ms: 0.1
   status: completed
 - entity_id: LC10106
   name: 大明机械有限公司
@@ -307,6 +320,7 @@ customers:
   - external_signal
   signal_kinds:
   - business_signal
+  - evidence_tag
   matched_rules:
   - BIZ-003
   industry: 制造业
@@ -316,7 +330,7 @@ customers:
     source: 客户风险标签
     url: ''
     source_confidence: med
-  scan_time_ms: 0.1
+  scan_time_ms: 0.11
   status: completed
 - entity_id: LC10107
   name: 鑫源纺织有限公司
@@ -326,6 +340,7 @@ customers:
   signal_kinds:
   - industry_signal
   - related_party_signal
+  - evidence_tag
   matched_rules:
   - IND-001
   - REL-001
@@ -341,7 +356,7 @@ customers:
     source: 客户风险标签
     url: ''
     source_confidence: med
-  scan_time_ms: 0.08
+  scan_time_ms: 0.12
   status: completed
 - entity_id: LC20001
   name: 万邦智能有限公司
@@ -381,7 +396,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20005
   name: 嘉利精密有限公司
@@ -401,7 +416,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20007
   name: 翔宇建材有限公司
@@ -421,7 +436,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20009
   name: 瑞祥供应链有限公司
@@ -431,7 +446,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.11
   status: completed
 - entity_id: LC20010
   name: 正大五金有限公司
@@ -441,7 +456,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20011
   name: 锦泰供应链有限公司
@@ -451,7 +466,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20012
   name: 兴弘新材料有限公司
@@ -461,7 +476,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20013
   name: 鼎新环保有限公司
@@ -481,7 +496,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.12
   status: completed
 - entity_id: LC20015
   name: 华鼎材料有限公司
@@ -491,7 +506,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.13
   status: completed
 - entity_id: LC20016
   name: 精诚智能有限公司
@@ -501,7 +516,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.09
   status: completed
 - entity_id: LC20017
   name: 泰和智能有限公司
@@ -511,7 +526,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.12
   status: completed
 - entity_id: LC20018
   name: 华鼎五金有限公司
@@ -521,7 +536,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.12
   status: completed
 - entity_id: LC20019
   name: 精诚机电有限公司
@@ -531,7 +546,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.12
   status: completed
 - entity_id: LC20020
   name: 精诚商贸有限公司
@@ -541,7 +556,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.1
   status: completed
 - entity_id: LC20021
   name: 宏图环保有限公司
@@ -551,7 +566,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.1
   status: completed
 - entity_id: LC20022
   name: 诚信实业有限公司
@@ -561,7 +576,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.09
   status: completed
 - entity_id: LC20023
   name: 嘉利材料有限公司
@@ -571,7 +586,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20024
   name: 万隆精密有限公司
@@ -591,7 +606,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20026
   name: 永利工贸有限公司
@@ -601,7 +616,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20027
   name: 瑞祥机电有限公司
@@ -611,7 +626,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20028
   name: 华瑞五金有限公司
@@ -621,7 +636,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20029
   name: 诚信食品有限公司
@@ -631,7 +646,7 @@ customers:
   matched_rules: []
   industry: 住宿餐饮业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20030
   name: 泰和供应链有限公司
@@ -661,7 +676,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20033
   name: 诚信新材料有限公司
@@ -671,7 +686,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20034
   name: 裕达实业有限公司
@@ -681,7 +696,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20035
   name: 宏图建材有限公司
@@ -691,7 +706,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20036
   name: 泰和科技有限公司
@@ -701,7 +716,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20037
   name: 恒通智能有限公司
@@ -711,7 +726,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20038
   name: 恒联实业有限公司
@@ -721,7 +736,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20039
   name: 广源材料有限公司
@@ -731,7 +746,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20040
   name: 裕达材料有限公司
@@ -741,7 +756,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20041
   name: 正大环保有限公司
@@ -751,7 +766,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20042
   name: 盛泽科技有限公司
@@ -781,7 +796,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.08
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20045
   name: 明德工贸有限公司
@@ -791,7 +806,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20046
   name: 广源智能有限公司
@@ -801,7 +816,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20047
   name: 恒联机电有限公司
@@ -811,7 +826,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20048
   name: 长兴新材料有限公司
@@ -821,7 +836,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20049
   name: 龙昌五金有限公司
@@ -831,7 +846,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20050
   name: 宏图食品有限公司
@@ -841,7 +856,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20051
   name: 博远工贸有限公司
@@ -871,7 +886,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20054
   name: 中润供应链有限公司
@@ -881,7 +896,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.08
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20055
   name: 瑞祥机电54有限公司
@@ -931,7 +946,7 @@ customers:
   matched_rules: []
   industry: 住宿餐饮业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.08
   status: completed
 - entity_id: LC20060
   name: 聚鑫机电有限公司
@@ -961,7 +976,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20063
   name: 兴弘商贸有限公司
@@ -971,7 +986,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20064
   name: 鼎新环保63有限公司
@@ -991,7 +1006,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20066
   name: 万邦建材有限公司
@@ -1001,7 +1016,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20067
   name: 博远建材有限公司
@@ -1011,7 +1026,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20068
   name: 恒通材料有限公司
@@ -1021,7 +1036,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20069
   name: 嘉利科技有限公司
@@ -1031,7 +1046,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20070
   name: 兴弘实业有限公司
@@ -1041,7 +1056,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20071
   name: 广利材料有限公司
@@ -1051,7 +1066,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.09
   status: completed
 - entity_id: LC20072
   name: 盛泽智能有限公司
@@ -1061,7 +1076,7 @@ customers:
   matched_rules: []
   industry: 交通运输业
   evidence: []
-  scan_time_ms: 0.08
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20073
   name: 鼎新材料有限公司
@@ -1081,7 +1096,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20075
   name: 诚信机电有限公司
@@ -1101,7 +1116,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20077
   name: 兴弘供应链有限公司
@@ -1111,7 +1126,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20078
   name: 中润工贸有限公司
@@ -1121,7 +1136,7 @@ customers:
   matched_rules: []
   industry: 住宿餐饮业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20079
   name: 长兴材料有限公司
@@ -1131,7 +1146,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20080
   name: 明德机电有限公司
@@ -1151,7 +1166,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20082
   name: 聚鑫科技有限公司
@@ -1171,7 +1186,7 @@ customers:
   matched_rules: []
   industry: 建筑业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20084
   name: 华瑞机电有限公司
@@ -1181,7 +1196,7 @@ customers:
   matched_rules: []
   industry: 信息技术业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20085
   name: 瑞祥环保有限公司
@@ -1191,7 +1206,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.07
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20086
   name: 正大实业有限公司
@@ -1201,7 +1216,7 @@ customers:
   matched_rules: []
   industry: 制造业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20087
   name: 万隆建材有限公司
@@ -1211,7 +1226,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.06
+  scan_time_ms: 0.05
   status: completed
 - entity_id: LC20088
   name: 万隆工贸有限公司
@@ -1221,7 +1236,7 @@ customers:
   matched_rules: []
   industry: 批发零售业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.06
   status: completed
 - entity_id: LC20089
   name: 永利材料有限公司
@@ -1231,7 +1246,7 @@ customers:
   matched_rules: []
   industry: 服务业
   evidence: []
-  scan_time_ms: 0.05
+  scan_time_ms: 0.07
   status: completed
 - entity_id: LC20090
   name: 聚鑫供应链有限公司

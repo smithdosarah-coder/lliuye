@@ -16,7 +16,15 @@ from datetime import date, datetime
 import pytest
 
 from agent_alert.signal_quality import (
+    ALL_EVIDENCE_ORIGINS,
     ALL_SIGNAL_KINDS,
+    EVIDENCE_ORIGIN_COURT,
+    EVIDENCE_ORIGIN_GOV,
+    EVIDENCE_ORIGIN_INTERNAL,
+    EVIDENCE_ORIGIN_MEDIA,
+    EVIDENCE_ORIGIN_OTHER,
+    EVIDENCE_ORIGIN_REGISTRY,
+    EVIDENCE_ORIGIN_TAG,
     SIGNAL_KIND_BUSINESS,
     SIGNAL_KIND_FINANCIAL,
     SIGNAL_KIND_INDUSTRY,
@@ -24,9 +32,12 @@ from agent_alert.signal_quality import (
     SIGNAL_KIND_LEGAL,
     SIGNAL_KIND_OTHER,
     SIGNAL_KIND_RELATED,
+    classify_evidence_origin,
     classify_signal_kind,
     compute_evidence_confidence,
     freshness_score,
+    infer_evidence_origins,
+    infer_full_kinds,
     infer_signal_kinds,
     lookup_source_confidence,
     quality_bundle,
@@ -279,6 +290,141 @@ class TestComputeEvidenceConfidence:
 # ---------------------------------------------------------------------------
 # quality_bundle (一站集成)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# V2 fix-forward (2026-05-04) · classify_evidence_origin + infer_full_kinds
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyEvidenceOrigin:
+    def test_court_keyword(self):
+        assert classify_evidence_origin("裁判文书网 (2024)甘0102民初1234") == EVIDENCE_ORIGIN_COURT
+
+    def test_court_url(self):
+        assert classify_evidence_origin("", "https://wenshu.court.gov.cn/case") == EVIDENCE_ORIGIN_COURT
+
+    def test_shixin_keyword(self):
+        assert classify_evidence_origin("失信被执行人名单") == EVIDENCE_ORIGIN_COURT
+
+    def test_pbc_url(self):
+        assert classify_evidence_origin("人行公告", "http://www.pbc.gov.cn/news") == EVIDENCE_ORIGIN_GOV
+
+    def test_cbirc_label(self):
+        assert classify_evidence_origin("银保监公告") == EVIDENCE_ORIGIN_GOV
+
+    def test_internal_label(self):
+        assert classify_evidence_origin("本行制度 SOP-014") == EVIDENCE_ORIGIN_INTERNAL
+
+    def test_internal_sop(self):
+        assert classify_evidence_origin("SOP-001 风偏制度") == EVIDENCE_ORIGIN_INTERNAL
+
+    def test_tag_label(self):
+        assert classify_evidence_origin("客户风险标签") == EVIDENCE_ORIGIN_TAG
+
+    def test_narrative_label(self):
+        assert classify_evidence_origin("narrative 客户经理填报") == EVIDENCE_ORIGIN_TAG
+
+    def test_caixin_label(self):
+        assert classify_evidence_origin("财新") == EVIDENCE_ORIGIN_MEDIA
+
+    def test_caixin_url(self):
+        assert classify_evidence_origin("", "https://www.caixin.com/2026") == EVIDENCE_ORIGIN_MEDIA
+
+    def test_registry_label(self):
+        assert classify_evidence_origin("工商变更公示") == EVIDENCE_ORIGIN_REGISTRY
+
+    def test_unknown_returns_other(self):
+        assert classify_evidence_origin("某神秘来源") == EVIDENCE_ORIGIN_OTHER
+
+    def test_empty_returns_other(self):
+        assert classify_evidence_origin() == EVIDENCE_ORIGIN_OTHER
+
+    def test_priority_court_over_url(self):
+        # label 含 "裁判" → court (优先于 url 域名)
+        result = classify_evidence_origin("裁判文书", "https://random-host.com")
+        assert result == EVIDENCE_ORIGIN_COURT
+
+
+class TestInferEvidenceOrigins:
+    def test_dedup_same_origin(self):
+        evs = [
+            {"source": "裁判文书网 #1", "url": ""},
+            {"source": "裁判文书网 #2", "url": ""},
+        ]
+        assert infer_evidence_origins(evs) == [EVIDENCE_ORIGIN_COURT]
+
+    def test_multi_origin(self):
+        evs = [
+            {"source": "裁判文书 (2024)X12", "url": ""},
+            {"source": "本行制度 SOP-014", "url": ""},
+            {"source": "客户风险标签", "url": ""},
+        ]
+        result = infer_evidence_origins(evs)
+        assert EVIDENCE_ORIGIN_COURT in result
+        assert EVIDENCE_ORIGIN_INTERNAL in result
+        assert EVIDENCE_ORIGIN_TAG in result
+
+    def test_empty_returns_empty(self):
+        assert infer_evidence_origins([]) == []
+        assert infer_evidence_origins(None) == []  # type: ignore[arg-type]
+
+    def test_obj_input(self):
+        # 容忍 Evidence pydantic obj
+        class _E:
+            def __init__(self, src, url=""):
+                self.source = src
+                self.url = url
+
+        evs = [_E("裁判文书"), _E("本行制度")]
+        result = infer_evidence_origins(evs)
+        assert EVIDENCE_ORIGIN_COURT in result
+        assert EVIDENCE_ORIGIN_INTERNAL in result
+
+
+class TestInferFullKinds:
+    def test_rule_only_no_evidence(self):
+        # 只 rule · 退化为 infer_signal_kinds
+        hits = [{"rule_id": "FIN-001", "route": "external"}]
+        result = infer_full_kinds(hits, [])
+        assert result == [SIGNAL_KIND_FINANCIAL]
+
+    def test_evidence_only_no_rule(self):
+        # 只 evidence · 输出 origins (rule 部分空)
+        evs = [{"source": "裁判文书 X"}]
+        result = infer_full_kinds([], evs)
+        assert result == [EVIDENCE_ORIGIN_COURT]
+
+    def test_combined_yellow_single_rule_with_tag_evidence(self):
+        # 关键 V2 正面用例: yellow 客户单 rule + 单 evidence → 仍 ≥ 2 dimensions
+        hits = [{"rule_id": "FIN-001", "route": "external"}]
+        evs = [{"source": "客户风险标签"}]
+        result = infer_full_kinds(hits, evs)
+        assert SIGNAL_KIND_FINANCIAL in result
+        assert EVIDENCE_ORIGIN_TAG in result
+        assert len(set(result)) >= 2  # ≥ 2 维度 · signal_diversity 解锁
+
+    def test_red_multi_rule_multi_evidence(self):
+        # red 客户 multi-rule + multi-evidence → 多维度 ≥ 4
+        hits = [
+            {"rule_id": "LAW-001", "route": "external"},
+            {"rule_id": "FIN-002", "route": "external"},
+            {"rule_id": "POL-001", "route": "internal"},
+        ]
+        evs = [
+            {"source": "裁判文书"},
+            {"source": "财新", "url": "https://caixin.com/x"},
+            {"source": "本行制度 SOP-014"},
+        ]
+        result = infer_full_kinds(hits, evs)
+        assert len(set(result)) >= 4
+
+    def test_deterministic_order_rule_then_origin(self):
+        # rule kinds 在前 · origins 在后
+        hits = [{"rule_id": "LAW-001", "route": "external"}]
+        evs = [{"source": "裁判文书"}]
+        result = infer_full_kinds(hits, evs)
+        assert result.index(SIGNAL_KIND_LEGAL) < result.index(EVIDENCE_ORIGIN_COURT)
 
 
 class TestQualityBundle:

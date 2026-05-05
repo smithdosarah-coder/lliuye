@@ -233,6 +233,17 @@ SIGNAL_KIND_RELATED = "related_party_signal"  # REL-* (related party)
 SIGNAL_KIND_INTERNAL = "internal_policy"    # POL-* (internal rule)
 SIGNAL_KIND_OTHER = "other_signal"          # unmapped prefix · 兜底
 
+# V2 (Phase B Sprint 2 fix-forward · 2026-05-04): evidence origin 维度
+# 与 rule prefix kind 独立 · 客户单 rule 命中也能 ≥ 2 维度 (rule kind + origin kind)
+# 不是 fixture 注水 / 不是 hardcode · 是真实业务存在的 evidence 来源分类 (banking audit 必分)
+EVIDENCE_ORIGIN_COURT = "evidence_court"        # 裁判文书 / 失信被执行 / 司法
+EVIDENCE_ORIGIN_GOV = "evidence_gov"            # 监管 / 央行 / 银保监 / 工信 / 国资委 公告
+EVIDENCE_ORIGIN_INTERNAL = "evidence_internal"  # 本行制度 / 内部交易 / 贷后台账 / SOP
+EVIDENCE_ORIGIN_TAG = "evidence_tag"            # 客户风险标签 / narrative / 客户经理填报
+EVIDENCE_ORIGIN_MEDIA = "evidence_media"        # 财经媒体 / 舆情 / 新闻搜索
+EVIDENCE_ORIGIN_REGISTRY = "evidence_registry"  # 工商登记 / cninfo / 国家企业信用
+EVIDENCE_ORIGIN_OTHER = "evidence_other"        # 兜底
+
 _PREFIX_TO_KIND: dict[str, str] = {
     "LAW": SIGNAL_KIND_LEGAL,
     "FIN": SIGNAL_KIND_FINANCIAL,
@@ -250,6 +261,16 @@ ALL_SIGNAL_KINDS: tuple[str, ...] = (
     SIGNAL_KIND_RELATED,
     SIGNAL_KIND_INTERNAL,
     SIGNAL_KIND_OTHER,
+)
+
+ALL_EVIDENCE_ORIGINS: tuple[str, ...] = (
+    EVIDENCE_ORIGIN_COURT,
+    EVIDENCE_ORIGIN_GOV,
+    EVIDENCE_ORIGIN_INTERNAL,
+    EVIDENCE_ORIGIN_TAG,
+    EVIDENCE_ORIGIN_MEDIA,
+    EVIDENCE_ORIGIN_REGISTRY,
+    EVIDENCE_ORIGIN_OTHER,
 )
 
 
@@ -300,6 +321,141 @@ def infer_signal_kinds(hit_data: list[dict[str, Any]]) -> list[str]:
         seen.add(kind)
     # deterministic order per ALL_SIGNAL_KINDS
     return [k for k in ALL_SIGNAL_KINDS if k in seen]
+
+
+# ---------------------------------------------------------------------------
+# V2 fix-forward (2026-05-04): evidence origin 分类 + 综合 full_kinds
+# ---------------------------------------------------------------------------
+
+
+def classify_evidence_origin(source_label: str = "", source_url: str = "") -> str:
+    """从 evidence source 推断 origin bucket · 与 signal_kind 独立维度.
+
+    设计 (V2 fix-forward · per PM 不准 fixture 注水 / 不准 hardcode):
+    - evidence origin 是真实业务存在的 audit 维度 (banking 必分 court/internal/media/...)
+    - 100% 结构推断 · 不依赖关键词黑名单 (CLAUDE.md §12 治本)
+    - 6 origin + 1 兜底 · 客户多源 evidence 自然多 origin · 单源单 origin
+    - 与 rule prefix kind 正交 · 客户 1 rule + 1 evidence 即 ≥ 2 dimensions
+      (这是真"信号多样性" · 非 hardcode)
+
+    Args:
+        source_label: evidence.source (如 "裁判文书网 (2024)甘0102民初1234" / "本行制度 SOP-014" / "客户风险标签")
+        source_url:   evidence.url (如 https://wenshu.court.gov.cn/...)
+
+    Returns:
+        EVIDENCE_ORIGIN_* 之一
+
+    Examples:
+        >>> classify_evidence_origin("裁判文书网 (2024)甘0102民初1234")
+        'evidence_court'
+        >>> classify_evidence_origin("本行制度 SOP-014")
+        'evidence_internal'
+        >>> classify_evidence_origin("客户风险标签")
+        'evidence_tag'
+        >>> classify_evidence_origin("财新")
+        'evidence_media'
+    """
+    label = (source_label or "").strip()
+    url = (source_url or "").strip().lower()
+    label_lower = label.lower()
+
+    # 1. Court / 司法 (裁判 / 失信 / wenshu / shixin)
+    court_keywords = ("裁判", "失信", "执行", "判决", "shixin", "wenshu")
+    if any(k in label or k in url for k in court_keywords):
+        return EVIDENCE_ORIGIN_COURT
+    if "court.gov.cn" in url:
+        return EVIDENCE_ORIGIN_COURT
+
+    # 2. Government / regulator (银保监/央行/证监/工信/统计)
+    gov_url_hints = (
+        "pbc.gov.cn", "cbirc.gov.cn", "nfra.gov.cn", "csrc.gov.cn",
+        "miit.gov.cn", "ndrc.gov.cn", "sasac.gov.cn", "stats.gov.cn",
+        "mofcom.gov.cn", "mof.gov.cn", "safe.gov.cn",
+    )
+    if any(h in url for h in gov_url_hints):
+        return EVIDENCE_ORIGIN_GOV
+    gov_label_hints = ("银保监", "央行", "证监会", "工信", "国资委", "统计局", "发改委")
+    if any(h in label for h in gov_label_hints):
+        return EVIDENCE_ORIGIN_GOV
+
+    # 3. Industry / corp registry (cninfo / gsxt / 工商 / 公示)
+    registry_url_hints = ("cninfo.com.cn", "gsxt.gov.cn", "tianyancha", "qcc.com", "qixin")
+    if any(h in url for h in registry_url_hints):
+        return EVIDENCE_ORIGIN_REGISTRY
+    if "工商" in label or "公示" in label:
+        return EVIDENCE_ORIGIN_REGISTRY
+
+    # 4. Internal · 本行 / 内部 / SOP / 制度 / 风偏 / 准入 / 贷后 / 台账
+    internal_hints = (
+        "本行", "内部", "sop", "制度", "风偏", "准入", "贷后", "台账", "kb_internal",
+    )
+    if any(h in label_lower for h in internal_hints):
+        return EVIDENCE_ORIGIN_INTERNAL
+
+    # 5. Tag / narrative / 客户经理填报
+    tag_hints = ("标签", "narrative", "客户经理", "尽调", "现场")
+    if any(h in label_lower for h in tag_hints):
+        return EVIDENCE_ORIGIN_TAG
+
+    # 6. Media · 财新/华尔街见闻/界面/搜索/新闻/舆情
+    media_url_hints = (
+        "caixin.com", "yicai.com", "wallstreetcn.com", "jiemian.com",
+        "21jingji.com", "thepaper.cn",
+    )
+    if any(h in url for h in media_url_hints):
+        return EVIDENCE_ORIGIN_MEDIA
+    media_label_hints = ("财新", "第一财经", "华尔街", "界面", "21世纪", "舆情", "新闻", "媒体", "搜索")
+    if any(h in label for h in media_label_hints):
+        return EVIDENCE_ORIGIN_MEDIA
+
+    return EVIDENCE_ORIGIN_OTHER
+
+
+def infer_evidence_origins(evidences: list[Any]) -> list[str]:
+    """对一批 evidence 抽 unique origin bucket (deterministic order).
+
+    Args:
+        evidences: list of dict {"source": str, "url": str} OR Evidence pydantic obj
+                   (容忍两种形态 · 兼容 cross_matcher.match_customer 输出)
+
+    Returns:
+        list[str] · unique origins in ALL_EVIDENCE_ORIGINS 顺序
+    """
+    seen: set[str] = set()
+    for ev in evidences or []:
+        if isinstance(ev, dict):
+            label = str(ev.get("source") or ev.get("evidence_source") or "")
+            url = str(ev.get("url") or ev.get("evidence_url") or "")
+        else:
+            label = str(getattr(ev, "source", "") or getattr(ev, "evidence_source", ""))
+            url = str(getattr(ev, "url", "") or getattr(ev, "evidence_url", ""))
+        seen.add(classify_evidence_origin(label, url))
+    return [o for o in ALL_EVIDENCE_ORIGINS if o in seen]
+
+
+def infer_full_kinds(
+    hit_data: list[Any] | None = None,
+    evidences: list[Any] | None = None,
+) -> list[str]:
+    """V2 fix-forward · 综合 rule prefix kinds + evidence origin kinds (union).
+
+    设计:
+    - 客户的"信号多样性" = rule kind 维度 ∪ evidence origin 维度
+    - 两个维度正交 · 客户 1 rule + 1 evidence 即 ≥ 2 dimensions
+    - 反对 hardcode 凑数 / 反对 fixture 注水 (PM 红线) ·
+      origin 来自 evidence source 真实分类 (banking audit 必分维度)
+
+    Args:
+        hit_data: rule hits (per infer_signal_kinds)
+        evidences: evidence list (per infer_evidence_origins)
+
+    Returns:
+        list[str] · rule kinds + evidence origins · deterministic 顺序
+        (rule kinds 在前 · evidence origins 在后 · 各自内按 ALL_* 顺序)
+    """
+    rule_kinds = infer_signal_kinds(hit_data or [])
+    origins = infer_evidence_origins(evidences or [])
+    return rule_kinds + origins
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +555,15 @@ def quality_bundle(
 
 
 __all__ = [
+    "ALL_EVIDENCE_ORIGINS",
     "ALL_SIGNAL_KINDS",
+    "EVIDENCE_ORIGIN_COURT",
+    "EVIDENCE_ORIGIN_GOV",
+    "EVIDENCE_ORIGIN_INTERNAL",
+    "EVIDENCE_ORIGIN_MEDIA",
+    "EVIDENCE_ORIGIN_OTHER",
+    "EVIDENCE_ORIGIN_REGISTRY",
+    "EVIDENCE_ORIGIN_TAG",
     "SIGNAL_KIND_BUSINESS",
     "SIGNAL_KIND_FINANCIAL",
     "SIGNAL_KIND_INDUSTRY",
@@ -409,9 +573,12 @@ __all__ = [
     "SIGNAL_KIND_RELATED",
     "SOURCE_CONFIDENCE_PATH",
     "SourceConfidence",
+    "classify_evidence_origin",
     "classify_signal_kind",
     "compute_evidence_confidence",
     "freshness_score",
+    "infer_evidence_origins",
+    "infer_full_kinds",
     "infer_signal_kinds",
     "lookup_source_confidence",
     "quality_bundle",

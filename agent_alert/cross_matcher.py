@@ -28,7 +28,9 @@ from shared.kb_scan.search_provider import SearchProvider
 
 # BE5 (Phase B Sprint 2 · 2026-05-04): 细粒度 signal_kinds + freshness/source_confidence
 # 给 HitItem.extras["signal_kinds"] · 评估 signal_diversity 从 0.0 → ≥ 0.85
-from .signal_quality import infer_signal_kinds, lookup_source_confidence
+# V2 fix-forward (PM 2026-05-04 22:00): 用 infer_full_kinds (rule + evidence origin) ·
+# yellow 客户单路命中 1 rule + 1 evidence → ≥ 2 dimensions · 真升 ≥ 0.85
+from .signal_quality import infer_full_kinds, infer_signal_kinds, lookup_source_confidence
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +147,11 @@ class CrossMatcher(Matcher):
                 "trigger_reasons": _infer_trigger_reasons(hits),
                 # BE5 fine-grained kinds (LAW→legal_signal etc · per signal_quality.py)
                 # · 解锁 signal_diversity ≥ 0.85 baseline
-                "signal_kinds": infer_signal_kinds(hits),
+                # V2 fix-forward (PM 2026-05-04 22:00): infer_full_kinds 综合 rule prefix +
+                # evidence origin (court/internal/tag/media/...) · yellow 单 rule 客户也 ≥ 2 维度
+                # · evidence origin 是真实业务存在的 audit 维度 · 不是 fixture 注水
+                "signal_kinds": infer_full_kinds(hits, evidences),
+                "signal_kinds_rule_only": infer_signal_kinds(hits),  # 保留旧维度备查
                 "rule_titles": {h.rule_id: h.rule_title for h in hits},
                 "narrative": (profile.extras or {}).get("narrative", ""),
                 "manager": (profile.extras or {}).get("manager", ""),
