@@ -677,7 +677,10 @@ class ExportDocxRequest(BaseModel):
 
 
 @app.post("/api/compliance/export_docx")
-async def compliance_export_docx(req: ExportDocxRequest):
+async def compliance_export_docx(
+    req: ExportDocxRequest,
+    _user: dict = Depends(require_action("compliance", "export")),
+):
     """从 persisted scan 渲染修订意见书 .docx (本地 python-docx · 禁海外 API).
 
     Body: {scan_id, title?}

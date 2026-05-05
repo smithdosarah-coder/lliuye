@@ -196,3 +196,159 @@ def test_valid_roles_count():
 
 def test_valid_agents_count():
     assert len(VALID_AGENTS) == 6
+
+
+# ============================================================================
+# RBAC matrix full coverage (V2-FIX 2026-05-05 · per Codex review Major 2)
+# 5 role × 6 agent × 5 action = 150 combination · 全 ACCESS_V2 spec verify
+# ============================================================================
+
+# 期望矩阵 spec (ACCESS_V2 镜像 · per Q-052 #8 + auth-store.ts mirror)
+# True = role has action on agent · False = denied
+_EXPECTED_MATRIX: dict[tuple[str, str, str], bool] = {}
+
+# RM (Q-052 #8 收窄): 主调 channel/report 4 op action · 看 credit/alert read · 不可调 riskctrl/compliance
+for _ag in ("channel", "report"):
+    for _act in ("invoke", "read", "export", "handoff"):
+        _EXPECTED_MATRIX[("rm", _ag, _act)] = True
+    _EXPECTED_MATRIX[("rm", _ag, "approve")] = False  # RM 不是审批方
+for _ag in ("credit", "alert"):
+    _EXPECTED_MATRIX[("rm", _ag, "read")] = True
+    for _act in ("invoke", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("rm", _ag, _act)] = False
+for _ag in ("riskctrl", "compliance"):  # Q-052 #8 收窄 · 全 false
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("rm", _ag, _act)] = False
+
+# credit_officer: credit 主调 (含 approve) + report read/export + alert read
+_EXPECTED_MATRIX.update({
+    ("credit_officer", "credit", "invoke"): True,
+    ("credit_officer", "credit", "read"): True,
+    ("credit_officer", "credit", "approve"): True,
+    ("credit_officer", "credit", "handoff"): True,
+    ("credit_officer", "credit", "export"): False,
+    ("credit_officer", "report", "read"): True,
+    ("credit_officer", "report", "export"): True,
+    ("credit_officer", "report", "invoke"): False,
+    ("credit_officer", "report", "approve"): False,
+    ("credit_officer", "report", "handoff"): False,
+    ("credit_officer", "alert", "read"): True,
+    ("credit_officer", "alert", "invoke"): False,
+    ("credit_officer", "alert", "export"): False,
+    ("credit_officer", "alert", "approve"): False,
+    ("credit_officer", "alert", "handoff"): False,
+})
+for _ag in ("channel", "compliance", "riskctrl"):
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("credit_officer", _ag, _act)] = False
+
+# compliance_officer: compliance 主调 (含 approve) + report read/export + alert read
+_EXPECTED_MATRIX.update({
+    ("compliance_officer", "compliance", "invoke"): True,
+    ("compliance_officer", "compliance", "read"): True,
+    ("compliance_officer", "compliance", "approve"): True,
+    ("compliance_officer", "compliance", "handoff"): True,
+    ("compliance_officer", "compliance", "export"): False,
+    ("compliance_officer", "report", "read"): True,
+    ("compliance_officer", "report", "export"): True,
+    ("compliance_officer", "report", "invoke"): False,
+    ("compliance_officer", "report", "approve"): False,
+    ("compliance_officer", "report", "handoff"): False,
+    ("compliance_officer", "alert", "read"): True,
+    ("compliance_officer", "alert", "invoke"): False,
+    ("compliance_officer", "alert", "export"): False,
+    ("compliance_officer", "alert", "approve"): False,
+    ("compliance_officer", "alert", "handoff"): False,
+})
+for _ag in ("channel", "credit", "riskctrl"):
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("compliance_officer", _ag, _act)] = False
+
+# risk_manager: riskctrl 主调 (含 approve) + alert 主调 (含 approve+handoff) + credit read
+_EXPECTED_MATRIX.update({
+    ("risk_manager", "riskctrl", "invoke"): True,
+    ("risk_manager", "riskctrl", "read"): True,
+    ("risk_manager", "riskctrl", "approve"): True,
+    ("risk_manager", "riskctrl", "export"): False,
+    ("risk_manager", "riskctrl", "handoff"): False,
+    ("risk_manager", "alert", "invoke"): True,
+    ("risk_manager", "alert", "read"): True,
+    ("risk_manager", "alert", "approve"): True,
+    ("risk_manager", "alert", "handoff"): True,
+    ("risk_manager", "alert", "export"): False,
+    ("risk_manager", "credit", "read"): True,
+    ("risk_manager", "credit", "invoke"): False,
+    ("risk_manager", "credit", "export"): False,
+    ("risk_manager", "credit", "approve"): False,
+    ("risk_manager", "credit", "handoff"): False,
+})
+for _ag in ("channel", "report", "compliance"):
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("risk_manager", _ag, _act)] = False
+
+# admin: 全 6 agent × 5 action 全 True
+for _ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("admin", _ag, _act)] = True
+
+
+def test_access_v2_full_matrix_5_role_x_6_agent_x_5_action():
+    """RBAC matrix full coverage · 5 role × 6 agent × 5 action = 150 assertion.
+
+    per Codex V2-FIX review Major 2: 缺 RM riskctrl/credit/alert 等 RBAC matrix 系统覆盖 ·
+    本 test 一次性覆盖全 ACCESS_V2 spec · 任何 ACCESS_V2 改 (e.g. 新角色 / 新 action / 新 agent)
+    必同 _EXPECTED_MATRIX 同步 · 否则 test fail · 防 ACCESS_V2 漂移.
+    """
+    from auth_service.rbac import VALID_ACTIONS, can_action
+
+    assert len(_EXPECTED_MATRIX) == 5 * 6 * 5, (
+        f"_EXPECTED_MATRIX should cover 5 role × 6 agent × 5 action = 150 · "
+        f"got {len(_EXPECTED_MATRIX)}"
+    )
+
+    failures: list[str] = []
+    for role in VALID_ROLES:
+        for agent in VALID_AGENTS:
+            for action in VALID_ACTIONS:
+                key = (role, agent, action)
+                expected = _EXPECTED_MATRIX[key]
+                actual = can_action(role, agent, action)
+                if expected != actual:
+                    failures.append(
+                        f"  ({role!r}, {agent!r}, {action!r}): expected={expected} got={actual}"
+                    )
+    assert not failures, (
+        "RBAC matrix mismatch (per ACCESS_V2 spec · Q-052 #8):\n" + "\n".join(failures)
+    )
+
+
+def test_access_v2_rm_riskctrl_all_5_action_denied():
+    """RM 完全不可调 riskctrl (per Q-052 #8) · 5 action 全 false · 防 ACCESS_V2 漂移."""
+    from auth_service.rbac import can_action
+
+    for action in ("invoke", "read", "export", "handoff", "approve"):
+        assert not can_action("rm", "riskctrl", action), (
+            f"RM riskctrl.{action} should be False (Q-052 #8 收窄)"
+        )
+
+
+def test_access_v2_rm_compliance_all_5_action_denied():
+    """RM 完全不可调 compliance (per Q-052 #8) · 5 action 全 false · 防 ACCESS_V2 漂移."""
+    from auth_service.rbac import can_action
+
+    for action in ("invoke", "read", "export", "handoff", "approve"):
+        assert not can_action("rm", "compliance", action), (
+            f"RM compliance.{action} should be False (Q-052 #8 收窄)"
+        )
+
+
+def test_access_v2_rm_credit_alert_only_read():
+    """RM 看 credit/alert 仅 read (per Q-052 #8) · 4 write action 全 false."""
+    from auth_service.rbac import can_action
+
+    for agent in ("credit", "alert"):
+        assert can_action("rm", agent, "read"), f"RM should have {agent}.read"
+        for action in ("invoke", "export", "handoff", "approve"):
+            assert not can_action("rm", agent, action), (
+                f"RM {agent}.{action} should be False (read-only · per Q-052 #8)"
+            )

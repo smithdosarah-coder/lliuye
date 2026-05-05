@@ -323,7 +323,10 @@ _EXPORT_COLUMNS: list[tuple[str, str]] = [
 
 
 @app.post("/api/channel/export_xlsx")
-async def channel_export_xlsx(req: ChannelExportRequest):
+async def channel_export_xlsx(
+    req: ChannelExportRequest,
+    _user: dict = Depends(require_action("channel", "export")),
+):
     """将候选企业清单导出为 xlsx（本地生成，禁止境外传输）。
 
     输入 candidates 是 /api/channel/run done 事件的 candidates 数组（带 camelCase 字段）。
@@ -405,7 +408,10 @@ class ChannelExportDocxRequest(BaseModel):
 
 
 @app.post("/api/channel/export_docx")
-async def channel_export_docx(req: ChannelExportDocxRequest):
+async def channel_export_docx(
+    req: ChannelExportDocxRequest,
+    _user: dict = Depends(require_action("channel", "export")),
+):
     """生成 Agent1 候选线索 Word 报告并作为 attachment 返回。
 
     内容含: 客户经理 + 日期 / IdealProfile 12 维卡 / TopN 候选概览表 /
@@ -488,7 +494,10 @@ class ChannelHandoffRequest(BaseModel):
 
 
 @app.post("/api/channel/handoff")
-async def channel_handoff(req: ChannelHandoffRequest):
+async def channel_handoff(
+    req: ChannelHandoffRequest,
+    _user: dict = Depends(require_action("channel", "handoff")),
+):
     """将候选企业 dict 转为 CandidateProfile，按契约写入本地 handoff JSON。
 
     返回各 profile_id + 相对路径，供 Agent3 按 profile_id 拉取。

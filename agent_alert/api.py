@@ -1053,7 +1053,10 @@ async def alert_scan_replay(scan_id: str):
 
 
 @app.post("/api/alert/export_docx")
-async def alert_export_docx(req: AlertExportDocxRequest):
+async def alert_export_docx(
+    req: AlertExportDocxRequest,
+    _user: dict = Depends(require_action("alert", "export")),
+):
     """W-FIX2 bug #6 修 · 命中清单 Word 报告本地导出.
 
     监管底线: 渲染全 BytesIO 本地完成 · 禁海外 API · attachment 下载.

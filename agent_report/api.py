@@ -808,7 +808,11 @@ class ExportDocxRequest(BaseModel):
 
 
 @app.post("/api/report/export_docx")
-async def report_export_docx(req: ExportDocxRequest, request: Request):
+async def report_export_docx(
+    req: ExportDocxRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "export")),
+):
     """从 session 数据(或直接 payload)渲 .docx · 返 attachment 下载."""
     from urllib.parse import quote
     from agent_report.word_export import build_filename, export
@@ -1147,7 +1151,11 @@ async def report_section_supplement(req: dict):
 
 
 @app.post("/api/report/export_pdf")
-async def report_export_pdf(req: ExportDocxRequest, request: Request):
+async def report_export_pdf(
+    req: ExportDocxRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "export")),
+):
     """从 session 数据(或显式 payload)渲 .pdf · 返 attachment 下载.
 
     与 /api/report/export_docx 共用 ExportDocxRequest schema · 同源异格输出 · 给客户的

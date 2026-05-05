@@ -394,7 +394,10 @@ class HandoffFromReportRequest(BaseModel):
 
 
 @app.post("/api/credit/handoff/from_report")
-async def handoff_from_report(req: HandoffFromReportRequest):
+async def handoff_from_report(
+    req: HandoffFromReportRequest,
+    _user: dict = Depends(require_action("credit", "handoff")),
+):
     """Agent6→Agent3 handoff · Cat 0 北极星核心: EmptyState onPrimary 真消费 ReportJSON。
 
     返 enterprise_profile + ready_for_decision flag · 前端注入 /api/credit/decision body。
@@ -896,7 +899,10 @@ class ExportDocxRequest(BaseModel):
 
 
 @app.post("/api/credit/export_docx")
-async def export_decision_docx(req: ExportDocxRequest):
+async def export_decision_docx(
+    req: ExportDocxRequest,
+    _user: dict = Depends(require_action("credit", "export")),
+):
     """本地 python-docx 渲染决策建议书 · 接 decision_id (优先) 或 advice payload.
 
     监管底线: 禁海外 API · 全部本地计算.

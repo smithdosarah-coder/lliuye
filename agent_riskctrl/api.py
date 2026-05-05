@@ -530,7 +530,10 @@ def _export_response(data: bytes, ruleset_id: str, ext: str, mime: str) -> Respo
 
 
 @app.post("/api/riskctrl/export_docx")
-async def riskctrl_export_docx(req: ExportRequest):
+async def riskctrl_export_docx(
+    req: ExportRequest,
+    _user: dict = Depends(require_action("riskctrl", "export")),
+):
     """Word 报告导出 (回测稿) · 见 agent_riskctrl/exports.build_docx 内容契约."""
     try:
         from agent_riskctrl.exports import build_docx
@@ -550,7 +553,10 @@ async def riskctrl_export_docx(req: ExportRequest):
 
 
 @app.post("/api/riskctrl/export_xlsx")
-async def riskctrl_export_xlsx(req: ExportRequest):
+async def riskctrl_export_xlsx(
+    req: ExportRequest,
+    _user: dict = Depends(require_action("riskctrl", "export")),
+):
     """Excel 规则明细导出 · 4 sheet (Rules / KS Points / Samples / RuleStats)."""
     try:
         from agent_riskctrl.exports import build_xlsx
@@ -653,7 +659,10 @@ async def riskctrl_demo_run(req: DemoRunRequest):
 
 
 @app.post("/api/riskctrl/export_pdf")
-async def riskctrl_export_pdf(req: ExportRequest):
+async def riskctrl_export_pdf(
+    req: ExportRequest,
+    _user: dict = Depends(require_action("riskctrl", "export")),
+):
     """PDF 送审包 · 含规则明细 + 样本分布 + 审批栏 (留白)."""
     try:
         from agent_riskctrl.exports import build_pdf
