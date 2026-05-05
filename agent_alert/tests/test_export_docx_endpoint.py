@@ -19,8 +19,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from fastapi.testclient import TestClient  # noqa: E402
 
 from agent_alert.api import app  # noqa: E402
+from auth_service.dependencies import COOKIE_NAME  # noqa: E402
+from auth_service.jwt_util import issue  # noqa: E402
 
 client = TestClient(app)
+# admin cookie · pass require_action gate (Phase B Sprint 3 V3-FIX 2026-05-05)
+# alert.export action gated · 旧 test 没 cookie 返 401 · 加 admin (全 action 全 agent OK)
+client.cookies.set(COOKIE_NAME, issue("u_test", "admin"))
 
 
 def test_export_docx_happy_path():
