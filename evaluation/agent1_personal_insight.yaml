@@ -105,12 +105,12 @@ metrics:
         compliance_check.aml_risk 非"未知" + sources 至少 1 + last_checked 非空
         + talking_points.opener / closing 非占位 + key_messages ≥ 1 + objection_responses ≥ 1
       description: |
-        组合分 (deterministic 6 子项):
-        - compliance: aml_risk_known(0.15) + sources_ge1(0.15) + last_checked_set(0.10) = 0.40
-        - talking:    opener_set(0.10) + closing_set(0.10) + key_messages_ge1(0.10) + objections_ge1(0.10) + opener_no_placeholder(0.10) = 0.50
+        组合分 (deterministic 8 子项 · compliance 3 + talking 5):
+        - compliance 3 子项: aml_risk_known(0.15) + sources_ge1(0.15) + last_checked_set(0.10) = 0.40
+        - talking 5 子项: opener_set(0.10) + closing_set(0.10) + key_messages_ge1(0.10) + objections_ge1(0.10) + opener_no_placeholder(0.10) = 0.50
         - 注: 合规 0.40 + 话术 0.50 = 0.90 + 缓冲 0.10 (留 BE12 真业务后扩展)
-        - score = sum(子项命中权重)
-      method: deterministic_6sub_weighted
+        - score = sum(子项命中权重) · 与 adapter 实现 8 子项一致 (per Codex review V2 修正)
+      method: deterministic_8sub_weighted
       target: ">= 0.80"
       baseline_target: 0.80
       blocker_threshold: 0.65

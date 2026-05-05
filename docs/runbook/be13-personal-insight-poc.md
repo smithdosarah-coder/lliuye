@@ -4,7 +4,7 @@
 > **Status**: PREP-only skeleton · BE12 真业务 ship 后 worker 接通 → POC 跑首轮
 > **Owner**: worker-B7-final (`feat/phase-b7-final`) · ship 阶段移交主 CLI cherry-pick
 > **依据**: docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md BE13 + onboarding/B7-final.md
-> **锚定**: agent_channel/personal_insight.py @ 9479428 (主 CLI 写 PersonalInsightPayload TypedDict)
+> **锚定**: PersonalInsightPayload TypedDict 在 commit `9479428` (位于 `feat/phase-b4-channel` branch · 不在本分支 worktree HEAD · ship 闸 cherry-pick to main 顺序 dependency: B4-channel BE12 schema 必先 merge 后才能 cherry-pick B7 PREP)
 
 ---
 
@@ -209,7 +209,7 @@ per `shared/decision_ledger/store.py:155` 强制 hash · 任何 plain PII 进入
 per onboarding/B7-final.md §"红线":
 
 - 不破现有 BE7 decision_ledger 4 retention default (per CLAUDE.md §3.7.5)
-- LLM 调用走 `shared/llm_caller/` · **禁止新增 `from llm import LLMClient` OR `LLMClient(...)` 直连** (per Q-052 P2.6)
+- LLM 调用走 `shared/llm_caller/` · **禁止新增 legacy direct LLM import / legacy client constructor 直连** (per Q-052 P2.6 · 具体 grep pattern 见 onboarding `GREP-GUARD-LEGACY-LLM` 段)
   - BASELINE=30 hits / 14 file at HEAD post-rebase (= dispatch HEAD 269aba1) ✅ verified
   - DIFF guard: `git diff origin/main...HEAD -- '*.py'` 必 0 新增
   - 不 touch 已知残留 14 file (per Q-052 P2.6 修正版)
@@ -231,7 +231,7 @@ per onboarding/B7-final.md §"红线":
 | 加权综合分 helper | ✅ ship | `compute_weighted_poc_verdict()` 同 file |
 | 本 runbook skeleton | ✅ ship | `docs/runbook/be13-personal-insight-poc.md` |
 | ledger integration verify checklist | ✅ ship | 本 runbook §3 V1-V12 |
-| BE12 schema read-only verify | ✅ ship | git show 9479428:agent_channel/personal_insight.py · schema 7 顶层字段 + 4 sub TypedDict 完整 |
+| BE12 schema read-only verify | ⚠️ external checkpoint | `git show 9479428:agent_channel/personal_insight.py` · schema 在 `feat/phase-b4-channel` branch · 当前 worktree HEAD 不见 · ship 闸 cherry-pick to main 必先于 B7 (顺序 dependency) |
 | BE7 ledger read-only verify | ✅ ship | shared/decision_ledger/{__init__,schema,store,hashing}.py 全 BE7 ship · 4 retention default 锁 §3.7.5 · subject_id 强制 hash · silent-fail 不破 endpoint flow |
 | _LAZY_MODULES 注册 | ⏳ pending (per PREP-only) | BE12 真业务 ship 时 worker 加 1 行 |
 | oracle gold 落地 | ⏳ pending (per PREP-only) | BE12 真业务 ship 时 PM 设计 · 反 5 原则 #1 盲测 |
