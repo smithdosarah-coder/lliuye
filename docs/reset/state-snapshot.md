@@ -848,3 +848,47 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - ⏳ codex review (per PM REVIEW-MODE: codex 红线)
 - ⏳ PM verify DONE-V2 + cherry-pick 11 commits (V1 9 + Task9 V1 + V2 fix-forward) 回 main
 - ⏳ worker-B7 Sprint 3 起 · Agent2 一侧 POST /api/riskctrl/rule_proposal 消费 §6.4 payload
+
+---
+
+## 2026-05-04 22:30 · worker-B4-alert V3 fix-forward · codex DISAGREE 3 issue 全修
+
+### What happened
+- Codex review V2 verdict: DISAGREE · 3 fix-forward issue 列出 (per PM 转达 verbatim):
+  1. evaluation/runner/adapters/agent4_alert.py:43 DEFAULT_RUNTIME hardcode 指 V1 path
+     (4_20260419.yaml) · 没跟 V2 dump (4_20260504.yaml) · 跑默认时漏 V2 baseline
+  2. V2 commit 6ed1698 worker 没 push origin · 远端 fork 看不到 V2 work
+  3. doc-CLI 不一致: evaluation/baselines/2026-04-25-post-agent6-merge.md:50 引用 `--baseline new`
+     但实际 CLI argparse 是 `--compare-baseline` (evaluation/runner/cli.py:96)
+
+- 3 issue fix-forward:
+  - Issue 1: adapter 加 _resolve_default_runtime() · 从 evaluation/agent4_alert.yaml
+    baseline.artifact 字段读 default · 解耦 hardcode · fallback 链 (yaml > V2 dump > V1 dump)
+  - Issue 2: git push origin feat/phase-b4-alert (V2 + V3 commits 上 GitHub)
+  - Issue 3: 改 evaluation/baselines/2026-04-25-post-agent6-merge.md:50
+    `--baseline new` → `--compare-baseline` · 0 remaining `--baseline` 单独 flag 引用
+
+### Triggered by
+- Codex peer review V2 verdict DISAGREE (per PM REVIEW-MODE: codex 红线 + Q-043 protocol v2)
+
+### State change (delta)
+- evaluation/runner/adapters/agent4_alert.py: DEFAULT_RUNTIME hardcode → _resolve_default_runtime()
+  动态读 yaml baseline.artifact · 自动跟 V2 dump 升级
+- evaluation/baselines/2026-04-25-post-agent6-merge.md: --baseline new → --compare-baseline (CLI 一致)
+- 254 unit tests 全 pass · 0 regression
+- adapter 默认跑 (无 --artifacts) 现 resolve 到 V2 dump · signal_diversity = 1.000 ≥ 0.85
+- worker-B4-alert: V2 PASS + 3 codex issue → V3 完整 closeout
+- 总 commits: 9 (V1) + 1 (Task9) + 1 (V2) + 1 (V3 · 本段) = 12 commits
+
+### V3 codex sanity check
+- ✅ Issue 1: adapter default runtime 不再 hardcode V1 path · 跟 yaml SSOT
+- ✅ Issue 2: 准备 git push origin (本 commit + V2 commit 一起上 GitHub)
+- ✅ Issue 3: 0 `--baseline` 单独 flag doc 引用 · 全 `--compare-baseline`
+- ✅ 254 tests pass · 0 regression
+- ✅ signal_diversity 默认运行也出 1.000 (不需要 --artifacts override)
+
+### Next
+- ⏳ git push origin feat/phase-b4-alert · V2+V3 上 GitHub
+- ⏳ PM verify DONE-V3 + cherry-pick 12 commits 回 main
+- ⏳ Codex re-review (V3 是否有新 issue)
+- ⏳ worker-B7 Sprint 3 起 · Agent2 一侧 §6.4 消费

@@ -40,7 +40,7 @@ from ..registry import register_evaluator
 from ..schemas import EvalRun, MetricOutcome
 
 
-DEFAULT_RUNTIME = REPO_ROOT / "evaluation" / "manual" / "4_20260419.yaml"
+_AGENT_CONFIG_PATH = REPO_ROOT / "evaluation" / "agent4_alert.yaml"
 DEFAULT_FIXTURE = REPO_ROOT / "agent_alert" / "tests" / "fixtures" / "phase0_scan_sample.json"
 
 
@@ -49,6 +49,42 @@ def _load_payload(path: Path) -> dict[str, Any]:
         if path.suffix.lower() in (".yaml", ".yml"):
             return yaml.safe_load(f) or {}
         return json.load(f)
+
+
+def _resolve_default_runtime() -> Path:
+    """V3 fix-forward (codex review issue 1 · 2026-05-04): 从 yaml baseline.artifact
+    读 default runtime · 解耦 hardcode 路径 · 自动跟随 yaml 升级.
+
+    fallback 链:
+        1. evaluation/agent4_alert.yaml baseline.artifact (per-update SSOT)
+        2. evaluation/manual/4_20260504.yaml (V2 BE5+BE9 dump · 当前最新)
+        3. evaluation/manual/4_20260419.yaml (Phase 1 V1 baseline · legacy)
+
+    任何 yaml 升级新 dump · 仅改 yaml baseline.artifact · 不需碰 adapter.
+    """
+    try:
+        if _AGENT_CONFIG_PATH.is_file():
+            cfg = yaml.safe_load(_AGENT_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+            artifact = ((cfg.get("baseline") or {}).get("artifact") or "").strip()
+            if artifact:
+                p = Path(artifact)
+                if not p.is_absolute():
+                    p = REPO_ROOT / p
+                if p.is_file():
+                    return p
+    except (OSError, ValueError, yaml.YAMLError):
+        pass
+
+    # fallback 2: 当前已知 V2 dump
+    p2 = REPO_ROOT / "evaluation" / "manual" / "4_20260504.yaml"
+    if p2.is_file():
+        return p2
+
+    # fallback 3: legacy V1 dump
+    return REPO_ROOT / "evaluation" / "manual" / "4_20260419.yaml"
+
+
+DEFAULT_RUNTIME = _resolve_default_runtime()
 
 
 def _p95(values: list[float]) -> float:

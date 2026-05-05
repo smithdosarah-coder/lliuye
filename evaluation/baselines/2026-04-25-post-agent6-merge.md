@@ -47,7 +47,7 @@ worker 跑的 "DP001" 与本任 quick run 用的 `经纬测绘_对公成稿A.doc
 
 ## 4. 后续
 
-- **轨 8c evaluation** Wave 3 dispatch 后 · 跑 `py evaluation/runner/cli.py --agent agent6 --baseline new` · 出完整 5-DP table
+- **轨 8c evaluation** Wave 3 dispatch 后 · 跑 `py evaluation/runner/cli.py --agent agent6 --compare-baseline` · 出完整 5-DP table
 - **template_leakage_rate metric form** Q-030 follow-up（worker closeout body §6 honest caveat · sample 集 3 → 5 改变了 testbed · metric 数值不可直接比较）· 需轨 8c 设计新 metric form
 - **本 quick baseline 标记为 transient** · 轨 8c 完后归档到 `evaluation/baselines/_archive/`
 
