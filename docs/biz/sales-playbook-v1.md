@@ -1,5 +1,7 @@
 # 销售剧本 v1.0 · 信贷 6 Agent 矩阵
 
+> ⚠️ **OBSOLETE / REFERENCE-ONLY (Q-052 · 2026-05-04 · PM ratify)**: 本 doc 销售话术 / 4 角色 ROI / 异议 FAQ / 5 友商对位 / 90 min 演示节奏 / 准入清单 — 全部由众安信科商务团队负责 · PM 不审本 doc · 商务团队 if 引用须二次确认 (尤其 ROI 模型偏国有大行 200 RM 体量 · 城商 / 农商 sweet spot 数字未验证) · 不再是 Phase B 验收硬线 (charter v2 #2 OBSOLETE) · 详 Q-052
+
 > **版本**: v1.0 · 2026-05-04 · worker-B2-biz (Phase B Sprint 2 · BE11 doc-only)
 > **性质**: 销售内训 doc · 客户对接话术参考 · **不是** 直接发客户的对外材料
 > **审稿对象**: 销售 lead / 主 CLI / PM

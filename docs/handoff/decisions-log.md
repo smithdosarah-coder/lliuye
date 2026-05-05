@@ -2855,3 +2855,70 @@ B2 worker commit `d9c61e2` 父 commit 是 `ae17ad8` (5/1 09:33 B1 Sprint 2 DONE)
 
 **回写来源**: B2 self-verify 发现 base 漂 + PM "按你推荐来" · path-filter cherry-pick + Q-050 立项
 
+
+---
+
+## Q-052 · Phase B 真主线 reframe · 角色定位实装 (2026-05-04 PDT · 双 AI 辩论 R1+R2 ratify)
+
+### Question
+
+PM 2026-05-04 verbatim 两点决策:
+1. **"定价相关不需要 · 我们公司有专门的商务对接 · 不需要我们准备"** → B2 商业化 doc (pricing/sales-playbook/4 阶段漏斗/友商对位/异议 FAQ) 不该 PM 准备 · 众安信科商务团队负责
+2. **"区分银行也不需要 · 因为客户肯定是进行本地化部署 · 天生就会有系统隔离 · 你只需要做好不同角色的定位实装就好"** → 客户全本地化部署 (一家一套 ECS · 物理天生隔离) · **永不需要 multi-tenant 实装** · 真主线 = **角色定位实装**
+
+主 CLI 5/4 早立的口头 Q-051 ("提升产品能力 = 后端 BE only" · 排出商业化 doc + 多租户 + 销售剧本 + 视觉) — Codex R2 catch · 该 entry **从未真 commit decisions-log** (仅 chat / state-snapshot 提及) · 不补错账。
+
+### Resolution (双 AI 辩论 R1+R2 收敛 · R3 跳过实质 dissent ~0)
+
+**Phase B 真主线 reframe** (charter v2 5 项验收硬线):
+- #1 数据飞轮 BE10 — 留 (已 ship)
+- ~~#2 商业化 doc + 多租户 architecture~~ — **OBSOLETE** (商务团队 + 本地化部署搞定 · charter v2 line 25 改注 OBSOLETE)
+- #3 ~~RM workbench v4 闭环~~ → **4+1 角色定位工作台** (改名 · charter v2 line 26 改注)
+- #4 6 Agent 后端 BE1-BE13 — 留
+- #5 demo + POC ready — 改验收口径 "按 4+1 角色跑通同一客户闭环" (charter v2 line 28 改注)
+
+真主线 = #1 + #3 + #4 + #5 = **角色定位实装 + 后端 BE + demo POC ready**
+
+### Active rule (回写 Tier 2 · per CLAUDE.md §15 · 8 条)
+
+1. **Phase B 真主线** = 角色定位实装 (4+1 角色 home view + ACCESS matrix + 后端 row-level/action gate + 前端工作台逻辑 F5/F7-F10/F15) + 后端 BE1-BE13 + demo POC ready (按 4+1 角色跑通同一客户闭环)
+2. **永不实装 multi-tenant**: 客户全本地化部署 (一家一套 ECS · 物理天生隔离) · 不存在 SaaS multi-tenant 场景 · Phase C multi-tenant 实装 8-10 周工程量永不启动
+3. **商业化 / 销售 / 价格 / 友商对位 / 异议 FAQ 交众安信科商务团队**: PM 不准备 · 不写 doc · 不审 doc · 商务团队若引用 B2 4 doc 须二次确认
+4. **Q-047 视觉冻结解读校准**: 仅冻审美装饰层 (F1-F4 / F11-F14 / F16-F17 · 视觉打磨) · 不冻前端工作台逻辑层 (F5 客户上下文常驻 / F7 Today 单链路 / F8 handoff 任务卡 / F9 segment-aware / F10 Action Card / F15 Live evidence)
+5. **charter v2 #3 改名** "RM workbench v4 闭环" → "**4+1 角色定位工作台**" (PM verbatim 精度)
+6. **charter v2 #5 改验收口径** "按 4+1 角色跑通同一客户闭环" 不是销售/价格/multi-tenant 叙事
+7. **角色权限不只前端 guard**: 必须**后端 row-level + action Depends 补强** — Sprint 3 worker-B5 同步加 (现有 `web/src/components/AuthGate.tsx:56-64` 仅前端 endpoint guard · `auth_service/rbac.py:9-39` ACCESS matrix 粗粒度)
+8. **RM 权限契约目标收窄** (Codex R2 critical catch · Sprint 3 worker-B5 实装):
+   - 当前: `auth_service/rbac.py:9-14` + `web/src/lib/store/auth-store.ts:35-40` 给 RM **全 6 agent access** (本地化部署 demo 期可接受)
+   - 目标: RM 主调 Agent1/Agent6 · 看 Agent3/Agent4 read-only · 不可调 Agent2/Agent5
+   - 实装路径: Sprint 3 worker-B5 加 read-only schema (`ACCESS` 加 `read_only` flag) + 改 rbac.py + auth-store.ts + AuthGate.tsx
+   - Q-052 commit 不改代码 (避免 break 当前前端 view) · 留 worker-B5 atomic 改
+
+### 双 AI 辩论 R1+R2 关键 catch
+
+**Codex R1 catch 主 CLI 漏 (R2 全接受)**:
+- charter v2 #3 改名 "4+1 角色定位工作台" (主 CLI 写"留 #3" 不够精)
+- 5 角色 file:line specificity (`TodayContent.tsx:16-20` / `customer-store.ts:26-95` / `auth-store.ts:163-168` / `AuthGate.tsx:56-64`)
+- **后端缺真 row-level 权限**: mock 全 assignedTo 王哲 · ACCESS matrix ✅ 但 row-level ❌
+- 替代方案 rejected 加 "**为达 0.85 硬改 fixture**" (§3.5 反 5 原则 + 反结构导向红线)
+
+**Codex R2 catch 主 CLI 漏 (R2 全接受)**:
+- **RM 权限当前代码全开 vs 目标收窄 = 真权限契约变更** (active rule #8)
+- Q-051 实际从未真立 entry · 不补错账 (active rule 补充)
+- B2 doc OBSOLETE marker 强度: 必须"reference-only · PM 不审 · 商务二次确认" (active rule #3)
+
+### 处置 (本 commit 同时改)
+
+- B2 4 doc 头部强 OBSOLETE marker 加 (4 file 改头)
+- charter v2 line 25-28 改 (#2 OBSOLETE / #3 改名 / #5 改验收口径)
+- decisions-log Q-052 立项 (本 entry)
+- state-snapshot Day 3 part 4 update
+- **不改 rbac.py + auth-store.ts** (RM 权限契约变更留 Sprint 3 worker-B5 atomic 改 · 避免 break 当前前端 view)
+- **不改 charter v2 Sprint 3 worker 拆分** (留下次 Sprint 2 全 ship 后 charter v2.2)
+
+### Author
+
+主 CLI Claude Opus 4.7 + Codex gpt-5.5-codex (R1 task `burt71qrs` + R2 task `balwa9b4w` · 各 medium reasoning sequential bg) · PM 2026-05-04 GO 拍板
+
+**回写来源**: PM 2026-05-04 verbatim 两点决策 + 双 AI 辩论 R1+R2 synthesis
+

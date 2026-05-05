@@ -22,10 +22,10 @@
 | # | 验收项 | 怎么算 done |
 |---|---|---|
 | 1 | **数据飞轮 Phase B gate** | `/api/feedback` 接 audit modify + 写 jsonl + 6 agent baseline 跑通 + blocker_threshold 阻断发布 + few-shot 注入 PoC |
-| 2 | **商业化 doc + 多租户 architecture** | `docs/biz/{pricing, multi-tenant, trial-flow}-assumptions.md` v1 + tenant_id/org_id 数据模型 spec (不实装 · per Codex 反对) |
-| 3 | **RM workbench v4 闭环** | `/today` 单链路 Agent6→Agent3 + handoff 任务卡真接入 + Customer Ribbon + Agent3 segment-aware + 视觉清洗 + 全屏渐变折中 + 真 6 bug 修 + ⌘+K Command Bar |
+| ~~2~~ | ⚠️ **OBSOLETE (Q-052 · 2026-05-04 PM ratify)** — ~~商业化 doc + 多租户 architecture~~ | 商业化交众安信科商务团队 · 客户全本地化部署 = 永不 multi-tenant 实装 · B2 4 doc 已 ship 标 REFERENCE-ONLY · 不再是 PM 验收项 · 详 Q-052 |
+| 3 | **4+1 角色定位工作台** (Q-052 · 改名自 ~~RM workbench v4 闭环~~) | 5 角色 (RM / credit_officer / compliance_officer / risk_manager / admin) 各 home view + ACCESS matrix + 后端 row-level/action gate + 前端 F5/F7/F8/F9/F10/F15 工作台逻辑 (注: F11-F14/F16/F17 视觉打磨 Q-047 冻结 · 不在 #3 内) · 详 Q-052 |
 | 4 | **6 Agent 后端真业务能力** | 13 BE 全 done (BE1-BE13 · 含 Agent1 候选证据/Agent3 decision graph/Agent6 material gap/Agent5 policy registry/Agent4 信号质量+batch/Agent2 DSL+回测+业务指标/跨 Agent decision ledger/个人画像 POC) |
-| 5 | **6 Agent 端到端 demo chain + 银行客户 POC ready** | RM 工作台 1 客户全流程跑通 + 1 个完整 video 录 + 个人画像 POC 跑通 4 维度评价 + 银行客户演示 ready |
+| 5 | **6 Agent 端到端 demo + 银行客户 POC ready** (Q-052 · 改验收口径) | 按 4+1 角色跑通同一客户闭环 (5 账号登录 · 各看到角色专属 home + handoff 串通) + 1 个完整 video 录 + 个人画像 POC 跑通 4 维度评价 + 银行客户演示 ready (注: 不是销售/价格/multi-tenant 叙事 · 详 Q-052) |
 
 ---
 

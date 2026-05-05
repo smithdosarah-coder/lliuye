@@ -1,5 +1,7 @@
 # 多租户架构假设 v1.0 · spec only · NOT 实装
 
+> ⚠️ **OBSOLETE / REFERENCE-ONLY (Q-052 · 2026-05-04 · PM ratify)**: **永不实装 multi-tenant** · 客户全本地化部署 (一家一套 ECS · 物理天生隔离) · 不存在 SaaS multi-tenant 场景 · 本 doc 仅作为商务团队参考 (if 客户问 "你们怎么部署") · PM 不审 · 不再是 Phase B 验收硬线 (charter v2 #2 OBSOLETE) · 详 Q-052
+
 > **版本**: v1.0 · 2026-05-04 · worker-B2-biz (Phase B Sprint 2 · BE11 doc-only)
 > **性质**: **架构 spec / 数据模型 spec · 不实装**, 推 Phase C (per Codex R2 反对实装 · `BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md` line 52)
 > **审稿对象**: 主 CLI / 后端 worker / Phase C charter 起草者

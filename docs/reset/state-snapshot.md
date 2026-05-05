@@ -961,3 +961,45 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - Cron v2 自动巡到 V2 / B4-alert DONE 立即 chat PM
 - 待启: B2 cherry-pick 后无 codex post-DONE review (因为 self-verify 已通过 + 越界已 path-filter 跳) · 或 PM 决要不要补 codex review B2 (低 ROI)
 
+
+---
+
+## 2026-05-04 (Day 3 part 4) · Q-052 立 · Phase B 真主线 reframe · 角色定位实装
+
+### What happened
+
+- PM 2026-05-04 verbatim 两点决策触发 reframe:
+  1. "定价相关不需要 · 公司有专门商务对接"
+  2. "区分银行也不需要 · 客户全本地化部署 · 天生系统隔离 · 只需做角色定位实装"
+- 双 AI 辩论 R1+R2 (主 CLI + Codex sequential bg medium reasoning · 共 ~75 min wall-clock)
+  - R1: 主 CLI v1 + Codex R1 (`burt71qrs`) 8/8 实质共识
+  - R2: 主 CLI v2 + Codex R2 (`balwa9b4w`) 互评 · R3 跳过 (实质 dissent 0)
+  - Codex catch 主 CLI 漏 7 项 (charter #3 改名 / 5 角色 file:line / 后端 row-level 缺 / fixture 注水红线 / RM 权限契约变更 / Q-051 不补错账 / OBSOLETE marker 强度) · 主 CLI 全接受
+- Q-052 立 (decisions-log entry · 8 条 active rule · 回写 Tier 2)
+- charter v2 改 (line 25 #2 OBSOLETE + line 26 #3 改名 "4+1 角色定位工作台" + line 28 #5 改验收口径 "按 4+1 角色跑通同一客户闭环")
+- B2 4 doc 头部加强 OBSOLETE marker (4 file: pricing/multi-tenant/trial-flow/sales-playbook · "reference-only · PM 不审 · 商务二次确认")
+- 主 CLI 口头 Q-051 标 OBSOLETE (从未真 commit decisions-log entry · 不补错账)
+
+### Triggered by
+
+- PM 2026-05-04 verbatim 两点决策
+- PM "方案和 Codex 确认下 · 最后再给我汇报一次 · 没问题再做" → 走双辩论 R1+R2 流程
+- PM "GO" 拍板
+
+### State change (delta)
+
+- Phase B 验收硬线 5 项 → 4 项 (#2 OBSOLETE) + #3 改名 + #5 改验收口径
+- 永久立: 不实装 multi-tenant (本地化部署天生隔离) · 商业化交商务团队 · Q-047 解读校准
+- RM 权限契约目标变更 (主调 Agent1/Agent6 + 看 Agent3/Agent4 read-only + 不可调 Agent2/Agent5) · 实装留 Sprint 3 worker-B5
+- Sprint 3 charter 待校准 (charter v2.2 留下次 Sprint 2 全 ship 后 · 待加 worker-B5-role-workbench-logic ~3 周并行 + 后端 row-level Depends)
+- 角色权限缺 row-level/action gate (前端 guard `AuthGate.tsx:56-64` + 后端 ACCESS matrix `rbac.py:9-39` 粗粒度) · 待 Sprint 3 worker-B5 实装
+
+### Next
+
+- 本 commit + push (Q-052 + state-snapshot Day 3 part 4 + charter v2 改 + 4 biz doc OBSOLETE marker)
+- fire codex post-DONE review B4-compliance V2 bg (sequential · 等本 commit push 后 fire · ~30 min wall · 验 4 fix-forward `302ee08`/`03920b5`/`11ec177`/`bf646ed`)
+- PM 在 B4-alert sub CLI 推 verbatim (B4-alert BLOCKER fix-forward · signal_diversity 0.50 → 0.85 真升 · 不准 fixture 注水 · 不准 hardcode baseline · §3.5 红线)
+- /tmp 6 doc rm (R1+R2 prompts + outputs · main_cli_reframe_v1/v2 · 完了 PM 不要 doc)
+- 等 B4-compliance V2 review verdict + B4-alert V2 commit DONE-V2 + cherry-pick + ECS deploy 按 touched service
+- Sprint 3 charter v2.2 起草留下次 (Sprint 2 全 ship 后 · 加 worker-B5-role-workbench-logic ~3 周 + 后端 row-level Depends)
+

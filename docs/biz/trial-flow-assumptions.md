@@ -1,5 +1,7 @@
 # 客户试用流程假设 v1.0 · POC → Pilot → Pro 转化
 
+> ⚠️ **OBSOLETE / REFERENCE-ONLY (Q-052 · 2026-05-04 · PM ratify)**: 本 doc 4 阶段漏斗 (POC → Pilot → Pro → Enterprise) 不再是 PM 主线 · 商务团队负责客户接洽流程 · 客户全本地化部署 = 不存在 SaaS Pilot 共享租户场景 · PM 不审本 doc · 商务团队 if 引用须二次确认 · 不再是 Phase B 验收硬线 (charter v2 #2 OBSOLETE) · 详 Q-052
+
 > **版本**: v1.0 · 2026-05-04 · worker-B2-biz (Phase B Sprint 2 · BE11 doc-only)
 > **性质**: 假设流程 · 非合同流程 · 非已签约客户实际 SOP
 > **审稿对象**: 主 CLI / PM / 销售 lead · 不发客户

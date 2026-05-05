@@ -1,5 +1,7 @@
 # 定价假设 v1.0 · 信贷 6 Agent 矩阵商业化
 
+> ⚠️ **OBSOLETE / REFERENCE-ONLY (Q-052 · 2026-05-04 · PM ratify)**: 本 doc 不再是 Phase B 验收硬线 (charter v2 #2 OBSOLETE) · PM 不审本 doc · 商务团队 if 引用须二次确认 · 众安信科商务团队负责定价 / 销售 / 友商对位 / 异议 FAQ · 永不实装 multi-tenant (客户本地化部署 = 天生系统隔离) · 详 `docs/handoff/decisions-log.md` Q-052
+
 > **版本**: v1.0 · 2026-05-04 · worker-B2-biz (Phase B Sprint 2 · BE11 doc-only · per Codex R2 缩 scope 反对实装)
 > **性质**: **架构假设 + 市场锚点 doc**, 不是定价合同 / 不是采购报价单 / 不是客户对外商务文件
 > **审稿对象**: 主 CLI / PM / 销售 lead · 不发客户 (per `phase-b-charter.md` line 100-108 红线)
