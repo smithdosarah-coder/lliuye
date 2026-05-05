@@ -1151,3 +1151,47 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - BLOCKER 才 chat PM (≤ 100 字 · sha + signal + 我建议)
 - 任何 PM 拍板 / Q-NNN 决策 / 阶段转换 → 同 commit 同更 state-snapshot (per §14.1 硬规)
 
+---
+
+## 2026-05-05 02:20 · Sprint 3 真并行 ship 中 · 3 worker DONE signal + 1 接近 DONE
+
+### What happened (后续路径 · 3 轮辩论 R3 后 PM 翻盘选 (b) worker 真并行 · 而非 (a) 主 CLI 自跑)
+
+- **PM 5/5 02:00 重申产品大方向**: "让产品成为成熟的产品 · 能使用的产品" · 翻盘选 worker 真并行 (a/b/c R3 verdict 之外)
+- 主 CLI 立即调整: commit B4-channel WIP `9479428` push origin (per Codex R3 dissent residual #2 · 标 Checkpoint 不进 ship 闸 · ship 等 worker 真业务完成)
+- 主 CLI 给 PM 4 个 cmd window 单行 prompt (复制黏贴) · PM 切 cmd × 4 喂 prompt 各 worker 跑
+- 4 worker 真在跑 · 真并行:
+  - **B7 ✅ DONE**: `da43539 WORKER-B7-FINAL-BE13-POC-PREP-DONE · BE13 准备工作 4/4 ship` (commit 02:03:02 PDT) · Codex review `br51crvh5` NEEDS-FIX 3 issue → 主 CLI fix-forward V2 `82fc4a7` → Codex V2 verify `b4zbn1o2i` **AGREE V2 · 3 issue 全 close · ship 闸 PASS** · cherry-pick to main 顺序 dependency: 等 B4-channel BE12 ship + merge 后
+  - **B5 ✅ DONE**: `0e6b508 WORKER-B5-SUB-PR-2-IMPLEMENTATION-DONE · row-level/action enforcement + 5 role home view + policy_diff biz` (commit 02:09:16) · Codex review fired bg `b5fr18j7n` (medium · ~20-30 min 跑中)
+  - **B4-riskctrl 接近 DONE**: BE6.1 dsl_field_dict + BE6.2 unit_normalizer + BE6.3 rule_collision + BE6.4 business_metrics 双轨 + BE8.6+8.7 PSI/分月 + BE8.8 false positive explainer + handoff §6.5/§6.6 fixture 业务深度 + BE7 ledger 接入 (commit chain 9bf5d46/bc27ffb/63d7180/206cc86/1731fcf/83a8f93/0ee1267) · 仅缺正式 DONE marker
+  - **B4-channel 在跑**: 5 file modified (api.py + candidate_evidence_scorer + personal_insight + realtime_stream + shared/personal_profile.py) · 在跑 BE1+BE12 真业务 (LOCAL POC sanction/PEP + PII redact 接入)
+
+### Triggered by
+
+- PM 5/5 02:00 verbatim "让产品成为成熟的产品 · 能使用的产品" + "给我四个 CLI 的命令让他们动起来 · 然后你做你的事 · 用 codex 额度多" → R3 verdict 之外的真并行选择
+- 4 worker session 接 cmd window 喂的 prompt → 真在跑
+
+### State change (delta)
+
+- main HEAD: 7a006e7 → (各 worker branch advance · 主 CLI 等 codex review 闸 + cherry-pick 顺序)
+- B5 branch: `8a01c6d` → `0e6b508` (sub-PR 2 implementation DONE)
+- B4-channel branch: `dfdcc06` → `9479428` (主 CLI WIP Checkpoint 交接) → 还在跑
+- B4-riskctrl branch: `444670a` → `0ee1267` (BE6 全 + BE8 全 + handoff fixture + ledger · 仅缺 DONE marker)
+- B7 branch: `f42cd42` → `da43539` (DONE) → `82fc4a7` (V2-FIX · ship 闸 PASS)
+- Codex bg used: 4 次 (`bj5pklpxh` B5 contract V1 + `br51crvh5` B7 V1 + `b4zbn1o2i` B7 V2 + `b5fr18j7n` B5 sub-PR 2 跑中) · 充分用 per PM 5/4 verbatim
+- Sprint 3 进度: ~70% (4 worker 中 2 真 DONE + 1 接近 DONE + 1 在跑) · 时间 ~1.5h 自 PM 02:00 切 cmd 到 02:20
+
+### Next
+
+- B5 codex review `b5fr18j7n` done → AGREE → cherry-pick to main + ECS deploy --skip-build (auth + frontend 不跳 build · 实际 --skip-build 仅 backend · B5 含 frontend 可能要 full build)
+- 等 B4-riskctrl 真 DONE marker → fire codex review (sequential 等 B5 review done 后)
+- 等 B4-channel BE12 真业务 DONE → fire codex review → AGREE → cherry-pick to main → 然后 cherry-pick B7 PREP (顺序 dependency)
+- ECS deploy: 各 cherry-pick 后 `bash scripts/deploy_to_ecs.sh` (含 build · B5 sub-PR 2 改 frontend 必须 build)
+- BLOCKER 才 chat PM (≤ 100 字)
+
+### 关键决策点
+
+- **PM 5/5 翻盘 worker 真并行** (vs R3 verdict 主 CLI 自跑) · 工程时间 ship Sprint 3 ~1.5-2h vs 主 CLI 4-7h sequential · 真并行胜
+- **3 轮辩论闸 + Codex bg review 闸**: B7 PREP V1 NEEDS-FIX 3 issue 全 catch · 主 CLI fix-forward · V2 AGREE · 充分体现"双闸救场"
+- **顺序 dependency**: B7 cherry-pick to main 等 B4-channel BE12 ship + merge first (Codex V1 critical issue 1 catch · B7 worktree HEAD 没 personal_insight.py)
+
