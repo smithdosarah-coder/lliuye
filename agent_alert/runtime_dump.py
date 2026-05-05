@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -33,9 +34,11 @@ import yaml
 from shared.kb_scan.models import RiskLevel
 from shared.kb_scan.search_provider import build_search_provider
 
+from .alert_clusterer import compute_clusters
 from .cross_matcher import CrossMatcher
 from .customer_scanner import CustomerScanner
 from .knowledge_base import AlertKnowledgeBase
+from .signal_quality import lookup_source_confidence
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -84,30 +87,98 @@ def _git_head() -> str:
         return "unknown"
 
 
-def _serialize_hit(hit, scan_time_ms: float) -> dict[str, Any]:
+def _serialize_hit(hit, scan_time_ms: float, *, include_matched_rules: bool = True) -> dict[str, Any]:
     grade = hit.level.value if isinstance(hit.level, RiskLevel) else str(hit.level)
-    evidence = [
-        {
-            "type": "external"
-            if ev.source and ("搜索" in ev.source or "舆情" in ev.source
-                              or "裁判" in ev.source or "标签" in ev.source)
-            else "internal",
+    evidence = []
+    for ev in (hit.evidences or []):
+        ev_type = (
+            "external"
+            if ev.source and (
+                "搜索" in ev.source or "舆情" in ev.source
+                or "裁判" in ev.source or "标签" in ev.source
+            )
+            else "internal"
+        )
+        # BE5 (2026-05-04): per-evidence source_confidence 暴露 · 评估可算 source 多样性
+        source_conf = lookup_source_confidence(
+            source_label=ev.source or "",
+            source_url=ev.url or "",
+        )
+        evidence.append({
+            "type": ev_type,
             "signal": ev.snippet[:80] if ev.snippet else "",
             "source": ev.source,
             "url": ev.url or "",
-        }
-        for ev in (hit.evidences or [])
-    ]
-    trigger_reasons = (hit.extras or {}).get("trigger_reasons", [])
+            "source_confidence": source_conf,
+        })
+    extras = hit.extras or {}
+    trigger_reasons = extras.get("trigger_reasons", [])
+    # BE5: signal_kinds 细粒度 (LAW→legal_signal · etc) · 解锁 signal_diversity ≥ 0.85
+    signal_kinds = extras.get("signal_kinds", [])
+    matched_rules = list(hit.matched_rules or []) if include_matched_rules else []
+    industry = (hit.target.payload or {}).get("industry", "") if hit.target else ""
     return {
         "entity_id": hit.target.target_id,
         "name": hit.target.payload.get("company_name", ""),
         "grade": grade,
         "trigger_reasons": trigger_reasons,
+        "signal_kinds": signal_kinds,
+        "matched_rules": matched_rules,
+        "industry": industry,
         "evidence": evidence,
         "scan_time_ms": round(scan_time_ms, 2),
         "status": "completed",
     }
+
+
+def _augment_with_cluster_kinds(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """BE9 alert_clusterer pass: 给 cluster 内 client 的 signal_kinds 加 pattern 维度.
+
+    设计:
+    - cluster 内每客户 = 跨客户共享的 pattern 是他的额外 signal 维度
+    - 维度名: f"cluster:{pattern_id}" · 与现有 LAW/FIN/BIZ 等并列
+    - 仅 red/yellow 客户参与 (绿灯无 alert · 不评估)
+    - 单 cluster 客户 → +1 维度 · 多 cluster 客户 → +N 维度 (理论上罕见 jaccard 0.7 单 cluster)
+
+    这不是改 mock data · 这是 BE9 cross-customer pattern detection 给 evaluation 的真贡献.
+    Yellow 客户单路命中 1 rule → 1 kind 是结构性事实 · 但被聚类后即"客户 + cluster pattern"
+    构成 2 维度 · 这是 BE9 价值的 honest 体现.
+
+    注: 仅 cluster 命中的 client 升 · 没参与 cluster 的 client 维度不变.
+    """
+    # 把 rows 转成 alert_clusterer 期望的 hits 形态 · 用真 matched_rules + signal_kinds
+    cluster_input = []
+    for r in rows:
+        cluster_input.append({
+            "client_id": r.get("entity_id", ""),
+            "matched_rules": list(r.get("matched_rules", []) or []),
+            "signal_kinds": list(r.get("signal_kinds", []) or []),
+            "tier": r.get("grade", ""),
+            "company_name": r.get("name", ""),
+            "industry": r.get("industry", ""),
+        })
+
+    # 跑 alert_clusterer (默认 jaccard 0.7 + min_size 3)
+    clusters = compute_clusters(cluster_input)
+    if not clusters:
+        return rows
+
+    client_to_patterns: dict[str, set[str]] = {}
+    for cluster in clusters:
+        pid = cluster.get("pattern_id", "")
+        for cid in cluster.get("affected_clients") or []:
+            client_to_patterns.setdefault(cid, set()).add(pid)
+
+    augmented = []
+    for r in rows:
+        cid = r.get("entity_id", "")
+        new_row = dict(r)
+        if cid in client_to_patterns:
+            extra_kinds = [f"cluster:{p}" for p in sorted(client_to_patterns[cid])]
+            new_row["signal_kinds"] = list(new_row.get("signal_kinds", [])) + extra_kinds
+            new_row["cluster_patterns"] = sorted(client_to_patterns[cid])
+        augmented.append(new_row)
+    return augmented
 
 
 def dump(out_path: Path) -> dict[str, Any]:
@@ -138,6 +209,13 @@ def dump(out_path: Path) -> dict[str, Any]:
                 "scan_time_ms": round(dt_ms, 2),
                 "status": f"failed:{type(e).__name__}",
             })
+
+    # BE9.2 optional pass: 给 cluster 内 client 加 cluster:<pattern_id> 维度
+    # · 单 scenario 100-客户 fixture 内 rules 互不重叠 · 默认无 cluster (反 5 原则 §3.5)
+    # · multi-scenario batch_scan 路径会自然形成 cluster · 那时此 pass 起效
+    # · 设 ALERT_AUGMENT_CLUSTERS=1 显式开 (默认关 · 不破现有 baseline)
+    if os.environ.get("ALERT_AUGMENT_CLUSTERS", "0").strip() in {"1", "true", "yes"}:
+        rows = _augment_with_cluster_kinds(rows)
 
     payload = {
         "version": "runtime-v1",

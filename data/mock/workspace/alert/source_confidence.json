@@ -1,0 +1,213 @@
+{
+  "_doc": "Agent4 Alert · source_confidence 表 (BE5 · Phase B Sprint 2 · 2026-05-04)",
+  "_purpose": "信号源 → 3 档 confidence (high/med/low) · agent_alert/signal_quality.py:lookup_source_confidence 消费",
+  "_principles": [
+    "high = 政府/监管/司法 官方 (银保监/央行/工信部/国资委/裁判文书网等)",
+    "med  = 主流财经媒体 / 持牌信用机构 / 行业协会 (财新/华尔街见闻/中诚信等)",
+    "low  = 社媒/匿名爆料/自媒体 (微博/抖音/知乎匿名等)"
+  ],
+  "_compatibility": "key 必 lower-case · domain_hints 域名片段匹配 · 不在表中信号源走 default 'med'",
+  "_change_protocol": "新增源走 RFC · 加 entry · 不改 signal_quality.py 逻辑",
+  "version": "1.0",
+  "updated": "2026-05-04",
+  "entries": [
+    {
+      "key": "gov",
+      "label": "政府 / 监管 / 司法 (默认 high)",
+      "confidence": "high",
+      "domain_hints": [".gov.cn", ".gov.com.cn", ".org.cn"]
+    },
+    {
+      "key": "court",
+      "label": "司法 / 裁判文书 / 失信被执行",
+      "confidence": "high",
+      "domain_hints": ["wenshu.court.gov.cn", "court.gov.cn", "shixin", "zhixing"]
+    },
+    {
+      "key": "corp_registry",
+      "label": "工商登记 / 国家企业信用信息公示系统",
+      "confidence": "high",
+      "domain_hints": ["gsxt.gov.cn", "cninfo.com.cn"]
+    },
+    {
+      "key": "regulator",
+      "label": "金融监管机关 (银保监 / 央行 / 证监会 / 外管局)",
+      "confidence": "high",
+      "domain_hints": ["cbirc.gov.cn", "pbc.gov.cn", "csrc.gov.cn", "safe.gov.cn"]
+    },
+    {
+      "key": "stat",
+      "label": "国家统计局 / 行业部委 (工信 / 发改 / 商务 / 财政)",
+      "confidence": "high",
+      "domain_hints": ["stats.gov.cn", "miit.gov.cn", "ndrc.gov.cn", "mofcom.gov.cn", "mof.gov.cn"]
+    },
+    {
+      "key": "央行",
+      "label": "中国人民银行",
+      "confidence": "high",
+      "domain_hints": ["pbc.gov.cn"]
+    },
+    {
+      "key": "银保监",
+      "label": "国家金融监督管理总局 (前 CBIRC)",
+      "confidence": "high",
+      "domain_hints": ["cbirc.gov.cn", "nfra.gov.cn"]
+    },
+    {
+      "key": "证监会",
+      "label": "中国证券监督管理委员会",
+      "confidence": "high",
+      "domain_hints": ["csrc.gov.cn"]
+    },
+    {
+      "key": "工信部",
+      "label": "工业和信息化部",
+      "confidence": "high",
+      "domain_hints": ["miit.gov.cn"]
+    },
+    {
+      "key": "国资委",
+      "label": "国务院国有资产监督管理委员会",
+      "confidence": "high",
+      "domain_hints": ["sasac.gov.cn"]
+    },
+    {
+      "key": "stock_exchange",
+      "label": "证券交易所披露 (上交所 / 深交所 / 北交所)",
+      "confidence": "high",
+      "domain_hints": ["sse.com.cn", "szse.cn", "bse.cn"]
+    },
+    {
+      "key": "internal_policy",
+      "label": "本行内部制度 / 风偏 / 准入 / 审查清单 (POL-* 内部规则)",
+      "confidence": "high",
+      "domain_hints": []
+    },
+    {
+      "key": "internal_txn",
+      "label": "本行内部交易流水 / 贷后台账",
+      "confidence": "high",
+      "domain_hints": []
+    },
+    {
+      "key": "credit_rating",
+      "label": "评级机构 (中诚信 / 联合资信 / 大公 / 东方金诚)",
+      "confidence": "med",
+      "domain_hints": ["chinaratings.com.cn", "lhratings.com", "dfratings.com"]
+    },
+    {
+      "key": "credit_bureau",
+      "label": "持牌信用机构 (百行征信 / 朴道征信 / 钱塘征信)",
+      "confidence": "med",
+      "domain_hints": ["baihangcredit", "puduocredit"]
+    },
+    {
+      "key": "media",
+      "label": "主流财经媒体 (默认 med)",
+      "confidence": "med",
+      "domain_hints": ["caixin.com", "yicai.com", "21jingji.com", "thepaper.cn"]
+    },
+    {
+      "key": "财新",
+      "label": "财新传媒",
+      "confidence": "med",
+      "domain_hints": ["caixin.com"]
+    },
+    {
+      "key": "第一财经",
+      "label": "第一财经",
+      "confidence": "med",
+      "domain_hints": ["yicai.com"]
+    },
+    {
+      "key": "华尔街见闻",
+      "label": "华尔街见闻 (财新系)",
+      "confidence": "med",
+      "domain_hints": ["wallstreetcn.com"]
+    },
+    {
+      "key": "界面",
+      "label": "界面新闻",
+      "confidence": "med",
+      "domain_hints": ["jiemian.com"]
+    },
+    {
+      "key": "21世纪经济报道",
+      "label": "21 世纪经济报道",
+      "confidence": "med",
+      "domain_hints": ["21jingji.com"]
+    },
+    {
+      "key": "industry_assoc",
+      "label": "行业协会 / 商会披露",
+      "confidence": "med",
+      "domain_hints": ["chinaccm.org", "ctei.cn"]
+    },
+    {
+      "key": "third_party_data",
+      "label": "第三方数据商 (天眼查 / 企查查 / 启信宝)",
+      "confidence": "med",
+      "domain_hints": ["tianyancha.com", "qcc.com", "qixin.com"]
+    },
+    {
+      "key": "社媒",
+      "label": "社媒 (默认 low · 微博 / 抖音 / 小红书 / 知乎)",
+      "confidence": "low",
+      "domain_hints": ["weibo.com", "xiaohongshu.com", "zhihu.com", "douyin.com"]
+    },
+    {
+      "key": "微博",
+      "label": "新浪微博",
+      "confidence": "low",
+      "domain_hints": ["weibo.com", "weibo.cn"]
+    },
+    {
+      "key": "知乎",
+      "label": "知乎 (匿名 / 个人观点)",
+      "confidence": "low",
+      "domain_hints": ["zhihu.com"]
+    },
+    {
+      "key": "small_red_book",
+      "label": "小红书",
+      "confidence": "low",
+      "domain_hints": ["xiaohongshu.com"]
+    },
+    {
+      "key": "douyin",
+      "label": "抖音",
+      "confidence": "low",
+      "domain_hints": ["douyin.com"]
+    },
+    {
+      "key": "self_media",
+      "label": "自媒体 / 公众号 / Newsletter",
+      "confidence": "low",
+      "domain_hints": ["mp.weixin.qq.com"]
+    },
+    {
+      "key": "anon_tip",
+      "label": "匿名爆料 / 论坛贴 (天涯 / 雪球非认证)",
+      "confidence": "low",
+      "domain_hints": ["tianya.cn", "xueqiu.com"]
+    },
+    {
+      "key": "search",
+      "label": "通用搜索 (Tavily / 百度 SERP · 默认 med)",
+      "confidence": "med",
+      "domain_hints": []
+    },
+    {
+      "key": "kb_internal",
+      "label": "本行知识库 / SOP / 准入 / 风偏",
+      "confidence": "high",
+      "domain_hints": []
+    },
+    {
+      "key": "client_manager",
+      "label": "客户经理填报 / 现场尽调",
+      "confidence": "med",
+      "domain_hints": []
+    }
+  ]
+}

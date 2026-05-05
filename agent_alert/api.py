@@ -29,6 +29,7 @@ import os
 import sys
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -49,6 +50,7 @@ from shared.sse_envelope import (  # noqa: E402
     DATA_SOURCE_MOCK_FORCED,
     encode_event,
     make_done,
+    make_error,
     make_error_from_exception,
     make_stage,
 )
@@ -99,6 +101,23 @@ class AlertDemoRunRequest(BaseModel):
     与 /api/alert/scan 共形 done envelope · 但 mode=mock_forced · 不读 KB / 不调 LLM。
     """
     scenario_key: str = "baseline_100"
+
+
+class AlertBatchScanRequest(BaseModel):
+    """BE9.1 (Phase B Sprint 2 · 2026-05-04): 跨多 scenario 批量扫描请求.
+
+    一次扫多客户场景 · 内 streaming 进度 · 产出聚合 hitlist + per-scenario breakdown ·
+    给 BE9.2 alert clustering 做前置 (≥ 3 客户共同 pattern 跨 scenario detect)。
+
+    红线 (per CLAUDE.md §3.7.1): max_total_customers ≤ 50000 (与 Agent2 MAX_ROWS 同
+    口径 · banking 客户不会一次扫 5 万 · 这是 abuse 防御不是 quota)。
+    """
+    scenarios: list[str] = []                # 1+ scenario key (KB 已知 demo_data/agent_alert/<key>)
+    client_ids: list[str] = []               # 可选 filter · 空 = scenario 内全扫
+    force_mock: bool = True                  # 默认 mock · live 路径要 caller 显式开
+    provider: str | None = None
+    api_key: str | None = None
+    max_total_customers: int = 50000         # CLAUDE.md §3.7.1 active rule 上限
 
 
 # ============================================================================
@@ -204,6 +223,83 @@ def _serialize_dispositions(dispositions: Any) -> dict:
     return out
 
 
+def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
+    """BE5 (Phase B Sprint 2 · 2026-05-04): provider degrade → banner metadata.
+
+    把 mode_label 映射成机器+人话双层 banner payload · frontend 按
+    docs/contracts/live-fallback-banner-spec.md §2 渲染顶部 banner。
+
+    Returns:
+        None: live mode (无 banner) / demo_forced (mock_forced banner 由前端 mock-banner 处理)
+        dict: {source, reason, severity, message, hint, retried}
+              · source: "Tavily" / "Search" 等 (人话)
+              · reason: machine-readable code (key_missing / web_fallback_* / disabled / ...)
+              · severity: "info" | "warn" | "error"
+              · message: 用户可见中文 (banner 显)
+              · hint: 下一步引导 (per CLAUDE.md 反馈引导行动 § 交互设计原则)
+              · retried: bool (是否已尝试 + 自动降级)
+
+    Note:
+        live-fallback-banner-spec §1: 不允许静默 swap mock + 假装成功 · 任何
+        fallback 必显示 · 不区分 frontend / backend · 此函数是 backend SSOT。
+    """
+    if mode_label == "web_live":
+        return None  # 真接通 · 无 banner
+
+    if mode_label == "demo_forced":
+        # 用户显式 force_mock=True · 这是预期路径 · 但仍透明告知 (per spec §1)
+        return {
+            "source": "Mock Demo",
+            "reason": "demo_forced",
+            "severity": "info",
+            "message": "演示模式 · 当前显示 mock 演示数据 (用户显式触发)",
+            "hint": "切真实输入 / 取消 force_mock → 切回 live · 见 dropdown 切换",
+            "retried": False,
+        }
+
+    if mode_label == "tavily_disabled":
+        return {
+            "source": "Tavily",
+            "reason": "tavily_disabled",
+            "severity": "warn",
+            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 当前显 mock 演示数据",
+            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实搜索",
+            "retried": False,
+        }
+
+    if mode_label == "tavily_key_missing":
+        return {
+            "source": "Tavily",
+            "reason": "tavily_key_missing",
+            "severity": "warn",
+            "message": "Tavily API Key 未配置 · 当前显 mock 演示数据 · 不影响内部规则命中",
+            "hint": "设置 TAVILY_API_KEY 环境变量后重启服务 → 切真实外部源",
+            "retried": False,
+        }
+
+    if mode_label.startswith("web_fallback_"):
+        # web 路径异常自动降级 · 真 fallback (live-fallback-banner-spec §2 规则 1)
+        err_type = mode_label.replace("web_fallback_", "", 1)
+        return {
+            "source": "Tavily",
+            "reason": mode_label,
+            "severity": "error",
+            "message": f"外部搜索调用失败 ({err_type}) · 已自动降级 mock 演示数据",
+            "hint": "可点[重试] · 或检查 Tavily Key / 网络后重启服务",
+            "retried": True,
+        }
+
+    # 兜底: 未识别 mode_label → 标注 unknown 但仍透明 (避免静默 mock fallback)
+    return {
+        "source": "Unknown",
+        "reason": f"unknown_mode_{mode_label or 'empty'}",
+        "severity": "warn",
+        "message": f"扫描模式 '{mode_label or '(空)'}' 不在已知映射 · 当前数据来源不明",
+        "hint": "检查 build_alert_provider 配置 + 联系管理员",
+        "retried": False,
+    }
+
+
 def _build_done_envelope(
     *,
     hit_list: Any,
@@ -216,6 +312,10 @@ def _build_done_envelope(
     """Build SSE done envelope · per docs/audit/A4-alert-draft.md §3.
 
     Frontend normalizeAlertSession 消费此结构 · 注入 liveData · 5 panel 切 live。
+
+    BE5 (2026-05-04): done envelope 加 `fallback` 字段 (per
+    live-fallback-banner-spec.md) · provider degrade 时 frontend 按机器+人话
+    渲染顶部 banner · 不加新 SSE event 名 (per sse-envelope §1.5 forward-compat 安全)。
 
     Args:
         hit_list: HitList obj | None
@@ -235,8 +335,10 @@ def _build_done_envelope(
     else:
         data_source = DATA_SOURCE_MOCK
 
+    fallback_banner = _resolve_fallback_banner(mode_label)
+
     if hit_list is None:
-        return make_done(
+        done = make_done(
             data_source=data_source,
             session_id=session_id,
             metrics={"red": 0, "yellow": 0, "green": 0, "total": 0},
@@ -245,6 +347,9 @@ def _build_done_envelope(
             kb_state=kb_summary,
             mode=mode_label,
         )
+        if fallback_banner:
+            done["fallback"] = fallback_banner
+        return done
 
     hits = list(getattr(hit_list, "hits", None) or [])
     by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
@@ -270,7 +375,7 @@ def _build_done_envelope(
         f"红 {red_count} / 黄 {yellow_count} / 绿 {green_count}"
     )
 
-    return make_done(
+    done = make_done(
         panels={
             "hit_list": by_grade,
             "top_cases": top_cases,
@@ -290,6 +395,9 @@ def _build_done_envelope(
         mode=mode_label,
         totals={"red": red_count, "yellow": yellow_count, "green": green_count},
     )
+    if fallback_banner:
+        done["fallback"] = fallback_banner
+    return done
 
 
 # ============================================================================
@@ -470,6 +578,10 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
         signal_heatmap=fixture.get("signal_heatmap", []),
         reach_rate=fixture.get("reach_rate", []),
     )
+    # BE5: demo path 也透明显示 banner (per live-fallback-banner-spec §2 规则 2)
+    fallback_banner = _resolve_fallback_banner("demo_forced")
+    if fallback_banner:
+        done_evt["fallback"] = fallback_banner
     yield encode_event(done_evt)
 
 
@@ -484,6 +596,439 @@ async def alert_demo_run(req: AlertDemoRunRequest):
     """
     def gen():
         yield from _alert_demo_event_stream(req)
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/alert/batch_scan — BE9.1 跨 scenario 批量扫描 + 聚合
+# ============================================================================
+
+
+def _alert_batch_event_stream(req: AlertBatchScanRequest):
+    """BE9.1 (Phase B Sprint 2 · 2026-05-04): 多 scenario 批量扫描 SSE 流.
+
+    形态:
+    - 接 scenarios (1+) · 顺序跑每个 scenario · 内 streaming per-client tick
+    - 可选 client_ids filter (跨 scenario 都按同一 client_id list 过)
+    - aggregate done event 含: 全聚合 hit_list (red/yellow/green) + per_scenario breakdown
+    - mode=batch · data_source 与最严 fallback 对齐 (任一 scenario fallback → 整体 mock_fallback)
+
+    红线:
+    - max_total_customers ≤ 50000 (per CLAUDE.md §3.7.1) · 防 abuse
+    - LLM 调用经 shared/llm_caller (复用 run_scan_and_persist 内逻辑 · 不裸 init)
+    - 不破 4 步 pipeline · 每 scenario 走 run_scan_and_persist (含 fallback chain)
+
+    后续 (BE9.2):
+    - alert_clusterer 消费 aggregate hits · jaccard ≥ 0.7 跨客户聚合
+    - cluster pattern → Agent4→Agent2 §6.4 handoff
+    """
+    if not req.scenarios:
+        yield encode_event(make_error(
+            "scenarios 列表不能为空 · 至少给 1 个 scenario_key",
+            code="EMPTY_SCENARIOS",
+        ))
+        return
+
+    try:
+        from agent_alert.scan_engine import run_scan_and_persist
+    except ImportError as e:
+        yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+        return
+
+    aggregate_hits: list[dict] = []
+    per_scenario_breakdown: dict[str, dict] = {}
+    fallback_modes: list[str] = []
+    total_scanned = 0
+    client_id_filter = set(req.client_ids or [])
+
+    yield encode_event(make_stage(
+        "batch_init",
+        "running",
+        message=(
+            f"批量扫描启动 · scenarios={len(req.scenarios)} · "
+            f"filter={len(client_id_filter)} client_ids · max={req.max_total_customers}"
+        ),
+        scenarios=list(req.scenarios),
+    ))
+
+    for scenario_idx, scenario_key in enumerate(req.scenarios, start=1):
+        if total_scanned >= req.max_total_customers:
+            yield encode_event(make_stage(
+                "batch_capped",
+                "warn",
+                message=(
+                    f"已扫 {total_scanned} 户 · 达到 max_total_customers={req.max_total_customers} "
+                    f"· 余 {len(req.scenarios) - scenario_idx + 1} scenarios 跳过"
+                ),
+                scenario_key=scenario_key,
+            ))
+            break
+
+        scenario_hits: list[dict] = []
+        scenario_red = scenario_yellow = scenario_green = 0
+        scenario_mode = ""
+        scenario_session_id = ""
+        scenario_total = 0
+
+        yield encode_event(make_stage(
+            "scenario_start",
+            "running",
+            message=f"开始扫 scenario={scenario_key} ({scenario_idx}/{len(req.scenarios)})",
+            scenario_key=scenario_key,
+        ))
+
+        try:
+            for evt in run_scan_and_persist(
+                scenario_key=scenario_key,
+                api_key=req.api_key or "dummy",
+                provider=req.provider or "deepseek",
+                force_mock=bool(req.force_mock),
+            ):
+                etype = evt.get("type", "") if isinstance(evt, dict) else ""
+
+                if etype == "hit":
+                    hit_obj = evt.get("hit")
+                    if hit_obj is None:
+                        continue
+                    # client_id filter (跨 scenario 通用)
+                    target_id = (
+                        getattr(hit_obj, "hit_id", None)
+                        or (getattr(hit_obj, "target", None) and getattr(hit_obj.target, "target_id", None))
+                        or ""
+                    )
+                    if client_id_filter and target_id not in client_id_filter:
+                        continue
+                    scenario_total += 1
+                    if total_scanned + scenario_total > req.max_total_customers:
+                        # 超 cap 则 break 当前 scenario
+                        scenario_total -= 1
+                        break
+                    compact = _to_compact_hit(hit_obj)
+                    extras = getattr(hit_obj, "extras", None) or {}
+                    compact["signal_kinds"] = list(extras.get("signal_kinds") or [])
+                    compact["scenario_key"] = scenario_key
+                    scenario_hits.append(compact)
+                    bucket = compact.get("tier", "")
+                    if bucket == "red":
+                        scenario_red += 1
+                    elif bucket == "yellow":
+                        scenario_yellow += 1
+                    elif bucket == "green":
+                        scenario_green += 1
+
+                    yield encode_event(make_stage(
+                        "client_tick",
+                        "running",
+                        message=f"{scenario_key} · {compact.get('company_name', '')} · {bucket}",
+                        scenario_key=scenario_key,
+                        tier=bucket,
+                    ))
+
+                elif etype == "session":
+                    scenario_session_id = str(evt.get("session_id", ""))
+                    scenario_mode = str(evt.get("mode", ""))
+                    if scenario_mode and scenario_mode != "web_live":
+                        fallback_modes.append(scenario_mode)
+
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+            yield encode_event(make_stage(
+                "scenario_error",
+                "error",
+                message=f"{scenario_key} 扫描异常: {type(e).__name__}: {e}",
+                scenario_key=scenario_key,
+            ))
+            per_scenario_breakdown[scenario_key] = {
+                "session_id": "",
+                "mode": "",
+                "error": f"{type(e).__name__}: {e}",
+                "red": 0, "yellow": 0, "green": 0, "total": 0,
+            }
+            continue
+
+        aggregate_hits.extend(scenario_hits)
+        total_scanned += scenario_total
+        per_scenario_breakdown[scenario_key] = {
+            "session_id": scenario_session_id,
+            "mode": scenario_mode,
+            "red": scenario_red,
+            "yellow": scenario_yellow,
+            "green": scenario_green,
+            "total": scenario_total,
+        }
+
+        yield encode_event(make_stage(
+            "scenario_done",
+            "done",
+            message=(
+                f"{scenario_key} 完 · 红 {scenario_red} / 黄 {scenario_yellow} / 绿 {scenario_green} "
+                f"· session={scenario_session_id} · mode={scenario_mode}"
+            ),
+            scenario_key=scenario_key,
+            session_id=scenario_session_id,
+        ))
+
+    # aggregate done envelope
+    by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
+    for h in aggregate_hits:
+        bucket = h.get("tier", "")
+        if bucket in by_grade:
+            by_grade[bucket].append(h)
+
+    sorted_hits = sorted(aggregate_hits, key=lambda h: float(h.get("score", 0.0) or 0.0), reverse=True)
+    top_cases = []
+    for h in sorted_hits[:20]:  # batch 给 20 (vs scan 10) · 跨 scenario 可见
+        triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
+        top_cases.append({
+            "id": h.get("client_id", ""),
+            "client_id": h.get("client_id", ""),
+            "customer": h.get("company_name", ""),
+            "amount": h.get("amount", ""),
+            "tier": h.get("tier", ""),
+            "triggers": triggers,
+            "scenario_key": h.get("scenario_key", ""),
+            "lastUpdate": "刚刚",
+        })
+
+    red_total = sum(s.get("red", 0) for s in per_scenario_breakdown.values())
+    yellow_total = sum(s.get("yellow", 0) for s in per_scenario_breakdown.values())
+    green_total = sum(s.get("green", 0) for s in per_scenario_breakdown.values())
+
+    # data_source 取最严 (任一 scenario fallback → mock_fallback / 全 live → live)
+    if not fallback_modes:
+        data_source = DATA_SOURCE_LIVE
+    elif any(m.startswith("web_fallback_") for m in fallback_modes):
+        data_source = DATA_SOURCE_MOCK_FALLBACK
+    elif any(m == "demo_forced" for m in fallback_modes):
+        data_source = DATA_SOURCE_MOCK_FORCED
+    else:
+        data_source = DATA_SOURCE_MOCK
+
+    summary = (
+        f"batch · 扫 {len(per_scenario_breakdown)} scenario · {total_scanned} 户 · "
+        f"红 {red_total} / 黄 {yellow_total} / 绿 {green_total}"
+    )
+
+    done_evt = make_done(
+        panels={
+            "hit_list": by_grade,
+            "top_cases": top_cases,
+            "per_scenario": per_scenario_breakdown,
+            "aggregate_hits": aggregate_hits,  # 给 BE9.2 alert_clusterer 消费
+        },
+        metrics={
+            "red": red_total,
+            "yellow": yellow_total,
+            "green": green_total,
+            "total_scanned": total_scanned,
+            "scenarios_run": len(per_scenario_breakdown),
+        },
+        data_source=data_source,
+        session_id=f"batch-{int(time.time())}",
+        summary=summary,
+        scenarios=list(req.scenarios),
+        client_id_filter=list(client_id_filter),
+        mode="batch",
+        totals={"red": red_total, "yellow": yellow_total, "green": green_total},
+    )
+    # batch fallback banner (按最严 mode)
+    worst_mode = next(
+        (m for m in fallback_modes if m.startswith("web_fallback_")),
+        next((m for m in fallback_modes if m), "web_live"),
+    )
+    fallback_banner = _resolve_fallback_banner(worst_mode)
+    if fallback_banner:
+        done_evt["fallback"] = fallback_banner
+    yield encode_event(done_evt)
+
+
+@app.post("/api/alert/batch_scan")
+async def alert_batch_scan(req: AlertBatchScanRequest):
+    """BE9.1 (2026-05-04): 跨 scenario 批量扫描端点.
+
+    输入 1+ scenario_key + 可选 client_ids filter · 顺序跑每个 scenario ·
+    SSE 流 per-client tick + per-scenario aggregate · 最终 done event 含跨
+    scenario 聚合 hit_list + per_scenario breakdown + aggregate_hits (给 BE9.2 消费).
+
+    红线 (per CLAUDE.md §3.7.1): max_total_customers ≤ 50000 (默认 50000).
+
+    Body:
+    {
+      "scenarios": ["baseline_100", "manuf_policy_event"],  // required 1+
+      "client_ids": [],                                     // 可选 filter
+      "force_mock": true,                                   // 默认 mock
+      "max_total_customers": 50000
+    }
+    """
+    def gen():
+        yield from _alert_batch_event_stream(req)
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ============================================================================
+# POST /api/alert/scan/replay/{scan_id} — BE5.5 历史 scan 重放
+# ============================================================================
+
+
+def _alert_replay_event_stream(scan_id: str):
+    """BE5.5 (Phase B Sprint 2 · 2026-05-04): 历史 scan 重放 SSE 流.
+
+    用途 (audit 需求):
+    - 监管 / 内审复核某客户最初触发预警时的完整证据链
+    - 客户经理回顾历史告警 · 对比当前扫描差异
+    - 培训 / 演示用历史 case 重放 · 不消耗外部搜索 quota
+
+    与 /api/alert/scan 共形 SSE shape · 但:
+    - mode=replay · data_source=cached (per sse-envelope DATA_SOURCE_CACHED)
+    - 不调 KB / 不调 LLM / 不调 SearchProvider
+    - stage event 标 replay 节拍 (kb_load → external_scan → internal_match → cross → summary)
+    - done envelope 复刻原 panels (hit_list/top_cases/dispositions) + replayed_at + original_generated_at
+
+    Failure mode:
+    - scan_id 不存在 → SSE error event (HITLIST_NOT_FOUND)
+    - payload 格式异常 → SSE error event (REPLAY_PAYLOAD_INVALID)
+    """
+    try:
+        from agent_alert.scan_engine import HitListNotFoundError, load_hitlist
+    except ImportError as e:
+        yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+        return
+
+    try:
+        payload = load_hitlist(session_id=scan_id)
+    except HitListNotFoundError as e:
+        yield encode_event(make_error(str(e), code="HITLIST_NOT_FOUND"))
+        return
+    except (RuntimeError, ValueError, OSError, AttributeError, KeyError) as e:
+        yield encode_event(make_error_from_exception(e, code="REPLAY_PAYLOAD_INVALID"))
+        return
+
+    # 5 stage 节拍 · 与 /scan 共形 stage 名 · 标 mode=replay
+    stages = ["kb_load", "external_scan", "internal_match", "cross", "summary"]
+    original_generated_at = str(payload.get("generated_at", ""))
+    for stage in stages:
+        yield encode_event(make_stage(
+            stage,
+            "done",
+            message=f"replay · {stage} · session={scan_id} · original={original_generated_at}",
+        ))
+        time.sleep(0.05)  # 轻节拍 · 让前端有 stage flow 感觉 · 不假装真扫描
+
+    # 复刻 done envelope panels
+    hit_list_dict = payload.get("hit_list") or {}
+    hits = hit_list_dict.get("hits") or []
+
+    by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
+    for h in hits:
+        level = (h.get("level") or "").lower()
+        if level in by_grade:
+            by_grade[level].append({
+                "client_id": h.get("hit_id", ""),
+                "company_name": (h.get("target") or {}).get("payload", {}).get("company_name", ""),
+                "amount": (h.get("target") or {}).get("payload", {}).get("credit_balance", "")
+                          or (h.get("target") or {}).get("payload", {}).get("amount", ""),
+                "tier": level,
+                "score": float(h.get("score", 0.0) or 0.0),
+                "matched_rules": h.get("matched_rules", []) or [],
+                "reasons": h.get("reasons", []) or [],
+            })
+
+    sorted_hits = sorted(hits, key=lambda h: float(h.get("score", 0.0) or 0.0), reverse=True)
+    top_cases = []
+    for h in sorted_hits[:10]:
+        target_payload = (h.get("target") or {}).get("payload", {})
+        triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
+        top_cases.append({
+            "id": h.get("hit_id", ""),
+            "client_id": h.get("hit_id", ""),
+            "customer": target_payload.get("company_name", ""),
+            "amount": target_payload.get("credit_balance", "") or target_payload.get("amount", ""),
+            "tier": (h.get("level") or "").lower(),
+            "triggers": triggers,
+            "advice": "",
+            "lastUpdate": "历史 (replay)",
+        })
+
+    red_count = int(hit_list_dict.get("red_count", 0))
+    yellow_count = int(hit_list_dict.get("yellow_count", 0))
+    green_count = int(hit_list_dict.get("green_count", 0))
+    total_scanned = int(hit_list_dict.get("total_scanned", red_count + yellow_count + green_count))
+
+    summary = (
+        f"replay · 重放 {scan_id} (生成于 {original_generated_at}) · "
+        f"原扫描 {total_scanned} 户 · 红 {red_count} / 黄 {yellow_count} / 绿 {green_count}"
+    )
+
+    done_evt = make_done(
+        panels={
+            "hit_list": by_grade,
+            "top_cases": top_cases,
+            "dispositions": payload.get("dispositions") or {},
+        },
+        metrics={
+            "red": red_count,
+            "yellow": yellow_count,
+            "green": green_count,
+            "total_scanned": total_scanned,
+        },
+        # cached enum · sse-envelope DATA_SOURCE_CACHED · frontend 渲染 "历史重放" banner
+        data_source="cached",
+        session_id=scan_id,
+        summary=summary,
+        scenario_key=str(payload.get("scenario_key", "")),
+        kb_state="replay · 不读 KB",
+        mode="replay",
+        original_mode=str(payload.get("mode", "")),
+        original_generated_at=original_generated_at,
+        replayed_at=datetime.now().isoformat(timespec="seconds"),
+        totals={"red": red_count, "yellow": yellow_count, "green": green_count},
+    )
+    # replay 也有 banner · 透明告知"当前看的是历史" (per live-fallback-banner-spec §1)
+    done_evt["fallback"] = {
+        "source": "Replay",
+        "reason": "scan_replay",
+        "severity": "info",
+        "message": f"历史扫描重放 · session={scan_id} · 生成于 {original_generated_at}",
+        "hint": "如需最新数据 · 调 POST /api/alert/scan 重新扫描",
+        "retried": False,
+    }
+    yield encode_event(done_evt)
+
+
+@app.post("/api/alert/scan/replay/{scan_id}")
+async def alert_scan_replay(scan_id: str):
+    """BE5.5 (2026-05-04): 历史 scan 重放端点 · audit 复核 / 培训 / 演示场景.
+
+    与 /api/alert/scan 共形 SSE 流形态 · 但:
+    - mode=replay · data_source=cached
+    - 不调 KB / 不调 LLM / 不调 SearchProvider · 100% 确定性回放
+    - 复刻原 panels (hit_list/top_cases/dispositions) + replayed_at + original_generated_at
+    - 错误 404 (HITLIST_NOT_FOUND) 走 SSE error event · frontend 显 banner
+
+    Path param:
+        scan_id: data/alert/sessions/<scan_id>.json 的文件名 (= persist_hitlist 返回的 session_id)
+    """
+    if not scan_id or not scan_id.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail=f"invalid scan_id={scan_id!r}")
+
+    def gen():
+        yield from _alert_replay_event_stream(scan_id)
+
     return StreamingResponse(
         gen(),
         media_type="text/event-stream",
