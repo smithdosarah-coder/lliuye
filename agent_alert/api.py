@@ -204,6 +204,83 @@ def _serialize_dispositions(dispositions: Any) -> dict:
     return out
 
 
+def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
+    """BE5 (Phase B Sprint 2 · 2026-05-04): provider degrade → banner metadata.
+
+    把 mode_label 映射成机器+人话双层 banner payload · frontend 按
+    docs/contracts/live-fallback-banner-spec.md §2 渲染顶部 banner。
+
+    Returns:
+        None: live mode (无 banner) / demo_forced (mock_forced banner 由前端 mock-banner 处理)
+        dict: {source, reason, severity, message, hint, retried}
+              · source: "Tavily" / "Search" 等 (人话)
+              · reason: machine-readable code (key_missing / web_fallback_* / disabled / ...)
+              · severity: "info" | "warn" | "error"
+              · message: 用户可见中文 (banner 显)
+              · hint: 下一步引导 (per CLAUDE.md 反馈引导行动 § 交互设计原则)
+              · retried: bool (是否已尝试 + 自动降级)
+
+    Note:
+        live-fallback-banner-spec §1: 不允许静默 swap mock + 假装成功 · 任何
+        fallback 必显示 · 不区分 frontend / backend · 此函数是 backend SSOT。
+    """
+    if mode_label == "web_live":
+        return None  # 真接通 · 无 banner
+
+    if mode_label == "demo_forced":
+        # 用户显式 force_mock=True · 这是预期路径 · 但仍透明告知 (per spec §1)
+        return {
+            "source": "Mock Demo",
+            "reason": "demo_forced",
+            "severity": "info",
+            "message": "演示模式 · 当前显示 mock 演示数据 (用户显式触发)",
+            "hint": "切真实输入 / 取消 force_mock → 切回 live · 见 dropdown 切换",
+            "retried": False,
+        }
+
+    if mode_label == "tavily_disabled":
+        return {
+            "source": "Tavily",
+            "reason": "tavily_disabled",
+            "severity": "warn",
+            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 当前显 mock 演示数据",
+            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实搜索",
+            "retried": False,
+        }
+
+    if mode_label == "tavily_key_missing":
+        return {
+            "source": "Tavily",
+            "reason": "tavily_key_missing",
+            "severity": "warn",
+            "message": "Tavily API Key 未配置 · 当前显 mock 演示数据 · 不影响内部规则命中",
+            "hint": "设置 TAVILY_API_KEY 环境变量后重启服务 → 切真实外部源",
+            "retried": False,
+        }
+
+    if mode_label.startswith("web_fallback_"):
+        # web 路径异常自动降级 · 真 fallback (live-fallback-banner-spec §2 规则 1)
+        err_type = mode_label.replace("web_fallback_", "", 1)
+        return {
+            "source": "Tavily",
+            "reason": mode_label,
+            "severity": "error",
+            "message": f"外部搜索调用失败 ({err_type}) · 已自动降级 mock 演示数据",
+            "hint": "可点[重试] · 或检查 Tavily Key / 网络后重启服务",
+            "retried": True,
+        }
+
+    # 兜底: 未识别 mode_label → 标注 unknown 但仍透明 (避免静默 mock fallback)
+    return {
+        "source": "Unknown",
+        "reason": f"unknown_mode_{mode_label or 'empty'}",
+        "severity": "warn",
+        "message": f"扫描模式 '{mode_label or '(空)'}' 不在已知映射 · 当前数据来源不明",
+        "hint": "检查 build_alert_provider 配置 + 联系管理员",
+        "retried": False,
+    }
+
+
 def _build_done_envelope(
     *,
     hit_list: Any,
@@ -216,6 +293,10 @@ def _build_done_envelope(
     """Build SSE done envelope · per docs/audit/A4-alert-draft.md §3.
 
     Frontend normalizeAlertSession 消费此结构 · 注入 liveData · 5 panel 切 live。
+
+    BE5 (2026-05-04): done envelope 加 `fallback` 字段 (per
+    live-fallback-banner-spec.md) · provider degrade 时 frontend 按机器+人话
+    渲染顶部 banner · 不加新 SSE event 名 (per sse-envelope §1.5 forward-compat 安全)。
 
     Args:
         hit_list: HitList obj | None
@@ -235,8 +316,10 @@ def _build_done_envelope(
     else:
         data_source = DATA_SOURCE_MOCK
 
+    fallback_banner = _resolve_fallback_banner(mode_label)
+
     if hit_list is None:
-        return make_done(
+        done = make_done(
             data_source=data_source,
             session_id=session_id,
             metrics={"red": 0, "yellow": 0, "green": 0, "total": 0},
@@ -245,6 +328,9 @@ def _build_done_envelope(
             kb_state=kb_summary,
             mode=mode_label,
         )
+        if fallback_banner:
+            done["fallback"] = fallback_banner
+        return done
 
     hits = list(getattr(hit_list, "hits", None) or [])
     by_grade: dict[str, list[dict]] = {"red": [], "yellow": [], "green": []}
@@ -270,7 +356,7 @@ def _build_done_envelope(
         f"红 {red_count} / 黄 {yellow_count} / 绿 {green_count}"
     )
 
-    return make_done(
+    done = make_done(
         panels={
             "hit_list": by_grade,
             "top_cases": top_cases,
@@ -290,6 +376,9 @@ def _build_done_envelope(
         mode=mode_label,
         totals={"red": red_count, "yellow": yellow_count, "green": green_count},
     )
+    if fallback_banner:
+        done["fallback"] = fallback_banner
+    return done
 
 
 # ============================================================================
@@ -470,6 +559,10 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
         signal_heatmap=fixture.get("signal_heatmap", []),
         reach_rate=fixture.get("reach_rate", []),
     )
+    # BE5: demo path 也透明显示 banner (per live-fallback-banner-spec §2 规则 2)
+    fallback_banner = _resolve_fallback_banner("demo_forced")
+    if fallback_banner:
+        done_evt["fallback"] = fallback_banner
     yield encode_event(done_evt)
 
 
