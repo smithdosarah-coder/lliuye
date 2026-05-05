@@ -50,4 +50,33 @@ def is_duplicate(a: str | dict, b: str | dict, threshold: float = 0.85) -> bool:
     return text_ratio(sa, sb) >= threshold
 
 
-__all__ = ["dict_ratio", "is_duplicate", "text_ratio"]
+def jaccard_set(a: set | list | tuple, b: set | list | tuple) -> float:
+    """集合 Jaccard 相似度 ∈ [0, 1] · 双侧空集返 0.0.
+
+    Phase B Sprint 2 BE9.2 (2026-05-04) 引入 · alert_clusterer 用 ≥ 0.7 阈值
+    跨客户聚类同类信号 (per docs/contracts/agent-handoff-schemas.md §6.4).
+
+    Args:
+        a, b: iterable of hashable (rule_id / signal_kind / etc)
+
+    Returns:
+        |a ∩ b| / |a ∪ b| · 双空 = 0.0 (定义为非匹配)
+
+    Examples:
+        >>> jaccard_set({"LAW-001", "FIN-002"}, {"LAW-001", "FIN-002", "POL-001"})
+        0.6666666666666666
+        >>> jaccard_set({"a"}, {"a"})
+        1.0
+        >>> jaccard_set([], [])
+        0.0
+    """
+    set_a = set(a)
+    set_b = set(b)
+    if not set_a and not set_b:
+        return 0.0
+    intersection = set_a & set_b
+    union = set_a | set_b
+    return len(intersection) / len(union) if union else 0.0
+
+
+__all__ = ["dict_ratio", "is_duplicate", "jaccard_set", "text_ratio"]
