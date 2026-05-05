@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -40,6 +40,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from auth_service.dependencies import require_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
@@ -725,12 +726,18 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
 
 
 @app.post("/api/credit/decision")
-async def credit_decision_v4(req: DecisionRequestV4):
+async def credit_decision_v4(
+    req: DecisionRequestV4,
+    _user: dict = Depends(require_action("credit", "invoke")),
+):
     """v4.0 SSE · stage_tab 3 板块 + report_json/preset_name 双源 + mock fallback.
 
     Audit (W-FIX2 修 bug #11): generator finally 内调 audit_stream_event ·
     latency 含真实 stream 时延 · 不再用 @audit_llm_call decorator
     (decorator 在 route function return StreamingResponse 即记 · 失真)。
+
+    Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("credit", "invoke")
+    enforce row-level/action gate · credit_officer/risk_manager/admin 可调 · RM read-only 403.
     """
     # 提前校验 stage_tab (mock 路径也要)
     _stage_to_segment(req.stage_tab)

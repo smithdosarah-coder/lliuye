@@ -98,6 +98,9 @@ export function canAction(role: Role, agent: AgentId, action: Action): boolean {
 /**
  * Backward compat · binary ACCESS (role → agent list · 任 1 action 允许).
  * derived from ACCESS_V2.
+ *
+ * Phase B Sprint 3 sub-PR 2 fix: Object.fromEntries 推断为 {[k: string]: ...} ·
+ * TS narrow 失败 · 用 `as unknown as Record<Role, ...>` 显式 cast (TS 5.x 推荐写法).
  */
 const ACCESS: Record<Role, readonly AgentId[]> = Object.fromEntries(
   (Object.keys(ACCESS_V2) as Role[]).map((role) => [
@@ -106,7 +109,7 @@ const ACCESS: Record<Role, readonly AgentId[]> = Object.fromEntries(
       (agent) => (ACCESS_V2[role][agent] ?? []).length > 0,
     ),
   ]),
-) as Record<Role, readonly AgentId[]>;
+) as unknown as Record<Role, readonly AgentId[]>;
 
 const HANDOFFS: Record<Role, { from: AgentId; to: AgentId }[]> = {
   rm: [

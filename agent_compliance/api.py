@@ -27,7 +27,7 @@ import traceback
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -35,6 +35,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from auth_service.dependencies import require_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 from shared.sse_envelope import (  # noqa: E402
@@ -261,36 +262,172 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
 # ---------------------------------------------------------------------------
 
 
-def _policy_diff_event_stream(req: CompliancePolicyDiffRequest):
-    """Stub event stream · sub-PR 2 implementation 接 diff 业务逻辑.
+def _index_rules_by_article(rules: list[dict]) -> dict[str, dict]:
+    """以 article (e.g. '第十二条') 为 key index rules · 同 article 多 rule 合并 condition.
 
-    Yields SSE events using sse_envelope helpers (encode_event + make_stage + make_done).
+    article 缺失时退回 rule_id · 仍保证 stable key.
     """
-    yield encode_event(make_stage(
-        stage="diff",
-        status="running",
-        message="policy_diff endpoint contract stub · sub-PR 2 implementation pending",
-        progress=0.0,
-    ))
+    out: dict[str, dict] = {}
+    for r in rules:
+        key = (r.get("article") or "").strip() or r.get("rule_id", "")
+        if not key:
+            continue
+        if key in out:
+            # 合并 (同 article 多条 rule) · 取首条为代表 · 后续 condition merge
+            existing = out[key]
+            existing["condition"] = (
+                existing.get("condition", "") + " | " + r.get("condition", "")
+            ).strip(" |")
+        else:
+            out[key] = dict(r)  # shallow copy 防 mutate 原 list
+    return out
 
-    yield encode_event(make_done(
-        payload={
-            "status": "stub",
-            "message": "policy_diff endpoint contract sub-PR 1 stub · implementation deferred to sub-PR 2",
-            "old_policy_length": len(req.old_policy),
-            "new_policy_length": len(req.new_policy),
-            "scope": req.scope,
+
+def _rule_signature(rule: dict) -> tuple:
+    """rule 关键字段签名 · 用于 detect modification (条件/阈值/类别/severity 任一变即 modified)."""
+    return (
+        (rule.get("condition") or "").strip(),
+        tuple(sorted((rule.get("threshold") or {}).items())) if isinstance(rule.get("threshold"), dict) else (),
+        (rule.get("category") or "").strip(),
+        (rule.get("severity_hint") or "").strip().lower(),
+    )
+
+
+def _compute_policy_diff(old_rules: list[dict], new_rules: list[dict]) -> dict:
+    """比对新旧两版规则 · 输出 added/removed/modified 三段 + summary.
+
+    Algorithm:
+      1. index by article (natural key in policy doc)
+      2. set diff: added = new minus old · removed = old minus new
+      3. modified: 同 article · signature 不等
+    """
+    old_idx = _index_rules_by_article(old_rules)
+    new_idx = _index_rules_by_article(new_rules)
+
+    added: list[dict] = [new_idx[k] for k in new_idx if k not in old_idx]
+    removed: list[dict] = [old_idx[k] for k in old_idx if k not in new_idx]
+    modified: list[dict] = []
+    for k in sorted(set(old_idx) & set(new_idx)):
+        if _rule_signature(old_idx[k]) != _rule_signature(new_idx[k]):
+            modified.append({
+                "article": k,
+                "old": old_idx[k],
+                "new": new_idx[k],
+            })
+
+    return {
+        "added": added,
+        "removed": removed,
+        "modified": modified,
+        "summary": {
+            "old_rule_count": len(old_rules),
+            "new_rule_count": len(new_rules),
+            "added_count": len(added),
+            "removed_count": len(removed),
+            "modified_count": len(modified),
+            "total_change_count": len(added) + len(removed) + len(modified),
         },
-        data_source=DATA_SOURCE_LIVE,
-    ))
+    }
+
+
+def _policy_diff_event_stream(req: CompliancePolicyDiffRequest):
+    """SSE event stream · 真业务 (B5 sub-PR 2 implementation · 2026-05-05).
+
+    走 scan_engine.extract_rules_from_policy_text (LLM 优先 · 无 key fallback 启发式)
+    → diff index by article → SSE stream stage events + done envelope.
+
+    SSE shape (per sse-envelope §3 · stable for frontend integration):
+      event: stage   {stage: "extract_old"  | "extract_new" | "diff", status, message, progress}
+      event: done    {payload: {diffs, summary, old_policy_length, new_policy_length, scope}}
+      event: error   {message, code}
+    """
+    try:
+        from agent_compliance.scan_engine import (
+            build_llm_json_caller,
+            extract_rules_from_policy_text,
+        )
+    except ImportError as e:
+        yield encode_event(make_error(f"scan_engine import failed: {e}", code="SCAN_IMPORT_FAIL"))
+        return
+
+    try:
+        # LLM 优先 · 无 key 时 build_llm_json_caller 返 None · extract 自动 fallback 启发式
+        llm_json = build_llm_json_caller()
+
+        # Stage 1: extract_old
+        yield encode_event(make_stage(
+            stage="extract_old", status="running",
+            message="抽取旧政策规则...", progress=0.0,
+        ))
+        old_rules = extract_rules_from_policy_text(req.old_policy or "", llm_json_caller=llm_json)
+        yield encode_event(make_stage(
+            stage="extract_old", status="done",
+            message=f"抽取 {len(old_rules)} 条旧规则", progress=0.33,
+        ))
+
+        # Stage 2: extract_new
+        yield encode_event(make_stage(
+            stage="extract_new", status="running",
+            message="抽取新政策规则...", progress=0.33,
+        ))
+        new_rules = extract_rules_from_policy_text(req.new_policy or "", llm_json_caller=llm_json)
+        yield encode_event(make_stage(
+            stage="extract_new", status="done",
+            message=f"抽取 {len(new_rules)} 条新规则", progress=0.66,
+        ))
+
+        # Stage 3: diff (按 article 比对)
+        yield encode_event(make_stage(
+            stage="diff", status="running",
+            message="按条款 article 比对差异...", progress=0.66,
+        ))
+        diff_result = _compute_policy_diff(old_rules, new_rules)
+        yield encode_event(make_stage(
+            stage="diff", status="done",
+            message=f"diff 完毕 · 共 {diff_result['summary']['total_change_count']} 处变更",
+            progress=1.0,
+        ))
+
+        # Done envelope (payload 含 diffs + summary + lengths + scope · backward compat 字段保留)
+        done_payload = {
+            "diffs": {
+                "added": diff_result["added"],
+                "removed": diff_result["removed"],
+                "modified": diff_result["modified"],
+            },
+            "summary": diff_result["summary"],
+            "old_policy_length": len(req.old_policy or ""),
+            "new_policy_length": len(req.new_policy or ""),
+            "scope": req.scope,
+        }
+        cleaned, hits = _qc_scrub_dict(done_payload)
+        if hits:
+            cleaned["_qc_placeholder_hits"] = hits
+        yield encode_event(make_done(
+            payload=cleaned,
+            data_source=DATA_SOURCE_LIVE,
+        ))
+
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+        traceback.print_exc()
+        yield encode_event(make_error_from_exception(e, code="POLICY_DIFF_RUNTIME_ERROR"))
 
 
 @app.post("/api/compliance/policy_diff")
-async def compliance_policy_diff_post(req: CompliancePolicyDiffRequest):
-    """POST /api/compliance/policy_diff — 比对两份政策版本差异 (V2-issue-3 · contract sub-PR 1).
+async def compliance_policy_diff_post(
+    req: CompliancePolicyDiffRequest,
+    _user: dict = Depends(require_action("compliance", "invoke")),
+):
+    """POST /api/compliance/policy_diff — 比对两份政策版本差异 (V2-issue-3 · B5 sub-PR 2 真业务).
 
-    sub-PR 1 (此): endpoint signature + SSE stub
-    sub-PR 2 (next): 接 scan_engine 业务逻辑 + require_action enforcement + endpoint test
+    sub-PR 1 (45b9ace + 8a01c6d): endpoint signature + Pydantic schema + SSE stub
+    sub-PR 2 (此): 接 scan_engine.extract_rules_from_policy_text + require_action enforcement
+                   + endpoint test (含 401/403)
+
+    Auth (per Q-052 #8 row-level/action gate):
+      - compliance_officer/admin → 200 (有 invoke action)
+      - rm/credit_officer/risk_manager → 403 ACCESS_DENIED (无 compliance.invoke action)
+      - 无 cookie → 401 AUTH_MISSING
     """
     if not (req.old_policy or "").strip():
         raise HTTPException(

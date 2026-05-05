@@ -20,13 +20,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from auth_service.dependencies import require_action  # noqa: E402
 
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
@@ -111,7 +113,10 @@ def _sse_headers() -> dict[str, str]:
 
 @app.post("/api/riskctrl/dsl_gen")
 @audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/dsl_gen", model="deepseek-chat")
-async def riskctrl_dsl_gen(req: DslGenRequest):
+async def riskctrl_dsl_gen(
+    req: DslGenRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
     """自然语言 → RuleSet JSON · SSE stream · stage 流 + done envelope.
 
     Body:    { strategy_intent | rule_text, sample_csv_path?, mock? }
@@ -120,6 +125,9 @@ async def riskctrl_dsl_gen(req: DslGenRequest):
         event: stage   {stage: parse_intent | build_prompt | validate_dsl, status}
         event: done    {ruleset, ruleset_id, source: llm|mock, csv_columns?, data_source}
         event: error   {message, code}
+
+    Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("riskctrl", "invoke")
+    enforce row-level/action gate · risk_manager/admin 可调 · RM 不可调 (Q-052 #8 收窄).
     """
     from shared.sse_envelope import (
         DATA_SOURCE_LIVE,
