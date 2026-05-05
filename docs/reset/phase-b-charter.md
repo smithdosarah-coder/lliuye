@@ -172,7 +172,7 @@ Phase B (~14-18 周 wall-clock):
 
 5 项 v2 验收 + Phase A 8 项验收 · 共 13 项硬线全过 → 产品"全新出发" · 可拿出去给银行客户**真卖**:
 - 真产品力差异 (vs Phase A 收尾 thin demo): 4 角色全有可信 evidence + 跨 Agent decision ledger + 个人画像 POC + 数据飞轮 gate + 多租户 architecture
-- POC 4 维评价跑通 (画像 35% + 产品适配 25% + 经营策略 20% + 性能 20%)
+- POC 4 维评价跑通 (个人画像 35% + 产品适配 25% + 合规+话术 20% + PII+latency 20% · per Q-052 audit dispose + Codex re-review V2 修正 · 替代旧"经营策略 20%"维度名 per BE12 schema 实际维度)
 - 6 Agent 端到端 demo chain + video
 
 ---

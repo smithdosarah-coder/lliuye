@@ -52,7 +52,7 @@ worker-B7-final · Phase B Sprint 3 · branch `feat/phase-b7-final` · worktree 
 - `REVIEW-MODE: codex`
 - `REASONING-EFFORT: medium`
 - `ELAPSED: <min>`
-- `POC-4-DIMS: <画像 / 产品适配 / 经营策略 / 性能 各 dimension 得分>`
+- `POC-4-DIMS: <个人画像 / 产品适配 / 合规+话术 / PII+latency 各 dimension 得分>` (per Codex re-review V2 修 · 替代旧"经营策略"维度名)
 - `LEDGER-INTEGRATION-VERIFY: <yes/no · 含 evidence>`
 - `GREP-GUARD-LEGACY-LLM: BASELINE=30; NEW=0` (per Q-052 P2.6 修正版)
 
@@ -80,7 +80,7 @@ git fetch origin && git rebase origin/main  # per Q-050
 # read 上面 9 文件
 git commit --allow-empty -m "chore(resume): WORKER-B7-FINAL-RESUMED · 我理解 Sprint 3 BE13 减半 task
 
-任务: BE13 个人画像 POC + 跑通 4 维度评价 (画像 35% + 产品适配 25% + 经营策略 20% + 性能 20%) + ledger integration verify
+任务: BE13 个人画像 POC + 跑通 4 维度评价 (个人画像 35% + 产品适配 25% + 合规+话术 20% + PII+latency 20%) + ledger integration verify
 工程量: 0.75-1 周 (减半 · BE7 已 B4-credit 提前 ship per Q-046)
 DONE signal: WORKER-B7-FINAL-BE13-POC-DONE
 红线: 不破 BE7 ledger 4 retention · LLM 走 shared/llm_caller · 4 维度评价确定性 · 反 5 原则
