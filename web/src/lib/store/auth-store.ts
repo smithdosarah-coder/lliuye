@@ -16,7 +16,14 @@
 import { create } from "zustand";
 
 import { fetchMe, loginApi, logoutApi, AuthApiError } from "@/lib/api/auth";
-import type { AgentId, PermissionAction, Role, User } from "./types";
+import type {
+  Action,
+  AgentId,
+  PermissionAction,
+  Role,
+  RoleAccessV2,
+  User,
+} from "./types";
 
 // 5 user metadata · 镜像 backend auth_service/users.py · 仅供 LoginForm dropdown 显
 // password 不在前端 (httpOnly cookie 是 source of truth)
@@ -29,16 +36,76 @@ export const DEMO_USERS: User[] = [
 ];
 
 /**
- * RBAC matrix · 镜像 backend auth_service/rbac.py:ACCESS · auth-protocol.md 红区契约.
- * 改一定同步两边走 RFC.
+ * RBAC ACCESS_V2 · row-level/action gate (Phase B Sprint 3 contract sub-PR 1 · 2026-05-05).
+ * 镜像 backend auth_service/rbac.py:ACCESS_V2 · auth-protocol.md §3.4 红区契约 · 改一定同步两边走 RFC.
+ *
+ * Q-052 #8 RM 权限契约目标 收窄:
+ *   - 主调 channel + report (full action set)
+ *   - 看 credit + alert (read-only)
+ *   - 不可调 riskctrl + compliance (NOT in dict)
  */
-const ACCESS: Record<Role, readonly AgentId[]> = {
-  rm:                 ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
-  credit_officer:     ["credit", "report", "alert"],
-  compliance_officer: ["compliance", "report", "alert"],
-  risk_manager:       ["riskctrl", "alert", "credit"],
-  admin:              ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
+const ACCESS_V2: RoleAccessV2 = {
+  rm: {
+    channel: ["invoke", "read", "export", "handoff"],
+    report:  ["invoke", "read", "export", "handoff"],
+    credit:  ["read"],
+    alert:   ["read"],
+    // riskctrl: 不可调 (per Q-052 #8)
+    // compliance: 不可调 (per Q-052 #8)
+  },
+  credit_officer: {
+    credit: ["invoke", "read", "approve", "handoff"],
+    report: ["read", "export"],
+    alert:  ["read"],
+  },
+  compliance_officer: {
+    compliance: ["invoke", "read", "approve", "handoff"],
+    report:     ["read", "export"],
+    alert:      ["read"],
+  },
+  risk_manager: {
+    riskctrl: ["invoke", "read", "approve"],
+    alert:    ["invoke", "read", "approve", "handoff"],
+    credit:   ["read"],
+  },
+  admin: {
+    channel:    ["invoke", "read", "export", "handoff", "approve"],
+    report:     ["invoke", "read", "export", "handoff", "approve"],
+    credit:     ["invoke", "read", "export", "handoff", "approve"],
+    alert:      ["invoke", "read", "export", "handoff", "approve"],
+    compliance: ["invoke", "read", "export", "handoff", "approve"],
+    riskctrl:   ["invoke", "read", "export", "handoff", "approve"],
+  },
 };
+
+/**
+ * Row-level/action check · per Q-052 #8.
+ *
+ * Usage:
+ *   canAction("rm", "credit", "read")    // true (RM 看 credit read-only)
+ *   canAction("rm", "credit", "invoke")  // false (RM 不可调 credit · 仅 read)
+ *   canAction("rm", "riskctrl", "read")  // false (RM 完全不可调 riskctrl)
+ */
+export function canAction(role: Role, agent: AgentId, action: Action): boolean {
+  const agentMap = ACCESS_V2[role];
+  if (!agentMap) return false;
+  const actions = agentMap[agent];
+  if (!actions) return false;
+  return actions.includes(action);
+}
+
+/**
+ * Backward compat · binary ACCESS (role → agent list · 任 1 action 允许).
+ * derived from ACCESS_V2.
+ */
+const ACCESS: Record<Role, readonly AgentId[]> = Object.fromEntries(
+  (Object.keys(ACCESS_V2) as Role[]).map((role) => [
+    role,
+    (Object.keys(ACCESS_V2[role]) as AgentId[]).filter(
+      (agent) => (ACCESS_V2[role][agent] ?? []).length > 0,
+    ),
+  ]),
+) as Record<Role, readonly AgentId[]>;
 
 const HANDOFFS: Record<Role, { from: AgentId; to: AgentId }[]> = {
   rm: [
@@ -156,6 +223,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     switch (action.kind) {
       case "agent.access":
         return ACCESS[u.role].includes(action.agent);
+      case "agent.action":
+        return canAction(u.role, action.agent, action.action);
       case "handoff.create":
         return HANDOFFS[u.role].some(
           (h) => h.from === action.from && h.to === action.to,
@@ -175,4 +244,4 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 export const byUserId = (id: string) => DEMO_USERS.find((u) => u.id === id);
 
 // 仅类型 / 静态查询用 · 不通过 useAuthStore 也能用
-export { ACCESS, HANDOFFS };
+export { ACCESS, ACCESS_V2, HANDOFFS };

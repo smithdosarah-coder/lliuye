@@ -107,6 +107,19 @@ class CompliancePolicyScanRequest(BaseModel):
     force_mock: bool = False         # 强制走 mock 政策库 · 不尝试 Tavily
 
 
+class CompliancePolicyDiffRequest(BaseModel):
+    """policy_diff 请求 schema · 比对两份政策版本差异 (V2-issue-3 endpoint contract).
+
+    Phase B Sprint 3 contract sub-PR 1 (2026-05-05):
+    - endpoint signature + Pydantic schema + SSE response stub
+    - 业务逻辑 deferred to sub-PR 2 implementation (per Q-052 atomic 跨前后端)
+    """
+
+    old_policy: str                  # 旧政策全文 (markdown / plain text)
+    new_policy: str                  # 新政策全文 (markdown / plain text)
+    scope: str | None = None         # 可选 · 业务范围限定 (e.g. "对公授信")
+
+
 def _aggregate_recommendations(violations: list[dict]) -> list[dict]:
     """汇总 violations 各自 revisions 为 flat list · 前端 RevisionPanel 消费.
 
@@ -236,6 +249,67 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         traceback.print_exc()
         yield encode_event(make_error_from_exception(e, code="SCAN_RUNTIME_ERROR"))
+
+
+# ---------------------------------------------------------------------------
+# POST /api/compliance/policy_diff — V2-issue-3 endpoint contract (B5 sub-PR 1)
+#
+# Phase B Sprint 3 contract sub-PR 1 · 2026-05-05
+# - endpoint signature + Pydantic request schema + SSE response stub
+# - 业务逻辑 deferred to sub-PR 2 implementation (per Q-052 atomic 跨前后端)
+# - Depends(require_action("compliance", "invoke")) sub-PR 2 wire
+# ---------------------------------------------------------------------------
+
+
+def _policy_diff_event_stream(req: CompliancePolicyDiffRequest):
+    """Stub event stream · sub-PR 2 implementation 接 diff 业务逻辑.
+
+    Yields SSE events using sse_envelope helpers (encode_event + make_stage + make_done).
+    """
+    yield encode_event(make_stage(
+        stage="diff",
+        message="policy_diff endpoint contract stub · sub-PR 2 implementation pending",
+        progress=0.0,
+    ))
+
+    yield encode_event(make_done(
+        payload={
+            "status": "stub",
+            "message": "policy_diff endpoint contract sub-PR 1 stub · implementation deferred to sub-PR 2",
+            "old_policy_length": len(req.old_policy),
+            "new_policy_length": len(req.new_policy),
+            "scope": req.scope,
+        },
+        data_source=DATA_SOURCE_LIVE,
+    ))
+
+
+@app.post("/api/compliance/policy_diff")
+async def compliance_policy_diff_post(req: CompliancePolicyDiffRequest):
+    """POST /api/compliance/policy_diff — 比对两份政策版本差异 (V2-issue-3 · contract sub-PR 1).
+
+    sub-PR 1 (此): endpoint signature + SSE stub
+    sub-PR 2 (next): 接 scan_engine 业务逻辑 + require_action enforcement + endpoint test
+    """
+    if not (req.old_policy or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "old_policy 不能为空",
+                              "details": {"field": "old_policy"}}},
+        )
+    if not (req.new_policy or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "VALIDATION_FAILED",
+                              "message": "new_policy 不能为空",
+                              "details": {"field": "new_policy"}}},
+        )
+
+    return StreamingResponse(
+        _policy_diff_event_stream(req),
+        media_type="text/event-stream",
+    )
 
 
 @app.post("/api/compliance/policy_scan")

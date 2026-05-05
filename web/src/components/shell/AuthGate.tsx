@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuthStore } from "@/lib/store";
-import type { AgentId } from "@/lib/store/types";
+import type { Action, AgentId } from "@/lib/store/types";
 
 /**
  * AuthGate · Stage D.1 frontend (W-D1F-A2 · 2026-04-28)
@@ -72,5 +72,39 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // 未登录 · non-login/403 path → 等 redirect (上面 useEffect 触发)
   if (!currentUser && !isLogin && !isForbidden) return null;
 
+  return <>{children}</>;
+}
+
+/**
+ * ActionGate · row-level/action gate component (Phase B Sprint 3 contract sub-PR 1 · 2026-05-05)
+ *
+ * 用 ACCESS_V2 row-level/action 检查 · 替代 binary AuthGate 的 agent-level binary check.
+ *
+ * Usage (sub-PR 2 起 wire 起来):
+ *   <ActionGate agent="compliance" action="invoke">
+ *     <PolicyDiffButton />
+ *   </ActionGate>
+ *
+ *   <ActionGate agent="credit" action="read" fallback={<ReadOnlyBadge />}>
+ *     <CreditEditPanel />
+ *   </ActionGate>
+ *
+ * 前端 instant guard · 真 enforce 在 backend Depends(require_action(agent, action)).
+ */
+export function ActionGate({
+  agent,
+  action,
+  children,
+  fallback,
+}: {
+  agent: AgentId;
+  action: Action;
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const can = useAuthStore((s) => s.can);
+  if (!can({ kind: "agent.action", agent, action })) {
+    return <>{fallback ?? null}</>;
+  }
   return <>{children}</>;
 }

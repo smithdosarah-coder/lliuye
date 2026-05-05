@@ -24,7 +24,7 @@ from typing import Any
 from fastapi import Cookie, HTTPException
 
 from auth_service.jwt_util import JWTError, verify
-from auth_service.rbac import can_access
+from auth_service.rbac import can_access, can_action
 
 COOKIE_NAME = "zhongan_auth"
 
@@ -71,6 +71,55 @@ def require_agent(agent_id: str):
                         "details": {
                             "role": payload.get("role"),
                             "agent": agent_id,
+                        },
+                    }
+                },
+            )
+        return payload
+
+    return _check
+
+
+def require_action(agent_id: str, action: str):
+    """Factory · 返 FastAPI dependency · 验 cookie + ACCESS_V2 row-level/action enforcement.
+
+    per Q-052 #8 contract sub-PR 1:
+    - role-level binary check (require_agent) 不够 · row-level action gate
+    - 例: RM 对 credit/alert 仅有 read action · 不能 invoke
+
+    Usage:
+        @app.post("/api/compliance/policy_diff")
+        async def policy_diff(req, user=Depends(require_action("compliance", "invoke"))):
+            ...
+    """
+
+    async def _check(zhongan_auth: str | None = Cookie(default=None)) -> dict[str, Any]:
+        if not zhongan_auth:
+            raise HTTPException(
+                401,
+                detail={"error": {"code": "AUTH_MISSING", "message": "未登录"}},
+            )
+        try:
+            payload = verify(zhongan_auth)
+        except JWTError as e:
+            raise HTTPException(
+                401,
+                detail={"error": {"code": "AUTH_INVALID", "message": str(e)}},
+            ) from e
+        if not can_action(payload.get("role", ""), agent_id, action):
+            raise HTTPException(
+                403,
+                detail={
+                    "error": {
+                        "code": "ACCESS_DENIED",
+                        "message": (
+                            f"role {payload.get('role')!r} 对 agent {agent_id!r} "
+                            f"无 {action!r} 权限"
+                        ),
+                        "details": {
+                            "role": payload.get("role"),
+                            "agent": agent_id,
+                            "action": action,
                         },
                     }
                 },
