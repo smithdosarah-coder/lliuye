@@ -48,12 +48,24 @@ Agent5 compliance 当前 `policy_coverage=0.5` + `conflict_recall=0.5` 都是 kn
 - LLM 调用走 `shared/llm_caller/`
 - evaluation runner baseline `policy_coverage ≥ 0.85` + `conflict_recall ≥ 0.85`
 
+## ⚠️ 关键警告 · handoff schema v1.1 placeholder (双 AI 辩论 R2 · Q-048 · 2026-05-04)
+
+`docs/contracts/agent-handoff-schemas.md:17` 自述: **"v1.1 仅 placeholder · v1.2 实装"**
+
+你触及 **Agent5 → Agent3 / Agent6 / Agent4 反向链** (§6.1) · 该段 fixture 在 v1.1 是 placeholder · v1.2 待实装。
+
+处理:
+1. 触到反向链时**自写 fixture** in `data/mock/handoff/agent5-to-3-*.json` (or to-6 / to-4) · 不等 Sprint 3 v1.2 实装
+2. 在 commit body 列你写的 fixture file:line · trailer 加 `HANDOFF-FIXTURE: data/mock/handoff/<file>.json`
+3. 不动 contract 文档本身 (那是 worker-A6 / Sprint 3 工作 · 你只产 fixture)
+
 ## DONE signal
 
 `WORKER-B4-COMPLIANCE-POLICY-REGISTRY-DONE` · trailer 必含:
-- `REVIEW-MODE: manual`
+- `REVIEW-MODE: codex` (codex resumed 2026-05-04 · 主 CLI fire post-DONE review bg per Q-043 protocol v2)
 - `REASONING-EFFORT: medium`
 - `ELAPSED: <min>`
+- `HANDOFF-FIXTURE: <file>.json` (若触及反向链 · 自写 fixture)
 
 ## 工程量
 

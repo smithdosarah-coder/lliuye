@@ -31,12 +31,24 @@ Agent4 alert 当前 baseline `signal_diversity=0.0` 是 known blocker (per phase
 - evaluation runner baseline 跑通 · `signal_diversity ≥ 0.85` (从 0.0 → ≥ 0.85)
 - LLM 调用走 `shared/llm_caller/` (不裸 OpenAI client)
 
+## ⚠️ 关键警告 · handoff schema v1.1 placeholder (双 AI 辩论 R2 · Q-048 · 2026-05-04)
+
+`docs/contracts/agent-handoff-schemas.md:17` 自述: **"v1.1 仅 placeholder · v1.2 实装"**
+
+你触及 **Agent4 → Agent5 反向链** (BE9 任务 7 · §6.4) · 该段 fixture 在 v1.1 是 placeholder · v1.2 待实装。
+
+处理:
+1. 触到反向链时**自写 fixture** in `data/mock/handoff/agent4-to-5-*.json` · 不等 Sprint 3 v1.2 实装
+2. 在 commit body 列你写的 fixture file:line · trailer 加 `HANDOFF-FIXTURE: data/mock/handoff/<file>.json`
+3. 不动 contract 文档本身 (那是 worker-A6 / Sprint 3 工作 · 你只产 fixture)
+
 ## DONE signal
 
 `WORKER-B4-ALERT-SIGNAL-QUALITY-DONE` · trailer 必含:
-- `REVIEW-MODE: manual` (codex 用尽 until 2026-05-08 · 主 CLI 自接 review)
+- `REVIEW-MODE: codex` (codex resumed 2026-05-04 · 主 CLI fire post-DONE review bg per Q-043 protocol v2)
 - `REASONING-EFFORT: medium`
 - `ELAPSED: <min>`
+- `HANDOFF-FIXTURE: <file>.json` (若触及反向链 · 自写 fixture)
 
 ## 工程量
 

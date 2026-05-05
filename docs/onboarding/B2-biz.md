@@ -44,10 +44,12 @@ worker-B2 · Phase B Sprint 2 · branch `feat/phase-b2-biz` · worktree `D:\clau
 ## DONE signal
 
 `WORKER-B2-BIZ-DOC-DONE` · trailer 必含:
-- `REVIEW-MODE: manual`
+- `REVIEW-MODE: codex` (codex resumed 2026-05-04 · 主 CLI fire post-DONE review bg per Q-043 protocol v2)
 - `REASONING-EFFORT: medium`
 - `ELAPSED: <min>`
 - `DOC-FILES: docs/biz/*.md (4 file)`
+
+(B2 doc-only · 不触 handoff schema · 不需 HANDOFF-FIXTURE trailer)
 
 ## 工程量
 
