@@ -89,12 +89,12 @@ metrics:
       blocker_threshold: 0.60
 
 baseline:
-  last_run: 2026-04-19T05:36:55Z
-  commit: 52d3f90913e5531ba801722c79036aea06999ec9
-  verdict: PARTIAL  # Phase 0 首跑；Phase 1 Task B 后升 PASS；B1 新加 field_completeness/signal_diversity 待 adapter 实装
-  artifact: evaluation/manual/4_20260419.yaml  # Phase 1 Task A runtime dump（AlertKB + MockSearchProvider scan 产物）
+  last_run: 2026-05-04T00:00:00Z
+  commit: BE5+BE9 worker-B4-alert Sprint 2
+  verdict: PARTIAL  # signal_diversity 0.50 < 0.85 红线 (blocker · per onboarding) · 其余 7 metric pass
+  artifact: evaluation/manual/4_20260504.yaml  # BE5+BE9 实装后 runtime dump (含 signal_kinds + matched_rules + industry)
   regression_anchor: agent_alert/tests/fixtures/phase0_scan_sample.json  # schema 冻结, 仅供回归单测
-  result_file: evaluation/results/4_20260419.yaml  # local-only, gitignored
+  result_file: evaluation/results/4_20260504.yaml  # local-only, gitignored
   pending_metrics:
     - cross_hit_precision
     - recall_on_known_bad
@@ -111,6 +111,17 @@ baseline:
     两条进 pending_metrics，待 adapter 补实装。
     BE5 (2026-05-04): signal_diversity adapter 实装出 pending · 切到 signal_kinds 细粒度
     (LAW/FIN/BIZ/IND/REL/POL · per agent_alert/signal_quality.py). target ≥ 0.85 ·
-    blocker 0.60. BE5 完成后中间值 0.50 (3 红客户 100% ≥ 2 · 7 黄客户 2/7 ≥ 2 · 黄
-    客户结构性单路命中). BE9 alert_clustering 跨客户聚类后预期升 ≥ 0.85 (cluster
-    pattern 给客户 +1 signal_kind 维度).
+    blocker 0.60.
+
+    BE5+BE9 完成后真值: signal_diversity = 0.50 (5/10 red/yellow ≥ 2 kinds).
+    - 3 红客户 100% ≥ 2 kinds (BE5 解锁 · 从 0/3 → 3/3)
+    - 7 黄客户 2/7 ≥ 2 kinds (黄客户结构性单路命中 = 1 rule = 1 kind 是 fixture 事实)
+    - BE9 alert_clusterer 在当前 100-客户单 fixture 上无 cluster (rules 互不重叠 ·
+      per 反 5 原则 §3.5 不能改 fixture 让"刚好聚类")
+    - production multi-scenario batch_scan 路径预期形成 cluster · cluster:<pid>
+      维度可经 ALERT_AUGMENT_CLUSTERS=1 显式开 (默认关 · 不破现有 baseline)
+
+    pending blocker: 0.50 < onboarding 红线 0.85 · 待 PM 决断:
+    A. 接受 0.50 当前真值 · 等 production multi-scenario fixture 自然达 0.85
+    B. 重新设计 fixture 让 yellow 客户多路命中 (违反 反 5 原则 §3.5 · 不推荐)
+    C. 调整 metric semantics · 把 industry 作为额外 signal_kind 维度 (扩 BE5 spec)
