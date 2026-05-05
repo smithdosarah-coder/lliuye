@@ -734,11 +734,59 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 
 ---
 
-(下次更新模板)
-## YYYY-MM-DD · <事件>
+## 2026-05-04 20:11 · worker-B4-alert Sprint 2 BE5+BE9 实装完整
 
-### Worker 状态变更
+### What happened
+- worker-B4-alert (worktree D:\claude code\work-B4-alert · branch feat/phase-b4-alert) 完成 7 件 deliverable
+- BE5 (信号质量 · 4 件):
+  - `agent_alert/signal_quality.py` 新模块 · freshness_score (-10/day) + lookup_source_confidence (3 档) + classify_signal_kind (6 prefix → 6 kinds) + compute_evidence_confidence + quality_bundle 一站集成
+  - `data/mock/workspace/alert/source_confidence.json` 33 entries 数据表 (gov/court/pbc/ 财新/微博 等)
+  - 接 evidence_pipeline.py 49-79 行 · confidence 从静态 0.75/0.5 → freshness × source_confidence
+  - 接 cross_matcher.py · HitItem.extras["signal_kinds"] 暴露 · 6 prefix 细粒度
+  - SSE done envelope 加 `fallback` 字段 (per live-fallback-banner-spec) · 5 mode → banner severity 映射
+  - POST /api/alert/scan/replay/{scan_id} 历史 scan 重放端点 · cached + replay mode · 不调 LLM/KB/SearchProvider
+- BE9 (跨客户 batch + clustering + handoff · 3 件):
+  - POST /api/alert/batch_scan 端点 · 跨多 scenario 批量扫 · streaming SSE per-client tick + aggregate done
+  - `agent_alert/alert_clusterer.py` 新模块 · Union-Find connected components · jaccard ≥ 0.7 · min_size=3 · pattern_id stable hash · urgency_score (size+tier+rule_count 加权)
+  - `shared/similarity.py` 加 jaccard_set helper
+  - `agent_alert/handoff_riskctrl.py` 新模块 · build_pattern_proposal · §6.4 schema 完整 · is_proposal_valid 给 Agent2 消费侧防御
+  - `data/mock/handoff/agent4-to-2-pattern.json` v1.1 placeholder fixture
+- 评估:
+  - signal_diversity 0.0 → 0.50 (5x · BE5 fine-grained kinds 让 red 全 3-kind)
+  - 7 metric 全 PASS · 1 FAIL (signal_diversity 0.50 < 0.85 红线 · 详后)
 
-### 决策变更
+### Triggered by
+- PM dispatch 412f516 (2026-05-01) + PM GO "按 onboarding 开干 · 完了 commit DONE signal · blocker 才报"
 
-### 风险预警
+### State change (delta)
+- worker-B4-alert: pending → DONE (RESUMED → 9 commits → DONE signal)
+- agent_alert 新增 4 模块: signal_quality.py / alert_clusterer.py / handoff_riskctrl.py + 1 数据表
+- agent_alert/api.py 新增 2 endpoints: /api/alert/batch_scan + /api/alert/scan/replay/{id}
+- shared/similarity.py 加 jaccard_set helper (BE9.2 用)
+- evaluation/agent4_alert.yaml: signal_diversity baseline_target 0.60 → 0.85 · pending_metrics 移除 signal_diversity · verdict PARTIAL
+- 134 单元测试 全 pass (51 signal_quality + 16 fallback_banner + 8 scan_replay + 11 batch_scan + 28 alert_clusterer + 30 handoff_riskctrl)
+- 0 regression (137 → 230 total tests pass)
+- §6.4 fixture 从 v1.1 placeholder → 实装 (Agent4→Agent2 链路 spec 一侧落地 · Agent2 一侧由 worker-B7 实装)
+
+### blocker (PM 透明知会 · 待决断)
+- **signal_diversity 0.50 < 0.85 onboarding 红线** · root cause 三层:
+  - red 客户 100% ≥ 2 kinds (BE5 解锁 · 真 5x improvement)
+  - yellow 客户 2/7 ≥ 2 kinds (单路命中 1 rule = 1 kind 是 fixture 结构事实)
+  - BE9 alert_clusterer 在当前 100-客户单 fixture 无 cluster (rules 互不重叠 · per 反 5 原则 §3.5)
+- PM 三选项:
+  - A. 接受 0.50 当前真值 · 等 production multi-scenario fixture 自然达 0.85
+  - B. 重新设计 fixture 让 yellow 客户多路命中 (违反 反 5 原则 §3.5 · 不推荐)
+  - C. 调整 metric semantics · 把 industry 作为额外 signal_kind 维度 (扩 BE5 spec)
+- ALERT_AUGMENT_CLUSTERS=1 env var 留作 multi-scenario 路径开关 (默认关 · 不破现有 baseline)
+
+### dispatch ambiguity 处理
+- onboarding 写 "Agent4→Agent5 §6.4" 但 spec §6.4 实为 "Agent4→Agent2 (pattern_detected → rule_proposal)"
+- §6.3 才是 Agent4→Agent5 (alert_escalated → compliance_review)
+- 按 BE9 cross-client pattern detection 语义 · 实装 §6.4 (Agent4→Agent2)
+- 已在 RESUMED commit + DONE commit 透明 flag PM
+
+### Next
+- ⏳ PM verify worker-B4-alert DONE signal + signal_diversity blocker 决断 (A/B/C)
+- ⏳ PM cherry-pick signal commits 回 main (~9 commits · 标 Sprint 2 BE5+BE9 完整批次)
+- ⏳ worker-B7 Sprint 3 起 · 实装 Agent2 一侧 POST /api/riskctrl/rule_proposal 消费 §6.4 payload
+- ⏳ worker-B4-compliance + worker-B2 同 Sprint 2 节奏 · check 进度
