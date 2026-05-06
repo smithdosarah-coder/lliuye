@@ -590,6 +590,7 @@ export default function ComplianceWorkspace() {
             matrixCells={session.matrix}
             view={view}
             onViewChange={setView}
+            isLive={isLive}
           />
 
           <div className="rpt-grid">
@@ -1846,6 +1847,7 @@ function ComplianceStatsBar(p: {
   matrixCells: MatrixCell[];
   view: ViolationView;
   onViewChange: (v: ViolationView) => void;
+  isLive: boolean;
 }) {
   const total = p.conflicts.length;
   const block = p.conflicts.filter((c) => c.severity === "block").length;
@@ -1860,8 +1862,21 @@ function ComplianceStatsBar(p: {
       className="compliance-stats-bar"
       aria-label="合规扫描统计"
       data-testid="compli-stats-bar"
+      data-mode={p.isLive ? "live" : "mock"}
     >
       <div className="compliance-stats-bar__metrics">
+        {/* PM bug #4 fix · MOCK / LIVE 显式 badge · 不再隐式 fallback */}
+        <div
+          className="compliance-stats-bar__item compliance-stats-bar__item--mode"
+          data-testid="compli-stats-mode"
+          data-mode={p.isLive ? "live" : "mock"}
+          title={p.isLive ? "LIVE · 真后端 SSE 数据" : "MOCK · 演示数据 · 不联后端"}
+        >
+          <span className="compliance-stats-bar__label">数据来源</span>
+          <span className="compliance-stats-bar__value">
+            {p.isLive ? "● LIVE 真接" : "○ MOCK 演示"}
+          </span>
+        </div>
         <div className="compliance-stats-bar__item" data-testid="compli-stats-total">
           <span className="compliance-stats-bar__label">违规数</span>
           <span className="compliance-stats-bar__value">{total}</span>

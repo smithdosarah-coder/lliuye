@@ -537,7 +537,8 @@ function ChannelHero({
       <div className="rpt-hero-left">
         <div className="rpt-hero-badge" aria-hidden>◈</div>
         <div>
-          <div className="rpt-hero-code">AGENT · 01 · SCOUT</div>
+          {/* PM bug #3 fix · hero code 中文优先 · 英文 codename 保留 */}
+          <div className="rpt-hero-code">AGENT · 01 · 获客 Scout</div>
           <h1 className="rpt-hero-title">
             获客 <em>Scout.</em>
           </h1>

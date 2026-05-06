@@ -647,7 +647,8 @@ function RiskHero({ sessionData }: { sessionData: RiskctrlSession }) {
       <div className="rpt-hero-left">
         <div className="rpt-hero-badge" aria-hidden>⌘</div>
         <div>
-          <div className="rpt-hero-code">AGENT · 02 · FORGE</div>
+          {/* PM bug #3 fix · hero code 中文优先 · 英文 codename 保留 */}
+          <div className="rpt-hero-code">AGENT · 02 · 风控 Forge</div>
           <h1 className="rpt-hero-title">
             风控 <em>Forge.</em>
           </h1>
