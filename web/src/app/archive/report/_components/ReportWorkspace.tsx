@@ -36,12 +36,7 @@ import {
   type ReportV16Section,
   type ReportV16StageEvent,
 } from "@/lib/api/report";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { REPORT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   REPORT_GLOBAL_STATS,
@@ -569,8 +564,6 @@ export function ReportWorkspace() {
               </span>
               <ClaimText text={REPORT_EVIDENCE.summary} />
             </section>
-            <UnfilledFields />
-            <EvidenceTrail agentTone="report" />
           </>
         ) : (
           <ReportEmptySkeleton />

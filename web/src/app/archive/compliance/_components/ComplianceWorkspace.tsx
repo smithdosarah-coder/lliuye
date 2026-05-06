@@ -39,12 +39,7 @@ import {
 } from "@/lib/mock/agent-compliance-session";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
 
 /** 截断消息文本作 pin title · 尾部加 …（与 channel 同构） */
@@ -621,8 +616,6 @@ export default function ComplianceWorkspace() {
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
             <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
           </section>
-          <UnfilledFields />
-          <EvidenceTrail agentTone="compliance" />
         </>
       ) : (
         <EmptyStateSkeleton />

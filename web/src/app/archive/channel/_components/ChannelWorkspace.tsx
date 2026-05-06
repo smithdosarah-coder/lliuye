@@ -82,12 +82,7 @@ type KbUploadResult = {
 type KbUploadStatus = "idle" | "uploading" | "success" | "error";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
@@ -472,8 +467,6 @@ export default function ChannelWorkspace() {
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
             <ClaimText text={CHANNEL_EVIDENCE.summary} />
           </section>
-          <UnfilledFields />
-          <EvidenceTrail agentTone="channel" />
         </>
       ) : (
         <section

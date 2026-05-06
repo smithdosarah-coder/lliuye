@@ -13,12 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { RISKCTRL_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   LineChart,
@@ -513,8 +508,6 @@ export default function RiskctrlWorkspace() {
               <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
               <ClaimText text={RISKCTRL_EVIDENCE.summary} />
             </section>
-            <UnfilledFields />
-            <EvidenceTrail agentTone="riskctrl" />
           </>
         ) : (
           <RiskEmptySkeleton />

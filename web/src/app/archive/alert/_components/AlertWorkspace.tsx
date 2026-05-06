@@ -59,12 +59,7 @@ import {
 import { ActionGate } from "@/components/shell/AuthGate";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   fetchDrill,
@@ -866,8 +861,6 @@ export default function AlertWorkspace() {
               <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
               <ClaimText text={ALERT_EVIDENCE.summary} />
             </section>
-            <UnfilledFields />
-            <EvidenceTrail agentTone="alert" />
           </>
         )}
       </div>
