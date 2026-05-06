@@ -8,6 +8,7 @@ import { AgentTileStrip } from "./_components/AgentTileStrip";
 import { ActivityTimeline } from "./_components/ActivityTimeline";
 import { CollaboratorList } from "./_components/CollaboratorList";
 import { PersonalFinancePanel } from "./_components/PersonalFinancePanel";
+import { DecisionPanel } from "./_components/DecisionPanel";
 
 /**
  * 根据 customer.stage 选 3 条合理的 seed event（mount 时注入时间线，
@@ -125,6 +126,8 @@ export function CustomerPageClient({ id }: { id: string }) {
       <CustomerHero customer={customer} />
       {/* Phase C Track A · A2 · 个人金融画像 (toC) · 接 /api/customer/{id}/profile · 真 endpoint */}
       <PersonalFinancePanel customerId={customer.id} />
+      {/* Phase C Track A · A3 · 走访闭环 (build → review → export) · 接 4 endpoint */}
+      <DecisionPanel customerId={customer.id} />
       <AgentTileStrip customerId={customer.id} />
       <div className="v-customer-grid">
         <ActivityTimeline customerId={customer.id} />
