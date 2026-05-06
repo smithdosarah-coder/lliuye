@@ -546,10 +546,16 @@ export default function CreditWorkspace() {
 
       <div className="rpt-grid">
         <aside className="rpt-col rpt-col--left">
-          <QueryPanel q={session.query} />
+          {/* Sprint 4 D1 Atomic 2 (per Codex R3 redesign · PRD v2.0 "Agent3 输入 = Agent6 ReportJSON + 多源补充"):
+              - DELETE QueryPanel (PRD verbatim "不需 query · 输入是 ReportJSON")
+              - KEEP MaterialsPanel + DataSourcesPanel (PRD "多源补充")
+              - COLLAPSE RecentPanel (移 details · 默认收起 · per "证据下钻"模式) */}
           <MaterialsPanel data={session.materials} />
           <DataSourcesPanel data={session.dataSources} />
-          <RecentPanel recent={session.recentSessions} />
+          <details className="rpt-recent-collapse">
+            <summary>📋 历史会话 (展开)</summary>
+            <RecentPanel recent={session.recentSessions} />
+          </details>
         </aside>
 
         <section className="rpt-col rpt-col--mid">
