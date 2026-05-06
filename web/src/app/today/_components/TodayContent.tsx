@@ -158,6 +158,62 @@ function RoleIntroCard({
 }
 
 // ---------------------------------------------------------------------------
+// Sprint 4 D2 Atomic 5 · 跨 Agent 编排 CTA (per Codex R1+R2 双辩论 · 用户视角)
+// per PRD rmassist_v3.md: "Portal 统一入口 + 跨 Agent 编排"
+// 5 角色各自典型工作流 · 1 click 进各 Agent · 减少 RM 跨系统切换
+// ---------------------------------------------------------------------------
+
+type WorkflowStep = {
+  agentSlug: "channel" | "report" | "credit" | "alert" | "compliance" | "riskctrl";
+  label: string;
+};
+
+function CrossAgentWorkflowCard({
+  title,
+  steps,
+}: {
+  title: string;
+  steps: WorkflowStep[];
+}) {
+  return (
+    <section
+      className="cross-agent-workflow card warm"
+      aria-label="跨 Agent 工作流 (Portal 编排)"
+      data-testid="cross-agent-workflow-card"
+      style={{ marginTop: "1rem", padding: "1rem" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+        <span aria-hidden style={{ fontSize: "1.2em" }}>📋</span>
+        <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>{title}</h3>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+        {steps.map((s, i) => (
+          <span key={s.agentSlug} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+            <Link
+              href={`/archive/${s.agentSlug}`}
+              data-agent={s.agentSlug}
+              style={{
+                padding: "0.4rem 0.8rem",
+                background: "var(--g2, rgba(120, 120, 120, 0.1))",
+                borderRadius: "6px",
+                textDecoration: "none",
+                color: "inherit",
+                fontSize: "0.9rem",
+              }}
+            >
+              {s.label}
+            </Link>
+            {i < steps.length - 1 ? (
+              <span aria-hidden style={{ color: "var(--g4, #888)" }}>→</span>
+            ) : null}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 5 role home view (data-role="<role>" · 后续 Playwright smoke + RBAC e2e 锚)
 // ---------------------------------------------------------------------------
 
@@ -181,6 +237,16 @@ function RmHome({ name }: { name: string }) {
         <RunningSheetsCard />
         <BoardCard />
       </div>
+
+      {/* Sprint 4 D2 Atomic 5 · 拓客闭环 CTA (RM 跨 Agent 编排) */}
+      <CrossAgentWorkflowCard
+        title="拓客 → 尽调 → 授信 闭环"
+        steps={[
+          { agentSlug: "channel", label: "1. 找候选 (Agent1)" },
+          { agentSlug: "report", label: "2. 生成报告 (Agent6)" },
+          { agentSlug: "credit", label: "3. 送审 (Agent3)" },
+        ]}
+      />
 
       {/* F5 客户上下文常驻 (top of priority area) */}
       <AccountBelt />
@@ -214,6 +280,16 @@ function CreditOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
+      {/* Sprint 4 D2 Atomic 5 · 审贷闭环 CTA */}
+      <CrossAgentWorkflowCard
+        title="审报告 → 决策 → 跟踪贷后 闭环"
+        steps={[
+          { agentSlug: "report", label: "1. 看报告 (Agent6)" },
+          { agentSlug: "credit", label: "2. 90 秒决策 (Agent3)" },
+          { agentSlug: "alert", label: "3. 跟踪贷后 (Agent4)" },
+        ]}
+      />
+
       <PriorityQueue />
       <FeedCard />
       <EventTimeline />
@@ -242,6 +318,16 @@ function ComplianceOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
+      {/* Sprint 4 D2 Atomic 5 · 合规闭环 CTA */}
+      <CrossAgentWorkflowCard
+        title="政策 → 业务对齐 → 整改下发 闭环"
+        steps={[
+          { agentSlug: "compliance", label: "1. 政策矩阵 (Agent5)" },
+          { agentSlug: "alert", label: "2. 业务命中 (Agent4)" },
+          { agentSlug: "report", label: "3. 整改下发 (Agent6)" },
+        ]}
+      />
+
       <PriorityQueue />
       <FeedCard />
       <EventTimeline />
@@ -269,6 +355,16 @@ function RiskManagerHome({ name }: { name: string }) {
         <RunningSheetsCard />
         <BoardCard />
       </div>
+
+      {/* Sprint 4 D2 Atomic 5 · 风险闭环 CTA */}
+      <CrossAgentWorkflowCard
+        title="DSL → 回测 → 预警监控 闭环"
+        steps={[
+          { agentSlug: "riskctrl", label: "1. 配 DSL (Agent2)" },
+          { agentSlug: "alert", label: "2. 预警监控 (Agent4)" },
+          { agentSlug: "credit", label: "3. 联动授信 (Agent3)" },
+        ]}
+      />
 
       <PriorityQueue />
       <FeedCard />
