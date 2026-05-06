@@ -1324,3 +1324,54 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 3. **PM 看 metrics 不看 ack**: 我 commit 91bc0ec 看着 happy · PM 看 token 消耗 + 改动量 立刻 catch 假完成
 4. **双辩论 fast converge 是好事**: Codex R1 + Claude R1 两边 4 关键点中 3 一致 · 仅 RevisionPanel 位置 + OutputPanel 折叠位置 不同 · 我接 codex 改进 · R2 不必要
 
+---
+
+## 2026-05-06 (next batch 续) · Sprint 4 D3 余 5 Atomic ship + D4 Agent4 + Sprint 5 in progress
+
+### What happened
+
+- Sprint 4 D3 余 5 Atomic ship (commit 8afa192 · 1 file +127/-27):
+  - Atomic B: ComplianceStatsBar 统计条 (违规数 · 命中率 (matrix.cells===0 显 "—") · 严重度分布 · 业务单号数 unique filtered)
+  - Atomic C: 三视角 tabs 提到 stats bar 同行 (per Codex R1 选项 1) · 删 ViolationListPanel 内部 .cp-out__tabs · view state lift 已在 5fcbbea 完
+  - Atomic D: ViolationDetailPanel 加 dl.compliance-evidence-chain 5 字段 (业务单号/政策摘录/业务摘录/AI 理由/source row id · 软读取 fallback `(c as any).policy_excerpt`)
+  - Atomic E: RevisionPanel 加 .compliance-dispatch-rm disabled hook (per Codex R1 verbatim "前端先落事件 hook · 不做假成功") · title fallback "Sprint 5 后端实装"
+  - Atomic F: UploadRail 移到 .compliance-settings-fold 内 (per Codex R1 选项 1 · 上传不占主屏)
+  - Atomic G: 跳过 (PM 没要求 + production live tsc clean 已 verify · 加 spec 风险 > value)
+
+- Sprint 4 D4 Agent4 alert minimal ship (commit 765ab96): mid 列 IM (ConversationPanel + AlertComposer) 删 → .alert-mid-summary placeholder · 引导从下方榜单 drill
+
+- Sprint 4 D3+D4 batch ECS deploy (5fcbbea+765ab96 chain) · production live `https://liuye.me/login` 
+
+- ECS deploy 8afa192 retry: github timeout 6 retry 全失败 (网络问题 · 不是代码) · skip · 待 network 恢复
+
+- Sprint 5 in progress · Codex R1 batch fired bg (br38ki3xq medium) · 等 verdict 决定 D1-D5 minimal scope
+
+### Triggered by
+
+- PM 5/5 22:15 verbatim "GO ultrathink" · 5/6 verbatim "先把任务都做完"
+
+### State change (delta)
+
+- main HEAD: `91bc0ec` → `5fcbbea` → `765ab96` → `8afa192` (D3+D4 全 ship · production 部分 deploy [5fcbbea+765ab96] + 待 deploy [8afa192])
+- Sprint 4 D3+D4 全完: D1 5 atomic + D2 d ArchiveGrid + D2 POC xlsx + D3 7 atomic (G skip) + D4 Agent4 minimal · D5 全局 QA 待
+- 6 Agent workspace 状态:
+  - credit (Agent3) · ✅ Sprint 4 D1 5 atomic 重构
+  - channel (Agent1) · 待 Sprint 5 D1-D2
+  - alert (Agent4) · ✅ Sprint 4 D4 minimal
+  - compliance (Agent5) · ✅ Sprint 4 D3 7 atomic (主 layout + stats + 三视角 + 证据链 + RM hook + 上传收敛)
+  - report (Agent6) · 待 Sprint 5 D3 (Truth-First drawer)
+  - riskctrl (Agent2) · 不动 (IM 是 DSL 协作核心)
+
+### Codex 用量 (本批次)
+
+- bmt0j020z R1 medium D3 Atomic A real plan
+- b89j7x6vc R1 medium D3 余 5 Atomic batch (B/C/D/E/F · ~600 字 verdict · 击中 5 风险点 + 推荐 C→B→F→D→E 顺序)
+- br38ki3xq R1 medium Sprint 5 batch (Agent1 + Agent6 + Portal · in progress)
+
+### Next
+
+- 等 br38ki3xq verdict (Sprint 5 minimal scope 决定)
+- Sprint 5 D1-2 Agent1 minimal · D3 Agent6 Truth-First drawer · D4-D5 Portal 串联 + 验收
+- ECS deploy 8afa192 等 network 恢复
+- D5 全局 QA 6 Agent workspace 一致性
+
