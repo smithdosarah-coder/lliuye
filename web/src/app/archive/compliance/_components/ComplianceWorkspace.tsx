@@ -485,12 +485,7 @@ export default function ComplianceWorkspace() {
         trigger={trigger}
       />
 
-      <UploadRail
-        innerUploads={session.innerPolicyUploads}
-        outerUploads={session.outerPolicyUploads}
-        onScanStart={triggerPolicyScan}
-        scanRunning={scanRunning}
-      />
+      {/* D3 Atomic F · UploadRail 移到 .compliance-settings-fold 内 · 上传不占主屏 (per Codex R1 选项 1) */}
 
       {started ? (
         <>
@@ -570,10 +565,18 @@ export default function ComplianceWorkspace() {
               - settings panels 折叠到 .rpt-grid 之前 (扫描设置 全宽 details · 默认收起)
               - .rpt-grid 三栏 = ViolationList (left) + ViolationDetail (mid) + RevisionPanel (right)
               - OutputPanel matrix/funnel/timeline 折叠到 .rpt-grid 之后 (深入分析 全宽 details)
-              - DOM 仍 .rpt-grid + 3 child · CSS 不动 · Q-047 视觉冻不破 */}
+              - DOM 仍 .rpt-grid + 3 child · CSS 不动 · Q-047 视觉冻不破
+              D3 Atomic B+F · settings fold 内含 5 旧 panels + UploadRail (上传入口收敛)
+              D3 Atomic C · 三视角 tabs 从 ViolationListPanel 内部提到 ComplianceStatsBar 同行 */}
           <details className="compliance-settings-fold" data-testid="compli-settings-fold">
-            <summary>扫描设置 · 政策 / 制度 / 流水 / 最近会话</summary>
+            <summary>扫描设置 · 上传 / 政策 / 制度 / 流水 / 最近会话</summary>
             <div className="compliance-settings-fold__panels">
+              <UploadRail
+                innerUploads={session.innerPolicyUploads}
+                outerUploads={session.outerPolicyUploads}
+                onScanStart={triggerPolicyScan}
+                scanRunning={scanRunning}
+              />
               <QueryPanel q={session.query} />
               <PoliciesPanel policies={session.policies} />
               <DocsPanel docs={session.docs} />
@@ -581,6 +584,13 @@ export default function ComplianceWorkspace() {
               <RecentPanel recent={session.recentSessions} />
             </div>
           </details>
+
+          <ComplianceStatsBar
+            conflicts={session.conflicts}
+            matrixCells={session.matrix}
+            view={view}
+            onViewChange={setView}
+          />
 
           <div className="rpt-grid">
             <aside className="rpt-col rpt-col--left">
@@ -1825,6 +1835,74 @@ const SEVERITY_RANK: Record<Conflict["severity"], number> = {
   info: 2,
 };
 
+/* ────────────────────── COMPLIANCE STATS BAR · gate 4 顶部 ──────────────────────
+   D3 Atomic B (统计) + Atomic C (三视角 tabs 提升) · 2026-05-05
+   - 数据派生 session.conflicts + session.matrix · 不与 ViolationListPanel 状态分叉
+   - 命中率 matrix.cells.length === 0 时显 "—" (per Codex R1 verbatim "0% 语义像已扫描且无命中")
+   - docId unique count 过滤空值 (per Codex R1 风险点 2)
+*/
+function ComplianceStatsBar(p: {
+  conflicts: Conflict[];
+  matrixCells: MatrixCell[];
+  view: ViolationView;
+  onViewChange: (v: ViolationView) => void;
+}) {
+  const total = p.conflicts.length;
+  const block = p.conflicts.filter((c) => c.severity === "block").length;
+  const warn = p.conflicts.filter((c) => c.severity === "warn").length;
+  const info = p.conflicts.filter((c) => c.severity === "info").length;
+  const cellCount = p.matrixCells.length;
+  const hitRateLabel =
+    cellCount > 0 ? `${((total / cellCount) * 100).toFixed(1)}%` : "—";
+  const docCount = new Set(p.conflicts.map((c) => c.docId).filter(Boolean)).size;
+  return (
+    <section
+      className="compliance-stats-bar"
+      aria-label="合规扫描统计"
+      data-testid="compli-stats-bar"
+    >
+      <div className="compliance-stats-bar__metrics">
+        <div className="compliance-stats-bar__item" data-testid="compli-stats-total">
+          <span className="compliance-stats-bar__label">违规数</span>
+          <span className="compliance-stats-bar__value">{total}</span>
+        </div>
+        <div className="compliance-stats-bar__item" data-testid="compli-stats-hitrate">
+          <span className="compliance-stats-bar__label">命中率</span>
+          <span className="compliance-stats-bar__value">{hitRateLabel}</span>
+        </div>
+        <div className="compliance-stats-bar__item" data-testid="compli-stats-severity">
+          <span className="compliance-stats-bar__label">严重度</span>
+          <span className="compliance-stats-bar__value">
+            严 {block} · 一般 {warn} · 观察 {info}
+          </span>
+        </div>
+        <div className="compliance-stats-bar__item" data-testid="compli-stats-docs">
+          <span className="compliance-stats-bar__label">业务单号</span>
+          <span className="compliance-stats-bar__value">{docCount}</span>
+        </div>
+      </div>
+      <div
+        className="cp-out__tabs"
+        role="tablist"
+        data-testid="compli-violation-view-tabs"
+      >
+        {(["by_violation", "by_clause", "by_event"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            className="cp-out__tab"
+            data-active={p.view === v ? "yes" : "no"}
+            data-testid={`compli-violation-view-${v}`}
+            onClick={() => p.onViewChange(v)}
+          >
+            {VIOLATION_VIEW_LABEL[v]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ViolationListPanel(p: {
   conflicts: Conflict[];
   view: ViolationView;
@@ -1866,21 +1944,10 @@ function ViolationListPanel(p: {
         blurb={`${p.conflicts.length} 条违规 · 三视角 ${VIOLATION_VIEW_LABEL[p.view]}`}
       />
       <div className="rpt-panel__head cp-out__head">
-        <div className="rpt-panel__eyebrow">违规榜单 · gate 4</div>
-        <div className="cp-out__tabs" role="tablist" data-testid="compli-violation-view-tabs">
-          {(["by_violation", "by_clause", "by_event"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              className="cp-out__tab"
-              data-active={p.view === v ? "yes" : "no"}
-              data-testid={`compli-violation-view-${v}`}
-              onClick={() => p.onViewChange(v)}
-            >
-              {VIOLATION_VIEW_LABEL[v]}
-            </button>
-          ))}
+        <div className="rpt-panel__eyebrow">
+          违规榜单 · gate 4 · {VIOLATION_VIEW_LABEL[p.view]}
         </div>
+        {/* D3 Atomic C · 三视角 tabs 提到 ComplianceStatsBar 同行 (per Codex R1 选项 1) */}
       </div>
       <div className="rpt-panel__body">
         <ul className="cp-fn__cf-list">
@@ -1975,10 +2042,31 @@ function ViolationDetailPanel(p: {
           <span className="cp-drawer__sev" data-severity={p.violation.severity}>{sevLabel}</span>
           <span className="cp-drawer__doc">{p.violation.clauseLabel}</span>
         </div>
-        <p style={{ marginTop: 8 }}>{p.violation.finding}</p>
-        {p.violation.cite ? (
-          <p style={{ opacity: 0.85, fontSize: 13 }}>证据 · {p.violation.cite}</p>
-        ) : null}
+
+        {/* D3 Atomic D · 证据链增强 (per Codex R1 字段顺序: 业务单号 → 政策摘录 → 业务摘录 → AI 理由 → source row id)
+            软读取 fallback (Conflict schema 缺 policy_excerpt / business_excerpt · D4 backend RFC 加 normalized envelope) */}
+        <dl className="compliance-evidence-chain">
+          <dt>业务单号</dt>
+          <dd data-testid="compli-evi-docid">{p.violation.docId || "—"}</dd>
+
+          <dt>政策摘录</dt>
+          <dd data-testid="compli-evi-policy">
+            {(p.violation as unknown as { policy_excerpt?: string }).policy_excerpt
+              || `${p.violation.clauseLabel} · ${p.violation.finding}`}
+          </dd>
+
+          <dt>业务原始记录</dt>
+          <dd data-testid="compli-evi-business">
+            {(p.violation as unknown as { business_excerpt?: string }).business_excerpt || "—"}
+          </dd>
+
+          <dt>AI 判定理由</dt>
+          <dd data-testid="compli-evi-finding">{p.violation.finding}</dd>
+
+          <dt>证据链 source</dt>
+          <dd data-testid="compli-evi-source">{p.violation.cite || "—"}</dd>
+        </dl>
+
         {p.revisions.length > 0 ? (
           <div className="cp-drawer__advice" data-testid="compli-violation-detail-revisions">
             <div className="cp-drawer__advice-head">
@@ -1994,7 +2082,7 @@ function ViolationDetailPanel(p: {
           </div>
         ) : (
           <div style={{ marginTop: 8, opacity: 0.75, fontSize: 13 }}>
-            暂无关联修订意见 · 见底部「修订意见」区
+            暂无关联修订意见 · 见右栏「修订意见」区
           </div>
         )}
       </div>
@@ -2080,6 +2168,18 @@ function RevisionPanel(p: {
           <span data-kind="strengthen" data-testid="compli-conflict-chip">
             强 <b>{groups.strengthen.length}</b>
           </span>
+          {/* D3 Atomic E · 一键下发 RM hook (per Codex R1 verbatim "前端先落事件 hook · 不做假成功")
+              disabled + tooltip · Sprint 5 后端实装 (RBAC dispatch endpoint) · 防假成功 */}
+          <button
+            type="button"
+            className="compliance-dispatch-rm"
+            data-testid="compli-dispatch-rm"
+            disabled
+            title="Sprint 5 后端实装 · 当前为前端 hook · 防假成功"
+            aria-label="一键下发 RM (待 Sprint 5 后端实装)"
+          >
+            ↗ 一键下发 RM
+          </button>
           <button
             type="button"
             className="compliance-revise-export"
