@@ -1821,6 +1821,15 @@ function CandidatesPanel({
           <h3 className="rpt-panel-title">
             Top {cs.length} · 共 {isLive ? cs.length : s.candidateCount} 家
           </h3>
+          {/* Sprint 5 D1-2 · 90 秒画像 affordance · 用户可点 Top N 任一卡 → 信号时间线下拉切换 (per PM bug #5 反馈)
+              不只第一家可交互 · CandidatesView (line 2063) 全部 onSelect · SignalTimelinePanel (line 2105) dropdown 切换 */}
+          <p
+            className="rpt-panel-hint"
+            data-testid="channel-cand-hint"
+            style={{ fontSize: 12, opacity: 0.78, margin: "4px 0 0 0", lineHeight: 1.5 }}
+          >
+            ⓘ 全部 {cs.length} 家可点 · 切换信号时间线下拉看不同候选 · 90 秒内 AI 给齐画像
+          </p>
         </div>
         <div className="rpt-panel-meta">
           阈值 {(s.match.similarity * 100).toFixed(0)}%

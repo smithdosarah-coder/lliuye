@@ -553,6 +553,35 @@ export function ReportWorkspace() {
                   exporting={exporting}
                   exportingPdf={exportingPdf}
                 />
+                {/* Sprint 5 D3 · Truth-First 字段清单 drawer (Codex+Claude R1 minimal · per CLAUDE.md §3.1 确定性 vs 概率性硬隔离)
+                    审贷员可一眼看哪些字段是 Python 规则计算 (truth-first · 不可幻觉) vs LLM 生成 (概率 · 需 evidence) */}
+                <details
+                  className="report-truth-first-drawer"
+                  data-testid="report-truth-first-drawer"
+                >
+                  <summary>Truth-First 字段清单 · 审贷员核对</summary>
+                  <dl className="report-truth-first-drawer__list">
+                    <dt data-kind="truth">资产负债率</dt>
+                    <dd>Python 计算 · 总负债 / 总资产 · 确定性</dd>
+                    <dt data-kind="truth">流动比率</dt>
+                    <dd>Python 计算 · 流动资产 / 流动负债 · 确定性</dd>
+                    <dt data-kind="truth">净利润同比</dt>
+                    <dd>Python 计算 · (本期 - 上期) / 上期 · 确定性</dd>
+                    <dt data-kind="truth">应收账款周转天数</dt>
+                    <dd>Python 计算 · 应收账款 / 营业收入 × 365 · 确定性</dd>
+                    <dt data-kind="truth">行业基准对比</dt>
+                    <dd>industry_benchmark.py · 行业卡 lookup · 确定性</dd>
+                    <dt data-kind="llm">行业意见</dt>
+                    <dd>LLM grounded · 证据来自材料锚定 · 概率</dd>
+                    <dt data-kind="llm">经营风险点</dt>
+                    <dd>LLM grounded · Evidence-First 三阶段 · 概率</dd>
+                    <dt data-kind="llm">话术建议</dt>
+                    <dd>LLM grounded · few-shot · 概率</dd>
+                  </dl>
+                  <p className="report-truth-first-drawer__note">
+                    Truth-First 字段不可被 LLM 覆盖 · QC blocker 阻断 · 见 CLAUDE.md §3.1 + truth_fill.py
+                  </p>
+                </details>
               </aside>
             </div>
             <section
