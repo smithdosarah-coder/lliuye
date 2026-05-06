@@ -229,6 +229,23 @@ export default function ComplianceWorkspace() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedViolationId]);
 
+  /* D3 Atomic A · 自动选首条 high-severity violation when started · 一次性 ref guard · 防覆盖用户切换 */
+  const hasAutoSelectedViolationRef = useRef(false);
+  useEffect(() => {
+    if (!started) return;
+    if (selectedViolationId) return;
+    if (hasAutoSelectedViolationRef.current) return;
+    const conflicts = sessionData.conflicts;
+    if (!conflicts || conflicts.length === 0) return;
+    const sorted = [...conflicts].sort(
+      (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
+    );
+    if (sorted[0]?.id) {
+      setSelectedViolationId(sorted[0].id);
+      hasAutoSelectedViolationRef.current = true;
+    }
+  }, [started, selectedViolationId, sessionData.conflicts]);
+
   /* Stage Fix W-FIX2-A3 · live-fallback-banner-spec v1.0 §2 规则 1 ·
      按 endpoint 分别记录失败 · UI 显式 banner + retry · 不 silent swap mock.
      bug #5 根因: primary CTA 之前 hardcode `force_mock: true` 静默走 mock ·
@@ -549,21 +566,72 @@ export default function ComplianceWorkspace() {
             />
           </div>
 
-          <div className="rpt-grid">
-            <aside className="rpt-col rpt-col--left">
+          {/* D3 Atomic A · 主 layout 重排 (Codex R1 + Claude R1 双辩论 converge · 2026-05-05)
+              - settings panels 折叠到 .rpt-grid 之前 (扫描设置 全宽 details · 默认收起)
+              - .rpt-grid 三栏 = ViolationList (left) + ViolationDetail (mid) + RevisionPanel (right)
+              - OutputPanel matrix/funnel/timeline 折叠到 .rpt-grid 之后 (深入分析 全宽 details)
+              - DOM 仍 .rpt-grid + 3 child · CSS 不动 · Q-047 视觉冻不破 */}
+          <details className="compliance-settings-fold" data-testid="compli-settings-fold">
+            <summary>扫描设置 · 政策 / 制度 / 流水 / 最近会话</summary>
+            <div className="compliance-settings-fold__panels">
               <QueryPanel q={session.query} />
               <PoliciesPanel policies={session.policies} />
               <DocsPanel docs={session.docs} />
               <PipelinePanel steps={session.pipeline} />
               <RecentPanel recent={session.recentSessions} />
+            </div>
+          </details>
+
+          <div className="rpt-grid">
+            <aside className="rpt-col rpt-col--left">
+              <ViolationListPanel
+                conflicts={session.conflicts}
+                view={view}
+                onViewChange={setView}
+                selectedViolationId={selectedViolationId}
+                onSelectViolation={setSelectedViolationId}
+                isLive={isLive}
+              />
             </aside>
 
             <section className="rpt-col rpt-col--mid">
-              <ConversationPanel msgs={session.conversation} />
-              <ComplianceComposer />
+              {selectedViolation ? (
+                <ViolationDetailPanel
+                  violation={selectedViolation}
+                  revisions={session.revisionAdvices.filter((a) =>
+                    selectedViolation.docTitle
+                      ? a.docTitle === selectedViolation.clauseLabel || a.docTitle === selectedViolation.docTitle
+                      : true,
+                  )}
+                  onClose={() => setSelectedViolationId(null)}
+                />
+              ) : (
+                <div
+                  className="compliance-detail-placeholder"
+                  role="status"
+                  data-testid="compli-detail-placeholder"
+                >
+                  <span>请从左栏选择违规查看详情 · evidence + 政策原文 + 业务摘录</span>
+                </div>
+              )}
             </section>
 
-            <section className="rpt-col rpt-col--right" data-testid="compli-pilot-matrix">
+            <section
+              className="rpt-col rpt-col--right"
+              data-testid="compli-pilot-revisions"
+            >
+              <RevisionPanel
+                advices={session.revisionAdvices}
+                scanId={scanId}
+                exportInfo={exportInfo}
+                onExportDocx={triggerExportDocx}
+              />
+            </section>
+          </div>
+
+          <details className="compliance-output-fold" data-testid="compli-output-fold">
+            <summary>深入分析 · 矩阵 / 漏斗 / 时间线</summary>
+            <div data-testid="compli-pilot-matrix">
               <OutputPanel
                 tab={tab}
                 onTabChange={setTab}
@@ -575,42 +643,8 @@ export default function ComplianceWorkspace() {
                 timeline={session.timeline}
                 cellDetails={session.cellDetails}
               />
-            </section>
-          </div>
-
-          {/* Phase A worker-A4-compli (2026-04-29) · gate 4 · ViolationList + ViolationDetail
-              draft §3.1 · 5 panel = matrix + violations + revisions + detail + ticker
-              view tab (by_violation/by_clause/by_event) compliance-only · 不在 4 gate */}
-          <ViolationListPanel
-            conflicts={session.conflicts}
-            view={view}
-            onViewChange={setView}
-            selectedViolationId={selectedViolationId}
-            onSelectViolation={setSelectedViolationId}
-            isLive={isLive}
-          />
-
-          {selectedViolation ? (
-            <ViolationDetailPanel
-              violation={selectedViolation}
-              revisions={session.revisionAdvices.filter(
-                (a) =>
-                  selectedViolation.docTitle ?
-                    a.docTitle === selectedViolation.clauseLabel || a.docTitle === selectedViolation.docTitle :
-                    true,
-              )}
-              onClose={() => setSelectedViolationId(null)}
-            />
-          ) : null}
-
-          <div data-testid="compli-pilot-revisions">
-            <RevisionPanel
-              advices={session.revisionAdvices}
-              scanId={scanId}
-              exportInfo={exportInfo}
-              onExportDocx={triggerExportDocx}
-            />
-          </div>
+            </div>
+          </details>
 
           <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
             <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
