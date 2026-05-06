@@ -175,37 +175,65 @@ function CrossAgentWorkflowCard({
   title: string;
   steps: WorkflowStep[];
 }) {
+  /* PM 5/7 反馈"挤压+丑+没问" → 改紧凑单行 inline · 用 shell-v2 token · 不再 .card.warm 巨块 */
   return (
     <section
-      className="cross-agent-workflow card warm"
       aria-label="跨 Agent 工作流 (Portal 编排)"
       data-testid="cross-agent-workflow-card"
-      style={{ marginTop: "1rem", padding: "1rem" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 12,
+        padding: "10px 14px",
+        margin: "16px 0",
+        background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
+        backdropFilter: "blur(8px)",
+        border: "1px solid var(--ink-14)",
+        borderRadius: "var(--r-md, 14px)",
+      }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-        <span aria-hidden style={{ fontSize: "1.2em" }}>📋</span>
-        <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>{title}</h3>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+      <span
+        style={{
+          fontFamily: "var(--mono)",
+          fontSize: 11,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--ink-65)",
+          paddingRight: 8,
+          borderRight: "1px solid var(--ink-14)",
+        }}
+      >
+        {title}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
         {steps.map((s, i) => (
-          <span key={s.agentSlug} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+          <span
+            key={s.agentSlug}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
             <Link
               href={`/archive/${s.agentSlug}`}
               data-agent={s.agentSlug}
               style={{
-                padding: "0.4rem 0.8rem",
-                background: "var(--g2, rgba(120, 120, 120, 0.1))",
-                borderRadius: "6px",
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+                padding: "4px 10px",
+                background: "color-mix(in srgb, var(--ink-08) 60%, transparent)",
+                borderRadius: 999,
                 textDecoration: "none",
-                color: "inherit",
-                fontSize: "0.9rem",
+                color: "var(--ink)",
+                border: "1px solid var(--ink-14)",
+                transition: "background 0.15s, border-color 0.15s",
               }}
             >
               {s.label}
             </Link>
-            {i < steps.length - 1 ? (
-              <span aria-hidden style={{ color: "var(--g4, #888)" }}>→</span>
-            ) : null}
+            {i < steps.length - 1 && (
+              <span aria-hidden style={{ color: "var(--ink-48)", fontSize: 11 }}>
+                →
+              </span>
+            )}
           </span>
         ))}
       </div>
@@ -238,8 +266,15 @@ function RmHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈"丑+没问过+挤压")
-          原视觉冻结 baseline 不含此 card · 我违反"方案先行"硬规 · 删除恢复 */}
+      {/* Sprint 4 D1 Atomic 5 + PM 5/7 反馈"按截图调整" · 紧凑单行 · 不再巨大空白 */}
+      <CrossAgentWorkflowCard
+        title="拓客 → 尽调 → 授信 闭环"
+        steps={[
+          { agentSlug: "channel", label: "1. 找候选 (Agent1)" },
+          { agentSlug: "report", label: "2. 生成报告 (Agent6)" },
+          { agentSlug: "credit", label: "3. 送审 (Agent3)" },
+        ]}
+      />
 
       {/* F5 客户上下文常驻 (top of priority area) */}
       <AccountBelt />
@@ -273,7 +308,14 @@ function CreditOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
+      <CrossAgentWorkflowCard
+        title="审报告 → 决策 → 跟踪贷后 闭环"
+        steps={[
+          { agentSlug: "report", label: "1. 看报告 (Agent6)" },
+          { agentSlug: "credit", label: "2. 90 秒决策 (Agent3)" },
+          { agentSlug: "alert", label: "3. 跟踪贷后 (Agent4)" },
+        ]}
+      />
 
       <PriorityQueue />
       <FeedCard />
@@ -303,7 +345,14 @@ function ComplianceOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
+      <CrossAgentWorkflowCard
+        title="政策 → 业务对齐 → 整改下发 闭环"
+        steps={[
+          { agentSlug: "compliance", label: "1. 政策矩阵 (Agent5)" },
+          { agentSlug: "alert", label: "2. 业务命中 (Agent4)" },
+          { agentSlug: "report", label: "3. 整改下发 (Agent6)" },
+        ]}
+      />
 
       <PriorityQueue />
       <FeedCard />
@@ -333,8 +382,6 @@ function RiskManagerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
-      {/* DELETED · keep block to preserve hook ordering · CrossAgentWorkflowCard 不再渲染
       <CrossAgentWorkflowCard
         title="DSL → 回测 → 预警监控 闭环"
         steps={[
@@ -343,7 +390,6 @@ function RiskManagerHome({ name }: { name: string }) {
           { agentSlug: "credit", label: "3. 联动授信 (Agent3)" },
         ]}
       />
-      */}
 
       <PriorityQueue />
       <FeedCard />

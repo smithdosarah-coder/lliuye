@@ -25,6 +25,7 @@
 
 import Link from "next/link";
 import { useEffect, type CSSProperties, type DragEvent } from "react";
+import { usePathname } from "next/navigation";
 import { agentLabel } from "@/lib/agent-labels";
 import {
   PANEL_PIN_MIME,
@@ -33,6 +34,10 @@ import {
 } from "@/lib/store/panel-canvas-store";
 
 export function PanelCanvas() {
+  /* PM 5/7 反馈"画布按钮没修复" · pc-fab 仅 /archive/ 路径显 (其他 page pin 来源不足 button 无意义) */
+  const pathname = usePathname() || "/";
+  const showFab = pathname.startsWith("/archive/");
+
   const pins = usePanelCanvasStore((s) => s.pins);
   const open = usePanelCanvasStore((s) => s.open);
   const setOpen = usePanelCanvasStore((s) => s.setOpen);
@@ -101,7 +106,9 @@ export function PanelCanvas() {
 
   return (
     <>
-      {/* Toggle FAB · 右下角，ThemeSwitch（right:38,bottom:38）正上方。 */}
+      {/* Toggle FAB · 右下角，ThemeSwitch（right:38,bottom:38）正上方。
+          PM 5/7 反馈: pc-fab 仅 /archive/ 显 · /today / /dispatch / /warroom 等 page pin 来源不足 隐藏避免遮挡 */}
+      {showFab && (
       <button
         type="button"
         className="pc-fab"
@@ -119,6 +126,7 @@ export function PanelCanvas() {
         </span>
         {pins.length > 0 ? <span className="pc-fab-count">{pins.length}</span> : null}
       </button>
+      )}
 
       <aside
         className={cls}
