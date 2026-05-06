@@ -1,0 +1,166 @@
+{
+  "timestamp": "2026-05-06T01:30:55",
+  "cases_n": 10,
+  "pass_n": 8,
+  "pass_rate": 0.8,
+  "results": [
+    {
+      "case_id": "ab-001",
+      "scenario": "行业龙头 · 苏州精密机械",
+      "expected_segment": "segment_supply_chain",
+      "rule_actual_segment": "segment_supply_chain",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "并购贷款",
+        "银团贷款",
+        "项目融资"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-002",
+      "scenario": "成长期 · 浙江汽车零部件",
+      "expected_segment": "segment_growth",
+      "rule_actual_segment": "segment_growth",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "对公流动资金贷",
+        "贸易融资",
+        "供应链金融",
+        "应收账款保理"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-003",
+      "scenario": "科创 · 杭州工业软件",
+      "expected_segment": "segment_sci_tech",
+      "rule_actual_segment": "segment_growth",
+      "rule_segment_match": false,
+      "rule_recommended_products": [
+        "对公流动资金贷",
+        "贸易融资",
+        "供应链金融",
+        "应收账款保理"
+      ],
+      "llm_scaffold": true,
+      "win": "tie",
+      "reason": "规则 segment 不一致 actual=segment_growth vs expected=segment_sci_tech"
+    },
+    {
+      "case_id": "ab-004",
+      "scenario": "小微 · 常州数控加工",
+      "expected_segment": "segment_growth",
+      "rule_actual_segment": "segment_growth",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "对公流动资金贷",
+        "贸易融资",
+        "供应链金融",
+        "应收账款保理"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-005",
+      "scenario": "司法待结 · 江苏工业云",
+      "expected_segment": "segment_high_risk",
+      "rule_actual_segment": "segment_high_risk",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "普惠信用贷",
+        "小微抵押贷",
+        "票据贴现",
+        "小额试单贷"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-006",
+      "scenario": "出口型 · 深圳智能装备",
+      "expected_segment": "segment_export",
+      "rule_actual_segment": "segment_export",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "对公流动资金贷",
+        "贸易融资",
+        "供应链金融",
+        "应收账款保理"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-007",
+      "scenario": "数字化转型 · 北京政企",
+      "expected_segment": "segment_digital_transform",
+      "rule_actual_segment": "segment_digital_transform",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "科创信用贷",
+        "知识产权质押贷",
+        "设备融资租赁",
+        "技术改造贷"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-008",
+      "scenario": "供应链经销商 · 浙江汽车零部件",
+      "expected_segment": "segment_supply_chain",
+      "rule_actual_segment": "segment_supply_chain",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "并购贷款",
+        "银团贷款",
+        "项目融资"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-009",
+      "scenario": "极小微 · 普惠贷需求",
+      "expected_segment": "segment_sme",
+      "rule_actual_segment": "segment_sme",
+      "rule_segment_match": true,
+      "rule_recommended_products": [
+        "普惠信用贷",
+        "小微抵押贷",
+        "票据贴现",
+        "小额试单贷"
+      ],
+      "llm_scaffold": true,
+      "win": "rule",
+      "reason": "规则模板 segment 命中 expected"
+    },
+    {
+      "case_id": "ab-010",
+      "scenario": "龙头 · 上海数控龙头",
+      "expected_segment": "segment_supply_chain",
+      "rule_actual_segment": "segment_growth",
+      "rule_segment_match": false,
+      "rule_recommended_products": [
+        "对公流动资金贷",
+        "贸易融资",
+        "供应链金融",
+        "应收账款保理"
+      ],
+      "llm_scaffold": true,
+      "win": "tie",
+      "reason": "规则 segment 不一致 actual=segment_growth vs expected=segment_supply_chain"
+    }
+  ]
+}

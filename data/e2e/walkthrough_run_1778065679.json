@@ -1,0 +1,73 @@
+{
+  "ok": true,
+  "total_elapsed_s": 0.428,
+  "within_10min": true,
+  "trace": [
+    {
+      "step": "1. list_customers",
+      "ok": true,
+      "elapsed_s": 0.138,
+      "result": {
+        "count": 3,
+        "ids": [
+          "C-001",
+          "C-002",
+          "C-003"
+        ]
+      }
+    },
+    {
+      "step": "2. fetch_customer_profile",
+      "ok": true,
+      "elapsed_s": 0.02,
+      "result": {
+        "name": "李小芳",
+        "age": 42,
+        "risk_level": "growth",
+        "consent_status": "granted",
+        "holdings_count": 4
+      }
+    },
+    {
+      "step": "3. build_decision",
+      "ok": true,
+      "elapsed_s": 0.009,
+      "result": {
+        "decision_id": "dec-b9f8bcaa07de",
+        "core_reasons": 4,
+        "confidence": 0.99,
+        "summary_preview": "基于 4 条核心证据 (高 trust source × 4) · 客户 李小芳 (42岁 · growth) 建议适配方案 · 平均时效权重 1.0"
+      }
+    },
+    {
+      "step": "4. submit_review",
+      "ok": true,
+      "elapsed_s": 0.012,
+      "result": {
+        "review_id": "rev-e045fa238b13",
+        "action": "accept",
+        "ledger_persisted": true
+      }
+    },
+    {
+      "step": "5. record_lineage",
+      "ok": true,
+      "elapsed_s": 0.007,
+      "result": {
+        "lineage_count": 2
+      }
+    },
+    {
+      "step": "6. export_walkthrough",
+      "ok": true,
+      "elapsed_s": 0.243,
+      "result": {
+        "docx": "D:\\claude code\\credit_report_agent_work\\outputs\\walkthrough\\walkthrough_dec-b9f8bcaa07de_exp-be0d2c467dda.docx",
+        "pdf": "D:\\claude code\\credit_report_agent_work\\outputs\\walkthrough\\walkthrough_dec-b9f8bcaa07de_exp-feebce40d864.pdf",
+        "docx_size": 36585,
+        "pdf_size": 3024
+      }
+    }
+  ],
+  "decision_id": "dec-b9f8bcaa07de"
+}

@@ -1,0 +1,24 @@
+{
+  "config_name": "be12_baseline",
+  "yaml_source": "evaluation/agent1_personal_insight.yaml",
+  "samples_per_metric": 5,
+  "timestamp": "2026-05-06T01:31:10",
+  "metrics": [
+    {
+      "metric_name": "common",
+      "score": 0.0,
+      "samples_n": 5,
+      "timestamp": "2026-05-06T01:31:10",
+      "elapsed_s": 0.0,
+      "notes": "scaffold mode · Sprint 6 D2 真跑后填真值 · 当前为 xlsx v2 conservative target"
+    },
+    {
+      "metric_name": "domain",
+      "score": 0.0,
+      "samples_n": 5,
+      "timestamp": "2026-05-06T01:31:10",
+      "elapsed_s": 0.0,
+      "notes": "scaffold mode · Sprint 6 D2 真跑后填真值 · 当前为 xlsx v2 conservative target"
+    }
+  ]
+}

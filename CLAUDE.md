@@ -76,6 +76,41 @@ Agent1 / Agent4 / Agent5 共享 `SearchProvider` 接口（Mock / Tavily / 企查
 
 本 5 原则沉淀于 Q-028/A-028（2026-04-24）· data-foundation Batch 1 REJECT-V2 复盘。
 
+#### 3.5.1 #6 数据时效 + 业务质量双轨验证 (Phase C charter D8 · PM 拍板 2026-05-06)
+
+**触发原因**: Agent1 推 10 年前新闻当推荐核心理由 · 露馅 case · 暴露 Evidence-First 协议盲点 (Evidence ≠ Recent Evidence) + 业务专家 review 缺位 + 缺负反馈闭环.
+
+**第 6 原则 · 数据时效硬约束**:
+- 每条 evidence 必带 `evidence_date` (不是 fetched_at)
+- 推荐核心理由 freshness SLA (per `shared/evidence_freshness.FRESHNESS_SLA_DAYS`):
+  - 新闻 180d · 财报 120d · 处罚 365d · 政策 365d · 案例 730d
+- 数据源 4 Tier 分层 (per `shared/data_tiers.DataTier`):
+  - Tier 1 内部权威 / Tier 2 政府监管 / Tier 3 行业 / Tier 4 公开 web
+- 推荐核心理由禁用 Tier 4 单一来源 · 必交叉 Tier 2-3
+- 推荐 schema 化 (per `shared/recommendation_schema.RecommendationReason`): source_tier / source_url / evidence_date / retrieved_at / freshness_days / claim_type / reason_confidence / staleness_policy_passed
+- QC 闸新增 `evidence_freshness` 维度 · 不通过阻断
+
+**第 7 原则 · 业务专家 review + 负反馈闭环**:
+- per `docs/contracts/business-expert-review-protocol.md`
+- 触发: 新 Agent · 推荐口径变 · 数据源变 · SLA 变 · demo 路径冻 · LLM prompt 变
+- Sign-off 4 必查: AI 输出合规 + 证据时效 + 客户口径 + 数据来源
+- Monthly walkthrough: 每月 50 笔抽样 + 露馅 case 沉淀
+- **PM Feedback → Regression Case 闭环** (Codex R3 加):
+  - 24h 内: 加进 `data/eval/real_scenario_cases.jsonl` 作 regression case
+  - 48h 内: 加 source blacklist 或调 `FRESHNESS_SLA_DAYS`
+  - CI 必跑 `py scripts/eval/run_real_scenarios.py --strict` · 任何 case 失败阻 ship
+- 业务专家 authority 跟 PM 等同 · 工程不能 override
+
+**实施 status (Phase C Week 1-3 ship · production live)**:
+- ✅ shared/evidence_freshness.py (D2 · 11 ClaimType + SLA + recency 加权)
+- ✅ shared/data_tiers.py (D1 · 4 Tier + 32 域名 map)
+- ✅ shared/recommendation_schema.py (D4 · 8 字段 schema)
+- ✅ scripts/audit/freshness_check.py (D9 · 6 Agent 全栈 audit)
+- ✅ data/eval/real_scenario_cases.jsonl (D6 · 10 真实场景 case · 10/10 PASS)
+- ✅ docs/contracts/business-expert-review-protocol.md (D7 · 流程 doc)
+
+**违反硬线 = 阻 ship**: 任何 PRD / 工程 / Agent 变更违反第 6/7 原则 · 主 CLI 立即 stop the line.
+
 ### 3.6 LLM Caller 唯一化 + PIPL 合规 fallback chain
 
 Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/llm_caller/` 单一抽象层 · 替代历史 4+1 套并行 caller。

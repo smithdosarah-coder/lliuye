@@ -342,7 +342,39 @@ try:
         """全局血缘统计 (按 tier + system)."""
         return get_lineage_store().stats()
 
-    print("[api_server] Phase C Track A+B routes mounted (A1/A2/A3/B1/B2)", file=sys.stderr)
+    # === A5 走访导出物 + C1 业务指标看板 ===
+    from shared.walkthrough_export import build_walkthrough_docx, build_walkthrough_pdf
+    from shared.business_metrics import compute_metrics
+    from fastapi.responses import FileResponse
+
+    class WalkthroughExportRequest(BaseModel):
+        decision_id: str
+        format: str = "docx"  # "docx" or "pdf"
+
+    @app.post("/api/decision/{decision_id}/export")
+    def decision_export(decision_id: str, req: WalkthroughExportRequest):
+        """导出走访报告 word/pdf · 含 customer 画像 + 决策 + review history + lineage."""
+        if req.decision_id != decision_id:
+            raise HTTPException(status_code=400, detail="decision_id 路径与 body 不一致")
+        if req.format == "docx":
+            path = build_walkthrough_docx(decision_id)
+        elif req.format == "pdf":
+            path = build_walkthrough_pdf(decision_id)
+        else:
+            raise HTTPException(status_code=400, detail=f"不支持的格式: {req.format}")
+        if path is None:
+            raise HTTPException(status_code=500, detail="导出失败 · 检查 python-docx / reportlab 安装")
+        return FileResponse(str(path), filename=path.name)
+
+    @app.get("/api/metrics/business")
+    def metrics_business(
+        days: int = Query(30, description="时间窗 · 默认 30 天"),
+        rm: Optional[str] = Query(None, description="RM 工号过滤"),
+    ):
+        """业务指标看板 · 5 指标 (闭环转化 / 卡点 / 人工介入 / 客户确认 / 收益)."""
+        return compute_metrics(date_range_days=days, rm_id=rm)
+
+    print("[api_server] Phase C Track A+B+C routes mounted (A1/A2/A3/A5/B1/B2/C1)", file=sys.stderr)
 except ImportError as _phasec_import_err:
     print(f"[api_server] Phase C Track A+B unavailable: {_phasec_import_err}", file=sys.stderr)
 

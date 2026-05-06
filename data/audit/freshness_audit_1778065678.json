@@ -1,0 +1,218 @@
+{
+  "audit_timestamp": "2026-05-06T04:07:58",
+  "freshness_sla_days": {
+    "news": 180,
+    "financial": 120,
+    "penalty": 365,
+    "policy": 365,
+    "case_study": 730,
+    "business_change": 730,
+    "bid": 90,
+    "recruit": 60,
+    "legal": 365,
+    "funding": 365,
+    "generic": 180
+  },
+  "summary": {
+    "total_agents": 6,
+    "passed_agents": 2,
+    "failed_agents": [
+      "channel",
+      "compliance",
+      "report",
+      "riskctrl"
+    ],
+    "total_evidence": 14,
+    "total_stale": 4,
+    "total_missing_date": 0
+  },
+  "results": {
+    "channel": {
+      "agent_id": "channel",
+      "agent_name": "Agent1 客户洞察",
+      "critical_paths": [
+        "candidate.signals[].evidence_date",
+        "candidate.timeline[].at",
+        "talking_points[].source_url"
+      ],
+      "evidence_count": 3,
+      "freshness": {
+        "all_valid": false,
+        "core_count": 2,
+        "stale_count": 1,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.583,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 0,
+          "government": 2,
+          "industry": 0,
+          "public_web": 1,
+          "unknown": 0
+        },
+        "high_trust_count": 2,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": false
+    },
+    "credit": {
+      "agent_id": "credit",
+      "agent_name": "Agent3 授信决策",
+      "critical_paths": [
+        "decision.peer_cases[].decision_date",
+        "decision.financial_year"
+      ],
+      "evidence_count": 2,
+      "freshness": {
+        "all_valid": true,
+        "core_count": 2,
+        "stale_count": 0,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.55,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 2,
+          "government": 0,
+          "industry": 0,
+          "public_web": 0,
+          "unknown": 0
+        },
+        "high_trust_count": 2,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": true
+    },
+    "alert": {
+      "agent_id": "alert",
+      "agent_name": "Agent4 贷后预警",
+      "critical_paths": [
+        "signal.events[].triggered_at",
+        "client.last_contact_at"
+      ],
+      "evidence_count": 2,
+      "freshness": {
+        "all_valid": true,
+        "core_count": 2,
+        "stale_count": 0,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.85,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 0,
+          "government": 2,
+          "industry": 0,
+          "public_web": 0,
+          "unknown": 0
+        },
+        "high_trust_count": 2,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": true
+    },
+    "compliance": {
+      "agent_id": "compliance",
+      "agent_name": "Agent5 合规扫描",
+      "critical_paths": [
+        "policy.published_at",
+        "policy.effective_date"
+      ],
+      "evidence_count": 3,
+      "freshness": {
+        "all_valid": false,
+        "core_count": 2,
+        "stale_count": 1,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.483,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 0,
+          "government": 3,
+          "industry": 0,
+          "public_web": 0,
+          "unknown": 0
+        },
+        "high_trust_count": 3,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": false
+    },
+    "report": {
+      "agent_id": "report",
+      "agent_name": "Agent6 报告生成",
+      "critical_paths": [
+        "report.financial_year",
+        "report.section_evidence[].evidence_date"
+      ],
+      "evidence_count": 2,
+      "freshness": {
+        "all_valid": false,
+        "core_count": 1,
+        "stale_count": 1,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.7,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 2,
+          "government": 0,
+          "industry": 0,
+          "public_web": 0,
+          "unknown": 0
+        },
+        "high_trust_count": 2,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": false
+    },
+    "riskctrl": {
+      "agent_id": "riskctrl",
+      "agent_name": "Agent2 风控 DSL",
+      "critical_paths": [
+        "backtest.sample_period",
+        "rule.effective_at"
+      ],
+      "evidence_count": 2,
+      "freshness": {
+        "all_valid": false,
+        "core_count": 1,
+        "stale_count": 1,
+        "missing_date_count": 0,
+        "avg_recency_weight": 0.375,
+        "block_reason": null
+      },
+      "tier": {
+        "valid": true,
+        "tier_distribution": {
+          "internal_authoritative": 2,
+          "government": 0,
+          "industry": 0,
+          "public_web": 0,
+          "unknown": 0
+        },
+        "high_trust_count": 2,
+        "block_reason": null,
+        "warnings": []
+      },
+      "passed": false
+    }
+  }
+}
