@@ -2166,15 +2166,35 @@ function CreditDecisionAdvicePanel(p: {
               </ul>
             </div>
           ) : null}
-          <button
-            type="button"
-            className="credit-advice-live__export"
-            data-testid="credit-export-docx-btn"
-            onClick={downloadDocx}
-            disabled={(!p.decisionId && !p.liveAdvice) || exportRunning}
-          >
-            {exportRunning ? "导出中…" : "导出决策建议书 (.docx)"}
-          </button>
+          <div className="credit-advice-live__actions">
+            <button
+              type="button"
+              className="credit-advice-live__export"
+              data-testid="credit-export-docx-btn"
+              onClick={downloadDocx}
+              disabled={(!p.decisionId && !p.liveAdvice) || exportRunning}
+            >
+              {exportRunning ? "导出中…" : "导出决策建议书 (.docx)"}
+            </button>
+            {/* Sprint 4 D1 Atomic 4 · Agent6 回写 CTA (per PRD v2.0 verbatim:
+                "Agent3 的决策意见反过来可回写到 Agent6 报告的审批意见章节"
+                Codex R3 critical fix 指引: production 缺此 CTA · 必加) */}
+            <button
+              type="button"
+              className="credit-advice-live__writeback"
+              data-testid="credit-writeback-agent6-btn"
+              onClick={() => {
+                // TODO Sprint 4 D2: wire to /api/report/writeback_decision endpoint
+                // 现 placeholder · 用户视角验证 CTA 显示位置正确
+                // ref: PRD_授信决策辅助智能体_v2.0.md "Agent3 决策回写 Agent6"
+                alert("回写 Agent6 审批意见 · Sprint 4 D2 接 endpoint (现 placeholder)");
+              }}
+              disabled={!p.decisionId && !p.liveAdvice}
+              title="回写 Agent6 报告的审批意见章节"
+            >
+              ↩ 回写 Agent6 报告
+            </button>
+          </div>
           {/* Step 11 · cat 13 fix · export 失败 banner (替 console.error 静默) */}
           {exportError ? (
             <div
