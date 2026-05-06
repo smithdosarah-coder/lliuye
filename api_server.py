@@ -30,6 +30,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -244,6 +245,31 @@ try:
     register_ledger_routes(app)
 except ImportError as _ledger_import_err:
     print(f"[api_server] ledger_service unavailable: {_ledger_import_err}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
+# Phase C Track A · A1 · 客户画像聚合 endpoint (PM 拍板 2026-05-06)
+# 跨 Agent 视图 · 用 CRM contract 15 字段 schema 严格校验
+# ---------------------------------------------------------------------------
+try:
+    from shared.customer_aggregator import aggregate_customer_profile, list_customers
+
+    @app.get("/api/customer/list")
+    def customer_list(rm: Optional[str] = Query(None, description="RM 工号过滤")):
+        """列出客户 · 可选 RM 过滤 (RM 自己看自己的客户)."""
+        return {"items": list_customers(rm_id=rm)}
+
+    @app.get("/api/customer/{customer_id}/profile")
+    def customer_profile(customer_id: str):
+        """聚合客户画像 · CRM 15 字段 + 跨 Agent 历史 + 现持产品 + RM 互动."""
+        result = aggregate_customer_profile(customer_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"客户 {customer_id} 不存在")
+        return result
+
+    print("[api_server] customer aggregator routes mounted (Phase C Track A · A1)", file=sys.stderr)
+except ImportError as _cust_import_err:
+    print(f"[api_server] customer_aggregator unavailable: {_cust_import_err}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------

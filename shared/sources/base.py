@@ -32,6 +32,13 @@ class Evidence(BaseModel):
 
     Agent 把这个字段透传到前端/报告时，用户可以点 source_url 回到原文验证，
     满足银行/金融客户「所有数字/结论都要有出处」的底线。
+
+    Phase C Track D · D3 Tavily 用法分级 (2026-05-06):
+    - 加 evidence_date (事件发生时间 · 不是 fetched_at) · 用于 freshness 校验
+    - 加 data_tier (用 DataTier · 比 source-level SourceTier 更细粒度)
+    - 加 claim_type (news/financial/penalty/policy/case_study/...) · 用于 SLA 阈值
+    - 这些字段由 BaseSource impl 从 result 中 extract · 缺则空
+    - 推荐核心理由 builder 用 shared.data_tiers + evidence_freshness 校验
     """
 
     source_name: str
@@ -39,6 +46,11 @@ class Evidence(BaseModel):
     fetched_at: str
     raw_excerpt: str = ""
     confidence: float = 1.0
+
+    # Phase C · Track D D3 加 (向下兼容: 默认空 · 老 source impl 不破)
+    evidence_date: str = ""  # 事件发生时间 ISO · 例 "2026-04-15"
+    data_tier: str = ""  # DataTier 值 · 见 shared.data_tiers
+    claim_type: str = ""  # ClaimType 值 · 见 shared.evidence_freshness
 
 
 class QueryRequest(BaseModel):

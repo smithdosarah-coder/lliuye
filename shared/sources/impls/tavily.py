@@ -78,11 +78,34 @@ class TavilySource(BaseSource):
         items: list[dict] = []
         evidence: list[Evidence] = []
         now = datetime.now().isoformat()
+
+        # Phase C Track D D3 · Tavily 用法分级 (2026-05-06):
+        # Tavily 是 Tier 4 公开 web 通用搜索 · 每条 result 的 url 用 classify_source 真分类
+        # (URL 可能落在 .gov.cn 等 → Tier 2 · 不一定全 Tier 4)
+        from shared.data_tiers import classify_source as _classify_tier
+        from shared.evidence_freshness import ClaimType as _ClaimType
+
+        # query_type → claim_type 映射 (Tavily 不一定能 extract 真 evidence_date)
+        qt = (request.query_type or "").lower()
+        claim_map = {
+            "news": _ClaimType.NEWS.value,
+            "research": _ClaimType.GENERIC.value,
+            "company_info": _ClaimType.BUSINESS_CHANGE.value,
+            "generic": _ClaimType.GENERIC.value,
+        }
+        claim_type_value = claim_map.get(qt, _ClaimType.GENERIC.value)
+
         for r in results:
             title = r.get("title", "")
             url = r.get("url", "")
             content = r.get("content", "")
             score = r.get("score", 0.0)
+            # Tavily result 可能含 published_date · 优先用
+            evidence_date = (r.get("published_date") or r.get("date") or "").strip()
+
+            # 实际分类 url tier (e.g. cbirc.gov.cn → Tier 2 · 不全是 Tier 4)
+            data_tier = _classify_tier(url).value
+
             items.append({
                 "title": title,
                 "url": url,
@@ -95,6 +118,9 @@ class TavilySource(BaseSource):
                 fetched_at=now,
                 raw_excerpt=(content or "")[:500],
                 confidence=float(score) if isinstance(score, (int, float)) else 0.5,
+                evidence_date=evidence_date,
+                data_tier=data_tier,
+                claim_type=claim_type_value,
             ))
 
         if not items:
