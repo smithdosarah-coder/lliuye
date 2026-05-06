@@ -123,7 +123,11 @@ export default function ChannelWorkspace() {
     MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
   const s = sessionData;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
-  const isLive = liveData !== null;
+  /* PM bug #2 (5/6 verbatim "MOCK 按钮没交互功能") · forceMock 用户可主动切
+     forceMock=true · 强制 mock (不调后端 · 即使 endpoint OK)
+     forceMock=false · 默认 · 尝试 live · 失败 fallback mock */
+  const [forceMock, setForceMock] = useState(false);
+  const isLive = liveData !== null && !forceMock;
 
   /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
      kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
@@ -409,7 +413,13 @@ export default function ChannelWorkspace() {
           </button>
         </div>
       ) : null}
-      <ChannelHero sessionData={s} topSim={topSim} isLive={isLive} />
+      <ChannelHero
+        sessionData={s}
+        topSim={topSim}
+        isLive={isLive}
+        forceMock={forceMock}
+        onToggleMock={setForceMock}
+      />
       {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
       <KbUploadStrip
         kbIds={kbIds}
@@ -530,10 +540,14 @@ function ChannelHero({
   sessionData,
   topSim,
   isLive,
+  forceMock,
+  onToggleMock,
 }: {
   sessionData: ChannelSession;
   topSim: number;
   isLive: boolean;
+  forceMock?: boolean;
+  onToggleMock?: (next: boolean) => void;
 }) {
   const s = sessionData;
   return (
@@ -551,9 +565,14 @@ function ChannelHero({
           </div>
         </div>
       </div>
-      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致性 */}
+      {/* PM bug #4 P2 · MOCK/LIVE 真 toggle · 用户可点切 forceMock */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <ModePill isLive={isLive} testId="channel-mode-pill" />
+        <ModePill
+          isLive={isLive}
+          testId="channel-mode-pill"
+          forceMock={forceMock}
+          onToggle={onToggleMock}
+        />
         <div className="rpt-hero-stats">
           <Stat label="本周处理" value={CHANNEL_GLOBAL_STATS.weeklyProcessed} />
           <Stat label="命中率" value={CHANNEL_GLOBAL_STATS.hitRate} />
