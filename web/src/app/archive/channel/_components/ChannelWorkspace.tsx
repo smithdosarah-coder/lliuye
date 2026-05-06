@@ -2077,16 +2077,25 @@ function CandidatesView({
   candidates: Candidate[];
   onSelectCandidate?: (id: string) => void;
 }) {
+  /* Sprint 5+ D1-2 · Top10 fixed slice (per PM "未来一定能实现" + xlsx v2 1.3 verbatim "Top10 推荐")
+     超过 10 时显示 "Top 10 (X 家命中 · 仅显前 10)" · 不足 10 时显示真实数量 */
+  const TOP_N = 10;
+  const displayed = candidates.slice(0, TOP_N);
+  const total = candidates.length;
+  const truncated = total > TOP_N;
   return (
     <section className="ch-cd-sec">
       <header className="ch-out-sec-head">
         <h4 className="ch-out-sec-title">
           <span className="rpt-pv-anchor">§三</span>
-          <span>Top {candidates.length} 推荐 · 相似度排序</span>
+          <span>
+            Top {displayed.length} 推荐 · 相似度排序
+            {truncated ? ` (共 ${total} 家命中 · 仅显前 ${TOP_N})` : ""}
+          </span>
         </h4>
       </header>
-      <ol className="ch-cd-list">
-        {candidates.map((c, i) => (
+      <ol className="ch-cd-list" data-testid="channel-cand-list" data-truncated={truncated ? "yes" : "no"}>
+        {displayed.map((c, i) => (
           <CandidateCard
             key={c.id}
             rank={i + 1}

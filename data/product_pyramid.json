@@ -1,0 +1,54 @@
+{
+  "tiers": [
+    {
+      "tier_id": "tier_apex",
+      "tier_name": "顶层 · 战略产品",
+      "risk_level": "low",
+      "target_segments": ["segment_leader", "segment_supply_chain"],
+      "products": [
+        {"product_name": "并购贷款", "amount_range": "5000 万 - 5 亿", "rate_band": "LPR + 50 BP"},
+        {"product_name": "银团贷款", "amount_range": "1 亿 - 50 亿", "rate_band": "LPR + 30 BP"},
+        {"product_name": "项目融资", "amount_range": "5000 万 - 10 亿", "rate_band": "LPR + 80 BP"}
+      ]
+    },
+    {
+      "tier_id": "tier_core",
+      "tier_name": "核心层 · 主流产品",
+      "risk_level": "medium",
+      "target_segments": ["segment_leader", "segment_growth", "segment_supply_chain", "segment_export"],
+      "products": [
+        {"product_name": "对公流动资金贷", "amount_range": "1000 万 - 1 亿", "rate_band": "LPR + 80 BP"},
+        {"product_name": "贸易融资", "amount_range": "300 万 - 5000 万", "rate_band": "LPR + 100 BP"},
+        {"product_name": "供应链金融", "amount_range": "500 万 - 8000 万", "rate_band": "LPR + 80 BP"},
+        {"product_name": "应收账款保理", "amount_range": "200 万 - 5000 万", "rate_band": "LPR + 120 BP"}
+      ]
+    },
+    {
+      "tier_id": "tier_growth",
+      "tier_name": "成长层 · 创新产品",
+      "risk_level": "medium-high",
+      "target_segments": ["segment_growth", "segment_sci_tech", "segment_digital_transform"],
+      "products": [
+        {"product_name": "科创信用贷", "amount_range": "200 万 - 2000 万", "rate_band": "LPR + 110 BP"},
+        {"product_name": "知识产权质押贷", "amount_range": "200 万 - 1500 万", "rate_band": "LPR + 100 BP"},
+        {"product_name": "设备融资租赁", "amount_range": "300 万 - 3000 万", "rate_band": "LPR + 150 BP"},
+        {"product_name": "技术改造贷", "amount_range": "500 万 - 5000 万", "rate_band": "LPR + 130 BP"}
+      ]
+    },
+    {
+      "tier_id": "tier_inclusive",
+      "tier_name": "普惠层 · 小微产品",
+      "risk_level": "high",
+      "target_segments": ["segment_sme", "segment_high_risk"],
+      "products": [
+        {"product_name": "普惠信用贷", "amount_range": "50 万 - 500 万", "rate_band": "LPR + 200 BP"},
+        {"product_name": "小微抵押贷", "amount_range": "100 万 - 1000 万", "rate_band": "LPR + 180 BP"},
+        {"product_name": "票据贴现", "amount_range": "50 万 - 1000 万", "rate_band": "LPR + 150 BP"},
+        {"product_name": "小额试单贷", "amount_range": "10 万 - 100 万", "rate_band": "LPR + 250 BP"}
+      ]
+    }
+  ],
+  "version": "1.0",
+  "updated": "2026-05-06",
+  "source": "PM 5/6 拍板 + xlsx v2 2.1 verbatim '资产配置金字塔 (产品 → 风险等级 → 客群 静态映射)'"
+}

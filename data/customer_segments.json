@@ -1,0 +1,108 @@
+{
+  "segments": [
+    {
+      "id": "segment_leader",
+      "name": "行业龙头",
+      "description": "营收 ≥ 5 亿 · 市场份额 ≥ 5% · 现金流稳定",
+      "criteria": {
+        "annual_revenue_gte": 500000000,
+        "market_share_gte": 0.05,
+        "stage": ["mature", "expansion"]
+      },
+      "preferred_products": ["对公流动资金贷", "并购贷款", "贸易融资"],
+      "talking_point_template": "leader",
+      "rate_band_offset": -50,
+      "amount_ceiling_multiplier": 1.5
+    },
+    {
+      "id": "segment_growth",
+      "name": "成长期",
+      "description": "营收 0.5-5 亿 · 增速 30%+ · 拓展产能",
+      "criteria": {
+        "annual_revenue_range": [50000000, 500000000],
+        "yoy_growth_gte": 0.30
+      },
+      "preferred_products": ["对公流动资金贷", "供应链金融", "设备融资租赁"],
+      "talking_point_template": "growth",
+      "rate_band_offset": 0,
+      "amount_ceiling_multiplier": 1.0
+    },
+    {
+      "id": "segment_sci_tech",
+      "name": "科创",
+      "description": "高新技术 / 专精特新 / 知识产权资产",
+      "criteria": {
+        "tags_any": ["高新技术企业", "专精特新", "ARR 增速", "知识产权"]
+      },
+      "preferred_products": ["科创信用贷", "知识产权质押贷", "贸易融资"],
+      "talking_point_template": "sci_tech",
+      "rate_band_offset": 30,
+      "amount_ceiling_multiplier": 0.8
+    },
+    {
+      "id": "segment_sme",
+      "name": "小微",
+      "description": "营收 < 5000 万 · 普惠金融 · 小微贷",
+      "criteria": {
+        "annual_revenue_lt": 50000000
+      },
+      "preferred_products": ["普惠信用贷", "小微抵押贷", "供应链金融"],
+      "talking_point_template": "sme",
+      "rate_band_offset": 80,
+      "amount_ceiling_multiplier": 0.5
+    },
+    {
+      "id": "segment_supply_chain",
+      "name": "产业链上下游",
+      "description": "核心企业供应商 / 经销商 · 应收账款融资",
+      "criteria": {
+        "tags_any": ["供应链核心", "上游供应", "下游经销"]
+      },
+      "preferred_products": ["供应链金融", "应收账款保理", "票据贴现"],
+      "talking_point_template": "supply_chain",
+      "rate_band_offset": -20,
+      "amount_ceiling_multiplier": 1.2
+    },
+    {
+      "id": "segment_high_risk",
+      "name": "高风险待观察",
+      "description": "司法待结 / 信用瑕疵 / 经营波动",
+      "criteria": {
+        "tags_any": ["司法待结", "民事诉讼", "信用瑕疵", "经营异常"]
+      },
+      "preferred_products": ["小额试单贷"],
+      "talking_point_template": "high_risk",
+      "rate_band_offset": 200,
+      "amount_ceiling_multiplier": 0.3
+    },
+    {
+      "id": "segment_export",
+      "name": "出口型",
+      "description": "海外营收 ≥ 30% · 一带一路 · 跨境结算",
+      "criteria": {
+        "tags_any": ["出口", "跨境", "一带一路"],
+        "export_revenue_ratio_gte": 0.30
+      },
+      "preferred_products": ["贸易融资", "外汇结算", "进出口押汇"],
+      "talking_point_template": "export",
+      "rate_band_offset": 50,
+      "amount_ceiling_multiplier": 1.0
+    },
+    {
+      "id": "segment_digital_transform",
+      "name": "数字化转型",
+      "description": "传统行业 · IT 投入比 ≥ 3% · 数字化升级",
+      "criteria": {
+        "tags_any": ["数字化转型", "智能制造", "工业互联网"]
+      },
+      "preferred_products": ["设备融资租赁", "技术改造贷", "对公流动资金贷"],
+      "talking_point_template": "digital_transform",
+      "rate_band_offset": 20,
+      "amount_ceiling_multiplier": 1.0
+    }
+  ],
+  "default_segment_id": "segment_growth",
+  "version": "1.0",
+  "updated": "2026-05-06",
+  "source": "PM 5/6 拍板 + xlsx v2 2.1 verbatim '5-10 类细分场景话术库'"
+}

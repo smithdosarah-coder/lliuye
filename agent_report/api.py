@@ -807,6 +807,105 @@ class ExportDocxRequest(BaseModel):
     client_manager: str = ""
 
 
+"""Sprint 5+ D5 · 回写 Agent6 endpoint (per Codex+Claude R1 双辩论 + xlsx v2 3.2 verbatim "回写 Agent6 闭环 · 决策上链 ledger evidence")
+   PM bug #5 reverse · Agent3 决策 → Agent6 报告回写 · ledger 上链审计 trace
+   payload: { report_id, decision_id, decision_summary, advisor_notes }
+   行为: 1) ledger record_decision agent_id=report endpoint=/v16/inject
+        2) session_store update review_notes (Agent6 报告状态 review)
+        3) audit log silent
+"""
+
+
+class V16InjectRequest(BaseModel):
+    report_id: str
+    decision_id: Optional[str] = None
+    decision_summary: Optional[str] = None
+    advisor_notes: Optional[str] = None
+    advisor_user_id: Optional[str] = None
+
+
+@app.post("/api/report/v16/inject")
+async def report_v16_inject(
+    req: V16InjectRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """Agent3 → Agent6 决策回写 · ledger 上链审计 + session review_notes 更新.
+
+    Sprint 5+ D5 (per CLAUDE.md §3.7.5 BE7 决策账本 · 写入失败 silent-fail · 不阻 flow)
+    """
+    sess = store.get(req.report_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="report session 不存在")
+
+    # 1. ledger 上链 (silent fail per BE7 wrapper)
+    decision_persisted = False
+    ledger_decision_id: Optional[str] = None
+    ledger_error: Optional[str] = None
+    try:
+        from shared.decision_ledger import default_ledger
+        ledger_result = default_ledger().record(
+            agent_id="report",
+            endpoint="/api/report/v16/inject",
+            input_payload={
+                "report_id": req.report_id,
+                "decision_id": req.decision_id or "",
+                "advisor_user_id": req.advisor_user_id or _user.get("user_id", ""),
+            },
+            output_payload={
+                "decision_summary": req.decision_summary or "",
+                "advisor_notes": req.advisor_notes or "",
+            },
+            evidence_chain={
+                "source_decision_id": req.decision_id,
+                "source_agent": "credit",
+                "review_target_report_id": req.report_id,
+            },
+            subject_name=sess.get("enterprise_profile", {}).get("name") or None,
+        )
+        decision_persisted = ledger_result.persisted
+        ledger_decision_id = ledger_result.decision_id
+        if ledger_result.error:
+            ledger_error = ledger_result.error
+    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as exc:
+        ledger_error = str(exc)
+
+    # 2. session_store update review_notes (用 update patch · session_store.put 不存在)
+    review_note = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "decision_id": req.decision_id,
+        "advisor_user_id": req.advisor_user_id or _user.get("user_id", ""),
+        "decision_summary": req.decision_summary or "",
+        "advisor_notes": req.advisor_notes or "",
+        "ledger_decision_id": ledger_decision_id,
+        "ledger_persisted": decision_persisted,
+    }
+    existing_notes = list(sess.get("review_notes") or [])
+    existing_notes.append(review_note)
+    store.update(req.report_id, {"review_notes": existing_notes})
+
+    # 3. audit log
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "endpoint": "/api/report/v16/inject",
+        "user_id": _user.get("user_id", ""),
+        "report_id": req.report_id,
+        "decision_id": req.decision_id,
+        "ledger_persisted": decision_persisted,
+    })
+
+    return {
+        "ok": True,
+        "report_id": req.report_id,
+        "review_notes_count": len(existing_notes),
+        "ledger": {
+            "decision_id": ledger_decision_id,
+            "persisted": decision_persisted,
+            "error": ledger_error,
+        },
+    }
+
+
 @app.post("/api/report/export_docx")
 async def report_export_docx(
     req: ExportDocxRequest,
