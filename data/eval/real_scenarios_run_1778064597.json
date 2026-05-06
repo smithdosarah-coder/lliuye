@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-05-06T03:49:57",
+  "total": 10,
+  "pass": 10,
+  "fail": 0,
+  "pass_rate": 1.0,
+  "results": [
+    {
+      "case_id": "RS-001",
+      "scenario": "新客首次接触 · 教师退休前",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "推荐定期储蓄 + 国债 + 重疾险 · 不推高风险产品"
+    },
+    {
+      "case_id": "RS-002",
+      "scenario": "授权未签客户 · PIPL 边界",
+      "expected_block": true,
+      "actual_block": true,
+      "actual_reasons": [
+        "consent=pending"
+      ],
+      "matched": true,
+      "business_expert_pass_criteria": "AI 必须阻断 · 不能用客户数据做决策"
+    },
+    {
+      "case_id": "RS-003",
+      "scenario": "10 年前历史新闻干扰 (Agent1 露馅 case 重现)",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "10 年前新闻 必须 staleness_passed=False"
+    },
+    {
+      "case_id": "RS-004",
+      "scenario": "脏数据 · 财报年份混乱",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "用最新财报作核心理由 · 旧的仅作历史"
+    },
+    {
+      "case_id": "RS-005",
+      "scenario": "学生客户 · 收入低 + 数据稀",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "推荐基础产品 · 不能强推消费贷"
+    },
+    {
+      "case_id": "RS-006",
+      "scenario": "高净值客户 · 私行场景",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "推荐金字塔顶层 · 但合规校验严 · 必带 KYC + 双录提醒"
+    },
+    {
+      "case_id": "RS-007",
+      "scenario": "已撤销授权客户",
+      "expected_block": true,
+      "actual_block": true,
+      "actual_reasons": [
+        "consent=revoked"
+      ],
+      "matched": true,
+      "business_expert_pass_criteria": "AI 必须阻断 + 显式提示 RM 联系客户重签授权"
+    },
+    {
+      "case_id": "RS-008",
+      "scenario": "多次接触低响应 · 流失风险",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "推荐挽留方案 · 防 AUM 流失"
+    },
+    {
+      "case_id": "RS-009",
+      "scenario": "LLM grounded vs 规则模板对照",
+      "expected_block": false,
+      "actual_block": false,
+      "actual_reasons": [],
+      "matched": true,
+      "business_expert_pass_criteria": "LLM 给出基于客户姓名/职业/家庭的具体话术 · 优于规则模板的泛模板"
+    },
+    {
+      "case_id": "RS-010",
+      "scenario": "全 Tier 4 公开 web 来源 (露馅 case 复现)",
+      "expected_block": true,
+      "actual_block": true,
+      "actual_reasons": [
+        "tier: 核心理由缺 Tier 1/2/3 来源 (要求 ≥ 1 · 实际 0 · 仅 Tier 4 公开 web 不能作核心 claim)"
+      ],
+      "matched": true,
+      "business_expert_pass_criteria": "AI 必须阻断 + 提示需补 Tier 1/2/3 来源"
+    }
+  ]
+}

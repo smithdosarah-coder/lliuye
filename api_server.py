@@ -248,28 +248,103 @@ except ImportError as _ledger_import_err:
 
 
 # ---------------------------------------------------------------------------
-# Phase C Track A · A1 · 客户画像聚合 endpoint (PM 拍板 2026-05-06)
-# 跨 Agent 视图 · 用 CRM contract 15 字段 schema 严格校验
+# Phase C Track A+B · 客户画像 (A1) + 决策 (A2) + 人工确认 (A3) + 血缘 (B1+B2)
+# 跨 Agent 端到端流程 · 用 CRM contract 15 字段 schema 严格校验
 # ---------------------------------------------------------------------------
 try:
     from shared.customer_aggregator import aggregate_customer_profile, list_customers
+    from shared.ai_decision import build_decision
+    from shared.decision_review import submit_review, get_reviews, get_decision_status
+    from shared.data_lineage import get_lineage_store
 
+    # === A1 客户画像聚合 ===
     @app.get("/api/customer/list")
     def customer_list(rm: Optional[str] = Query(None, description="RM 工号过滤")):
-        """列出客户 · 可选 RM 过滤 (RM 自己看自己的客户)."""
+        """列出客户 · 可选 RM 过滤."""
         return {"items": list_customers(rm_id=rm)}
 
     @app.get("/api/customer/{customer_id}/profile")
     def customer_profile(customer_id: str):
-        """聚合客户画像 · CRM 15 字段 + 跨 Agent 历史 + 现持产品 + RM 互动."""
+        """聚合客户画像 · CRM 15 字段 + 跨 Agent 历史."""
         result = aggregate_customer_profile(customer_id)
         if result is None:
             raise HTTPException(status_code=404, detail=f"客户 {customer_id} 不存在")
         return result
 
-    print("[api_server] customer aggregator routes mounted (Phase C Track A · A1)", file=sys.stderr)
-except ImportError as _cust_import_err:
-    print(f"[api_server] customer_aggregator unavailable: {_cust_import_err}", file=sys.stderr)
+    # === A2 AI 决策建议 ===
+    class DecisionBuildRequest(BaseModel):
+        customer_id: str
+        intent: str = "ai_advice_proactive"
+
+    @app.post("/api/decision/build")
+    def decision_build(req: DecisionBuildRequest):
+        """端到端 AI 决策 · 用 D1+D2+D4 三层校验 · consent_status 检查 PIPL."""
+        return build_decision(customer_id=req.customer_id, intent=req.intent)
+
+    # === A3 人工确认工作台 ===
+    class DecisionReviewRequest(BaseModel):
+        decision_id: str
+        reviewer: str
+        action: str  # "accept" / "modify" / "reject"
+        reason: str = ""
+        modified_content: Optional[dict] = None
+
+    @app.post("/api/decision/{decision_id}/review")
+    def decision_review_submit(decision_id: str, req: DecisionReviewRequest):
+        """RM 提交 review (accept/modify/reject) · 写 ledger + lineage + audit."""
+        if req.decision_id != decision_id:
+            raise HTTPException(status_code=400, detail="decision_id 路径与 body 不一致")
+        result = submit_review(
+            decision_id=req.decision_id,
+            reviewer=req.reviewer,
+            action=req.action,
+            reason=req.reason,
+            modified_content=req.modified_content,
+        )
+        if result.get("block"):
+            raise HTTPException(status_code=400, detail=result.get("block_reason"))
+        return result
+
+    @app.get("/api/decision/{decision_id}/reviews")
+    def decision_reviews_get(decision_id: str):
+        """查询一笔决策的 review history."""
+        return {
+            "decision_id": decision_id,
+            "status": get_decision_status(decision_id),
+            "reviews": get_reviews(decision_id),
+        }
+
+    # === B2 血缘 UI 接口 ===
+    @app.get("/api/lineage/decision/{decision_id}")
+    def lineage_by_decision(decision_id: str):
+        """查询一笔决策的所有字段血缘 (B1 sqlite store)."""
+        store = get_lineage_store()
+        rows = store.query_by_decision(decision_id)
+        return {
+            "decision_id": decision_id,
+            "lineage_count": len(rows),
+            "records": rows,
+        }
+
+    @app.get("/api/lineage/field")
+    def lineage_by_field(path: str = Query(..., description="字段路径 e.g. customer.income_monthly")):
+        """查询某字段路径的最近血缘 (跨决策)."""
+        store = get_lineage_store()
+        rows = store.query_by_field(path, limit=50)
+        return {
+            "field_path": path,
+            "lineage_count": len(rows),
+            "records": rows,
+        }
+
+    @app.get("/api/lineage/stats")
+    def lineage_stats():
+        """全局血缘统计 (按 tier + system)."""
+        return get_lineage_store().stats()
+
+    print("[api_server] Phase C Track A+B routes mounted (A1/A2/A3/B1/B2)", file=sys.stderr)
+except ImportError as _phasec_import_err:
+    print(f"[api_server] Phase C Track A+B unavailable: {_phasec_import_err}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
