@@ -16,12 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
-import {
-  ClaimText,
-  EvidenceProvider,
-  EvidenceTrail,
-  UnfilledFields,
-} from "@/components/evidence";
+import { EvidenceProvider } from "@/components/evidence";
 import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   Radar,
@@ -36,7 +31,6 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
-import { RiskRadar, type RiskRadarSegment } from "./RiskRadar";
 import { normalizeCreditDone } from "./_normalize";
 import {
   CREDIT_DEFAULT_SESSION_ID,
@@ -582,7 +576,12 @@ export default function CreditWorkspace() {
         generateSteps={session.generateSteps}
         progress={progress}
       />
-      {/* W-CF-A2 · 决策完成 advice + Word 导出 (live SSE 路径) */}
+      {/* W-CF-A2 · 决策完成 advice + Word 导出 (live SSE 路径)
+          Sprint 4 D1 cleanup (per Codex R3 critical · PM 报"无意义/重复"):
+          - DELETE ev-claim-summary (重复 OutputPanel evidence)
+          - DELETE UnfilledFields (跨 Agent 全局贴片 · 不是 PRD Dashboard 主线)
+          - DELETE RiskRadarPreview (注释 verbatim "仅可视 demo · 不替代既有 RadarChart" · 第 3 处 radar 重叠)
+          - DELETE EvidenceTrail (跨 Agent 全局贴片) */}
       <CreditDecisionAdvicePanel
         liveAdvice={liveAdvice}
         decisionId={decisionId}
@@ -590,13 +589,6 @@ export default function CreditWorkspace() {
         decisionError={decisionError}
         stageTab={MODE_TO_STAGE_TAB[mode]}
       />
-      <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-        <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-        <ClaimText text={CREDIT_EVIDENCE.summary} />
-      </section>
-      <UnfilledFields />
-      <RiskRadarPreview mode={mode} session={session} />
-      <EvidenceTrail agentTone="credit" />
       {/* Step 10 · selectedCandidate gate · case detail drawer (workspace-state-protocol §2 #4) */}
       {selectedCandidateData ? (
         <CaseDetailDrawer
@@ -609,63 +601,9 @@ export default function CreditWorkspace() {
   );
 }
 
-/* ─────────── Q-033 · RiskRadar Preview · L1-3 ─────────── */
-/* 596283f wrapper · 复用 ScoreRadar · 与既有 session.radar (CreditRadarDim) 并存 ·
-   提供四维 segment 派发 (corp/sme: 财务/行业/经营/担保 · retail: 还款能力/还款
-   意愿/稳定性/担保)，从 session.radar 抽 score 拼 ScoringPayload-shape 子集 ·
-   仅可视 demo · 不替代既有 RadarChart。 */
-function RiskRadarPreview({
-  mode,
-  session,
-}: {
-  mode: CreditMode;
-  session: CreditSession;
-}) {
-  const segment: RiskRadarSegment =
-    mode === "corp" ? "corporate" : mode === "small" ? "sme" : "retail";
-  const corpKeys = [
-    "financial_score",
-    "industry_score",
-    "operational_score",
-    "guarantee_score",
-  ] as const;
-  const retailKeys = [
-    "repayment_capacity",
-    "repayment_willingness",
-    "stability",
-    "collateral",
-  ] as const;
-  const radarByKey: Record<string, number> = {};
-  for (const dim of session.radar) {
-    radarByKey[dim.key] = dim.score;
-  }
-  const flat = {
-    financial_score: radarByKey["fin"],
-    industry_score: radarByKey["ind"] ?? radarByKey["ops"],
-    operational_score: radarByKey["ops"],
-    guarantee_score: radarByKey["guar"],
-  };
-  const cat = {
-    repayment_capacity: radarByKey["repay"] ?? radarByKey["fin"],
-    repayment_willingness: radarByKey["will"] ?? radarByKey["comp"],
-    stability: radarByKey["stab"] ?? radarByKey["ops"],
-    collateral: radarByKey["coll"] ?? radarByKey["guar"],
-  };
-  const scoring = segment === "corporate" ? flat : { category_scores: cat };
-  return (
-    <section
-      className="rpt-panel risk-radar-preview"
-      aria-label="L1-3 RiskRadar (Q-033)"
-      data-testid="risk-radar-preview"
-    >
-      <header className="risk-radar-preview-head">
-        <span className="risk-radar-preview-eyebrow">L1-3 · 四维风险雷达</span>
-        <span className="risk-radar-preview-segment">segment: {segment}</span>
-      </header>
-      <RiskRadar scoring={scoring} segment={segment} />
-    </section>
-  );
-}
+/* RiskRadarPreview deleted · Sprint 4 D1 cleanup
+   · 注释 verbatim "仅可视 demo · 不替代既有 RadarChart" 自认是第 3 处 radar 重叠
+   · 与 DashboardBand + OutputPanel radar Tab 重复 · per PRD v2.0 "1 Dashboard + 1 卡片" 仅保 OutputPanel radar */
 
 /* ─────────── TopBar · AGENT eyebrow + 模式 tabs ─────────── */
 
