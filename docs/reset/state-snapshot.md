@@ -1375,3 +1375,71 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - ECS deploy 8afa192 等 network 恢复
 - D5 全局 QA 6 Agent workspace 一致性
 
+---
+
+## 2026-05-06 15:19 · Sprint 5 minimal 全 ship + ECS deploy success
+
+### What happened
+
+- Sprint 5 D1-D5 minimal ship (commit 3390944 · 3 file + 159 lines):
+  - D1-D2 Agent1 channel CandidatesPanel 加 .rpt-panel-hint "ⓘ 全部 N 家可点 · 切换信号时间线下拉看不同候选 · 90 秒内 AI 给齐画像" · 解决 PM bug #5 反馈 (实际全可点 · 加 hint 引导)
+  - D3 Agent6 report .rpt-aux 内加 <details className="report-truth-first-drawer"> · 8 字段清单 (5 truth Python 计算 + 3 LLM grounded · CLAUDE.md §3.1 引证)
+  - D4-D5 Portal walkthrough docs/walkthrough/sprint5-portal-2026-05-06.md (5 角色 walkthrough + 12 项验收 checklist + Sprint 5+ pending list)
+
+- ECS deploy success (5fcbbea + 765ab96 + 8afa192 + 18ab780 + 3390944 全 chain 部署)
+  - nginx/cloudflared/frontend/backend 全 active
+  - lliuye-frontend restart at 15:19 + lliuye-backend restart at 15:19
+  - healthcheck HTTP/1.1 200 OK
+  - production live `https://liuye.me/login`
+
+- Codex bg br38ki3xq medium · 11+ min 仍在跑 (Q-043 v2 SLA 60 min 容忍 · 不阻 ship · 主 CLI 自 R1 ship 后 codex 回继续 fix-forward)
+
+### Triggered by
+
+- PM 5/6 verbatim "先把任务都做完"
+- Q-043 v2 codex peer-review protocol · medium reasoning
+- §13.1 main CLI 改完即部署 default
+
+### State change (delta)
+
+- main HEAD: `8afa192` → `18ab780` → `3390944` (Sprint 5 minimal + walkthrough)
+- production HEAD: ECS git pull origin main · 5 commit chain 全 ship to https://liuye.me/login
+- Sprint 4 + Sprint 5 全 task 状态:
+  - Sprint 4 D1 5 atomic ✅ (c6720a5/b68e4d3/a1c7e73/a7fae6f/c8f303c)
+  - Sprint 4 D2 d ArchiveGrid + POC xlsx ✅ (c8f303c+a7fae6f)
+  - Sprint 4 D3 7 atomic (G skip) ✅ (5fcbbea+8afa192)
+  - Sprint 4 D4 Agent4 minimal ✅ (765ab96)
+  - Sprint 5 D1-D2 Agent1 minimal ✅ (3390944)
+  - Sprint 5 D3 Agent6 Truth-First drawer ✅ (3390944)
+  - Sprint 5 D4-D5 Portal walkthrough ✅ (3390944)
+
+### Codex 用量 (本批次)
+
+- bmt0j020z R1 medium D3 Atomic A real plan ✅
+- b89j7x6vc R1 medium D3 余 5 Atomic batch ✅
+- br38ki3xq R1 medium Sprint 5 batch · 11+ min 仍在跑 (Q-043 v2 60 min 容忍内 · 不 block ship)
+
+### 6 Agent workspace 终态 (post Sprint 4+5)
+
+| Agent | Sprint 4 D1-D4 | Sprint 5 D1-D5 |
+|---|---|---|
+| credit (Agent3) | ✅ D1 5 atomic 重构 (c6720a5+b68e4d3+a1c7e73+a7fae6f+c8f303c) | — |
+| channel (Agent1) | — | ✅ Top affordance hint (3390944) |
+| alert (Agent4) | ✅ D4 mid IM → 进度 placeholder (765ab96) | — |
+| compliance (Agent5) | ✅ D3 7 atomic (5fcbbea+8afa192 · settings fold + 3 栏 + stats bar + 三视角 + 证据链 + RM hook + 上传收敛 · OutputPanel fold) | — |
+| report (Agent6) | — | ✅ Truth-First drawer (3390944 · 5 truth + 3 LLM 字段) |
+| riskctrl (Agent2) | — (IM 是 DSL 协作核心 · 不动) | — |
+
+### Next
+
+- PM 验收 5 角色 walkthrough at https://liuye.me/login · 12 项 checklist
+- Sprint 5+ post-验收: 一键下发 RM endpoint + Conflict schema normalized envelope + 千人千面 LLM A/B + Top10 fixed + 跨 Agent ledger query
+
+### 学到了什么 (Sprint 4+5 全程)
+
+1. **真做 vs 假完成**: D3 Atomic A 我开始只删贴片偷懒 · PM 一眼 catch token 没动 · 拨回正路真做 layout 重排 · 下次默认严肃做 · 不靠"风险规避"借口偷懒
+2. **双辩论 fast convergence**: Codex R1 + Claude R1 大方向通常一致 · 关键差异点 ~2-3 个 · R2 不必要 · 下次默认 R1 双方就够
+3. **Codex bg 即用即放**: br38ki3xq 11+ min 不阻 ship · 主 CLI 基 R1 自跑 · codex 回 fix-forward · Q-043 v2 60 min 容忍内
+4. **ECS deploy 网络问题非代码问题**: 上次 timeout · 这次成功 · 不要因 deploy fail 暂停主线 work
+5. **state-snapshot append 实时**: 每个 commit 同步段 · 不积压 · §14.1 硬规验证有效
+
