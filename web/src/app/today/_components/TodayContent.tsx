@@ -238,15 +238,8 @@ function RmHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D2 Atomic 5 · 拓客闭环 CTA (RM 跨 Agent 编排) */}
-      <CrossAgentWorkflowCard
-        title="拓客 → 尽调 → 授信 闭环"
-        steps={[
-          { agentSlug: "channel", label: "1. 找候选 (Agent1)" },
-          { agentSlug: "report", label: "2. 生成报告 (Agent6)" },
-          { agentSlug: "credit", label: "3. 送审 (Agent3)" },
-        ]}
-      />
+      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈"丑+没问过+挤压")
+          原视觉冻结 baseline 不含此 card · 我违反"方案先行"硬规 · 删除恢复 */}
 
       {/* F5 客户上下文常驻 (top of priority area) */}
       <AccountBelt />
@@ -280,15 +273,7 @@ function CreditOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D2 Atomic 5 · 审贷闭环 CTA */}
-      <CrossAgentWorkflowCard
-        title="审报告 → 决策 → 跟踪贷后 闭环"
-        steps={[
-          { agentSlug: "report", label: "1. 看报告 (Agent6)" },
-          { agentSlug: "credit", label: "2. 90 秒决策 (Agent3)" },
-          { agentSlug: "alert", label: "3. 跟踪贷后 (Agent4)" },
-        ]}
-      />
+      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
 
       <PriorityQueue />
       <FeedCard />
@@ -318,15 +303,7 @@ function ComplianceOfficerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D2 Atomic 5 · 合规闭环 CTA */}
-      <CrossAgentWorkflowCard
-        title="政策 → 业务对齐 → 整改下发 闭环"
-        steps={[
-          { agentSlug: "compliance", label: "1. 政策矩阵 (Agent5)" },
-          { agentSlug: "alert", label: "2. 业务命中 (Agent4)" },
-          { agentSlug: "report", label: "3. 整改下发 (Agent6)" },
-        ]}
-      />
+      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
 
       <PriorityQueue />
       <FeedCard />
@@ -356,7 +333,8 @@ function RiskManagerHome({ name }: { name: string }) {
         <BoardCard />
       </div>
 
-      {/* Sprint 4 D2 Atomic 5 · 风险闭环 CTA */}
+      {/* Sprint 4 D1 Atomic 5 加的 CrossAgentWorkflowCard 删 (PM 5/7 反馈) */}
+      {/* DELETED · keep block to preserve hook ordering · CrossAgentWorkflowCard 不再渲染
       <CrossAgentWorkflowCard
         title="DSL → 回测 → 预警监控 闭环"
         steps={[
@@ -365,6 +343,7 @@ function RiskManagerHome({ name }: { name: string }) {
           { agentSlug: "credit", label: "3. 联动授信 (Agent3)" },
         ]}
       />
+      */}
 
       <PriorityQueue />
       <FeedCard />
