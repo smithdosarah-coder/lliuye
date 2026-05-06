@@ -34,6 +34,7 @@ import {
   type CSSProperties,
   type ChangeEvent,
 } from "react";
+import { useAuthStore } from "@/lib/store";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
@@ -1562,9 +1563,12 @@ function ConversationMsg({ m }: { m: ConversationMessage }) {
   }
   if (m.kind === "user-reply" || m.kind === "user-command") {
     const isCmd = m.kind === "user-command";
+    /* PM bug #3 · P1 · 改 useAuthStore 动态 · 不 hardcode 王哲 */
+    const u = useAuthStore.getState().currentUser;
+    const userSubtitle = u ? `${u.team} · ${u.name}` : "未登录";
     return (
       <div className="rpt-msg rpt-msg--user" data-cmd={isCmd ? "yes" : "no"}>
-        <MessagePinHandle {...msgPinProps(m, isCmd ? "客户经理 · /command" : "客户经理 · 王哲")} />
+        <MessagePinHandle {...msgPinProps(m, isCmd ? `${userSubtitle} · /command` : userSubtitle)} />
         <div className="rpt-msg__head">
           <span className="rpt-msg__who">{isCmd ? "指令" : "我"}</span>
           <span className="rpt-msg__at">{m.at}</span>

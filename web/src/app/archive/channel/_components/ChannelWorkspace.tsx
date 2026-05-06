@@ -13,6 +13,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
+import { useAuthStore } from "@/lib/store";
+import { ModePill } from "@/components/shared/ModePill";
 import { CARD_PIN_MIME } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
@@ -407,7 +409,7 @@ export default function ChannelWorkspace() {
           </button>
         </div>
       ) : null}
-      <ChannelHero sessionData={s} topSim={topSim} />
+      <ChannelHero sessionData={s} topSim={topSim} isLive={isLive} />
       {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
       <KbUploadStrip
         kbIds={kbIds}
@@ -527,9 +529,11 @@ export default function ChannelWorkspace() {
 function ChannelHero({
   sessionData,
   topSim,
+  isLive,
 }: {
   sessionData: ChannelSession;
   topSim: number;
+  isLive: boolean;
 }) {
   const s = sessionData;
   return (
@@ -547,10 +551,14 @@ function ChannelHero({
           </div>
         </div>
       </div>
-      <div className="rpt-hero-stats">
-        <Stat label="本周处理" value={CHANNEL_GLOBAL_STATS.weeklyProcessed} />
-        <Stat label="命中率" value={CHANNEL_GLOBAL_STATS.hitRate} />
-        <Stat label="平均时长" value={CHANNEL_GLOBAL_STATS.avgDuration} />
+      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致性 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <ModePill isLive={isLive} testId="channel-mode-pill" />
+        <div className="rpt-hero-stats">
+          <Stat label="本周处理" value={CHANNEL_GLOBAL_STATS.weeklyProcessed} />
+          <Stat label="命中率" value={CHANNEL_GLOBAL_STATS.hitRate} />
+          <Stat label="平均时长" value={CHANNEL_GLOBAL_STATS.avgDuration} />
+        </div>
       </div>
     </header>
   );
@@ -926,12 +934,25 @@ function AiThinkingMsg({ msg }: { msg: ConversationMessage }) {
   );
 }
 
+/* PM bug #3 · P1 · conversation hardcode '王' / '王哲' 改 currentUser 动态
+   per useAuthStore · 切李华登录显李华 · 切周敏显周敏 · 不再固定 */
+function _useUserAvatar(): { avatar: string; name: string; subtitle: string } {
+  const u = useAuthStore((s) => s.currentUser);
+  if (!u) return { avatar: "?", name: "未登录", subtitle: "未登录用户" };
+  return {
+    avatar: u.avatar || u.name.slice(0, 1),
+    name: u.name,
+    subtitle: `${u.team} · ${u.name}`,
+  };
+}
+
 function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
+  const { avatar, subtitle } = _useUserAvatar();
   return (
     <li className="rpt-msg rpt-msg--user wc-msg wc-msg--user">
-      <MessagePinHandle {...msgPinProps(msg, "客户经理 · 王哲")} />
+      <MessagePinHandle {...msgPinProps(msg, subtitle)} />
       <div className="wc-msg-bubble wc-msg-bubble--user">{msg.content}</div>
-      <div className="wc-msg-avatar wc-msg-avatar--user" aria-hidden>王</div>
+      <div className="wc-msg-avatar wc-msg-avatar--user" aria-hidden>{avatar}</div>
       <div className="wc-msg-foot wc-msg-foot--user">
         <span className="wc-msg-at">{msg.at}</span>
       </div>
@@ -940,13 +961,14 @@ function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
 }
 
 function UserCommandMsg({ msg }: { msg: ConversationMessage }) {
+  const { avatar, subtitle } = _useUserAvatar();
   return (
     <li className="rpt-msg rpt-msg--user rpt-msg--cmd wc-msg wc-msg--user">
-      <MessagePinHandle {...msgPinProps(msg, "客户经理 · /command")} />
+      <MessagePinHandle {...msgPinProps(msg, `${subtitle} · /command`)} />
       <div className="wc-msg-bubble wc-msg-bubble--user wc-msg-bubble--cmd">
         <code>{msg.content}</code>
       </div>
-      <div className="wc-msg-avatar wc-msg-avatar--user" aria-hidden>王</div>
+      <div className="wc-msg-avatar wc-msg-avatar--user" aria-hidden>{avatar}</div>
       <div className="wc-msg-foot wc-msg-foot--user">
         <span className="wc-msg-at">{msg.at}</span>
       </div>

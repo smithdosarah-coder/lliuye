@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
+import { useAuthStore } from "@/lib/store";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
@@ -1225,18 +1226,23 @@ function AiThinkingMsg({ msg }: { msg: ConversationMessage }) {
 }
 
 function UserReplyMsg({ msg }: { msg: ConversationMessage }) {
+  /* PM bug #3 · P1 · 改 useAuthStore 动态 user */
+  const u = useAuthStore((s) => s.currentUser);
+  const userName = u?.name ?? "未登录";
+  const userTeam = u?.team ?? "—";
+  const userAvatar = u?.avatar || userName.slice(0, 1);
   return (
     <li className="rpt-msg rpt-msg--user">
-      <MessagePinHandle {...msgPinProps(msg, "王哲")} />
+      <MessagePinHandle {...msgPinProps(msg, userName)} />
       <div className="rpt-msg-body rpt-msg-body--user">
         <div className="rpt-msg-meta rpt-msg-meta--user">
           <span className="rpt-msg-at">{msg.at}</span>
-          <span className="rpt-msg-who">客户经理 · 王哲</span>
+          <span className="rpt-msg-who">{userTeam} · {userName}</span>
         </div>
         <div className="rpt-msg-card rpt-msg-card--user">{msg.content}</div>
       </div>
       <div className="rpt-msg-avatar rpt-msg-avatar--user" aria-hidden>
-        王
+        {userAvatar}
       </div>
     </li>
   );
