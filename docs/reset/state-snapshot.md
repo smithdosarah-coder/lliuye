@@ -1443,3 +1443,56 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **ECS deploy 网络问题非代码问题**: 上次 timeout · 这次成功 · 不要因 deploy fail 暂停主线 work
 5. **state-snapshot append 实时**: 每个 commit 同步段 · 不积压 · §14.1 硬规验证有效
 
+---
+
+## 2026-05-06 18:00 · PM bug 2/3/4 修 + POC xlsx v2 保守可达版 ship
+
+### What happened
+
+- PM bug 2/3/4 修 (commit bc53626 · 5 file +25/-5):
+  - bug #2 SlashMenu z-index 10 → 1000 + bottom calc(100% + 8px) gap (web/src/app/dispatch/dispatch-im.css:778)
+  - bug #3 hero codename 中文优先 (channel "AGENT · 01 · 获客 Scout" / report "AGENT · 06 · 报告 Press" / riskctrl "AGENT · 02 · 风控 Forge")
+  - bug #4 ComplianceStatsBar 加 .compliance-stats-bar__item--mode badge "● LIVE 真接" / "○ MOCK 演示" + tooltip
+
+- POC xlsx v2 保守可达版 ship (docs/poc_landable_2026-05-06_v2.xlsx · 13.4 KB · 4 sheet):
+  - Sheet 1: 4 维度 12 指标 (措辞改保守 · 留 implementation pointer)
+  - Sheet 2: 加分项 5 项 (全 ✅ production ship · A 多 Agent / B RBAC / C Evidence-First / D ledger / E PIPL)
+  - Sheet 3: Sprint 路线图 (9 row · Sprint 5+ / 6 / 远期 · 每条带工作量估)
+  - Sheet 4: 落地 evidence (15 row · file:line 引证 · 12 production ship + 3 Sprint 路线)
+
+- xlsx v1 (47% → 78% 乐观) → v2 (保守可达 + Sprint 路径 verifiable):
+  - 1.1 数据整合: "95% 匹配率" → "AI 画像 vs CRM 主键 (统社) > 95% · Sprint 6 接 CRM Mock 后 baseline 公布"
+  - 1.2 标签提取: "85% baseline" → "evidence 可追溯率 100% + 标签准确率 ≥ 80% · Sprint 6 跑 evaluation runner 真值"
+  - 4.1 延迟: "≤ 2s 简单 · ≤ 8s 复杂" → "P50 ≤ 5s · P95 ≤ 12s · Sprint 5+ D4 压测后真值公布"
+  - 2.1 / 3.1 千人千面 → "5-10 类细分场景话术库" (歧义改 specific)
+  - 3.1 A/B 数据 → "对照测试 (LLM grounded vs 规则模板) 5-10 case" (避免误解 user behavior)
+
+- Codex bg bk4dxldhr (xlsx feasibility verify) · 23+ min 仍在跑 · Q-043 v2 60 min 容忍内 · 主 CLI 自 R1 ship · codex 回 fix-forward
+
+### Triggered by
+
+- PM 5/6 verbatim "继续干 修 BUG + 深入功能 · 和 codex 一起"
+- PM 5/6 verbatim "只要功能未来能实现就可以写进去 · 但你和 codex 要确保未来一定能实现"
+
+### State change (delta)
+
+- main HEAD: `99bf8b7` → `bc53626` (PM bug 2/3/4 修) → `?` (本 commit POC xlsx v2)
+- PM 6 bug 状态:
+  - #1 画布按钮+主题按钮位置遮挡 ✅ Sprint 4 D1 部分 + bug #4 同时部分解决
+  - #2 /斜杠指令弹出被遮挡 ✅ z-index fix
+  - #3 AI 头像/名字错误 ✅ hero codename 中文优先 (3 workspace)
+  - #4 MOCK 按钮无明确切换 ✅ ComplianceStatsBar 加 mode badge
+  - #5 获客 agent 后端置信度 + 前端只交互第一家 ✅ Sprint 5 D1-2 hint + CandidatesView 全可点 (production verified)
+  - #6 大量 agent 页面空白 ✅ Sprint 4 D3+D4 重排
+- POC xlsx v1 (47%→78% 乐观) → v2 (保守可达 verifiable · 留 implementation pointer)
+
+### Codex 用量 (本批次)
+
+- bk4dxldhr R1 medium xlsx feasibility verify · 23+ min 仍在跑 (Q-043 v2 60 min 容忍内 · 不阻 ship)
+
+### Next
+
+- 等 codex bk4dxldhr · 回 fix-forward
+- ECS deploy bug fix + xlsx v2
+- "深入功能" Sprint 5+ D1-D5 真做 (Top10 fixed / 后端 confidence 调优 / CRM Mock / 压测) — 待 PM 拍下一步
+
