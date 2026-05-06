@@ -1195,3 +1195,72 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 - **3 轮辩论闸 + Codex bg review 闸**: B7 PREP V1 NEEDS-FIX 3 issue 全 catch · 主 CLI fix-forward · V2 AGREE · 充分体现"双闸救场"
 - **顺序 dependency**: B7 cherry-pick to main 等 B4-channel BE12 ship + merge first (Codex V1 critical issue 1 catch · B7 worktree HEAD 没 personal_insight.py)
 
+---
+
+## 2026-05-05 03:25 · 🎉 Sprint 3 ship to production COMPLETE
+
+### What happened
+
+- 3 轮辩论 R1+R2+R3 converge (我 + codex 同推 merge --no-ff 4 次 + 顺序 + 1 次 batch full build deploy)
+- PM 拍板 GO · 主 CLI 跑完整 deploy 流程 · ~30 min ship 完整 Sprint 3 production
+- Pre-deploy: tag `pre-sprint3-prod-20260505-031721` push origin (rollback 锚)
+- Merge 4 次 (per R3 顺序 dep · B7 引 9479428 在 B4-channel branch · 必先):
+  1. `02b09d0` merge B4-channel V2 (BE1+BE12 真业务 · 12 file / 1861 ins / 33 del)
+  2. `598d3ed` merge B5 sub-PR 2 V3 (row-level/action enforcement + ActionGate wire CreditWorkspace + AlertWorkspace + 5 role TodayContent + alert export 401 fix · 20 file / 1548 ins / 167 del)
+  3. `905d3f2` merge B4-riskctrl V2 (BE6+BE8 全 + ledger production caller · conflict on `agent_riskctrl/tests/test_llm_dsl_gen.py` 1 file 13 region · 主 CLI take theirs + 加 B5 admin cookie + RM 403/401 test)
+  4. `85041f1` merge B7 PREP V2 (BE13 evaluation + runbook + adapter scaffold · 3 file / 947 ins · auto merge no conflict)
+- Post-merge verify: 537 pytest pass (1 fail = pre-existing Tavily 401) · npm tsc 0 error
+- Push origin main (`75a3d71..85041f1`)
+- ECS deploy `bash scripts/deploy_to_ecs.sh` 含 frontend npm build:
+  - lliuye-frontend.service active (restarted 02:24:34 CST = 03:24 PDT)
+  - lliuye-backend.service active (restarted 02:24:34 CST = 03:24 PDT)
+  - nginx 200 OK · cloudflared active
+- External healthcheck: `https://liuye.me/login` HTTP/1.1 200 OK ✅
+
+### Triggered by
+
+- PM 5/5 03:15 verbatim "GO" 拍板 + 之前"和 codex 商量好再给我方案问我" (Q-049 默认双辩论 4 轮 R1+R2+R3)
+- Codex 4 round bg fired (`bixzmt114` R1 medium · `by2h2dqeu` R2/R3 final low · `b2dt7ec0o` B4-riskctrl V2 verify · `bwp6egzd8` B4-channel V2 verify · `b68ntteze` B5 V2 verify · `br51crvh5` B7 V1 review · `b4zbn1o2i` B7 V2 verify · `bj5pklpxh` B5 contract V1 review · 共 ~10 codex bg 充分用 per PM verbatim)
+
+### State change (delta)
+
+- main HEAD: `7a006e7 docs(state-snapshot)` → `85041f1 merge(sprint3): B7 PREP V2` (4 merge commit chain)
+- production: 全 Sprint 3 能力 ship to https://liuye.me/login (4+1 角色权限收窄真 enforce + 6 Agent 后端能力强化 + 评价 baseline)
+- Sprint 3 状态: Day 1-3 → COMPLETE (~3.5h 自 PM 02:00 launch.bat 到 03:25 deploy 完成)
+
+### Sprint 3 production 现在能力 (说人话)
+
+**4+1 角色权限收窄** (Q-052 #8 真 enforce):
+- 王哲 RM 主调 channel/report · 看 credit/alert read-only · 不可调 riskctrl/compliance
+- 前端 ActionGate fallback (CreditWorkspace + AlertWorkspace 真 hide invoke 按钮)
+- 后端 require_action enforce (任何 endpoint 调 401/403)
+- 5 角色 TodayContent 动态 home view (RM/审贷员/合规官/风险经理/admin 各 home block)
+
+**6 Agent 后端能力强化**:
+- Agent1 channel: BE1 candidate_evidence_scorer (4 维度证据链) + BE12 personal_insight (LLM grounded talking_points + PII redact + sanction/PEP local POC)
+- Agent5 compliance: V2-issue-3 endpoint `/api/compliance/policy_diff` 真业务 (4 阶段 SSE)
+- Agent2 riskctrl: BE6 字段字典 + 单位归一 + 互斥/遮蔽 + 双轨指标 (KS/AUC + 通过率/坏账率/利润影响) + BE8 Champion/Challenger + PSI 月度 + 误杀解释 + ledger production caller wired (DSL deploy 决策上链)
+
+**评价 baseline**:
+- B7 BE13 evaluation/agent1_personal_insight.yaml (4 维度: 个人画像 35% / 产品适配 25% / 合规+话术 20% / PII+latency 20%) + adapter scaffold + runbook (V1-V12 ledger checklist · 等 BE12 真业务跑首轮 POC)
+
+### Codex 用量 ⭐ (per PM 5/4 "充分用 codex 额度多")
+
+- 共 ~10 次 codex bg 跑 today: pre-dispatch review × 1 + 4 worker V1 review + 4 worker V2 verify + 1 deploy strategy R1 + 1 R2/R3 final synthesis
+- 双辩论 + 双闸救场: 4 worker 中 3 NEEDS-FIX (B5 V1+V2+V3 / B4-channel V1 / B4-riskctrl V1 / B7 V1) · Codex 全 catch · 主 CLI 或 worker fix-forward · 最终 100% AGREE ship
+- file:line 必 verify (per 5/4 V2-issue-3 教训): Codex catch agent_channel/personal_insight.py 不在 work-B7-final worktree HEAD (B7 PREP V1 critical 1) · 主 CLI verify 后 fix wording
+
+### Next
+
+- PM 操作 (~5 min): 打开 https://liuye.me/login 测 5 角色登录 + 关 4 worker cmd window
+- 主 CLI 自跑: standby cron 5 min 巡逻 (无 worker signal 1 行 alive) · 等 PM 决定下一步
+- 下一步选项 (PM 拍): Sprint 4 (持续提升能力) · 商务推银行 (商务团队负责) · demo 录视频 (客户走访演示) · 休息 (今晚已 ship 完整 Sprint 3)
+
+### 学到了什么 (本次 Sprint 3)
+
+1. **mesh 真并行 ship 时间 vs 主 CLI sequential 自跑**: 真并行 (~3.5h ship) 实际比主 CLI 自跑 (估 4-7h) 快 · 但代价是 PM 切 cmd window × 4 + V2/V3 fix-forward 中间步骤
+2. **3 轮辩论闸 + Codex bg review 闸 真救场**: B7 PREP V1 NEEDS-FIX 3 issue (anchor 不在 worktree + grep guard literal forbidden + 6 vs 8 子项) 全 Codex catch · 主 CLI fix-forward · 没 catch 直接 ship 会 broken
+3. **顺序 dependency**: B7 PREP cherry-pick 等 B4-channel BE12 ship + merge first (Codex 实测 + R1 击中我盲点)
+4. **conflict 实测 vs 估计**: 我估 high overlap on 6 agent api.py · 实测仅 1 conflict on test file (Codex 实测 verify · 击中我盲点)
+5. **PM verbatim "充分用 codex"**: 不省 token · 多用 codex bg review · 多 catch 错 · 银行 prod ship 风险高 · 必走双闸
+
