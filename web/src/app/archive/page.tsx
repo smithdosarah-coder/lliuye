@@ -1,5 +1,4 @@
-import { RbacTileGate } from "@/components/archive/RbacTileGate";
-import { ARCHIVE_TILES } from "@/lib/mock/archive";
+import { ArchiveGrid } from "./ArchiveGrid";
 
 export const metadata = {
   title: "AI 助手 · 乾策 Studio",
@@ -7,9 +6,10 @@ export const metadata = {
 
 /**
  * Archive view · mockup L3270-3351
- * - eyebrow + h1 (你的 agents.) + lede + .archive 3×2 grid
- * - 6 AgentTile, 每 tile <Link> 到 /archive/<key> 既有 workspace
- * - hover card-rise 动画由 views.css .archive .agent nth-child stagger 驱动
+ *
+ * Sprint 4 D2 d (per Codex R1+R2 双辩论 verdict):
+ *   - role-aware tile sort: 当前角色高频 tile 前置
+ *   - 客户端 ArchiveGrid (因 sort 需 useAuthStore role)
  */
 export default function ArchivePage() {
   return (
@@ -31,11 +31,7 @@ export default function ArchivePage() {
         每一位助手是一间独立工作区，有自己的数据、提示词和历史。点击进入，继续之前的工作。
       </p>
 
-      <div className="archive">
-        {ARCHIVE_TILES.map((t) => (
-          <RbacTileGate key={t.key} tile={t} />
-        ))}
-      </div>
+      <ArchiveGrid />
     </div>
   );
 }

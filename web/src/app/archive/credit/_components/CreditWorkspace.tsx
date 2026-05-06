@@ -722,15 +722,8 @@ function DashboardBand(p: {
     <section className="rpt-panel credit-band" aria-label="四维评分仪表盘">
       <div className="credit-band-head">
         <span className="eyebrow">DASHBOARD · 四维评分 × 额度 × 红线</span>
-        <div className="dims">
-          {dims.map((d) => (
-            <span key={d.key} className="dim" title={d.note}>
-              <span className="k">{d.label}</span>
-              <span className="v">{d.score}</span>
-              <span className="w">× {Math.round(d.weight * 100)}%</span>
-            </span>
-          ))}
-        </div>
+        {/* Sprint 4 D1 Atomic 3 (per Codex R1 critical fix · 4/14 PRD verbatim "1 Dashboard"):
+            DELETE radar dims mini list (与 OutputPanel radar tab 重复 · DashboardBand 4 cards 已含 overall) */}
       </div>
       <ol className="credit-band-list">
         {cards.map((c) => (
@@ -811,17 +804,9 @@ function PrimaryProfileHero(p: {
             ))}
           </div>
           <p className="credit-hero__tagline">{p.profile.tagline}</p>
-          <dl className="credit-hero__metrics">
-            {p.radar.map((d) => (
-              <div key={d.key} className="credit-hero__metric">
-                <dt>{d.label}</dt>
-                <dd>
-                  <span className="credit-hero__metric-v">{d.score}</span>
-                  <span className="credit-hero__metric-w">× {Math.round(d.weight * 100)}%</span>
-                </dd>
-              </div>
-            ))}
-          </dl>
+          {/* Sprint 4 D1 Atomic 3 (per Codex R1 critical · PM 报"重复"):
+              DELETE radar mini metrics in Hero left col (与 OutputPanel radar tab + DashboardBand 重复)
+              保留 chips + tagline (banker 上下文) + 右 ScoreRing (唯一 focal point) */}
         </div>
 
         <div className="credit-hero__right">
