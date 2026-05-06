@@ -817,8 +817,20 @@ export default function AlertWorkspace() {
               </aside>
 
               <section className="rpt-col rpt-col--mid">
-                <ConversationPanel msgs={sessionData.conversation} />
-                <AlertComposer />
+                {/* D4 Agent4 minimal · 删 IM (用户路径非聊天 · 是 scan → drill → 处置)
+                    保留扫描进度+预览 · 完整 drill 由下方 AlertDrillDrawer 触发 */}
+                <div
+                  className="alert-mid-summary"
+                  role="status"
+                  data-testid="alert-mid-placeholder"
+                >
+                  <span className="alert-mid-summary__label">扫描进度</span>
+                  <span className="alert-mid-summary__hint">
+                    {sessionData.conversation.length > 0
+                      ? `AI 扫描 · ${sessionData.conversation.length} 条进度记录 · 选中客户查看 drill 详情`
+                      : "等待扫描启动 · 启动后从下方红/黄/绿榜单选中客户查看处置建议"}
+                  </span>
+                </div>
               </section>
 
               <section className="rpt-col rpt-col--right">
