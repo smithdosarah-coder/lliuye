@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { ModePill } from "@/components/shared/ModePill";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
 import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
@@ -521,6 +522,10 @@ export default function CreditWorkspace() {
         onModeChange={setMode}
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
+      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 (credit 用 floating 顶部) */}
+      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 0 8px 0" }}>
+        <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
+      </div>
 
       <PrimaryProfileHero
         profile={session.profile}

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { useAuthStore } from "@/lib/store";
+import { ModePill } from "@/components/shared/ModePill";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
@@ -455,7 +456,7 @@ export function ReportWorkspace() {
         data-mode={mode}
         data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
       >
-        <ReportHero coverPct={coverPct} sessionData={sessionData} />
+        <ReportHero coverPct={coverPct} sessionData={sessionData} isLive={derivedFromLive !== null} />
         <ReportLiveFailBanner
           err={liveFailErr}
           onRetry={() => triggerV16Fill()}
@@ -612,7 +613,7 @@ export function ReportWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ReportHero({ coverPct, sessionData }: { coverPct: number; sessionData: ReportSession }) {
+function ReportHero({ coverPct, sessionData, isLive }: { coverPct: number; sessionData: ReportSession; isLive?: boolean }) {
   const s = sessionData;
   return (
     <header className="rpt-hero">
@@ -630,10 +631,14 @@ function ReportHero({ coverPct, sessionData }: { coverPct: number; sessionData: 
           </div>
         </div>
       </div>
-      <div className="rpt-hero-stats">
-        <Stat label="本周处理" value={REPORT_GLOBAL_STATS.weeklyProcessed} />
-        <Stat label="成功率" value={REPORT_GLOBAL_STATS.successRate} />
-        <Stat label="平均时长" value={REPORT_GLOBAL_STATS.avgDuration} />
+      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <ModePill isLive={isLive ?? false} testId="report-mode-pill" />
+        <div className="rpt-hero-stats">
+          <Stat label="本周处理" value={REPORT_GLOBAL_STATS.weeklyProcessed} />
+          <Stat label="成功率" value={REPORT_GLOBAL_STATS.successRate} />
+          <Stat label="平均时长" value={REPORT_GLOBAL_STATS.avgDuration} />
+        </div>
       </div>
     </header>
   );

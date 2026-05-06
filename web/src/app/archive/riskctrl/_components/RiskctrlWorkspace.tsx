@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
+import { ModePill } from "@/components/shared/ModePill";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { RISKCTRL_EVIDENCE } from "@/components/evidence/fixtures";
@@ -362,7 +363,7 @@ export default function RiskctrlWorkspace() {
         data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
       >
-        <RiskHero sessionData={sessionData} />
+        <RiskHero sessionData={sessionData} isLive={isLive} />
 
         <RiskTriggerBar
           recent={recent}
@@ -640,7 +641,7 @@ function RiskEmptySkeleton() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function RiskHero({ sessionData }: { sessionData: RiskctrlSession }) {
+function RiskHero({ sessionData, isLive }: { sessionData: RiskctrlSession; isLive?: boolean }) {
   const s = sessionData;
   return (
     <header className="rpt-hero">
@@ -652,17 +653,19 @@ function RiskHero({ sessionData }: { sessionData: RiskctrlSession }) {
           <h1 className="rpt-hero-title">
             风控 <em>Forge.</em>
           </h1>
-          {/* 2026-04-23 · 业务逻辑: riskctrl 是策略回测 · 输入是策略诉求 + 样本库 ·
-              不针对单客户 · 触发"样本回测" · CustomerSelector 不适用 */}
           <div className="rpt-hero-sub">
             {s.objective} · {s.stage} · KS {s.ks.ksPeak.toFixed(2)} / 通过 {s.ks.passRate}%
           </div>
         </div>
       </div>
-      <div className="rpt-hero-stats">
-        <Stat label="本周处理" value={RISKCTRL_GLOBAL_STATS.weeklyProcessed} />
-        <Stat label="KS 均值" value={RISKCTRL_GLOBAL_STATS.ksAvg} />
-        <Stat label="平均时长" value={RISKCTRL_GLOBAL_STATS.avgDuration} />
+      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <ModePill isLive={isLive ?? false} testId="riskctrl-mode-pill" />
+        <div className="rpt-hero-stats">
+          <Stat label="本周处理" value={RISKCTRL_GLOBAL_STATS.weeklyProcessed} />
+          <Stat label="KS 均值" value={RISKCTRL_GLOBAL_STATS.ksAvg} />
+          <Stat label="平均时长" value={RISKCTRL_GLOBAL_STATS.avgDuration} />
+        </div>
       </div>
     </header>
   );

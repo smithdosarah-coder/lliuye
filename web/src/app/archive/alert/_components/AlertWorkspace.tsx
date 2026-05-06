@@ -35,6 +35,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useAuthStore } from "@/lib/store";
+import { ModePill } from "@/components/shared/ModePill";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
@@ -790,6 +791,7 @@ export default function AlertWorkspace() {
               onReset={resetScan}
               onExport={handleExportDocx}
               exporting={exporting}
+              isLive={liveData != null}
             />
 
             <ScanProgressStrip phase={phase} steps={steps} stepIdx={stepIdx} />
@@ -934,6 +936,7 @@ function HeroSection(p: {
   onReset: () => void;
   onExport: () => void;
   exporting: boolean;
+  isLive?: boolean;
 }) {
   const isScanning = p.phase === "scanning";
   const isAfter = p.phase === "after";
@@ -942,13 +945,15 @@ function HeroSection(p: {
     <header className="rpt-hero al-hero">
       <div className="rpt-hero__eyebrow">
         <span className="rpt-hero__badge" aria-hidden>◉</span>
-        <span>AGENT · 04 · TOWER</span>
+        <span>AGENT · 04 · TOWER · 贷中预警</span>
         <span className="rpt-hero__sep">·</span>
         <span>贷中预警引擎</span>
         <span className="al-hero__kb" data-phase={p.phase}>
           <span className="al-hero__kb-dot" aria-hidden />
           {p.kbState}
         </span>
+        {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
+        <ModePill isLive={p.isLive ?? false} testId="alert-mode-pill" size="sm" />
       </div>
       <h1 className="rpt-hero__title">{p.objective}</h1>
       <p className="rpt-hero__sub">{p.summary}</p>
