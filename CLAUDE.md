@@ -26,6 +26,40 @@
 
 **反模式**：把 xlsx 甩给 LLM 现场算比率、让 LLM 判定红线是否触发、用 prompt 硬编黑名单规避幻觉。这些在多轮迭代里被证明是循环打补丁。
 
+#### 3.1.1 Cowork (实时型) vs Managed (批处理型) — Agent 运行模式二分 (Q-055 · 2026-05-07 ratify)
+
+**触发原因**: Anthropic 2026-05-05 "Agents for financial services" 公告引入 Cowork/Managed 架构二分 ([anthropic.com/news/finance-agents](https://www.anthropic.com/news/finance-agents)) · 我们 6 Agent 实际混跑两种模式 · 但代码层未显式区分 · 导致 Cowork-only API 对 Managed 任务强 SSE 假装实时 / Managed-only Agent 跑 Cowork 嵌入式无 job_id audit · Q-055 cherry-pick 决议把概念落 doc.
+
+**定义** (per Anthropic 公告 verbatim · KT doc §2.5):
+
+| 模式 | 触发 | 响应 SLA | 持久化 | 典型任务 |
+|---|---|---|---|---|
+| **Cowork (实时型)** | 客户经理 / 审贷员 / RM 主动发起 | < 5s p95 (SSE 流式) | 内存 + TTL (短) | 单笔授信决策 / 单材料填字段 / 单候选搜 |
+| **Managed (批处理型)** | 后台 cron / 事件 (政策发布/客户行为变化) / 批量诉求 | 分钟 ~ 数小时 (job_id + status + retry + artifact) | 本地 JSON / sqlite / ledger 持久化 | 夜间扫 1000 家在贷客户 / 政策矩阵 N 业务 / 50000 行 KS 回测 |
+
+**6 Agent 二分 mapping** (本 SSOT · 任何 worker 改 agent 触发模式必先改本表 + RFC):
+
+| Agent | 模式 | 触发源 | 响应 SLA | 持久化 |
+|---|---|---|---|---|
+| Agent1 获客 | **Cowork** | RM 发起 | < 5s SSE | 内存 + TTL |
+| Agent3 授信 | **Cowork** | 审贷会发起 | < 5s SSE | 内存 + TTL 30min |
+| Agent6 报告 | **Cowork** | RM 发起 | < 30s SSE (材料解析长) | session_store 内存 + TTL |
+| Agent4 预警 | **Managed** | 客户行为变化批量扫 | 夜间跑批 N 客户 | 本地 JSON + decision_ledger |
+| Agent5 合规 | **Managed** | 政策发布事件批量扫 | 夜间跑批 N 业务 | 本地 JSON + decision_ledger |
+| Agent2 风控 | **Managed** | 策略诉求 + 历史样本回测 | 单次 ≥ 1 min (50000 行 KS · §3.7.1) | session 无 (回测一次性 · artifact 落 docx/xlsx/pdf) |
+
+**硬线**:
+- **Cowork agent 不可跑超 5s SLA 的任务** — 超时即拆 Managed pipeline (job_id + 后台跑 + 通知前端) · 不在 SSE 内强等
+- **Managed agent 不可强 SSE 假装实时** — 用 job_id + 前端 poll 或 webhook · SSE 仅 status update 不传业务结果
+- **跨 mode 调用走 job_runtime 或 SkillInvocation** (Phase D 起 · 当前 Phase C 不强制 · 但新代码不允许直 in-process call 跨 mode agent)
+
+**反模式**:
+- ❌ Agent2 用 SSE 假装实时回测 (50000 行 KS 计算 ≥ 1 min · 客户经理白等 + SSE 超时断连)
+- ❌ Agent4/5 强制夜间扫挂 SSE (前端已断 · 无人看 · 浪费连接)
+- ❌ Cowork agent 内嵌 Managed long-task (用 `asyncio.create_task` 假后台 · 进程重启即丢 · 没 audit/retry)
+
+**回写来源**: Q-055 cherry-pick a 件 (KT doc §3.1 #1 + §2.5 verbatim) · PM 2026-05-07 (PM2) ratify "按你的步骤执行"
+
 ### 3.2 MCP 按业务域拆分工具
 
 每个 Agent 内部工具按业务子域组织，不要扁平堆叠；命名统一 `<域名>_<动作>`：
@@ -188,6 +222,30 @@ Phase A worker-A2（2026-04-29）落地：6 Agent 任何 LLM 调用走 `shared/l
 - **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断 (改 retention default · 改 jurisdiction enum · 删 subject_id hash · 加 plain-PII 字段都需 PM 审批)
 - **失败隔离**: ledger 写入失败 silent-fail · decision flow 不破 (per Agent3 BE2 wrapper try/except 模式) · ledger 是观察层不是阻塞层
 - **回写来源**: 本 sprint Phase B-3 BE7 · `feat/phase-b4-credit-be7` 分支
+
+#### 3.7.6 禁止 `api_server.py` 纯搬家式拆分 (Q-055 · 2026-05-07 ratify)
+
+- **规则简述**: `api_server.py` 现 ~965 行 · 直接拆 6 个独立 module **不被允许** · 单纯按 agent 切片 = 搬代码 · 职责仍混乱 ("政治正确的事故现场重组" · KT doc §8 红线 6 verbatim). 拆分必须**配合下游边界一起做** · 单独拆收益负 (review 阻断 · diff 审难 · 回归不可控)
+- **位置**: `api_server.py` (路由总线 · 6 Agent 端点 + 健康检查 + lineage + metrics + decision review + report inject 混合 · 详 HANDOFF 2026-05-07 §13)
+- **何时可拆 (任一满足即可启)**:
+  · `shared/job_runtime/` 落地 (Phase D · per §3.1.1 Cowork→Managed 长任务边界) → 把 long-running endpoint 抽到独立 module (走 job_id + status + retry + artifact)
+  · `shared/skills/` SkillInvocation pilot 落地 (Phase D · 跨 Agent capability 边界) → 跨 Agent 调用拆到 SkillRegistry
+  · 静态 endpoint (健康检查 / lineage 查询 / metrics) **可独立拆**但**收益低** · 不优先 · 仅作 cleanup
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断
+- **反模式**: 任何 PR / worker 单纯按 "拆 api_server.py 让每文件 < 200 行" 的纯搬家拆分 · 主 CLI 直接 REJECT-V2 · 视作未读本红线
+- **回写来源**: Q-055 cherry-pick d 件 (KT doc §8 红线 6 verbatim) · PM 2026-05-07 (PM2) ratify "按你的步骤执行"
+
+#### 3.7.7 禁止 Prompt SSOT big-bang 切换 · 必分阶段灰度 (Q-055 · 2026-05-07 ratify)
+
+- **规则简述**: 6 Agent system prompt 从现 inline `SYSTEM_*` 常量切到 `shared/prompts/contract.py:build_system_prompt(agent_id, ...)` 必须**渐进式落地** (flag + canary + evaluation gate) · 一次性切 6 Agent **不被允许** · 回归不可控 · 没有 fallback 路径
+- **三阶段验收硬线**:
+  · **Phase 1 (W1-W2)**: SSOT helper + few-shot 链路合入 · `LIUYE_SSOT_PROMPT_FLAG` env flag **off** (默认) · 旧 `SYSTEM_*` 行为不变 · 验 no behavior diff (`tests/shared/test_ssot_prompts.py` + 6 Agent baseline 跑通)
+  · **Phase 2 (W3-W5)**: `agent_credit` 单 Agent canary 开 flag (低风险路径先行) · 跑 evaluation gate + PII redaction + rollback 验证 · 任何指标退化 → flag off 回退 · 不动其他 5 Agent
+  · **Phase 3 (W5+)**: 6 Agent 分批开 flag · 旧 `SYSTEM_*` 常量标 deprecated · evaluation baseline 全 pass 后删除常量
+- **位置**: `shared/prompts/contract.py` + `agent_*/prompts.py` (各 Agent SYSTEM_* 常量 + helper 调用入口) · 现 PB#1 + PB#2 已落地 [safety][evidence-first][output-schema] 段 + 6 Agent BUILDERS · Phase 2 canary 待启 (Phase D)
+- **谁可放宽**: 仅 PM 显式拍板 + 同 commit `Authorized-By: PM` trailer · 否则 review 阻断 (跳过 Phase 2 canary 直推 6 Agent / 不开 flag 直替 SYSTEM_* / evaluation gate 跳过都需 PM 审批)
+- **反模式**: 任何 PR 一次性 6 Agent SYSTEM_* 全替 → REJECT-V2 · 任何 PR 不带 flag 直替 → REJECT-V2 · 任何 worker 跳过 evaluation gate 直推 production → 主 CLI stop the line
+- **回写来源**: Q-055 cherry-pick d 件 (KT doc §8 红线 7 verbatim) · PM 2026-05-07 (PM2) ratify "按你的步骤执行"
 
 ## 4. 6 Agent 功能边界（不可跨界）
 
