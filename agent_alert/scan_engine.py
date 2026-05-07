@@ -254,10 +254,14 @@ def _llm_disposition(hit: dict, llm_caller) -> str:
     reasons = hit.get("reasons", [])
     evidences = hit.get("evidences", [])
 
-    system = (
-        "你是银行贷中风险管理专家。"
-        "根据预警命中信息，给客户经理一段 80-150 字的处置建议。"
-        "必须基于输入的命中规则和证据 · 不允许编造数字 · 用「立即/一周内/持续关注」分级。"
+    from shared.prompts.agent_helpers import build_alert_ssot_prompt
+
+    system = build_alert_ssot_prompt(
+        task_type="disposition",
+        schema_hint=(
+            "处置建议自然语言 80-150 字 · 必含'立即/一周内/持续关注'分级 + 责任方 + 时限 · "
+            "禁编造数字 · 必引用输入的命中规则与证据"
+        ),
     )
     user = (
         f"【客户】{company_name}\n"
