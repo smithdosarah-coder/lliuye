@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { ModePill } from "@/components/shared/ModePill";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { RISKCTRL_EVIDENCE } from "@/components/evidence/fixtures";
@@ -155,6 +157,8 @@ export default function RiskctrlWorkspace() {
     RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
 
   const isLive = liveData !== null;
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
 
   /* 3 CTA 触发分支 + 既有 trigger/recent/preset 选择 state */
   const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
@@ -241,10 +245,14 @@ export default function RiskctrlWorkspace() {
       if (ac.signal.aborted) return;
       if (result?.ruleset_id) setRulesetId(result.ruleset_id);
       if (result?.ruleset) setLastRuleset(result.ruleset);
+      /* 件 #2 · data_source SSOT 真消费 · dsl_gen done envelope (per riskctrl.ts T2 enum) */
+      if (result?.data_source) setCurrentDataSource(normalizeDataSource(result.data_source));
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail("DSL 生成", e, () => triggerDslGen(text));
       setScanError(e instanceof Error ? e.message : String(e));
+      /* 件 #2 · live 失败 → trust model 一级降级 */
+      setCurrentDataSource("mock_fallback");
     } finally {
       if (!ac.signal.aborted) setScanRunning(false);
     }
@@ -306,11 +314,15 @@ export default function RiskctrlWorkspace() {
           RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
         const merged = mergeBacktestIntoSession(base, result);
         setLiveData(merged);
+        /* 件 #2 · data_source SSOT 真消费 · backtest done envelope 5 enum (per riskctrl.ts T2) */
+        setCurrentDataSource(normalizeDataSource(result.data_source));
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail("样本回测", e, () => triggerBacktest());
       setScanError(e instanceof Error ? e.message : String(e));
+      /* 件 #2 · live 失败 → trust model 一级降级 */
+      setCurrentDataSource("mock_fallback");
     } finally {
       if (!ac.signal.aborted) setScanRunning(false);
     }
@@ -379,7 +391,7 @@ export default function RiskctrlWorkspace() {
         data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
       >
-        <RiskHero sessionData={sessionData} isLive={isLive} />
+        <RiskHero sessionData={sessionData} isLive={isLive} dataSourceKind={currentDataSource} />
 
         <RiskTriggerBar
           recent={recent}
@@ -657,7 +669,12 @@ function RiskEmptySkeleton() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function RiskHero({ sessionData, isLive }: { sessionData: RiskctrlSession; isLive?: boolean }) {
+function RiskHero({ sessionData, isLive, dataSourceKind }: {
+  sessionData: RiskctrlSession;
+  isLive?: boolean;
+  /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
+  dataSourceKind?: DataSourceKind;
+}) {
   const s = sessionData;
   return (
     <header className="rpt-hero">
@@ -675,8 +692,12 @@ function RiskHero({ sessionData, isLive }: { sessionData: RiskctrlSession; isLiv
         </div>
       </div>
       {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <ModePill isLive={isLive ?? false} testId="riskctrl-mode-pill" />
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
+        {dataSourceKind && (
+          <DataSourceBadge kind={dataSourceKind} testId="riskctrl-data-source-badge" />
+        )}
         <div className="rpt-hero-stats">
           <Stat label="本周处理" value={RISKCTRL_GLOBAL_STATS.weeklyProcessed} />
           <Stat label="KS 均值" value={RISKCTRL_GLOBAL_STATS.ksAvg} />
