@@ -2977,3 +2977,79 @@ PM 5/7 verbatim "做一个 KT · 你的这个窗口有点久了 · 我要的是�
 
 主 CLI Claude Opus 4.7 · close-out commit `d936dad`
 **回写来源**: PM 2026-05-07 close-out KT 指令
+
+---
+
+## [Q-053] 2026-05-06 · PB#2 prompt governance · Codex 7 守则 + 越权 4 判定 freeze
+
+**CLI**: main
+**Priority**: P0
+**Blocking**: yes (PB#2 worker 必读)
+
+### Trigger
+
+PM 5/6 让 Claude + Codex 共读卡兹克两文 (《AIHOT 11 版迭代复盘》2026-05-06 + 《能用脚本就别用 Agent》2026-03-17) · 真双辩论 (PM 5/7 verbatim 定义: 双方独立思考 → 互看 → discuss × 3) · 给完整借鉴方案。
+
+### 真双辩论收敛
+
+- **Claude R1** (independent lock): 三层金字塔 + H/I/G + B/D/F 6 件 · self-review devil's advocate 后压到 R2 仅 2 件 (PB#2 顺手做 + B 续命)
+- **Codex R1** (sub-agent + codex skill 真独立 · gpt-5.3-codex + low · 87s · 4019 chars): 6 件优先级表 + PB#2 7 守则 + §3.1 兼容升级 + 越权 4 判定 + 不可照搬 3 条
+- **R2 reconcile**: 5 共识 + 4 真分歧 → 收敛
+
+### Decision (4 项)
+
+1. **PB#2 工期 1d → 1.5d 一次过** (合并 SSOT inject + Codex 7 守则 + 越权 4 判定 audit · 不分 sprint)
+   - 不延后 Phase C critical path · PB#3 (0.5d) → PB#4 (1d) → PB#5 (1-2d) 接续
+2. **新建 `docs/contracts/pb2-prompt-governance.md`** (Tier 1 contract · 本 Q ratify · PB#2 worker 必读)
+3. **§3.1 不动 root SSOT during Phase C** · Phase D 启时新建 `docs/contracts/three-layer-pyramid.md` (Codex 兼容路径) · 不进 root CLAUDE.md
+4. **续命 6 件已排序** (见下表 · 等 PB#2-#5 ship 完启)
+
+### 续命 6 件优先级 (PM ratify)
+
+| # | 项 | 优先级 | 工期 | 时机 |
+|---|---|---|---|---|
+| 1 | PB#2 内嵌 Codex 7 守则 + 越权 4 判定 audit | 🔴 | +0.5d (1.5d 总) | 立即 |
+| 2 | 预筛分层 cheap→expensive (改 `shared/llm_caller/retry.py`) | 🔴 | 1.5-2d | PB ship 后 #1 |
+| 3 | Agent6 内部材料去重 embedding 聚类 (限 Agent6 · Agent4/5 不做) | 🟡 | 1d | PB#3 ship 后 |
+| 4 | 回测扩 50+ case + precision/recall metric | 🟡 | 1d | PB#5 ship 后 |
+| 5 | `docs/contracts/three-layer-pyramid.md` 新建 (Tier 1) | 🟢 | 0.5d | Phase D 启 |
+| 6 | Codex 7 守则 + 越权 4 判定写 onboarding | 🟢 | 0.25d | Phase D |
+
+### 真分歧 reconcile (供未来 worker 理解)
+
+| 分歧 | Codex | Claude | R2 收敛 |
+|---|---|---|---|
+| 决策权集中 vs 散布 | 新建 `decision_engine.py` `policy_thresholds.py` | 现有 `quality_scorer.py` `truth_fill.py` 已分担 | 保 Claude · 阈值 per agent by design · audit 看现状 · 漏的补 |
+| §3.1 是否动 SSOT | 概率性内加 skill 子层 + 适配器 | 不动 §3.1 root SSOT during Phase C | 混合 · 新建 contract doc · 不进 root |
+| PB#2 守则优先级 | 🟢 (治理后做) | 🔴 (PB#2 安全网) | 接 Codex 内容 + 接 Claude 时机 (合 PB#2 不延后) |
+| 事件聚类范围 | 🔴 6 Agent | 🟢 (Agent4/5 重复率低) | 🟡 限 Agent6 内部材料 |
+
+### Codex audit path 校正 (sub-agent flag)
+
+Codex R1 推荐 path `agents/agent6_v16/*` `shared/quality_scorer.py` `shared/policy_thresholds.py(新)` 等 — **实际仓库结构**: `v16_*.py` 在项目根 · `quality_scorer.py` 在项目根 · 无 `shared/policy_thresholds.py`。落地时 worker 必校正 path · `pb2-prompt-governance.md` §6 references 指向真实路径。
+
+### Meta-lesson (今晚 5 stuck 后)
+
+- ✅ **真双辩论达成** PM 5/7 verbatim 定义 · sub-agent + codex skill 路径首次成功
+- ✅ **Q-043 short prompt + low reasoning** 复验 (3.1k chars + low effort 5-30s 出 vs xhigh + 8k chars stuck 6 min)
+- ✅ **codex skill 标准用法 = 派 sub-agent · 不主 CLI 手搓 bash** (PM 5/6 catch · 已记)
+- ❌ **broad `Get-Process codex` filter 风险** · Windows case-insensitive 抓到大写 `Codex.exe` (OpenAI 桌面 App) · 误杀 8 个 App 进程 · 教训记 memory `feedback_codex_kill_filter.md`
+
+### [A-053] 2026-05-06 · 主 CLI
+
+**Decision**: 全 4 项 ratify · 立即 freeze `pb2-prompt-governance.md` (Tier 1) · PB#2 worker 启动前必读
+
+**Rationale**:
+1. 卡兹克 11 版翻车证明 prompt 加规则陷阱真实存在 · 我们 8 段 SSOT 没安全网 = 重蹈覆辙风险
+2. Codex 7 守则比 Claude 模糊"加规则前问下沉"具体得多 (220 行上限 / 失败样例必带 / 同义合并) · 直接采用
+3. 越权 4 判定标准比 Claude "三层归位"模糊概念可操作 · 直接采用
+4. 不可照搬 3 条 (政策刚性 / cheap 白名单 / 0-LLM 留痕) 是金融场景必叠加 · Codex 加分
+
+**Worker handoff**:
+- PB#2 worker 启动前必读 `docs/contracts/pb2-prompt-governance.md` (Tier 1)
+- PB#2 commit body 必含 `LLM-OVERSTEP: <agent>:<file>:<line>` 列表 (越权 audit 结果) + `PROMPT-LINES: <agent>:<count>` (行数审计)
+- 不通过 review 阻断 · merge 阻断
+
+**回写来源**: 双 AI 真辩论 R1+R2 (Claude opus-4-7 + Codex gpt-5.3-codex) · PM 2026-05-06 ratify 合并 1.5d 一次过
+
+**Author**: 主 CLI Claude Opus 4.7

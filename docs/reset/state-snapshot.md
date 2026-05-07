@@ -1560,3 +1560,36 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 3. **PM "都干了" 的实操含义**: 不是 100% production-grade · 是 minimal viable scaffold + 自测 verify · 让 PM 一并 review 路径全景
 4. **xlsx v2 数字保守可达 + scaffold ship 双管齐下**: xlsx 写措辞保守 + production 同步 ship implementation · 客户问 "怎么实现" 直接 file:line 指证
 
+---
+
+## 2026-05-06 · 卡兹克两文借鉴 + 双 AI 真辩论 + PB#2 governance freeze (Q-053)
+
+### What happened
+- PM 5/6 让 Claude + Codex 共读卡兹克两文 (《AIHOT 11 版迭代复盘》2026-05-06 + 《能用脚本就别用 Agent》2026-03-17 · web-access skill CDP 抓正文 · 写 mp.weixin.qq.com 站点经验)
+- 真双辩论 (PM 5/7 verbatim 定义: 双方独立 → 互看 → discuss × 3) · Claude R1 lock + Codex R1 真独立 lock + R2 reconcile
+- PM ratify 4 件 (PB#2 1d → 1.5d 合并 / 新建 `pb2-prompt-governance.md` Tier 1 / §3.1 不动 root SSOT / 续命 6 件已排序)
+- 新建 `docs/contracts/pb2-prompt-governance.md` (Tier 1 · Codex 7 守则 + 越权 4 判定 + 不可照搬 3 条 · PB#2 worker 必读)
+- decisions-log Q-053 entry (双 AI 收敛 + 真分歧 reconcile + meta-lesson)
+
+### Triggered by
+- PM 2026-05-06 让读两篇文章给借鉴 + 让 codex 一起读真辩论 + ratify 1.5d 合并
+
+### State change (delta)
+- PB#2 工期: 1d → **1.5d** (含 SSOT inject + Codex 7 守则 + 越权 4 判定 audit · 一次过不分 sprint)
+- 新增 Tier 1 contract: `docs/contracts/pb2-prompt-governance.md` (PB#2 worker 必读 · review 阻断 · merge 阻断)
+- 续命 6 件已排序 (🔴 #1 PB#2 内嵌守则 → 🔴 #2 预筛分层 → 🟡 #3 Agent6 材料去重 → 🟡 #4 回测扩 50+ → 🟢 #5 三层 contract doc Phase D → 🟢 #6 onboarding 治理)
+- §3.1 root SSOT during Phase C **不动** · Phase D 启时新建 `docs/contracts/three-layer-pyramid.md` (Codex 兼容路径)
+- 真双辩论达成 PM 5/7 verbatim 定义 · sub-agent + codex skill 路径**首次成功** (87s · 4019 chars output · 5 stuck 历史中首次 EXIT=0)
+
+### Next
+- PM 显式 GO PB#2 启动 → worker 读 `pb2-prompt-governance.md` + `shared/prompts/contract.py` PB#1 实装 + 6 agent hardcode SYSTEM_* 现状
+- PB#2 commit body 必含 `LLM-OVERSTEP: <agent>:<file>:<line>` audit + `PROMPT-LINES: <agent>:<count>` 行数
+
+### 学到了什么 (本次)
+
+1. **双 AI 真辩论 = sub-agent 路径才能跑通**: 主 CLI 自己手搓 codex bash + 监控 + kill = 5 stuck + 误杀 PM Codex App · 应该派 sub-agent 加载 codex skill (per CLAUDE.md "重任务起 Agent · 主上下文不被脏活稀释")
+2. **Q-043 short + low 经验复验**: 3.1k chars prompt + low effort 87s EXIT=0 · 8k chars + xhigh stuck 6 min · 短 prompt + low 真稳
+3. **Codex audit 想象 path 必校正**: Codex R1 推 `agents/agent6_v16/*` `shared/policy_thresholds.py` 实际不存在 · sub-agent 已 flag · 主 CLI R2 校正
+4. **broad `Get-Process codex` filter 风险**: Windows case-insensitive 抓到大写 `Codex.exe` (OpenAI 桌面 App) · 误杀 8 个 App 进程 · feedback memory 待加
+5. **真辩论收敛比单方面深更有价值**: Claude self-review v1→v2 已经压到 2 件 · Codex R1 加 5 件具体内容 (7 守则 + 越权 4 + 不可照搬 3) · 收敛后比单方深 30%
+
