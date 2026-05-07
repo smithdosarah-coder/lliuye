@@ -142,7 +142,7 @@ async def riskctrl_dsl_gen(
     def gen():
         # Imports moved inside generator to keep error path SSE-friendly
         try:
-            from agent_riskctrl.prompts import SYSTEM_RULE_PARSER
+            from shared.prompts.agent_helpers import build_riskctrl_ssot_prompt
             from agent_riskctrl.rule_engine import parse_natural_language_rules
         except (ImportError, ModuleNotFoundError) as e:
             yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
@@ -204,7 +204,15 @@ async def riskctrl_dsl_gen(
             )
             yield encode_event(make_stage("build_prompt", "done"))
             yield encode_event(make_stage("call_llm", "running", message="调 LLM 生成 DSL..."))
-            llm_json = caller(SYSTEM_RULE_PARSER, user_prompt)
+            system_prompt = build_riskctrl_ssot_prompt(
+                task_type="rule_parse",
+                schema_hint=(
+                    '{"rules": [{"rule_id", "name", "description", '
+                    '"conditions": [{"field", "operator", "value"}], '
+                    '"action": "approve/reject/manual_review", "priority": int}], "description"}'
+                ),
+            )
+            llm_json = caller(system_prompt, user_prompt)
         except (RuntimeError, ValueError, TypeError, OSError, KeyError, ImportError) as e:
             yield encode_event(make_error_from_exception(e, code="LLM_CALL_FAILED"))
             return

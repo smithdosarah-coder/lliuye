@@ -1,90 +1,22 @@
 # -*- coding: utf-8 -*-
 """风控策略运营 Agent — 提示词模板
 
-三组提示词分别对应三大核心能力：
-1. 自然语言 -> 结构化规则
-2. 回测结果分析
-3. 差错案件分析
+PB#2 (2026-05-06 · Q-053) 后:
+- system prompt 走 shared.prompts.agent_helpers.build_riskctrl_ssot_prompt
+- 旧 3 个 hardcode SYSTEM_* 常量已删除:
+  · SYSTEM_RULE_PARSER (规则解析 · 已迁 helper task_type="rule_parse")
+  · SYSTEM_BACKTEST_ANALYSIS (回测分析 · 已迁 helper task_type="backtest_analysis")
+  · SYSTEM_ERROR_ANALYSIS (差错分析 · 已迁 helper task_type="error_analysis")
+- LLM call site 全部走 helper:
+  · agent.py:115 (rule_parse via llm_json)
+  · agent.py:192 (rule_parse · 复用)
+  · agent.py:230 (backtest_analysis via llm_chat)
+  · agent.py:277 (error_analysis via llm_chat)
+  · api.py:207 (rule_parse via shared.llm_caller)
+
+fix-forward (留 PB#2 ship 后续命 commit):
+- llm_judge.py:47 INTERP_SYSTEM_PROMPT (Agent2 内部 const · 不在 prompts.py · 但应接 helper)
+
+后续 user prompt template 若需添加 · 添加在本 module · system 仍走 helper.
 """
-
-# ---------------------------------------------------------------------------
-# 1. 将自然语言策略意图转为结构化规则
-# ---------------------------------------------------------------------------
-SYSTEM_RULE_PARSER = """你是一名资深银行风控策略专家，擅长将业务人员的自然语言策略描述转换为结构化规则。
-
-## 输出格式要求
-严格以JSON格式输出，schema如下：
-{
-  "rules": [
-    {
-      "rule_id": "R001",
-      "name": "规则名称（简短）",
-      "description": "规则的业务含义说明",
-      "conditions": [
-        {
-          "field": "字段名（与CSV列名对应）",
-          "operator": "比较操作符，可选: >, <, >=, <=, ==, !=, in, not_in",
-          "value": "比较值（数字直接写数字，字符串写字符串，in/not_in用列表）"
-        }
-      ],
-      "action": "触发动作，可选: approve / reject / manual_review",
-      "priority": 优先级数字（1最高）
-    }
-  ],
-  "description": "对整体策略的简要描述"
-}
-
-## 规则设计原则
-1. 字段名应尽量与常见授信数据列名对应（如：注册资本、成立年限、营业收入、负债率、逾期天数等）
-2. 每条规则的conditions之间是AND关系（全部满足才触发）
-3. 多条规则之间按priority从高到低依次匹配，命中即停
-4. action含义：reject=拒绝授信, approve=通过授信, manual_review=转人工审查
-5. 规则应可量化、可执行，避免模糊表述
-
-请仅输出JSON，不要其他文字。用```json```包裹。"""
-
-
-# ---------------------------------------------------------------------------
-# 2. 回测结果分析
-# ---------------------------------------------------------------------------
-SYSTEM_BACKTEST_ANALYSIS = """你是一名风控策略回测分析专家。根据给定的回测结果数据，进行专业的策略效果分析。
-
-## 分析要求
-请从以下维度进行分析：
-
-1. **通过率分析**：审批通过率、拒绝率、人工审查率是否合理
-2. **规则命中分析**：各规则的命中率分布，是否存在冗余规则或过于宽松的规则
-3. **策略覆盖度**：是否存在漏网之鱼（策略盲区）
-4. **指标解读**：如有KS、PSI、精确率/召回率等指标，给出专业解读
-5. **优化建议**：具体的阈值调整建议或新规则建议
-
-## 输出格式
-请用结构化的Markdown格式输出分析报告，包含标题、小结、表格等。"""
-
-
-# ---------------------------------------------------------------------------
-# 3. 差错案件分析
-# ---------------------------------------------------------------------------
-SYSTEM_ERROR_ANALYSIS = """你是一名信贷差错案件分析专家。分析风控策略的误杀（好客户被拒绝）和漏杀（坏客户被放行）案例。
-
-## 分析要求
-
-1. **误杀案例分析**（False Positive）：
-   - 统计误杀数量和占比
-   - 分析被误杀客户的共性特征
-   - 找出导致误杀的具体规则
-   - 提出阈值放宽或条件细化建议
-
-2. **漏杀案例分析**（False Negative）：
-   - 统计漏杀数量和占比
-   - 分析漏杀客户的风险特征
-   - 找出现有规则的盲区
-   - 提出新增规则或收紧阈值的建议
-
-3. **策略优化建议**：
-   - 给出具体的规则调整方案（含阈值数字）
-   - 预估调整后的效果提升
-   - 建议的AB测试方案
-
-## 输出格式
-请用结构化的Markdown格式输出分析报告。"""
+from __future__ import annotations

@@ -21,7 +21,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from shared.base_agent import BaseAgent
-from .prompts import SYSTEM_RULE_PARSER, SYSTEM_BACKTEST_ANALYSIS, SYSTEM_ERROR_ANALYSIS
+from shared.prompts.agent_helpers import build_riskctrl_ssot_prompt
 from .rule_engine import RuleSet, parse_natural_language_rules, apply_ruleset
 from .backtesting import load_csv_data, run_backtest, BacktestResult, _summarize_data
 from .metrics import (
@@ -113,7 +113,15 @@ class RiskControlAgent(BaseAgent):
         yield self._tool_call("llm_parse_rules")
         try:
             llm_result = self.llm_json(
-                system=SYSTEM_RULE_PARSER,
+                system=build_riskctrl_ssot_prompt(
+                    task_type="rule_parse",
+                    schema_hint=(
+                        '{"rules": [{"rule_id": str, "name": str, "description": str, '
+                        '"conditions": [{"field": str, "operator": str (>/</>=/<=/==/!=/in/not_in), '
+                        '"value": any}], "action": "approve/reject/manual_review", "priority": int (1=highest)}], '
+                        '"description": str} · 阈值/字段/动作必精确 · LLM 不下最终决策'
+                    ),
+                ),
                 user=user_prompt,
             )
             if not isinstance(llm_result, dict):
@@ -190,7 +198,15 @@ class RiskControlAgent(BaseAgent):
         yield self._tool_call("llm_generate_rules")
         try:
             llm_result = self.llm_json(
-                system=SYSTEM_RULE_PARSER,
+                system=build_riskctrl_ssot_prompt(
+                    task_type="rule_parse",
+                    schema_hint=(
+                        '{"rules": [{"rule_id": str, "name": str, "description": str, '
+                        '"conditions": [{"field": str, "operator": str (>/</>=/<=/==/!=/in/not_in), '
+                        '"value": any}], "action": "approve/reject/manual_review", "priority": int (1=highest)}], '
+                        '"description": str} · 阈值/字段/动作必精确 · LLM 不下最终决策'
+                    ),
+                ),
                 user=user_prompt,
             )
             if not isinstance(llm_result, dict):
@@ -228,7 +244,13 @@ class RiskControlAgent(BaseAgent):
         yield self._thinking("AI分析回测结果...")
         try:
             analysis = self.llm_chat(
-                system=SYSTEM_BACKTEST_ANALYSIS,
+                system=build_riskctrl_ssot_prompt(
+                    task_type="backtest_analysis",
+                    schema_hint=(
+                        "结构化 markdown 报告 · 5 维度: 通过率/规则命中/策略覆盖度/指标解读/优化建议 · "
+                        "LLM 仅做分析解读 · 阈值调整建议必带具体数字 · KS/PSI/精确率/召回率 数字直接复用输入"
+                    ),
+                ),
                 user=f"回测结果如下：\n\n{bt_report}",
             )
             yield self._message(f"## 回测结果\n\n{bt_report}\n\n## AI分析\n\n{analysis}")
@@ -275,7 +297,13 @@ class RiskControlAgent(BaseAgent):
 
         try:
             analysis = self.llm_chat(
-                system=SYSTEM_ERROR_ANALYSIS,
+                system=build_riskctrl_ssot_prompt(
+                    task_type="error_analysis",
+                    schema_hint=(
+                        "结构化 markdown 报告 · 误杀 (False Positive) + 漏杀 (False Negative) + 优化建议 · "
+                        "调整方案必带具体阈值数字 · 预估效果提升必有数据支撑 · 不臆测"
+                    ),
+                ),
                 user=user_prompt,
             )
             yield self._tool_result("error_analysis", "分析完成")
