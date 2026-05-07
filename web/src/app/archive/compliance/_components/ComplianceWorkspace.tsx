@@ -41,6 +41,8 @@ import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 
 /** 截断消息文本作 pin title · 尾部加 …（与 channel 同构） */
 function msgTitle(raw: string): string {
@@ -264,6 +266,16 @@ export default function ComplianceWorkspace() {
   };
   const [liveFail, setLiveFail] = useState<LiveFail | null>(null);
   const [retryHandler, setRetryHandler] = useState<(() => void) | null>(null);
+
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1):
+       liveFail !== null → mock_fallback (banner-spec rule 1 trust 一级降级)
+       liveData?.data_source 直接消费 (后端 canon 5 enum)
+       no live yet → "mock" (mock dropdown 演示态) */
+  const currentDataSource: DataSourceKind = liveFail
+    ? "mock_fallback"
+    : liveData?.data_source
+      ? normalizeDataSource(liveData.data_source)
+      : "mock";
 
   function recordLiveFail(label: string, err: unknown, retry: () => void): void {
     if (err instanceof LiveFailError) {
@@ -608,6 +620,7 @@ export default function ComplianceWorkspace() {
             view={view}
             onViewChange={setView}
             isLive={isLive}
+            dataSourceKind={currentDataSource}
           />
 
           <div className="rpt-grid">
@@ -1865,6 +1878,8 @@ function ComplianceStatsBar(p: {
   view: ViolationView;
   onViewChange: (v: ViolationView) => void;
   isLive: boolean;
+  /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
+  dataSourceKind?: DataSourceKind;
 }) {
   const total = p.conflicts.length;
   const block = p.conflicts.filter((c) => c.severity === "block").length;
@@ -1882,16 +1897,20 @@ function ComplianceStatsBar(p: {
       data-mode={p.isLive ? "live" : "mock"}
     >
       <div className="compliance-stats-bar__metrics">
-        {/* PM bug #4 fix · MOCK / LIVE 显式 badge · 不再隐式 fallback */}
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
         <div
           className="compliance-stats-bar__item compliance-stats-bar__item--mode"
           data-testid="compli-stats-mode"
           data-mode={p.isLive ? "live" : "mock"}
-          title={p.isLive ? "LIVE · 真后端 SSE 数据" : "MOCK · 演示数据 · 不联后端"}
+          data-source={p.dataSourceKind ?? ""}
         >
           <span className="compliance-stats-bar__label">数据来源</span>
           <span className="compliance-stats-bar__value">
-            {p.isLive ? "● LIVE 真接" : "○ MOCK 演示"}
+            {p.dataSourceKind ? (
+              <DataSourceBadge kind={p.dataSourceKind} testId="compli-data-source-badge" size="sm" />
+            ) : (
+              p.isLive ? "● LIVE 真接" : "○ MOCK 演示"
+            )}
           </span>
         </div>
         <div className="compliance-stats-bar__item" data-testid="compli-stats-total">
