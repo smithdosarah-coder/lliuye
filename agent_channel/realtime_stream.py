@@ -1159,6 +1159,9 @@ def _build_final_output(
             "geo": extras["geo"],
             "scale": extras["scale"],
             "similarity": extras["similarity"],
+            # Q-054 B1 · 第 5 维度 signal_density 0-1 (近 90 天动态信号密度 · LLM+静态)
+            "signal_density": extras["signal_density"],
+            "signal_density_reason": extras["signal_density_reason"],
             # 8 维 radar (per-candidate · 与全局 radar 不同 · 给候选 detail drawer 用)
             "radar_8axis": extras["radar_8axis"],
             # PRD v2 "为什么像" + Top3 产品 + 话术 (struct)

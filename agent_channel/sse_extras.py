@@ -623,12 +623,15 @@ def enrich_candidate(
 ) -> dict:
     """主入口 · 在 ``_build_final_output`` 内每候选调一次。
 
-    返回 dict 含 B.5 全部新字段:
-      ``industry / geo / scale / similarity / radar_8axis /
-       match_dimensions / product_recommendations / pitch_scripts``
+    返回 dict 含 B.5 全部新字段 + Q-054 第 5 维度 signal_density:
+      ``industry / geo / scale / similarity`` (Q-041 4 字段)
+      ``signal_density / signal_density_reason``  (Q-054 第 5 维度 · 0-1 + 降级原因)
+      ``radar_8axis / match_dimensions / product_recommendations / pitch_scripts``
 
     上层 merge 进 candidate 即可 (新字段全为 snake_case · 不与现有 camelCase 撞键)。
     """
+    from agent_channel.signal_density import compute_signal_density
+
     metadata = extract_metadata(item, tags=tags, llm=llm)
     similarity = compute_similarity(item, query, tags)
     radar_8axis = build_radar_8axis(item, similarity, metadata, tags)
@@ -636,11 +639,28 @@ def enrich_candidate(
     product_recommendations = build_product_recommendations(item, similarity=similarity)
     pitch_scripts = build_pitch_scripts(item)
 
+    # Q-054 B1 · 第 5 维度 signal_density · LLM 走 shared.llm_caller (PIPL fallback chain)
+    # 仅 legacy llm 参数非空时启 LLM salience · 否则静态 prior fallback
+    sd_caller: Any = None
+    if llm is not None:
+        try:
+            from shared.llm_caller import LLMCaller
+            sd_caller = LLMCaller(
+                agent_id="channel",
+                endpoint="signal_salience",
+            )
+        except ImportError:
+            sd_caller = None
+    sd_result = compute_signal_density(item, llm=sd_caller)
+
     return {
         "industry": metadata["industry"],
         "geo": metadata["geo"],
         "scale": metadata["scale"],
         "similarity": similarity,
+        # Q-054 5 字段共生 (per Q-041 banner-spec · 5 字段第 5 字段 signal_density)
+        "signal_density": sd_result["signal_density"],
+        "signal_density_reason": sd_result["signal_density_reason"],
         "radar_8axis": radar_8axis,
         "match_dimensions": match_dimensions,
         "product_recommendations": product_recommendations,
