@@ -1713,3 +1713,40 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **3 sub-agent 并行 0 文件冲突**: ab917ab06 (spec verify) + a09c8d7b9 (finalize report) + a2be0aa72 (codex R1) 同时跑 · OS-level isolation · 无干扰 · 主 CLI context 不被脏活稀释
 5. **真双辩论真改立场**: Claude R1 lock 后 fire codex 收 R1 → reconcile 时主动接 Codex 3 worker · 不死保 Claude 2 worker 立场 · per PM 5/7 verbatim "互看 + discuss" 真到位
 
+---
+
+## 2026-05-07 (PM2-mesh) · R3 v2 P0 mesh 注册 ship close-out (commit `e8465c9`)
+
+### What happened
+- Sub-agent a54b38b3 干 mesh 落地 (multi-cli-mesh skill · 7.5 min · 138k tokens · 57 tool uses · 7 步全 PASS)
+- 3 git worktree create: `D:/claude code/credit_report_agent_work_mesh/{a,b,c}` · 各 feat/r3v2-* 分支 · root 75f3c3d
+- 3 AGENT_IDENTITY.md 写 (`.gitignore:130` 守 · 不入库) · Lane B 含 5 维度 signal_density 全文
+- mesh.json append 3 worker entry + r3v2_p0_mesh meta (commit `e8465c9`)
+- launch-all-LIUYE.bat 改 (Desktop launcher · 指 `.mesh-launcher/launch-r3v2.ps1`)
+- scoreboard verify: 3 worker 🟢 fresh on 75f3c3d
+- Q-054 + 5 维度信号密度 + 派活 protocol 全 freeze
+
+### Triggered by
+- Q-054 ratify (commit 75f3c3d) + PM 2026-05-07 (PM2) "按你们建议来"
+
+### State change (delta)
+- 4 cmd 待启 (PM 双击 launch-all-LIUYE.bat 触发)
+- 3 worker `status: registered` in mesh.json
+- 主 CLI 进入 mesh 协调模式 (decisions-log Q-NNN 派活 · git log signal 拣选 · 不 chat worker)
+- Codex skill via sub-agent 路径标准化 (Q-043 v2 + 70s short+low validated)
+
+### Next
+- PM 双击 `C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat` → 4 cmd 起
+- 3 worker 各 RESUMED commit (含 verbatim "我等主 CLI GO" + 5 trailer per Q-049)
+- 主 CLI verify 后 → GO 各 worker → worker 开干
+- 1.5d max 后 worker fire signal commit `chore(mesh): signal worker <X> ready Q-054`
+- Main CLI cherry-pick 整合 → 件 #2/B1/C1 ship
+
+### 学到了什么 (本次 mesh 启动)
+
+1. **launcher.py 在 repo 删 · 走 skill 源**: `scripts/orchestrator/*` 在 commit a3d04a4 (Phase F) 删 · 现走 `C:/Users/Mr.S/.claude/skills/multi-cli-mesh/scripts/orchestrator/*` · sub-agent verified 工作正常 · 旧 doc 写"走项目根 launcher.py"已过期 · 留 fix-forward 改 doc
+2. **mesh.json main worktree branch stale**: 标 `chore/l0-infra` · 实际 `main` 分支 · 非本次 scope · 留 fix-forward (低优先级 · 不影响 worker dispatch)
+3. **Sub-agent 7.5 min 7 步全 PASS**: 跟主 CLI 自跑同样工作至少 1+ hour 对比 · CLAUDE.md "重任务起 Agent · 主上下文不被脏活稀释" 再次 validated
+4. **Worker 起手 SOP per Q-049**: AGENT_IDENTITY 已写 verbatim "我等主 CLI GO" 红线段 · 防 worker 自启乱开 · main CLI signal protocol 严格 sequential
+5. **mesh skill 包替代 repo launcher.py**: 跨 worktree 复用 · skill 升级一次 · 全项目 mesh worker 受益 · 比项目根脚本更可维护
+
