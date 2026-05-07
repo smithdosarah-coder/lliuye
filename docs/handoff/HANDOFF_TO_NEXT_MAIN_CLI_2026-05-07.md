@@ -216,7 +216,98 @@ bash scripts/deploy_to_ecs.sh --skip-build   # 仅 backend restart (Python 改)
 
 ---
 
-## 13. Codex 4 个 stuck task (今晚遗留)
+## 13. 新加 Production Endpoint 完整清单 (Phase C + Tier 0)
+
+### 健康检查 (Tier 0.1 新)
+
+```
+GET /api/_/health
+  → { mode, ok, checks: [{name, ok, detail}], failures: [...] }
+  · 5 项 startup check (llm_caller / LLM key / decision_ledger / audit dir / ledger dir)
+```
+
+### 客户画像 (Phase C Track A · A1 · 用 envelope)
+
+```
+GET /api/customer/list?rm=RM-王哲
+  → envelope { ok, data: { items: [...] }, meta }
+
+GET /api/customer/{id}/profile
+  → envelope { ok, data: { customer, history, holdings, ... }, meta }
+  · consent != granted → meta.mode=degraded reason="customer-consent-pending"
+```
+
+### AI 决策建议 (Phase C Track A · A2 · 用 envelope)
+
+```
+POST /api/decision/build
+  body: { customer_id, intent }
+  → envelope · 现 LLM 未接 · meta.mode=degraded reason="llm-not-wired-rule-fallback"
+  → ai_decision metadata.model = "rule-fallback-no-llm" (Tier 0.3 honest)
+```
+
+### 人工确认 (Phase C Track A · A3)
+
+```
+POST /api/decision/{decision_id}/review
+  body: { decision_id, reviewer, action, reason, modified_content }
+  · action: accept / modify / reject
+  · modify/reject 必带 reason ≥ 5 字符
+
+GET /api/decision/{decision_id}/reviews
+  → { decision_id, status, reviews: [...] }
+```
+
+### 走访导出 (Phase C Track A · A5)
+
+```
+POST /api/decision/{decision_id}/export
+  body: { decision_id, format }  // format: docx / pdf
+  → 文件流下载
+```
+
+### 数据血缘 (Phase C Track B · B2)
+
+```
+GET /api/lineage/decision/{decision_id}
+  → envelope · 一笔决策的所有字段血缘
+
+GET /api/lineage/field?path=customer.income_monthly
+  → envelope · 跨决策的字段血缘 timeline
+
+GET /api/lineage/stats
+  → envelope · 全局血缘统计 (by tier + by system)
+```
+
+### 业务指标 (Phase C Track C · C1)
+
+```
+GET /api/metrics/business?days=30&rm=RM-王哲
+  → envelope · 现 review_events 内存 store · meta.mode=degraded reason="metrics-source-in-memory"
+  · 5 指标: closure_rate / stuck_distribution / manual_intervention_rate / client_confirm_rate / revenue_after_adoption
+```
+
+### Agent3 → Agent6 回写 (Phase C Track A)
+
+```
+POST /api/report/v16/inject
+  body: { report_id, decision_id, decision_summary, advisor_notes }
+  · ledger 上链 + session_store update review_notes + audit log
+```
+
+### 6 Agent 现有 endpoint (Phase A/B 累计)
+
+详见 `agent_*/api.py`:
+- agent_channel: /api/channel/run · /personal_insight/{id} · /handoff
+- agent_credit: /api/credit/decision · /demo/run · /export_docx · /reports/sessions
+- agent_alert: /api/alert/scan · /batch_scan · /drill/{id}
+- agent_compliance: /api/compliance/policy_scan · /policy_diff · /matrix_check
+- agent_report: /api/report/v16/fill · /upload · /refine · /export_docx
+- agent_riskctrl: /api/riskctrl/dsl_gen · /backtest · /demo/run
+
+---
+
+## 14. Codex 4 个 stuck task (今晚遗留)
 
 | ID | 任务 | 状态 |
 |---|---|---|
