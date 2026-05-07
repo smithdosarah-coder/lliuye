@@ -1593,3 +1593,51 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **broad `Get-Process codex` filter 风险**: Windows case-insensitive 抓到大写 `Codex.exe` (OpenAI 桌面 App) · 误杀 8 个 App 进程 · feedback memory 待加
 5. **真辩论收敛比单方面深更有价值**: Claude self-review v1→v2 已经压到 2 件 · Codex R1 加 5 件具体内容 (7 守则 + 越权 4 + 不可照搬 3) · 收敛后比单方深 30%
 
+---
+
+## 2026-05-06 · PB#2 全 8 task ship · 6 Agent SSOT helper 真应用 (~1.5d)
+
+### What happened
+- PB#2-1 Agent1 channel · 3 SYSTEM 删 + 3 LLM call site → helper · 19/19 own tests (commit `47202f1`)
+- PB#2-2 Agent3 credit · 4 SYSTEM 删 (含 RETAIL_REDLINE 死代码) + 3 LLM call site → helper + 越权 1 误判澄清 + 越权 4 fix-forward (`b439ebf`)
+- PB#2-3 Agent4 alert · 7 SYSTEM + worker-A4-alert shim 全删 (0 production import) + scan_engine inline → helper · 236/236 own tests (`8cd5c7d`)
+- PB#2-4 Agent5 compliance · 7 SYSTEM 删 + 2 LLM call site → helper + scan_engine 4 inline 越权 fix-forward · 27/27 own tests (`bd20a5b`)
+- PB#2-5 Agent6 report · root prompts.py 轻量 docstring + section_generator 三阶段 inline 标 fix-forward (业务铁律 140 行 + helper 96 行 > 220 守则 3 上限 · 需 8 段 SSOT 真重构 · 续命 commit) (`bc28ee1`)
+- PB#2-6 Agent2 riskctrl · 3 SYSTEM 删 + 5 LLM call site (agent.py × 4 + api.py × 1) → helper · 196/196 own tests (`b7af413`)
+- PB#2-7 tests 扩 14→24 · 加守则 3/1+2+4/5 + freshness fail cases (`4e370ac`)
+- PB#2-8 ECS backend deploy `--skip-build` ship · 4 service active · healthcheck 200
+
+### Triggered by
+- PM 2026-05-06 GO PB#2 (Q-053 ratify · 1.5d 一次过含 SSOT inject + Codex 7 守则 + 越权 4 audit)
+
+### State change (delta)
+- 6 Agent production LLM call site **全部走 SSOT helper** (build_*_ssot_prompt) · 不再 hardcode SYSTEM_*
+- D2 freshness 硬约束 **真应用**到 Agent1/3/4/5/2 (run_date / evidence_date / SLA 阈值) · Agent6 v16 主管线 inline 仍 fix-forward
+- 24 SSOT pytest 全绿 (PB#1 14 + PB#2 新 10 fail-direction case)
+- production 评级保 C+ (评级升级需续命 #1 预筛分层 + Agent6 inline 重构)
+- LLM-OVERSTEP 累计已知 (留 fix-forward · 续命 commit):
+  · agent3 advisor_formatter:246 + 359 (decision_reason markdown 无结构校验 · 越权 4 MEDIUM)
+  · agent5 scan_engine:228+354+432+537 (inline SYSTEM 未走 helper + MATRIX_JUDGE 越权 2 MEDIUM)
+  · agent6 section_generator 三阶段 inline (业务铁律 140 行 · 需 8 段 SSOT 重构)
+  · agent2 llm_judge.py:47 (INTERP_SYSTEM_PROMPT inline)
+  · agent3 approval_engine + rating_engine + risk_classifier (pre-existing ImportError · PB#2 前已存在)
+
+### Next
+- PM verify ship verdict + 拍续命路径 (per Q-053 续命 6 件):
+  · 🔴 #2 预筛分层 cheap→expensive (1.5-2d · 改 shared/llm_caller/retry.py)
+  · 🟡 #3 Agent6 内部材料去重 embedding 聚类 (1d)
+  · 🟡 #4 回测扩 50+ case + precision/recall metric (1d)
+- 或转 PB#3 Agent3 LLM 迁 shared/llm_caller (0.5d · 唯一仍用旧 OpenAI client)
+- 或转 PB#4 customer page 71 inline → CSS class (1d)
+- 或转 PB#5 前端 zod + AbortController + auth persist (1-2d)
+
+### 学到了什么 (本次 PB#2)
+
+1. **Audit 报告精度有限**: Codex sub-agent audit 给 24 const · 实际跨 prompts.py + scan_engine inline + llm_judge 等多 site 共 32+ const · 主 CLI 落地必逐 agent 自 verify
+2. **越权 1 audit 三次误判** (Agent3 + Agent4 + Agent5): Codex R1 在不读全代码上下文情况下倾向"严打 LLM 输出 → 决策"路径 · 实际多数 Agent decision/amount 是 user prompt **输入** · LLM 仅文字解释 · 主 CLI R2 校正
+3. **work-A4-alert migration shim 已激活**: PB#1 实装 3 段后 contract.assemble 自动返实质 · build_alert_system_prompt fallback 已不再 fallback · 全删 shim 安全
+4. **Agent6 守则 3 行数冲突**: section_generator._GROUNDED_SYSTEM_PROMPT 140 行业务铁律不可压 · 加 helper 96 行 = 236 行超 220 上限 · 必须 8 段 SSOT 真拆 (agent-role + few-shot + self-check 段实装) · PB#2 留 fix-forward
+5. **pre-existing technical debt 暴露**: agent_credit/{approval_engine,rating_engine,risk_classifier} 早 ImportError (SYSTEM_RATING/SYSTEM_RISK_ASSESS/SYSTEM_APPROVAL 早被人删 · 但 import 没修) · domains/scoring_calc 注释明确"code-urgent 地盘 · 非本 worker 修" · PB#2 顺手 flag · 留 cleanup commit
+6. **commit 粒度 = task 粒度 = revert 粒度**: 7 agent commit 单独可 revert · 不打包 · 客户走访遇问题精准 fix
+7. **Codex R3 守则 3 (220 行) 救命**: 不写这条 · Agent6 直接 helper + 业务铁律 = 236 行膨胀 · 翻车
+
