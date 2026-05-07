@@ -1750,3 +1750,41 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **Worker 起手 SOP per Q-049**: AGENT_IDENTITY 已写 verbatim "我等主 CLI GO" 红线段 · 防 worker 自启乱开 · main CLI signal protocol 严格 sequential
 5. **mesh skill 包替代 repo launcher.py**: 跨 worktree 复用 · skill 升级一次 · 全项目 mesh worker 受益 · 比项目根脚本更可维护
 
+---
+
+## 2026-05-07 (PM2-Q-055) · KT doc cherry-pick batch 真双辩论收敛 ratify (commit pending)
+
+### What happened
+- KT doc (`docs/KT-anthropic-finance-mirror.md` 428 行 · 另 CC 写 · 基于 Anthropic 2026-05-05 公告) 主 CLI 真辩论 review:
+  · R1 (Codex gpt-5.3+low · 68s): Codex 修正 Claude R1 2 处错 (contract.py 占位 + 自创术语) · 比 Claude 多拒 P0.1
+  · R2 reconcile (75s): Codex 接 Claude 全 3 项 + 3 phrasing refinement · "Partially Converged"
+  · R3 sanity (30s): ship verdict + 3 critical gap (rollback / 验收锚点 / facts 来源)
+  · R-final 最终方案 sanity (5.5+xhigh stuck per handoff §11 · gpt-5.3+low fallback · 87s): 4 补齐项 (含 launch-all 兜底)
+- Q-055 ratify commit pending: 4 件 cherry-pick + 4 sloppy 归档 + 5-step rollback + 24h 回写 task
+- Worker A AGENT_IDENTITY (本地 · 不入库) 注入 4 file:line evidence (件 #2 grounded 痛点线索)
+
+### Triggered by
+- PM 2026-05-07 (PM2) "按你的步骤执行" → 主 CLI step 1+2 立即执行
+
+### State change (delta)
+- KT doc 5 件 P0 整套拒绝 (跟 R3 v2 12-14d 撞车 · 接 = 3 worker 白启)
+- 4 件 cherry-pick 揉进现规: Cowork/Managed framing (CLAUDE.md §3) + 红线 6/7 (§3.7.6/7) + worker A evidence 注入 + few-shot 续命扩
+- 4 sloppy 归档 (Experian fabrication / 漏 5 真合作方 / GPT-5.5 数字未在公告 / 自创术语) · 后续 worker 不抄
+- 真双辩论 3+1 轮 0 真 stuck (xhigh fallback 触发但 gpt-5.3+low 兜底) · Q-043 v2 short+low 路径再次 validated
+- 件 #2 worker A 启动前 evidence 准备到位 (REF: KT §4.2 P0.1 + Q-055 SOT)
+
+### Next
+- 主 CLI commit Q-055 + state-snapshot · push origin/main
+- PM 双击 `C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat` (双击无响应兜底: 命令行 powershell)
+- 4 cmd 起 → 4 worker fire RESUMED commit (含 "我等主 CLI GO" + 5 trailer)
+- 主 CLI verify → GO 各 worker → 1.5d max 整合
+- 24h 内 主 CLI 补 commit: CLAUDE.md §3 (Cowork/Managed) + §3.7.6/7 (红线 6/7) · trailer `ACTIVE-DECISIONS-BACK-WRITTEN: 2`
+
+### 学到了什么 (本次 KT doc review)
+
+1. **另一 CC 真做功夫但有 sloppy**: 3 轮真辩论 + 16 file working/ 真存在 · 但 Experian fabrication / 漏 5 真合作方 / GPT-5.5 数字编造 / 自创术语 — 4 处 sloppy · 主 CLI WebFetch verify 公告原文 grounded 揭穿
+2. **Codex (gpt-5.3+low) 修正 Claude R1 2 处错**: contract.py 仍 PendingA1SpecError (Claude 误以为 PB#1+#2 ship 完整) + 自创术语 anthropic 公告未用 (Claude 没 spell out) · 真双辩论价值
+3. **5.5+xhigh stuck 实战 5 次**: 长 prompt + xhigh 真 stuck (handoff §11 + Q-043 v2) · fallback chain `xhigh → medium → gpt-5.3+low` 第一时间 trigger · sub-agent 透明报 stuck → 主 CLI 接 fallback verdict
+4. **真双辩论真改立场**: Claude R1 cherry-pick 4 件 vs Codex R1 cherry-pick 1 件 · R2 收敛 Codex 接 Claude 4 件 scope · 不死保单方面立场 · per PM 5/7 verbatim "互看 + discuss"
+5. **REF 追溯硬规**: P0.1 cherry-pick 注入 worker A 时 · 必带 `REF: KT §4.2 P0.1 + Q-055` 双追溯标识 · 防后续 worker 把 evidence 当独立 fact 而非 cherry-pick supplement
+
