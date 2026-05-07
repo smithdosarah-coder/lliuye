@@ -2922,3 +2922,58 @@ PM 2026-05-04 verbatim 两点决策:
 
 **回写来源**: PM 2026-05-04 verbatim 两点决策 + 双 AI 辩论 R1+R2 synthesis
 
+
+---
+
+## [Q-053] 2026-05-07 · main CLI 100% 承接 KT + 一键启动脚本
+
+**CLI**: main
+**Priority**: P0
+**Blocking**: yes (新 CLI 必读)
+
+### Trigger
+
+PM 5/7 verbatim "做一个 KT · 你的这个窗口有点久了 · 我要的是百分百承接当前任务和内容":
+1. 做好和下一个主 CLI 的任务交接
+2. 改写已有脚本 · 让我可以一键开启新的主 CLI · 并且同步更新一下 CLI
+
+### Ship
+
+1. **`docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_2026-05-07.md`** (新 · ~250 行 · 13 节)
+   - §0 一句话定位 + 最新 commit `d936dad`
+   - §1 必读 5 doc (按顺序 ~15 min)
+   - §2 今晚累计 ship 6 commits
+   - §3 production blocker 状态 (PB#1 ✅ · PB#2-#5 待)
+   - §4 PM 5/7 关键指令 + 红线 (5 条)
+   - §5 PM 工作偏好 (per CLAUDE.md global)
+   - §6 Codex Q-043 v2 实测
+   - §7 5 critical gap "看起来 X 实际 Y"
+   - §8 关键文件路径快查
+   - §9 PM 必拍 5 件 (新 CLI 等 PM 拍)
+   - §10 Resume 第一组动作
+   - §11 危险区 / 已踩坑 (5 件)
+   - §12 ECS 部署
+   - §13 4 stuck codex bg 不 wait
+
+2. **`AGENT_IDENTITY.md`** (改写 · 单 main CLI 模式)
+   - 旧版本 4 worker mesh (A1/A2/A3) · 已 stale
+   - 新版本: 单 CLI sequential · main 分支 · Phase C 阶段
+   - 加 Resume 第一组动作 (4 步: git log + production HEAD + pytest + health check)
+   - 加汇报样例
+
+3. **`start_claude.bat`** (改写 · 一键启)
+   - 旧版本: wt new-tab 单行 · 新 CLI 不知做啥
+   - 新版本: 启动前显 git status + KT path + resume prompt 模板 (PM 直接复制)
+   - fallback 到 cmd if no wt
+
+### 决策
+
+- ❌ 不改 multi-cli-mesh (现单 CLI sequential 模式 OK · PM 没要 multi worker)
+- ❌ 不删旧 handoff (HANDOFF_TO_NEXT_MAIN_CLI_2026-05-02.md 等 · 历史保留)
+- ✅ 新 CLI 一句话 paste 即 resume: "读 AGENT_IDENTITY.md 和里面列的所有文件 · resume 状态后等我指令"
+- ✅ start_claude.bat 显 prompt 模板 · PM 复制粘贴即可
+
+### Author
+
+主 CLI Claude Opus 4.7 · close-out commit `d936dad`
+**回写来源**: PM 2026-05-07 close-out KT 指令
