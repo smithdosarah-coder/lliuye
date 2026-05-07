@@ -1,7 +1,24 @@
 # -*- coding: utf-8 -*-
 """
 Prompt 模板库 v9.0
-核心范式：读懂→分析→撰写（替代“填空工具”范式）
+核心范式：读懂→分析→撰写（替代"填空工具"范式）
+
+PB#2 (2026-05-06 · Q-053) 状态:
+- 本 module 8 大 const (AGENT_SYSTEM_PROMPT / CHAPTER_PROMPTS / REVIEW_PROMPT /
+  REVISE_PROMPT / SELF_REFLECT_PROMPT / FINANCIAL_EXTRACT_PROMPT /
+  FILE_CLASSIFY_PROMPT / MATERIAL_AUDIT_PROMPT) 唯一 production 用户 =
+  legacy_gradio/agent.py (CLAUDE.md §16 已隔离 · ALLOW_LEGACY_GRADIO=1 才能 import)
+- v16 主管线 + agent_report/* production 主线 不 import 本 module
+- 主线 LLM 调用走:
+  · agent_report/api.py:278 make_text_caller (caller 工厂 · 不传 system)
+  · section_generator.py 三阶段 inline _EVIDENCE/_GROUNDED/_AUDIT_SYSTEM_PROMPT
+- Agent6 SSOT helper (build_report_ssot_prompt) 已实装 · 但 section_generator
+  inline 未真接 (业务铁律 140 行 + helper 96 行 > 220 行守则 3 · 需重构)
+- fix-forward: section_generator 三阶段 inline → 8 段 SSOT 真应用
+  (agent-role + few-shot + self-check 段实装) · 留 PB#2 ship 后续命 commit
+
+真删条件 (§16): PM 拍"v16 真稳了" → git rm -rf legacy_gradio + 同时 git rm 本 module.
+在此之前**保留物理文件**作为 emergency demo fallback (与 legacy_gradio 同生命周期).
 """
 
 # ===== 三层信息框架（统一注入一次） =====
