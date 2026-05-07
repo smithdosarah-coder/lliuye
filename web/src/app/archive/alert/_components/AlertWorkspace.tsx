@@ -36,6 +36,8 @@ import {
 } from "react";
 import { useAuthStore } from "@/lib/store";
 import { ModePill } from "@/components/shared/ModePill";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
@@ -277,6 +279,8 @@ export default function AlertWorkspace() {
 
   /** Gate 3 · liveData · SSE done envelope 注入完整 session · null = mock 优先 */
   const [liveData, setLiveData] = useState<AlertSession | null>(null);
+  /** 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
 
   /** Gate 4 · selectedClientId · TopCase 行 click → drill drawer (用 client_id 与 backend 对齐) */
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -456,11 +460,15 @@ export default function AlertWorkspace() {
         );
         if (ac.signal.aborted) return;
         if (result.sessionId) setScanSessionId(result.sessionId);
+        /* 件 #2 · data_source SSOT 真消费 · result.dataSource 来自 runAlertScan T3 加 (per shared/sse_envelope canon) */
+        setCurrentDataSource(result.dataSource);
         setPhase("after");
       } catch (e) {
         /* PB#5 · AbortError 是预期 · 不显 banner */
         if (e instanceof DOMException && e.name === "AbortError") return;
         recordLiveFail("alert scan", e, () => startScan());
+        /* 件 #2 · live 失败 → trust model 一级降级 (banner-spec rule 1) */
+        setCurrentDataSource("mock_fallback");
         if (timerRef.current != null) {
           window.clearInterval(timerRef.current);
           timerRef.current = null;
@@ -805,6 +813,7 @@ export default function AlertWorkspace() {
               onExport={handleExportDocx}
               exporting={exporting}
               isLive={liveData != null}
+              dataSourceKind={currentDataSource}
             />
 
             <ScanProgressStrip phase={phase} steps={steps} stepIdx={stepIdx} />
@@ -950,6 +959,8 @@ function HeroSection(p: {
   onExport: () => void;
   exporting: boolean;
   isLive?: boolean;
+  /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
+  dataSourceKind?: DataSourceKind;
 }) {
   const isScanning = p.phase === "scanning";
   const isAfter = p.phase === "after";
@@ -967,6 +978,10 @@ function HeroSection(p: {
         </span>
         {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
         <ModePill isLive={p.isLive ?? false} testId="alert-mode-pill" size="sm" />
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1 fix) */}
+        {p.dataSourceKind && (
+          <DataSourceBadge kind={p.dataSourceKind} testId="alert-data-source-badge" size="sm" />
+        )}
       </div>
       <h1 className="rpt-hero__title">{p.objective}</h1>
       <p className="rpt-hero__sub">{p.summary}</p>
