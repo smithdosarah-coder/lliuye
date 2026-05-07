@@ -34,6 +34,12 @@ interface DecisionResult {
   block: boolean;
   block_reason: string | null;
   tier_distribution: Record<string, number>;
+  metadata?: {
+    model: string;
+    model_status: string;
+    is_llm_grounded: boolean;
+    generated_at: string;
+  };
 }
 
 const TIER_LABEL: Record<string, string> = {
@@ -227,6 +233,24 @@ export function DecisionPanel({ customerId }: { customerId: string }) {
 
       {decision && !decision.block && (
         <div data-testid="customer-decision-result" style={{ fontFamily: "var(--cjk)" }}>
+          {/* Tier 0.3 · ai_decision honest 标注 (PM 5/7 拍板) · 用户看清是 LLM 还是 fallback */}
+          {decision.metadata && !decision.metadata.is_llm_grounded && (
+            <div
+              data-testid="customer-decision-honest-banner"
+              role="note"
+              style={{
+                padding: "6px 12px",
+                marginBottom: 10,
+                background: "color-mix(in srgb, var(--ink-14) 50%, transparent)",
+                borderLeft: "3px solid var(--ink-48)",
+                borderRadius: 4,
+                fontSize: 12,
+                color: "var(--ink-65)",
+              }}
+            >
+              ⓘ {decision.metadata.model_status} · 模型: <code>{decision.metadata.model}</code>
+            </div>
+          )}
           <p style={{ margin: "4px 0 12px 0", fontSize: 13 }}>{decision.decision_summary}</p>
           <div style={{ display: "flex", gap: 12, fontSize: 12, marginBottom: 12 }}>
             <span>

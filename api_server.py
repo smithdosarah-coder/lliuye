@@ -100,6 +100,29 @@ except ImportError as _e:
     print(f"[portal] monitoring_service unavailable: {_e}", file=sys.stderr)
 
 
+# ---------------------------------------------------------------------------
+# Tier 0.1 · Production startup fail-fast check (PM 5/7 拍板 · Codex R2 加)
+# ---------------------------------------------------------------------------
+try:
+    from shared.production_check import run_startup_checks
+    _STARTUP_REPORT = run_startup_checks()  # production raise · dev warn
+except RuntimeError as _e:
+    print(f"[api_server] PRODUCTION STARTUP FAILED: {_e}", file=sys.stderr)
+    raise  # production 模式 fail fast 抛
+except ImportError as _e:
+    print(f"[api_server] production_check unavailable: {_e}", file=sys.stderr)
+
+
+@app.get("/api/_/health")
+def health_check():
+    """Tier 0.1 · 健康检查 endpoint · 暴露 startup check 结果."""
+    try:
+        from shared.production_check import run_startup_checks
+        return run_startup_checks(raise_on_fail=False)
+    except (ImportError, AttributeError) as e:
+        return {"mode": "unknown", "ok": False, "error": str(e)}
+
+
 @app.get("/metrics")
 async def prometheus_metrics():
     """Prometheus exposition format · text/plain · 不可用时返 stub 提示."""
@@ -256,20 +279,34 @@ try:
     from shared.ai_decision import build_decision
     from shared.decision_review import submit_review, get_reviews, get_decision_status
     from shared.data_lineage import get_lineage_store
+    # Tier 0.2 · API envelope (PM 5/7 拍板) · 4 critical endpoint 用 envelope
+    from shared.api_envelope import envelope_ok, envelope_error, envelope_degraded
 
     # === A1 客户画像聚合 ===
     @app.get("/api/customer/list")
     def customer_list(rm: Optional[str] = Query(None, description="RM 工号过滤")):
-        """列出客户 · 可选 RM 过滤."""
-        return {"items": list_customers(rm_id=rm)}
+        """列出客户 · 可选 RM 过滤. Tier 0.2 envelope."""
+        return envelope_ok(data={"items": list_customers(rm_id=rm)})
 
     @app.get("/api/customer/{customer_id}/profile")
     def customer_profile(customer_id: str):
-        """聚合客户画像 · CRM 15 字段 + 跨 Agent 历史."""
+        """聚合客户画像 · CRM 15 字段 + 跨 Agent 历史. Tier 0.2 envelope."""
         result = aggregate_customer_profile(customer_id)
         if result is None:
-            raise HTTPException(status_code=404, detail=f"客户 {customer_id} 不存在")
-        return result
+            return envelope_error(
+                category="validation",
+                origin="data",
+                message=f"客户 {customer_id} 不存在",
+            )
+        # consent 检查 · 未授权返 degraded (业务可见但 banner)
+        consent = result.get("customer", {}).get("consent_status")
+        if consent != "granted":
+            return envelope_degraded(
+                data=result,
+                reason=f"customer-consent-{consent}",
+                origin="business",
+            )
+        return envelope_ok(data=result)
 
     # === A2 AI 决策建议 ===
     class DecisionBuildRequest(BaseModel):
@@ -278,8 +315,24 @@ try:
 
     @app.post("/api/decision/build")
     def decision_build(req: DecisionBuildRequest):
-        """端到端 AI 决策 · 用 D1+D2+D4 三层校验 · consent_status 检查 PIPL."""
-        return build_decision(customer_id=req.customer_id, intent=req.intent)
+        """端到端 AI 决策 · Tier 0.2 envelope + 0.3 honest metadata."""
+        decision = build_decision(customer_id=req.customer_id, intent=req.intent)
+        if decision.get("block"):
+            return envelope_error(
+                category="business_rule" if "PIPL" in (decision.get("block_reason") or "") else "validation",
+                origin="business",
+                message=decision.get("block_reason") or "决策受阻",
+                details={"decision_id": decision.get("decision_id"), "customer_id": req.customer_id},
+            )
+        # Tier 0.3 · 当前 ai_decision 是 rule-fallback-no-llm (mock fallback) · 用 degraded 标
+        is_llm = decision.get("metadata", {}).get("is_llm_grounded", False)
+        if not is_llm:
+            return envelope_degraded(
+                data=decision,
+                reason="llm-not-wired-rule-fallback",
+                origin="llm",
+            )
+        return envelope_ok(data=decision)
 
     # === A3 人工确认工作台 ===
     class DecisionReviewRequest(BaseModel):
@@ -314,33 +367,33 @@ try:
             "reviews": get_reviews(decision_id),
         }
 
-    # === B2 血缘 UI 接口 ===
+    # === B2 血缘 UI 接口 (Tier 0.2 envelope) ===
     @app.get("/api/lineage/decision/{decision_id}")
     def lineage_by_decision(decision_id: str):
         """查询一笔决策的所有字段血缘 (B1 sqlite store)."""
         store = get_lineage_store()
         rows = store.query_by_decision(decision_id)
-        return {
+        return envelope_ok(data={
             "decision_id": decision_id,
             "lineage_count": len(rows),
             "records": rows,
-        }
+        })
 
     @app.get("/api/lineage/field")
-    def lineage_by_field(path: str = Query(..., description="字段路径 e.g. customer.income_monthly")):
-        """查询某字段路径的最近血缘 (跨决策)."""
+    def lineage_by_field(path: str = Query(..., description="字段路径")):
+        """查询某字段路径的最近血缘."""
         store = get_lineage_store()
         rows = store.query_by_field(path, limit=50)
-        return {
+        return envelope_ok(data={
             "field_path": path,
             "lineage_count": len(rows),
             "records": rows,
-        }
+        })
 
     @app.get("/api/lineage/stats")
     def lineage_stats():
-        """全局血缘统计 (按 tier + system)."""
-        return get_lineage_store().stats()
+        """全局血缘统计."""
+        return envelope_ok(data=get_lineage_store().stats())
 
     # === A5 走访导出物 + C1 业务指标看板 ===
     from shared.walkthrough_export import build_walkthrough_docx, build_walkthrough_pdf
@@ -371,8 +424,14 @@ try:
         days: int = Query(30, description="时间窗 · 默认 30 天"),
         rm: Optional[str] = Query(None, description="RM 工号过滤"),
     ):
-        """业务指标看板 · 5 指标 (闭环转化 / 卡点 / 人工介入 / 客户确认 / 收益)."""
-        return compute_metrics(date_range_days=days, rm_id=rm)
+        """业务指标看板 · 5 指标 (Tier 0.2 envelope · 数据源内存 · 标 degraded)."""
+        m = compute_metrics(date_range_days=days, rm_id=rm)
+        # 现 review_events 是内存 store · 重启丢 · 标 degraded
+        return envelope_degraded(
+            data=m,
+            reason="metrics-source-in-memory",
+            origin="persistence",
+        )
 
     print("[api_server] Phase C Track A+B+C routes mounted (A1/A2/A3/A5/B1/B2/C1)", file=sys.stderr)
 except ImportError as _phasec_import_err:

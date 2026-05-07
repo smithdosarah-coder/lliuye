@@ -195,6 +195,9 @@ def build_decision(
 
     decision_id = f"dec-{uuid.uuid4().hex[:12]}"
 
+    # Tier 0.3 · ai_decision metadata honest (PM 5/7 拍板)
+    # 之前 "mock-v1.0" 让用户误以为接了 LLM · 实际是规则 fallback
+    # 现显式标 "rule-fallback-no-llm" · UI 必显 "未接 LLM · 规则建议"
     return {
         "decision_id": decision_id,
         "customer_id": customer_id,
@@ -212,7 +215,13 @@ def build_decision(
         "avg_recency_weight": validation["avg_recency_weight"],
         "metadata": {
             "generated_at": datetime.now().isoformat(timespec="seconds"),
-            "model": "mock-v1.0",  # 真接 LLM 后改 deepseek-chat 等
+            # honest model 标识 (per Phase C grounded report Tier 0.3):
+            #   "rule-fallback-no-llm"   = 现状 · 走规则 + mock reasons · 未接 LLM
+            #   "llm-grounded:<provider>" = Sprint 6 真接 LLMCaller 后填 (e.g. "llm-grounded:deepseek")
+            #   "llm-error-fallback"     = LLM 接但失败 · 降级规则
+            "model": "rule-fallback-no-llm",
+            "model_status": "未接 LLM · 走规则 fallback",
+            "is_llm_grounded": False,
             "schema_version": "1.0",
             "extra_context_keys": list((extra_context or {}).keys()),
         },
