@@ -16,6 +16,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { ModePill } from "@/components/shared/ModePill";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
 import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
@@ -94,6 +96,8 @@ export default function CreditWorkspace() {
   const [started, setStarted] = useState<boolean>(false);
   const [selectedSession, setSelectedSession] = useState<string>(CREDIT_DEFAULT_SESSION_ID);
   const [liveData, setLiveData] = useState<CreditSession | null>(null);
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
   /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
@@ -226,6 +230,9 @@ export default function CreditWorkspace() {
             setLiveData(liveSession);
             setSelectedCandidate(null);
             setScanned(true);
+            /* 件 #2 · data_source SSOT 真消费 (per shared/sse_envelope canon) */
+            const rawDs = (data as Record<string, unknown>).data_source;
+            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "live");
           }
         },
         { signal: ac.signal },
@@ -236,6 +243,8 @@ export default function CreditWorkspace() {
         ? liveFailBannerText(err, "Credit /api/credit/decision")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
+      /* 件 #2 · live 失败 → trust model 一级降级 */
+      setCurrentDataSource("mock_fallback");
     } finally {
       if (!ac.signal.aborted) setDecisionRunning(false);
     }
@@ -403,6 +412,9 @@ export default function CreditWorkspace() {
             setLiveData(normalizeCreditDone(data, fallbackSession));
             setSelectedCandidate(null);
             setScanned(true);
+            /* 件 #2 · data_source SSOT 真消费 · demo 默认 mock_forced */
+            const rawDs = data.data_source;
+            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "mock_forced");
           }
         },
         { signal: ac.signal },
@@ -413,6 +425,7 @@ export default function CreditWorkspace() {
         ? liveFailBannerText(err, "Credit /api/credit/demo/run")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
+      setCurrentDataSource("mock_fallback");
     } finally {
       if (!ac.signal.aborted) setDecisionRunning(false);
     }
@@ -548,8 +561,10 @@ export default function CreditWorkspace() {
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
       {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 (credit 用 floating 顶部) */}
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 0 8px 0" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
         <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
+        <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 
       <PrimaryProfileHero
