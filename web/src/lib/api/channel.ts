@@ -20,9 +20,11 @@
  */
 "use client";
 
+import { type DataSourceKind, normalizeDataSource } from "./_data-source";
 import { LiveFailError, streamSse } from "./_live";
 
 export { LiveFailError };
+export type { DataSourceKind };
 
 const ENDPOINT_RUN = "/api/channel/run";
 const ENDPOINT_DEMO = "/api/channel/demo/run";
@@ -93,8 +95,8 @@ export type ChannelCandidate = CandidateMetadata & {
 export type ChannelDoneEnvelope = {
   /** session id (live OR demo · 后者形如 "demo_<scenario>_<ts>") */
   session_id?: string;
-  /** "live" | "mock_forced" (per shared.sse_envelope) */
-  data_source?: string;
+  /** 5 enum (per shared.sse_envelope.py:81-86 canon · 走 _data-source.ts SSOT) */
+  data_source?: DataSourceKind;
   /** Q-041 候选清单 · 每条必含 4 字段 */
   candidates?: ChannelCandidate[];
   /** 信号时间线 (跨候选 · 5 路: 工商/招投标/资本/招聘/舆情) */
@@ -118,7 +120,7 @@ export type ChannelDoneEnvelope = {
 
 export type ChannelRunResult = {
   sessionId: string;
-  dataSource: string;
+  dataSource: DataSourceKind;
   doneEnvelope: ChannelDoneEnvelope | null;
 };
 
@@ -146,7 +148,8 @@ export async function runChannel(
     // provider/api_key 不传 · 一律 backend env (per Q-043 PIPL · CLAUDE.md §3.7.4)
   };
   let sessionId = "";
-  let dataSource = "";
+  /* default "mock" 而非 "" · stream 没 done 时安全降级 trust model · UI 可显式 banner. */
+  let dataSource: DataSourceKind = "mock";
   let doneEnvelope: ChannelDoneEnvelope | null = null;
 
   await streamSse(ENDPOINT_RUN, body, (evt) => {
@@ -156,7 +159,7 @@ export async function runChannel(
     if (data.event === "done") {
       doneEnvelope = data as ChannelDoneEnvelope;
       if (data.session_id) sessionId = String(data.session_id);
-      if (data.data_source) dataSource = String(data.data_source);
+      if (data.data_source) dataSource = normalizeDataSource(data.data_source);
     }
   });
 
@@ -183,7 +186,7 @@ export async function runChannelDemo(
 ): Promise<ChannelRunResult> {
   const body = { scenario_id: req.scenarioId };
   let sessionId = "";
-  let dataSource = "";
+  let dataSource: DataSourceKind = "mock_forced";
   let doneEnvelope: ChannelDoneEnvelope | null = null;
 
   await streamSse(ENDPOINT_DEMO, body, (evt) => {
@@ -192,7 +195,7 @@ export async function runChannelDemo(
     if (data.event === "done") {
       doneEnvelope = data as ChannelDoneEnvelope;
       if (data.session_id) sessionId = String(data.session_id);
-      if (data.data_source) dataSource = String(data.data_source);
+      if (data.data_source) dataSource = normalizeDataSource(data.data_source);
     }
   });
 
