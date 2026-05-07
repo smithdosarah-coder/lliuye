@@ -13,15 +13,20 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
+from shared.prompts.agent_helpers import build_credit_ssot_prompt
 from .prompts import (
-    CORPORATE_DECISION_SYSTEM,
     CORPORATE_DECISION_USER,
-    CORPORATE_REDLINE_SYSTEM,
     CORPORATE_REDLINE_USER,
-    RETAIL_DECISION_SYSTEM,
     RETAIL_DECISION_USER,
     build_system_prompt,
 )
+
+# PB#2 · Codex 越权 4 audit (per docs/contracts/pb2-prompt-governance.md §2)
+# Below LLM call sites store output as decision_reason text (truncated [:1500] / [:800]).
+# No markdown-structure schema validation. fix-forward to PB#5 (frontend zod) or 续命 #4 (回测 case).
+# LLM-OVERSTEP: agent_credit:advisor_formatter.py:~246 (corporate decision_reason · no schema)
+# LLM-OVERSTEP: agent_credit:advisor_formatter.py:~359 (retail decision_reason · no schema)
+# Note: decision/amount/term/rate are user-prompt INPUT (not LLM output) · 越权 1 误判 (Codex R1).
 from .reason_codes import derive_top_reason_codes
 from .risk_appetite_config import RiskAppetiteConfig
 
@@ -240,8 +245,16 @@ class AdvisorFormatter:
                     rate_benchmark=benchmark,
                     conditions="；".join(conditions) if conditions else "无",
                 )
-                # Phase B BE10 PoC · 把 FEW_SHOT_EXAMPLES (审贷员历史改动) 拼到 system prompt
-                llm_out = self.llm_chat(build_system_prompt(CORPORATE_DECISION_SYSTEM), user_msg)
+                # PB#2 SSOT · base = build_credit_ssot_prompt + few-shot 注入
+                ssot_base = build_credit_ssot_prompt(
+                    task_type="corporate_decision_explain",
+                    schema_hint=(
+                        "决策解释 markdown · 5 节 (客户基本情况/评分结论/决策说明/"
+                        "额度利率依据/附加条件) · ≤ 500 字 · "
+                        "user prompt 中 decision/amount/term/rate 为固定输入 · 不得改动只解释"
+                    ),
+                )
+                llm_out = self.llm_chat(build_system_prompt(ssot_base), user_msg)
                 if llm_out and len(llm_out) > 40:
                     decision_reason = llm_out[:1500]
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
@@ -255,7 +268,15 @@ class AdvisorFormatter:
                     company_summary=_corporate_summary(profile, features),
                     hit_rules_detail=_format_redlines_for_prompt(rule_hits),
                 )
-                raw = self.llm_json(CORPORATE_REDLINE_SYSTEM, user_msg)
+                # PB#2 SSOT · 红线解释走 helper (无 few-shot · 严格 schema)
+                ssot_redline = build_credit_ssot_prompt(
+                    task_type="corporate_redline_explain",
+                    schema_hint=(
+                        '[{"rule_id": str, "explanation": str (≤ 150 字 · 必引数字), '
+                        '"severity": "高/中/低", "waiver_advice": str}]'
+                    ),
+                )
+                raw = self.llm_json(ssot_redline, user_msg)
                 if isinstance(raw, list):
                     red_line_explanations = raw
                 elif isinstance(raw, dict) and "rules" in raw:
@@ -353,8 +374,16 @@ class AdvisorFormatter:
                     approved_amount=amount,
                     interest_rate=f"{rate*100:.2f}%",
                 )
-                # Phase B BE10 PoC · few-shot 同接零售决策路径
-                llm_out = self.llm_chat(build_system_prompt(RETAIL_DECISION_SYSTEM), user_msg)
+                # PB#2 SSOT · few-shot 同接零售决策路径
+                ssot_base = build_credit_ssot_prompt(
+                    task_type="retail_decision_explain",
+                    schema_hint=(
+                        "决策说明文字 · 一句话结论 + 主要理由 (2-3 点) + 附加说明 · "
+                        "≤ 200 字 · 面向个贷岗 · 不用对公术语 · "
+                        "user prompt 中 decision/amount/rate 为固定输入 · 不得改动"
+                    ),
+                )
+                llm_out = self.llm_chat(build_system_prompt(ssot_base), user_msg)
                 if llm_out and len(llm_out) > 30:
                     decision_reason = llm_out[:800]
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
