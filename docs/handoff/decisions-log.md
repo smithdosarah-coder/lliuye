@@ -3161,3 +3161,105 @@ chore(mesh): signal worker <A/B/C> ready for mesh merge Q-054
 **回写来源**: 双 AI 真辩论 R1+R2 (Claude opus-4-7 + Codex gpt-5.3-codex-spark) · PM 2026-05-07 (PM2) ratify "按你们建议来"
 
 **Author**: 主 CLI Claude Opus 4.7 · close-out commit `403dc12`
+
+---
+
+## [Q-055] 2026-05-07 (PM2) · KT doc cherry-pick batch · 真双辩论收敛 ratify
+
+**CLI**: main
+**Priority**: P0
+**Blocking**: yes (worker A AGENT_IDENTITY 注入 + 24h CLAUDE.md 回写)
+
+### Trigger
+
+PM 2026-05-07 (PM2) 阅 `docs/KT-anthropic-finance-mirror.md` (另一 Claude Code 实例根据 Anthropic 2026-05-05 "Agents for financial services" 公告写) → 让主 CLI 真辩论 → "按你的步骤执行" ratify.
+
+### 真双辩论 3+1 轮收敛
+
+| 轮 | 模型 + effort | 时长 | EXIT | 关键产出 |
+|---|---|---|---|---|
+| R1 KT review | gpt-5.3-codex-spark + low | 68s | 0 | Codex 修正 Claude R1 2 处错 (contract.py 仍占位 + 自创术语) · 比 Claude 多拒 P0.1 |
+| R2 互看 reconcile | 同 | 75s | 0 | Codex 接 Claude reconcile 全 3 项 + 3 phrasing refinement · "Partially Converged" |
+| R3 sanity | 同 | 30s | 0 | ship verdict (需补 3 critical gap) · 接 PM action push back |
+| R-final 最终方案 sanity | 同 (5.5+xhigh stuck per handoff §11 · gpt-5.3+low fallback deliver) | 87s | 0 | 4 补齐项 (rollback / 验收锚点 / launch-all 兜底 / facts 来源) |
+
+3+1 轮总 codex ~5 min · 0 真 stuck. PM 5/7 verbatim "双方独立 + 互看 + discuss × 3" 流程到位.
+
+### Decision (4 件 cherry-pick · 含 Codex Gap 1+2 验收锚点)
+
+| 顺序 | 件 | 何时 | 改的文件 | 验收方法 (grep/CI 通过条件) | signal name |
+|---|---|---|---|---|---|
+| **a** | "Cowork (实时型) vs Managed (批处理型)" agent 分类 framing 加 CLAUDE.md §3 | 24h 回写 (per §15 active decision 硬规) | root `CLAUDE.md` (Tier 2) | `grep -E "Cowork.*Managed\|实时.*批处理" CLAUDE.md` 在 §3 段命中 | `KT-COWORK-MANAGED-DOCNED` |
+| **d** | 红线 6/7 (api_server 不纯搬家拆 / SSOT 改 prompt 必分阶段灰度 flag/canary) 加 §3.7.6/7 | 24h 回写 (per §15) | root `CLAUDE.md` (Tier 2) | `grep -E "§3.7.6.*api_server\|§3.7.7.*flag.*canary" CLAUDE.md` 命中 | `KT-RED-6-7-MERGED` |
+| **b** | 4 file:line evidence (KT doc Codex 找的 demo_mode 现场) 注入 Worker A AGENT_IDENTITY | step 2 立即 (本地写 · 不入库 per `.gitignore:130`) | `D:/claude code/credit_report_agent_work_mesh/a/AGENT_IDENTITY.md` | worker A RESUMED commit body 显示读到 evidence + REF: KT §4.2 P0.1 引用 | `KT-EVIDENCE-INJECT-WORKER-A` |
+| **c** | "Prompt SSOT few-shot 闭环" 加 Q-053 续命 6 件第 7 项 | Phase D 启 (不阻当前) | `docs/handoff/decisions-log.md` Q-053 §续命 6 件 | Q-053 §"续命 6 件优先级" 表多 1 行 (`#7 SSOT few-shot 闭环 · 1d · Phase D 启`) | `Q053-EXTEND-SSOT-FEWSHOT` |
+
+### P0.1 evidence 注入 worker A AGENT_IDENTITY (Gap 3 fix · REF 追溯)
+
+KT doc §4.2 P0.1 (Demo/Live 硬隔离) 跟 R3 v2 件 #2 (worker A 干 data_source SSOT 前端真消费) 是 **同事不同 framing**. 接 Codex R2 reconcile: 拒 P0.1 名义 + 接 file:line 当 worker A grounded 痛点 evidence.
+
+**4 个 backend 默认假数据混跑现场** (本 Q-055 唯一 SOT · worker A AGENT_IDENTITY 仅引用):
+
+- `agent_channel/agent.py:54` — 默认 `build_search_provider(demo_mode=True)`
+- `agent_alert/agent.py:80` — 同上 (Agent4 信号扫描入口)
+- `agent_alert/scan_engine.py:40` — `force_mock=False` 时仍可能 mock fallback (假数据回退优先于 live)
+- `agent_compliance/scan_engine.py:40` — 同上 (Agent5 政策扫描入口)
+
+**REF 追溯标识**: worker A 修件 #2 时引用本 Q-055 + KT doc §4.2 P0.1 · 不照搬 P0.1 整体 plan · 仅 grounded 痛点 reference.
+
+**反模式** (per R2 reconcile):
+- ❌ 不当强制约束扩 scope (worker A 件 #2 scope = 前端真假区分 · 不全栈整改)
+- ❌ 不删 silent fallback (改 fail-visible banner · 不一刀删丢可观测性)
+- ❌ 不抄 doc 自创术语 (RuntimeEnvelope/SkillContext 公告未用)
+
+### 事实锚点修正 (Gap 2 fix · 单独归档 · 后续 worker 不抄)
+
+来源: 主 CLI WebFetch verify Anthropic 公告 [https://www.anthropic.com/news/finance-agents](https://www.anthropic.com/news/finance-agents) (verify 时间 2026-05-07 主 CLI Round 1 期间 · 同 session)
+
+| # | doc 写的错 | 真值 (公告 verbatim) | 处置 |
+|---|---|---|---|
+| 1 | "Anthropic 数据合作方有 Experian" (KT doc §3.2) | 公告 17 个合作方原文: FactSet/S&P Capital IQ/MSCI/PitchBook/Morningstar/Chronograph/LSEG/Daloopa + 新增 Dun & Bradstreet/Fiscal AI/Financial Modeling Prep/Guidepoint/IBISWorld/SS&C IntraLinks/Third Bridge/Verisk/Moody's. **无 Experian** | 主 CLI verbatim 标 "doc fabrication · 后续不引" |
+| 2 | "数据生态 = Moody's/D&B/Verisk/Experian/S&P/LSEG/PitchBook" (漏 5) | 漏 FactSet/MSCI/Morningstar/Chronograph/Daloopa | 同上 |
+| 3 | "Opus 4.7 64.37% > GPT-5.5 59.96%" (KT doc §1.1) | 64.37% 公告原文有 ("Vals AI's Finance Agent benchmark, at 64.37%") · **GPT-5.5 59.96% 公告未提** · 来源不明 | **隔离到"待核实区"** · PM/主 CLI 自决: (a) 删除 (b) 找其他来源 verify (c) 留 caveat. 当前默认 (a) — 不引用此对比 |
+| 4 | 自创术语 "RuntimeEnvelope" / "SkillContext" (KT doc §2.5 + §4.2 P0.0) | Anthropic 公告全文未提此二术语. doc 自创 | **替代术语提议**: 我们已有 `shared/sse_envelope.py` (envelope 概念) + `shared/decision_ledger/` (audit/jurisdiction concept) — 不引入新自创术语. 后续 worker / RFC 写跨 agent contract 用现有概念命名 |
+
+### 5-step 启动 plan + 失败回滚 (Codex Gap 1+3 fix)
+
+| 步 | 谁 | 干啥 | fail | 回滚到哪 |
+|---|---|---|---|---|
+| 1 | 主 CLI | Q-055 commit + state-snapshot §14.1 同步 commit + push | commit fail (lint/conflict) | `cffd3f4` (件 #1 close-out) · 不带 Q-055 也能启 worker |
+| 2 | 主 CLI | Worker A AGENT_IDENTITY 注入 4 file:line | file write 失败 | 同上 + worker A 自己 grep `demo_mode=True` 找 (~1-2h) |
+| 3 | PM | 双击 `C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat` | 双击无响应 / 权限拦 / 路径不符 | 命令行兜底: `powershell -ExecutionPolicy Bypass -File "C:/Users/Mr.S/Desktop/.mesh-launcher/launch-r3v2.ps1"` |
+| 4 | 4 cmd | resume → RESUMED commit (含 verbatim "我等主 CLI GO" + 5 trailer) | 5 min 内未出 RESUMED | 主 CLI telnet 该 worktree 单独跑 `claude` |
+| 5 | 主 CLI | verify 5 trailer 齐 → GO 各 worker → 1.5d 干完 cherry-pick 整合 | worker 1.5d 没 fire signal / 整合 conflict 不可解 | 该 worker 回 `75f3c3d` (mesh 注册 commit) · 跟 PM 同步原因后另派 |
+
+### 24h 回写 Tier 1-2 task (per CLAUDE.md §15 active decision 硬规)
+
+主 CLI 24h 内补 commit:
+- a 件: root `CLAUDE.md` §3 加 "Cowork vs Managed" framing 段 (~30 行)
+- d 件: root `CLAUDE.md` §3.7.6 + §3.7.7 加 2 条新红线 (~40 行)
+
+commit trailer 必含 `ACTIVE-DECISIONS-BACK-WRITTEN: 2`.
+
+### 明确不做
+
+- ❌ 整套 KT doc 5 件 P0 (P0.0/0.1/0.2/0.3 拒 · P0.4 限文档方向加续命) — 6.5 worker-week 跟 R3 v2 撞车
+- ❌ 改 R3 v2 件 #2 scope/工时 (cherry-pick 仅"补 evidence 不改计划")
+- ❌ 抄自创术语 RuntimeEnvelope/SkillContext (anthropic 公告未用)
+- ❌ 接 doc §3.3 中国适配 caveat 但 §4 P0 仍按 Anthropic 模式抄 (doc 自相矛盾段)
+
+### [A-055] 2026-05-07 (PM2) · 主 CLI
+
+**Decision**: 全 4 件 cherry-pick + 4 sloppy 归档 + 5-step 启动 plan + 24h 回写 task ratify · 立即执行.
+
+**Rationale**:
+
+1. KT doc 真做功夫 (3 轮真辩论 + 16 file `docs/working/` + Codex 真挖 4 file:line evidence) · 不可全拒 · 真价值 cherry-pick
+2. 整套 5 件 P0 (6.5 ww) 跟 R3 v2 12-14d + 3 worker mesh 现 plan 撞车 · 接整套 = 停 R3 v2 重派 worker 白启 · 不接
+3. 4 件 cherry-pick scope 限 "半天文档活" · 不动代码 · 不改 R3 v2 工时 · 不抢 worker 资源
+4. Codex Gap 1+2+3 fix 全嵌入: rollback table (5 步各 fail 路径) + 验收锚点 (commit hash + 文件 + grep 条件) + REF 追溯 (worker A 引 KT §4.2 P0.1)
+5. 4 sloppy 归档防后续 worker 抄 fabrication (Experian / 漏 5 / GPT-5.5 / 自创术语)
+
+**回写来源**: 真辩论 R1+R2+R3+R-final (主 CLI Claude Opus 4.7 + Codex gpt-5.3-codex-spark · 5.5+xhigh fallback 触发 per handoff §11) · PM 2026-05-07 (PM2) ratify "按你的步骤执行"
+
+**Author**: 主 CLI Claude Opus 4.7 · close-out commit (Q-055 commit pending)
