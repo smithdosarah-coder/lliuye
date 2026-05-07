@@ -15,9 +15,10 @@ from typing import Iterable
 from shared.kb_scan.models import HitItem, IdealProfile
 from agent_channel.channel_rules import match_channels
 from agent_channel.scoring import rank_recommendations, ChannelRecommendation
+from shared.prompts.agent_helpers import build_channel_ssot_prompt
 from agent_channel.prompts import (
-    PITCH_GEN_SYSTEM, PITCH_GEN_PROMPT,
-    BATCH_PITCH_SYSTEM, BATCH_PITCH_PROMPT,
+    PITCH_GEN_PROMPT,
+    BATCH_PITCH_PROMPT,
     render_fewshot_block,
 )
 
@@ -144,8 +145,12 @@ class ProductRecommender:
         leads_block = "\n".join(leads_block_lines)
 
         try:
+            system = build_channel_ssot_prompt(
+                task_type="pitch_batch",
+                schema_hint='{"pitches": [{"lead_id": str, "pitch": str (80-120 字 · 口语化 · 无客套)}]}',
+            )
             data = self.llm_json(
-                BATCH_PITCH_SYSTEM,
+                system,
                 BATCH_PITCH_PROMPT.format(
                     policy_ctx=ideal.policy_context or "（无政策语境）",
                     leads_block=leads_block,
@@ -194,7 +199,8 @@ class ProductRecommender:
             fewshot_block=render_fewshot_block(),
         )
         try:
-            out = self.llm_chat(PITCH_GEN_SYSTEM, user)
+            system = build_channel_ssot_prompt(task_type="pitch_single")
+            out = self.llm_chat(system, user)
             return (out or "").strip().strip('"""\'') or self._template_pitch(hit, ideal)
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):
             return self._template_pitch(hit, ideal)

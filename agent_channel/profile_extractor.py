@@ -12,11 +12,9 @@ from collections import Counter
 from typing import Any
 
 from shared.kb_scan.models import IdealProfile
+from shared.prompts.agent_helpers import build_channel_ssot_prompt
 from agent_channel.knowledge_base import ChannelKnowledgeBase
-from agent_channel.prompts import (
-    PROFILE_EXTRACT_SYSTEM,
-    PROFILE_EXTRACT_PROMPT,
-)
+from agent_channel.prompts import PROFILE_EXTRACT_PROMPT
 
 
 class ProfileExtractor:
@@ -40,7 +38,11 @@ class ProfileExtractor:
                     policy_rules=policy or "（未上传政策文件）",
                     industry_guide=industry_guide or "（未上传行业指引）",
                 )
-                data = self.llm_caller(PROFILE_EXTRACT_SYSTEM, user)
+                system = build_channel_ssot_prompt(
+                    task_type="profile_extract",
+                    schema_hint="IdealProfile 12 维 JSON · 严格按 user prompt 中字段定义输出",
+                )
+                data = self.llm_caller(system, user)
                 if isinstance(data, dict) and "pitches" in data:
                     data = None  # 误判，走兜底
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError):

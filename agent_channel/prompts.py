@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """Agent1 v2.0 提示词集合。
 
-三套 Prompt：
+PB#2 (2026-05-06 · Q-053) 后:
+- system prompt 走 shared.prompts.agent_helpers.build_channel_ssot_prompt
+- 本 module 仅保留 user prompt template (含业务 schema / 字段定义)
+- 旧 hardcode SYSTEM_* 已删除 (不向下兼容 · per CLAUDE.md "不留死代码")
+
+三套 user prompt template：
 1. PROFILE_EXTRACT_PROMPT — 从客户统计 + 政策 + 行业指引抽取 IdealProfile
 2. BATCH_PITCH_PROMPT    — Top N 线索批量生成切入话术
 3. PITCH_GEN_PROMPT      — 单条话术 fallback
 """
 from __future__ import annotations
-
-
-PROFILE_EXTRACT_SYSTEM = "你是一位银行获客画像分析专家，擅长把客户名录的共性和政策导向合成'理想客户画像'。"
 
 
 PROFILE_EXTRACT_PROMPT = """请综合以下三类信息，定义一张可用于外网 look-alike 检索的"理想客户画像"。
@@ -47,9 +49,6 @@ PROFILE_EXTRACT_PROMPT = """请综合以下三类信息，定义一张可用于�
   "reasoning": "画像依据说明（100-200 字）"
 }}
 """
-
-
-PITCH_GEN_SYSTEM = "你是资深银行客户经理，擅长首次电话切入话术。"
 
 
 PITCH_GEN_PROMPT = """请为以下潜在客户生成一段电话首访切入话术（80-120 字）。
@@ -110,8 +109,6 @@ def render_fewshot_block(examples: list[dict] | None = None, max_n: int = 3) -> 
 
 
 # 批量话术（Top10 一次生成，省 LLM 调用数）
-BATCH_PITCH_SYSTEM = "你是资深银行客户经理，擅长针对不同企业生成差异化切入话术。"
-
 BATCH_PITCH_PROMPT = """请为下列每条线索生成一段电话首访切入话术（80-120 字/条）。
 
 【当前政策语境】
