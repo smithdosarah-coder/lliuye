@@ -70,6 +70,10 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
   ssh_run "sudo systemctl stop lliuye-frontend"
 
   echo ""
+  echo "=== 4.5 npm install (新 dep 兜底 · package.json 改时必跑) ==="
+  ssh_run "cd $ECS_REPO/web && npm install 2>&1 | tail -5"
+
+  echo ""
   echo "=== 5. npm run build (slow · 3-10 min) ==="
   ssh_run "cd $ECS_REPO/web && npm run build" 2>&1 | tail -30
 

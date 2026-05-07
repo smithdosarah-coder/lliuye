@@ -66,8 +66,35 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [hydrated, bootstrapped, currentUser, accessibleAgents, isLogin, isForbidden, pathname, router]);
 
-  // hydrate / bootstrap 前不渲染 · 防 SSR 闪
-  if (!hydrated || !bootstrapped) return null;
+  // PB#5 (2026-05-06 · PM 拍 A 方案): hydrate / bootstrap 前显最低调 spinner
+  // 替代 return null (白屏 0.5s) · 0 文案 · 浅灰 spinner · 不动主题视觉
+  if (!hydrated || !bootstrapped) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--g0, #faf8f3)",
+          zIndex: 9999,
+        }}
+      >
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            border: "2px solid var(--g3, #d4d0c8)",
+            borderTopColor: "var(--accent, #8a7355)",
+            borderRadius: "50%",
+            animation: "auth-gate-spin 0.7s linear infinite",
+          }}
+        />
+        <style>{`@keyframes auth-gate-spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   // 未登录 · non-login/403 path → 等 redirect (上面 useEffect 触发)
   if (!currentUser && !isLogin && !isForbidden) return null;
