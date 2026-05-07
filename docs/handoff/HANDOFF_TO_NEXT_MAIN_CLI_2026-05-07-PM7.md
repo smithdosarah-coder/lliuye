@@ -108,12 +108,23 @@ PM 提示: "修体验"和"升能力"在不同代码层 · 0 文件冲突 · 应*
 - ✅ **default model = `gpt-5.5` · reasoning = `xhigh`** (PM 2026-05-07 拍 · 除非 PM 显式说用别的 · per memory `reference_codex_default_config.md`)
 - ✅ stuck fallback 链: `gpt-5.5 + xhigh` → `gpt-5.3-codex-spark + low` (81s 实战最稳)
 
-### 4.2 mesh 当前状态 (主 CLI 决定不复活 · 新主 CLI 可重评)
+### 4.2 mesh ⚠️ 必启 (前主 CLI 判断错 · 已纠正)
 
-- mesh.json 有 worktree registry · `scripts/orchestrator/` 有 P1-P5 自愈 (validator/scoreboard/watchdog/recovery/launcher · 工具齐全 · 之前 codex audit "空" 是误判)
-- ❌ 当前 0 worker cmd 窗口跑 (Sprint 2 后 4 worker 全 release)
-- 当前主 CLI 决定: 用 **sub-agent + dispatching-parallel-agents skill** (不复活 mesh)
-- 新主 CLI 可重评: R3 v2 12-14d 单 CLI 装不下 → 启 launch-all-LIUYE.bat 复活 mesh worker (PM 双击 · 4 cmd 窗口)
+**前主 CLI 误判**: "用 sub-agent 不复活 mesh" — PM 2026-05-07-PM7 catch 戳穿: sub-agent 是 OS 子进程 · 完成报告**仍回主 CLI 上下文** · 新主 CLI 单 CLI + sub-agent 跑 R3 v2 12-14d 必爆 context (前主 CLI ~30 commits 已经爆了)。
+
+**真"主 CLI 不被脏活稀释"** = **mesh worker** (独立 cmd 窗口 + 独立 git worktree + 独立 claude 实例 + git signal 通讯)。
+
+**mesh 工具其实齐全** (前主 CLI 之前误信 codex 误判):
+- `scripts/orchestrator/` 完整 P1-P5: validator (commit 钩) · scoreboard (状态) · watchdog (poll) · recovery (重启) · launcher (register)
+- `mesh.json` 有 worktree registry
+- 0 worker 只是 Sprint 2 后全 release · 不是工具问题
+
+**新主 CLI 必启 mesh** (resume 后第一件):
+1. 加载 multi-cli-mesh skill (skill 触发表 "多 CLI 并行项目 → multi-cli-mesh")
+2. 按 R3 v2 任务划分 worker (建议: 3 worker = R3-frontend / R3-backend / R3-test)
+3. `py scripts/orchestrator/launcher.py register <name> --path ... --branch ... --role ...`
+4. 改 `C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat` (现 4 cmd · 改成主 CLI + R3 worker)
+5. 让 PM 双击 launch · 多 cmd 窗口起 · 主 CLI 通过 decisions-log Q-NNN 派活
 
 ### 4.3 误杀 PM Codex 桌面 App 教训 (今晚已 2 犯 · 第 3 次 = revert)
 
