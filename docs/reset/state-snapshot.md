@@ -1641,3 +1641,38 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 6. **commit 粒度 = task 粒度 = revert 粒度**: 7 agent commit 单独可 revert · 不打包 · 客户走访遇问题精准 fix
 7. **Codex R3 守则 3 (220 行) 救命**: 不写这条 · Agent6 直接 helper + 业务铁律 = 236 行膨胀 · 翻车
 
+---
+
+## 2026-05-07 · R3 v2 P0 件 #1 audit baseline ship (commit `6d22867`)
+
+### What happened
+- 3 audit Python 脚本写完 + 跑通 baseline:
+  · `scripts/audit/audit_pm7_mock_sources.py` · 46 findings (lib_mock_import 27 / fixture_const 8 / mode_seed_default 9 / seed_default 2)
+  · `scripts/audit/audit_dead_cta.py` · 4 findings (login SSO btn 2 disabled · TODO marker 2)
+  · `scripts/audit/audit_inline_style.py` · 203 findings (ReportWorkspace 57 / AlertWorkspace 25 / customer 71)
+- Hygiene `scripts/kill_codex_cli_safe.ps1` 写完 (default dry-run · -Force opt-in · 大写 Codex.exe / path empty / 非 codex-cli 路径 全 skip)
+- Sub-agent ab917ab06 fired (general-purpose) · 跑 5 个 4-gate spec verify + CI gate yml (脏活 · 主 CLI 不亲跑 · per CLAUDE.md "重任务起 Agent")
+
+### Triggered by
+- PM 2026-05-07 "按原计划 GO" → R3 v2 件 #1 (per `docs/handoff/HANDOFF_TO_NEXT_MAIN_CLI_2026-05-07-PM7.md` §5)
+
+### State change (delta)
+- inline_style 真 baseline = **203** (vs grounded report §0.5 估 71 customer-only · 远超 · ReportWorkspace 单文件 57 / AlertWorkspace 25 / 6 workspace 全是 inline 重灾区)
+- mock 数据混入面 = 46 finding 4 类入口面 mapped (PM #4 真假区分根因 grounded · 不再凭抽象数估)
+- Production HEAD verified = `7df48ca` (前主 CLI close-out 已 push · 跟本地双向 0 commit diff · 纠正本主 CLI resume 报告"多 2 doc commit"误判)
+- Codex App 误杀 hygiene 落地 (前主 CLI 已误杀 2 次 · `kill_codex_cli_safe.ps1` 防第 3 次 = revert)
+
+### Next
+- Sub-agent ab917ab06 完成后:
+  · 5 spec pass/fail 矩阵 + :3101 dev server race root cause 报告
+  · CI gate yml (`.github/workflows/web-audit.yml` 候选 A · web/* change 触发 · 跑 4-gate + 3 audit baseline · `--exit-on-regression` 阻 ship)
+  · 主 CLI commit · 收 件 #1 (0.5d budget · 实测进度)
+- 件 #1 完 → 等 PM 拍 件 #2 (data_source SSOT 前端真消费 · 1-1.5d) 或拆 mesh worker (per handoff §4.2 必启)
+
+### 学到了什么 (本次)
+
+1. **inline_style baseline 估错 3x**: grounded report §0.5 估 71 (customer page only) · 实际全栈 203 · ReportWorkspace 单文件 57 · 6 workspace 全 inline 重灾区 · PM #3 排版 BUG 真因比预想严重 · 修需分 file 优先级 (Report → Alert → customer → 其他)
+2. **Playwright `webServer` race condition**: hermetic mode reuseExistingServer:false 跟 OS port release timing 不同步 · netstat / Get-NetTCPConnection / Invoke-WebRequest 三方说空但 Playwright 仍报 occupied · 主 CLI 不深陷 debug · 派 sub-agent (per CLAUDE.md "重任务起 Agent · 主上下文不被脏活稀释")
+3. **Production HEAD verify 必先 fetch**: 老 handoff doc 写的 `31d24d8` 是 frozen-in-time snapshot · 真值 `7df48ca` (老 CLI close-out 已 push) · resume 第一组动作必先 `git fetch origin main` 再读 ref · 否则 stale 缓存误判
+4. **commit 粒度 = task 粒度**: audit baseline + hygiene 4 file → 1 commit · spec verify + CI gate sub-agent 输出后 → 1 commit · 不批量打包 · 防 revert 难定位
+
