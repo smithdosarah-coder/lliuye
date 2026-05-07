@@ -15,9 +15,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { useAuthStore } from "@/lib/store";
 import { ModePill } from "@/components/shared/ModePill";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { CARD_PIN_MIME } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
+import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { nextThinkDelayMs, pickReply } from "../_mock/canned-replies";
 import {
   Radar,
@@ -128,6 +130,11 @@ export default function ChannelWorkspace() {
      forceMock=false · 默认 · 尝试 live · 失败 fallback mock */
   const [forceMock, setForceMock] = useState(false);
   const isLive = liveData !== null && !forceMock;
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1 + AGENT_IDENTITY).
+     默认 "mock" (no run yet) · QueryBar 收 done event 时 setCurrentDataSource(normalize(data.data_source))
+     · LiveFailError 时 setCurrentDataSource("mock_fallback") · forceMock toggle 时 "mock_forced". */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
+  const [currentProvider, setCurrentProvider] = useState<string | undefined>(undefined);
 
   /* F-044 · 2026-04-28 · master plan §B.6 · 3 类 KB upload UI
      kbIds[type] = kb_id (uuid) · null = 未上传 · upload 后 setter 写入 */
@@ -418,7 +425,16 @@ export default function ChannelWorkspace() {
         topSim={topSim}
         isLive={isLive}
         forceMock={forceMock}
-        onToggleMock={setForceMock}
+        onToggleMock={(next) => {
+          setForceMock(next);
+          /* 件 #2 · forceMock 切 true → trust model 立即标 mock_forced · 不等 SSE done */
+          if (next) {
+            setCurrentDataSource("mock_forced");
+            setCurrentProvider(undefined);
+          }
+        }}
+        currentDataSource={currentDataSource}
+        currentProvider={currentProvider}
       />
       {/* F-044 · master plan §B.6 · 3 类 KB upload UI (客户名录 / 政策 / 行业指引) */}
       <KbUploadStrip
@@ -453,6 +469,10 @@ export default function ChannelWorkspace() {
         externalTrigger={externalTrigger}
         onStreamError={setStreamFatal}
         onStreamWarning={setStreamWarning}
+        onDataSource={(kind, provider) => {
+          setCurrentDataSource(kind);
+          setCurrentProvider(provider);
+        }}
       />
       {started ? (
         <>
@@ -542,12 +562,17 @@ function ChannelHero({
   isLive,
   forceMock,
   onToggleMock,
+  currentDataSource,
+  currentProvider,
 }: {
   sessionData: ChannelSession;
   topSim: number;
   isLive: boolean;
   forceMock?: boolean;
   onToggleMock?: (next: boolean) => void;
+  /* 件 #2 · data_source SSOT 真消费 · 显式 5-enum trust model badge */
+  currentDataSource: DataSourceKind;
+  currentProvider?: string;
 }) {
   const s = sessionData;
   return (
@@ -566,12 +591,18 @@ function ChannelHero({
         </div>
       </div>
       {/* PM bug #4 P2 · MOCK/LIVE 真 toggle · 用户可点切 forceMock */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <ModePill
           isLive={isLive}
           testId="channel-mode-pill"
           forceMock={forceMock}
           onToggle={onToggleMock}
+        />
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1 fix) */}
+        <DataSourceBadge
+          kind={currentDataSource}
+          provider={currentProvider}
+          testId="channel-data-source-badge"
         />
         <div className="rpt-hero-stats">
           <Stat label="本周处理" value={CHANNEL_GLOBAL_STATS.weeklyProcessed} />
@@ -1456,6 +1487,7 @@ function QueryBar({
   externalTrigger,
   onStreamError,
   onStreamWarning,
+  onDataSource,
 }: {
   sessionData: ChannelSession;
   selectedSession: string;
@@ -1473,6 +1505,8 @@ function QueryBar({
   onStreamError?: (msg: string | null) => void;
   /* C4 · banner-spec rule 2 · 上抛 stream warning (mock_fallback / Tavily 0 命中) · 黄色 info banner */
   onStreamWarning?: (msg: string | null) => void;
+  /* 件 #2 · data_source SSOT · done event 收 normalize 后回报 + provider_source 透传 */
+  onDataSource?: (kind: DataSourceKind, provider?: string) => void;
 }) {
   const q = sessionData.query;
   /* F-005 · 2026-04-27 双模式实装:
@@ -1524,6 +1558,11 @@ function QueryBar({
             setLiveData(live);
             setMessages(live.conversation);
             setSelectedCandidate(null);
+            /* 件 #2 · demo run 默认 mock_forced (per shared.sse_envelope canon) · 但仍读 data.data_source 兜底 */
+            const rawDs = (data as Record<string, unknown>).data_source;
+            const kind = rawDs ? normalizeDataSource(rawDs) : "mock_forced";
+            const provider = (data as Record<string, unknown>).provider_source as string | undefined;
+            onDataSource?.(kind, provider);
           }
         },
         { signal: ac.signal },
@@ -1535,10 +1574,13 @@ function QueryBar({
         const msg = liveFailBannerText(err, "Channel /api/channel/demo/run");
         setStreamError(msg);
         onStreamError?.(msg);
+        /* 件 #2 · live 失败 → trust model 一级降级 (banner-spec rule 1) */
+        onDataSource?.("mock_fallback");
       } else {
         const msg = err instanceof Error ? err.message : String(err);
         setStreamError(msg);
         onStreamError?.(msg);
+        onDataSource?.("mock_fallback");
       }
     } finally {
       if (!ac.signal.aborted) setStreaming(false);
@@ -1589,6 +1631,11 @@ function QueryBar({
             if (Array.isArray(wlist) && wlist.length > 0) {
               onStreamWarning?.(`⚠️ ${String(wlist[0])}`);
             }
+            /* 件 #2 · data_source SSOT · run 走 backend canon · 默认 live · provider_source 透出 */
+            const rawDs = (data as Record<string, unknown>).data_source;
+            const kind = rawDs ? normalizeDataSource(rawDs) : "live";
+            const provider = (data as Record<string, unknown>).provider_source as string | undefined;
+            onDataSource?.(kind, provider);
           }
         },
         { signal: ac.signal },
@@ -1600,10 +1647,13 @@ function QueryBar({
         const msg = liveFailBannerText(err, "Channel /api/channel/run");
         setStreamError(msg);
         onStreamError?.(msg);
+        /* 件 #2 · live 失败 → trust model 一级降级 (banner-spec rule 1) */
+        onDataSource?.("mock_fallback");
       } else {
         const msg = err instanceof Error ? err.message : String(err);
         setStreamError(msg);
         onStreamError?.(msg);
+        onDataSource?.("mock_fallback");
       }
     } finally {
       if (!ac.signal.aborted) setStreaming(false);
