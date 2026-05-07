@@ -78,6 +78,7 @@ export type DslGenDonePayload = {
 export async function runDslGen(
   req: DslGenRequest,
   onEvent?: RiskctrlSseHandler,
+  signal?: AbortSignal,
 ): Promise<DslGenDonePayload | null> {
   const body = {
     strategy_intent: req.strategyIntent,
@@ -86,11 +87,12 @@ export async function runDslGen(
   };
   let donePayload: DslGenDonePayload | null = null;
   await streamSse(ENDPOINT_DSL_GEN, body, (evt) => {
+    if (signal?.aborted) return;
     onEvent?.(evt);
     if (evt.type === "done") {
       donePayload = evt.data as unknown as DslGenDonePayload;
     }
-  });
+  }, { signal });
   return donePayload;
 }
 
@@ -137,6 +139,7 @@ export type BacktestDonePayload = {
 export async function runBacktest(
   req: BacktestRequest,
   onEvent?: RiskctrlSseHandler,
+  signal?: AbortSignal,
 ): Promise<BacktestDonePayload | null> {
   const body = {
     ruleset: req.ruleset,
@@ -146,11 +149,12 @@ export async function runBacktest(
   };
   let donePayload: BacktestDonePayload | null = null;
   await streamSse(ENDPOINT_BACKTEST, body, (evt) => {
+    if (signal?.aborted) return;
     onEvent?.(evt);
     if (evt.type === "done") {
       donePayload = evt.data as unknown as BacktestDonePayload;
     }
-  });
+  }, { signal });
   return donePayload;
 }
 

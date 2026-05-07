@@ -231,6 +231,11 @@ export default function ComplianceWorkspace() {
 
   /* D3 Atomic A · 自动选首条 high-severity violation when started · 一次性 ref guard · 防覆盖用户切换 */
   const hasAutoSelectedViolationRef = useRef(false);
+  /* PB#5 · AbortController · 组件卸载/重新触发 abort SSE · 防僵尸连接 */
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
   useEffect(() => {
     if (!started) return;
     if (selectedViolationId) return;
@@ -300,6 +305,9 @@ export default function ComplianceWorkspace() {
     setLiveData(null);
     setSelectedViolationId(null);
     clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const { scanId: captured } = await runPolicyScan(
         {
@@ -325,13 +333,16 @@ export default function ComplianceWorkspace() {
             : "";
           if (firstVio) setSelectedViolationId(firstVio);
         },
+        ac.signal,
       );
+      if (ac.signal.aborted) return;
       if (captured) setScanId(captured);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail("policy_scan 政策比对", e, () => triggerPolicyScan());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
-      setScanRunning(false);
+      if (!ac.signal.aborted) setScanRunning(false);
     }
   }, []);
 
@@ -386,6 +397,9 @@ export default function ComplianceWorkspace() {
     setLiveData(null);
     setSelectedViolationId(null);
     clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const { scanId: captured } = await runComplianceDemo(
         opt.scenarioId,
@@ -397,9 +411,12 @@ export default function ComplianceWorkspace() {
             : "";
           if (firstVio) setSelectedViolationId(firstVio);
         },
+        ac.signal,
       );
+      if (ac.signal.aborted) return;
       if (captured) setScanId(captured);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail(`demo/run ${opt.scenarioId} 演示`, e, () => { void onApplyRecent(); });
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {

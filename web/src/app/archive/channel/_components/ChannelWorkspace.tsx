@@ -1486,6 +1486,12 @@ function QueryBar({
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
+  /* PB#5 · AbortController · 组件卸载/切 session/重新触发时 abort 进行中 SSE · 防僵尸连接 */
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   /* V2 issue 2 · 显式 demo 模式 · 点 easy/medium/hard 按钮调 /api/channel/demo/run
      纯 mock SSE · data_source=mock_forced · 客户走访稳定演示 / Playwright smoke 不依赖 Tavily */
   async function runDemoScenario(scenarioId: "easy" | "medium" | "hard") {
@@ -1495,6 +1501,10 @@ function QueryBar({
     setStreamEvents([]);
     setStreamError(null);
     onStreamError?.(null);
+    /* PB#5 · cancel 之前未完成的 SSE (e.g. 用户连点 demo 按钮) */
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
       "";
@@ -1503,6 +1513,7 @@ function QueryBar({
         `${apiBase}/api/channel/demo/run`,
         { scenario_id: scenarioId },
         (sseEvt) => {
+          if (ac.signal.aborted) return;
           const data = sseEvt.data as ChannelStreamEvent;
           setStreamEvents((prev) => [...prev, data]);
           if (sseEvt.type === "done") {
@@ -1515,8 +1526,11 @@ function QueryBar({
             setSelectedCandidate(null);
           }
         },
+        { signal: ac.signal },
       );
     } catch (err) {
+      /* PB#5 · AbortError 是预期 (组件卸载 / 重新触发) · 不显 banner */
+      if (err instanceof DOMException && err.name === "AbortError") return;
       if (err instanceof LiveFailError) {
         const msg = liveFailBannerText(err, "Channel /api/channel/demo/run");
         setStreamError(msg);
@@ -1527,7 +1541,7 @@ function QueryBar({
         onStreamError?.(msg);
       }
     } finally {
-      setStreaming(false);
+      if (!ac.signal.aborted) setStreaming(false);
     }
   }
 
@@ -1539,6 +1553,10 @@ function QueryBar({
     setStreamEvents([]);
     setStreamError(null);
     onStreamError?.(null);
+    /* PB#5 · cancel 之前未完成的 SSE (e.g. 用户连点 search 按钮) */
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     /* C2 · streamSse 替代内联 res.body.getReader() · LiveFailError 走顶部 banner (banner-spec rule 1)
        done event 走 normalizeBackendDone(evt, tplFallback) 整 ChannelSession 注入 setLiveData */
     const apiBase =
@@ -1549,6 +1567,7 @@ function QueryBar({
         `${apiBase}/api/channel/run`,
         { query: queryText, mock: false, top_n: 8 },
         (sseEvt) => {
+          if (ac.signal.aborted) return;
           const data = sseEvt.data as ChannelStreamEvent;
           setStreamEvents((prev) => [...prev, data]);
           /* C4 banner-spec rule 2 · backend stage event status="warning" → 顶部黄条
@@ -1572,8 +1591,11 @@ function QueryBar({
             }
           }
         },
+        { signal: ac.signal },
       );
     } catch (err) {
+      /* PB#5 · AbortError 是预期 (组件卸载 / 重新触发) · 不显 banner */
+      if (err instanceof DOMException && err.name === "AbortError") return;
       if (err instanceof LiveFailError) {
         const msg = liveFailBannerText(err, "Channel /api/channel/run");
         setStreamError(msg);
@@ -1584,7 +1606,7 @@ function QueryBar({
         onStreamError?.(msg);
       }
     } finally {
-      setStreaming(false);
+      if (!ac.signal.aborted) setStreaming(false);
     }
   }
 

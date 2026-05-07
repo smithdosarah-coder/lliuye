@@ -295,6 +295,11 @@ export default function AlertWorkspace() {
   const [phase, setPhase] = useState<ScanPhase>("before");
   const [stepIdx, setStepIdx] = useState(0);
   const timerRef = useRef<number | null>(null);
+  /* PB#5 · AbortController · 组件卸载/重新触发时 abort SSE · 防僵尸连接 */
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   /* ───────── banner / error states ───────── */
 
@@ -420,6 +425,10 @@ export default function AlertWorkspace() {
     }, 500);
 
     /* 真接 POST /api/alert/scan SSE · streamSse helper · 失败 banner */
+    /* PB#5 · cancel 之前未完成的 scan · 防多次连点 leak */
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     void (async () => {
       try {
         const result = await runAlertScan(
@@ -443,10 +452,14 @@ export default function AlertWorkspace() {
               setLiveData(live);
             }
           },
+          ac.signal,
         );
+        if (ac.signal.aborted) return;
         if (result.sessionId) setScanSessionId(result.sessionId);
         setPhase("after");
       } catch (e) {
+        /* PB#5 · AbortError 是预期 · 不显 banner */
+        if (e instanceof DOMException && e.name === "AbortError") return;
         recordLiveFail("alert scan", e, () => startScan());
         if (timerRef.current != null) {
           window.clearInterval(timerRef.current);

@@ -47,6 +47,7 @@ export type AlertScanResult = {
 export async function runAlertScan(
   req: AlertScanRequest,
   onEvent?: AlertSseHandler,
+  signal?: AbortSignal,
 ): Promise<AlertScanResult> {
   const body = {
     scenario_key: req.scenarioKey ?? "",
@@ -56,6 +57,7 @@ export async function runAlertScan(
   let sessionId = "";
   let mode = "";
   await streamSse(ENDPOINT_SCAN, body, (evt) => {
+    if (signal?.aborted) return;
     onEvent?.(evt);
     const data = (evt.data ?? {}) as Record<string, unknown>;
     const payload = (data.payload as Record<string, unknown> | undefined) ?? {};
@@ -71,7 +73,7 @@ export async function runAlertScan(
       if (data.session_id) sessionId = String(data.session_id);
       if (data.mode) mode = String(data.mode);
     }
-  });
+  }, { signal });
   return { sessionId, mode };
 }
 

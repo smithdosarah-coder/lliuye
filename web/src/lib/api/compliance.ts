@@ -93,6 +93,7 @@ export async function runPolicyScan(
   req: PolicyScanRequest,
   onEvent?: ComplianceSseHandler,
   onDone?: (env: ComplianceDoneEnvelope) => void,
+  signal?: AbortSignal,
 ): Promise<PolicyScanResult> {
   const body = {
     policy_doc: req.policyDoc,
@@ -103,6 +104,7 @@ export async function runPolicyScan(
   let captured = "";
   let doneEnvelope: ComplianceDoneEnvelope | null = null;
   await streamSse(ENDPOINT_POLICY_SCAN, body, (evt) => {
+    if (signal?.aborted) return;
     onEvent?.(evt);
     if (evt.type === "done") {
       const env = evt.data as unknown as ComplianceDoneEnvelope;
@@ -116,7 +118,7 @@ export async function runPolicyScan(
     if (payload.type === "scan" && payload.scan_id) {
       captured = String(payload.scan_id);
     }
-  });
+  }, { signal });
   return { scanId: captured, doneEnvelope };
 }
 
@@ -126,10 +128,12 @@ export async function runComplianceDemo(
   scenarioId: "online_loan" | "aml" | "data_protect",
   onEvent?: ComplianceSseHandler,
   onDone?: (env: ComplianceDoneEnvelope) => void,
+  signal?: AbortSignal,
 ): Promise<PolicyScanResult> {
   let captured = "";
   let doneEnvelope: ComplianceDoneEnvelope | null = null;
   await streamSse(ENDPOINT_DEMO_RUN, { scenario_id: scenarioId }, (evt) => {
+    if (signal?.aborted) return;
     onEvent?.(evt);
     if (evt.type === "done") {
       const env = evt.data as unknown as ComplianceDoneEnvelope;
@@ -137,7 +141,7 @@ export async function runComplianceDemo(
       if (env.session_id) captured = String(env.session_id);
       onDone?.(env);
     }
-  });
+  }, { signal });
   return { scanId: captured, doneEnvelope };
 }
 

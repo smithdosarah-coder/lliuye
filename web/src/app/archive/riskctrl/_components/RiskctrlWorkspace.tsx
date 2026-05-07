@@ -217,6 +217,12 @@ export default function RiskctrlWorkspace() {
   );
 
   /* Primary CTA · 选样本 + 写策略 → POST /api/riskctrl/dsl_gen 真 LLM 生成 */
+  /* PB#5 · AbortController · SSE 防僵尸连接 (DSL gen + backtest 共用 ref · 不并发) */
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
   const triggerDslGen = useCallback(async (ruleText: string) => {
     const text = ruleText || "拒绝近 30 日逾期 ≥ 3 次的小微客户";
     setStarted(true);
@@ -224,18 +230,23 @@ export default function RiskctrlWorkspace() {
     setScanRunning(true);
     setScanError("");
     clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const result = await runDslGen({
         strategyIntent: text,
         sampleCsvPath: lastSampleCsvPath,
-      });
+      }, undefined, ac.signal);
+      if (ac.signal.aborted) return;
       if (result?.ruleset_id) setRulesetId(result.ruleset_id);
       if (result?.ruleset) setLastRuleset(result.ruleset);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail("DSL 生成", e, () => triggerDslGen(text));
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
-      setScanRunning(false);
+      if (!ac.signal.aborted) setScanRunning(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastSampleCsvPath]);
@@ -278,11 +289,15 @@ export default function RiskctrlWorkspace() {
     setScanRunning(true);
     setScanError("");
     clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const result = await runBacktest({
         ruleset: lastRuleset,
         csvPath: lastSampleCsvPath,
-      });
+      }, undefined, ac.signal);
+      if (ac.signal.aborted) return;
       setScanned(true);
       if (result) {
         // Step 8 · backtest done → liveData · panel 整套切真数据
@@ -293,10 +308,11 @@ export default function RiskctrlWorkspace() {
         setLiveData(merged);
       }
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       recordLiveFail("样本回测", e, () => triggerBacktest());
       setScanError(e instanceof Error ? e.message : String(e));
     } finally {
-      setScanRunning(false);
+      if (!ac.signal.aborted) setScanRunning(false);
     }
   }, [lastRuleset, lastSampleCsvPath, selectedSession]);
 

@@ -16,7 +16,12 @@
  *   - 走相对 path · prod 透 nginx · dev 用 NEXT_PUBLIC_API_BASE
  *   - 错误标准化为 AuthApiError · UI 拿 message 直接显
  *   - empty-state-design-protocol § frontend 不存 password (httpOnly cookie 是 source of truth)
+ *
+ * PB#5 (2026-05-06): zod runtime schema 校验 · 失败抛 AuthApiError code=AUTH_SCHEMA_INVALID
+ *   防 backend payload 格式漂移导致 frontend 静默崩 (e.g. role enum 多值 / accessibleAgents 类型变)
  */
+import { z } from "zod";
+
 const API_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
 
@@ -64,6 +69,51 @@ export class AuthApiError extends Error {
   }
 }
 
+// PB#5 zod schema · runtime 校验 backend payload (镜像 backend auth_service/users.py + rbac.py)
+const AuthRoleSchema = z.enum([
+  "rm",
+  "credit_officer",
+  "compliance_officer",
+  "risk_manager",
+  "admin",
+]);
+const AuthAgentIdSchema = z.enum([
+  "channel",
+  "report",
+  "credit",
+  "alert",
+  "compliance",
+  "riskctrl",
+]);
+const AuthUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: AuthRoleSchema,
+  team: z.string(),
+  avatar: z.string().optional(),
+});
+const AuthMeResponseSchema = z.object({
+  user: AuthUserSchema,
+  roles: z.array(AuthRoleSchema),
+  accessibleAgents: z.array(AuthAgentIdSchema),
+});
+const AuthLoginResponseSchema = AuthMeResponseSchema.extend({
+  token: z.string(),
+});
+const AuthLogoutResponseSchema = z.object({
+  ok: z.boolean(),
+  had_cookie: z.boolean(),
+});
+
+function parseOrThrow<T>(schema: z.ZodType<T>, raw: unknown, status: number): T {
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    const issues = result.error.issues.slice(0, 3).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    throw new AuthApiError(status, "AUTH_SCHEMA_INVALID", `后端响应格式异常: ${issues}`);
+  }
+  return result.data;
+}
+
 async function readErrorMessage(res: Response): Promise<{ code: string; message: string }> {
   try {
     const j = (await res.json()) as { detail?: { error?: { code?: string; message?: string } } };
@@ -100,7 +150,7 @@ export async function loginApi(
     const { code, message } = await readErrorMessage(res);
     throw new AuthApiError(res.status, code, message);
   }
-  return (await res.json()) as AuthLoginResponse;
+  return parseOrThrow(AuthLoginResponseSchema, await res.json(), res.status);
 }
 
 /**
@@ -118,7 +168,7 @@ export async function fetchMe(): Promise<AuthMeResponse> {
     const { code, message } = await readErrorMessage(res);
     throw new AuthApiError(res.status, code, message);
   }
-  return (await res.json()) as AuthMeResponse;
+  return parseOrThrow(AuthMeResponseSchema, await res.json(), res.status);
 }
 
 /**
@@ -135,5 +185,5 @@ export async function logoutApi(): Promise<{ ok: boolean; had_cookie: boolean }>
     const { code, message } = await readErrorMessage(res);
     throw new AuthApiError(res.status, code, message);
   }
-  return (await res.json()) as { ok: boolean; had_cookie: boolean };
+  return parseOrThrow(AuthLogoutResponseSchema, await res.json(), res.status);
 }

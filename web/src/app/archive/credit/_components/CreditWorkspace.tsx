@@ -145,6 +145,11 @@ export default function CreditWorkspace() {
     label: "已完成综合判断",
   });
   const timerRef = useRef<number | null>(null);
+  /* PB#5 · AbortController · SSE 防僵尸连接 · 3 SSE callsite 共用 (sequential · 不并发) */
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
   /* 2026-04-23 · credit 也统一空态 · startGenerate 最后一步触发 · 数据显现 */
   const [scanned, setScanned] = useState(false);
 
@@ -182,6 +187,9 @@ export default function CreditWorkspace() {
       small: "dingsheng_trade",
       retail: "zhangsan_restaurant",
     };
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       // sessionData snapshot at start · 用作 normalize fallback (panels 未 backend 透传字段)
       const fallbackSession = sessionData;
@@ -193,6 +201,7 @@ export default function CreditWorkspace() {
           preset_name: opts.mockMode ? null : presetByMode[mode],
         },
         (sseEvt) => {
+          if (ac.signal.aborted) return;
           const data = sseEvt.data as {
             event?: string;
             stage?: string;
@@ -219,14 +228,16 @@ export default function CreditWorkspace() {
             setScanned(true);
           }
         },
+        { signal: ac.signal },
       );
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       const msg = err instanceof LiveFailError
         ? liveFailBannerText(err, "Credit /api/credit/decision")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
     } finally {
-      setDecisionRunning(false);
+      if (!ac.signal.aborted) setDecisionRunning(false);
     }
   }
 
@@ -309,6 +320,9 @@ export default function CreditWorkspace() {
       setLiveAdvice(null);
       setDecisionId(null);
       const fallbackSession = sessionData;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
       try {
         await streamSse(
           `${apiBase}/api/credit/decision`,
@@ -318,6 +332,7 @@ export default function CreditWorkspace() {
             report_json: handoff.enterprise_profile,
           },
           (sseEvt) => {
+            if (ac.signal.aborted) return;
             const data = sseEvt.data as {
               event?: string; stage?: string; decision_id?: string;
               payload?: Record<string, unknown>; message?: string;
@@ -338,9 +353,13 @@ export default function CreditWorkspace() {
               setScanned(true);
             }
           },
+          { signal: ac.signal },
         );
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        throw e;
       } finally {
-        setDecisionRunning(false);
+        if (!ac.signal.aborted) setDecisionRunning(false);
       }
     } catch (err) {
       const msg = err instanceof LiveFailError
@@ -370,11 +389,15 @@ export default function CreditWorkspace() {
       retail: "retail-zhangsan-001", // medium · 720 良好批 · 演示稳态
     };
     const fallbackSession = sessionData;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       await streamSse(
         `${apiBase}/api/credit/demo/run`,
         { scenario_id: scenarioByMode[mode] },
         (sseEvt) => {
+          if (ac.signal.aborted) return;
           const data = sseEvt.data as Record<string, unknown>;
           if (sseEvt.type === "done") {
             setLiveData(normalizeCreditDone(data, fallbackSession));
@@ -382,14 +405,16 @@ export default function CreditWorkspace() {
             setScanned(true);
           }
         },
+        { signal: ac.signal },
       );
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       const msg = err instanceof LiveFailError
         ? liveFailBannerText(err, "Credit /api/credit/demo/run")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
     } finally {
-      setDecisionRunning(false);
+      if (!ac.signal.aborted) setDecisionRunning(false);
     }
   }
 
