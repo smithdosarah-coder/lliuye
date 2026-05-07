@@ -1,0 +1,128 @@
+name: Web Audit Gate (R3 v2 件 #1 · 4-gate spec + 3 audit baseline)
+
+# R3 v2 件 #1 · main CLI 2026-05-07 落地 · 主 CLI 来 commit
+#
+# 触发: web/* 改动 · PR + push 到 main / chore/** / feat/** / fix/**
+# 检查 (4 步 · 任一 fail 阻 merge):
+#   1. audit_pm7_mock_sources.py  baseline 46  (mock fixture 混入 frontend)
+#   2. audit_dead_cta.py          baseline  4  (disabled / 占位 / silent CTA)
+#   3. audit_inline_style.py      baseline 203 (JSX inline style 残留)
+#   4. Playwright 4-gate spec × 5 (alert / channel / compliance / credit / report)
+#
+# Baseline 来源: 主 CLI 2026-05-07 commit `scripts/audit/*.py` README §baseline
+# Baseline 提升流程: PM 显式拍板 + commit trailer `Authorized-By: PM`
+#
+# 与 baseline-gate.yml 关系: 互补 · baseline-gate 跑 6 Agent evaluation runner (后端) ·
+# 本 workflow 跑 frontend 视觉 + 静态 audit (web/* 边界)
+
+on:
+  push:
+    branches:
+      - main
+      - 'chore/**'
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'web/**'
+      - 'scripts/audit/**'
+      - '.github/workflows/web-audit.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - 'scripts/audit/**'
+      - '.github/workflows/web-audit.yml'
+
+concurrency:
+  group: web-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-audit:
+    name: Static audit (3 baseline check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: audit_pm7_mock_sources (baseline 46)
+        run: |
+          python scripts/audit/audit_pm7_mock_sources.py \
+            --baseline 46 --exit-on-regression
+
+      - name: audit_dead_cta (baseline 4)
+        run: |
+          python scripts/audit/audit_dead_cta.py \
+            --baseline 4 --exit-on-regression
+
+      - name: audit_inline_style (baseline 203)
+        run: |
+          python scripts/audit/audit_inline_style.py \
+            --baseline 203 --exit-on-regression
+
+      - name: Upload audit JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-audit-static-${{ github.sha }}
+          path: .tmp/audit_*.json
+          retention-days: 30
+
+  playwright-4gate:
+    name: Playwright 4-gate (5 spec · chromium hermetic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run 4-gate specs (5 × chromium)
+        env:
+          # 防 ALL_PROXY=http://127.0.0.1:7897 类系统代理把
+          # 127.0.0.1:3101 health-check 误劫持 (本地 Win 环境根因 ·
+          # CI ubuntu 通常无此问题 · 显式空 NO_PROXY 兜底)
+          NO_PROXY: '127.0.0.1,localhost,::1'
+          HTTP_PROXY: ''
+          HTTPS_PROXY: ''
+          ALL_PROXY: ''
+        run: |
+          npx playwright test \
+            tests/regression/alert-pilot-4gate.spec.ts \
+            tests/regression/channel-pilot-4gate.spec.ts \
+            tests/regression/compliance-pilot-4gate.spec.ts \
+            tests/regression/credit-pilot-4gate.spec.ts \
+            tests/regression/report-pilot-4gate.spec.ts \
+            --project=chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-4gate-report-${{ github.sha }}
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 30
