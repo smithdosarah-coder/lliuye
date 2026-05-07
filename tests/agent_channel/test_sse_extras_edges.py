@@ -314,7 +314,8 @@ def test_pitch_script_source_marker():
     ("", []),
     ("自由文本", [{"category": "规模", "value": "小型"}]),
 ])
-def test_enrich_candidate_returns_8_keys(query, tags):
+def test_enrich_candidate_returns_10_keys(query, tags):
+    """Q-054 B1 加 signal_density / signal_density_reason · 共 10 keys (从 8 升)."""
     item = {
         "company_name": "测试",
         "signals": [],
@@ -325,7 +326,11 @@ def test_enrich_candidate_returns_8_keys(query, tags):
     }
     extras = enrich_candidate(item, query, tags)
     expected_keys = {
+        # Q-041 4 字段
         "industry", "geo", "scale", "similarity",
+        # Q-054 第 5 维度 + 降级原因
+        "signal_density", "signal_density_reason",
+        # B.5 衍生
         "radar_8axis", "match_dimensions",
         "product_recommendations", "pitch_scripts",
     }

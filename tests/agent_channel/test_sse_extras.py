@@ -181,7 +181,11 @@ def test_build_pitch_scripts_empty_when_no_pitch():
 def test_enrich_candidate_full_keys():
     extras = enrich_candidate(_sample_item(), "浙江 精密零部件", _sample_tags())
     expected_keys = {
+        # Q-041 4 字段 (不破)
         "industry", "geo", "scale", "similarity",
+        # Q-054 B1 第 5 维度 + 降级原因
+        "signal_density", "signal_density_reason",
+        # B.5 衍生
         "radar_8axis", "match_dimensions",
         "product_recommendations", "pitch_scripts",
     }
@@ -193,6 +197,10 @@ def test_enrich_candidate_full_keys():
     assert extras["scale"] != NA
     assert isinstance(extras["similarity"], float)
     assert 0.0 <= extras["similarity"] <= 1.0
+    # Q-054 第 5 维度 · 0-1 float · reason 是 str (空 = 正常 / 非空 = 降级)
+    assert isinstance(extras["signal_density"], float)
+    assert 0.0 <= extras["signal_density"] <= 1.0
+    assert isinstance(extras["signal_density_reason"], str)
 
 
 def test_build_final_output_emits_legacy_and_new_keys():
@@ -216,9 +224,10 @@ def test_build_final_output_emits_legacy_and_new_keys():
     for k in legacy_keys:
         assert k in c, f"legacy key {k} missing"
 
-    # B.5 新 snake_case (前端 b.5b 步消费)
+    # B.5 新 snake_case (前端 b.5b 步消费) + Q-054 5 维度
     new_keys = {
         "score", "geo", "scale", "similarity",
+        "signal_density", "signal_density_reason",
         "radar_8axis", "match_dimensions",
         "product_recommendations", "pitch_scripts",
     }
@@ -231,6 +240,10 @@ def test_build_final_output_emits_legacy_and_new_keys():
     assert c["scale"] != NA, "Q-041 scale still NA"
     assert isinstance(c["similarity"], float)
     assert 0.0 <= c["similarity"] <= 1.0
+
+    # Q-054 B1 · 第 5 维度 candidate metadata 共生
+    assert isinstance(c["signal_density"], float), "signal_density must be float"
+    assert 0.0 <= c["signal_density"] <= 1.0, "signal_density must be in [0, 1]"
 
     # score 是 signalScore 别名
     assert c["score"] == c["signalScore"]
