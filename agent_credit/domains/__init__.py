@@ -12,11 +12,8 @@ from .profile_consume import (
 from .scoring_calc import (
     scoring_calc_corporate,
     scoring_calc_retail,
-    scoring_calc_rating,
-    scoring_calc_limit,
 )
 from .redline_check import (
-    redline_check_classify,
     redline_check_rules_v2,
     redline_check_appetite_load,
 )
@@ -31,10 +28,7 @@ __all__ = [
     # 评分计算域
     "scoring_calc_corporate",
     "scoring_calc_retail",
-    "scoring_calc_rating",
-    "scoring_calc_limit",
     # 红线检查域
-    "redline_check_classify",
     "redline_check_rules_v2",
     "redline_check_appetite_load",
     # 案例召回域

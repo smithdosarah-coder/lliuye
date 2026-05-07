@@ -1,25 +1,16 @@
 # -*- coding: utf-8 -*-
-"""红线检查域 —— 规则引擎 v2 + 风险维度分类 + 风险偏好配置。
+"""红线检查域 —— 规则引擎 v2 + 风险偏好配置。
 
 确定性判定层（CLAUDE.md §3.1）：不让 LLM 现场算红线。
 
-注：`risk_classifier` 的 import 下沉到函数体内，避开 `SYSTEM_RISK_ASSESS` 缺失
-的 pre-existing bug（code-urgent 地盘）。
+PB#2 cleanup (2026-05-06): 删除 redline_check_classify wrapper · 透传的
+risk_classifier.py 已 git rm (pre-existing ImportError 死代码).
 """
 
 from __future__ import annotations
 
 from ..risk_appetite_config import RiskAppetiteConfig
 from ..rule_engine_v2 import RedLineHit, RuleEngineV2
-
-
-def redline_check_classify(*args, **kwargs):
-    """风险维度分类（红线检查域：维度判定）。
-
-    透传到 `risk_classifier.classify_risks(...)`。
-    """
-    from ..risk_classifier import classify_risks
-    return classify_risks(*args, **kwargs)
 
 
 def redline_check_rules_v2(features: dict, segment: str = "corporate",
