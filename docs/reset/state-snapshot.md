@@ -1788,3 +1788,50 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **真双辩论真改立场**: Claude R1 cherry-pick 4 件 vs Codex R1 cherry-pick 1 件 · R2 收敛 Codex 接 Claude 4 件 scope · 不死保单方面立场 · per PM 5/7 verbatim "互看 + discuss"
 5. **REF 追溯硬规**: P0.1 cherry-pick 注入 worker A 时 · 必带 `REF: KT §4.2 P0.1 + Q-055` 双追溯标识 · 防后续 worker 把 evidence 当独立 fact 而非 cherry-pick supplement
 
+---
+
+## 2026-05-07 (PM2-end) · R3 v2 P0 mesh 全 3 worker ship 完整收尾 (commit `6a03f58` + ECS deploy)
+
+### What happened
+- 主 CLI resume + KT 100% 承接 (commit `a36fcf5` NEW-MAIN-CLI-RESUMED)
+- 3 worker A/B/C 全 fire RESUMED commit + verify 5 trailer 齐 + verbatim "我等主 CLI GO" + scope 红线全过
+- 主 CLI 写 GO commit (d66518b worker A+B · d1f05e6 worker C) · 3 worker 接到 GO 各自开干
+- Worker B 出 plan 等 verify (RESUMED body 自定 plan-first 协议) · 主 CLI verify + 3 处 minor 修正 (Signal trailer enum / NORMALIZATION_CONST 模块级 / LLM 越界 fallback 术语统一) · 给 GO-2
+- 3 worker 全 fire READY signal commit · 主 CLI cherry-pick 顺序 C → B → A (per Q-054):
+  · C: e85a7b1 + 1b0be14 cherry-pick 入 main commit `d182ca0` (DSL grammar v1 · 35 test 全绿 · MAX_ROWS=50000 不漂)
+  · B: 4 commit cherry-pick 入 main commit `6a03f58` (signal_density 5 维度 · 9 test · L1 freshness Python + L2 LLM 0-1 + L3 aggregate Python · PIPL fallback)
+  · A: 12 commit cherry-pick 入 main 同 `6a03f58` (data_source SSOT helper + 4 client + DataSourceBadge/LiveFallbackBanner 组件 + 6 workspace wire + Playwright spec)
+- Push origin/main: `5de9950..d182ca0` + `d182ca0..6a03f58`
+- ECS deploy_to_ecs.sh 完整 (含 npm build · ~5 min) · 4 service 全 active · healthcheck 200 OK · public https://liuye.me/login
+- Q-055 24h 回写已落 commit `26e1c19` · root CLAUDE.md §3.1.1 + §3.7.6 + §3.7.7 加 · trailer `ACTIVE-DECISIONS-BACK-WRITTEN: 2`
+
+### Triggered by
+- PM 2026-05-07 (PM2) ratify Q-054 + Q-055 · "GO" 给主 CLI resume commit · "干 24h 回写,边监督边写" 启并行
+
+### State change (delta)
+- R3 v2 P0 件 #1 (audit baseline) + 件 #2 (data_source SSOT 前端真消费) 全 ship · A/B/C 三件并行真并行整批合
+- Q-054 派活 protocol (5 trailer + 禁跨 lane + signal commit + cherry-pick 调度) 实战 validated · 0 跨 lane conflict · 0 BLOCKED
+- Q-054 risk #1+2+3 全 retire (a 真假区分 / b LLM 0-1 / c DSL OR/NOT 歧义)
+- Q-041 active rule §3.7.2 candidate metadata 4 字段 → 5 字段 (加 signal_density · per PM signal_density 5 维度拍板)
+- DSL grammar v1 冻结: () > NOT > AND > OR (worker C ratify · 主 CLI 接受)
+- production live: 6 Agent + DataSourceBadge + LiveFallbackBanner + 5 维度评分 + DSL 嵌套树
+- 24h 回写已落: §3.1.1 Cowork/Managed Agent 运行模式二分 + §3.7.6 api_server 不纯搬家拆 + §3.7.7 Prompt SSOT 必分阶段灰度
+
+### 工时实际 vs 预算
+- C 预算 0.5d 实际 ~1.5h (提前)
+- B 预算 1d 实际 ~50 min (大幅提前)
+- A 预算 1.5d 实际 ~110 min (大幅提前 · 关键路径)
+- 总 wall-clock ~2h vs 预算 1.5d max · 提前 ~80%
+
+### Next
+- 3 worker CLI 已通知关窗或 standby (cmd 2/3/4)
+- mesh.json `r3v2_p0_mesh` 段可标 `status: complete` (留 fix-forward · 主 CLI 不立刻动 · 等下批派活时一起更)
+- Phase D 启动条件齐: 件 #1 + 件 #2 + 24h 回写全 ship · Q-053 续命 6 件 #7 (SSOT few-shot 闭环) 进入下批派活范围
+
+### 学到了什么 (本批 mesh 整批收尾)
+
+1. **真双辩论真省时**: Codex R1 推 3 worker 真并行 · Claude R1 原想 2 worker sequential · R2 接 Codex 立场 · 实际 3 worker 总 ~2h · vs 单 CLI sequential 估计 4-6h · 节约 60%+
+2. **5 trailer protocol 跨 worker 一致**: 3 worker 全 fire 合规 RESUMED + READY · 0 worker 漂 trailer · 0 cross-lane conflict · per Q-054 protocol 实战可复用
+3. **Worker B plan-first 自定协议价值**: B RESUMED body 主动声明 "GO 后出 plan 提 PM verify 再开干" · 比 A/C 直接干风险更低 (5 维度评分含 LLM prompt + 3 层算法 · 复杂度高) · 主 CLI 3 处 minor 修正后 GO-2 · 落地干净 · 该协议未来 worker 可借鉴
+4. **24h 回写并行干**: PM 决议 (a) 专注监督先 + (b) idle slot 干 24h 回写 · 实际边监督边写 §3.1.1+§3.7.6/7 · 节奏好 · 不阻 worker · 不漂 deadline
+5. **主 CLI 监督被动 vs 主动**: PM 实战反馈 "B 在等你 · 你也没发现" · 暴露主 CLI 仅看 git log fetch + scoreboard 不够 · 必须主动 poll worker chat (PM 中转) · 改用 ScheduleWakeup 25 min 节奏后 grounded · 不再被动等 PM 提醒
