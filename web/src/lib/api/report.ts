@@ -15,6 +15,10 @@
  *   - SSE 消费用 fetch + ReadableStream + 行级解析(无外部依赖)
  *   - empty-state-design-protocol §3 · 调用方负责 user-trigger 时机
  */
+import { type DataSourceKind, normalizeDataSource } from "./_data-source";
+
+export type { DataSourceKind };
+
 const API_BASE =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
 
@@ -65,7 +69,10 @@ export type ReportV16DoneEvent = {
   report_id: string;
   session_id: string;
   pipeline: "v16";
+  /** 历史 boolean · 件 #2 起以 data_source 5 enum 为 trust model 一级 · 本字段保留向后兼容. */
   mock_pipeline: boolean;
+  /** 5 enum (per shared/sse_envelope.py:81-86 + agent_report/api.py:1138). */
+  data_source?: DataSourceKind;
   source_docx?: string;
   report_docx_url?: string | null;
   output_docx_path?: string | null;
@@ -79,6 +86,20 @@ export type ReportV16DoneEvent = {
   pending_questions?: ReportV16PendingQuestion[];
   sections?: ReportV16Section[];
 };
+
+
+/**
+ * 派生工具 · ReportV16DoneEvent 兜底取 data_source.
+ * 优先 done.data_source · 缺失则按 mock_pipeline 派生 (兼容旧 backend 没填 data_source 的现场).
+ *
+ * - mock_pipeline=true 但缺 data_source → "mock_forced" (前端显式 DEMO 触发的情况)
+ * - mock_pipeline=false 但缺 data_source → "live"
+ * - 任何非 5 enum 字符串 → "mock" (normalizeDataSource 兜空)
+ */
+export function reportDoneDataSource(done: ReportV16DoneEvent): DataSourceKind {
+  if (done.data_source) return normalizeDataSource(done.data_source);
+  return done.mock_pipeline ? "mock_forced" : "live";
+}
 
 export type ReportV16ErrorEvent = {
   event: "error";
