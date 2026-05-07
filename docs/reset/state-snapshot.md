@@ -1676,3 +1676,40 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 3. **Production HEAD verify 必先 fetch**: 老 handoff doc 写的 `31d24d8` 是 frozen-in-time snapshot · 真值 `7df48ca` (老 CLI close-out 已 push) · resume 第一组动作必先 `git fetch origin main` 再读 ref · 否则 stale 缓存误判
 4. **commit 粒度 = task 粒度**: audit baseline + hygiene 4 file → 1 commit · spec verify + CI gate sub-agent 输出后 → 1 commit · 不批量打包 · 防 revert 难定位
 
+---
+
+## 2026-05-07 (PM2) · R3 v2 P0 件 #1 完整 ship close-out (commit `c8bd90b`)
+
+### What happened
+- CI gate yml `.github/workflows/web-audit.yml` (128 行) ship · sub-agent ab917ab06 起草 + a09c8d7b9 finalize
+  · Job 1 static-audit (5 min ubuntu): 3 audit baseline lock (46/4/203) · `--exit-on-regression`
+  · Job 2 playwright-4gate (25 min ubuntu): 5 *-pilot-4gate.spec.ts × chromium · NO_PROXY 兜底
+- 件 #1 4 子全 ship: 3 audit baseline (`6d22867`) + hygiene (`6d22867`) + state-snapshot (`c2c277d`) + CI yml (`c8bd90b`)
+- Sub-agent a2be0aa72 fire codex R1 真辩论 (gpt-5.3-codex-spark + low · 70s · EXIT 0 · 跟今晚 4 次 xhigh stuck 对比 grounded 验证)
+- R2 reconcile · 真分歧 1 处 (worker 数 2 vs 3) · 接 Codex 3 worker 推荐
+
+### Triggered by
+- PM 2026-05-07 (PM2) "abc 不冲突 · 都可以交给 mesh cli 完成 · 辩论用 codex skill"
+
+### State change (delta)
+- R3 v2 P0 件 #1 完整闭环 (audit + hygiene + CI gate)
+- 本地 spec verify 卡 `ALL_PROXY=:7897` 系统代理劫持 `127.0.0.1:3101` health-check · CI ubuntu 无此问题独立兜底
+- Mesh 拆法 R2 共识: 3 worker 真并行 (R3-frontend / Agent1-score / Agent2-dsl) · 1.5d max · 不是 Claude R1 提的 2 worker sequential
+- Codex skill via sub-agent (gpt-5.3-codex-spark + low) 70s EXIT 0 · validates Q-043 v2 short prompt + low effort 路径
+
+### Next
+- PM 拍:
+  · 3 worker 启? (接 Codex R1 推荐)
+  · 5 维度评分内容? (现 `industry/geo/scale/similarity` 4 字段 · 第 5 维度?)
+  · worktree layout? (`..._mesh/{a,b,c}` Codex 提案)
+- PM 拍后 主 CLI 通过 `launcher.py register` 启 mesh worker · 改 `launch-all-LIUYE.bat`
+- 件 #2 (data_source SSOT 前端) + B1 (5 维度) + C1 (DSL 复杂条件) → 3 worker 并行 1.5d
+
+### 学到了什么 (本次 R2 reconcile)
+
+1. **Codex 估时含协调时延**: Codex R1 算 2 lane=2.0-2.5d (不是简单 1+0.5=1.5) 因为含 main CLI cherry-pick / 拍板时延 · Claude R1 没算 · 真双辩论修正
+2. **Sub-agent 推荐 CI 兜底**: 本地 spec verify 卡 ALL_PROXY hijack · 不死磕 · CI ubuntu 独立 yml gate 替本地 5 spec hermetic 验收 · grounded 决策不阻 ship
+3. **Codex skill via sub-agent 真辩论 70s**: gpt-5.3-codex-spark + low + short prompt + read-only single-shot 70s EXIT 0 · 跟今晚 4 次 stuck (xhigh + 长 prompt) 强对比 · Q-043 v2 short+low 路径再次 validated
+4. **3 sub-agent 并行 0 文件冲突**: ab917ab06 (spec verify) + a09c8d7b9 (finalize report) + a2be0aa72 (codex R1) 同时跑 · OS-level isolation · 无干扰 · 主 CLI context 不被脏活稀释
+5. **真双辩论真改立场**: Claude R1 lock 后 fire codex 收 R1 → reconcile 时主动接 Codex 3 worker · 不死保 Claude 2 worker 立场 · per PM 5/7 verbatim "互看 + discuss" 真到位
+
