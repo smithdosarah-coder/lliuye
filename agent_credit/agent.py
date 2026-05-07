@@ -151,9 +151,30 @@ class CreditDecisionAgent(BaseAgent):
                  appetite_retail: RiskAppetiteConfig | None = None):
         super().__init__(api_key=api_key, model_provider=model_provider,
                          base_url=base_url, model_name=model_name)
+
+        # PB#3 (2026-05-06 · Q-053): Agent3 LLM 迁 shared.llm_caller
+        # 替代 BaseAgent.llm_chat / llm_json (root llm.LLMClient 旧入口) ·
+        # 走 PIPL fallback chain (deepseek + dashscope) + audit hook (region 字段)
+        # caller 构造失败 fallback 到 BaseAgent (向下兼容 · 不破现有流程)
+        try:
+            from shared.llm_caller import make_text_caller, make_json_caller
+            chat_func = make_text_caller(
+                agent_id="credit",
+                endpoint="/api/credit/decision",
+                api_key=api_key,
+            )
+            json_func = make_json_caller(
+                agent_id="credit",
+                endpoint="/api/credit/decision",
+                api_key=api_key,
+            )
+        except ImportError:
+            chat_func = self.llm_chat
+            json_func = self.llm_json
+
         self.engine = DecisionEngine(
-            llm_chat_func=self.llm_chat,
-            llm_json_func=self.llm_json,
+            llm_chat_func=chat_func,
+            llm_json_func=json_func,
             appetite_corp=appetite_corp,
             appetite_retail=appetite_retail,
         )
