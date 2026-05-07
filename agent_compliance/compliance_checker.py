@@ -12,8 +12,8 @@ import re
 from typing import Callable
 from pydantic import BaseModel, Field
 
+from shared.prompts.agent_helpers import build_compliance_ssot_prompt
 from .policy_parser import PolicyDocument, PolicyRequirement
-from .prompts import SYSTEM_COMPLIANCE_CHECK
 from .internal_policy_indexer import InternalClause
 
 
@@ -83,7 +83,15 @@ def check_compliance(
     )
 
     try:
-        result = llm_fn(SYSTEM_COMPLIANCE_CHECK, user_prompt, ComplianceReport, retries=3)
+        system = build_compliance_ssot_prompt(
+            task_type="compliance_check",
+            schema_hint=(
+                "ComplianceReport pydantic JSON · "
+                "items: [{req_id, requirement, status: pass/fail/partial/not_applicable, evidence, gap_description}] · "
+                "禁编造证据 · 不在业务记录中找到的证据视作 fail"
+            ),
+        )
+        result = llm_fn(system, user_prompt, ComplianceReport, retries=3)
         if isinstance(result, ComplianceReport):
             # 重新计算统计数据，确保准确
             _recalculate_stats(result)

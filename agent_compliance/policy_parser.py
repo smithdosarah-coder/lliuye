@@ -11,7 +11,7 @@ import re
 from typing import Callable
 from pydantic import BaseModel, Field
 
-from .prompts import SYSTEM_POLICY_PARSE
+from shared.prompts.agent_helpers import build_compliance_ssot_prompt
 
 
 class PolicyRequirement(BaseModel):
@@ -59,7 +59,16 @@ def parse_policy(policy_text: str, llm_fn: Callable) -> PolicyDocument:
     )
 
     try:
-        result = llm_fn(SYSTEM_POLICY_PARSE, user_prompt, PolicyDocument, retries=3)
+        system = build_compliance_ssot_prompt(
+            task_type="policy_parse",
+            schema_hint=(
+                "PolicyDocument pydantic JSON · "
+                "title / issuer / effective_date / requirements: [{req_id, category, description, "
+                "source_clause, severity: mandatory/recommended/optional, keywords}] · "
+                "禁编造 · 必带 source_clause 原文摘录"
+            ),
+        )
+        result = llm_fn(system, user_prompt, PolicyDocument, retries=3)
         if isinstance(result, PolicyDocument):
             # 确保每条要求都有编号
             for i, req in enumerate(result.requirements):
