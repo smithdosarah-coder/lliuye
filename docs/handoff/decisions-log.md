@@ -3053,3 +3053,111 @@ Codex R1 推荐 path `agents/agent6_v16/*` `shared/quality_scorer.py` `shared/po
 **回写来源**: 双 AI 真辩论 R1+R2 (Claude opus-4-7 + Codex gpt-5.3-codex) · PM 2026-05-06 ratify 合并 1.5d 一次过
 
 **Author**: 主 CLI Claude Opus 4.7
+
+---
+
+## [Q-054] 2026-05-07 (PM2) · R3 v2 P0 mesh 启动 · 3 worker 真并行拆法
+
+**CLI**: main
+**Priority**: P0
+**Blocking**: yes (3 worker 启动前必读)
+
+### Trigger
+
+PM 2026-05-07 (PM2) "abc 不冲突 · 都可以交给 mesh cli 完成 · 辩论用 codex skill" + "按你们建议来" → 主 CLI Claude R1 lock + Codex R1 真辩论 (gpt-5.3-codex-spark + low · 70s EXIT 0) → R2 reconcile 接 Codex 3 worker 真并行立场.
+
+### 真双辩论收敛
+
+- **Claude R1** (lock 在 chat · 不告诉 codex): 2 worker (R3-frontend + R3-backend · backend sequential 干 b → c · 1.5d)
+- **Codex R1** (sub-agent a2be0aa72 · gpt-5.3-codex-spark + low · 70s · EXIT 0): 3 worker 真并行 (3 lane · 关键路径 max 1.5d) · 反对 2 lane (估 2.0-2.5d 因 main CLI 协调时延)
+- **R2 reconcile**: 接 Codex · Claude R1 没算 cherry-pick / 拍板时延 · 真双辩论修正 (per PM 5/7 verbatim "互看 + discuss")
+- **PM 拍**: "按你们建议来" · 接受 Codex 3 worker
+
+### Decision (3 worker · verbatim)
+
+| Worker | 分支 | 任务 | 工时 | worktree |
+|---|---|---|---|---|
+| **A R3-frontend** | `feat/r3v2-frontend` | 件 #2 · data_source SSOT 前端真消费 (PM #4 mock/真区分根因) | 1.5d | `D:/claude code/credit_report_agent_work_mesh/a` |
+| **B Agent1-score** | `feat/r3v2-agent1-score` | B1 · Agent1 候选 5 维度评分 (LLM 0-1 + 代码加权 · 卡兹克借鉴) | 1d | `D:/claude code/credit_report_agent_work_mesh/b` |
+| **C Agent2-dsl** | `feat/r3v2-agent2-dsl` | C1 · Agent2 DSL OR/嵌套/时间窗口/NOT | 0.5d | `D:/claude code/credit_report_agent_work_mesh/c` |
+
+**Branch root**: `403dc12` (本地 main HEAD · 件 #1 全 ship close-out 后 · per audit/CI yml/state-snapshot 4 commit 累积)
+
+### 5 维度评分内容 (Worker B 必读)
+
+现有 4 字段 (per Q-041 active rule §3.7.2): `industry / geo / scale / similarity`
+
+新加第 5 维度 = **`signal_density` 信号密度**
+
+**定义**: 候选企业近 90 天动态信号频次归一化 0-1 分 · 含:
+- 工商变更 (注册资本 / 法人 / 股权)
+- 公告 (上市公司) / 媒体报道 (非上市)
+- 招投标 / 中标 / 项目落地
+- 融资 / IPO / 并购信号
+
+**计算分层** (per §3.1 确定性 vs 概率性):
+- **确定性**: Python 数 N 个信号 · 用 SLA 阈值 (per §3.5.1 #6 evidence_freshness · 新闻 180d 公告 365d) 加权频次
+- **概率性**: LLM 仅打 "信号显著性" 0-1 分 (例: 股权变更 > 媒体报道) · 不让 LLM 算频次
+
+**输出**: `signal_density: float ∈ [0, 1]` · 加入 candidate metadata SSE event payload (per Q-041 banner-spec)
+
+**理由**:
+1. 业务最贴切: "现在该打哪通电话" = 信号多的企业 = 客户经理首抓
+2. 静态/动态互补: 现 4 字段 (industry/geo/scale/similarity) 全静态画像 · signal_density 是唯一动态时序维度
+3. 数据 grounded: Tavily + 公开渠道直接 retrieve · 不让 LLM 现场算
+4. per §3.1: 频次 = Python 计数 · LLM 仅做 0-1 score 归一化
+5. per §3.5.1 #6: 90 天窗口跟 freshness SLA 兼容
+6. per Q-041 candidate metadata: 现 4 字段 + signal_density = 5 字段 · banner-spec 兼容
+
+### 派活 Protocol (Codex R1 共识 · 5 trailer)
+
+每 commit body 必含 5 trailer:
+
+```
+Lane: A/B/C
+Task: a/b/c
+Refs: Q-054
+Signal: READY|BLOCKED|HOTFIX
+Root: 403dc12
+```
+
+**分支**: 从 `403dc12` 分叉 · **禁跨 lane 改对方目录**:
+- A 仅改 `web/src/**` + `web/tests/**` (不动 agent_*)
+- B 仅改 `agent_channel/**` + `tests/agent_channel/**` (不动 web · 不动 agent_riskctrl)
+- C 仅改 `agent_riskctrl/**` + `tests/agent_riskctrl/**` (不动 web · 不动 agent_channel)
+
+**Signal commit** (worker 完成时):
+```
+chore(mesh): signal worker <A/B/C> ready for mesh merge Q-054
+```
+仅改动 decisions-log 摘要 note · main CLI cherry-pick 触发 integration
+
+### Risk + Block Signal (Codex R1 4 类)
+
+| # | 风险 | 阻断 signal |
+|---|---|---|
+| 1 | a mock/真源不区分 | `Signal: BLOCKED` + 立刻停 + schema/日志证据 |
+| 2 | b LLM 评分非 0-1 | 单测/回归对比失败 · 冻结 prompt + 权重版本 |
+| 3 | c DSL OR/NOT 歧义 | parser fixture mismatch · 单独补规则回归 |
+| 4 | 集成后 agent_channel/agent_riskctrl 接口变 | main CLI 整合 verify · cherry-pick 前跑 contract test |
+
+### [A-054] 2026-05-07 (PM2) · 主 CLI
+
+**Decision**: 全 5 项 ratify (3 worker + worktree layout + trailer + risk signal + signal_density 5 维度) · 立即启 mesh worker.
+
+**Rationale**:
+1. 真双辩论流程到位 (Claude R1 lock + Codex R1 独立 + R2 reconcile) · 不死保 Claude 单方面立场 · 接 Codex 真并行节省 0.5-1d
+2. 3 worker 真并行 1.5d max · 比 2 worker sequential (实际含协调时延 2.0-2.5d) 快 0.5-1d
+3. signal_density 第 5 维度跟 §3.1 确定性 + §3.5.1 #6 数据时效 + Q-041 banner-spec 完全 align · 业务/工程双 grounded
+4. Trailer 5 字段 + signal commit 模式跟现有 Q-053 PB#2 worker dispatch protocol 同模式 · worker 复用 mental model
+5. 禁跨 lane 改对方目录硬规防 worker 级回退 (per §13 ECS 同步纪律)
+
+**Worker handoff**:
+- Worker A 启动前必读 PM #4 grounded report (`docs/reset/product-readiness-grounded-2026-05-07.md`) §0.3-0.5 + 本 Q-054 §"派活 Protocol"
+- Worker B 启动前必读 本 Q-054 §"5 维度评分内容" + Q-041 active rule §3.7.2 + §3.5.1 #6 数据时效
+- Worker C 启动前必读 §3.7.1 Agent2 backtest `MAX_ROWS=50000` (per Q-040) + 现有 DSL grammar (`agent_riskctrl/dsl_*`)
+- 全 worker 必读 root `CLAUDE.md` §3.5.1 + §3.7 + §13 + §15 SSOT 优先级
+
+**回写来源**: 双 AI 真辩论 R1+R2 (Claude opus-4-7 + Codex gpt-5.3-codex-spark) · PM 2026-05-07 (PM2) ratify "按你们建议来"
+
+**Author**: 主 CLI Claude Opus 4.7 · close-out commit `403dc12`
