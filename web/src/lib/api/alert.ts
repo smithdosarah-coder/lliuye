@@ -10,9 +10,11 @@
  */
 "use client";
 
+import { type DataSourceKind, normalizeDataSource } from "./_data-source";
 import { LiveFailError, postLive, streamSse } from "./_live";
 
 export { LiveFailError };
+export type { DataSourceKind };
 
 const ENDPOINT_SCAN = "/api/alert/scan";
 const ENDPOINT_HITLIST = "/api/alert/hitlist";
@@ -34,6 +36,8 @@ export type AlertSseHandler = (event: {
 export type AlertScanResult = {
   sessionId: string;
   mode: string;
+  /** 后端 emit (per agent_alert/api.py:343 + scan_engine done envelope · per shared/sse_envelope canon) */
+  dataSource: DataSourceKind;
 };
 
 
@@ -56,6 +60,8 @@ export async function runAlertScan(
   };
   let sessionId = "";
   let mode = "";
+  /* 默认 "mock" · 后端 force_mock=True OR 没 emit data_source 时安全降级 (banner-spec rule 1+2). */
+  let dataSource: DataSourceKind = req.forceMock ? "mock_forced" : "mock";
   await streamSse(ENDPOINT_SCAN, body, (evt) => {
     if (signal?.aborted) return;
     onEvent?.(evt);
@@ -72,9 +78,10 @@ export async function runAlertScan(
     if (data.event === "done") {
       if (data.session_id) sessionId = String(data.session_id);
       if (data.mode) mode = String(data.mode);
+      if (data.data_source) dataSource = normalizeDataSource(data.data_source);
     }
   }, { signal });
-  return { sessionId, mode };
+  return { sessionId, mode, dataSource };
 }
 
 
