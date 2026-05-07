@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { useAuthStore } from "@/lib/store";
 import { ModePill } from "@/components/shared/ModePill";
+import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ScanCTA } from "@/components/shared/ScanCTA";
@@ -32,6 +34,7 @@ import {
   triggerDownloadBlob,
   uploadReportMaterials,
   type ReportExportPayload,
+  reportDoneDataSource,
   type ReportV16DoneEvent,
   type ReportV16ErrorEvent,
   type ReportV16Event,
@@ -456,7 +459,18 @@ export function ReportWorkspace() {
         data-mode={mode}
         data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
       >
-        <ReportHero coverPct={coverPct} sessionData={sessionData} isLive={derivedFromLive !== null} />
+        <ReportHero
+          coverPct={coverPct}
+          sessionData={sessionData}
+          isLive={derivedFromLive !== null}
+          dataSourceKind={
+            liveFailErr
+              ? "mock_fallback"
+              : liveData
+                ? reportDoneDataSource(liveData)
+                : "mock"
+          }
+        />
         <ReportLiveFailBanner
           err={liveFailErr}
           onRetry={() => triggerV16Fill()}
@@ -613,7 +627,13 @@ export function ReportWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ReportHero({ coverPct, sessionData, isLive }: { coverPct: number; sessionData: ReportSession; isLive?: boolean }) {
+function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
+  coverPct: number;
+  sessionData: ReportSession;
+  isLive?: boolean;
+  /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
+  dataSourceKind?: DataSourceKind;
+}) {
   const s = sessionData;
   return (
     <header className="rpt-hero">
@@ -632,8 +652,12 @@ function ReportHero({ coverPct, sessionData, isLive }: { coverPct: number; sessi
         </div>
       </div>
       {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <ModePill isLive={isLive ?? false} testId="report-mode-pill" />
+        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
+        {dataSourceKind && (
+          <DataSourceBadge kind={dataSourceKind} testId="report-data-source-badge" />
+        )}
         <div className="rpt-hero-stats">
           <Stat label="本周处理" value={REPORT_GLOBAL_STATS.weeklyProcessed} />
           <Stat label="成功率" value={REPORT_GLOBAL_STATS.successRate} />
