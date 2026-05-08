@@ -36,6 +36,31 @@
 
 ---
 
+## 2026-05-08 · 新主 CLI 接手 · ALL IN Phase A 启动前 resume
+
+### What happened
+- 新主 CLI session 启 · 按 CLAUDE.md §14 流程读完 KT 5 文件 (`allin-final-exec-2026-05-08.md` + 3 contract + `phase-r3-worker-runbook.md`) + git log -20 + `docs/handoff/mesh.json` + `decisions-log` Q-055/Q-056
+- verify 当前 git tree: HEAD `035b4ff` (上一任主 CLI close-out) · branch `main` · 6 ALL IN worktree 全在 `aefa690` (KT commit · 等 Phase A 启动)
+- scoreboard.py 跑挂 OS 页面文件不足 (WinError 1455) · 不是 mesh 状态错 · mesh.json 直读 OK
+- 7 个 untracked working draft (`docs/working/{round1,round2,round3}-prompt.md` 等) 是 Q-056 真双辩论过程产物 · 不属本次 resume scope · 留 PM 处置
+- 本 session 不动代码 · 仅 NEW-MAIN-CLI-RESUMED commit + state-snapshot 同步 · 等 PM verify GO
+
+### Triggered by
+- PM 2026-05-08 重启电脑 + 双击桌面 launcher 后 · 给本主 CLI 第一句指令 "读 AGENT_IDENTITY 列文档 + 跑 git log + scoreboard + 写 NEW-MAIN-CLI-RESUMED"
+
+### State change (delta)
+- 主 CLI orchestrator: 上一任 (035b4ff Author) → 本任 (Claude Opus 4.7 · 1M context · 本 session)
+- ALL IN mesh: registered → resume 完成等 PM GO
+- 6 mesh worktree 物理状态: 全在 `aefa690` · AGENT_IDENTITY 已就位 · 等 worker CLI 自启 RESUMED
+
+### Next
+- (本 commit 含 §14 NEW-MAIN-CLI-RESUMED 模板 · 等 PM verify)
+- PM 双击 `launch-all-LIUYE.bat` 启 7 cmd · 6 worker 各自 RESUMED commit
+- 主 CLI verify 6 RESUMED commit 齐 → GO common worker → Phase A 5 件交付物 (~0.5d)
+- Gate (5 worker read-through 通过) → Phase B 并行 → Phase C 主 CLI 整合 + ECS deploy
+
+---
+
 ---
 
 ## 2026-04-29 (本批次 3) · Neat-freak 跨 3 层知识洁癖整理
