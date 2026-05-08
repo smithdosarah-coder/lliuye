@@ -881,6 +881,13 @@ function ConversationPanel({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
+  /* PM 2026-05-07 ALL IN: 实时流版面太长 · 默认折叠到最近 N 条 + 展开按钮
+     默认 5 条 · 展开后显全部 · 用户主控 · 不让对话流挤占整页 */
+  const COLLAPSED_COUNT = 5;
+  const [expanded, setExpanded] = useState(false);
+  const total = messages.length;
+  const truncated = !expanded && total > COLLAPSED_COUNT;
+  const visibleMessages = truncated ? messages.slice(-COLLAPSED_COUNT) : messages;
   return (
     <section className="rpt-panel rpt-panel--conv" data-testid="channel-pilot-conversation">
       <PanelPinHandle
@@ -896,16 +903,60 @@ function ConversationPanel({
         <div>
           <div className="rpt-panel-eyebrow">CONVERSATION · 对话协作</div>
           <h3 className="rpt-panel-title">
-            {s.benchmarkName} · {messages.length} 条
+            {s.benchmarkName} · {total} 条{truncated ? ` (显最近 ${COLLAPSED_COUNT})` : ""}
           </h3>
         </div>
-        <span className="rpt-panel-meta">
-          候选 {s.candidateCount} · 阻断 {s.qcCounts.block}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span className="rpt-panel-meta">
+            候选 {s.candidateCount} · 阻断 {s.qcCounts.block}
+          </span>
+          {total > COLLAPSED_COUNT && (
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              data-testid="channel-conversation-toggle"
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 11,
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid var(--ink-20)",
+                background: "transparent",
+                color: "var(--accent)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {expanded ? `折叠 (显近 ${COLLAPSED_COUNT})` : `展开全部 (${total} 条)`}
+            </button>
+          )}
+        </div>
       </div>
-      <div ref={bodyRef} className="rpt-panel-body rpt-conv-body">
+      {truncated && (
+        <div
+          style={{
+            padding: "6px 16px",
+            fontSize: 11,
+            color: "var(--ink-48)",
+            fontFamily: "var(--cjk)",
+            background: "color-mix(in srgb, var(--ink-14) 30%, transparent)",
+            borderBottom: "1px solid var(--ink-14)",
+          }}
+        >
+          已折叠 {total - COLLAPSED_COUNT} 条历史对话 · 点右上角"展开全部"看完整流
+        </div>
+      )}
+      <div
+        ref={bodyRef}
+        className="rpt-panel-body rpt-conv-body"
+        style={{
+          /* 折叠时给固定高度防展开后跳变 · 展开后限最大高保持滚动 */
+          maxHeight: expanded ? 600 : 320,
+          overflowY: "auto",
+        }}
+      >
         <ol className="rpt-conv-list">
-          {messages.map((m) => (
+          {visibleMessages.map((m) => (
             <ConversationItem key={m.id} msg={m} />
           ))}
         </ol>
