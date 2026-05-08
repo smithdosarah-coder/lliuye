@@ -652,18 +652,22 @@ function ChannelHero({
             获客 <em>Scout.</em>
           </h1>
           <div className="rpt-hero-sub">
-            {s.benchmarkName} · {s.candidateCount} 家候选 · {s.stage} · 首推相似度 {topSim}%
+            {isLive
+              ? `${s.benchmarkName} · ${s.candidateCount} 家候选 · ${s.stage} · 首推相似度 ${topSim}%`
+              : "等待业务诉求 · 输入诉求开始真接多源信源搜索"}
           </div>
         </div>
       </div>
-      {/* PM 2026-05-07 ALL IN 真产品 · 删 ModePill (channel 不再有 mock 切换 · 仅 live 一态)
-         保留 DataSourceBadge 显示当前数据源真假 (live/cached/mock_fallback 三态 · 没 mock_forced) */}
+      {/* PM 2026-05-07 ALL IN 真产品 · 删 ModePill · 没 liveData 时不渲染 DataSourceBadge (待机不展示 mock 标识)
+         有 liveData 时才显示当前数据源真假 (live/cached/mock_fallback 三态) */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <DataSourceBadge
-          kind={currentDataSource}
-          provider={currentProvider}
-          testId="channel-data-source-badge"
-        />
+        {isLive && (
+          <DataSourceBadge
+            kind={currentDataSource}
+            provider={currentProvider}
+            testId="channel-data-source-badge"
+          />
+        )}
         <div className="rpt-hero-stats">
           <Stat label="本周处理" value={CHANNEL_GLOBAL_STATS.weeklyProcessed} />
           <Stat label="命中率" value={CHANNEL_GLOBAL_STATS.hitRate} />
@@ -1760,43 +1764,16 @@ function QueryBar({
         <div>
           <div className="rpt-panel-eyebrow">QUERY · 双模式</div>
           <h3 className="rpt-panel-title ch-querybar-title">
-            一句话描述要找的企业 · <em>AI 解析 (textbox)</em> 或选历史 (mock)
+            一句话描述要找的企业 · <em>AI 解析 + 多源信源真搜</em>
           </h3>
         </div>
-        <div className="ch-querybar-recent">
-          <label htmlFor="ch-session-select">历史 session (mock · 5 标杆)</label>
-          <select
-            id="ch-session-select"
-            data-testid="channel-session-select"
-            value={pendingSessionId}
-            onChange={onSessionSelectChange}
-          >
-            {MOCK_SESSIONS_LIST.map((r) => (
-              <option
-                key={r.id}
-                value={r.id}
-                data-testid="channel-session-option"
-              >
-                {r.benchmark}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="ch-querybar-recent-apply"
-            data-testid="channel-session-apply"
-            onClick={onApplySessionSwitch}
-            disabled={!pendingSessionId || pendingSessionId === selectedSession}
-          >
-            切换演示
-          </button>
-        </div>
+        {/* PM 2026-05-07 ALL IN: 删历史 session 下拉 (没 mock 演示了 · 仅真搜索) */}
       </div>
       <div className="ch-querybar-body">
         <input
           type="text"
           className="ch-querybar-input"
-          placeholder="自然语言描述 · 自由输入 → 真接 /api/channel/run (DeepSeek + Tavily) · 或选下拉看 mock"
+          placeholder="自然语言描述业务诉求 · 真接 AI 解析 + 多源信源 (工商/司法/招投标/资质/行情) 搜出 look-alike"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
@@ -1813,48 +1790,9 @@ function QueryBar({
           <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
         </button>
       </div>
-      {/* V2 issue 2 · DEMO 三档按钮 · /api/channel/demo/run · data_source=mock_forced
-         不依赖 Tavily / LLM key · 客户走访稳定路径 + Playwright smoke 锚定 */}
-      <div
-        className="ch-querybar-demo"
-        data-testid="channel-demo-controls"
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          padding: "8px 0 0 0",
-          fontSize: 12,
-          color: "var(--ink-60, #555)",
-        }}
-      >
-        <span style={{ opacity: 0.7 }}>DEMO · 难度分层 (mock_forced):</span>
-        <button
-          type="button"
-          data-testid="channel-demo-easy"
-          onClick={() => void runDemoScenario("easy")}
-          disabled={streaming}
-        >
-          easy
-        </button>
-        <button
-          type="button"
-          data-testid="channel-demo-medium"
-          onClick={() => void runDemoScenario("medium")}
-          disabled={streaming}
-        >
-          medium
-        </button>
-        <button
-          type="button"
-          data-testid="channel-demo-hard"
-          onClick={() => void runDemoScenario("hard")}
-          disabled={streaming}
-        >
-          hard
-        </button>
-      </div>
+      {/* PM 2026-05-07 ALL IN: 删 DEMO 难度分层按钮 (channel 不再有 mock_forced 路径) */}
       <div className="ch-querybar-tags">
-        <span className="lbl">AI 解析的特征 · 12 维 (mock 默认)</span>
+        <span className="lbl">AI 解析的特征 · 12 维</span>
         <div className="tags">
           {q.featureTags.map((t) => (
             <span key={t} className="tag">
