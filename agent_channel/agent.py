@@ -50,8 +50,11 @@ class ChannelMatchAgent(BaseAgent):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # 依赖底层（Mock/Web 由环境变量 / 参数切换）
-        self.provider = build_search_provider(demo_mode=True)
+        # PM 2026-05-07 ALL IN step 2.3: 切真生产 web 搜索器 (codex R1 关键改 + PM 5/7 grounded report P0.1 evidence)
+        # 之前 demo_mode=True 导致候选企业全 mock · evidence 假 URL · 16% 匹配率根因之一
+        # 现 demo_mode=False · 真接 TAVILY (有 key) 或抛 NotImplementedError 让上层降级标"旧数据/缺失告警"
+        # (上层 realtime_stream 仍可能降级 mock · 跨 layer 改动留 step 2.4 处理)
+        self.provider = build_search_provider(demo_mode=False)
         self.matcher = LookAlikeMatcher()
         self.ranker = HitRanker(agent_name=self.agent_name)
         self.lead_searcher = LeadSearcher(self.provider)
