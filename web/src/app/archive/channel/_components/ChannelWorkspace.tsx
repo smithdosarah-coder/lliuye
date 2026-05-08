@@ -1898,18 +1898,49 @@ function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
 
 /* ── 区域 2 左 · Radar 独立面板 ──────────────────────── */
 
+/* PM 2026-05-07 ALL IN step 2.4a · 后端 sse_extras.build_radar_8axis 给每家 candidate 算 8 维 dict
+   前端 adapter: dict → RadarDimension[] · benchmark 默认 P50=50 · quadrant 按 axis 名派生
+   切候选时 RadarView 数据真变 (不再 session 共用) · 解 PM "左右两侧不会随点击企业改变" 痛点 */
+function candidateRadarToDimensions(
+  radar_8axis: Record<string, number> | undefined,
+): RadarDimension[] | null {
+  if (!radar_8axis || Object.keys(radar_8axis).length === 0) return null;
+  /* axis name → quadrant 派生 (粗略 · 仅影响列表 chip 颜色 · 雷达图本身不依赖) */
+  const quadrantMap: Record<string, RadarDimension["quadrant"]> = {
+    "信号密度": "base",
+    "近期活跃度": "base",
+    "行业匹配": "market",
+    "区域匹配": "market",
+    "规模匹配": "market",
+    "资质含金量": "bonus",
+    "技术强度": "bonus",
+    "相似度": "market",
+  };
+  return Object.entries(radar_8axis).map(([axis, score]) => ({
+    axis,
+    score,
+    benchmark: 50,
+    quadrant: quadrantMap[axis] ?? "base",
+    note: `${axis} ${score} 分 (vs P50 50)`,
+  }));
+}
+
 function RadarPanel({
   sessionData,
   selectedCandidate,
 }: {
   sessionData: ChannelSession;
-  /* F-bug · 父级选中企业变 → 雷达图 top 跟随 (没选时 fallback 第一家保持默认) */
+  /* F-bug · 父级选中企业变 → 雷达图 top + 数据跟随 */
   selectedCandidate: string | null;
 }) {
   const s = sessionData;
   const top =
     (selectedCandidate ? s.candidates.find((c) => c.id === selectedCandidate) : null) ??
     s.candidates[0];
+  /* 优先用候选自己的 8 维 (后端 sse_extras 算) · 没数据 fallback session 共用 radar */
+  const candidateRadarRaw = (top as { radar_8axis?: Record<string, number> })?.radar_8axis;
+  const candidateRadar = candidateRadarToDimensions(candidateRadarRaw);
+  const radarToShow = candidateRadar ?? s.radar;
   return (
     <section className="rpt-panel ch-radar-panel" data-testid="channel-pilot-radar">
       <PanelPinHandle
@@ -1920,7 +1951,7 @@ function RadarPanel({
         agentKey="channel"
         href="/archive/channel"
         blurb={`8 维 P50 对标 · 该企业均分 ${Math.round(
-          s.radar.reduce((a, d) => a + d.score, 0) / (s.radar.length || 1),
+          radarToShow.reduce((a, d) => a + d.score, 0) / (radarToShow.length || 1),
         )}`}
       />
       <div className="rpt-panel-head">
@@ -1931,7 +1962,7 @@ function RadarPanel({
         <span className="rpt-panel-meta">B++ 方案</span>
       </div>
       <div className="rpt-panel-body">
-        <RadarView radar={s.radar} />
+        <RadarView radar={radarToShow} />
       </div>
     </section>
   );
@@ -2546,7 +2577,15 @@ function CandidateDetailDrawer({
               <span>评分雷达 + 信号时间线</span>
             </h4>
             <div className="ch-drawer-radar-wrap">
-              <RadarView radar={sessionData.radar} />
+              {/* PM 2026-05-07 ALL IN step 2.4a · 候选自己的 8 维 (sse_extras.build_radar_8axis)
+                  · fallback sessionData.radar (旧 mock 路径) · 切候选时雷达数据真变 */}
+              <RadarView
+                radar={
+                  candidateRadarToDimensions(
+                    (candidate as { radar_8axis?: Record<string, number> }).radar_8axis,
+                  ) ?? sessionData.radar
+                }
+              />
             </div>
             <div className="ch-drawer-tl">
               <div className="ch-drawer-tl-head">

@@ -90,6 +90,10 @@ export type ChannelCandidate = CandidateMetadata & {
   /** PM 2026-05-07 ALL IN step 2.1 · 字段级溯源 · backend realtime_stream:1153 emit camelCase
      evidence drawer 让用户点 hint URL 跳源验证 · per codex R1 第 4 项 + PM 第 3 条硬规 */
   dataSources?: Array<{ label: string; hint: string }>;
+  /** PM 2026-05-07 ALL IN step 2.4a · per-candidate 8 维评分 (backend sse_extras.build_radar_8axis)
+     8 个 axis name (中文 · 信号密度/行业匹配/区域匹配/规模匹配/近期活跃度/资质含金量/技术强度/相似度) → score 0-100
+     前端 adapter 转 RadarDimension[] · benchmark 默认 50 · 给雷达图渲染用 · 切候选自动联动 */
+  radar_8axis?: Record<string, number>;
   /** 其他 backend 透传字段 (radar / funnel 等内联) */
   [key: string]: unknown;
 };
