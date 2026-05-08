@@ -1096,10 +1096,11 @@ def _build_final_output(
       - ``query`` / ``llm`` 上游传入 · 用于关键词抽取 + 相似度评分 + LLM 兜底
     """
     from agent_channel.sse_extras import NA as EXTRAS_NA, enrich_candidate
+    import hashlib as _hashlib
 
     NA = "未获取"
     candidates = []
-    for item in enriched:
+    for _idx, item in enumerate(enriched):
         qcc = item.get("qcc", {}) or {}
         signals_out = []
         data_sources = []
@@ -1129,7 +1130,22 @@ def _build_final_output(
         region = qcc.get("region") or extras["geo"] or NA
         signal_score = item.get("signalScore", 0)
 
+        # PM 2026-05-08 ALL IN bug fix · 候选企业必出唯一 id (Q-041 5 字段 + id)
+        # 之前候选 dict 没 id 字段 · 前端 setSelectedCandidate(c.id) 全收 "未获取" (NA fallback)
+        # find(c.id === selectedCandidate) 在 8 个 id 都相同的数组里永远返第一家
+        # → 雷达图 + 抽屉永远显第一家 · 不联动 (PM 反复痛点真根因)
+        # 派生: USCC 18 位 → name md5 12 位 → idx 兜底
+        _company_name = item.get("company_name", "") or ""
+        _uscc = qcc.get("uscc", "")
+        if _uscc and len(_uscc) == 18:
+            _cand_id = f"uscc_{_uscc}"
+        elif _company_name:
+            _cand_id = f"name_{_hashlib.md5(_company_name.encode('utf-8')).hexdigest()[:12]}"
+        else:
+            _cand_id = f"cand_{_idx:03d}"
         candidates.append({
+            # ---- 唯一 id (前端 setSelectedCandidate 用 · 必须 unique 才能切换联动) ----
+            "id": _cand_id,
             # ---- legacy camelCase (production 已消费 · 不动) ----
             "name": item["company_name"],
             "signalScore": signal_score,
