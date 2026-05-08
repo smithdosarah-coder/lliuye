@@ -231,8 +231,116 @@
       "expected_done_signal": "chore(mesh): signal worker C ready for mesh merge Q-054",
       "expected_elapsed": "0.5d",
       "status": "registered"
+    },
+    {
+      "name": "allin-common",
+      "path": "D:/claude code/credit_report_agent_work_mesh/common",
+      "branch": "feat/allin-common",
+      "role": "worker",
+      "description": "ALL IN Phase A · common worker · 冻结 3 contract (entity-resolution / candidate-identity / signal-commit) + 抽 3 共性架构 (LiveShell / EvidenceDrawer / SourceHealth) + 写 6 resume 脚本 + 创 lark-base dashboard · per Q-056 PM 2026-05-08 ratify",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-common-template.md",
+      "phase": "A",
+      "refs": "Q-056",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal common worker ready · ALLIN Phase A complete",
+      "expected_elapsed": "0.5d",
+      "status": "registered"
+    },
+    {
+      "name": "allin-report",
+      "path": "D:/claude code/credit_report_agent_work_mesh/report",
+      "branch": "feat/allin-report",
+      "role": "worker",
+      "description": "ALL IN Phase B · report worker · agent_report ALL IN (报告生成 LiveShell + 引证抽屉 + 时效徽章 + v16 主管线接入) · per Q-056",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-agent-worker-template.md",
+      "phase": "B",
+      "refs": "Q-056",
+      "scope": "agent_report/ + web/src/app/archive/report/",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal worker report ready for mesh merge ALLIN",
+      "expected_elapsed": "1d (Phase B 内并行)",
+      "status": "registered"
+    },
+    {
+      "name": "allin-credit",
+      "path": "D:/claude code/credit_report_agent_work_mesh/credit",
+      "branch": "feat/allin-credit",
+      "role": "worker",
+      "description": "ALL IN Phase B · credit worker · agent_credit ALL IN (决策账本 + 证据链评分 · 对公/普惠/对私 3 板块) · per Q-056",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-agent-worker-template.md",
+      "phase": "B",
+      "refs": "Q-056",
+      "scope": "agent_credit/ + web/src/app/archive/credit/",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal worker credit ready for mesh merge ALLIN",
+      "expected_elapsed": "1.5d (Phase B 内并行)",
+      "status": "registered"
+    },
+    {
+      "name": "allin-alert",
+      "path": "D:/claude code/credit_report_agent_work_mesh/alert",
+      "branch": "feat/allin-alert",
+      "role": "worker",
+      "description": "ALL IN Phase B · alert worker · agent_alert ALL IN (watch 事件驱动 · 不是 cron · 客户行为变化触发 per Agent4 pivot) · per Q-056",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-agent-worker-template.md",
+      "phase": "B",
+      "refs": "Q-056",
+      "scope": "agent_alert/ + web/src/app/archive/alert/",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal worker alert ready for mesh merge ALLIN",
+      "expected_elapsed": "1d (Phase B 内并行)",
+      "status": "registered"
+    },
+    {
+      "name": "allin-riskctrl",
+      "path": "D:/claude code/credit_report_agent_work_mesh/riskctrl",
+      "branch": "feat/allin-riskctrl",
+      "role": "worker",
+      "description": "ALL IN Phase B · riskctrl worker · agent_riskctrl ALL IN (吃贷后+审批反馈做策略闭环 · MAX_ROWS=50000 不破 per §3.7.1 Q-040) · per Q-056",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-agent-worker-template.md",
+      "phase": "B",
+      "refs": "Q-056",
+      "scope": "agent_riskctrl/ + web/src/app/archive/riskctrl/",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal worker riskctrl ready for mesh merge ALLIN",
+      "expected_elapsed": "1.5d (Phase B 内并行 · 长 lane)",
+      "status": "registered"
+    },
+    {
+      "name": "allin-compliance",
+      "path": "D:/claude code/credit_report_agent_work_mesh/compliance",
+      "branch": "feat/allin-compliance",
+      "role": "worker",
+      "description": "ALL IN Phase B · compliance worker · agent_compliance ALL IN (政策事件驱动 · 监管原文 hash 入决策账本 per R3 codex 拍 · §3.6 第 8 红线) · per Q-056",
+      "onboarding": "docs/working/agent-identity-templates/AGENT_IDENTITY-agent-worker-template.md",
+      "phase": "B",
+      "refs": "Q-056",
+      "scope": "agent_compliance/ + web/src/app/archive/compliance/",
+      "trailer_required": "Worker,Phase,Refs,Signal,Root",
+      "expected_done_signal": "chore(mesh): signal worker compliance ready for mesh merge ALLIN",
+      "expected_elapsed": "1d (Phase B 内并行)",
+      "status": "registered"
     }
   ],
+  "allin_phase_meta": {
+    "ratified_q": "Q-056",
+    "ratified_at": "2026-05-08",
+    "kt_doc": "docs/working/allin-final-exec-2026-05-08.md",
+    "runbook": "docs/handoff/phase-r3-worker-runbook.md",
+    "contracts": [
+      "docs/contracts/entity-resolution-contract.md",
+      "docs/contracts/candidate-identity-contract.md",
+      "docs/contracts/signal-commit-contract.md"
+    ],
+    "phases": {
+      "A": {"worker": "allin-common", "elapsed": "0.5d", "gate": "5 worker read-through 通过"},
+      "B": {"workers": ["allin-report", "allin-credit", "allin-alert", "allin-riskctrl", "allin-compliance"], "elapsed": "1-1.5d (并行 wall-clock)", "gate": "READY-FOR-REVIEW + 证据"},
+      "C": {"worker": "MAIN-CLI", "elapsed": "0.5d", "gate": "跨 agent 集成通过 + ECS deploy + Playwright 6 agent 真测"}
+    },
+    "total_elapsed": "2-2.5d (vs 串行 4-5d · ~2x 加速)",
+    "desktop_launcher": "C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat (调 D:/claude code/.mesh-launcher/launch-allin.ps1)",
+    "trailer_format": "Worker / Phase / Refs:ALLIN-2026-05-08 / Signal / Root"
+  },
   "frozen_branches_no_worktree": [
     {
       "branch": "feat/agent-workspaces-v2",
