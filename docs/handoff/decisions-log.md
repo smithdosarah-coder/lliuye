@@ -3263,3 +3263,74 @@ commit trailer 必含 `ACTIVE-DECISIONS-BACK-WRITTEN: 2`.
 **回写来源**: 真辩论 R1+R2+R3+R-final (主 CLI Claude Opus 4.7 + Codex gpt-5.3-codex-spark · 5.5+xhigh fallback 触发 per handoff §11) · PM 2026-05-07 (PM2) ratify "按你的步骤执行"
 
 **Author**: 主 CLI Claude Opus 4.7 · close-out commit (Q-055 commit pending)
+
+---
+
+## [Q-056] 2026-05-08 · 6 Agent ALL IN 真产品化 · 100% KT + Mesh 7 cmd 启动
+
+**CLI**: main (本 session 收尾 · 准备移交新主 CLI)
+**Priority**: P0
+**Blocking**: yes (新主 CLI 接手必读)
+
+### Trigger
+
+PM 2026-05-08 verbatim "方案通过, 支持 a" + "针对这个任务, 结合已有 skill 和 github 上面的 skill, 看看怎么样能完整高效的解决问题" + "辩论方案沿用 (R1 独立 + R2 互挑 + R3 融合)" + "最后的方案落实为 100%KT 文档, 然后更新桌面就脚本, 从新的 CLI 开始执行".
+
+### Decision
+
+6 个 agent 中除 channel (本 session 已 ALL IN 改造完) 外 · 5 个 mock agent (报告/授信/预警/风控/合规) **全 ALL IN 真产品化** · 用 mesh 7 cmd 并行执行.
+
+### 真双辩论收敛 (Codex gpt-5.5 xhigh + Claude Opus 4.7 · 2 轮)
+
+**第一轮辩论 (产品方案)**:
+- R1: Codex 在 7 题中 5 题强 (评分维度新鲜度 / 共性架构 7 个 / 业务流 wire / 数据 phase / silent fallback 风险 / 用户分角色)
+- R2: 双方互挑 · Codex 接受主 CLI 6/6 · 主 CLI 接受 Codex 6/7
+- R3: 收敛 — report→credit→alert→riskctrl→compliance + 共性架构沿用 4 已有+新 3 个 + Phase 1 公开/Phase 2 行内 + 5 角色量化提升 + 10 红线
+
+**第二轮辩论 (执行方式)**:
+- R1: Codex 7 题独立 — Skill 选型 + Mesh 三阶段 + 飞书双层 + 桌面脚本 + KT 5 文件
+- R2: 主 CLI 挑 Codex 6 处 (dispatching 不全 ban / Phase C 不串验 / lark-base scope / 脚本工时漏 / KT 太多 / AGENT_IDENTITY 不重写) · Codex 接受 6/6 · 反挑主 CLI 7 处
+- R3: 双方对称让步各 5 项 · 收敛最终方案
+
+### 最终方案 (per docs/working/allin-final-exec-2026-05-08.md)
+
+1. **5 agent 改造路线**: report (短) → credit (中) → alert (中) → riskctrl (长) → compliance (中)
+2. **共性架构**: 4 个已有推广 (DecisionLedger / EntityResolver / FreshnessBadge / RiskRadar) + 3 个新 (LiveShell / EvidenceDrawer / SourceHealth)
+3. **Mesh 三阶段**: Phase A common 冻结 contract (~0.5d) → Phase B 5 worker 并行 (~1-1.5d) → Phase C 主 CLI cherry-pick 整合 (~0.5d) · 总 2-2.5d (vs 串行 4-5d · ~2x)
+4. **数据 phase**: Phase 1 公开 (政府公示/银保监/Wind/v16 stub/司法工商/监管原文) + Phase 2 行内 (央行征信/行内交易/授信/贷后)
+5. **Skill 选型**: 必用 5 (multi-cli-mesh / make-plan / do / lark-doc / lark-base) + 条件 4 (web-access / browser-automation+webapp-testing / github / smart-explore)
+6. **飞书 PRD 双层**: lark-doc 主 PRD + lark-base 12 字段 dashboard
+7. **5 角色用户体验量化**:
+   - RM 写 1 份报告 2h → 20min
+   - 审贷员 审 1 笔 30min → 5min
+   - 合规官 政策追版 月度 → T+1
+   - 风险经理 贷后异常 周报 → 事件级推送
+   - 量化 策略回测 3 天 → 半天
+8. **10 条 stop-the-line 红线**: 假 live / 假分 / 无证据 claim / v16 stub 冒充真源 / 无决策账本版本 / 无源健康检查 / 评分无回测 / 监管条款无原文 hash / 审批/贷后反馈丢链路 / SSE 展示与落库不一致
+
+### 已落地交付物 (本 session commit)
+
+- commit `aefa690`: 7 文件 (KT + 3 contract + runbook + 2 AGENT_IDENTITY 模板)
+- 桌面脚本: `C:/Users/Mr.S/Desktop/launch-all-LIUYE.bat` (R3v2 → ALLIN)
+- 启动器: `D:/claude code/.mesh-launcher/launch-allin.ps1` (含 worktree 自动创建逻辑)
+- 7 prompt: `D:/claude code/.mesh-launcher/mesh-prompt-allin-{MAIN-CLI,common,report,credit,alert,riskctrl,compliance}.txt`
+- 6 mesh worktree 已创建: `D:/claude code/credit_report_agent_work_mesh/{common,report,credit,alert,riskctrl,compliance}` (本 session ps1 verify 时自动建 + AGENT_IDENTITY 已就位)
+
+### 下一步 (新主 CLI 接手)
+
+PM 重启电脑后双击 `launch-all-LIUYE.bat` → 启 7 cmd → 各窗自动 read prompt + AGENT_IDENTITY + 写 RESUMED commit → PM verify GO 后 common worker 进 Phase A.
+
+### [A-056] 2026-05-08 · 主 CLI
+
+**Decision**: 全 ALL IN 方案 + Mesh 7 cmd 执行模式 ratify · 新主 CLI 接手干 Phase A→B→C.
+
+**Rationale**:
+1. 用户角度量化 (5 角色都有具体 hour-level 提升目标 · 不空喊"更便利")
+2. 不违背 6 agent 设计初衷 (channel look-alike / credit 决策引擎 / alert 客户行为驱动 / compliance 政策事件驱动 / report v16 / riskctrl DSL+回测 都保留)
+3. ROI 真锚点 (channel 单 agent 实战 ~3-4 天 → 5 agent 串行 4-5d → mesh 并行 2-2.5d · 不空喊 3-5x)
+4. 共性架构沿用已有 (DecisionLedger / EntityResolver / FreshnessBadge / RiskRadar) · 不重复造轮子
+5. Stop-the-line 10 红线全跟项目现有规则 (§3.3 Evidence-First / §3.5.1 #6 数据时效 / §3.7.5 决策账本 / §3.1 确定性 vs 概率性) 对齐 · 不是 codex 自创新规
+
+**回写来源**: Codex gpt-5.5 xhigh + Claude Opus 4.7 真双辩论 R1+R2+R3 (产品方案 + 执行方式 各 3 轮 · 共 6 fire 全 EXIT 0 · 总耗时 ~10 min) · PM 2026-05-08 ratify "方案通过支持 a" + "落实为 100% KT + 桌面脚本 + 新 CLI 执行"
+
+**Author**: 主 CLI Claude Opus 4.7 · close-out commit (本 entry 同 commit)

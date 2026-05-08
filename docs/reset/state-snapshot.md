@@ -1835,3 +1835,45 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 3. **Worker B plan-first 自定协议价值**: B RESUMED body 主动声明 "GO 后出 plan 提 PM verify 再开干" · 比 A/C 直接干风险更低 (5 维度评分含 LLM prompt + 3 层算法 · 复杂度高) · 主 CLI 3 处 minor 修正后 GO-2 · 落地干净 · 该协议未来 worker 可借鉴
 4. **24h 回写并行干**: PM 决议 (a) 专注监督先 + (b) idle slot 干 24h 回写 · 实际边监督边写 §3.1.1+§3.7.6/7 · 节奏好 · 不阻 worker · 不漂 deadline
 5. **主 CLI 监督被动 vs 主动**: PM 实战反馈 "B 在等你 · 你也没发现" · 暴露主 CLI 仅看 git log fetch + scoreboard 不够 · 必须主动 poll worker chat (PM 中转) · 改用 ScheduleWakeup 25 min 节奏后 grounded · 不再被动等 PM 提醒
+---
+
+## 2026-05-08 EOD · 6 Agent ALL IN ratify + 100% KT + Mesh 7 cmd 启动 (commit `aefa690` + Q-056)
+
+### What happened
+- channel ALL IN 单 agent 改造完 (本 session 6 step + 真根因 fix · commits `de79725` `1c6aa34` `ef5ba13` `707a8ad` `4d5ab20` `1161028` `c074d43`)
+- 6 agent Playwright audit (5 mock agent 真实状态地图)
+- 真双辩论 6 fire (产品方案 R1+R2+R3 + 执行方式 R1+R2+R3 · Codex gpt-5.5 xhigh + Claude Opus 4.7)
+- nginx cache 修 (HTML no-cache + chunk 长 cache · 客户经理无需 F12)
+- 100% KT 文档 + 3 contract + runbook + AGENT_IDENTITY 模板 (commit `aefa690`)
+- 桌面脚本 R3v2 → ALLIN (`launch-all-LIUYE.bat` + `launch-allin.ps1` 自动建 worktree)
+- 6 mesh worktree + AGENT_IDENTITY 已就位
+- decisions-log Q-056 ratify
+
+### Triggered by
+- PM 2026-05-08 verbatim "方案通过支持 a" + "落实为 100%KT + 桌面脚本 + 新 CLI 执行"
+
+### State change (delta)
+- production: channel ALL IN live · 5 agent 仍 mock (待 Phase B 改造)
+- mesh: 6 个新 worktree (`mesh/{common,report,credit,alert,riskctrl,compliance}`) · R3v2 旧 worktree (`mesh/{a,b,c}`) standby · mesh.json 待新主 CLI 注册新 6 worker
+- 桌面脚本: launch-all-LIUYE.bat 旧版 backup `.r3v2.bak.20260508`
+- 3 contract outline (entity-resolution / candidate-identity / signal-commit) 待 Phase A common worker 完善
+- ROI 真锚点: channel 单 agent ~3-4d · 5 agent mesh 并行估 2-2.5d (vs 串行 4-5d · ~2x 加速)
+
+### Next
+- PM 重启电脑 → 双击 launch-all-LIUYE.bat → 启 7 cmd
+- MAIN-CLI 自动读 KT 文档 + 写 NEW-MAIN-CLI-RESUMED commit
+- 6 worker 自动读 AGENT_IDENTITY + 写 RESUMED commit
+- PM verify GO common worker 进 Phase A (~0.5d 冻结 contract + 抽 3 共性架构)
+- Phase A done → 5 worker 并行 Phase B (~1-1.5d) → Phase C 主 CLI 整合 (~0.5d)
+- 24h 回写 task: CLAUDE.md §3.7 加 ALL IN 10 红线 (per CLAUDE.md §15 active decision 硬规)
+- 飞书 PRD 同步: lark-doc 主 PRD + lark-base 12 字段 dashboard (新主 CLI Phase A 启时干)
+
+### 学到了什么 (本 session 收尾)
+
+1. **Playwright 自跑真 grounded 比让 PM 截图快**: 我之前几小时让 PM 截图 / Ctrl+F5 / 隐身模式排查 cache · 实际我自己 Playwright 跑一遍 60 秒就找到候选 id 字段缺失真根因 (commit `c074d43`). 教训: 任何"看不到效果"问题先自己 Playwright 真测.
+2. **后端 `data-cand-id="未获取"` 是元 bug**: 前端 `find(c.id === selected)` 在所有 id 相同的数组里永远命中第一项 · 这是 PM 反复痛点真根因. 类似 bug 5 agent 也大概率有 (Q-056 ALL IN 必 fix).
+3. **真双辩论 ROI 极高**: 6 fire codex (产品 3 + 执行 3) · 总 ~10 min · 收敛 100% KT 方案. Codex gpt-5.5 xhigh 不是每次都 stuck (handoff §11 历史) · 设计良好的 prompt + 600s timeout + fallback chain 可稳定调用.
+4. **桌面脚本 NonInteractive 陷阱**: ps1 用 Read-Host 在 bat 调 powershell 时 NonInteractive 立即 throw → 闪退. 修法: 用 Start-Sleep + Write-Host 替代 · 或 ps1 graceful 处理.
+5. **AGENT_IDENTITY 模板抽到 docs/working/ 然后 sed 派生**: 1 个 agent 模板 + sed 替换 `{AGENT}` 占位 → 5 个 worker 各自 AGENT_IDENTITY · 比 5 文件各写更可维护.
+6. **mesh 自动建 worktree**: ps1 加 `git worktree add` graceful 逻辑 · PM 双击 bat 不需手动跑 git command. 好 UX.
+
