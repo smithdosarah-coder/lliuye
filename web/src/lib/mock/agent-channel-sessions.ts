@@ -142,6 +142,10 @@ export type Candidate = {
   match_dimensions?: MatchDimension[];
   product_recommendations?: ProductRec[];
   pitch_scripts?: PitchScript[];
+  /* PM 2026-05-07 ALL IN step 2.1 · 字段级溯源 (codex R1 第 4 项 · PM 第 3 条硬规)
+     后端 realtime_stream:1153 已 emit dataSources camelCase · 前端展示 evidence drawer 让用户点 URL 验证
+     label = source 类型 (e.g. "tavily" / "akshare" / "gov_cn") · hint = source URL (可点跳转) */
+  dataSources?: { label: string; hint: string }[];
 };
 
 export type RecentScoutSession = {

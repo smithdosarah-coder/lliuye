@@ -2455,6 +2455,10 @@ function CandidateDetailDrawer({
   const products: ProductRec[] = candidate.product_recommendations ?? [];
   const pitches: PitchScript[] = candidate.pitch_scripts ?? [];
   const events: SignalEvent[] = candidate.timeline ?? [];
+  /* PM 2026-05-07 ALL IN step 2.1 · 字段级溯源 (codex R1 第 4 项 + PM 第 3 条硬规)
+     候选企业的所有 evidence source · 用户点 hint URL 跳源验证. backend dataSources camelCase 透前端 */
+  const evidenceSources: { label: string; hint: string }[] =
+    (candidate as { dataSources?: { label: string; hint: string }[] }).dataSources ?? [];
   return (
     <div
       className="ch-drawer-backdrop"
@@ -2529,6 +2533,103 @@ function CandidateDetailDrawer({
               )}
             </div>
           </section>
+
+          {/* PM 2026-05-07 ALL IN step 2.1 · 字段级溯源 evidence section
+             codex R1 第 4 项 + PM 第 3 条硬规 · 用户点 source URL 跳源验证 · 强制可追溯 */}
+          {evidenceSources.length > 0 && (
+            <section
+              className="ch-drawer-sec ch-drawer-sec--evidence"
+              data-testid="channel-candidate-evidence-section"
+            >
+              <h4 className="ch-drawer-sec-title">
+                <span className="anchor">§证</span>
+                <span>数据来源 · 字段级溯源 ({evidenceSources.length} 条)</span>
+              </h4>
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {evidenceSources.map((src, i) => (
+                  <li
+                    key={`${src.label}-${i}`}
+                    data-testid="candidate-evidence-row"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: "color-mix(in srgb, var(--ink-14) 30%, transparent)",
+                      border: "1px solid var(--ink-14)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        background: "var(--accent)",
+                        color: "var(--chalk)",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {src.label}
+                    </span>
+                    {src.hint ? (
+                      <a
+                        href={src.hint}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontFamily: "var(--mono)",
+                          fontSize: 12,
+                          color: "var(--accent)",
+                          textDecoration: "underline",
+                          wordBreak: "break-all",
+                          flex: 1,
+                        }}
+                      >
+                        {src.hint}
+                      </a>
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: "var(--cjk)",
+                          fontSize: 12,
+                          color: "var(--ink-48)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        无可点 URL · 内部数据源
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: "6px 10px",
+                  fontSize: 11,
+                  color: "var(--ink-48)",
+                  fontFamily: "var(--cjk)",
+                  background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                  borderLeft: "2px solid var(--accent)",
+                  borderRadius: 4,
+                }}
+              >
+                所有 evidence 可追溯 · 客户经理点 URL 验证 · 后续 step 加 4 Tier 权重 + 时效衰减 + 单源准确率反馈
+              </div>
+            </section>
+          )}
 
           {/* Region 2 · B.4b 匹配维度明细 (chip 列表 vs IdealProfile) */}
           <section className="ch-drawer-sec ch-drawer-sec--match">

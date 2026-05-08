@@ -87,6 +87,9 @@ export type ChannelCandidate = CandidateMetadata & {
   recommended_products?: Array<Record<string, unknown>>;
   /** 话术脚本 (按角色) */
   pitch_script?: Record<string, unknown>;
+  /** PM 2026-05-07 ALL IN step 2.1 · 字段级溯源 · backend realtime_stream:1153 emit camelCase
+     evidence drawer 让用户点 hint URL 跳源验证 · per codex R1 第 4 项 + PM 第 3 条硬规 */
+  dataSources?: Array<{ label: string; hint: string }>;
   /** 其他 backend 透传字段 (radar / funnel 等内联) */
   [key: string]: unknown;
 };
