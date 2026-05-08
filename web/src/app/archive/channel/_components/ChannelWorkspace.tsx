@@ -480,7 +480,7 @@ export default function ChannelWorkspace() {
           <div className="ch-cross">
             <div className="ch-canvas">
               <div className="ch-canvas-top">
-                <RadarPanel sessionData={s} />
+                <RadarPanel sessionData={s} selectedCandidate={selectedCandidate} />
                 <CandidatesPanel
                   sessionData={s}
                   isLive={isLive}
@@ -490,7 +490,7 @@ export default function ChannelWorkspace() {
               <ConversationPanel sessionData={s} messages={messages} />
             </div>
             <aside className="ch-aside">
-              <SignalTimelinePanel sessionData={s} />
+              <SignalTimelinePanel sessionData={s} selectedCandidate={selectedCandidate} />
             </aside>
           </div>
           <ChannelComposer sessionData={s} onSubmit={submit} />
@@ -1867,9 +1867,18 @@ function FunnelStrip({ sessionData }: { sessionData: ChannelSession }) {
 
 /* ── 区域 2 左 · Radar 独立面板 ──────────────────────── */
 
-function RadarPanel({ sessionData }: { sessionData: ChannelSession }) {
+function RadarPanel({
+  sessionData,
+  selectedCandidate,
+}: {
+  sessionData: ChannelSession;
+  /* F-bug · 父级选中企业变 → 雷达图 top 跟随 (没选时 fallback 第一家保持默认) */
+  selectedCandidate: string | null;
+}) {
   const s = sessionData;
-  const top = s.candidates[0];
+  const top =
+    (selectedCandidate ? s.candidates.find((c) => c.id === selectedCandidate) : null) ??
+    s.candidates[0];
   return (
     <section className="rpt-panel ch-radar-panel" data-testid="channel-pilot-radar">
       <PanelPinHandle
@@ -2234,7 +2243,14 @@ const SIG_EVENT_LABEL: Record<SignalEvent["kind"], string> = {
   "news":       "舆情",
 };
 
-function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
+function SignalTimelinePanel({
+  sessionData,
+  selectedCandidate,
+}: {
+  sessionData: ChannelSession;
+  /* F-bug · 父级选中企业变 → 信号时间线 sync (保留 dropdown 可独立切) */
+  selectedCandidate: string | null;
+}) {
   const s = sessionData;
   /* F-041 · 切 session 时 reset activeId 到当前 session 候选第一个 (有 timeline 优先) */
   const initialId =
@@ -2244,6 +2260,10 @@ function SignalTimelinePanel({ sessionData }: { sessionData: ChannelSession }) {
   useEffect(() => {
     setActiveId(initialId);
   }, [s.id, initialId]);
+  /* F-bug · 父级 selectedCandidate 变 → sync activeId · dropdown 仍可独立切 */
+  useEffect(() => {
+    if (selectedCandidate) setActiveId(selectedCandidate);
+  }, [selectedCandidate]);
   const active = s.candidates.find((c) => c.id === activeId) ?? s.candidates[0];
   const events = active?.timeline ?? [];
 
