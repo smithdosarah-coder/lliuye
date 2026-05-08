@@ -14,7 +14,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { CARD_PIN_MIME } from "@/lib/store/whiteboard-store";
 import { PANEL_PIN_MIME } from "@/lib/store/panel-canvas-store";
@@ -39,13 +38,43 @@ import {
   type ConversationMessage,
   type FunnelStage,
   type MatchDimension,
+  type MatchSetting,
   type PitchScript,
   type ProductRec,
   type RadarDimension,
   type RecentScoutSession,
+  type ScoutQuery,
   type SignalEvent,
   type SignalSource,
 } from "@/lib/mock/agent-channel-sessions";
+
+/* PM 2026-05-07 ALL IN 真产品 · 接 codex R1 立场: channel 一线 0 mock · 仅 live · 源挂降级.
+   sessionData fallback 用此空对象 · 数组字段空 → panel 内 .find/.map/.reduce 不 crash · 无虚构 candidate */
+const EMPTY_SESSION: ChannelSession = {
+  id: "empty",
+  benchmarkName: "",
+  candidateCount: 0,
+  stage: "",
+  updated: "",
+  query: {
+    id: "",
+    benchmark: "",
+    industry: "",
+    geo: "",
+    scaleRange: "",
+    featureTags: [],
+    updated: "",
+    kbRefs: [],
+  } as ScoutQuery,
+  signals: [],
+  match: {} as MatchSetting,
+  conversation: [],
+  radar: [],
+  funnel: [],
+  candidates: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+};
 
 /* B.6b · 12 维 IdealProfile (后端 agent_channel/ideal_profile.py · IdealProfile12 schema)
    消费 /api/channel/profile 返回的 ideal_profile 字段 */
@@ -126,18 +155,15 @@ export default function ChannelWorkspace() {
     if (!selectedCandidate) setDrawerOpen(false);
   }, [selectedCandidate]);
 
-  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
-  const sessionData: ChannelSession =
-    liveData ??
-    MOCK_SESSIONS_MAP[selectedSession] ??
-    MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  /* PM 2026-05-07 ALL IN 真产品 · 接 codex R1 立场: 一线 0 mock · 生产仅 live ·
+     源挂时降级标"旧数据/缺失" 不 fallback 假 candidate.
+     sessionData 不再 fallback 到 MOCK_SESSIONS_MAP · 改 EMPTY_SESSION (空数组安全 render)
+     panel 渲染条件 started && liveData != null 双重保护 · 没 liveData 显示 empty state */
+  const sessionData: ChannelSession = liveData ?? EMPTY_SESSION;
   const s = sessionData;
   const topSim = Math.round((s.candidates[0]?.similarity ?? 0) * 100);
-  /* PM bug #2 (5/6 verbatim "MOCK 按钮没交互功能") · forceMock 用户可主动切
-     forceMock=true · 强制 mock (不调后端 · 即使 endpoint OK)
-     forceMock=false · 默认 · 尝试 live · 失败 fallback mock */
-  const [forceMock, setForceMock] = useState(false);
-  const isLive = liveData !== null && !forceMock;
+  /* PM 2026-05-07 ALL IN: 删 forceMock state · channel 不再有 mock 切换 · 仅 live 一态 */
+  const isLive = liveData !== null;
   /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1 + AGENT_IDENTITY).
      默认 "mock" (no run yet) · QueryBar 收 done event 时 setCurrentDataSource(normalize(data.data_source))
      · LiveFailError 时 setCurrentDataSource("mock_fallback") · forceMock toggle 时 "mock_forced". */
@@ -432,15 +458,6 @@ export default function ChannelWorkspace() {
         sessionData={s}
         topSim={topSim}
         isLive={isLive}
-        forceMock={forceMock}
-        onToggleMock={(next) => {
-          setForceMock(next);
-          /* 件 #2 · forceMock 切 true → trust model 立即标 mock_forced · 不等 SSE done */
-          if (next) {
-            setCurrentDataSource("mock_forced");
-            setCurrentProvider(undefined);
-          }
-        }}
         currentDataSource={currentDataSource}
         currentProvider={currentProvider}
       />
@@ -482,7 +499,7 @@ export default function ChannelWorkspace() {
           setCurrentProvider(provider);
         }}
       />
-      {started ? (
+      {started && liveData != null ? (
         <>
           <FunnelStrip sessionData={s} />
           <div className="ch-cross">
@@ -534,7 +551,7 @@ export default function ChannelWorkspace() {
               letterSpacing: ".02em",
             }}
           >
-            等待触发
+            输入业务诉求开始 look-alike 获客
           </h3>
           <p
             style={{
@@ -542,16 +559,58 @@ export default function ChannelWorkspace() {
               fontSize: 14,
               color: "var(--ink-65)",
               lineHeight: 1.7,
-              maxWidth: 480,
-              margin: "0 auto",
+              maxWidth: 520,
+              margin: "0 auto 18px auto",
             }}
           >
-            上方
-            <strong style={{ color: "var(--t-channel)" }}>下拉选择历史 session</strong>
-            看 mock 演示数据 · 或
-            <strong style={{ color: "var(--accent)" }}>自由输入</strong>
-            真接 AI 解析 + 真候选企业搜索
+            上方输入业务诉求 (e.g.{" "}
+            <strong style={{ color: "var(--accent)" }}>
+              "找江苏中型 SaaS 企业 · ARR 1-3 亿 · 专精特新"
+            </strong>
+            ), 系统真接多源信源 (工商 + 司法 + 招投标 + 资质 + 行情) 搜出 look-alike 相似企业 · 9 维评分 · 字段级溯源.
           </p>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--ink-48)",
+                fontFamily: "var(--cjk)",
+                marginRight: 8,
+              }}
+            >
+              示例诉求:
+            </span>
+            {[
+              "江苏中型 SaaS · ARR 1-3 亿",
+              "长三角专精特新小巨人 · 工业软件",
+              "B 轮已完成 · CFO 公开活跃",
+            ].map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setExternalTrigger({ input: q, nonce: Date.now() })}
+                style={{
+                  fontFamily: "var(--cjk)",
+                  fontSize: 12,
+                  padding: "6px 12px",
+                  borderRadius: 999,
+                  border: "1px solid var(--ink-20)",
+                  background: "transparent",
+                  color: "var(--ink-65)",
+                  cursor: "pointer",
+                }}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </section>
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
@@ -571,16 +630,12 @@ function ChannelHero({
   sessionData,
   topSim,
   isLive,
-  forceMock,
-  onToggleMock,
   currentDataSource,
   currentProvider,
 }: {
   sessionData: ChannelSession;
   topSim: number;
   isLive: boolean;
-  forceMock?: boolean;
-  onToggleMock?: (next: boolean) => void;
   /* 件 #2 · data_source SSOT 真消费 · 显式 5-enum trust model badge */
   currentDataSource: DataSourceKind;
   currentProvider?: string;
@@ -601,15 +656,9 @@ function ChannelHero({
           </div>
         </div>
       </div>
-      {/* PM bug #4 P2 · MOCK/LIVE 真 toggle · 用户可点切 forceMock */}
+      {/* PM 2026-05-07 ALL IN 真产品 · 删 ModePill (channel 不再有 mock 切换 · 仅 live 一态)
+         保留 DataSourceBadge 显示当前数据源真假 (live/cached/mock_fallback 三态 · 没 mock_forced) */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <ModePill
-          isLive={isLive}
-          testId="channel-mode-pill"
-          forceMock={forceMock}
-          onToggle={onToggleMock}
-        />
-        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1 fix) */}
         <DataSourceBadge
           kind={currentDataSource}
           provider={currentProvider}
