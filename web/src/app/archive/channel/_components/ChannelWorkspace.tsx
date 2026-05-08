@@ -117,6 +117,14 @@ export default function ChannelWorkspace() {
   const [selectedSession, setSelectedSession] = useState<string>(DEFAULT_SESSION_ID);
   const [liveData, setLiveData] = useState<ChannelSession | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+  /* F-bug-2 · 抽屉 open state 跟 panel 联动 state 拆开
+     点企业 → 同时 setSelected + setDrawerOpen(true) · panel 持续联动
+     关抽屉 → 仅 setDrawerOpen(false) · selectedCandidate 保留 · panel 不回退
+     切 session → setSelected(null) · useEffect 自动关抽屉 */
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+  useEffect(() => {
+    if (!selectedCandidate) setDrawerOpen(false);
+  }, [selectedCandidate]);
 
   /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
   const sessionData: ChannelSession =
@@ -484,7 +492,10 @@ export default function ChannelWorkspace() {
                 <CandidatesPanel
                   sessionData={s}
                   isLive={isLive}
-                  onSelectCandidate={setSelectedCandidate}
+                  onSelectCandidate={(id) => {
+                    setSelectedCandidate(id);
+                    setDrawerOpen(true);
+                  }}
                 />
               </div>
               <ConversationPanel sessionData={s} messages={messages} />
@@ -545,9 +556,9 @@ export default function ChannelWorkspace() {
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
       <CandidateDetailDrawer
-        candidate={selectedCandidateData}
+        candidate={drawerOpen ? selectedCandidateData : null}
         sessionData={s}
-        onClose={() => setSelectedCandidate(null)}
+        onClose={() => setDrawerOpen(false)}
       />
     </div>
     </EvidenceProvider>
