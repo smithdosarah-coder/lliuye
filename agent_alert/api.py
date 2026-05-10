@@ -302,13 +302,15 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
             "retried": False,
         }
 
+    # ALL IN Phase B.2 (PM 2026-05-10 reframe): 3 fallback 路径不再返合成 mock 结果 ·
+    # 改用 NullSearchProvider (返 []) · 仅内部规则真跑 · banner 必明示 trust model 降级.
     if mode_label == "tavily_disabled":
         return {
             "source": "Tavily",
             "reason": "tavily_disabled",
             "severity": "warn",
-            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 当前显 mock 演示数据",
-            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实搜索",
+            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 仅内部规则命中 · 外部源 0 hit",
+            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实外部搜索",
             "retried": False,
         }
 
@@ -317,19 +319,19 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
             "source": "Tavily",
             "reason": "tavily_key_missing",
             "severity": "warn",
-            "message": "Tavily API Key 未配置 · 当前显 mock 演示数据 · 不影响内部规则命中",
+            "message": "Tavily API Key 未配置 · 仅内部规则命中 · 外部源 0 hit (不返合成 mock 结果)",
             "hint": "设置 TAVILY_API_KEY 环境变量后重启服务 → 切真实外部源",
             "retried": False,
         }
 
     if mode_label.startswith("web_fallback_"):
-        # web 路径异常自动降级 · 真 fallback (live-fallback-banner-spec §2 规则 1)
+        # web 路径异常 · NullSearchProvider 替代 · 仅内部规则真跑 · banner error
         err_type = mode_label.replace("web_fallback_", "", 1)
         return {
             "source": "Tavily",
             "reason": mode_label,
             "severity": "error",
-            "message": f"外部搜索调用失败 ({err_type}) · 已自动降级 mock 演示数据",
+            "message": f"外部搜索调用失败 ({err_type}) · 仅内部规则命中 · 外部源 0 hit",
             "hint": "可点[重试] · 或检查 Tavily Key / 网络后重启服务",
             "retried": True,
         }
@@ -371,11 +373,17 @@ def _build_done_envelope(
         kb_summary: load_kb 输出摘要 · → kb_state
     """
     # data_source 映射 mode_label → 5 enum
+    # ALL IN Phase B.2 (PM 2026-05-10 reframe): 3 fallback 路径用 NullSearchProvider ·
+    # 即"主路径 fail · 系统降级运行" (mock_fallback 语义) · 不是"用户主动选演示" (mock).
+    # 旧 tavily_disabled / tavily_key_missing → DATA_SOURCE_MOCK 是误用 (那暗示用户主动选).
     if mode_label == "web_live":
         data_source = DATA_SOURCE_LIVE
     elif mode_label == "demo_forced":
         data_source = DATA_SOURCE_MOCK_FORCED
     elif mode_label.startswith("web_fallback_"):
+        data_source = DATA_SOURCE_MOCK_FALLBACK
+    elif mode_label in ("tavily_disabled", "tavily_key_missing"):
+        # B.2 reframe: 系统侧降级 (Null external · internal-only) · 用户必感知
         data_source = DATA_SOURCE_MOCK_FALLBACK
     else:
         data_source = DATA_SOURCE_MOCK

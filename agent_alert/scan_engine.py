@@ -35,39 +35,50 @@ LATEST_POINTER = ALERT_DATA_DIR / "latest.json"
 def build_alert_provider(*, force_mock: bool = False) -> tuple[Any, str]:
     """构建 Agent4 用的 SearchProvider · 含 Tavily 401 fallback.
 
+    ALL IN Phase B.2 (PM 2026-05-10 真意 reframe):
+    "结果不能 mock" · MockSearchProvider 返合成数据 · silent fallback 路径已切
+    NullSearchProvider (全方法返 []) · CrossMatcher 外部路径 0 hit · 仅内部规则真跑.
+    用户必通过 banner 看见 trust model 降级 · 不假装"还有数据".
+
     Returns:
         (provider, mode_label) where mode_label ∈ {
-          "demo_forced": force_mock=True · 用户显式
-          "tavily_key_missing": ALERT_USE_TAVILY 未开 / TAVILY_API_KEY 缺
-          "web_live":           Tavily 真接通 · 生产场景
-          "web_fallback_<Err>": 真接尝试时挂 · 降级 mock
+          "demo_forced":         force_mock=True · 用户显式 (仅 Mock · 测试用)
+          "tavily_disabled":     ALERT_USE_TAVILY=0 · 显式禁外搜 · Null
+          "tavily_key_missing":  TAVILY_API_KEY 缺 · 主路径不可用 · Null
+          "web_fallback_<Err>":  Tavily build 抛 · 主路径 fail · Null
+          "web_live":            Tavily 真接通 · 生产场景 · 真 web
         }
 
-    设计：
-      - 默认走 demo · 演示 100% 可控（per CLAUDE.md §3.4 SearchProvider 抽象）
-      - 显式 `ALERT_USE_TAVILY=1` 开生产路径 · key 缺时回退
-      - 任何 Web 路径异常 → 回退 mock 不抛
+    设计 (B.2 reframe):
+      - force_mock=True (显式 demo testing): 用 MockSearchProvider · 历史路径 (低风险用例)
+      - 其他 fallback 路径: NullSearchProvider · 不返合成结果 · 内部规则独跑
+      - web_live: 真 Tavily · 与生产同
     """
     from shared.kb_scan.search_provider import build_search_provider
 
+    from agent_alert.null_search_provider import NullSearchProvider
+
     if force_mock:
+        # 仅显式 force_mock=True 走老 MockSearchProvider (e.g. CI smoke test ·
+        # 客户走访演示双保险) · production demo 路径不会传 force_mock=True.
         return build_search_provider(demo_mode=True), "demo_forced"
 
-    # ALL IN Phase B step 3 (2026-05-09 · per channel 模板 commit 4d5ab20):
-    # 默认 ALERT_USE_TAVILY=1 (真接 Tavily) · 不再 silent default to demo.
-    # 显式 ALERT_USE_TAVILY=0 才走 demo + banner "tavily_disabled" (用户透明告知).
+    # ALL IN Phase B step 3 (2026-05-09): 默认 ALERT_USE_TAVILY=1 · 真接 Tavily
     use_web = os.environ.get("ALERT_USE_TAVILY", "1").strip() in {"1", "true", "yes"}
     if not use_web:
-        return build_search_provider(demo_mode=True), "tavily_disabled"
+        # B.2 reframe: 不再 silent fallback to MockSearchProvider · 改 Null · banner 强 warn
+        return NullSearchProvider(), "tavily_disabled"
 
     tavily_key = os.environ.get("TAVILY_API_KEY", "").strip()
     if not tavily_key:
-        return build_search_provider(demo_mode=True), "tavily_key_missing"
+        # B.2 reframe: 不再 silent mock · 改 Null · 内部规则真跑 · banner 强 warn
+        return NullSearchProvider(), "tavily_key_missing"
 
     try:
         web = build_search_provider(demo_mode=False, api_keys={"tavily": tavily_key})
     except (RuntimeError, ValueError, ImportError, OSError, AttributeError) as e:
-        return build_search_provider(demo_mode=True), f"web_fallback_{type(e).__name__}"
+        # B.2 reframe: 不再 silent mock · 改 Null · banner 强 error
+        return NullSearchProvider(), f"web_fallback_{type(e).__name__}"
 
     # 真 web 路径 · 不预 smoke (省成本) · 调用方使用时再 try/except
     return web, "web_live"
