@@ -2218,6 +2218,66 @@ function AlertDrillDrawer(p: {
                 <dd>{advice}</dd>
               </div>
             ) : null}
+            {/* ALL IN Phase B step 4 (2026-05-09) · 字段级溯源 evidence chain
+             *  消费 backend build_drill_payload signal_timeline · 每条 {source, snippet, url}
+             *  红线 #3 (无证据 claim) 防御 · 触发信号都有跳源 URL · 可点验证. */}
+            {(data?.signal_timeline ?? []).length > 0 ? (
+              <div data-testid="alert-drill-evidence">
+                <dt>证据链 ({(data?.signal_timeline ?? []).length})</dt>
+                <dd>
+                  <ul
+                    className="alert-drill-evidence-list"
+                    style={{ listStyle: "none", padding: 0, margin: 0 }}
+                  >
+                    {(data?.signal_timeline ?? []).map((ev, i) => (
+                      <li
+                        key={`ev-${i}`}
+                        data-testid={`alert-drill-evidence-item-${i}`}
+                        data-evidence-source={ev.source || "—"}
+                        style={{
+                          padding: "8px 10px",
+                          marginBottom: 6,
+                          borderLeft: "3px solid var(--t-alert, #b8534b)",
+                          background: "rgba(184,83,75,0.06)",
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 11,
+                            opacity: 0.7,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                          }}
+                        >
+                          {ev.source || "(无源)"}
+                        </div>
+                        <div style={{ marginTop: 2 }}>{ev.snippet || "(无摘录)"}</div>
+                        {ev.url ? (
+                          <a
+                            href={ev.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid={`alert-drill-evidence-link-${i}`}
+                            style={{
+                              display: "inline-block",
+                              marginTop: 4,
+                              fontSize: 12,
+                              color: "var(--t-alert, #b8534b)",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            跳源 ↗
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ) : null}
           </dl>
         )}
         <footer className="alert-drill-drawer__foot" style={{ marginTop: 16, fontSize: 12, opacity: 0.6 }}>
