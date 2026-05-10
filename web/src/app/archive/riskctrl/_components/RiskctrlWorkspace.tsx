@@ -511,6 +511,12 @@ export default function RiskctrlWorkspace() {
                       : null
                   }
                   onSelectSegment={(key) => setSelectedRuleOrSegment({ kind: "segment", key })}
+                  /* ALL IN Phase B step 6 · per-rule 联动 · pass selectedRuleId 到 OutputPanel */
+                  selectedRuleId={
+                    selectedRuleOrSegment?.kind === "rule"
+                      ? selectedRuleOrSegment.id
+                      : null
+                  }
                 />
               </aside>
             </div>
@@ -1258,9 +1264,20 @@ function RiskOutputPanel(p: {
   onExport?: (kind: ExportKind) => void;
   selectedSegmentKey?: SampleBar["key"] | null;
   onSelectSegment?: (key: SampleBar["key"]) => void;
+  /* ALL IN Phase B step 6 · per-rule 联动 · 用户在 RulesPanel 选 rule 后 ·
+   * RiskOutputPanel 顶部显 highlight banner 含 hit/fp/tn/fp_rate (来自 sessionData.ruleStats) */
+  selectedRuleId?: string | null;
 }) {
   const s = p.sessionData;
   const [tab, setTab] = useState<"dsl" | "ks" | "sample">("dsl");
+
+  /* ALL IN Phase B step 6 · per-rule stat 派生 · 真消费 sessionData.ruleStats (后端 backtest done) */
+  const selectedRuleStat = p.selectedRuleId
+    ? s.ruleStats.find((r) => r.ruleId === p.selectedRuleId)
+    : null;
+  const selectedRuleRef = p.selectedRuleId
+    ? s.rules.find((r) => r.id === p.selectedRuleId)
+    : null;
   const exportStatus = p.exportInfo?.status ?? "idle";
   const exportingKind = p.exportInfo?.kind;
   /* 3 按钮各自从 exportInfo (running/done/error · kind 同) reflect 状态 ·
@@ -1325,6 +1342,44 @@ function RiskOutputPanel(p: {
       {exportStatus === "error" && p.exportInfo?.message ? (
         <div className="riskctrl-export-error" role="alert">
           {exportingKind ?? ""} 导出失败：{p.exportInfo.message}
+        </div>
+      ) : null}
+
+      {/* ALL IN Phase B step 6 · per-rule highlight banner · 用户在 RulesPanel click rule 后显 ·
+       * 真消费后端 ruleStats (backtest done envelope panels.rule_stats · per-rule hit/fp/tn) */}
+      {p.selectedRuleId ? (
+        <div
+          className="riskctrl-selected-rule-banner"
+          role="status"
+          data-testid="riskctrl-selected-rule-banner"
+          data-rule-id={p.selectedRuleId}
+        >
+          <span className="riskctrl-selected-rule-banner__label">当前选中规则</span>
+          <span className="riskctrl-selected-rule-banner__rule">
+            {selectedRuleRef?.code ?? p.selectedRuleId} · {selectedRuleRef?.label ?? "(no label)"}
+          </span>
+          {selectedRuleStat ? (
+            <span className="riskctrl-selected-rule-banner__stats">
+              命中 <b>{selectedRuleStat.hit.toLocaleString()}</b>
+              {" · "}误拒 (FP) <b>{selectedRuleStat.fp.toLocaleString()}</b>
+              {" · "}正确放行 (TN) <b>{selectedRuleStat.tn.toLocaleString()}</b>
+              {selectedRuleStat.hit + selectedRuleStat.fp + selectedRuleStat.tn > 0 ? (
+                <>
+                  {" · "}误拒率 <b>
+                    {(
+                      (selectedRuleStat.fp /
+                        Math.max(1, selectedRuleStat.fp + selectedRuleStat.tn)) *
+                      100
+                    ).toFixed(2)}%
+                  </b>
+                </>
+              ) : null}
+            </span>
+          ) : (
+            <span className="riskctrl-selected-rule-banner__stats--empty">
+              尚无该规则的回测命中数据 · 请先跑 backtest
+            </span>
+          )}
         </div>
       ) : null}
 
