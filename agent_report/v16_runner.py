@@ -236,6 +236,55 @@ async def mock_v16_stream(
                 "word_count": 0,
             },
         ],
+        # ALL IN Phase B step 4 · per AGENT_IDENTITY-report.md §6 + shared/evidence_drawer.Evidence schema:
+        # 字段级 evidence · 每 section 关联 1-2 条 source · 前端 EvidenceDrawer 消费 (mock 路径示范 · 真路径 v16_generator 内挂)
+        "evidences": [
+            {
+                "evidence_id": "ev_mock_001",
+                "claim_id": "chapter_1_background",
+                "source": "uploaded_material:营业执照.pdf",
+                "anchor": "page=1",
+                "snippet": "测试样本有限公司 · 统一社会信用代码 91440300708461136T · 注册日期 2015-03",
+                "source_tier": 2,  # Tier 2 政府监管(工商)
+                "source_url": None,  # 内部上传材料无外链
+                "evidence_date": "2015-03-15",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "registry",
+                "version": "v1",
+                "content_hash": "mock_hash_001",
+                "confidence": 1.0,
+            },
+            {
+                "evidence_id": "ev_mock_002",
+                "claim_id": "chapter_2_operation",
+                "source": "uploaded_material:行业研究.docx",
+                "anchor": "page=3§2",
+                "snippet": "精密零部件行业 2024 年市场规模同比增长 12.4%",
+                "source_tier": 3,  # Tier 3 行业
+                "source_url": None,
+                "evidence_date": "2024-Q4",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "industry",
+                "version": "v1",
+                "content_hash": "mock_hash_002",
+                "confidence": 0.85,
+            },
+            {
+                "evidence_id": "ev_mock_003",
+                "claim_id": "chapter_3_finance",
+                "source": "uploaded_material:财务报表_2024.xlsx",
+                "anchor": "Sheet1!B7",
+                "snippet": "资产负债率 45.2% · 流动比率 1.62 · 速动比率 0.98",
+                "source_tier": 1,  # Tier 1 内部权威(客户提交底稿)
+                "source_url": None,
+                "evidence_date": "2024-12-31",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "financial",
+                "version": "v1",
+                "content_hash": "mock_hash_003",
+                "confidence": 1.0,
+            },
+        ],
     }
     yield _sse("done", done)
 

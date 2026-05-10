@@ -64,6 +64,25 @@ export type ReportV16PendingQuestion = {
   source_ref?: string;
 };
 
+/** ALL IN Phase B step 4 · per shared/evidence_drawer/drawer.py:Evidence dataclass.
+ *  字段级 evidence · claim_id 关联到具体 section/field (e.g. "chapter_3_finance")
+ *  EvidenceDrawer 渲染时按 claim_id group · 消费 to_drawer_payload 同源 schema. */
+export type ReportV16Evidence = {
+  evidence_id: string;
+  claim_id: string;
+  source: string;            // "uploaded_material:行业研究.docx" / "tavily:url" / "gsxt:USCC"
+  anchor: string;            // "page=3§2" / "Sheet1!B7" / "para=2"
+  snippet: string;
+  source_tier: 1 | 2 | 3 | 4; // 1=内部权威 / 2=政府监管 / 3=行业 / 4=公开 web
+  source_url?: string | null;
+  evidence_date?: string | null;
+  retrieved_at: string;
+  claim_type: string;        // "news" / "financial" / "registry" / "industry" / ...
+  version: string;
+  content_hash: string;
+  confidence: number;        // 0.0-1.0
+};
+
 export type ReportV16DoneEvent = {
   event: "done";
   report_id: string;
@@ -85,6 +104,8 @@ export type ReportV16DoneEvent = {
   stats?: Record<string, unknown>;
   pending_questions?: ReportV16PendingQuestion[];
   sections?: ReportV16Section[];
+  /** ALL IN Phase B step 4 · 字段级 evidence list · per shared/evidence_drawer · 前端按 claim_id group */
+  evidences?: ReportV16Evidence[];
 };
 
 
