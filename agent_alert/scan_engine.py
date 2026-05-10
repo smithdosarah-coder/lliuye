@@ -32,7 +32,7 @@ LATEST_POINTER = ALERT_DATA_DIR / "latest.json"
 # ---------------------------------------------------------------------------
 
 
-def build_alert_provider(*, force_mock: bool = False) -> tuple[Any, str]:
+def build_alert_provider(*, force_mock: bool = False, use_alert_pool_fixture: bool = False) -> tuple[Any, str]:
     """构建 Agent4 用的 SearchProvider · 含 Tavily 401 fallback.
 
     ALL IN Phase B.2 (PM 2026-05-10 真意 reframe):
@@ -40,23 +40,30 @@ def build_alert_provider(*, force_mock: bool = False) -> tuple[Any, str]:
     NullSearchProvider (全方法返 []) · CrossMatcher 外部路径 0 hit · 仅内部规则真跑.
     用户必通过 banner 看见 trust model 降级 · 不假装"还有数据".
 
+    B.2.3 fix-forward (主 CLI 2026-05-10 自验 demo 0 命中):
+    新增 use_alert_pool_fixture=True · /demo/run 路径专用 · 用 AlertPoolSyntheticProvider
+    从 data/mock/alert-pool/external-signals/AP*.md (audit-grade fixture) 读真负面信号 ·
+    cross_matcher 真匹配 LAW/FIN/BIZ/IND/REL → 真红/黄 hit list.
+    banner 显式标 "alert_pool_fixture" · 客户走访演示透明告知 (不假装 Tavily live).
+
     Returns:
         (provider, mode_label) where mode_label ∈ {
+          "alert_pool_fixture":  use_alert_pool_fixture=True · /demo/run 真后端 + audit fixture
           "demo_forced":         force_mock=True · 用户显式 (仅 Mock · 测试用)
           "tavily_disabled":     ALERT_USE_TAVILY=0 · 显式禁外搜 · Null
           "tavily_key_missing":  TAVILY_API_KEY 缺 · 主路径不可用 · Null
           "web_fallback_<Err>":  Tavily build 抛 · 主路径 fail · Null
           "web_live":            Tavily 真接通 · 生产场景 · 真 web
         }
-
-    设计 (B.2 reframe):
-      - force_mock=True (显式 demo testing): 用 MockSearchProvider · 历史路径 (低风险用例)
-      - 其他 fallback 路径: NullSearchProvider · 不返合成结果 · 内部规则独跑
-      - web_live: 真 Tavily · 与生产同
     """
     from shared.kb_scan.search_provider import build_search_provider
 
     from agent_alert.null_search_provider import NullSearchProvider
+
+    if use_alert_pool_fixture:
+        # B.2.3 · /demo/run 专用 · audit-grade fixture provider · backend pipeline 真跑
+        from agent_alert.alert_pool_synthetic_provider import AlertPoolSyntheticProvider
+        return AlertPoolSyntheticProvider(), "alert_pool_fixture"
 
     if force_mock:
         # 仅显式 force_mock=True 走老 MockSearchProvider (e.g. CI smoke test ·
@@ -348,16 +355,23 @@ def run_scan_and_persist(
     api_key: str = "dummy",
     provider: str = "deepseek",
     force_mock: bool = False,
+    use_alert_pool_fixture: bool = False,
 ) -> Generator[dict, None, str]:
     """跑一次完整 scan · 流式 yield 事件 · 完成后持久化 · 返 session_id.
 
     与原 AlertRadarAgent.process_message 不同：本函数提供 fallback provider 切换 +
     持久化 + 返 session_id 给上层 endpoint，事件流 schema 保持向后兼容。
+
+    B.2.3 fix-forward (主 CLI 2026-05-10): use_alert_pool_fixture=True · /demo/run 路径
+    用 AlertPoolSyntheticProvider 从 audit-grade fixture 读 · 让 cross_matcher 真命中.
     """
     from agent_alert.agent import AlertRadarAgent
     from shared.kb_scan.models import RiskLevel
 
-    search_provider, mode_label = build_alert_provider(force_mock=force_mock)
+    search_provider, mode_label = build_alert_provider(
+        force_mock=force_mock,
+        use_alert_pool_fixture=use_alert_pool_fixture,
+    )
     yield {"type": "tool_result", "tool": "search_provider",
            "result": f"provider={search_provider.provider_name} · mode={mode_label}"}
 

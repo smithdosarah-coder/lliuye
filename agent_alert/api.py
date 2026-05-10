@@ -787,6 +787,7 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
                 api_key=os.environ.get("DEEPSEEK_API_KEY", "dummy"),
                 provider="deepseek",
                 force_mock=False,  # backend 真跑 · 不退 mock 路径
+                use_alert_pool_fixture=True,  # B.2.3 · audit-grade fixture · cross_matcher 真命中
             ):
                 etype = evt.get("type", "") if isinstance(evt, dict) else ""
                 if etype == "hitlist":
