@@ -187,7 +187,8 @@ test.describe("compliance · Phase B.2 admin sample batch E2E", () => {
 
     let scenariosHit = false;
     let demoRunHit = false;
-    let demoBody: { scenario_id?: string } | null = null;
+    type DemoPayload = { scenario_id?: string } | null;
+    let demoBody: DemoPayload = null;
 
     /* mock /api/auth/me -> admin */
     await context.route("**/api/auth/me", async (route) => {
@@ -262,7 +263,8 @@ test.describe("compliance · Phase B.2 admin sample batch E2E", () => {
     await page.waitForTimeout(800);
 
     expect(demoRunHit).toBe(true);
-    expect(demoBody?.scenario_id).toBe("online_loan");
+    const observedScenarioId = (demoBody as DemoPayload | null)?.scenario_id;
+    expect(observedScenarioId).toBe("online_loan");
 
     /* workspace state 切 live */
     const ws = page.locator('[data-testid="compli-workspace"]');
