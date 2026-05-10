@@ -123,8 +123,10 @@ function normalizeComplianceBackendDone(
   const violations = Array.isArray(env.violations) ? env.violations : [];
   const recommendations = Array.isArray(env.recommendations) ? env.recommendations : [];
 
-  /* violations → Conflict shape (id/clauseLabel/docId/docTitle/severity/finding/cite/advice)
-     compliance Conflict.severity ∈ {block, warn, info} · 后端 critical → block · major → warn · minor → info */
+  /* violations → Conflict shape (id/clauseLabel/docId/docTitle/severity/finding/cite/advice + audit/freshness/client)
+     compliance Conflict.severity ∈ {block, warn, info} · 后端 critical → block · major → warn · minor → info
+     ALL IN step 4: 消费 v.reason.* (backend ViolationReason 8 字段 + 3 freshness)
+     ALL IN step 5: 优先消费 v.id (per candidate-identity-contract v1.1) · fallback v.violation_id */
   const conflicts: Conflict[] = violations.map((v, idx) => {
     const sev = String(v.severity ?? "minor").toLowerCase();
     const mapped: Conflict["severity"] =
@@ -133,8 +135,23 @@ function normalizeComplianceBackendDone(
         : sev === "major" || sev === "warn"
         ? "warn"
         : "info";
+    /* reason 是 backend ViolationReason.to_dict() 8 字段 + 3 freshness · 可能为 null (registry 不可用时) */
+    const reason = (v.reason ?? null) as Record<string, unknown> | null;
+    const reasonGet = (k: string): string => {
+      const val = reason?.[k];
+      return typeof val === "string" ? val : "";
+    };
+    const reasonGetNum = (k: string): number | undefined => {
+      const val = reason?.[k];
+      return typeof val === "number" ? val : undefined;
+    };
+    const reasonGetBool = (k: string): boolean | undefined => {
+      const val = reason?.[k];
+      return typeof val === "boolean" ? val : undefined;
+    };
+
     return {
-      id: String(v.violation_id ?? `live-vio-${idx + 1}`),
+      id: String(v.id ?? v.violation_id ?? `live-vio-${idx + 1}`),
       clauseLabel: String(v.rule_article ?? v.rule_condition ?? "—"),
       docId: String(v.event_id ?? "—"),
       docTitle: String(v.event_type ?? "业务事件"),
@@ -145,6 +162,20 @@ function normalizeComplianceBackendDone(
         ((recommendations.find(
           (r) => String(r.violation_id ?? "") === String(v.violation_id ?? ""),
         )?.text as string) ?? "见修订意见区"),
+      // ALL IN step 4 audit fields
+      clauseId: reasonGet("clause_id") || undefined,
+      policyId: reasonGet("policy_id") || undefined,
+      policyVersion: reasonGet("policy_version") || undefined,
+      clauseHash: reasonGet("clause_text_hash") || undefined,
+      evidenceDate: reasonGet("evidence_date") || undefined,
+      retrievedAt: reasonGet("retrieved_at") || undefined,
+      freshnessDays: reasonGetNum("freshness_days"),
+      stalenessPassed: reasonGetBool("staleness_passed"),
+      confidence: reasonGetNum("confidence"),
+      reviewReason: reasonGet("review_reason") || undefined,
+      // ALL IN step 5 client fields (顶层 v.client / v.client_uscc · backend 已平铺)
+      client: typeof v.client === "string" ? v.client : undefined,
+      clientUscc: typeof v.client_uscc === "string" ? v.client_uscc : undefined,
     };
   });
 
@@ -565,6 +596,7 @@ export default function ComplianceWorkspace() {
                       : true,
                   )}
                   onClose={() => setSelectedViolationId(null)}
+                  allConflicts={session.conflicts}
                 />
               ) : (
                 <div
@@ -1898,10 +1930,269 @@ function ViolationListPanel(p: {
   );
 }
 
+/* ALL IN Phase B step 6 (2026-05-09) · per-entity 聚合 badge ·
+   选中 violation 时显 "本客户共 N 条违规" + severity 拆分 · 给审贷员客户级深度感. */
+function ComplianceEntityAggregateBadge(p: {
+  violation: Conflict;
+  allConflicts: Conflict[];
+}) {
+  const v = p.violation;
+  // entity key 优先 client + clientUscc · 退化 client only · 都缺则 v.id
+  const ek =
+    v.clientUscc
+      ? `uscc:${v.clientUscc}`
+      : v.client
+        ? `name:${v.client}`
+        : "";
+  if (!ek) return null;
+
+  const sameEntity = p.allConflicts.filter((c) => {
+    if (c.id === v.id) return false; // 不计自身
+    const cek = c.clientUscc
+      ? `uscc:${c.clientUscc}`
+      : c.client
+        ? `name:${c.client}`
+        : "";
+    return cek === ek;
+  });
+
+  if (sameEntity.length === 0) return null;
+
+  const sev = sameEntity.reduce(
+    (a, c) => {
+      a[c.severity] = (a[c.severity] ?? 0) + 1;
+      return a;
+    },
+    { block: 0, warn: 0, info: 0 } as Record<Conflict["severity"], number>,
+  );
+
+  const clientLabel = v.client || (v.clientUscc ?? "本客户");
+
+  return (
+    <div
+      className="compliance-entity-aggregate"
+      data-testid="compli-entity-aggregate"
+      style={{
+        marginTop: 6,
+        marginBottom: 6,
+        padding: "6px 10px",
+        background: "rgba(45, 107, 74, 0.08)",
+        border: "1px solid rgba(45, 107, 74, 0.20)",
+        borderRadius: 6,
+        fontSize: 12,
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        alignItems: "center",
+      }}
+      title="本客户在当前扫描中的总违规分布 · per-entity 联动 (ALL IN step 6)"
+    >
+      <strong>{clientLabel}</strong>
+      <span>本次扫描共关联</span>
+      <strong data-testid="compli-entity-aggregate-count">{sameEntity.length + 1}</strong>
+      <span>条违规 (本条 + {sameEntity.length} 条同客户)</span>
+      {sev.block > 0 ? (
+        <span style={{ color: "rgb(160, 30, 30)", fontWeight: 600 }}>
+          严重 {sev.block + (v.severity === "block" ? 1 : 0)}
+        </span>
+      ) : null}
+      {sev.warn > 0 ? (
+        <span style={{ color: "rgb(180, 120, 0)" }}>
+          一般 {sev.warn + (v.severity === "warn" ? 1 : 0)}
+        </span>
+      ) : null}
+      {sev.info > 0 ? (
+        <span style={{ opacity: 0.7 }}>观察 {sev.info + (v.severity === "info" ? 1 : 0)}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/* ALL IN Phase B step 4 (2026-05-09) · 字段级溯源 audit block ·
+   消费 ViolationReason 8 字段 + 3 freshness · 红线 #8 anchor */
+function ComplianceAuditBlock(p: { violation: Conflict }) {
+  const v = p.violation;
+  const hasAudit =
+    v.clauseHash || v.clauseId || v.policyId || v.policyVersion;
+  const hasFreshness =
+    typeof v.freshnessDays === "number" ||
+    typeof v.stalenessPassed === "boolean" ||
+    Boolean(v.evidenceDate);
+
+  if (!hasAudit && !hasFreshness) return null;
+
+  // 时效徽章颜色: 通过=绿 / 失效=红 / 不可计算=灰
+  const freshTone: "ok" | "stale" | "unknown" =
+    v.stalenessPassed === false
+      ? "stale"
+      : v.freshnessDays === -1 || v.stalenessPassed === undefined
+        ? "unknown"
+        : "ok";
+  const freshLabel =
+    freshTone === "stale"
+      ? `政策超时效 (${v.freshnessDays}d > 365d SLA)`
+      : freshTone === "unknown"
+        ? "时效未知"
+        : `政策时效内 (${v.freshnessDays}d / 365d)`;
+
+  // 置信度色 (1.0=绿 hard-rule / 0.7=黄 LLM / <0.7=灰 兜底)
+  const confTone: "high" | "med" | "low" =
+    typeof v.confidence !== "number"
+      ? "low"
+      : v.confidence >= 0.95
+        ? "high"
+        : v.confidence >= 0.65
+          ? "med"
+          : "low";
+
+  return (
+    <div
+      className="compliance-audit-block"
+      data-testid="compli-audit-block"
+      data-stale={freshTone === "stale" ? "yes" : "no"}
+      style={{
+        marginTop: 8,
+        marginBottom: 12,
+        padding: "10px 12px",
+        border: "1px solid var(--c-line, #ddd)",
+        borderRadius: 8,
+        background: "var(--c-surface-1, #f8f8f6)",
+        fontSize: 12,
+        lineHeight: 1.6,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          alignItems: "center",
+          marginBottom: hasAudit && hasFreshness ? 6 : 0,
+        }}
+      >
+        {v.clauseId ? (
+          <span
+            data-testid="compli-audit-clause-id"
+            style={{
+              padding: "2px 6px",
+              background: "var(--c-surface-2, #eee)",
+              borderRadius: 4,
+              fontFamily: "var(--ff-mono, monospace)",
+            }}
+            title="政策注册库 clause id (registry CL-xxxx)"
+          >
+            {v.clauseId}
+          </span>
+        ) : null}
+        {v.policyVersion ? (
+          <span
+            data-testid="compli-audit-policy-version"
+            style={{
+              padding: "2px 6px",
+              background: "var(--c-surface-2, #eee)",
+              borderRadius: 4,
+              fontFamily: "var(--ff-mono, monospace)",
+            }}
+            title="政策版本号 (registry VER-xxxx · 不可篡改)"
+          >
+            {v.policyVersion}
+          </span>
+        ) : null}
+        {v.clauseHash ? (
+          <span
+            data-testid="compli-audit-clause-hash"
+            style={{
+              padding: "2px 6px",
+              background: "rgba(40, 100, 60, 0.08)",
+              color: "var(--t-compli, #2d6b4a)",
+              borderRadius: 4,
+              fontFamily: "var(--ff-mono, monospace)",
+            }}
+            title={`监管原文 SHA-256 前 16 hex · 红线 #8 篡改防御 · 完整 hash: ${v.clauseHash}`}
+          >
+            ⛓ {v.clauseHash}
+          </span>
+        ) : null}
+        {typeof v.confidence === "number" ? (
+          <span
+            data-testid="compli-audit-confidence"
+            data-tone={confTone}
+            style={{
+              padding: "2px 6px",
+              background:
+                confTone === "high"
+                  ? "rgba(40, 100, 60, 0.10)"
+                  : confTone === "med"
+                    ? "rgba(180, 120, 0, 0.10)"
+                    : "rgba(120, 120, 120, 0.10)",
+              borderRadius: 4,
+            }}
+            title="LLM=0.7 / 硬规则=1.0 / 兜底<0.7"
+          >
+            置信 {(v.confidence * 100).toFixed(0)}%
+          </span>
+        ) : null}
+      </div>
+
+      {hasFreshness ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <span
+            data-testid="compli-audit-freshness"
+            data-tone={freshTone}
+            style={{
+              padding: "2px 6px",
+              background:
+                freshTone === "stale"
+                  ? "rgba(180, 40, 40, 0.10)"
+                  : freshTone === "ok"
+                    ? "rgba(40, 100, 60, 0.10)"
+                    : "rgba(120, 120, 120, 0.10)",
+              color:
+                freshTone === "stale"
+                  ? "rgb(160, 30, 30)"
+                  : freshTone === "ok"
+                    ? "var(--t-compli, #2d6b4a)"
+                    : "inherit",
+              borderRadius: 4,
+              fontWeight: freshTone === "stale" ? 600 : 400,
+            }}
+            title="政策时效 SLA 365d (CLAUDE.md §3.5.1 第 6 原则) · 失效需重抓"
+          >
+            {freshLabel}
+          </span>
+          {v.evidenceDate ? (
+            <span data-testid="compli-audit-evidence-date" style={{ opacity: 0.75 }}>
+              生效 {v.evidenceDate}
+            </span>
+          ) : null}
+          {v.retrievedAt ? (
+            <span data-testid="compli-audit-retrieved-at" style={{ opacity: 0.75 }}>
+              · 扫描 {v.retrievedAt}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {v.reviewReason ? (
+        <div
+          data-testid="compli-audit-review-reason"
+          style={{ marginTop: 6, padding: "6px 8px", background: "var(--c-surface-2, #eee)", borderRadius: 4, fontStyle: "italic" }}
+          title="ViolationReason.review_reason · 派生 narrative · 合规官单句签字理由"
+        >
+          {v.reviewReason}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ViolationDetailPanel(p: {
   violation: Conflict;
   revisions: RevisionAdvice[];
   onClose: () => void;
+  /* ALL IN Phase B step 6 (2026-05-09) · per-entity 联动 ·
+     传入全 list 用于计算同客户其他违规数 (per-entity 聚合 badge) */
+  allConflicts?: Conflict[];
 }) {
   const sevLabel =
     p.violation.severity === "block" ? "严重违规" : p.violation.severity === "warn" ? "一般违规" : "观察项";
@@ -1942,11 +2233,32 @@ function ViolationDetailPanel(p: {
           <span className="cp-drawer__doc">{p.violation.clauseLabel}</span>
         </div>
 
-        {/* D3 Atomic D · 证据链增强 (per Codex R1 字段顺序: 业务单号 → 政策摘录 → 业务摘录 → AI 理由 → source row id)
-            软读取 fallback (Conflict schema 缺 policy_excerpt / business_excerpt · D4 backend RFC 加 normalized envelope) */}
+        {/* ALL IN Phase B step 6 (2026-05-09) · per-entity 联动 badge ·
+            统计同客户 (按 v.id entity 派生) 其他违规数 · 让审贷员一眼看出此客户问题深度 */}
+        <ComplianceEntityAggregateBadge violation={p.violation} allConflicts={p.allConflicts ?? []} />
+
+        {/* ALL IN Phase B step 4 (2026-05-09) · audit + freshness 块 (字段级溯源) ·
+            消费 backend ViolationReason 8 字段 + 3 freshness · 红线 #8 闭环 */}
+        <ComplianceAuditBlock violation={p.violation} />
+
+        {/* D3 Atomic D · 证据链增强 (per Codex R1 字段顺序: 业务单号 → 政策摘录 → 业务摘录 → AI 理由 → source row id) */}
         <dl className="compliance-evidence-chain">
           <dt>业务单号</dt>
           <dd data-testid="compli-evi-docid">{p.violation.docId || "—"}</dd>
+
+          {p.violation.client ? (
+            <>
+              <dt>客户企业</dt>
+              <dd data-testid="compli-evi-client">
+                {p.violation.client}
+                {p.violation.clientUscc ? (
+                  <span style={{ marginLeft: 8, opacity: 0.7, fontFamily: "var(--ff-mono, monospace)" }}>
+                    {p.violation.clientUscc}
+                  </span>
+                ) : null}
+              </dd>
+            </>
+          ) : null}
 
           <dt>政策摘录</dt>
           <dd data-testid="compli-evi-policy">

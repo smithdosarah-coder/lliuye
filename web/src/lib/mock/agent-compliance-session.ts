@@ -61,6 +61,23 @@ export type Conflict = {
   finding: string;
   cite: string;
   advice: string;
+
+  /* ALL IN Phase B step 4 (2026-05-09) · 字段级溯源 · per ViolationReason 8 字段 + 3 freshness
+     全可选 (mock 数据不带 · live SSE 真填) · ViolationDetailPanel 按存在性渲染 audit 块 */
+  clauseId?: string;          // registry CL-xxxx · 红线 #8 audit anchor
+  policyId?: string;          // registry POL-xxxx
+  policyVersion?: string;     // registry VER-xxxx
+  clauseHash?: string;        // sha256 前 16 hex · 篡改防御
+  evidenceDate?: string;      // ISO YYYY-MM-DD · 政策生效/抓取日
+  retrievedAt?: string;       // ISO YYYY-MM-DD · 本次扫描时间
+  freshnessDays?: number;     // 距 retrieved_at 的天数 · -1 = 不可计算
+  stalenessPassed?: boolean;  // false = 政策超 365d SLA · UI 红色警示
+  confidence?: number;        // 0-1 · hard-rule=1.0 · LLM=0.7
+  reviewReason?: string;      // 单句派生 narrative · 审计签字理由
+
+  /* ALL IN Phase B step 5 (per candidate-identity-contract v1.1) */
+  client?: string;            // 客户企业名 · 派生 hit.id 用
+  clientUscc?: string;        // 客户 USCC
 };
 
 /**
