@@ -409,7 +409,10 @@ def _build_session_meta(path: Path, source: str) -> dict[str, Any]:
 
 
 @app.get("/api/credit/reports/sessions")
-async def list_credit_reports(status: str = "done"):
+async def list_credit_reports(
+    status: str = "done",
+    _user: dict = Depends(require_action("credit", "invoke")),
+):
     """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
 
     V2 fix · codex DISAGREE issue 2 (cat 0 北极星): 双源扫描 · 真 Agent6 v16 archive 优先暴露 · demo_data 兜底
@@ -939,7 +942,10 @@ def _credit_demo_event_stream(scenario_id: str):
 
 
 @app.post("/api/credit/demo/run")
-async def credit_demo_run(req: CreditDemoRunRequest):
+async def credit_demo_run(
+    req: CreditDemoRunRequest,
+    _user: dict = Depends(require_action("credit", "demo")),
+):
     """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
 
     与 /api/credit/decision (mock=true) 区别:
