@@ -125,16 +125,8 @@ def can_action(role: str, agent_id: str, action: str) -> bool:
     Returns:
         True if role 对 agent 有该 action 权限.
     """
-    if action == "demo":
-        # 双保险 1: ACCESS_V2 + DEMO_ELIGIBLE_ROLES 都过才放
-        if role not in DEMO_ELIGIBLE_ROLES:
-            return False
-        # 双保险 2 · Phase B.1 fix #2 (codex re-review 抓): env DEMO_MODE_VISIBLE check
-        # 否则 admin/demo_user 在 production env=0 仍能 invoke "demo" action · 红线 #1 假 live 漏洞
-        import os as _os
-        if str(_os.environ.get("DEMO_MODE_VISIBLE", "0")).strip() != "1":
-            return False
-        # admin / demo_user 在 ACCESS_V2 都已显式 demo · 走通用路径
+    # Phase B.1.6 (PM 2026-05-10) · revert demo action 特例
+    # PM 真意 演示=上传 sample 跑真后端 · 不需 RBAC demo 双控
     role_map = ACCESS_V2.get(role, {})
     actions = role_map.get(agent_id, frozenset())
     return action in actions
