@@ -883,7 +883,7 @@ async def riskctrl_demo_scenarios():
 @app.post("/api/riskctrl/demo/run")
 async def riskctrl_demo_run(
     req: DemoRunRequest,
-    _user: dict = Depends(require_action("riskctrl", "demo")),
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
 ):
     """纯 mock SSE 流 · 不调 LLM / 不读真 csv · 走 fixture json.
 

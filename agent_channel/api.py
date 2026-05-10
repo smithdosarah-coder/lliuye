@@ -221,7 +221,7 @@ _SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "channel" / "scen
 @app.post("/api/channel/demo/run")
 async def channel_demo_run(
     req: ChannelDemoRunRequest,
-    _user: dict = Depends(require_action("channel", "demo")),
+    _user: dict = Depends(require_action("channel", "invoke")),
 ):
     """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (stage 流 + done envelope).
 

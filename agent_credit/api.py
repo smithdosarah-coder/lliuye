@@ -1000,7 +1000,7 @@ def _credit_demo_event_stream(scenario_id: str):
 @app.post("/api/credit/demo/run")
 async def credit_demo_run(
     req: CreditDemoRunRequest,
-    _user: dict = Depends(require_action("credit", "demo")),
+    _user: dict = Depends(require_action("credit", "invoke")),
 ):
     """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
 

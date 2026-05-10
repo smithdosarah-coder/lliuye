@@ -642,7 +642,7 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
 @app.post("/api/alert/demo/run")
 async def alert_demo_run(
     req: AlertDemoRunRequest,
-    _user: dict = Depends(require_action("alert", "demo")),
+    _user: dict = Depends(require_action("alert", "invoke")),
 ):
     """Demo fixture mode (worker-A4-alert · 2026-04-29).
 

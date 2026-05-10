@@ -1032,7 +1032,7 @@ _REPORT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "report" /
 @app.post("/api/report/demo/run")
 async def report_demo_run(
     req: ReportDemoRunRequest,
-    _user: dict = Depends(require_action("report", "demo")),
+    _user: dict = Depends(require_action("report", "invoke")),
 ):
     """纯 mock SSE 演示流 · 不依赖 DEEPSEEK_API_KEY / v16 主管线 · 视觉与 live 一致.
 
