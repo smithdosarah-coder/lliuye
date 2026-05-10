@@ -1820,6 +1820,98 @@
   line-height: 1.6;
 }
 
+/* ALL IN Phase B.2 (2026-05-10 · PM 真意 reframe) · 输入来源 toggle.
+   两 mode 都跑真 backend pipeline · 区别仅是输入来源. */
+.alert-empty__input-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  margin: 0 0 18px;
+}
+.alert-empty__input-toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  letter-spacing: 0.01em;
+}
+.alert-empty__input-toggle-btn {
+  appearance: none;
+  border: 1px solid var(--ink-14);
+  background: transparent;
+  color: var(--ink-strong);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.alert-empty__input-toggle-btn:hover:not(:disabled) {
+  border-color: var(--t-alert);
+}
+.alert-empty__input-toggle-btn[data-active="yes"] {
+  background: var(--t-alert);
+  color: var(--chalk);
+  border-color: var(--t-alert);
+}
+.alert-empty__input-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.alert-empty__input-toggle-hint {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink-65);
+  font-style: italic;
+}
+
+/* ALL IN Phase B.2 step 7 信息密度 (2026-05-10) · mode-aware 输入预览卡片. */
+.alert-empty__preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 0 0 18px;
+}
+.alert-empty__preview-card {
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--chalk) 50%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+}
+.alert-empty__preview-h {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t-alert);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.alert-empty__preview-stats {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 12.5px;
+  color: var(--ink-65);
+  line-height: 1.65;
+}
+.alert-empty__preview-stats li {
+  margin-bottom: 4px;
+}
+.alert-empty__preview-stats b {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+@media (max-width: 800px) {
+  .alert-empty__preview {
+    grid-template-columns: 1fr;
+  }
+}
+
 .alert-empty__cta-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2236,4 +2328,68 @@
   border-color: var(--ink-12);
   color: var(--ink-50);
   padding: 4px 10px;
+}
+
+/* ALL IN Phase B.2 (2026-05-10) · backend fallback banner · 3 severity tones.
+   trust model 真实状态透传 · 区别于 LiveFailError (那是前端调用失败) ·
+   本 banner 是 backend 自己 emit 的状态 (Tavily key 缺 / web_fallback / demo input). */
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 16px;
+  margin: 12px 0;
+  border-radius: 8px;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="info"] {
+  background: color-mix(in srgb, var(--t-alert) 6%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--t-alert) 60%, transparent);
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="warn"] {
+  background: color-mix(in srgb, #d4a44a 12%, transparent);
+  border-left: 4px solid #d4a44a;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="error"] {
+  background: color-mix(in srgb, #d44a4a 12%, transparent);
+  border-left: 4px solid #d44a4a;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+  padding-top: 2px;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__text b {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-65);
+  font-style: italic;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__dismiss {
+  flex-shrink: 0;
+  font-family: var(--cjk);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--ink-12);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--ink-50);
+  transition: background 0.18s ease;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__dismiss:hover {
+  background: var(--ink-12);
 }

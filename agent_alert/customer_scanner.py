@@ -150,15 +150,6 @@ class CustomerScanner:
         def _key_of(c: CompanyProfile):
             return resolve_entity(name=c.company_name, uscc=c.unified_credit_code)
 
-        # Phase B.1.1 hotfix (PM 2026-05-10 抓 production NotImplementedError):
-        # WebSearchProvider 不实现 iter_loan_customers · 直 raise 致 SSE 报错 banner.
-        # KB 优先 · provider 没实现时返 [] (KB 内数据仍可用 · 仅缺增强 extras)
-        # KB + provider 都空 → 返 [] · 上层 banner 提示"请上传在贷客户 KB"
-        try:
-            _provider_loans_iter = list(self.provider.iter_loan_customers())
-        except NotImplementedError:
-            _provider_loans_iter = []
-
         if self.kb.companies:
             kb_customers = list(self.kb.companies)
             # KB 内同 EntityKey dedup · 防同客户多预警 (per §11)
@@ -172,7 +163,9 @@ class CustomerScanner:
                 customers.append(c)
 
             # provider_loans 索引 EntityKey · 不再 string-eq company_name
-            provider_loans = {_key_of(c): c for c in _provider_loans_iter}
+            provider_loans = {
+                _key_of(c): c for c in self.provider.iter_loan_customers()
+            }
             for c in customers:
                 pl = provider_loans.get(_key_of(c))
                 if pl is None:
@@ -188,8 +181,8 @@ class CustomerScanner:
                 elif pl.tags:
                     c.risk_tags = list(pl.tags)
             return customers
-        # fallback：走 provider 全量 · 也按 EntityKey dedup (Phase B.1.1: 已 NotImplementedError-safe)
-        provider_customers = _provider_loans_iter
+        # fallback：走 provider 全量 · 也按 EntityKey dedup
+        provider_customers = list(self.provider.iter_loan_customers())
         seen_keys = set()
         deduped: list[CompanyProfile] = []
         for c in provider_customers:

@@ -61,7 +61,26 @@ from agent_alert.output_validator import soft_clean as _qc_scrub  # noqa: E402
 # ALL IN Phase B step 5 (2026-05-09): per candidate-identity-contract v1.1 §3 ·
 # alert.id 按 client_entity_key 派生 (uscc_X / name_md5 / cand_X) · 防 PM 痛点
 # "左右气泡不联动" 真根因 (后端 candidate 没 id → 前端 find 命中错误).
-from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
+from shared.entity_resolver import ensure_list_unique_ids, resolve_entity  # noqa: E402
+
+# ALL IN Phase B.2 step 10 (2026-05-10): cross-agent decision ledger 上链 ·
+# per CLAUDE.md §3.7.5 + docs/contracts/decision-ledger.md v1.0.
+# alert default retention=short (90d) · severity=red 升 standard (5y) ·
+# subject_id 必 hash · jurisdiction default HQ · failure silent-fail.
+try:
+    from shared.decision_ledger import (  # noqa: E402
+        RETENTION_STANDARD,
+        hash_subject_id,
+        record_decision,
+    )
+    _LEDGER_AVAILABLE = True
+except ImportError:
+    _LEDGER_AVAILABLE = False
+    def record_decision(**_kwargs):  # type: ignore[no-redef]
+        return ""
+    def hash_subject_id(_v):  # type: ignore[no-redef]
+        return None
+    RETENTION_STANDARD = "standard"  # type: ignore[assignment]
 
 
 def _ensure_alert_emit_ids(
@@ -302,13 +321,15 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
             "retried": False,
         }
 
+    # ALL IN Phase B.2 (PM 2026-05-10 reframe): 3 fallback 路径不再返合成 mock 结果 ·
+    # 改用 NullSearchProvider (返 []) · 仅内部规则真跑 · banner 必明示 trust model 降级.
     if mode_label == "tavily_disabled":
         return {
             "source": "Tavily",
             "reason": "tavily_disabled",
             "severity": "warn",
-            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 当前显 mock 演示数据",
-            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实搜索",
+            "message": "Tavily 外部搜索已禁用 (ALERT_USE_TAVILY=0) · 仅内部规则命中 · 外部源 0 hit",
+            "hint": "管理员设置 ALERT_USE_TAVILY=1 + TAVILY_API_KEY 可切真实外部搜索",
             "retried": False,
         }
 
@@ -317,19 +338,19 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
             "source": "Tavily",
             "reason": "tavily_key_missing",
             "severity": "warn",
-            "message": "Tavily API Key 未配置 · 当前显 mock 演示数据 · 不影响内部规则命中",
+            "message": "Tavily API Key 未配置 · 仅内部规则命中 · 外部源 0 hit (不返合成 mock 结果)",
             "hint": "设置 TAVILY_API_KEY 环境变量后重启服务 → 切真实外部源",
             "retried": False,
         }
 
     if mode_label.startswith("web_fallback_"):
-        # web 路径异常自动降级 · 真 fallback (live-fallback-banner-spec §2 规则 1)
+        # web 路径异常 · NullSearchProvider 替代 · 仅内部规则真跑 · banner error
         err_type = mode_label.replace("web_fallback_", "", 1)
         return {
             "source": "Tavily",
             "reason": mode_label,
             "severity": "error",
-            "message": f"外部搜索调用失败 ({err_type}) · 已自动降级 mock 演示数据",
+            "message": f"外部搜索调用失败 ({err_type}) · 仅内部规则命中 · 外部源 0 hit",
             "hint": "可点[重试] · 或检查 Tavily Key / 网络后重启服务",
             "retried": True,
         }
@@ -343,6 +364,110 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
         "hint": "检查 build_alert_provider 配置 + 联系管理员",
         "retried": False,
     }
+
+
+def _record_alert_decisions_to_ledger(
+    *,
+    hit_list: Any,
+    dispositions: Any,
+    session_id: str,
+    scenario_key: str,
+    mode_label: str,
+    endpoint: str,
+) -> int:
+    """ALL IN Phase B.2 step 10 (2026-05-10) · per CLAUDE.md §3.7.5.
+
+    把每个红/黄客户的预警决策上链 decision_ledger · 1 cluster 1 entry.
+
+    Spec (per docs/contracts/decision-ledger.md + CLAUDE.md §3.7.5 alert 行):
+    - retention default = "short" (90d · alert routine 预警)
+    - severity == "red" → 升 "standard" (5y · 银保监 archive)
+    - subject_id 必 hash (16-hex prefix · 防 PII 入库)
+    - jurisdiction default "HQ" (env LIUYE_LEDGER_JURISDICTION 可覆盖)
+    - failure silent-fail (decision flow 不破)
+
+    Returns:
+        int · 成功上链的 entry 数 (失败也返已成功的 count)
+    """
+    if not _LEDGER_AVAILABLE or hit_list is None:
+        return 0
+
+    written = 0
+    hits = list(getattr(hit_list, "hits", None) or [])
+    dispo_map = dispositions or {}
+
+    for hit in hits:
+        try:
+            level_val = getattr(hit, "level", None)
+            level_str = (level_val.value if hasattr(level_val, "value") else str(level_val)).lower()
+            # 仅红/黄上链 (绿不算预警决策 · routine 不消耗 retention quota)
+            if level_str not in ("red", "yellow"):
+                continue
+
+            target = getattr(hit, "target", None)
+            payload = getattr(target, "payload", {}) if target else {}
+            if isinstance(payload, dict):
+                company_name = str(payload.get("company_name") or "")
+                uscc = str(payload.get("unified_credit_code") or payload.get("uscc") or "")
+            else:
+                company_name = ""
+                uscc = ""
+            if not company_name:
+                continue
+
+            entity = resolve_entity(name=company_name, uscc=uscc)
+            entity_handle = entity.uscc or entity.name_normalized or company_name
+            subject_hash = hash_subject_id(entity_handle) or None
+
+            disposition_plan = dispo_map.get(company_name)
+            if hasattr(disposition_plan, "model_dump"):
+                disposition_serialized = disposition_plan.model_dump(mode="json")
+            elif isinstance(disposition_plan, dict):
+                disposition_serialized = dict(disposition_plan)
+            else:
+                disposition_serialized = {"advice": str(disposition_plan or "")}
+
+            evidences = getattr(hit, "evidences", None) or []
+            evidence_chain = [
+                {
+                    "source": getattr(ev, "source", "") if not isinstance(ev, dict) else ev.get("source", ""),
+                    "snippet": (getattr(ev, "snippet", "") if not isinstance(ev, dict) else ev.get("snippet", ""))[:200],
+                    "url": getattr(ev, "url", "") if not isinstance(ev, dict) else ev.get("url", ""),
+                }
+                for ev in evidences[:10]
+            ]
+
+            input_payload = {
+                "scenario_key": scenario_key,
+                "session_id": session_id,
+                "provider_mode": mode_label,
+                "company_name": company_name,
+            }
+            output_payload = {
+                "level": level_str,
+                "score": float(getattr(hit, "score", 0.0) or 0.0),
+                "matched_rules": list(getattr(hit, "matched_rules", []) or []),
+                "reasons": list(getattr(hit, "reasons", []) or [])[:8],
+                "disposition": disposition_serialized,
+            }
+
+            retention = RETENTION_STANDARD if level_str == "red" else None  # None → 走 alert default "short"
+            record_decision(
+                agent_id="alert",
+                endpoint=endpoint,
+                input_payload=input_payload,
+                output_payload=output_payload,
+                evidence_chain=evidence_chain,
+                jurisdiction=None,  # resolve_jurisdiction 自动 env or HQ
+                retention_class=retention,
+                subject_name=company_name,
+                subject_id=subject_hash,
+            )
+            written += 1
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+            # silent-fail per CLAUDE.md §3.7.5: ledger 不破 disposition flow
+            continue
+    return written
 
 
 def _build_done_envelope(
@@ -371,11 +496,17 @@ def _build_done_envelope(
         kb_summary: load_kb 输出摘要 · → kb_state
     """
     # data_source 映射 mode_label → 5 enum
+    # ALL IN Phase B.2 (PM 2026-05-10 reframe): 3 fallback 路径用 NullSearchProvider ·
+    # 即"主路径 fail · 系统降级运行" (mock_fallback 语义) · 不是"用户主动选演示" (mock).
+    # 旧 tavily_disabled / tavily_key_missing → DATA_SOURCE_MOCK 是误用 (那暗示用户主动选).
     if mode_label == "web_live":
         data_source = DATA_SOURCE_LIVE
     elif mode_label == "demo_forced":
         data_source = DATA_SOURCE_MOCK_FORCED
     elif mode_label.startswith("web_fallback_"):
+        data_source = DATA_SOURCE_MOCK_FALLBACK
+    elif mode_label in ("tavily_disabled", "tavily_key_missing"):
+        # B.2 reframe: 系统侧降级 (Null external · internal-only) · 用户必感知
         data_source = DATA_SOURCE_MOCK_FALLBACK
     else:
         data_source = DATA_SOURCE_MOCK
@@ -522,6 +653,16 @@ def _alert_event_stream(req: AlertScanRequest):
                 mode_label=captured_mode,
                 kb_summary=captured_kb_summary,
             )
+            # ALL IN Phase B.2 step 10 · 上链 decision_ledger (silent-fail · 不破 flow)
+            ledger_written = _record_alert_decisions_to_ledger(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "",
+                mode_label=captured_mode,
+                endpoint="/api/alert/scan",
+            )
+            done_evt["ledger_entries_written"] = ledger_written
             yield encode_event(done_evt)
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
@@ -571,72 +712,153 @@ async def alert_scan(
 
 
 # ============================================================================
-# POST /api/alert/demo/run — Demo fixture mode (worker-A4-alert · 2026-04-29)
+# POST /api/alert/demo/run — ALL IN Phase B.2 (PM 2026-05-10 真意 reframe)
+# ============================================================================
+#
+# OLD (Phase A · 2026-04-29 · REVERTED):
+#   读 data/mock/workspace/alert/scenarios/<key>.json fixture · yield 5 stage 假节拍
+#   + 假 done envelope (mode=mock_forced) · 不读 KB / 不调 LLM / 不持久化.
+#
+# NEW (Phase B.2 · 2026-05-10 · per dispatch §A 主活):
+#   "演示 = 上传 sample → 真 backend pipeline → 真返结果" verbatim PM 真意.
+#   demo 输入 = data/mock/alert-pool/clients.csv (180 户在贷客户池 · 优质 batch ·
+#   per dispatch §3.5 表 alert 行内部 mock).
+#   backend pipeline = scan_engine.run_scan_and_persist · 与 /api/alert/scan 同 ·
+#   force_mock=False · Tavily 真接 · 真 LLM disposition · 真持久化 · 真上链 ledger.
+#   mock 只能 mock 输入 · 不能 mock 结果.
 # ============================================================================
 
 
-SCENARIOS_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "alert" / "scenarios"
-
-
-def _load_scenario_fixture(scenario_key: str) -> dict[str, Any]:
-    """从 data/mock/workspace/alert/scenarios/<key>.json 读 fixture。
-
-    反 5 原则 #5 环境边界: fixture 是稳态 internal context · 不替 Agent
-    做"本该外搜"的工作 · 故 fixture 不含答案字段 (难度档 / 风险评级是 Agent
-    自己根据规则算 · 这里只给原始命中 + 元信息)。
-    """
-    import json as _json
-    safe_key = (scenario_key or "baseline_100").strip()
-    if not safe_key.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail=f"invalid scenario_key={safe_key!r}")
-    path = SCENARIOS_DIR / f"{safe_key}.json"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail=f"scenario fixture not found: {safe_key}")
-    return _json.loads(path.read_text(encoding="utf-8"))
+ALERT_POOL_DIR = PROJECT_ROOT / "data" / "mock" / "alert-pool"
+ALERT_POOL_CLIENTS_CSV = ALERT_POOL_DIR / "clients.csv"
 
 
 def _alert_demo_event_stream(req: AlertDemoRunRequest):
-    """Demo SSE 流 · 5 stage 节拍 + done envelope (mock_forced)。
+    """ALL IN Phase B.2 demo stream · 真跑 backend pipeline (per PM 真意 reframe).
 
-    与 /api/alert/scan 共形 envelope shape · 但不读 KB / 不调 LLM / 不持久化。
-    用于 worker-A4-alert Playwright smoke + 客户走访演示。
+    输入: data/mock/alert-pool/clients.csv (180 户) 作为 uploaded_files ·
+        通过 AlertKnowledgeBase.from_uploads → 真 KB 装载.
+    pipeline: scan_engine.run_scan_and_persist · 同 /api/alert/scan ·
+        Tavily 真接 (force_mock=False) · 真 cross_matcher · 真 LLM disposition ·
+        真 persist_hitlist · 真 decision_ledger 上链 (per CLAUDE.md §3.7.5).
+    输出: SSE 共形 envelope · mode=web_live | tavily_key_missing | web_fallback_X
+        (与 /api/alert/scan 完全相同的 mode label · 透明 banner).
+
+    红线 (per dispatch §不可 GO 条件):
+      - 不 yield fixture event (fixture 路径已删)
+      - 不 silent fallback fake 数据 (走 build_alert_provider banner 路径)
+      - 评分真 LLM 算 (走 disposition.py · 不静态)
     """
-    try:
-        fixture = _load_scenario_fixture(req.scenario_key)
-    except HTTPException:
-        raise
-    except (RuntimeError, ValueError, OSError, AttributeError, KeyError) as e:
-        yield encode_event(make_error_from_exception(e, code="FIXTURE_LOAD_FAILED"))
+    t0 = time.time()
+    err: str | None = None
+
+    if not ALERT_POOL_CLIENTS_CSV.is_file():
+        yield encode_event(make_error(
+            message=f"alert-pool batch missing: {ALERT_POOL_CLIENTS_CSV} not found",
+            code="DEMO_BATCH_NOT_FOUND",
+        ))
         return
 
-    stages = ["kb_load", "external_scan", "internal_match", "cross", "summary"]
-    for stage in stages:
-        yield encode_event(make_stage(stage, "done", message=f"demo · {stage} · fixture={req.scenario_key}"))
-        time.sleep(0.25)
+    captured_hit_list: Any = None
+    captured_dispositions: Any = None
+    captured_session_id: str = ""
+    captured_mode: str = ""
+    captured_kb_summary: str = ""
 
-    done_evt = make_done(
-        panels={
-            "hit_list": fixture.get("hit_list", {}),
-            "top_cases": fixture.get("top_cases", []),
-            "dispositions": fixture.get("dispositions", {}),
-        },
-        metrics=fixture.get("metrics", {}),
-        data_source=DATA_SOURCE_MOCK_FORCED,
-        session_id=f"demo-{req.scenario_key}",
-        summary=fixture.get("summary", ""),
-        scenario_key=req.scenario_key,
-        kb_state=fixture.get("kb_state", "demo · 不读 KB"),
-        mode="demo_forced",
-        totals=fixture.get("totals", {}),
-        industry_distribution=fixture.get("industry_distribution", []),
-        signal_heatmap=fixture.get("signal_heatmap", []),
-        reach_rate=fixture.get("reach_rate", []),
-    )
-    # BE5: demo path 也透明显示 banner (per live-fallback-banner-spec §2 规则 2)
-    fallback_banner = _resolve_fallback_banner("demo_forced")
-    if fallback_banner:
-        done_evt["fallback"] = fallback_banner
-    yield encode_event(done_evt)
+    try:
+        try:
+            from agent_alert.scan_engine import run_scan_and_persist
+        except ImportError as e:
+            err = f"ImportError: {e}"
+            yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+            return
+
+        # Stage banner: demo input batch loaded
+        yield encode_event(make_stage(
+            "kb_load",
+            "running",
+            message=f"加载 demo batch · alert-pool · 客户池 {ALERT_POOL_CLIENTS_CSV.name}",
+        ))
+
+        try:
+            for evt in run_scan_and_persist(
+                scenario_key=req.scenario_key or "alert-pool",
+                uploaded_files=[str(ALERT_POOL_CLIENTS_CSV)],
+                api_key=os.environ.get("DEEPSEEK_API_KEY", "dummy"),
+                provider="deepseek",
+                force_mock=False,  # backend 真跑 · 不退 mock 路径
+            ):
+                etype = evt.get("type", "") if isinstance(evt, dict) else ""
+                if etype == "hitlist":
+                    captured_hit_list = evt.get("hitlist")
+                    captured_dispositions = evt.get("dispositions")
+                elif etype == "session":
+                    captured_session_id = str(evt.get("session_id", ""))
+                    captured_mode = str(evt.get("mode", ""))
+                elif etype == "tool_result" and (evt.get("tool") or "").lower() == "load_kb":
+                    captured_kb_summary = str(evt.get("result", ""))
+
+                payload = to_jsonable(evt)
+                cleaned, hits = _qc_scrub(payload)
+                stage_name = _stage_for_event(evt if isinstance(evt, dict) else {})
+                wrap: dict[str, Any] = make_stage(
+                    stage_name,
+                    "running",
+                    payload=cleaned,
+                )
+                if hits:
+                    wrap["_qc_placeholder_hits"] = hits
+                yield encode_event(wrap)
+
+            yield encode_event(make_stage(
+                "summary",
+                "done",
+                message="扫描完成 · alert-pool 真 backend pipeline (Tavily + LLM + ledger)",
+            ))
+
+            done_evt = _build_done_envelope(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "alert-pool",
+                mode_label=captured_mode,
+                kb_summary=captured_kb_summary,
+            )
+            # ALL IN Phase B.2 step 10 · 上链 decision_ledger · demo 也真上链
+            # (per dispatch reframe "结果不能 mock" · 真后端跑 → 真 ledger).
+            ledger_written = _record_alert_decisions_to_ledger(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "alert-pool",
+                mode_label=captured_mode,
+                endpoint="/api/alert/demo/run",
+            )
+            done_evt["ledger_entries_written"] = ledger_written
+            # demo 模式 banner · 透明告知输入来源 (per CLAUDE.md 反馈引导行动)
+            # 仅当 backend 没产 fallback banner (即 Tavily 真接通) 时加 demo-input banner
+            if done_evt.get("fallback") is None:
+                done_evt["fallback"] = {
+                    "source": "Demo Input",
+                    "reason": "alert_pool_batch",
+                    "severity": "info",
+                    "message": "演示模式 · 输入 alert-pool 180 户在贷客户池 · backend 真跑双路扫 + LLM 处置",
+                    "hint": "线上场景把 clients.csv 替换为银行真实在贷客户名录即可 · backend 路径不变",
+                    "retried": False,
+                }
+            yield encode_event(done_evt)
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            err = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+            yield encode_event(make_error_from_exception(e, code="DEMO_RUN_FAILED"))
+    finally:
+        audit_stream_event(
+            agent_id="alert",
+            endpoint="/api/alert/demo/run",
+            model="deepseek-chat",
+            t0=t0,
+            error=err,
+        )
 
 
 @app.post("/api/alert/demo/run")
@@ -644,15 +866,23 @@ async def alert_demo_run(
     req: AlertDemoRunRequest,
     _user: dict = Depends(require_action("alert", "invoke")),
 ):
-    """Demo fixture mode (worker-A4-alert · 2026-04-29).
+    """ALL IN Phase B.2 demo mode (2026-05-10 · PM 真意 reframe).
+
+    PM verbatim 真意 (02:00 AM):
+      "我要的演示不是一键切换 · 而是把本地的 mock 数据真实上传 ·
+       通过真实后端代码跑一遍 · 最后给出结果"
+
+    Demo input: data/mock/alert-pool/clients.csv (180 户在贷客户池 · 优质 batch ·
+      per dispatch §3.5 alert 行 · 已就位 commit cf7e4b1).
+    Backend: scan_engine.run_scan_and_persist · 同 /api/alert/scan · 真 KB 真 Tavily
+      真 LLM disposition 真 persist 真 ledger.
+    SSE envelope: 共形 panels + metrics + data_source + fallback banner.
 
     Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
-    与 /api/alert/scan + /api/alert/batch_scan 一致 · 防未授权用户触发 demo SSE.
+      与 /api/alert/scan + /api/alert/batch_scan 一致.
 
-    与 /api/alert/scan 共形 done envelope shape · mode=mock_forced ·
-    不读 KB / 不调 LLM / 不持久化 · 适合 Playwright smoke + 客户走访演示。
-
-    Body: {scenario_key: "baseline_100" | "manuf_policy_event" | "judicial_news_dual"}
+    Body: {scenario_key: str = ""} (legacy field · 透传到 captured_kb_summary 标签 ·
+      不再控制 fixture 路径 · fixture 路径已废)
     """
     def gen():
         yield from _alert_demo_event_stream(req)
