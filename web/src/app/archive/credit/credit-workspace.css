@@ -1799,6 +1799,15 @@
   grid-template-columns: 1fr;  /* Phase B.2 · 单 CTA 占满 (input-mode toggle 后渲染对应单按钮) */
   gap: 14px;
 }
+
+/* Phase B.2 step 4 主活 C · DataSource badge wrap (inline style → CSS class) */
+.credit-data-source-wrap {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 0 8px 0;
+  flex-wrap: wrap;
+}
 .credit-empty__cta {
   display: flex;
   flex-direction: column;

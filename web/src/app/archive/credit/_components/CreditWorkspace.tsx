@@ -495,7 +495,9 @@ export default function CreditWorkspace() {
     </div>
   ) : null;
 
-  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
+  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用
+     · Phase B.2 step 4 主活 C: retry 按 inputMode 路由 (real → handoff · demo → demoSample)
+     · 避免 demo 模式失败后 retry 跳真 handoff 路径 (input 形态错位) */
   const creditTopBanner = decisionError ? (
     <div
       role="alert"
@@ -504,15 +506,23 @@ export default function CreditWorkspace() {
     >
       <span className="credit-error-banner__icon" aria-hidden>⚠</span>
       <span className="credit-error-banner__text">
-        <b>决策操作失败</b>
+        <b>{inputMode === "demo" ? "演示运行失败" : "决策操作失败"}</b>
         <span className="credit-error-banner__detail">{decisionError}</span>
       </span>
       <button
         type="button"
         className="credit-error-banner__retry"
-        onClick={() => runDecisionWithAgent6Handoff()}
+        data-testid="credit-error-retry"
+        onClick={() => {
+          setDecisionError(null);
+          if (inputMode === "demo") {
+            runDemoSample();
+          } else {
+            runDecisionWithAgent6Handoff();
+          }
+        }}
       >
-        重试
+        重试 {inputMode === "demo" ? "(演示)" : "(真实)"}
       </button>
       <button
         type="button"
@@ -567,13 +577,18 @@ export default function CreditWorkspace() {
     >
       {handoffBanner}
       {creditTopBanner}
+      {/* Phase B.2 step 4 主活 C · weeklyProcessed mock "63" 假 stat → placeholder
+         · 反不可 GO 条件 #7 (评分都一样 假分残留) + 红线 #2 假分
+         · 真路径 = 接 backend metrics endpoint (跨 agent stats SSOT · 不在本 worker 域)
+         · ALL IN Phase B 暂留 "—" placeholder · 不显假"63" 误导客户经理 */}
       <TopBar
         mode={mode}
         onModeChange={setMode}
-        sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
+        sessionsCount="—"
       />
-      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删
+         · Phase B.2 step 4 主活 C · inline style → CSS class (per CLAUDE.md "203 inline_style 重灾区") */}
+      <div className="credit-data-source-wrap">
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 
