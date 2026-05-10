@@ -180,6 +180,30 @@ def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path
     assert len(dones) == 0, "ALL IN 拒 silent fallback · 不应 emit done"
 
 
+def test_v16_fill_explicit_mock_done_has_entity_key(client):
+    """ALL IN Phase B step 6 (per entity-resolution-contract v1.1 §5):
+    mock_v16_stream done payload profile.entity_key 必出 · 含 uscc / name_normalized / confidence."""
+    resp = client.post(
+        "/api/report/v16/fill",
+        json={"report_id": "entity-key-test", "mock": True},
+    )
+    assert resp.status_code == 200
+    events = _parse_sse_events(resp.text)
+    done = [e for e in events if e["event"] == "done"][0]["data"]
+
+    profile = done.get("profile") or {}
+    assert "entity_key" in profile, "profile.entity_key 缺失 · 跨 agent handoff 主键不稳"
+    ek = profile["entity_key"]
+    # entity_key 三字段全 (per shared/entity_resolver/resolver.py:EntityKey)
+    assert "uscc" in ek
+    assert "name_normalized" in ek
+    assert "confidence" in ek
+    # mock 路径 USCC anchored · confidence 应 == 1.0
+    assert ek["confidence"] == 1.0, f"USCC anchored 应 confidence=1.0 · got {ek['confidence']}"
+    assert len(ek["uscc"]) == 18, f"USCC 必 18 位 · got len={len(ek['uscc'])}"
+    assert ek["name_normalized"]  # non-empty
+
+
 def test_v16_fill_explicit_mock_sections_have_unique_id(client):
     """ALL IN Phase B step 5 (per candidate-identity-contract v1.1 §3 + §4.2):
     mock_v16_stream done payload sections / pending_questions / evidences 全经 ensure_list_unique_ids ·
