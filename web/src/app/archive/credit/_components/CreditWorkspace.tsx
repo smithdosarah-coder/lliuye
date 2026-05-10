@@ -35,12 +35,8 @@ import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { normalizeCreditDone } from "./_normalize";
 import {
-  CREDIT_DEFAULT_SESSION_ID,
   CREDIT_GLOBAL_STATS,
-  CREDIT_MOCK_SESSIONS,
-  CREDIT_MOCK_SESSIONS_MAP,
   CREDIT_MODE_LABEL,
-  CREDIT_SESSIONS,
   type CaseRecall,
   type ConversationMessage,
   type CreditMode,
@@ -57,6 +53,60 @@ import {
   type RedLine,
   type CreditPipelineStep,
 } from "@/lib/mock/agent-credit-session";
+
+/* ALL IN Phase B step 2 · per channel 模板 (de79725 EMPTY_SESSION pattern):
+   sessionData fallback 用空对象 · 不再 fallback CREDIT_MOCK_SESSIONS_MAP (47 分 D 级假分根因)
+   panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 假 live + #2 假分 */
+const EMPTY_SESSION: CreditSession = {
+  id: "empty",
+  mode: "corp",
+  objective: "",
+  stage: "",
+  updated: "",
+  profile: { chips: [], tagline: "" },
+  query: {
+    id: "",
+    customer: "",
+    customerCode: "",
+    product: "对公经营贷",
+    applyAmount: "",
+    applyTenor: "",
+    purpose: "",
+    industry: "",
+    updated: "",
+  },
+  pipeline: [],
+  radar: [],
+  overallScore: 0,
+  decision: "pending",
+  limit: {
+    applied: 0,
+    suggested: 0,
+    floor: 0,
+    ceiling: 0,
+    tenorMonths: 0,
+    tenorRange: [0, 0],
+    rateBps: 0,
+    rateRange: [0, 0],
+    rationale: [],
+  },
+  redLines: [],
+  cases: [],
+  conversation: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+  materials: { completeness: 0, missing: "", files: [] },
+  dataSources: { summary: "", updated: "", sources: [] },
+  evidences: { positive: [], warnings: [], missing: [] },
+  /* generateSteps · UI 动画 5 步 · 与数据无关 · ALL IN 后改为"等待 / 处理中"措辞反映真实路径 */
+  generateSteps: [
+    { label: "等待 Agent6 报告 handoff", pct: 22 },
+    { label: "拉取 ReportJSON · 注入企业画像", pct: 48 },
+    { label: "LLM 评分 · 红线检查 · 案例召回", pct: 76 },
+    { label: "决策建议生成中", pct: 96 },
+    { label: "综合判断完成", pct: 100 },
+  ],
+};
 
 type OutputTab = "radar" | "limit" | "cases";
 
@@ -87,32 +137,26 @@ const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
 };
 
 export default function CreditWorkspace() {
-  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A4-credit (2026-04-29)
-     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
-     sessionData = liveData ?? mock[selectedSession] · panel 单点派生
-     旧 mode/setMode/session = CREDIT_SESSIONS[mode] alias 派生 · 1800 行内 mode/session 引用最小漂 */
+  /* ALL IN Phase B · workspace-state-protocol §2 · 3 gate state model (selectedSession 删 · 历史 session 已下架)
+     (1) started · (2) liveData · (3) selectedCandidate · 加 mode 独立 state (3 板块 stage_tab tab 切换)
+     sessionData = liveData ?? EMPTY_SESSION · panel 单点派生 · 不 fallback mock */
   const [started, setStarted] = useState<boolean>(false);
-  const [selectedSession, setSelectedSession] = useState<string>(CREDIT_DEFAULT_SESSION_ID);
+  const [mode, setModeState] = useState<CreditMode>("corp");
   const [liveData, setLiveData] = useState<CreditSession | null>(null);
-  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet · Step 3 改) */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
-  const sessionData: CreditSession =
-    liveData ??
-    CREDIT_MOCK_SESSIONS_MAP[selectedSession] ??
-    CREDIT_MOCK_SESSIONS_MAP[CREDIT_DEFAULT_SESSION_ID];
+  /* ALL IN Phase B · sessionData 不 fallback mock · 改 EMPTY_SESSION (per channel 模板 de79725)
+     panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 + #2 */
+  const sessionData: CreditSession = liveData ?? EMPTY_SESSION;
 
-  /* alias · minimize churn through 1800 lines · session/mode 不再独立 useState */
+  /* alias · minimize churn through 1800 lines */
   const session = sessionData;
-  const mode: CreditMode = sessionData.mode;
 
-  /* setMode 适配 · 切 mode 时找该 mode 第一个 session · 同步 reset live + drawer */
+  /* setMode · 切 stage_tab tab 时 reset live + drawer · 不再 find from CREDIT_MOCK_SESSIONS */
   const setMode = useCallback((newMode: CreditMode) => {
-    const target = CREDIT_MOCK_SESSIONS.find((s) => s.mode === newMode);
-    if (!target) return;
-    setSelectedSession(target.id);
+    setModeState(newMode);
     setLiveData(null);
     setSelectedCandidate(null);
   }, []);
