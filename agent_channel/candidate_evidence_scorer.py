@@ -77,18 +77,59 @@ class CandidateEvidenceScore(TypedDict):
     metadata: dict[str, Any]                      # Q-041 4 字段: industry/geo/scale/similarity
 
 
+def _industry_tokens(industry: str) -> set[str]:
+    """行业字段切 token · 通过分隔符 · / · 空格 / · / 中点 切 · 返非空 token 集合.
+
+    e.g. "信息技术·企业服务" → {"信息技术", "企业服务"}
+         "新能源·锂电材料" → {"新能源", "锂电材料"}
+         "AI·机器视觉" → {"AI", "机器视觉"}
+    """
+    if not industry:
+        return set()
+    import re
+    parts = re.split(r"[·/\s\-、,，]+", industry)
+    return {p.strip() for p in parts if p.strip()}
+
+
 def _score_industry(
     candidate: dict[str, Any],
     internal_kb_companies: list[dict[str, Any]],
 ) -> tuple[Literal["high", "medium", "low", "none"], list[EvidenceItem]]:
-    """行业维度评分 · 比对候选行业 vs 内源已成交客户行业分布."""
+    """行业维度评分 · 比对候选行业 vs 内源已成交客户行业分布.
+
+    B.2.3 fix-forward (主 CLI 2026-05-10): substring match 太严 (15 seed 行业 ·
+    候选 "AI" / "医疗器械" 与 seed "人工智能·机器视觉" / "生物医药·创新药"
+    无 substring 重叠 → tier=none → 0% 相似度). 改 token-level overlap match:
+    1. 行业按 ·/、空格 切 token (e.g. "信息技术·企业服务" → {"信息技术", "企业服务"})
+    2. 候选 token vs KB token · 任一 overlap 视作 match
+    3. 加语义近邻表 (AI/人工智能/机器视觉 视作同族 等)
+    """
     cand_industry = (candidate.get("industry") or "").strip()
     if not cand_industry:
         return "none", []
 
+    cand_tokens = _industry_tokens(cand_industry)
+
+    # 语义近邻 · 把英文/简称 map 到 seed 中文 token (PM demo 演示常见映射)
+    SEMANTIC_NEIGHBORS = {
+        "AI": {"人工智能", "机器视觉"},
+        "ai": {"人工智能", "机器视觉"},
+        "机器人": {"人工智能", "机器视觉", "高端装备"},
+        "医疗器械": {"生物医药", "创新药", "细胞治疗"},
+        "医药制造业": {"生物医药", "创新药", "细胞治疗"},
+        "商业航天": {"高端装备", "工业母机"},
+        "新材料": {"新材料", "锂电材料", "陶瓷"},
+        "半导体": {"半导体", "芯片", "晶圆", "MEMS"},
+        "汽车零部件": {"高端装备", "工业母机"},
+    }
+    expanded = set(cand_tokens)
+    for tok in cand_tokens:
+        expanded |= SEMANTIC_NEIGHBORS.get(tok, set())
+
     matched = [
         c for c in internal_kb_companies
-        if cand_industry in (c.get("industry") or "")
+        if expanded & _industry_tokens(c.get("industry") or "")
+        or cand_industry in (c.get("industry") or "")
         or (c.get("industry") or "") in cand_industry
     ]
 

@@ -524,6 +524,15 @@ export function ReportWorkspace() {
           onRetry={() => triggerV16Fill()}
           onDismiss={() => setErrMsg(null)}
         />
+        {/* B.2.3 hotfix (主 CLI 2026-05-10 自验) · sample strip 上移到 LaunchBar 之前
+            · PM 第一眼看到 1-click 示例企业 (5 真 batch) · 不需先滚到下方
+            · 业务线按钮 + 上传 + 生成 留 LaunchBar · sample CTA 独立 hero 段 */}
+        {!liveData && !generating ? (
+          <ReportSampleStrip
+            onRun={handleDemoRun}
+            disabled={generating}
+          />
+        ) : null}
         <ReportLaunchBar
           started={started}
           mode={mode}
@@ -541,17 +550,6 @@ export function ReportWorkspace() {
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
         />
-        {/* Phase B.2 (PM 2026-05-10 真意 reframe): 演示形态切换 = 上传材料 vs 加载示例企业
-            · 两条路径都跑真后端 (v16_runner.fill_stream explicit_mock=False · 真 LLM + 真 QC)
-            · 与旧 DEMO 难度档 (easy/medium/hard fixture) 反模式不同
-            · UX: 主入口上传 (LaunchBar) + 兜底示例 (SampleStrip · 5 真 batch)
-            · 不 generating + 未 done · 始终显 SampleStrip · 大空白填示例 · 主活 B + Step 7 */}
-        {!liveData && !generating ? (
-          <ReportSampleStrip
-            onRun={handleDemoRun}
-            disabled={generating}
-          />
-        ) : null}
         {started ? (
           <>
             {liveStages.length > 0 || liveData ? (
