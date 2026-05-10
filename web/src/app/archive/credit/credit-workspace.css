@@ -1808,6 +1808,55 @@
   padding: 0 0 8px 0;
   flex-wrap: wrap;
 }
+
+/* Phase B.2 step 7 · 信息密度 · idle hint banner (started=true 但 liveData/running/error 全空时)
+   · 反 PM 截图痛点 #2 "大面积空白" · 引导用户重选形态或等结果 */
+.credit-idle-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 0 0 12px;
+  background: color-mix(in srgb, var(--ink-08) 50%, transparent);
+  border: 1px dashed var(--ink-28);
+  border-radius: var(--r-md);
+  color: var(--ink-65);
+  font-family: var(--cjk);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.credit-idle-hint__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.credit-idle-hint__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.credit-idle-hint__text b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.credit-idle-hint__detail {
+  color: var(--ink-55);
+  font-size: 12px;
+}
+.credit-idle-hint__back {
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--t-credit);
+  background: transparent;
+  border: 1px solid var(--t-credit);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.credit-idle-hint__back:hover {
+  background: color-mix(in srgb, var(--t-credit) 14%, transparent);
+}
 .credit-empty__cta {
   display: flex;
   flex-direction: column;

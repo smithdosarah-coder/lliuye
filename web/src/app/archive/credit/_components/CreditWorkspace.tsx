@@ -592,6 +592,37 @@ export default function CreditWorkspace() {
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 
+      {/* Phase B.2 step 7 · 信息密度 · started=true && !liveData && !running && !error 时
+         显示 idle hint (空白引导提示) · 大空白填示例 · 反 PM 截图痛点 #2 "大面积空白"
+         · 不重叠 creditTopBanner (decisionError 显另一 banner) · 不阻 5 panel 渲染骨架 */}
+      {!liveData && !decisionRunning && !decisionError ? (
+        <div
+          className="credit-idle-hint"
+          role="status"
+          data-testid="credit-idle-hint"
+          aria-label="等待决策结果"
+        >
+          <span className="credit-idle-hint__icon" aria-hidden>📋</span>
+          <span className="credit-idle-hint__text">
+            <b>等待决策结果</b>
+            <span className="credit-idle-hint__detail">
+              决策完成后此处显示 4 维评分 · 红线明细 · 相似案例 · 决策建议书 (live LLM)
+            </span>
+          </span>
+          <button
+            type="button"
+            className="credit-idle-hint__back"
+            data-testid="credit-idle-hint-back"
+            onClick={() => {
+              setStarted(false);
+              abortRef.current?.abort();
+            }}
+          >
+            重选形态
+          </button>
+        </div>
+      ) : null}
+
       <PrimaryProfileHero
         profile={session.profile}
         objective={session.objective}
