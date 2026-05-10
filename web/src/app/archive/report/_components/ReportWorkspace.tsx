@@ -44,7 +44,6 @@ import { ClaimText, EvidenceProvider } from "@/components/evidence";
 import { REPORT_EVIDENCE } from "@/components/evidence/fixtures";
 import {
   REPORT_GLOBAL_STATS,
-  REPORT_SESSION,
   liveToReportSession,
   type ConversationMessage,
   type PreviewField,
@@ -56,6 +55,33 @@ import {
 const AGENT_KEY = "report";
 const AGENT_HREF = "/archive/report";
 const AGENT_ACCENT = "--t-report";
+
+/* PM 2026-05-09 ALL IN 真产品 · sessionData fallback 用此空对象 · 不再 fallback 到 REPORT_SESSION mock.
+   5 panel 消费时 .map / .find / .reduce 不 crash · 字段空 → 显空 / 0 / "—" 不显假数据.
+   per channel ALL IN 模板 (de79725) + AGENT_IDENTITY-report.md §6 step 2 */
+const EMPTY_SESSION: ReportSession = {
+  id: "empty",
+  clientName: "",
+  amount: "",
+  stage: "",
+  updated: "",
+  template: {
+    id: "",
+    name: "",
+    kind: "预置",
+    version: "",
+    fieldTotal: 0,
+    recentUsed: 0,
+  },
+  availableTemplates: [],
+  materials: [],
+  timeline: [],
+  conversation: [],
+  preview: [],
+  coverage: { filled: 0, total: 0, marked: 0 },
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+};
 
 export function ReportWorkspace() {
   /* Phase A worker-A4 V2 (codex DISAGREE issue 1 fix · 2026-04-29):
@@ -73,10 +99,9 @@ export function ReportWorkspace() {
 
   const [started, setStarted] = useState(false);
   const [reportId, setReportId] = useState<string>("");
-  const [mode, setMode] = useState<"mock" | "live">("mock");
+  const [mode, setMode] = useState<"mock" | "live">("live");
   const [businessLine, setBusinessLine] = useState<string>("corporate");
   const [templateChoice, setTemplateChoice] = useState<string>("");
-  const [historyChoice, setHistoryChoice] = useState<string>("");
 
   // v16 fill / demo/run 流式状态 · liveData = gate 3 (workspace-state-protocol §2)
   const [liveStages, setLiveStages] = useState<ReportV16StageEvent[]>([]);
@@ -88,10 +113,11 @@ export function ReportWorkspace() {
   // gate 4 · selectedSection · TOC click 切章节 · ESC 关 (Channel 4-gate parity · drawer pattern 复用)
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
-  /* sessionData 单点派生 (V2 issue 1 fix) · live > mock fallback ·
-     5 panel + Hero + PipelineBand 都消费此 derived value · 不再 import REPORT_SESSION 直读 */
+  /* sessionData 单点派生 · ALL IN 真产品 · liveData → ReportSession ·
+     liveData null 时 fallback EMPTY_SESSION (不 fallback 到 REPORT_SESSION mock · 防显假数据).
+     5 panel + Hero + PipelineBand 都消费此 derived value */
   const derivedFromLive = liveToReportSession(liveData);
-  const sessionData: ReportSession = derivedFromLive ?? REPORT_SESSION;
+  const sessionData: ReportSession = derivedFromLive ?? EMPTY_SESSION;
   const s = sessionData;
   const coverPct = Math.round((s.coverage.filled / Math.max(s.coverage.total, 1)) * 100);
   const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
@@ -233,37 +259,17 @@ export function ReportWorkspace() {
   );
 
   /* B-2 click-to-fire · dropdown 仅 set 选择 state · "开始生成" CTA 显式触发 */
-  const handleSelectHistory = useCallback((key: string) => {
-    setHistoryChoice(key);
-  }, []);
-
   const handleSelectTemplate = useCallback((tpl: string) => {
     setTemplateChoice(tpl);
   }, []);
 
-  /* "开始生成" CTA · 综合用户当前选择决定 mock vs live · 显式 button click 触发 started + 真 fire SSE */
+  /* PM 2026-05-09 ALL IN: handleApplyLaunch 仅留 live 路径 · 删 historyChoice mock 触发分支
+     上传材料 + 选模板 (或默认按 business_line) → 真 v16 主管线 · 不 silent fallback mock */
   const handleApplyLaunch = useCallback(() => {
-    /* 优先级:
-       1) historyChoice 选了 → mock 模式 + 立刻 triggerV16Fill (explicit_mock=true · 后端走 mock pipeline · sections hydrate)
-       2) templateChoice 选了 (含上传) → live 模式 + 立刻 triggerV16Fill (explicit_mock=false)
-       3) 都没选 → 不动 (button disabled) */
-    if (historyChoice) {
-      const mid = `mock-${historyChoice}-${Date.now()}`;
-      setMode("mock");
-      setStarted(true);
-      setReportId(mid);
-      // 真 fire SSE → backend /v16/fill explicit_mock · liveData + sections hydrate · 主列不再空白
-      // pass reportIdOverride 因 setReportId 异步 · closure 里 reportId 仍是旧值
-      setTimeout(() => triggerV16Fill({ reportIdOverride: mid, explicitMock: true }), 0);
-      return;
-    }
-    if (templateChoice) {
-      setMode("live");
-      setStarted(true);
-      // live 路径 · 用现有 reportId (来自上传 · 没上传则 fill_stream 走 fail-banner)
-      setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
-    }
-  }, [historyChoice, templateChoice, triggerV16Fill]);
+    setMode("live");
+    setStarted(true);
+    setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
+  }, [triggerV16Fill]);
 
   // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
   // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
@@ -327,33 +333,24 @@ export function ReportWorkspace() {
 
   const handleExportDocx = useCallback(async () => {
     if (exporting) return;
+    /* PM 2026-05-09 ALL IN: 删 REPORT_SESSION mock fallback · liveData null 时直拒导出
+       (导出 = 客户经理把 AI 报告稿当定稿带去审贷会 · 不允许 mock 假数据出门) */
+    if (!liveData) {
+      setErrMsg("请先生成报告 · 上传材料触发 v16 主管线后再导出");
+      return;
+    }
     setExporting(true);
     setErrMsg(null);
     try {
-      const payload: ReportExportPayload = liveData
-        ? {
-            session_id: liveData.session_id,
-            sections: liveData.sections,
-            pending_questions: liveData.pending_questions,
-            stats: (liveData.stats ?? {}) as Record<string, unknown>,
-            qc: (liveData.qc ?? {}) as Record<string, unknown>,
-            business_line: businessLine,
-            client_manager: "客户经理",
-          }
-        : {
-            // 还没拿到 liveData · 用 REPORT_SESSION mock 兜底 export demo
-            report_id: reportId || `demo-${Date.now()}`,
-            profile: { company_name: REPORT_SESSION.clientName },
-            sections: REPORT_SESSION.preview.map((p) => ({
-              id: p.id,
-              title: `${p.anchor} ${p.title}`,
-              content: p.content || "(暂无内容)",
-              status: "done" as const,
-              word_count: (p.content ?? "").length,
-            })),
-            business_line: businessLine,
-            client_manager: "客户经理 (示例)",
-          };
+      const payload: ReportExportPayload = {
+        session_id: liveData.session_id,
+        sections: liveData.sections,
+        pending_questions: liveData.pending_questions,
+        stats: (liveData.stats ?? {}) as Record<string, unknown>,
+        qc: (liveData.qc ?? {}) as Record<string, unknown>,
+        business_line: businessLine,
+        client_manager: "客户经理",
+      };
       const { blob, filename } = await exportReportDocx(payload);
       triggerDownloadBlob(blob, filename);
     } catch (e) {
@@ -361,7 +358,7 @@ export function ReportWorkspace() {
     } finally {
       setExporting(false);
     }
-  }, [exporting, liveData, businessLine, reportId]);
+  }, [exporting, liveData, businessLine]);
 
   /* Phase A worker-A4 · demo/run · scenario_id (easy/medium/hard) · 不调 LLM · 5 原则 §3.5 */
   const handleDemoRun = useCallback(
@@ -408,32 +405,23 @@ export function ReportWorkspace() {
   /* G-10 闭环 · export PDF 真接 · 与 export Word 同源 payload · pdf 走 reportlab */
   const handleExportPdf = useCallback(async () => {
     if (exportingPdf) return;
+    /* PM 2026-05-09 ALL IN: 同 export_docx · 拒 liveData null 导出 · 不 mock fallback */
+    if (!liveData) {
+      setErrMsg("请先生成报告 · 上传材料触发 v16 主管线后再导出");
+      return;
+    }
     setExportingPdf(true);
     setErrMsg(null);
     try {
-      const payload: ReportExportPayload = liveData
-        ? {
-            session_id: liveData.session_id,
-            sections: liveData.sections,
-            pending_questions: liveData.pending_questions,
-            stats: (liveData.stats ?? {}) as Record<string, unknown>,
-            qc: (liveData.qc ?? {}) as Record<string, unknown>,
-            business_line: businessLine,
-            client_manager: "客户经理",
-          }
-        : {
-            report_id: reportId || `demo-${Date.now()}`,
-            profile: { company_name: REPORT_SESSION.clientName },
-            sections: REPORT_SESSION.preview.map((p) => ({
-              id: p.id,
-              title: `${p.anchor} ${p.title}`,
-              content: p.content || "(暂无内容)",
-              status: "done" as const,
-              word_count: (p.content ?? "").length,
-            })),
-            business_line: businessLine,
-            client_manager: "客户经理 (示例)",
-          };
+      const payload: ReportExportPayload = {
+        session_id: liveData.session_id,
+        sections: liveData.sections,
+        pending_questions: liveData.pending_questions,
+        stats: (liveData.stats ?? {}) as Record<string, unknown>,
+        qc: (liveData.qc ?? {}) as Record<string, unknown>,
+        business_line: businessLine,
+        client_manager: "客户经理",
+      };
       const { blob, filename } = await exportReportPdf(payload);
       triggerDownloadBlob(blob, filename);
     } catch (e) {
@@ -441,7 +429,7 @@ export function ReportWorkspace() {
     } finally {
       setExportingPdf(false);
     }
-  }, [exportingPdf, liveData, businessLine, reportId]);
+  }, [exportingPdf, liveData, businessLine]);
 
   const lastStage = liveStages.length
     ? liveStages[liveStages.length - 1]
@@ -487,14 +475,12 @@ export function ReportWorkspace() {
           reportId={reportId}
           businessLine={businessLine}
           templateChoice={templateChoice}
-          historyChoice={historyChoice}
           uploadedFiles={uploadedFiles}
           generating={generating}
           exporting={exporting}
           errMsg={errMsg}
           onUpload={handleUpload}
           onSelectTemplate={handleSelectTemplate}
-          onSelectHistory={handleSelectHistory}
           onApplyLaunch={handleApplyLaunch}
           onBusinessLineChange={setBusinessLine}
           onStartGenerate={() => triggerV16Fill()}
@@ -1853,22 +1839,20 @@ function ReportLaunchBar(p: {
   reportId: string;
   businessLine: string;
   templateChoice: string;
-  historyChoice: string;
   uploadedFiles: string[];
   generating: boolean;
   exporting: boolean;
   errMsg: string | null;
   onUpload: (files: File[]) => void;
   onSelectTemplate: (tpl: string) => void;
-  onSelectHistory: (key: string) => void;
   onApplyLaunch: () => void;
   onBusinessLineChange: (v: string) => void;
   onStartGenerate: () => void;
   onExport: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const histories = REPORT_SESSION.recentSessions;
-  const templates = REPORT_SESSION.availableTemplates;
+  /* PM 2026-05-09 ALL IN: 历史 session dropdown 删 (mock 残留) · 模板列表 EMPTY (后端 templates endpoint 待 Phase C) */
+  const templates: ReportSession["availableTemplates"] = [];
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -1927,30 +1911,7 @@ function ReportLaunchBar(p: {
         <span style={_LAUNCH_HINT_STYLE}>选模板或留默认</span>
       </div>
 
-      {/* Tertiary: 历史 dropdown · 标 (示例) */}
-      <div style={_LAUNCH_GROUP_STYLE}>
-        <span style={_LAUNCH_LABEL_STYLE}>
-          历史 (示例 · 仅培训演示)
-        </span>
-        <select
-          data-testid="report-history-dropdown"
-          value={p.historyChoice}
-          onChange={(e) => p.onSelectHistory(e.target.value)}
-          style={{
-            ..._LAUNCH_SELECT_STYLE,
-            color: "var(--ink-65)",
-            fontStyle: "italic",
-          }}
-        >
-          <option value="">— 选择 —</option>
-          {histories.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.clientName}（示例）
-            </option>
-          ))}
-        </select>
-        <span style={_LAUNCH_HINT_STYLE}>降级路径 · 显式 mock data</span>
-      </div>
+      {/* PM 2026-05-09 ALL IN: 删 "历史 (示例 · 仅培训演示)" dropdown · 历史 session 走 mock 残留 · 后端 history endpoint 待 Phase C */}
 
       {/* 业务线 segment */}
       <div style={_LAUNCH_GROUP_STYLE}>
@@ -1975,12 +1936,12 @@ function ReportLaunchBar(p: {
             type="button"
             data-testid="report-apply-launch-btn"
             onClick={p.onApplyLaunch}
-            disabled={!p.templateChoice && !p.historyChoice}
+            disabled={!p.templateChoice && p.uploadedFiles.length === 0}
             style={{
               ..._LAUNCH_BTN_SECONDARY,
               borderColor: "var(--t-report)",
               color: "var(--t-report)",
-              opacity: !p.templateChoice && !p.historyChoice ? 0.5 : 1,
+              opacity: !p.templateChoice && p.uploadedFiles.length === 0 ? 0.5 : 1,
             }}
           >
             开始生成
