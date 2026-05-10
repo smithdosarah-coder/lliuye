@@ -138,14 +138,36 @@ class CustomerScanner:
         说明：KB 从 Excel 上传时，extras 的 key 可能是中文表头（"风险标签"等），
         匹配器只认英文 key。所以此处强制叠加 provider 侧的英文 extras
         （profit_latest/debt_ratio/narrative/risk_tags），保证下游统一消费英文字段。
+
+        ALL IN Phase B step 6 (2026-05-09 · per CLAUDE.md §11 alert 边界 + entity-resolution-contract v1.1 §4):
+        - provider_loans 索引由 company_name → EntityKey · USCC 优先 (uscc_X · confidence 1.0) · name fallback (name_md5)
+        - 防同客户多源命名差异 (e.g. "腾讯" vs "腾讯科技深圳") 当 2 家
+        - 在贷客户池归一 · 与 credit 决策对象 1:1 (跨 agent handoff 主键稳定)
+        - dedupe 在 KB customers 内: 同 EntityKey 出现 2 次只保留首条
         """
+        from shared.entity_resolver import resolve_entity
+
+        def _key_of(c: CompanyProfile):
+            return resolve_entity(name=c.company_name, uscc=c.unified_credit_code)
+
         if self.kb.companies:
-            customers = list(self.kb.companies)
+            kb_customers = list(self.kb.companies)
+            # KB 内同 EntityKey dedup · 防同客户多预警 (per §11)
+            seen_keys: set = set()
+            customers: list[CompanyProfile] = []
+            for c in kb_customers:
+                k = _key_of(c)
+                if k in seen_keys:
+                    continue  # 同实体已收 · 跳重复
+                seen_keys.add(k)
+                customers.append(c)
+
+            # provider_loans 索引 EntityKey · 不再 string-eq company_name
             provider_loans = {
-                c.company_name: c for c in self.provider.iter_loan_customers()
+                _key_of(c): c for c in self.provider.iter_loan_customers()
             }
             for c in customers:
-                pl = provider_loans.get(c.company_name)
+                pl = provider_loans.get(_key_of(c))
                 if pl is None:
                     continue
                 # 合并 extras：provider 侧（英文 key + narrative/risk_tags）为准，
@@ -159,8 +181,17 @@ class CustomerScanner:
                 elif pl.tags:
                     c.risk_tags = list(pl.tags)
             return customers
-        # fallback：走 provider 全量
-        return list(self.provider.iter_loan_customers())
+        # fallback：走 provider 全量 · 也按 EntityKey dedup
+        provider_customers = list(self.provider.iter_loan_customers())
+        seen_keys = set()
+        deduped: list[CompanyProfile] = []
+        for c in provider_customers:
+            k = _key_of(c)
+            if k in seen_keys:
+                continue
+            seen_keys.add(k)
+            deduped.append(c)
+        return deduped
 
     def _build_hitlist(self, hits: list[HitItem], duration: float = 0.0) -> HitList:
         ranker = HitRanker(agent_name="alert")
