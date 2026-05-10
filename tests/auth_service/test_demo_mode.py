@@ -124,13 +124,25 @@ class TestDemoModeVisibleEdge:
 
 
 class TestCanActionDemo:
-    def test_admin_demo_all_agents(self):
+    def test_admin_demo_all_agents(self, monkeypatch):
+        # Phase B.1 fix #2 · can_action("demo") 现需 env DEMO_MODE_VISIBLE=1
+        monkeypatch.setenv("DEMO_MODE_VISIBLE", "1")
         for ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
             assert can_action("admin", ag, "demo") is True
 
-    def test_demo_user_demo_all_agents(self):
+    def test_admin_demo_denied_when_env_disabled(self, monkeypatch):
+        # Phase B.1 fix #2 · admin 无 env 也拒绝 (双控)
+        monkeypatch.setenv("DEMO_MODE_VISIBLE", "0")
+        assert can_action("admin", "credit", "demo") is False
+
+    def test_demo_user_demo_all_agents(self, monkeypatch):
+        monkeypatch.setenv("DEMO_MODE_VISIBLE", "1")
         for ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
             assert can_action("demo_user", ag, "demo") is True
+
+    def test_demo_user_denied_when_env_disabled(self, monkeypatch):
+        monkeypatch.setenv("DEMO_MODE_VISIBLE", "0")
+        assert can_action("demo_user", "credit", "demo") is False
 
     def test_demo_user_no_other_action(self):
         # demo_user 仅 demo 权限 · 不 invoke 不 read 不 export 不 handoff 不 approve
@@ -277,7 +289,9 @@ class TestRequireDemoEndpoint:
         body = resp.json()
         assert body["detail"]["error"]["code"] == "AUTH_DEMO_FORBIDDEN"
 
-    def test_require_action_demo_admin_allowed(self, demo_client):
+    def test_require_action_demo_admin_allowed(self, demo_client, monkeypatch):
+        # Phase B.1 fix #2 · can_action("demo") 现需 env DEMO_MODE_VISIBLE=1
+        monkeypatch.setenv("DEMO_MODE_VISIBLE", "1")
         cookie = _login(demo_client, "u_liuye", "liuye")
         resp = demo_client.post("/api/test/require_action_demo", cookies={COOKIE_NAME: cookie})
         assert resp.status_code == 200

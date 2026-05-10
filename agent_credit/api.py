@@ -428,7 +428,10 @@ async def list_credit_reports(
     if status not in ("done", "all"):
         raise HTTPException(400, "status must be 'done' or 'all'")
     sessions: list[dict[str, Any]] = []
-    demo_unlocked = bool(user.get("demoModeAvailable", False))
+    # Phase B.1 fix #2 (codex re-review 抓) · JWT payload 没 demoModeAvailable 字段
+    # 改用 demo_mode_visible(user) helper · 动态 check env DEMO_MODE_VISIBLE + role
+    from auth_service.rbac import demo_mode_visible as _demo_visible
+    demo_unlocked = _demo_visible(user)
 
     # 先扫真 Agent6 archive · 真 session 优先 (sort: 时间倒序 · 最新报告排首)
     if _AGENT6_ARCHIVE_DIR.exists():
@@ -483,7 +486,10 @@ async def handoff_from_report(
             "error": {"code": "VALIDATION_FAILED", "message": "session_id required"}
         })
 
-    demo_unlocked = bool(user.get("demoModeAvailable", False))
+    # Phase B.1 fix #2 (codex re-review 抓 · 第 2 处) · 同 line 433 · JWT 没 demoModeAvailable
+    # 改用 demo_mode_visible(user) helper · 动态 check env DEMO_MODE_VISIBLE + role
+    from auth_service.rbac import demo_mode_visible as _demo_visible
+    demo_unlocked = _demo_visible(user)
     is_demo_sid = sid.startswith("demo_")
 
     if is_demo_sid:
@@ -855,11 +861,10 @@ async def credit_decision_v4(
       - mock=True 路径 · 额外 require credit:demo action 或 user.demoModeAvailable=true
       - 反 KT §3.6 红线 #1 假 live · 普通用户不能误触 mock fixture 路径
     """
-    # Phase B.1 fix #5 · mock 路径双控 (demo action OR demoModeAvailable flag)
+    # Phase B.1 fix #5 · mock 路径双控
+    # Phase B.1 fix #2 (codex re-review 抓) · can_action("demo") 现已含 env+role 双控 · 删 demoModeAvailable OR (redundant + buggy)
     if req.mock:
-        has_demo_action = can_action(user.get("role", ""), "credit", "demo")
-        has_demo_flag = bool(user.get("demoModeAvailable", False))
-        if not (has_demo_action or has_demo_flag):
+        if not can_action(user.get("role", ""), "credit", "demo"):
             raise HTTPException(403, detail={
                 "error": {
                     "code": "DEMO_ACCESS_DENIED",
