@@ -186,6 +186,12 @@ export default function RiskctrlWorkspace() {
   const [rulesetId, setRulesetId] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
 
+  /* ALL IN Phase B step 4 · live evidence (来自 backtest done envelope panels.evidence) ·
+   * 有 live 时 EvidenceProvider 用 live items · 没 live 时 fallback fixture (channel 模板做法) */
+  const [liveEvidenceItems, setLiveEvidenceItems] = useState<
+    Array<{ source: string; snippet: string; ref_id: string; confidence: number; meta?: Record<string, unknown> }>
+  >([]);
+
   /* Stage Fix · live-fallback-banner-spec v1.0 §2 规则 1 ·
      按 endpoint 分别记录失败 · UI 显式 banner + retry · 不 silent swap mock */
   type LiveFail = {
@@ -302,6 +308,19 @@ export default function RiskctrlWorkspace() {
         setLiveData(merged);
         /* 件 #2 · data_source SSOT 真消费 · backtest done envelope 5 enum (per riskctrl.ts T2) */
         setCurrentDataSource(normalizeDataSource(result.data_source));
+        /* ALL IN Phase B step 4 · 取 live evidence items (后端 EvidenceDrawer payload) ·
+         * 转 EvidenceProvider 接受的 EvidenceItem shape (source/snippet/ref_id/confidence/meta) */
+        if (result.evidence?.items?.length) {
+          setLiveEvidenceItems(
+            result.evidence.items.map((it) => ({
+              source: it.source,
+              snippet: it.snippet,
+              ref_id: it.anchor || it.evidence_id,
+              confidence: it.confidence,
+              meta: { ...it.meta, source_tier: it.source_tier, claim_type: it.claim_type },
+            })),
+          );
+        }
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -366,7 +385,9 @@ export default function RiskctrlWorkspace() {
 
   return (
     <EvidenceProvider
-      items={RISKCTRL_EVIDENCE.items}
+      /* ALL IN Phase B step 4 · live evidence 优先 · 无 live 时 fallback RISKCTRL_EVIDENCE fixture
+       * (channel 模板 ef5ba13 做法 · 真路径触发后 sidebar evidence drawer 显真证据) */
+      items={liveEvidenceItems.length > 0 ? liveEvidenceItems : RISKCTRL_EVIDENCE.items}
       unfilledFields={RISKCTRL_EVIDENCE.unfilledFields}
     >
       <div
