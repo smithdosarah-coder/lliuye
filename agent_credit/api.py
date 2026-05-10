@@ -411,19 +411,23 @@ def _build_session_meta(path: Path, source: str) -> dict[str, Any]:
 @app.get("/api/credit/reports/sessions")
 async def list_credit_reports(
     status: str = "done",
-    _user: dict = Depends(require_action("credit", "invoke")),
+    user: dict = Depends(require_action("credit", "invoke")),
 ):
     """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
 
-    V2 fix · codex DISAGREE issue 2 (cat 0 北极星): 双源扫描 · 真 Agent6 v16 archive 优先暴露 · demo_data 兜底
-      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真输出)
-      - source="demo"    · `demo_data/agent_credit/*.json` (Phase A fallback 4 sample · 在 archive 空时唯一可选)
+    Phase B.1 fix #2 · 假 live root cause:
+      - 旧: 默认双源扫描 · archive (Agent6 真产物) + demo_data (Phase A fallback) · 用户看见 4 sample 误认 production
+      - 新: 默认仅扫 archive · 仅 user.demoModeAvailable=true 时附加 demo_data
+      - 反 KT §3.6 红线 #1 假 live · 演示报告不能混入生产 list 让客户经理误用
 
-    EmptyState onPrimary 走 sessions[0] · 真 Agent6 报告优先 · A6 v16 production-wire 后真消费 · 不再仅 demo
+    Source path:
+      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真产物 · report worker 写本 worker 读)
+      - source="demo"    · `demo_data/agent_credit/*.json` (4 sample · 仅 demoModeAvailable 解锁)
     """
     if status not in ("done", "all"):
         raise HTTPException(400, "status must be 'done' or 'all'")
     sessions: list[dict[str, Any]] = []
+    demo_unlocked = bool(user.get("demoModeAvailable", False))
 
     # 先扫真 Agent6 archive · 真 session 优先 (sort: 时间倒序 · 最新报告排首)
     if _AGENT6_ARCHIVE_DIR.exists():
@@ -433,8 +437,8 @@ async def list_credit_reports(
             if meta:
                 sessions.append(meta)
 
-    # 再扫 demo_data · phase A fallback (在 archive 空 / 用户选演示时可用)
-    if _HANDOFF_DIR.exists():
+    # Phase B.1 fix #2 · demo_data 仅 demoModeAvailable=true 才附加 (反假 live · 默认生产 only)
+    if demo_unlocked and _HANDOFF_DIR.exists():
         for path in sorted(_HANDOFF_DIR.glob("*.json")):
             meta = _build_session_meta(path, "demo")
             if meta:
@@ -447,9 +451,10 @@ async def list_credit_reports(
         "count": len(sessions),
         "archive_count": archive_count,
         "demo_count": demo_count,
-        "source": "phase_a_dual_scan",
+        "demo_unlocked": demo_unlocked,
+        "source": "archive_only" if not demo_unlocked else "archive_plus_demo",
         "archive_dir": str(_AGENT6_ARCHIVE_DIR.relative_to(PROJECT_ROOT)),
-        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)),
+        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)) if demo_unlocked else None,
     }
 
 
