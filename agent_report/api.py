@@ -53,6 +53,9 @@ from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  
 from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
 from auth_service.dependencies import require_action  # noqa: E402
+# ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 (report 行: section.id) +
+# §4.2 SSE event emit 必经 helper · 不允许直接 emit raw dict
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
 try:
@@ -1046,6 +1049,9 @@ async def report_demo_run(req: ReportDemoRunRequest):
             await asyncio.sleep(0.2)
 
         sections = data.get("sections") or []
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 SSE emit 必经 helper
+        # section.id 防 regression placeholder ([object Object] / 未获取 / null) · 同 list unique
+        ensure_list_unique_ids(sections, name_field="title", uscc_field="", id_field="id")
         for sec in sections:
             yield _sse("section", {"section": sec})
             await asyncio.sleep(0.15)
@@ -1057,6 +1063,8 @@ async def report_demo_run(req: ReportDemoRunRequest):
         qc_data = data.get("qc") or {"passed": True, "score": 88, "fatal_fail": False, "halluc_count": 0}
         stats_data = data.get("stats") or {}
         pending_data = data.get("pending_questions") or []
+        # ALL IN Phase B step 5 · pending_questions 同样必经 helper · 防 fixtures 漏 id
+        ensure_list_unique_ids(pending_data, name_field="label", uscc_field="", id_field="id")
 
         # 先 store.create 拿 UUID · 再用 UUID 拼 done_payload · 然后 update 把 done_payload 写回
         session_id = store.create({

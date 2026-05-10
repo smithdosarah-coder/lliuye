@@ -178,3 +178,47 @@ def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path
     # 不应有 done · classifier 缺 → silent fallback 拒 → 流终止
     dones = [e for e in events if e["event"] == "done"]
     assert len(dones) == 0, "ALL IN 拒 silent fallback · 不应 emit done"
+
+
+def test_v16_fill_explicit_mock_sections_have_unique_id(client):
+    """ALL IN Phase B step 5 (per candidate-identity-contract v1.1 §3 + §4.2):
+    mock_v16_stream done payload sections / pending_questions / evidences 全经 ensure_list_unique_ids ·
+    每条必含 id 字段 · 同 list unique · 防 regression placeholder."""
+    resp = client.post(
+        "/api/report/v16/fill",
+        json={"report_id": "mock-id-test", "mock": True},
+    )
+    assert resp.status_code == 200
+    events = _parse_sse_events(resp.text)
+    done = [e for e in events if e["event"] == "done"][0]["data"]
+
+    REGRESSION_PLACEHOLDER = {"", "未获取", "[object Object]", "null", "undefined", None}
+
+    # sections id check
+    sections = done.get("sections") or []
+    assert len(sections) == 4
+    section_ids = [s.get("id") for s in sections]
+    for sid in section_ids:
+        assert sid not in REGRESSION_PLACEHOLDER, f"section id regression: {sid!r}"
+    assert len(set(section_ids)) == len(section_ids), f"sections id 重复: {section_ids}"
+
+    # pending_questions id check
+    pendings = done.get("pending_questions") or []
+    pending_ids = [p.get("id") for p in pendings]
+    for pid in pending_ids:
+        assert pid not in REGRESSION_PLACEHOLDER, f"pending id regression: {pid!r}"
+    assert len(set(pending_ids)) == len(pending_ids), f"pending id 重复: {pending_ids}"
+
+    # evidences id check (step 4 + step 5)
+    evidences = done.get("evidences") or []
+    assert len(evidences) >= 3, "step 4 mock 至少 3 条 evidence 示范"
+    ev_ids = [e.get("evidence_id") for e in evidences]
+    for eid in ev_ids:
+        assert eid not in REGRESSION_PLACEHOLDER, f"evidence id regression: {eid!r}"
+    assert len(set(ev_ids)) == len(ev_ids), f"evidence id 重复: {ev_ids}"
+    # claim_id 必关联 section.id (跨表引用一致性)
+    valid_claim_ids = set(section_ids)
+    for ev in evidences:
+        assert ev.get("claim_id") in valid_claim_ids, (
+            f"evidence claim_id {ev.get('claim_id')!r} 未关联到任何 section"
+        )
