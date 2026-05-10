@@ -15,7 +15,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
@@ -48,7 +47,6 @@ import {
   type CreditProfile,
   type CreditRadarDim,
   type CreditQuery,
-  type CreditRecentSession,
   type CreditSession,
   type DataSourcesPanel,
   type EvidenceItem,
@@ -379,58 +377,6 @@ export default function CreditWorkspace() {
     }
   }
 
-  /* tertiary CTA · /api/credit/demo/run · 6 scenario JSON 之一 · 完全 mock SSE · 不调 LLM
-     与 onPrimary (真起决策) / onSecondary (mock decision) 区别: 走 file-backed scenario · 视觉一致 */
-  async function runDemoScenario() {
-    if (decisionRunning) return;
-    setStarted(true);
-    setDecisionRunning(true);
-    setDecisionError(null);
-    setLiveAdvice(null);
-    setDecisionId(null);
-    setHandoffSource(null);   // demo 路非 handoff 源
-    const apiBase =
-      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-    // mode → 默认 scenario_id (覆盖 6 标杆)
-    const scenarioByMode: Record<CreditMode, string> = {
-      corp: "corp-zhongrui-003",     // hard · B 级有条件批 · 演示典型
-      small: "corp-ruiheng-002",     // simple · A 级直接批 · 演示流畅
-      retail: "retail-zhangsan-001", // medium · 720 良好批 · 演示稳态
-    };
-    const fallbackSession = sessionData;
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      await streamSse(
-        `${apiBase}/api/credit/demo/run`,
-        { scenario_id: scenarioByMode[mode] },
-        (sseEvt) => {
-          if (ac.signal.aborted) return;
-          const data = sseEvt.data as Record<string, unknown>;
-          if (sseEvt.type === "done") {
-            setLiveData(normalizeCreditDone(data, fallbackSession));
-            setSelectedCandidate(null);
-            setScanned(true);
-            /* 件 #2 · data_source SSOT 真消费 · demo 默认 mock_forced */
-            const rawDs = data.data_source;
-            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "mock_forced");
-          }
-        },
-        { signal: ac.signal },
-      );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      const msg = err instanceof LiveFailError
-        ? liveFailBannerText(err, "Credit /api/credit/demo/run")
-        : err instanceof Error ? err.message : String(err);
-      setDecisionError(msg);
-      setCurrentDataSource("mock_fallback");
-    } finally {
-      if (!ac.signal.aborted) setDecisionRunning(false);
-    }
-  }
-
   function startGenerate() {
     if (progress.running) return;
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
@@ -532,8 +478,6 @@ export default function CreditWorkspace() {
             mode={mode}
             onModeChange={setMode}
             onPrimary={() => runDecisionWithAgent6Handoff()}
-            onSecondary={() => runDecision({ mockMode: true })}
-            onTertiary={() => runDemoScenario()}
             decisionRunning={decisionRunning}
             decisionError={decisionError}
           />
@@ -560,10 +504,8 @@ export default function CreditWorkspace() {
         onModeChange={setMode}
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
-      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 (credit 用 floating 顶部) */}
+      {/* ALL IN Phase B · ModePill 删 · DataSourceBadge 单源 trust model · 5-enum (Q-054 risk #1) */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
-        <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
-        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 
@@ -591,16 +533,12 @@ export default function CreditWorkspace() {
 
       <div className="rpt-grid">
         <aside className="rpt-col rpt-col--left">
-          {/* Sprint 4 D1 Atomic 2 (per Codex R3 redesign · PRD v2.0 "Agent3 输入 = Agent6 ReportJSON + 多源补充"):
-              - DELETE QueryPanel (PRD verbatim "不需 query · 输入是 ReportJSON")
+          {/* ALL IN Phase B step 1 cleanup (per channel 模板 de79725 + 1c6aa34):
+              - DELETE QueryPanel (PRD verbatim "Agent3 输入 = Agent6 ReportJSON · 不需 query")
               - KEEP MaterialsPanel + DataSourcesPanel (PRD "多源补充")
-              - COLLAPSE RecentPanel (移 details · 默认收起 · per "证据下钻"模式) */}
+              - DELETE RecentPanel (历史 session mock UI · ALL IN 真路径走 Agent6 handoff) */}
           <MaterialsPanel data={session.materials} />
           <DataSourcesPanel data={session.dataSources} />
-          <details className="rpt-recent-collapse">
-            <summary>📋 历史会话 (展开)</summary>
-            <RecentPanel recent={session.recentSessions} />
-          </details>
         </aside>
 
         <section className="rpt-col rpt-col--mid">
@@ -1090,46 +1028,7 @@ function DataSourcesPanel({ data }: { data: DataSourcesPanel }) {
   );
 }
 
-/* ─────────── LEFT · 近期（压缩） ─────────── */
-
-function RecentPanel({ recent }: { recent: CreditRecentSession[] }) {
-  return (
-    <div className="rpt-panel cr-rc">
-      <PanelPinHandle
-        id={`credit:recent`}
-        title={`近期 · ${recent.length} 条`}
-        subtitle="跨三板块"
-        accentVar={AGENT_ACCENT}
-        agentKey={AGENT_KEY}
-        href={AGENT_HREF}
-        blurb={`最近 ${recent[0]?.customer ?? "—"} ${recent[0]?.decision ?? ""}`}
-      />
-      <div className="rpt-panel__head">
-        <div className="rpt-panel__eyebrow">近期</div>
-        <div className="rpt-panel__counter">{recent.length}</div>
-      </div>
-      <div className="rpt-panel__body">
-        <ul className="cr-rc__list">
-          {recent.slice(0, 5).map((r) => (
-            <li key={r.id} className="cr-rc__item">
-              <div className="cr-rc__head">
-                <div className="cr-rc__name">{r.customer}</div>
-                <span className="cr-rc__chip" data-decision={r.decision}>
-                  {DECISION_LABEL[r.decision]}
-                </span>
-              </div>
-              <div className="cr-rc__meta">
-                <span>{r.product}</span>
-                <span>{r.amount}</span>
-                <span className="cr-rc__time">{r.updated}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
+/* ─────────── LEFT · RecentPanel 已删 (ALL IN Phase B step 1 · 历史 session mock UI 残留) ─────────── */
 
 /* ─────────── MID · 对话面板 ─────────── */
 
@@ -1893,9 +1792,7 @@ function PipelineLane({
 function CreditEmptyState(p: {
   mode: CreditMode;
   onModeChange: (m: CreditMode) => void;
-  onPrimary: () => void;       // 起决策 (真接 backend SSE)
-  onSecondary: () => void;     // 起决策 (mock=true · 无 LLM key 演示)
-  onTertiary: () => void;      // 选历史 (示例) session
+  onPrimary: () => void;       // 起决策 (真接 backend SSE · cat 0 北极星 · Agent6 handoff)
   decisionRunning: boolean;
   decisionError: string | null;
 }) {
@@ -1937,8 +1834,9 @@ function CreditEmptyState(p: {
         </p>
       </header>
 
-      {/* §2.2 主 CTA · 3 入口分级 */}
-      <section className="credit-empty__cta-row" aria-label="3 CTA 分级">
+      {/* ALL IN Phase B · 主 CTA 单一入口 · 真路径 Agent6 handoff (per cat 0 北极星)
+          演示模式 (mock=true) + demo scenario (file-backed) 已删 · 反假 live 红线 */}
+      <section className="credit-empty__cta-row" aria-label="主 CTA">
         <button
           type="button"
           className="credit-empty__cta credit-empty__cta--primary"
@@ -1953,36 +1851,6 @@ function CreditEmptyState(p: {
           </span>
           <span className="credit-empty__cta-sub">
             选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
-          </span>
-        </button>
-        <button
-          type="button"
-          className="credit-empty__cta credit-empty__cta--secondary"
-          data-testid="credit-decision-cta-secondary"
-          data-cta="secondary"
-          onClick={p.onSecondary}
-          disabled={p.decisionRunning}
-        >
-          <span className="credit-empty__cta-rank">次操作</span>
-          <span className="credit-empty__cta-title">演示模式起决策</span>
-          <span className="credit-empty__cta-sub">
-            无 LLM key 也能看流程 · backend mock=true · in-memory fixture
-          </span>
-        </button>
-        <button
-          type="button"
-          className="credit-empty__cta credit-empty__cta--tertiary"
-          data-testid="credit-history-tertiary"
-          data-cta="tertiary"
-          onClick={p.onTertiary}
-          disabled={p.decisionRunning}
-        >
-          <span className="credit-empty__cta-rank credit-empty__cta-rank--demo">
-            演示场景
-          </span>
-          <span className="credit-empty__cta-title">demo scenario · 6 标杆</span>
-          <span className="credit-empty__cta-sub">
-            {CREDIT_MODE_LABEL[p.mode]} · file-backed scenario · /api/credit/demo/run · 客户走访稳定路径
           </span>
         </button>
       </section>
