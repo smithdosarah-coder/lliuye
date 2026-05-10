@@ -35,9 +35,30 @@ ALL IN Phase B step 3 demo_mode audit (2026-05-09):
 """
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def _deterministic_id(prefix: str, *parts: str) -> str:
+    """ALL IN Phase B step 5 · ruleset_id / session_id 派生 helper.
+
+    替代 hash(...) % 10_000_000 · Python hash() 跨进程不稳 (PYTHONHASHSEED randomization)
+    + 碰撞概率高 (10M 桶 · 100 万 ruleset 时 ~5% 碰撞 per birthday paradox).
+
+    sha256 前 12 hex (48 bit · 281 万亿桶 · 实际碰撞概率可忽略) · 跨进程稳定 ·
+    同 input 必同 output · 防 ruleset_id flapping (同样的策略意图 + csv 应得同 id).
+
+    Args:
+        prefix: e.g. "rs_mock" / "rs_llm" / "bt"
+        *parts: input strings to hash (e.g. strategy_intent, csv_path)
+
+    Returns:
+        f"{prefix}_{12-char hex}" e.g. "rs_llm_a3f9c8d12b4e"
+    """
+    blob = "\x00".join(str(p) for p in parts).encode("utf-8")
+    return f"{prefix}_{hashlib.sha256(blob).hexdigest()[:12]}"
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
@@ -203,7 +224,7 @@ async def riskctrl_dsl_gen(
             )
             yield encode_event(make_stage("build_prompt", "skipped", message="mock 模式 · 跳 LLM"))
             ruleset = parse_natural_language_rules(_MOCK_DSL_RESPONSE)
-            ruleset_id = f"rs_mock_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+            ruleset_id = _deterministic_id("rs_mock", req.strategy_intent)
             yield encode_event(make_done(
                 panels={
                     "ruleset": ruleset.model_dump(),
@@ -271,7 +292,7 @@ async def riskctrl_dsl_gen(
 
         yield encode_event(make_stage("validate_dsl", "done"))
 
-        ruleset_id = f"rs_llm_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+        ruleset_id = _deterministic_id("rs_llm", req.strategy_intent)
         yield encode_event(make_done(
             panels={
                 "ruleset": ruleset.model_dump(),
@@ -554,7 +575,7 @@ async def riskctrl_backtest(req: BacktestRequest):
 
             # Phase A.1 RFC ratify · 回测样本走 LOAN_SAMPLE ClaimType · 365d SLA
             drawer = default_drawer()
-            session_id_for_claim = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+            session_id_for_claim = _deterministic_id("bt", req.csv_path)
             claim_id = f"riskctrl_backtest_{session_id_for_claim}"
             for ev_item in bundle.items:
                 # source tier 按 source 区分: input/metrics_analyze=Tier 1 (内部权威) · backtest=Tier 1
@@ -572,7 +593,7 @@ async def riskctrl_backtest(req: BacktestRequest):
         except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
             pass  # silent-fail · 不破 stream · 前端 fallback fixture
 
-        session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+        session_id = _deterministic_id("bt", req.csv_path)
 
         # V2 fix (codex review major 1): 单次 backtest 决策上链 (retention=short
         # 90 天 · §3.7.5 alert 同档 · 银保监审计每次跑过的回测可追溯).
