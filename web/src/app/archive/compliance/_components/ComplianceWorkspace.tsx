@@ -14,6 +14,7 @@ import {
   type ComplianceDoneEnvelope,
   exportDocx as exportDocxApi,
   LiveFailError,
+  runComplianceDemo,
   runMatrixCheck,
   runPolicyScan,
 } from "@/lib/api/compliance";
@@ -66,7 +67,20 @@ type OutputTab = "matrix" | "funnel" | "timeline";
    per agent-compli-spec §7.1 + draft §K compliance 三视角无状态污染 */
 type ViolationView = "by_violation" | "by_clause" | "by_event";
 
-type TriggerSource = "primary_scan" | "secondary_template";
+type TriggerSource = "primary_scan" | "secondary_template" | "sample_batch";
+
+/* Phase B.2 (PM 2026-05-10 真意 reframe) · 输入来源 toggle
+   · "sample_batch" = 用 data/mock/compliance-kb manifest 跑真后端 (codex 漏项 #3)
+   · "user_upload" = 用户上传政策 + 业务文档 (走 /policy_scan)
+   两路都打到真后端 · backend pipeline 不变 · 仅输入来源切 */
+type InputSource = "sample_batch" | "user_upload";
+
+type ScenarioInfo = {
+  scenario_id: string;
+  label: string;
+  policy_title: string;
+  doc_count: number;
+};
 
 type ExportInfo = {
   status: "idle" | "running" | "done" | "error";
@@ -239,6 +253,35 @@ export default function ComplianceWorkspace() {
   const [scanError, setScanError] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
 
+  /* Phase B.2 · 输入来源 toggle state · 默认 sample_batch (新人首次进 agent · 1 click 跑 demo) */
+  const [inputSource, setInputSource] = useState<InputSource>("sample_batch");
+  const [scenarios, setScenarios] = useState<ScenarioInfo[]>([]);
+  const [scenariosError, setScenariosError] = useState<string>("");
+  const [scenarioId, setScenarioId] = useState<string>("online_loan");
+
+  /* 拉 manifest 列出可用 sample batch · 失败 typed banner · 不 silent fallback fake list */
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/compliance/demo/scenarios")
+      .then(async (resp) => {
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        const body = (await resp.json()) as { scenarios?: ScenarioInfo[] };
+        if (cancelled) return;
+        const list = Array.isArray(body.scenarios) ? body.scenarios : [];
+        setScenarios(list);
+        if (list.length > 0) setScenarioId(list[0].scenario_id);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setScenariosError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /* gate 3 selectedViolationId 派生 conflict 对象 · ViolationDetail + RevisionDraft 联动 */
   const selectedViolation: Conflict | null = useMemo(() => {
     if (!selectedViolationId) return null;
@@ -382,6 +425,45 @@ export default function ComplianceWorkspace() {
     }
   }, []);
 
+  /* Phase B.2 主活 A · sample batch CTA → POST /api/compliance/demo/run (真后端跑)
+     PM 2026-05-10 真意 reframe: 演示=上传 sample 跑真后端 · backend pipeline 不变 · 仅输入来自 manifest */
+  const triggerSampleBatchScan = useCallback(async (sid: string) => {
+    setStarted(true);
+    setTrigger("sample_batch");
+    setScanRunning(true);
+    setScanError("");
+    setExportInfo({ status: "idle" });
+    setLiveData(null);
+    setSelectedViolationId(null);
+    clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      const { scanId: captured } = await runComplianceDemo(
+        sid as "online_loan" | "aml" | "data_protect",
+        undefined,
+        (env) => {
+          setLiveData(env);
+          const firstVio = Array.isArray(env.violations) && env.violations.length > 0
+            ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
+            : "";
+          if (firstVio) setSelectedViolationId(firstVio);
+        },
+        ac.signal,
+      );
+      if (ac.signal.aborted) return;
+      if (captured) setScanId(captured);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      recordLiveFail(`sample batch · ${sid}`, e, () => triggerSampleBatchScan(sid));
+      setScanError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (!ac.signal.aborted) setScanRunning(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* Secondary CTA · 用模板快速比对 → POST /api/compliance/matrix_check */
   const triggerTemplateCheck = useCallback(async () => {
     setStarted(true);
@@ -470,6 +552,21 @@ export default function ComplianceWorkspace() {
         stage={session.stage}
         updated={session.updated}
         qcCounts={session.qcCounts}
+      />
+
+      {/* Phase B.2 (PM 2026-05-10 真意 reframe) · 形态切换 toggle (codex 漏项 #3)
+          · 默认 sample_batch · 1 click 跑真后端 demo · 不再切假数据
+          · 切 user_upload · 老路径 (UploadRail + /policy_scan) 不变 */}
+      <InputSourcePanel
+        inputSource={inputSource}
+        onInputSourceChange={setInputSource}
+        scenarios={scenarios}
+        scenariosError={scenariosError}
+        scenarioId={scenarioId}
+        onScenarioIdChange={setScenarioId}
+        onSampleRun={() => triggerSampleBatchScan(scenarioId)}
+        onUploadRun={triggerPolicyScan}
+        scanRunning={scanRunning}
       />
 
       <TriggerBar
@@ -673,6 +770,171 @@ function TriggerBar(p: {
       >
         {templateLabel}
       </button>
+    </section>
+  );
+}
+
+/* ── Phase B.2 (PM 2026-05-10) · 输入来源 toggle ────────────────────
+    Codex 漏项 #3: 形态切换不是 ModePill 切假数据 · 是输入来源切换 · backend 都真跑
+    · sample_batch: data/mock/compliance-kb manifest → /api/compliance/demo/run 真后端
+    · user_upload: 用户拖政策 + 业务 → /api/compliance/policy_scan 真后端
+    两路 backend pipeline 不变 · 区别仅在输入来自哪里 */
+
+function InputSourcePanel(p: {
+  inputSource: InputSource;
+  onInputSourceChange: (s: InputSource) => void;
+  scenarios: ScenarioInfo[];
+  scenariosError: string;
+  scenarioId: string;
+  onScenarioIdChange: (id: string) => void;
+  onSampleRun: () => void;
+  onUploadRun: () => void;
+  scanRunning: boolean;
+}) {
+  const isSample = p.inputSource === "sample_batch";
+  const selected = p.scenarios.find((s) => s.scenario_id === p.scenarioId);
+  return (
+    <section
+      className="compliance-input-source"
+      aria-label="输入来源 · sample 批 vs 自上传 (后端都真跑)"
+      data-testid="compli-input-source-panel"
+    >
+      <div className="compliance-input-source__head">
+        <div>
+          <div className="compliance-input-source__eyebrow">INPUT SOURCE · 输入来源</div>
+          <h3 className="compliance-input-source__title">
+            选择输入 · 后端 pipeline 都真跑 (LLM/Tavily/算法不变)
+          </h3>
+          <p className="compliance-input-source__sub">
+            mock 只能 mock <b>输入</b> · 不能 mock 结果 — sample batch 用 compliance-kb 制度库
+            走真后端 · 输出真违规 + 真 ViolationReason + 监管原文 hash.
+          </p>
+        </div>
+        <div
+          className="compliance-input-source__toggle"
+          role="tablist"
+          aria-label="输入来源切换"
+          data-testid="compli-input-source-toggle"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isSample}
+            data-active={isSample}
+            data-testid="compli-input-source-sample"
+            onClick={() => p.onInputSourceChange("sample_batch")}
+            disabled={p.scanRunning}
+          >
+            sample batch · compliance-kb
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!isSample}
+            data-active={!isSample}
+            data-testid="compli-input-source-upload"
+            onClick={() => p.onInputSourceChange("user_upload")}
+            disabled={p.scanRunning}
+          >
+            自上传政策 + 业务
+          </button>
+        </div>
+      </div>
+
+      {isSample ? (
+        <div className="compliance-input-source__body" data-mode="sample">
+          {p.scenariosError ? (
+            <div
+              className="compliance-input-source__error"
+              role="alert"
+              data-testid="compli-scenarios-error"
+            >
+              <b>无法加载 sample 批清单</b>
+              · /api/compliance/demo/scenarios 调用失败：{p.scenariosError}
+              · 请检查 backend 是否启动 (py scripts/start_uvicorn.py).
+            </div>
+          ) : p.scenarios.length === 0 ? (
+            <div
+              className="compliance-input-source__empty"
+              role="status"
+              data-testid="compli-scenarios-loading"
+            >
+              加载 sample 批清单中…
+            </div>
+          ) : (
+            <>
+              <div
+                className="compliance-input-source__scenarios"
+                role="radiogroup"
+                aria-label="sample 批 scenario"
+              >
+                {p.scenarios.map((s) => {
+                  const checked = s.scenario_id === p.scenarioId;
+                  return (
+                    <label
+                      key={s.scenario_id}
+                      className="compliance-input-source__scenario"
+                      data-active={checked}
+                      data-testid={`compli-scenario-${s.scenario_id}`}
+                    >
+                      <input
+                        type="radio"
+                        name="compli-scenario"
+                        value={s.scenario_id}
+                        checked={checked}
+                        onChange={() => p.onScenarioIdChange(s.scenario_id)}
+                        disabled={p.scanRunning}
+                      />
+                      <div className="compliance-input-source__scenario-body">
+                        <div className="compliance-input-source__scenario-label">{s.label}</div>
+                        <div className="compliance-input-source__scenario-meta">
+                          {s.policy_title} · {s.doc_count} 份制度库
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="compliance-input-source__cta">
+                <button
+                  type="button"
+                  className="compliance-input-source__run"
+                  onClick={p.onSampleRun}
+                  disabled={p.scanRunning || !selected}
+                  data-testid="compli-sample-batch-run"
+                >
+                  {p.scanRunning ? "扫描中…" : "运行 sample 批 · 真后端"}
+                </button>
+                <span className="compliance-input-source__run-hint">
+                  {selected
+                    ? `将以 ${selected.policy_title} 真扫 ${selected.doc_count} 份制度库 (LLM 抽规则 → 矩阵命中 → 修订)`
+                    : "请先选 scenario"}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div
+          className="compliance-input-source__body"
+          data-mode="upload"
+          data-testid="compli-input-source-upload-body"
+        >
+          <p className="compliance-input-source__upload-hint">
+            自上传路径 · 政策原文 + 业务文档拖入下方 <b>UploadRail</b> · 然后点
+            <b>「开始政策比对」</b>触发 <code>/api/compliance/policy_scan</code> SSE.
+          </p>
+          <button
+            type="button"
+            className="compliance-input-source__run compliance-input-source__run--secondary"
+            onClick={p.onUploadRun}
+            disabled={p.scanRunning}
+            data-testid="compli-upload-run"
+          >
+            {p.scanRunning ? "比对运行中…" : "开始政策比对 · 用已上传的"}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
