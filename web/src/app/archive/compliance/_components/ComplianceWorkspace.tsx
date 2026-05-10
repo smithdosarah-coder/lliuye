@@ -546,7 +546,8 @@ export default function ComplianceWorkspace() {
               - DOM 仍 .rpt-grid + 3 child · CSS 不动 · Q-047 视觉冻不破
               D3 Atomic B+F · settings fold 内含 5 旧 panels + UploadRail (上传入口收敛)
               D3 Atomic C · 三视角 tabs 从 ViolationListPanel 内部提到 ComplianceStatsBar 同行 */}
-          <details className="compliance-settings-fold" data-testid="compli-settings-fold">
+          {/* Phase B.1.4 (PM 2026-05-10) · 折叠 default → 展开 · 用户首次进 agent 直接看到上传入口 */}
+          <details className="compliance-settings-fold" data-testid="compli-settings-fold" open>
             <summary>扫描设置 · 上传 / 政策 / 制度 / 流水 / 最近会话</summary>
             <div className="compliance-settings-fold__panels">
               <UploadRail
@@ -620,7 +621,8 @@ export default function ComplianceWorkspace() {
             </section>
           </div>
 
-          <details className="compliance-output-fold" data-testid="compli-output-fold">
+          {/* Phase B.1.4 · 深入分析也展开 (大空白填) */}
+          <details className="compliance-output-fold" data-testid="compli-output-fold" open>
             <summary>深入分析 · 矩阵 / 漏斗 / 时间线</summary>
             <div data-testid="compli-pilot-matrix">
               <OutputPanel
