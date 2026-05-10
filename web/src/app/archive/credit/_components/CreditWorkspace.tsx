@@ -15,7 +15,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
@@ -152,6 +154,14 @@ export default function CreditWorkspace() {
      · LiveFailError → "mock_fallback" 降级标 (trust model 一级 · 非 silent fallback 假数据) */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+
+  /* Phase B.1 fix #5 · ModePill 双控 · 仅 demoModeAvailable=true 用户可见
+     · demoModeAvailable 字段从 /api/auth/me payload 读 (common worker 加 · 未到时 defensive false)
+     · 普通用户 (RM / credit_officer / 风控) 看不到 ModePill · 防误触 mock 路径 */
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const demoModeAvailable = Boolean(
+    currentUser && (currentUser as { demoModeAvailable?: boolean }).demoModeAvailable === true,
+  );
 
   /* ALL IN Phase B · sessionData 不 fallback mock · 改 EMPTY_SESSION (per channel 模板 de79725)
      panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 + #2 */
@@ -492,8 +502,11 @@ export default function CreditWorkspace() {
         onModeChange={setMode}
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
-      {/* ALL IN Phase B · ModePill 删 · DataSourceBadge 单源 trust model · 5-enum (Q-054 risk #1) */}
+      {/* Phase B.1 fix #5 · ModePill 双控 (仅 demoModeAvailable=true 用户可见) + DataSourceBadge 单源 trust model */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
+        {demoModeAvailable ? (
+          <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
+        ) : null}
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 

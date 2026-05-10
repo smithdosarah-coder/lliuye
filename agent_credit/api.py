@@ -41,6 +41,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from auth_service.dependencies import require_action  # noqa: E402
+from auth_service.rbac import can_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
 from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
@@ -838,7 +839,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
 @app.post("/api/credit/decision")
 async def credit_decision_v4(
     req: DecisionRequestV4,
-    _user: dict = Depends(require_action("credit", "invoke")),
+    user: dict = Depends(require_action("credit", "invoke")),
 ):
     """v4.0 SSE · stage_tab 3 板块 + report_json/preset_name 双源 + mock fallback.
 
@@ -848,7 +849,32 @@ async def credit_decision_v4(
 
     Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("credit", "invoke")
     enforce row-level/action gate · credit_officer/risk_manager/admin 可调 · RM read-only 403.
+
+    Phase B.1 fix #5 · 双控 demo gate (per PM 2026-05-09):
+      - 默认 invoke 路径 (mock=False) · require_action("credit", "invoke") 已 OK
+      - mock=True 路径 · 额外 require credit:demo action 或 user.demoModeAvailable=true
+      - 反 KT §3.6 红线 #1 假 live · 普通用户不能误触 mock fixture 路径
     """
+    # Phase B.1 fix #5 · mock 路径双控 (demo action OR demoModeAvailable flag)
+    if req.mock:
+        has_demo_action = can_action(user.get("role", ""), "credit", "demo")
+        has_demo_flag = bool(user.get("demoModeAvailable", False))
+        if not (has_demo_action or has_demo_flag):
+            raise HTTPException(403, detail={
+                "error": {
+                    "code": "DEMO_ACCESS_DENIED",
+                    "message": (
+                        "mock=true 演示路径需 credit:demo action 或 demoModeAvailable=true · "
+                        "默认 invoke 路径走 mock=false (per PM Phase B.1 #5)"
+                    ),
+                    "details": {
+                        "role": user.get("role"),
+                        "demoModeAvailable": has_demo_flag,
+                        "credit_demo_action": has_demo_action,
+                    },
+                }
+            })
+
     # 提前校验 stage_tab (mock 路径也要)
     _stage_to_segment(req.stage_tab)
 
