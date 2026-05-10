@@ -14,7 +14,6 @@ import {
   type ComplianceDoneEnvelope,
   exportDocx as exportDocxApi,
   LiveFailError,
-  runComplianceDemo,
   runMatrixCheck,
   runPolicyScan,
 } from "@/lib/api/compliance";
@@ -68,35 +67,21 @@ type OutputTab = "matrix" | "funnel" | "timeline";
    per agent-compli-spec §7.1 + draft §K compliance 三视角无状态污染 */
 type ViolationView = "by_violation" | "by_clause" | "by_event";
 
-type TriggerSource = "primary_scan" | "secondary_template" | "tertiary_history";
+type TriggerSource = "primary_scan" | "secondary_template";
 
 type ExportInfo = {
   status: "idle" | "running" | "done" | "error";
   message?: string;
 };
 
-type RecentLabel = { value: string; label: string; demo?: boolean; scenarioId?: ComplianceScenarioId };
-type ComplianceScenarioId = "online_loan" | "aml" | "data_protect";
-
-const RECENT_DEMO_OPTIONS: RecentLabel[] = [
-  { value: "demo-online-loan", label: "互联网贷款 · 5 严重 / 8 一般 (示例)", demo: true, scenarioId: "online_loan" },
-  { value: "demo-aml", label: "反洗钱合规 · 3 严重 / 7 一般 (示例)", demo: true, scenarioId: "aml" },
-  { value: "demo-data-protect", label: "个人信息保护 · 2 严重 / 6 一般 (示例)", demo: true, scenarioId: "data_protect" },
-];
-
-/* workspace-state-protocol §2 · 4 gate state (Phase A worker-A4-compli · 2026-04-29)
-   gate 1 = started · gate 2 = selectedSessionId · gate 3 = liveData · gate 4 = selectedViolationId
-   每 session 切换 sessionData 重渲 5 panel · 每 violation 选 ViolationDetail + RevisionDraft 联动 */
-const DEFAULT_COMPLIANCE_SESSION_ID = "default-cbirc-2026-18";
+/* workspace-state-protocol §2 · 3 gate state (ALL IN Phase B step 1 · 2026-05-09)
+   gate 1 = started · gate 2 = liveData · gate 3 = selectedViolationId
+   (旧 4 gate 中 selectedSessionId 已随 mock UI 一并下架 · 仅做 sessionData step 2 中转保留)
+   每次 live scan sessionData 重渲 5 panel · 每 violation 选 ViolationDetail + RevisionDraft 联动 */
+const DEFAULT_COMPLIANCE_SESSION_ID = "default-live";
 const MOCK_COMPLIANCE_SESSIONS_MAP: Record<string, ComplianceSession> = {
   [DEFAULT_COMPLIANCE_SESSION_ID]: COMPLIANCE_SESSION,
 };
-const COMPLIANCE_SESSION_OPTIONS: Array<{ value: string; label: string }> = [
-  {
-    value: DEFAULT_COMPLIANCE_SESSION_ID,
-    label: `默认 · ${COMPLIANCE_SESSION.query.policyTitle}`,
-  },
-];
 
 /* normalizeComplianceBackendDone · 把 done envelope (panels.violations / recommendations) overlay 到 mock 模板
    - 不替模板 matrix / clauses / docs (visual 层 · 模板提供) · 仅替 conflicts + revisionAdvices · 让 5 panel 全消费 sessionData
@@ -170,56 +155,38 @@ function normalizeComplianceBackendDone(
 export default function ComplianceWorkspace() {
   const [tab, setTab] = useState<OutputTab>("matrix");
 
-  /* Stage CF · empty-state-design-protocol v1.0 默认 started=false (gate 1) ·
-     用户上传 / 起巡检 / 选历史 才 setStarted(true) · panel 真数据填入。
-     mock data 不 default load · 入口 dropdown 标「(示例)」与 production 路径分离。
+  /* ALL IN Phase B step 1 (2026-05-09) · empty-state-design-protocol v1.0 默认 started=false (gate 1) ·
+     用户上传 / 起巡检 / 点模板比对 才 setStarted(true) · panel 真数据填入。
+     mock UI 全删 · 历史 session dropdown / DEMO 难度 dropdown 已下架。
 
-     Phase A worker-A4-compli (2026-04-29) · workspace-state-protocol §2 · 4 gate state:
-       (1) started · (2) selectedSessionId · (3) liveData · (4) selectedViolationId
-     sessionData = liveOverlay(MOCK[selectedSessionId], liveData) · 5 panel 单点派生 */
+     workspace-state-protocol §2 · 3 gate state (旧 4 gate selectedSessionId step 1 下架):
+       (1) started · (2) liveData · (3) selectedViolationId
+     sessionData = liveOverlay(MOCK_TPL, liveData) · 5 panel 单点派生 (MOCK_TPL step 2 改 EMPTY_SESSION) */
   const [started, setStarted] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_COMPLIANCE_SESSION_ID);
   const [liveData, setLiveData] = useState<ComplianceDoneEnvelope | null>(null);
   const [selectedViolationId, setSelectedViolationId] = useState<string | null>(null);
-  /* compliance-only · 衍生 UI state (不在 4 gate · 但 handleSelectSession 同步 reset) */
+  /* compliance-only · 衍生 UI state */
   const [view, setView] = useState<ViolationView>("by_violation");
-  /* gate 2 dropdown pending value (改选 · apply 才提交) */
-  const [pendingSessionId, setPendingSessionId] = useState<string>(DEFAULT_COMPLIANCE_SESSION_ID);
 
-  /* sessionData 单点派生 · live 优先 overlay · 否则 mock by selectedSessionId · 兜底 default */
+  /* sessionData 单点派生 · live 优先 overlay · 否则 mock 模板 (step 2 改 EMPTY_SESSION) */
   const sessionData: ComplianceSession = useMemo(() => {
-    const tpl =
-      MOCK_COMPLIANCE_SESSIONS_MAP[selectedSessionId] ??
-      MOCK_COMPLIANCE_SESSIONS_MAP[DEFAULT_COMPLIANCE_SESSION_ID] ??
-      COMPLIANCE_SESSION;
+    const tpl = MOCK_COMPLIANCE_SESSIONS_MAP[DEFAULT_COMPLIANCE_SESSION_ID] ?? COMPLIANCE_SESSION;
     return liveData ? normalizeComplianceBackendDone(liveData, tpl) : tpl;
-  }, [liveData, selectedSessionId]);
+  }, [liveData]);
   const session = sessionData;
   const isLive = liveData !== null;
 
   const [trigger, setTrigger] = useState<TriggerSource | null>(null);
-  const [recent, setRecent] = useState<string>("");
   const [scanId, setScanId] = useState<string>("");
   const [scanRunning, setScanRunning] = useState(false);
   const [scanError, setScanError] = useState<string>("");
   const [exportInfo, setExportInfo] = useState<ExportInfo>({ status: "idle" });
 
-  /* gate 4 selectedViolationId 派生 conflict 对象 · ViolationDetail + RevisionDraft 联动 */
+  /* gate 3 selectedViolationId 派生 conflict 对象 · ViolationDetail + RevisionDraft 联动 */
   const selectedViolation: Conflict | null = useMemo(() => {
     if (!selectedViolationId) return null;
     return sessionData.conflicts.find((c) => c.id === selectedViolationId) ?? null;
   }, [selectedViolationId, sessionData.conflicts]);
-
-  /* handleSelectSession · 切 session 时 reset gate 3+4 + view (draft §B) */
-  const handleSelectSession = useCallback((id: string) => {
-    if (!MOCK_COMPLIANCE_SESSIONS_MAP[id]) return;
-    setSelectedSessionId(id);
-    setPendingSessionId(id);
-    setLiveData(null);
-    setSelectedViolationId(null);
-    setView("by_violation");
-    setStarted(true);
-  }, []);
 
   /* ESC 关 ViolationDetail (gate 4 · 与 channel pattern 一致 · 但 compliance 是中栏 panel 非 drawer) */
   useEffect(() => {
@@ -388,55 +355,6 @@ export default function ComplianceWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Tertiary CTA · B-2 click-to-fire · dropdown 仅 set state · "查看示例" button 触发 SSE.
-     Phase A worker-A4-compli · 真接 /api/compliance/demo/run · scenario_id 三档 · onDone 写 liveData. */
-  const onSelectRecent = useCallback((value: string) => {
-    setRecent(value);
-  }, []);
-  const onApplyRecent = useCallback(async () => {
-    if (!recent) return;
-    const opt = RECENT_DEMO_OPTIONS.find((o) => o.value === recent);
-    if (!opt?.scenarioId) {
-      /* 未配 scenarioId · fallback set started 让 dropdown banner 显 */
-      setStarted(true);
-      setTrigger("tertiary_history");
-      return;
-    }
-    setStarted(true);
-    setTrigger("tertiary_history");
-    setScanRunning(true);
-    setScanError("");
-    setLiveData(null);
-    setSelectedViolationId(null);
-    clearLiveFail();
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      const { scanId: captured } = await runComplianceDemo(
-        opt.scenarioId,
-        undefined,
-        (env) => {
-          setLiveData(env);
-          const firstVio = Array.isArray(env.violations) && env.violations.length > 0
-            ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
-            : "";
-          if (firstVio) setSelectedViolationId(firstVio);
-        },
-        ac.signal,
-      );
-      if (ac.signal.aborted) return;
-      if (captured) setScanId(captured);
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      recordLiveFail(`demo/run ${opt.scenarioId} 演示`, e, () => { void onApplyRecent(); });
-      setScanError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setScanRunning(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recent]);
-
   /* Word 导出 · POST /api/compliance/export_docx */
   const triggerExportDocx = useCallback(async () => {
     if (!scanId) {
@@ -487,7 +405,6 @@ export default function ComplianceWorkspace() {
       data-started={started ? "yes" : "no"}
       data-trigger={trigger ?? "none"}
       data-mode={isLive ? "live" : "mock"}
-      data-session-id={selectedSessionId}
     >
       <HeroSection
         weeklyProcessed={COMPLIANCE_GLOBAL_STATS.weeklyProcessed}
@@ -500,38 +417,14 @@ export default function ComplianceWorkspace() {
       />
 
       <TriggerBar
-        sessionOptions={COMPLIANCE_SESSION_OPTIONS}
-        pendingSessionId={pendingSessionId}
-        selectedSessionId={selectedSessionId}
-        onPendingSessionChange={setPendingSessionId}
-        onApplySession={() => handleSelectSession(pendingSessionId)}
-        recent={recent}
-        recentOptions={RECENT_DEMO_OPTIONS}
-        onSelectRecent={onSelectRecent}
-        onApplyRecent={onApplyRecent}
         onTemplateCheck={triggerTemplateCheck}
         scanRunning={scanRunning}
-        trigger={trigger}
       />
 
       {/* D3 Atomic F · UploadRail 移到 .compliance-settings-fold 内 · 上传不占主屏 (per Codex R1 选项 1) */}
 
       {started ? (
         <>
-          {trigger === "tertiary_history" ? (
-            <div
-              className="compliance-demo-banner"
-              role="note"
-              aria-label="示例数据 · 培训演示模式"
-              data-testid="compli-demo-banner"
-            >
-              <span className="compliance-demo-banner__icon" aria-hidden>⚠</span>
-              <span className="compliance-demo-banner__text">
-                您正在查看示例数据（training mode）· 切真实路径请上传政策文件 + 业务制度。
-              </span>
-            </div>
-          ) : null}
-
           {liveFail ? (
             <div
               className="compliance-live-fail-banner"
@@ -703,85 +596,16 @@ export default function ComplianceWorkspace() {
 /* ── Tertiary + Secondary CTA bar ──────────────────────── */
 
 function TriggerBar(p: {
-  /* gate 2 · session 切换 (Phase A worker-A4-compli · 4 gate state) */
-  sessionOptions: Array<{ value: string; label: string }>;
-  pendingSessionId: string;
-  selectedSessionId: string;
-  onPendingSessionChange: (id: string) => void;
-  onApplySession: () => void;
-  recent: string;
-  recentOptions: RecentLabel[];
-  onSelectRecent: (value: string) => void;
-  onApplyRecent: () => void;
   onTemplateCheck: () => void;
   scanRunning: boolean;
-  trigger: TriggerSource | null;
 }) {
-  const recentLabel = "选择历史巡检 / 示例 · 培训演示";
   const templateLabel = p.scanRunning ? "比对运行中…" : "用模板快速比对";
-  const sessionLabel = "切换巡检会话 · 4 gate state gate 2";
-  /* apply 仅当 pending 与已生效不同 + 非 running */
-  const applyDisabled =
-    p.scanRunning || p.pendingSessionId === p.selectedSessionId;
   return (
     <section
       className="compliance-trigger-bar"
-      aria-label="次要触发入口 · 会话 / 历史 / 模板"
+      aria-label="次要触发入口 · 模板比对"
       data-testid="compli-trigger-bar"
     >
-      <label className="compliance-trigger-bar__field">
-        <span className="compliance-trigger-bar__lbl">巡检会话</span>
-        <select
-          className="compliance-trigger-bar__select"
-          value={p.pendingSessionId}
-          onChange={(e) => p.onPendingSessionChange(e.target.value)}
-          aria-label={sessionLabel}
-          data-testid="compli-session-select"
-        >
-          {p.sessionOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="compliance-trigger-bar__apply"
-          onClick={p.onApplySession}
-          disabled={applyDisabled}
-          data-testid="compli-session-apply"
-        >
-          切换会话
-        </button>
-      </label>
-
-      <label className="compliance-trigger-bar__field">
-        <span className="compliance-trigger-bar__lbl">历史会话（示例 · 仅培训演示）</span>
-        <select
-          className="compliance-trigger-bar__select"
-          value={p.recent}
-          onChange={(e) => p.onSelectRecent(e.target.value)}
-          aria-label={recentLabel}
-          data-testid="compli-history-dropdown"
-        >
-          <option value="">— {recentLabel} —</option>
-          {p.recentOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className="compliance-trigger-bar__apply"
-          onClick={p.onApplyRecent}
-          disabled={!p.recent || p.scanRunning}
-          data-testid="compli-history-apply"
-        >
-          查看示例
-        </button>
-      </label>
-
       <button
         type="button"
         className="compliance-trigger-bar__secondary"
@@ -811,9 +635,7 @@ function EmptyStateSkeleton() {
           <strong>上传政策文件 + 业务制度</strong>
           → 点击「开始政策比对」启动真扫描；或
           <strong>用模板快速比对</strong>
-          一键演示；
-          <em>「历史会话（示例）」</em>
-          仅供培训演示。
+          一键演示。
         </p>
       </div>
       <div className="compliance-empty__panels">
@@ -1849,10 +1671,9 @@ const TL_KIND_LABEL: Record<string, string> = {
   resolved: "整改完成",
 };
 
-/* ────────────────────── VIOLATION LIST + DETAIL · gate 4 ────────────────────── */
-/* Phase A worker-A4-compli (2026-04-29) · workspace-state-protocol §2 · gate 4 · click → 选 violation
-   view tab compliance-only (by_violation/by_clause/by_event · 衍生 UI state · 不在 4 gate)
-   draft §K · 三视角无状态污染 (handleSelectSession reset view) */
+/* ────────────────────── VIOLATION LIST + DETAIL · gate 3 ────────────────────── */
+/* ALL IN Phase B step 1 (2026-05-09) · workspace-state-protocol §2 · gate 3 · click → 选 violation
+   view tab compliance-only (by_violation/by_clause/by_event · 衍生 UI state · 不在 3 gate) */
 
 const VIOLATION_VIEW_LABEL: Record<ViolationView, string> = {
   by_violation: "按违规",
