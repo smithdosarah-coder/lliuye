@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Pytest for agent_compliance.scan_engine · Tavily 401 fallback (Q-040 闭环).
+"""Pytest for agent_compliance.scan_engine · Tavily 401 fallback + ALL IN step 3.
 
-复用 Alert pattern · 5 mode 全覆盖.
+ALL IN Phase B step 3 (2026-05-09) 删 COMPLI_USE_TAVILY env gate · 默认 demo_mode=False.
 """
 from __future__ import annotations
 
@@ -16,25 +16,21 @@ def test_force_mock_returns_demo_forced():
     assert provider.provider_name == "mock"
 
 
-def test_default_disabled(monkeypatch):
-    """COMPLI_USE_TAVILY 未开 → mock + 标 tavily_disabled."""
-    monkeypatch.delenv("COMPLI_USE_TAVILY", raising=False)
-    provider, mode = scan_engine.build_compli_provider()
-    assert mode == "tavily_disabled"
-    assert provider.provider_name == "mock"
+def test_key_missing_no_silent_live(monkeypatch):
+    """ALL IN step 3: 缺 TAVILY_API_KEY → mock + 标 tavily_key_missing.
 
-
-def test_key_missing(monkeypatch):
-    """COMPLI_USE_TAVILY=1 但缺 TAVILY_API_KEY → mock + 标 tavily_key_missing."""
-    monkeypatch.setenv("COMPLI_USE_TAVILY", "1")
+    旧行为: COMPLI_USE_TAVILY 未开就走 mock 不告知 (silent).
+    新行为: env gate 删 · 缺 key 时仍 mock 但 mode_label 显式 propagate · 前端 banner 显.
+    """
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     provider, mode = scan_engine.build_compli_provider()
     assert mode == "tavily_key_missing"
     assert provider.provider_name == "mock"
 
 
-def test_web_live_when_both_set(monkeypatch):
-    monkeypatch.setenv("COMPLI_USE_TAVILY", "1")
+def test_web_live_when_key_set(monkeypatch):
+    """ALL IN step 3: 仅需 TAVILY_API_KEY · 不再依赖 COMPLI_USE_TAVILY=1."""
+    monkeypatch.delenv("COMPLI_USE_TAVILY", raising=False)  # 旧 env gate 不应再有效
     monkeypatch.setenv("TAVILY_API_KEY", "fake-test-key")
     provider, mode = scan_engine.build_compli_provider()
     assert mode == "web_live"
@@ -42,7 +38,6 @@ def test_web_live_when_both_set(monkeypatch):
 
 
 def test_web_fallback_on_init_error(monkeypatch):
-    monkeypatch.setenv("COMPLI_USE_TAVILY", "1")
     monkeypatch.setenv("TAVILY_API_KEY", "k")
 
     from shared.kb_scan import search_provider as sp_mod

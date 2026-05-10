@@ -40,23 +40,22 @@ LATEST_POINTER = COMPLI_DATA_DIR / "latest.json"
 def build_compli_provider(*, force_mock: bool = False) -> tuple[Any, str]:
     """构建 Agent5 用 SearchProvider (合规外部政策发现 fallback).
 
+    ALL IN Phase B step 3 (2026-05-09):
+      - 删 COMPLI_USE_TAVILY env gate · 默认 demo_mode=False (key 在即试 live)
+      - 不 silent fallback · 任一失败模式都通过 mode_label 显式传 frontend banner
+
     Returns:
         (provider, mode_label) where mode_label ∈ {
           "demo_forced":             force_mock=True · 用户显式
-          "tavily_disabled":         COMPLI_USE_TAVILY 未开
-          "tavily_key_missing":      未配 TAVILY_API_KEY
-          "web_live":                Tavily 真接通
-          "web_fallback_<Err>":      Web init 抛错 · 自动降级 mock
+          "tavily_key_missing":      未配 TAVILY_API_KEY · → MOCK_FALLBACK banner
+          "web_live":                Tavily 真接通 · → LIVE
+          "web_fallback_<Err>":      Web init 抛错 · → MOCK_FALLBACK banner
         }
     """
     from shared.kb_scan.search_provider import build_search_provider
 
     if force_mock:
         return build_search_provider(demo_mode=True), "demo_forced"
-
-    use_web = os.environ.get("COMPLI_USE_TAVILY", "0").strip() in {"1", "true", "yes"}
-    if not use_web:
-        return build_search_provider(demo_mode=True), "tavily_disabled"
 
     tavily_key = os.environ.get("TAVILY_API_KEY", "").strip()
     if not tavily_key:
@@ -760,6 +759,11 @@ def run_policy_scan_and_persist(
     has_llm = llm_json is not None
     yield {"type": "tool_result", "tool": "llm",
            "result": f"deepseek={'live' if has_llm else 'unavailable_template_fallback'}"}
+
+    # ALL IN step 3: LLM 不可用时降级 mode_label · 不假装 web_live
+    # 真业务依赖 LLM 抽规则 / 抽事件 / 矩阵判定 · 全无 LLM 走 heuristic 不算 live
+    if mode_label == "web_live" and not has_llm:
+        mode_label = "llm_unavailable_heuristic"
 
     # Phase 1 · prefer deterministic registry path; fall back to LLM/heuristic
     yield {"type": "stage", "stage": "rule_extract", "status": "running"}
