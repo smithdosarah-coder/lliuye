@@ -167,11 +167,12 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
     await expect(drawer).toBeHidden();
   });
 
-  test("T5 · demo run · /api/channel/demo/run wired · data_source=mock_forced + 5 panel hydrate", async ({
+  test("T5 · demo run · Phase B.2 真意 reframe · 形态切换 toggle + /demo/run 真后端 data_source=live", async ({
     page,
     context,
   }) => {
-    // V2 issue 2 · 验 demo button 调对 endpoint + payload + done envelope data_source=mock_forced
+    // Phase B.2 (PM 2026-05-10): /demo/run 改真后端 · data_source=live (不再 mock_forced)
+    // UI 加形态切换 toggle · sample 形态点 [scout-sample-{sid}] 触发
     let demoEndpointHit = false;
     let demoScenarioPayload: string | null = null;
     await context.route("**/api/channel/demo/run", async (route) => {
@@ -183,11 +184,22 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
         demoScenarioPayload = null;
       }
       const sse = [
+        // Phase B.2 · backend yield demo_context first · 透出 sample 来源
+        `event: demo_context\ndata: ${JSON.stringify({
+          event: "demo_context",
+          scenario_id: "medium",
+          sample_source: "data/mock/channel-kb/marketing-preferences",
+          sample_files: ["2026-Q2-区域重点.docx", "2026年度行业组合建议.docx"],
+          derived_seed_query: "苏州 半导体 专精特新 企业",
+          tavily_configured: true,
+          pipeline: "run_channel_search_stream (real)",
+        })}\n\n`,
         `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "parse", status: "done" })}\n\n`,
         `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "rank", status: "done" })}\n\n`,
         `event: done\ndata: ${JSON.stringify({
           event: "done",
-          data_source: "mock_forced",
+          // Phase B.2 · 真后端 default live (Tavily/LLM 真跑成功)
+          data_source: "live",
           session_id: "demo_medium_test",
           metrics: { signalTotal: 12, companiesFound: 6, final: 4 },
           candidates: [
@@ -230,18 +242,30 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
 
     await page.goto("/archive/channel", { waitUntil: "networkidle" });
 
-    // 3 档按钮都应 visible
-    await expect(page.locator('[data-testid="channel-demo-easy"]')).toBeVisible();
-    await expect(page.locator('[data-testid="channel-demo-hard"]')).toBeVisible();
+    // Phase B.2 · 默认 free 形态 · sample 按钮初始隐 · tab 都 visible
+    await expect(page.locator('[data-testid="input-mode-free"]')).toBeVisible();
+    await expect(page.locator('[data-testid="input-mode-sample"]')).toBeVisible();
+    await expect(page.locator('[data-testid="scout-sample-medium"]')).toHaveCount(0);
+
+    // 切到 sample 形态 · 3 档按钮 visible
+    await page.locator('[data-testid="input-mode-sample"]').click();
+    await expect(page.locator('[data-testid="scout-sample-easy"]')).toBeVisible();
+    await expect(page.locator('[data-testid="scout-sample-hard"]')).toBeVisible();
 
     // 点 medium · 验 endpoint hit + scenario_id payload 正确
-    await page.locator('[data-testid="channel-demo-medium"]').click();
+    await page.locator('[data-testid="scout-sample-medium"]').click();
     await page.waitForTimeout(500);
 
     expect(demoEndpointHit).toBe(true);
     expect(demoScenarioPayload).toBe("medium");
 
-    // candidates panel data-mode=live (liveData != null · demo 也走 setLiveData 路径)
+    // Phase B.2 · demo_context UI 透出 (透明演示 · sample 来源 + 派生 query 可见)
+    await expect(page.locator('[data-testid="scout-demo-context"]')).toBeVisible();
+    await expect(page.locator('[data-testid="scout-demo-context"]')).toContainText(
+      "2026-Q2-区域重点.docx",
+    );
+
+    // candidates panel data-mode=live (liveData != null · demo 真后端走 setLiveData 路径)
     await expect(
       page.locator('[data-testid="channel-pilot-candidates"]'),
     ).toHaveAttribute("data-mode", "live");
@@ -258,7 +282,7 @@ test.describe("worker-A3 · channel pilot · 4 gate", () => {
       "Demo 演示候选公司",
     );
 
-    // mock_forced 是显式 demo 选择 · 不应触发 mock_fallback banner (banner-spec rule 2)
+    // data_source=live 显式 demo 真跑 · 不应触发 mock_fallback banner (banner-spec rule 2)
     const fallbackBanner = page.locator('[data-testid="channel-pilot-banner-mock-fallback"]');
     await expect(fallbackBanner).toHaveCount(0);
   });

@@ -18,41 +18,18 @@ export interface AgentEvidenceFixture {
   summary: string;
 }
 
+/**
+ * Phase B.2 (PM 2026-05-10) · CHANNEL_EVIDENCE 假证据 fixture 已废.
+ *
+ * 旧硬编 "福鼎明辉/F5189/地铁配件订单" 跟真候选脱钩 · 反 §3.5 红线 #3.
+ * 现 channel 走 live 数据派生 (sessionData.signals → EvidenceItem · 见 ChannelWorkspace EvidenceProvider 调用).
+ *
+ * 不删除 export (无消费者 · 但 grep 工具友好) · 改空 list + 注释引导.
+ */
 export const CHANNEL_EVIDENCE: AgentEvidenceFixture = {
-  summary:
-    "根据 [ref:ch_ev_uscc_001]福鼎明辉精密的工商信息[/ref]与 [ref:ch_ev_benchmark_002]F5189 行业画像[/ref]对比,目标企业的规模与地域高度吻合;" +
-    "近 12 月纳税申报 [ref:ch_ev_tax_003]连续 8 季度无异常[/ref]支撑现金流稳定;另有 [ref:ch_ev_bidding_004]2025 年 3 月中标地铁配件订单(低置信)[/ref]提示订单驱动的增长信号,建议进入 B 轮精查。",
-  items: [
-    {
-      source: "材料包/工商执照_福鼎明辉.pdf",
-      snippet: "注册地址：福建省福鼎市工业园区 C3 厂房；经营范围：金属制品加工、通用零部件制造。",
-      ref_id: "ch_ev_uscc_001",
-      confidence: 0.94,
-      meta: { page: 1, entity: "福鼎明辉精密" },
-    },
-    {
-      source: "内部 KB · 行业画像/F5189_金属制品业.json",
-      snippet: "近 12 月本地域同行规模中位 80-120 人;营收区间 5000-8000 万;毛利率带 18-25%。",
-      ref_id: "ch_ev_benchmark_002",
-      confidence: 0.88,
-      meta: { year: 2025, entity: "F5189" },
-    },
-    {
-      source: "公开数据 · tax_filing_lookup.csv",
-      snippet: "连续 8 季度纳税申报,无异常;近 12 月申报口径 Q/Q 稳定。",
-      ref_id: "ch_ev_tax_003",
-      confidence: 0.82,
-      meta: { year: "2023-2025" },
-    },
-    {
-      source: "舆情抓取 · 中国政府采购网",
-      snippet: "2025-03-14 中标厦门地铁 7 号线配件订单 · 金额 420 万(前十大客户之一)。",
-      ref_id: "ch_ev_bidding_004",
-      confidence: 0.41,
-      meta: { page: 3 },
-    },
-  ],
-  unfilledFields: ["shareholder_structure", "last_external_financing"],
+  summary: "",
+  items: [],
+  unfilledFields: [],
 };
 
 export const CREDIT_EVIDENCE: AgentEvidenceFixture = {

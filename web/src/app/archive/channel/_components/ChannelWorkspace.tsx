@@ -11,7 +11,7 @@
  * 业务：look-alike 获客 —— 标杆画像 → 8 信号扫描 → 相似度打分 → Top N 推荐
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { useAuthStore } from "@/lib/store";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
@@ -418,9 +418,29 @@ export default function ChannelWorkspace() {
       });
   }, []);
 
+  /* Phase B.2 §9 (PM 2026-05-10) · evidence drawer 真 wire ·
+     live 数据触发 · 从 sessionData.signals (SSE done envelope `signals` panel) 派生 EvidenceItem
+     · 不再用 CHANNEL_EVIDENCE fixture · 不引入硬编"福鼎明辉" 等假证据
+     · 派生规则: 每条 SignalSource → ref_id=`signal-${source.id}` · snippet=`${label} · ${hits} 命中 · 覆盖率 ${coverage}%` */
+  const liveEvidenceItems = useMemo(() => {
+    if (!isLive) return [];
+    return sessionData.signals.map((src) => ({
+      source: src.note ? `signal://${src.key} · ${src.note}` : `signal://${src.key}`,
+      snippet: `${src.label} · ${src.hits} 命中 · 覆盖率 ${src.coverage}% · 频次 ${src.freq}`,
+      ref_id: `signal-${src.id}`,
+      confidence: Math.min(1, Math.max(0, src.coverage / 100)),
+      meta: {
+        entity: src.label,
+        signal_key: src.key,
+        signal_status: src.status,
+        signal_hits: src.hits,
+      },
+    }));
+  }, [isLive, sessionData.signals]);
+
   return (
     <EvidenceProvider
-      items={[]}
+      items={liveEvidenceItems}
       unfilledFields={[]}
     >
     <div
@@ -531,85 +551,150 @@ export default function ChannelWorkspace() {
       ) : (
         <section
           aria-label="等待触发"
+          data-testid="channel-empty-state"
           style={{
-            padding: "64px 24px",
-            textAlign: "center",
+            padding: "44px 32px 38px 32px",
             background:
-              "color-mix(in srgb, var(--chalk) 50%, transparent)",
+              "color-mix(in srgb, var(--chalk) 55%, transparent)",
             borderRadius: "var(--r-md)",
             border: "1px dashed var(--ink-14)",
-            margin: "24px 0",
+            margin: "20px 0",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 28,
           }}
         >
-          <h3
-            style={{
-              fontFamily: "var(--display)",
-              fontSize: 20,
-              color: "var(--ink)",
-              fontWeight: 500,
-              margin: "0 0 14px 0",
-              letterSpacing: ".02em",
-            }}
-          >
-            输入业务诉求开始 look-alike 获客
-          </h3>
-          <p
-            style={{
-              fontFamily: "var(--cjk)",
-              fontSize: 14,
-              color: "var(--ink-65)",
-              lineHeight: 1.7,
-              maxWidth: 520,
-              margin: "0 auto 18px auto",
-            }}
-          >
-            上方输入业务诉求 (e.g.{" "}
-            <strong style={{ color: "var(--accent)" }}>
-              "找江苏中型 SaaS 企业 · ARR 1-3 亿 · 专精特新"
-            </strong>
-            ), 系统真接多源信源 (工商 + 司法 + 招投标 + 资质 + 行情) 搜出 look-alike 相似企业 · 9 维评分 · 字段级溯源.
-          </p>
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <span
+          {/* 左 · 自由查询 (RM 主路径) */}
+          <div>
+            <div
               style={{
-                fontSize: 12,
-                color: "var(--ink-48)",
                 fontFamily: "var(--cjk)",
-                marginRight: 8,
+                fontSize: 11,
+                color: "var(--ink-48)",
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                marginBottom: 8,
               }}
             >
-              示例诉求:
-            </span>
-            {[
-              "江苏中型 SaaS · ARR 1-3 亿",
-              "长三角专精特新小巨人 · 工业软件",
-              "B 轮已完成 · CFO 公开活跃",
-            ].map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setExternalTrigger({ input: q, nonce: Date.now() })}
-                style={{
-                  fontFamily: "var(--cjk)",
-                  fontSize: 12,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "1px solid var(--ink-20)",
-                  background: "transparent",
-                  color: "var(--ink-65)",
-                  cursor: "pointer",
-                }}
-              >
-                {q}
-              </button>
-            ))}
+              形态 · A · 自由查询
+            </div>
+            <h3
+              style={{
+                fontFamily: "var(--display)",
+                fontSize: 18,
+                color: "var(--ink)",
+                fontWeight: 500,
+                margin: "0 0 10px 0",
+              }}
+            >
+              输入业务诉求 → 真接 Tavily/AI 搜出 look-alike
+            </h3>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 13,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: "0 0 14px 0",
+              }}
+            >
+              上方搜索框输入业务诉求 (e.g.{" "}
+              <strong style={{ color: "var(--accent)" }}>
+                找江苏中型 SaaS · ARR 1-3 亿 · 专精特新
+              </strong>
+              ) · 多源信源 (工商 + 司法 + 招投标 + 资质 + 行情) 实搜 · 9 维评分 · 字段级溯源.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              {[
+                "江苏中型 SaaS · ARR 1-3 亿",
+                "长三角专精特新小巨人 · 工业软件",
+                "B 轮已完成 · CFO 公开活跃",
+              ].map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  data-testid="channel-empty-quick"
+                  onClick={() => setExternalTrigger({ input: q, nonce: Date.now() })}
+                  style={{
+                    fontFamily: "var(--cjk)",
+                    fontSize: 12,
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "1px solid var(--ink-20)",
+                    background: "transparent",
+                    color: "var(--ink-65)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 右 · 一键示例 (channel-kb 优质 batch · PM 真意) */}
+          <div
+            style={{
+              borderLeft: "1px solid var(--ink-14)",
+              paddingLeft: 28,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 11,
+                color: "var(--accent)",
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                marginBottom: 8,
+                fontWeight: 600,
+              }}
+            >
+              形态 · B · 一键示例 · 推荐
+            </div>
+            <h3
+              style={{
+                fontFamily: "var(--display)",
+                fontSize: 18,
+                color: "var(--ink)",
+                fontWeight: 500,
+                margin: "0 0 10px 0",
+              }}
+            >
+              银行营销倾向 docx → 真后端跑一遍
+            </h3>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 13,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: "0 0 14px 0",
+              }}
+            >
+              用 <code style={{ fontFamily: "var(--mono)", color: "var(--accent)" }}>
+                channel-kb/marketing-preferences/
+              </code> 真上传 · 派生 seed query · 走真 Tavily/AI 跑全管线 · 候选/评分/匹配理由全 LLM 抽 · 不写死.
+            </p>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+                color: "var(--ink-48)",
+                lineHeight: 1.6,
+                margin: "0 0 14px 0",
+              }}
+            >
+              已加载: 2026-Q1-重点拓展.docx · 2026-Q2-区域重点.docx · 2026年度行业组合建议.docx
+            </p>
+            <div style={{ fontFamily: "var(--cjk)", fontSize: 12, color: "var(--ink-48)" }}>
+              ↑ 上方切到 <strong style={{ color: "var(--accent)" }}>"一键示例"</strong> tab 即可点 3 档难度运行
+            </div>
           </div>
         </section>
       )}
@@ -883,8 +968,9 @@ function ConversationPanel({
   }, [messages.length]);
   /* PM 2026-05-07 ALL IN v2: 实时流版面控高 · 永远固定可视区 + 永远滚动 + 永远显展开按钮
      不再按消息数 trigger · 即使少消息也限高 · 多消息时点"展开全部"放高
-     UX 简单: 默认看最近的 · 想看历史用展开 (放高) 或 scroll */
-  const [expanded, setExpanded] = useState(false);
+     UX 简单: 默认看最近的 · 想看历史用展开 (放高) 或 scroll
+     Phase B.2 (PM 2026-05-10 §7 信息密度): 默认展开 · 短对话不顶高 · 长对话减少 1 次点击 */
+  const [expanded, setExpanded] = useState(true);
   const total = messages.length;
   return (
     <section className="rpt-panel rpt-panel--conv" data-testid="channel-pilot-conversation">
@@ -1616,6 +1702,17 @@ function QueryBar({
   const [streaming, setStreaming] = useState(false);
   const [streamEvents, setStreamEvents] = useState<ChannelStreamEvent[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
+  /* Phase B.2 真意 reframe (PM 2026-05-10) · 形态切换 toggle:
+     · "free"  · 自由查询 (用户输入 query → /api/channel/run 真 Tavily/LLM)
+     · "sample" · 一键示例 (channel-kb 派生 seed → /api/channel/demo/run 真 Tavily/LLM)
+     两形态都跑真后端 · 区别是 input 来源 · 不是数据真假 */
+  const [inputMode, setInputMode] = useState<"free" | "sample">("free");
+  /* demo_context event payload · sample 形态展示当前 sample 来源 + 派生 query (透明) */
+  const [demoContext, setDemoContext] = useState<{
+    scenarioId: string;
+    sampleFiles: string[];
+    seedQuery: string;
+  } | null>(null);
 
   /* PB#5 · AbortController · 组件卸载/切 session/重新触发时 abort 进行中 SSE · 防僵尸连接 */
   const abortRef = useRef<AbortController | null>(null);
@@ -1623,14 +1720,18 @@ function QueryBar({
     return () => abortRef.current?.abort();
   }, []);
 
-  /* V2 issue 2 · 显式 demo 模式 · 点 easy/medium/hard 按钮调 /api/channel/demo/run
-     纯 mock SSE · data_source=mock_forced · 客户走访稳定演示 / Playwright smoke 不依赖 Tavily */
+  /* Phase B.2 真意 reframe (PM 2026-05-10) · /api/channel/demo/run 改真后端 ·
+     与旧 B.1 fixture event 路径区别:
+     - 旧 B.1: yield 写死 candidates/signals from data/mock/workspace/channel/scenarios/<id>.json
+     - 新 B.2: load channel-kb marketing-preferences docx → seed query → 真 Tavily/LLM
+     scenario_id 现仅决定从 channel-kb seed query list 取第几条 · 结果由 backend 真跑产生 */
   async function runDemoScenario(scenarioId: "easy" | "medium" | "hard") {
     if (streaming) return;
     setStarted(true);
     setStreaming(true);
     setStreamEvents([]);
     setStreamError(null);
+    setDemoContext(null);
     onStreamError?.(null);
     /* PB#5 · cancel 之前未完成的 SSE (e.g. 用户连点 demo 按钮) */
     abortRef.current?.abort();
@@ -1647,6 +1748,33 @@ function QueryBar({
           if (ac.signal.aborted) return;
           const data = sseEvt.data as ChannelStreamEvent;
           setStreamEvents((prev) => [...prev, data]);
+          /* Phase B.2 · demo_context event · 透出 sample 来源 + 派生 query · 演示透明 */
+          if ((data as Record<string, unknown>).event === "demo_context") {
+            const d = data as Record<string, unknown>;
+            setDemoContext({
+              scenarioId: String(d.scenario_id ?? scenarioId),
+              sampleFiles: Array.isArray(d.sample_files)
+                ? (d.sample_files as string[])
+                : [],
+              seedQuery: String(d.derived_seed_query ?? ""),
+            });
+          }
+          /* Phase B.2 · backend yield 'error' event (typed banner) · 不 throw HTTP error
+             触发: TAVILY_KEY_MISSING_FOR_DEMO / DEMO_KB_EMPTY / DEMO_SCENARIO_INVALID */
+          if ((data as Record<string, unknown>).event === "error") {
+            const d = data as Record<string, unknown>;
+            const code = String(d.code ?? "DEMO_ERROR");
+            const msg = String(d.message ?? "演示后端报错");
+            setStreamError(`⚠️ [${code}] ${msg}`);
+            onStreamError?.(`⚠️ [${code}] ${msg}`);
+            /* TAVILY 缺时 trust model 一级降级 banner */
+            onDataSource?.("mock_fallback");
+            return;
+          }
+          /* Phase B.2 · backend stage event status="warning" · Tavily silent fallback 透明化 */
+          if (sseEvt.type === "stage" && data.status === "warning" && typeof data.message === "string") {
+            onStreamWarning?.(`⚠️ ${data.message}`);
+          }
           if (sseEvt.type === "done") {
             const live = normalizeBackendDone(
               data as Record<string, unknown>,
@@ -1655,11 +1783,17 @@ function QueryBar({
             setLiveData(live);
             setMessages(live.conversation);
             setSelectedCandidate(null);
-            /* 件 #2 · demo run 默认 mock_forced (per shared.sse_envelope canon) · 但仍读 data.data_source 兜底 */
+            /* Phase B.2 · demo run 现走真后端 · data_source 由 run_channel_search_stream 决定 ·
+               默认 "live" (Tavily 真搜成功) · Tavily fallback → "mock_fallback" · 不再硬编 mock_forced */
             const rawDs = (data as Record<string, unknown>).data_source;
-            const kind = rawDs ? normalizeDataSource(rawDs) : "mock_forced";
+            const kind = rawDs ? normalizeDataSource(rawDs) : "live";
             const provider = (data as Record<string, unknown>).provider_source as string | undefined;
             onDataSource?.(kind, provider);
+            /* done envelope.warnings · backend mock_fallback 透传 · 顶部 banner 二级提示 */
+            const wlist = (data as Record<string, unknown>).warnings;
+            if (Array.isArray(wlist) && wlist.length > 0) {
+              onStreamWarning?.(`⚠️ ${String(wlist[0])}`);
+            }
           }
         },
         { signal: ac.signal },
@@ -1795,35 +1929,160 @@ function QueryBar({
     <section className="rpt-panel ch-querybar">
       <div className="ch-querybar-head">
         <div>
-          <div className="rpt-panel-eyebrow">QUERY · 双模式</div>
+          <div className="rpt-panel-eyebrow">QUERY · 形态切换</div>
           <h3 className="rpt-panel-title ch-querybar-title">
-            一句话描述要找的企业 · <em>AI 解析 + 多源信源真搜</em>
+            一句话描述要找的企业 · <em>两形态都跑真后端 (Tavily + AI)</em>
           </h3>
         </div>
-        {/* PM 2026-05-07 ALL IN: 删历史 session 下拉 (没 mock 演示了 · 仅真搜索) */}
-      </div>
-      <div className="ch-querybar-body">
-        <input
-          type="text"
-          className="ch-querybar-input"
-          placeholder="自然语言描述业务诉求 · 真接 AI 解析 + 多源信源 (工商/司法/招投标/资质/行情) 搜出 look-alike"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          disabled={streaming}
-        />
-        <button
-          type="button"
-          className="ch-querybar-btn"
-          data-testid="scout-search"
-          onClick={() => void runRealSearch()}
-          disabled={!input.trim() || streaming}
+        {/* Phase B.2 (PM 2026-05-10) · 形态切换 segmented control · 不是 ModePill 切假
+            · 都跑真后端 · 区别仅 input 来源 (用户输入 vs channel-kb 派生) */}
+        <div
+          className="ch-input-mode"
+          role="tablist"
+          aria-label="输入形态切换"
+          style={{
+            display: "inline-flex",
+            border: "1px solid var(--ink-14)",
+            borderRadius: 999,
+            padding: 3,
+            background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
+            fontFamily: "var(--cjk)",
+            fontSize: 12,
+          }}
         >
-          <span>{streaming ? "AI 解析中…" : "AI 搜索"}</span>
-          <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
-        </button>
+          {[
+            { key: "free", label: "自由查询", hint: "RM 输入业务诉求" },
+            { key: "sample", label: "一键示例", hint: "channel-kb 优质 batch 派生" },
+          ].map((opt) => {
+            const active = inputMode === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={opt.hint}
+                onClick={() => setInputMode(opt.key as "free" | "sample")}
+                disabled={streaming}
+                data-testid={`input-mode-${opt.key}`}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: active ? "var(--ink)" : "transparent",
+                  color: active ? "var(--chalk)" : "var(--ink-65)",
+                  fontFamily: "inherit",
+                  fontSize: 12,
+                  cursor: streaming ? "not-allowed" : "pointer",
+                  fontWeight: active ? 600 : 400,
+                  transition: "background 120ms",
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      {/* PM 2026-05-07 ALL IN: 删 DEMO 难度分层按钮 (channel 不再有 mock_forced 路径) */}
+      {inputMode === "free" ? (
+        <div className="ch-querybar-body">
+          <input
+            type="text"
+            className="ch-querybar-input"
+            placeholder="自然语言描述业务诉求 · 真接 AI 解析 + 多源信源 (工商/司法/招投标/资质/行情) 搜出 look-alike"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            disabled={streaming}
+          />
+          <button
+            type="button"
+            className="ch-querybar-btn"
+            data-testid="scout-search"
+            onClick={() => void runRealSearch()}
+            disabled={!input.trim() || streaming}
+          >
+            <span>{streaming ? "AI 解析中…" : "AI 搜索"}</span>
+            <span className="kbd">{streaming ? "···" : "⌘↩"}</span>
+          </button>
+        </div>
+      ) : (
+        <div
+          className="ch-querybar-sample"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            padding: "14px 18px",
+            background: "color-mix(in srgb, var(--chalk) 40%, transparent)",
+            border: "1px dashed var(--ink-14)",
+            borderRadius: "var(--r-md)",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--cjk)",
+              fontSize: 13,
+              color: "var(--ink-65)",
+              lineHeight: 1.7,
+            }}
+          >
+            从 <code style={{ fontFamily: "var(--mono)", color: "var(--accent)" }}>
+              data/mock/channel-kb/marketing-preferences/
+            </code> 真读银行营销倾向 docx · 派生 seed query · 走真 Tavily/AI 跑一遍 · 候选/评分/匹配理由全 LLM 抽 · 不写死.
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(["easy", "medium", "hard"] as const).map((sid) => (
+              <button
+                key={sid}
+                type="button"
+                onClick={() => void runDemoScenario(sid)}
+                disabled={streaming}
+                data-testid={`scout-sample-${sid}`}
+                style={{
+                  fontFamily: "var(--cjk)",
+                  fontSize: 13,
+                  padding: "8px 18px",
+                  borderRadius: 999,
+                  border: "1px solid var(--accent)",
+                  background: "var(--accent)",
+                  color: "var(--chalk)",
+                  cursor: streaming ? "not-allowed" : "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                {streaming ? "AI 跑中…" : `运行示例 · ${sid === "easy" ? "简单" : sid === "medium" ? "中等" : "复杂"}`}
+              </button>
+            ))}
+          </div>
+          {demoContext && (
+            <div
+              data-testid="scout-demo-context"
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+                color: "var(--ink-48)",
+                lineHeight: 1.6,
+                paddingTop: 6,
+                borderTop: "1px solid var(--ink-14)",
+              }}
+            >
+              <div>
+                <strong style={{ color: "var(--ink-65)" }}>Sample 文件:</strong>{" "}
+                {demoContext.sampleFiles.length > 0
+                  ? demoContext.sampleFiles.join(" · ")
+                  : "(无)"}
+              </div>
+              <div>
+                <strong style={{ color: "var(--ink-65)" }}>派生 seed query:</strong>{" "}
+                <code style={{ fontFamily: "var(--mono)", color: "var(--accent)" }}>
+                  {demoContext.seedQuery || "(无)"}
+                </code>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="ch-querybar-tags">
         <span className="lbl">AI 解析的特征 · 12 维</span>
         <div className="tags">
@@ -1838,7 +2097,10 @@ function QueryBar({
       {streamEvents.length > 0 && (
         <div className="ch-querybar-stream" data-testid="scout-live-stream">
           <div className="ch-querybar-stream-head">
-            ▶ AI 实时流 · /api/channel/run SSE
+            ▶ AI 实时流 ·{" "}
+            {inputMode === "sample"
+              ? "/api/channel/demo/run · 真后端跑 channel-kb 派生 query"
+              : "/api/channel/run · 真后端跑 RM 输入 query"}
           </div>
           {(
             <ul className="ch-querybar-stream-list">
