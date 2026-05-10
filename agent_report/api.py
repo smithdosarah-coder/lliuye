@@ -259,7 +259,11 @@ class RefineRequest(BaseModel):
 
 
 @app.post("/api/report/refine")
-async def report_refine(req: RefineRequest, request: Request):
+async def report_refine(
+    req: RefineRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """基于 session_id 的外因续跑.
 
     当前版本为 stub:
@@ -408,6 +412,7 @@ async def report_upload(
     request: Request,
     files: list[UploadFile] = File(default=[]),
     business_line: str = Query("corporate"),
+    _user: dict = Depends(require_action("report", "invoke")),
 ):
     """multipart 上传 1+ 材料文件 · 持久化到 ``data/kb/report/{report_id}/`` ·
     返 ``{report_id, file_summary}`` 供 fill 阶段引用同一 report_id 跳过重传。
@@ -495,7 +500,22 @@ async def report_v16_fill(
 
     Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("report", "invoke")
     enforce row-level/action gate · RM/credit_officer/compliance_officer/admin 可调 (read 各自).
+
+    ALL IN Phase B.1 fix · 2026-05-09 · mock 路径 demo gate (per PM 命令 "require_action(report, demo)"):
+    mock=True 时额外 require role=admin · 拒 RM/审贷员/合规官走 mock 路径 (training only).
+    "demo" 不在 RBAC ACCESS_V2 (auth_service 写域 · 待 RFC 加 action).
     """
+    # ALL IN Phase B.1 · mock=true 时 demo gate (admin only)
+    if bool(req.mock) and (_user.get("role") != "admin"):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {
+                "code": "MOCK_REQUIRES_DEMO_ROLE",
+                "message": "mock 路径仅 admin/training 可调 · per ALL IN demo action gate (RFC 待 auth_service 加 demo action)",
+                "details": {"role": _user.get("role"), "agent": "report", "action": "demo"},
+            }},
+        )
+
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
 
@@ -613,7 +633,11 @@ class RefineSectionRequest(BaseModel):
 
 
 @app.post("/api/report/refine_section")
-async def report_refine_section(req: RefineSectionRequest, request: Request):
+async def report_refine_section(
+    req: RefineSectionRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """LLM 重写指定 section · 用户给 ``user_edit`` 引导(增删改方向).
 
     返回:
@@ -1006,7 +1030,10 @@ _REPORT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "report" /
 
 
 @app.post("/api/report/demo/run")
-async def report_demo_run(req: ReportDemoRunRequest):
+async def report_demo_run(
+    req: ReportDemoRunRequest,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """纯 mock SSE 演示流 · 不依赖 DEEPSEEK_API_KEY / v16 主管线 · 视觉与 live 一致.
 
     与 /api/report/v16/fill 共形 (event 名 stage / section / done / error · payload key
@@ -1128,7 +1155,10 @@ async def report_demo_run(req: ReportDemoRunRequest):
 
 
 @app.post("/api/report/section_supplement")
-async def report_section_supplement(req: dict):
+async def report_section_supplement(
+    req: dict,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """§6.2 反向链 endpoint scaffold · Agent3 → Agent6.
 
     Sprint 1: 接 payload + Pydantic 校验 + emit ack event (received not processed).
