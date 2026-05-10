@@ -155,11 +155,18 @@ export default function CreditWorkspace() {
   /* alias · minimize churn through 1800 lines */
   const session = sessionData;
 
-  /* setMode · 切 stage_tab tab 时 reset live + drawer · 不再 find from CREDIT_MOCK_SESSIONS */
+  /* ALL IN Phase B step 6 · setMode 干净切换 3 板块 (corp/small/retail)
+     · 切板块后所有 per-entity 状态全清 (live / drawer / error / handoff banner)
+     · per-entity 评分维度 (radar 4 axis dict) 由 _normalize.RADAR_AXIS_LABEL 派生:
+       - corp/small_business: financial / industry / operational / guarantee
+       - retail: ability / willingness / stability / collateral (FICO 式)
+     · 用户切板块后必须点 CTA 重新起决策 · 不靠 mock data 自动派生 */
   const setMode = useCallback((newMode: CreditMode) => {
     setModeState(newMode);
     setLiveData(null);
     setSelectedCandidate(null);
+    setDecisionError(null);
+    setHandoffSource(null);
   }, []);
 
   /* ESC 关 case detail drawer (Step 10 · selectedCandidate gate) */
