@@ -130,10 +130,12 @@ desktop.ini
 AGENT_IDENTITY.md
 
 # ----------------------------------------------------------------------------
-# Phase B.1 fix · report → credit handoff 真产物 (v16_runner 写盘 · 不入 git)
+# Phase B.1/B.2 · agent handoff 真产物 (api 写盘 · 不入 git)
 # ----------------------------------------------------------------------------
 data/handoff/report_to_credit/*.json
 !data/handoff/report_to_credit/.gitkeep
+data/handoff/channel_to_credit/*/
+data/handoff/channel_to_credit/*.json
 
 # ----------------------------------------------------------------------------
 # Orchestrator runtime artifacts (auto-generated, per-host)
