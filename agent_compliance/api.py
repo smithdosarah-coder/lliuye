@@ -193,7 +193,18 @@ def _build_compliance_done_envelope(
     )
 
 
-def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
+def _run_scan_engine_stream(
+    *,
+    policy_doc: str,
+    business_docs: list,
+    policy_meta: dict | None,
+    force_mock: bool,
+    extras: dict | None = None,
+):
+    """共享的 engine SSE driver · /policy_scan + /demo/run 都走这里 (Phase B.2 真意 reframe).
+
+    extras: 顶层 done envelope 加附加字段 (e.g. scenario_id / input_source / business_doc_sources).
+    """
     try:
         from agent_compliance.scan_engine import (
             ScanResultNotFoundError,
@@ -210,10 +221,10 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
 
     try:
         for evt in run_policy_scan_and_persist(
-            policy_doc=req.policy_doc or "",
-            business_docs=req.business_docs or [],
-            policy_meta=req.policy_meta,
-            force_mock=bool(req.force_mock),
+            policy_doc=policy_doc or "",
+            business_docs=business_docs or [],
+            policy_meta=policy_meta,
+            force_mock=bool(force_mock),
         ):
             payload = to_jsonable(evt)
             cleaned, hits = _qc_scrub_dict(payload)
@@ -241,6 +252,11 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
                 payload=full_payload,
                 duration_seconds=_time.time() - t_start,
             )
+            if extras:
+                # extras 顶层 (per sse-envelope · done envelope 顶层 extras 自由扩展)
+                for k, v in extras.items():
+                    if k not in done_evt:
+                        done_evt[k] = v
             yield encode_event(done_evt)
         else:
             yield encode_event(make_error(
@@ -250,6 +266,17 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
     except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
         traceback.print_exc()
         yield encode_event(make_error_from_exception(e, code="SCAN_RUNTIME_ERROR"))
+
+
+def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
+    """thin wrapper · /policy_scan 走真上传 · 不带 sample_batch extras."""
+    yield from _run_scan_engine_stream(
+        policy_doc=req.policy_doc or "",
+        business_docs=req.business_docs or [],
+        policy_meta=req.policy_meta,
+        force_mock=bool(req.force_mock),
+        extras={"input_source": "user_upload"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -488,21 +515,42 @@ async def compliance_policy_scan_post(
 
 
 # ============================================================================
-# POST /api/compliance/demo/run · Phase A worker-A4-compli (2026-04-29)
-#   纯 mock SSE · 不调 LLM/Tavily · 从 data/mock/workspace/compliance/scenarios/<id>.json 读
-#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
-#   反 5 原则 §3.5 难度分层: online_loan / aml / data_protect 三档 (per spec §6.2)
+# GET  /api/compliance/demo/scenarios — sample batch 列表 (前端 toggle 用)
+# POST /api/compliance/demo/run       — sample batch → **真后端** pipeline
+#                                       Phase B.2 (PM 2026-05-10 真意 reframe)
+#   不再 yield fixture event · 走 manifest 加载 sample 政策 + compliance-kb 制度 docx
+#   → run_policy_scan_and_persist · 真 LLM/Tavily/算法 → 真违规 + 真 ViolationReason
+#   反 5 原则 §3.5: 内部稳态 mock OK (sample 政策 + 制度库) · 外部 Tavily 改真接
+#   红线 #1 (假 live) 严禁 · mock **只能 mock 输入 · 不能 mock 结果**
 # ============================================================================
 
 
-import json as _json  # noqa: E402
-
-_COMPLI_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "compliance" / "scenarios"
-_COMPLI_ALLOWED_SCENARIOS = {"online_loan", "aml", "data_protect"}
-
-
 class ComplianceDemoRunRequest(BaseModel):
-    scenario_id: str = "online_loan"  # "online_loan" | "aml" | "data_protect"
+    scenario_id: str = "online_loan"  # see manifest.scenarios keys
+    force_mock: bool = False          # 透传 scan_engine · 默认 False (=真接 LLM/Tavily)
+
+
+@app.get("/api/compliance/demo/scenarios")
+async def compliance_demo_scenarios():
+    """列出 manifest 内可用 sample batch · 前端形态切换 toggle 用."""
+    try:
+        from agent_compliance.demo_loader import (
+            DemoBatchError,
+            list_scenarios,
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"demo_loader import failed: {e}"}},
+        ) from e
+    try:
+        return {"scenarios": list_scenarios()}
+    except DemoBatchError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": e.code, "message": str(e)}},
+        ) from e
 
 
 @app.post("/api/compliance/demo/run")
@@ -510,67 +558,50 @@ async def compliance_demo_run(
     req: ComplianceDemoRunRequest,
     _user: dict = Depends(require_action("compliance", "invoke")),
 ):
-    """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (4 stage 流 + done envelope).
+    """演示路径 · 用 sample batch (compliance-kb manifest) **真跑后端 pipeline**.
 
-    Per agent-compli-spec §6.2 + sse-envelope §3.1 · done event panels 4 keys
-    (violations / matrix / events / recommendations) 同共形.
+    PM 2026-05-10 真意 reframe verbatim:
+      "演示不是一键切换 · 把本地 mock 数据真实上传 · 通过真实后端代码跑一遍 · 给出结果"
+
+    与 `/policy_scan` 区别:
+      - `/policy_scan`: 上游真上传 policy_doc + business_docs (用户自传)
+      - `/demo/run`:    后端从 manifest 读 sample → 走相同 engine (input_source=sample_batch)
+    数据来源 (data_source) 由 scan_engine.build_compli_provider 真实判定 (LLM/Tavily 是否在线),
+    不再硬编 MOCK_FORCED · 真接 = LIVE · 真降级 = MOCK_FALLBACK · 用户显式 force_mock = MOCK_FORCED.
     """
-    import time as _time
+    try:
+        from agent_compliance.demo_loader import (
+            DemoBatchError,
+            load_scenario,
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {"code": "INTERNAL_ERROR",
+                              "message": f"demo_loader import failed: {e}"}},
+        ) from e
 
     def gen():
-        scenario_id = req.scenario_id or "online_loan"
-        if scenario_id not in _COMPLI_ALLOWED_SCENARIOS:
-            yield encode_event(make_error(
-                f"unknown scenario_id: {scenario_id} "
-                f"(allowed: {'/'.join(sorted(_COMPLI_ALLOWED_SCENARIOS))})",
-                code="DEMO_SCENARIO_INVALID",
-            ))
-            return
-        path = _COMPLI_SCENARIO_DIR / f"{scenario_id}.json"
-        if not path.exists():
-            yield encode_event(make_error(
-                f"scenario file not found: {path.name}",
-                code="DEMO_SCENARIO_MISSING",
-            ))
-            return
         try:
-            data = _json.loads(path.read_text("utf-8"))
-        except (_json.JSONDecodeError, OSError) as e:
-            yield encode_event(make_error(
-                f"scenario load failed: {type(e).__name__}: {e}",
-                code="DEMO_SCENARIO_LOAD",
-            ))
+            batch = load_scenario(req.scenario_id or "online_loan")
+        except DemoBatchError as e:
+            yield encode_event(make_error(str(e), code=e.code))
             return
 
-        # 4 阶段 (per scan_engine.run_policy_scan_and_persist)
-        stages = ["rule_extract", "event_extract", "matrix_match", "revision_generate"]
-        stage_msgs = data.get("stage_messages", {}) or {}
-        for stage_name in stages:
-            yield encode_event(make_stage(
-                stage_name, "running",
-                message=stage_msgs.get(stage_name, f"{stage_name}..."),
-            ))
-            _time.sleep(0.18)
-            yield encode_event(make_stage(stage_name, "done"))
+        extras = {
+            "scenario_id": batch.scenario_id,
+            "scenario_label": batch.label,
+            "input_source": "sample_batch",
+            "business_doc_sources": batch.business_doc_sources,
+        }
 
-        violations = data.get("violations", []) or []
-        recommendations = data.get("recommendations") or _aggregate_recommendations(violations)
-
-        yield encode_event(make_done(
-            panels={
-                "violations": violations,
-                "matrix": data.get("matrix", []) or [],
-                "events": data.get("events", []) or [],
-                "recommendations": recommendations,
-            },
-            metrics=data.get("metrics", {}) or {},
-            data_source=DATA_SOURCE_MOCK_FORCED,
-            session_id=f"demo_{scenario_id}_{int(_time.time())}",
-            rules_preview=(data.get("rules_preview") or data.get("rules") or [])[:5],
-            events_preview=(data.get("events_preview") or data.get("events") or [])[:5],
-            policy_meta=data.get("policy_meta", {}) or {},
-            scenario_id=scenario_id,
-        ))
+        yield from _run_scan_engine_stream(
+            policy_doc=batch.policy_doc,
+            business_docs=batch.business_docs,
+            policy_meta=batch.policy_meta,
+            force_mock=bool(req.force_mock),
+            extras=extras,
+        )
 
     return StreamingResponse(
         gen(),

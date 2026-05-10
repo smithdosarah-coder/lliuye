@@ -277,61 +277,17 @@ test.describe("worker-A4-compli · compliance pilot · 4 gate", () => {
     await expect(cards).toHaveCount(2);
   });
 
-  test("T5 · demo/run · /api/compliance/demo/run wired · scenario_id payload + data_source=mock_forced", async ({
-    page,
-    context,
-  }) => {
-    let demoEndpointHit = false;
-    let demoScenarioPayload: string | null = null;
-    await context.route("**/api/compliance/demo/run", async (route) => {
-      demoEndpointHit = true;
-      try {
-        const body = route.request().postDataJSON() as { scenario_id?: string };
-        demoScenarioPayload = body?.scenario_id ?? null;
-      } catch {
-        demoScenarioPayload = null;
-      }
-      const demoEnv = {
-        ...SAMPLE_DONE_ENVELOPE,
-        data_source: "mock_forced",
-        session_id: "demo_online_loan_test",
-        scenario_id: "online_loan",
-      };
-      const sse = [
-        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "rule_extract", status: "running" })}\n\n`,
-        `event: stage\ndata: ${JSON.stringify({ event: "stage", stage: "rule_extract", status: "done" })}\n\n`,
-        `event: done\ndata: ${JSON.stringify(demoEnv)}\n\n`,
-      ].join("");
-      await route.fulfill({
-        status: 200,
-        contentType: "text/event-stream",
-        body: sse,
-      });
-    });
-
-    await page.goto("/archive/compliance", { waitUntil: "networkidle" });
-
-    /* 选 online_loan demo · 点 "查看示例" */
-    await page.locator('[data-testid="compli-history-dropdown"]').selectOption("demo-online-loan");
-    await page.locator('[data-testid="compli-history-apply"]').click();
-    await page.waitForTimeout(500);
-
-    expect(demoEndpointHit).toBe(true);
-    expect(demoScenarioPayload).toBe("online_loan");
-
-    /* workspace data-trigger=tertiary_history · data-mode=live (demo 也走 setLiveData 路径) */
-    const ws = page.locator('[data-testid="compli-workspace"]');
-    await expect(ws).toHaveAttribute("data-trigger", "tertiary_history");
-    await expect(ws).toHaveAttribute("data-mode", "live");
-
-    /* training mode banner 显 (cat 11-5 PRESERVE) */
-    await expect(page.locator('[data-testid="compli-demo-banner"]')).toBeVisible();
-
-    /* 5 panel 全亮 */
-    for (const k of ["ticker", "matrix", "violations", "revisions", "detail"]) {
-      await expect(
-        page.locator(`[data-testid="compli-pilot-${k}"]`),
-      ).toBeVisible();
-    }
+  /**
+   * T5 · Phase B.2 (PM 2026-05-10 真意 reframe) — 用 sample batch 真跑 backend
+   *
+   * 旧 UI (history dropdown + demo-banner + mock_forced) 已下架 · 新 UI 形态切换 toggle
+   * + 真后端 pipeline (data_source 由 scan_engine 实判 · 不再硬编 mock_forced).
+   *
+   * 重写在 Step 3 主活 B + Step 4 主活 C 完成后 · 用 [data-testid="compli-input-source-toggle"]
+   * + 真 SSE done envelope (含 input_source=sample_batch + scenario_id) 重新 cover.
+   * 暂 skip 防 false-fail (旧 testid 不存在) · D admin E2E 4 件套覆盖此路径.
+   */
+  test.skip("T5 · sample batch → 真后端 (Phase B.2 重写 pending · D E2E 覆盖)", async () => {
+    /* placeholder · 见 web/tests/regression/compliance-sample-batch.spec.ts (Phase B.2 D 件套) */
   });
 });
