@@ -74,18 +74,46 @@ type ExportInfo = {
   message?: string;
 };
 
-/* workspace-state-protocol §2 · 3 gate state (ALL IN Phase B step 1 · 2026-05-09)
+/* workspace-state-protocol §2 · 3 gate state (ALL IN Phase B step 1-2 · 2026-05-09)
    gate 1 = started · gate 2 = liveData · gate 3 = selectedViolationId
-   (旧 4 gate 中 selectedSessionId 已随 mock UI 一并下架 · 仅做 sessionData step 2 中转保留)
-   每次 live scan sessionData 重渲 5 panel · 每 violation 选 ViolationDetail + RevisionDraft 联动 */
-const DEFAULT_COMPLIANCE_SESSION_ID = "default-live";
-const MOCK_COMPLIANCE_SESSIONS_MAP: Record<string, ComplianceSession> = {
-  [DEFAULT_COMPLIANCE_SESSION_ID]: COMPLIANCE_SESSION,
+   sessionData = liveOverlay(EMPTY_SESSION, liveData) · 不再 fallback mock 模板 (step 2)
+   started=true && liveData=null → 渲染 EMPTY · 5 panel 显空骨架 */
+const EMPTY_SESSION: ComplianceSession = {
+  id: "EMPTY",
+  objective: "",
+  stage: "",
+  updated: "",
+  query: {
+    id: "",
+    policyTitle: "",
+    policyCode: "",
+    issuer: "",
+    issueDate: "",
+    effectiveDate: "",
+    clauseCount: 0,
+    scope: "",
+    updated: "",
+  },
+  policies: [],
+  docs: [],
+  pipeline: [],
+  matrix: [],
+  clauses: [],
+  conflicts: [],
+  funnel: [],
+  timeline: [],
+  conversation: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+  innerPolicyUploads: [],
+  outerPolicyUploads: [],
+  revisionAdvices: [],
+  cellDetails: {},
 };
 
-/* normalizeComplianceBackendDone · 把 done envelope (panels.violations / recommendations) overlay 到 mock 模板
-   - 不替模板 matrix / clauses / docs (visual 层 · 模板提供) · 仅替 conflicts + revisionAdvices · 让 5 panel 全消费 sessionData
-   - draft §C / §K · compliance 5 panel ≠ 4 panel envelope · PolicyTicker 与 cellDetails 仍来自模板 (live 不破) */
+/* normalizeComplianceBackendDone · 把 done envelope (panels.violations / recommendations) overlay 到 EMPTY 基板
+   - ALL IN step 2 (2026-05-09): tplFallback 不再当 visual 模板填补 · 仅作 schema 兜底 (留 hero/query/timeline 等 step 4 backend 真填)
+   - violations 0 时 conflicts=[] (空骨架渲) · 不复用 tpl 假 conflicts (avoid 假 live · 红线 #1) */
 function normalizeComplianceBackendDone(
   env: ComplianceDoneEnvelope | null,
   tplFallback: ComplianceSession,
@@ -147,31 +175,30 @@ function normalizeComplianceBackendDone(
     ...tplFallback,
     id: "live",
     stage: "已扫描",
-    conflicts: conflicts.length > 0 ? conflicts : tplFallback.conflicts,
-    revisionAdvices: revisionAdvices.length > 0 ? revisionAdvices : tplFallback.revisionAdvices,
+    conflicts,           // ALL IN step 2: 0 violations → 空数组 · 不复用 tpl 假数据
+    revisionAdvices,     // ALL IN step 2: 0 recommendations → 空数组
   };
 }
 
 export default function ComplianceWorkspace() {
   const [tab, setTab] = useState<OutputTab>("matrix");
 
-  /* ALL IN Phase B step 1 (2026-05-09) · empty-state-design-protocol v1.0 默认 started=false (gate 1) ·
+  /* ALL IN Phase B step 1-2 (2026-05-09) · empty-state-design-protocol v1.0 默认 started=false (gate 1) ·
      用户上传 / 起巡检 / 点模板比对 才 setStarted(true) · panel 真数据填入。
-     mock UI 全删 · 历史 session dropdown / DEMO 难度 dropdown 已下架。
+     mock UI 全删 · 历史 session dropdown / DEMO 难度 dropdown 已下架 (step 1)。
+     sessionData fallback EMPTY_SESSION (step 2) · 5 panel started=true && liveData=null 时显空骨架 · 不假 live。
 
-     workspace-state-protocol §2 · 3 gate state (旧 4 gate selectedSessionId step 1 下架):
-       (1) started · (2) liveData · (3) selectedViolationId
-     sessionData = liveOverlay(MOCK_TPL, liveData) · 5 panel 单点派生 (MOCK_TPL step 2 改 EMPTY_SESSION) */
+     workspace-state-protocol §2 · 3 gate state:
+       (1) started · (2) liveData · (3) selectedViolationId */
   const [started, setStarted] = useState(false);
   const [liveData, setLiveData] = useState<ComplianceDoneEnvelope | null>(null);
   const [selectedViolationId, setSelectedViolationId] = useState<string | null>(null);
   /* compliance-only · 衍生 UI state */
   const [view, setView] = useState<ViolationView>("by_violation");
 
-  /* sessionData 单点派生 · live 优先 overlay · 否则 mock 模板 (step 2 改 EMPTY_SESSION) */
+  /* sessionData 单点派生 · live 优先 overlay · 否则 EMPTY (ALL IN step 2 · 不 fallback mock) */
   const sessionData: ComplianceSession = useMemo(() => {
-    const tpl = MOCK_COMPLIANCE_SESSIONS_MAP[DEFAULT_COMPLIANCE_SESSION_ID] ?? COMPLIANCE_SESSION;
-    return liveData ? normalizeComplianceBackendDone(liveData, tpl) : tpl;
+    return liveData ? normalizeComplianceBackendDone(liveData, EMPTY_SESSION) : EMPTY_SESSION;
   }, [liveData]);
   const session = sessionData;
   const isLive = liveData !== null;
