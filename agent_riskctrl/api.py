@@ -4,6 +4,9 @@
 端点 (Phase A worker-A4 · 2026-04-29 · sse-envelope.md §1.5 + workspace-state-protocol §4):
   POST /api/riskctrl/dsl_gen          — SSE · 自然语言 → RuleSet JSON (LLM 真接 · stream)
   POST /api/riskctrl/backtest         — SSE · RuleSet + CSV → metrics JSON (KS / 通过率 / 坏账率)
+  POST /api/riskctrl/dsl/deploy       — REST · 风险经理签字 DSL 上线 (BE7 ledger)
+  POST /api/riskctrl/demo/run         — SSE · 物理隔离 fixture demo
+  POST /api/riskctrl/export_{docx,xlsx,pdf}  — REST · 三件套导出
 
 设计:
 - 独立 FastAPI app · api_server.py routes 合并装载
@@ -11,6 +14,22 @@
   riskctrl 域投影 = (ruleset, ks, samples, rule_stats) · metrics 顶层 KPI
 - mock=true 切预设 RuleSet · 不调 LLM · curl / 无 key 环境可演示
 - 输出过 shared.qc.placeholder_guard (V2 后续接入 · 当前不阻塞)
+
+ALL IN Phase B step 3 demo_mode audit (2026-05-09):
+  data_source 5 enum 决策树 (per shared.sse_envelope §):
+  - dsl_gen mock=False (默认):
+      LLM 成功 → DATA_SOURCE_LIVE
+      LLM fail → make_error (不 silent fallback · code=LLM_FALLBACK_EXHAUSTED · 红线 #1 守住)
+  - dsl_gen mock=True (显式 demo):
+      → DATA_SOURCE_MOCK_FORCED + WARN log (audit 痕迹)
+  - backtest:
+      → DATA_SOURCE_LIVE (无 mock 模式 · 必走 deterministic Python 真算 KS/AUC)
+  - demo/run (物理隔离 endpoint):
+      → DATA_SOURCE_MOCK_FORCED (fixture 演示 · 不调 LLM/真 csv)
+  - dsl/deploy (REST):
+      ledger 写入 silent-fail per §3.7.5 失败隔离 · 决策本身仍生效
+  无 silent mock fallback 路径 · 任何 LLM/source fail 必走 make_error +
+  前端 banner-spec 显式 retry · 红线 #1 (假 live · silent fallback mock) 全栈守住.
 
 字段契约: docs/contracts/field-naming.md + docs/contracts/sse-envelope.md
 """
@@ -175,6 +194,13 @@ async def riskctrl_dsl_gen(
 
         # mock 模式 (curl demo / 无 key) → 预设 RuleSet 不调 LLM
         if req.mock:
+            # ALL IN Phase B step 3 · audit 痕迹 · 显式 mock=True 调用必有 WARN log ·
+            # 银保监审计可追溯 · 防 production 误开 mock 模式而无觉
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "DSL gen mock=True 显式触发 · DATA_SOURCE_MOCK_FORCED · intent=%s",
+                req.strategy_intent[:80],
+            )
             yield encode_event(make_stage("build_prompt", "skipped", message="mock 模式 · 跳 LLM"))
             ruleset = parse_natural_language_rules(_MOCK_DSL_RESPONSE)
             ruleset_id = f"rs_mock_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
