@@ -204,18 +204,25 @@ async def channel_run(
 
 
 # ============================================================================
-# POST /api/channel/demo/run · Phase A worker-A3 (2026-04-29)
-#   纯 mock SSE · 不调 LLM/Tavily · 从 data/mock/workspace/channel/scenarios/<id>.json 读
-#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
-#   反 5 原则 §3.5 难度分层: easy / medium / hard 三档
+# POST /api/channel/demo/run · Phase B.2 真意 reframe (PM 2026-05-10)
+#
+# PM 真意 (verbatim 02:00 AM):
+#   "我要的演示不是一键切换 · 而是把本地的 mock 数据真实上传 · 通过真实后端代码
+#   跑一遍 · 最后给出结果"
+#
+# 演示 = 上传 sample (channel-kb 营销倾向 docx) → 真后端 pipeline → 真返结果
+# 内部 mock = data/mock/channel-kb/marketing-preferences/*.docx (= "上传的 sample")
+# 外部源    = 真 Tavily + 真 LLM + 8 源 (force_mock=False · 不再 yield fixture event)
+# 旧版废:   data/mock/workspace/channel/scenarios/<id>.json (反 §3.5 5 原则 · 答案给嘴边)
+#
+# scenario_id 现在只决定从 marketing-preferences seed query list 里取第几条 ·
+# 不再决定结果 · 结果由 Tavily/LLM 真跑产生
 # ============================================================================
 
 
 class ChannelDemoRunRequest(BaseModel):
-    scenario_id: str = "medium"  # "easy" | "medium" | "hard"
-
-
-_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "channel" / "scenarios"
+    scenario_id: str = "medium"  # "easy" | "medium" | "hard" — 选 seed query idx
+    rm_region: str = "华东"      # 给 evidence_scorer region 维度评分用
 
 
 @app.post("/api/channel/demo/run")
@@ -223,70 +230,99 @@ async def channel_demo_run(
     req: ChannelDemoRunRequest,
     _user: dict = Depends(require_action("channel", "invoke")),
 ):
-    """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (stage 流 + done envelope).
+    """Phase B.2 真后端演示流 · 走 channel-kb marketing-preferences docx 派生 seed query
+    → run_channel_search_stream (real Tavily + real LLM + 8 源 + evidence scorer) → 真返结果.
 
-    Per workspace-state-protocol §4 + sse-envelope §3.1 · done event panels 7 keys 同共形.
+    与 /api/channel/run 的区别:
+      - /api/channel/run        前端 query 框输入文本 · 用户驱动
+      - /api/channel/demo/run   后端从 channel-kb 派生 seed query · 一键示例
+
+    硬线 (per dispatch §不可 GO):
+      - 不 yield fixture event · 不读 data/mock/workspace/channel/scenarios/*.json
+      - 不 silent fallback fake · TAVILY_API_KEY 缺时 typed banner (live-fallback-banner-spec §1.5)
+      - mock 只 mock 输入 (channel-kb docx) · 不 mock 结果 (候选/评分/匹配理由)
     """
-    from shared.sse_envelope import (
-        DATA_SOURCE_MOCK_FORCED,
-        encode_event,
-        make_done,
-        make_error,
-        make_stage,
+    from shared.sse_envelope import encode_event, make_error
+    from agent_channel.realtime_stream import run_channel_search_stream
+    from agent_channel.seed_query_builder import (
+        build_queries,
+        parse_marketing_preferences,
     )
-    import time as _time
+
+    _KB_PATH = PROJECT_ROOT / "data" / "mock" / "channel-kb" / "marketing-preferences"
 
     def gen():
-        scenario_id = req.scenario_id or "medium"
+        scenario_id = (req.scenario_id or "medium").strip()
         if scenario_id not in {"easy", "medium", "hard"}:
             yield encode_event(make_error(
                 f"unknown scenario_id: {scenario_id} (allowed: easy/medium/hard)",
                 code="DEMO_SCENARIO_INVALID",
             ))
             return
-        path = _SCENARIO_DIR / f"{scenario_id}.json"
-        if not path.exists():
+
+        # 1) Sample input · 从 channel-kb 真读 marketing-preferences (= "上传的 sample")
+        if not _KB_PATH.is_dir():
             yield encode_event(make_error(
-                f"scenario file not found: {path.name}",
-                code="DEMO_SCENARIO_MISSING",
-            ))
-            return
-        try:
-            data = json.loads(path.read_text("utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            yield encode_event(make_error(
-                f"scenario load failed: {type(e).__name__}: {e}",
-                code="DEMO_SCENARIO_LOAD",
+                f"channel-kb marketing-preferences 目录不存在 · path={_KB_PATH}",
+                code="DEMO_KB_MISSING",
             ))
             return
 
-        stages = ["parse", "signal_scan", "aggregate", "enrich", "pitch", "rank"]
-        stage_msgs = data.get("stage_messages", {})
-        for stage_name in stages:
-            yield encode_event(make_stage(
-                stage_name, "running",
-                message=stage_msgs.get(stage_name, f"{stage_name}..."),
+        bundles = parse_marketing_preferences(str(_KB_PATH))
+        queries = build_queries(bundles, max_total=6) if bundles else []
+        if not queries:
+            yield encode_event(make_error(
+                "channel-kb marketing-preferences 解析失败 · 无可用 seed query",
+                code="DEMO_KB_EMPTY",
             ))
-            _time.sleep(0.25)
-            yield encode_event(make_stage(stage_name, "done"))
+            return
 
-        yield encode_event(make_done(
-            panels={
-                "candidates":              data.get("candidates", []),
-                "signals":                 data.get("signals", []),
-                "radar":                   data.get("radar", []),
-                "funnel":                  data.get("funnel", []),
-                "match_dimensions":        data.get("match_dimensions", []),
-                "product_recommendations": data.get("product_recommendations", []),
-                "pitch_scripts":           data.get("pitch_scripts", []),
-                # V3 fix · CHANNEL_PANEL_KEYS 8 key · scenario JSON 可选 conversation 字段 ·
-                # 缺则 [] · 前端 normalizeBackendDone 兜底 tplFallback.conversation
-                "conversation":            data.get("conversation", []),
-            },
-            metrics=data.get("metrics", {}),
-            data_source=DATA_SOURCE_MOCK_FORCED,
-            session_id=f"demo_{scenario_id}_{int(_time.time())}",
-        ))
+        # 2) 按 scenario_id 选 seed query
+        idx_map = {
+            "easy":   0,
+            "medium": min(2, len(queries) - 1),
+            "hard":   min(4, len(queries) - 1),
+        }
+        seed_query = queries[idx_map[scenario_id]]
+
+        # 3) 透出 demo 上下文 (前端 banner 显 sample 来源 · 演示透明)
+        sample_files = [Path(b.source_doc).name for b in bundles[:5]]
+        tavily_ok = bool(os.environ.get("TAVILY_API_KEY"))
+        yield sse_encode({
+            "event": "demo_context",
+            "scenario_id": scenario_id,
+            "sample_source": "data/mock/channel-kb/marketing-preferences",
+            "sample_files": sample_files,
+            "derived_seed_query": seed_query,
+            "tavily_configured": tavily_ok,
+            "pipeline": "run_channel_search_stream (real)",
+        })
+
+        # 4) 不 silent fallback · TAVILY 缺立即 typed banner · 用户感知
+        if not tavily_ok:
+            yield sse_encode({
+                "event": "error",
+                "stage": "search",
+                "code": "TAVILY_KEY_MISSING_FOR_DEMO",
+                "message": (
+                    "TAVILY_API_KEY 未配置 · 真后端演示需 Tavily 实搜 · "
+                    "请联系运维配置 · 或切到 /api/channel/run 走 mock 池 (force_mock=true)"
+                ),
+            })
+            return
+
+        # 5) 真跑 backend pipeline (Tavily + LLM + 8 源 + 评分 + 证据)
+        for evt in run_channel_search_stream(
+            query=seed_query,
+            provider="deepseek",
+            api_key="",  # 走 env DEEPSEEK_API_KEY
+            top_n=8,
+            force_mock=False,
+            rm_region=req.rm_region or "华东",
+        ):
+            yield sse_encode(_qc_clean_event(
+                {k: to_jsonable(v) for k, v in evt.items()}
+            ))
 
     return StreamingResponse(
         gen(),
