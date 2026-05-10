@@ -1,111 +1,101 @@
 {
   "scenario_id": "medium",
   "difficulty": "中等 (材料部分缺 · 字段需推断 · 1-2 项 QC 警告)",
-  "_lineage": "锚定普惠授信申报场景 · 个体工商户 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 脱敏再造",
-  "stage_messages": {
-    "ingest": "材料解析 · 4 份文件 · 1 份扫描件 OCR 置信度偏低",
-    "extract": "结构化预填 · 416/492 字段命中 · 76 项需 LLM 补",
-    "infer": "财务事实库装载 · 部分指标推断 (近 12 月 → 年化)",
-    "write": "段落生成 · 4 章 · 第 3 章触发证据告警",
-    "audit": "QC 终审 · 9 维评分 76 · 0 fatal · 2 warn"
-  },
-  "profile": {
-    "company_name": "厦门海风餐饮管理有限公司",
-    "uscc": "91350200MA**8*****",
-    "industry": "餐饮服务 · 闽南菜系连锁",
-    "business_line": "inclusive",
-    "registered_capital_yuan": "200万元",
-    "founded": "2019-04",
-    "legal_rep": "林海风",
-    "employees": 56,
-    "revenue_yuan_2024": "1,820万元",
-    "net_profit_yuan_2024": "165万元"
-  },
-  "stats": {
-    "total_fields": 492,
-    "auto_filled": 416,
-    "unfilled": 76,
-    "evidence_rate": 0.78,
-    "avg_word_count": 1480
-  },
-  "qc": {
-    "passed": true,
-    "score": 76,
-    "fatal_fail": false,
-    "halluc_count": 0,
-    "warn_count": 2,
-    "info_count": 8
-  },
+  "_lineage": "锚定普惠授信申报场景 · 个体工商户 · 改名改数字保量级 · 反 5 原则 §3.3+§3.4 脱敏再造 · Phase B.2 stripped: 仅保留 material_gap_inputs (test_material_gap consumer · 反 5 原则 §3.5 #5 + 不可 GO 条件 §禁止用 · 旧 sections/qc/stats/profile demo 答案字段 2026-05-10 删)",
   "material_gap_inputs": {
     "_lineage": "Phase B Sprint 1 BE3 · 反 5 原则 §3.5 #5 · 仅 inputs · graph 是 computed output 不进 fixture",
     "scenario_id": "medium",
     "difficulty_tier": "medium",
     "materials": [
-      {"id": "basic_info",      "name": "企业基本信息",       "status": "present"},
-      {"id": "shareholders",    "name": "股东结构清单",       "status": "partial"},
-      {"id": "controller",      "name": "实际控制人信息",     "status": "present"},
-      {"id": "r_and_d",         "name": "研发投入与专利",     "status": "missing"},
-      {"id": "business",        "name": "主营业务说明",       "status": "present"},
-      {"id": "upstream_top5",   "name": "前五大供应商",       "status": "missing"},
-      {"id": "downstream_top5", "name": "前五大客户",         "status": "partial"},
-      {"id": "orders",          "name": "在手订单清单",       "status": "missing"},
-      {"id": "affiliates",      "name": "关联企业清单",       "status": "present"},
-      {"id": "financing",       "name": "现有融资明细",       "status": "present"},
-      {"id": "bank_flows",      "name": "银行流水（12 个月）", "status": "partial"},
-      {"id": "tax_data",        "name": "纳税申报表",         "status": "present"},
-      {"id": "credit_history",  "name": "历史授信记录",       "status": "present"},
-      {"id": "risk_info",       "name": "诉讼与征信记录",     "status": "present"}
+      {
+        "id": "basic_info",
+        "name": "企业基本信息",
+        "status": "present"
+      },
+      {
+        "id": "shareholders",
+        "name": "股东结构清单",
+        "status": "partial"
+      },
+      {
+        "id": "controller",
+        "name": "实际控制人信息",
+        "status": "present"
+      },
+      {
+        "id": "r_and_d",
+        "name": "研发投入与专利",
+        "status": "missing"
+      },
+      {
+        "id": "business",
+        "name": "主营业务说明",
+        "status": "present"
+      },
+      {
+        "id": "upstream_top5",
+        "name": "前五大供应商",
+        "status": "missing"
+      },
+      {
+        "id": "downstream_top5",
+        "name": "前五大客户",
+        "status": "partial"
+      },
+      {
+        "id": "orders",
+        "name": "在手订单清单",
+        "status": "missing"
+      },
+      {
+        "id": "affiliates",
+        "name": "关联企业清单",
+        "status": "present"
+      },
+      {
+        "id": "financing",
+        "name": "现有融资明细",
+        "status": "present"
+      },
+      {
+        "id": "bank_flows",
+        "name": "银行流水（12 个月）",
+        "status": "partial"
+      },
+      {
+        "id": "tax_data",
+        "name": "纳税申报表",
+        "status": "present"
+      },
+      {
+        "id": "credit_history",
+        "name": "历史授信记录",
+        "status": "present"
+      },
+      {
+        "id": "risk_info",
+        "name": "诉讼与征信记录",
+        "status": "present"
+      }
     ],
     "section_status": [
-      {"id": "chapter_1_background", "status": "done"},
-      {"id": "chapter_2_operation",  "status": "partial"},
-      {"id": "chapter_3_finance",    "status": "done"},
-      {"id": "chapter_4_conclusion", "status": "pending"}
+      {
+        "id": "chapter_1_background",
+        "status": "done"
+      },
+      {
+        "id": "chapter_2_operation",
+        "status": "partial"
+      },
+      {
+        "id": "chapter_3_finance",
+        "status": "done"
+      },
+      {
+        "id": "chapter_4_conclusion",
+        "status": "pending"
+      }
     ],
     "cross_section_numbers": {}
-  },
-  "pending_questions": [
-    {
-      "id": "pq-med-1",
-      "label": "近 3 月堂食 vs 外卖营收占比是否有显著变化？",
-      "recommended": "扫描件 pos_report_q4.jpg 数字模糊 · 需客户确认",
-      "source_ref": "pos_report_q4.jpg · OCR conf 0.62"
-    },
-    {
-      "id": "pq-med-2",
-      "label": "5 家门店中是否有 2025 年关停或新开计划？",
-      "recommended": "材料未披露 · 实地走访补",
-      "source_ref": "(无对应材料)"
-    }
-  ],
-  "sections": [
-    {
-      "id": "chapter_1_background",
-      "title": "一、企业背景",
-      "content": "厦门海风餐饮管理有限公司成立于 2019 年 4 月，注册资本 200 万元，是一家以闽南菜系为主打的连锁餐饮企业。法定代表人林海风，员工 56 人，截至 2024 年末经营 5 家直营门店（厦门 3 家、福州 1 家、泉州 1 家）。门店均位于商圈 A 类位置，平均面积 320 ㎡，客单价 78 元。\n\n证据：营业执照（business_license.pdf）、门店清单（stores_list.xlsx）、租赁合同摘要（lease_summary.pdf, p.2）。",
-      "status": "done",
-      "word_count": 1420
-    },
-    {
-      "id": "chapter_2_operation",
-      "title": "二、经营情况",
-      "content": "公司主营业务为闽南菜堂食 + 外卖 + 私房宴会三类。2024 年营收 1,820 万元（YoY +12%），其中堂食占 64%、外卖占 28%、宴会占 8%。日均客流 380 人次，单店日均流水约 1.0-1.2 万元。供应链上游为本地海鲜批发商（占采购成本 45%）、米面调料经销商（30%）、冷链配送商（25%）。\n\n证据：POS 流水（pos_summary_2024.xlsx）、采购台账（purchase_ledger.pdf）。\n\n[QC 警告] 第四季度 POS 报表为扫描件，部分数字模糊 · 已标 pq-med-1 待客户确认。",
-      "status": "done",
-      "word_count": 1380
-    },
-    {
-      "id": "chapter_3_finance",
-      "title": "三、财务分析",
-      "content": "2024 年财务数据：营业收入 1,820 万元，净利润 165 万元（净利率 9.1%），毛利率 28.5%。资产负债率 52%（含 3 笔门店装修贷），流动比率 1.3，速动比率 0.9。经营性现金流净额约 280 万元（含 1 笔季度性预收款 80 万）。\n\n关键比率（financial_analyzer.py 确定性计算）：\n- ROE 14.2% · 应收周转较快（堂食现金回款）\n- 单店投资回收期 26-30 个月（行业均值 24-36）\n\n[QC 警告] 流动比率 1.3 接近预警阈值 1.2 · 速动比率 0.9 已低于阈值 1.0 · 提示流动性偏紧 · 建议关注门店存货积压。\n\n证据：审计报告（audit_report_2024.pdf）、银行流水（bank_statement_q1-q4.pdf）。",
-      "status": "done",
-      "word_count": 1620
-    },
-    {
-      "id": "chapter_4_conclusion",
-      "title": "四、审批意见（预留 Agent3 决策回写）",
-      "content": "[Agent3 信审智能体决策回写区 · 当前为 Agent6 报告生成阶段 · 不预设决策意见]\n\nAgent6 协作要点：\n- 普惠场景 · 营收 1,820 万 · 推荐授信额度区间 200-400 万元（行业基准）\n- 流动性指标接近预警阈值 · 建议 Agent3 关注还款来源稳定性\n- 2 项 pending question 待客户经理实地走访补充：堂食/外卖结构变化、门店扩张计划",
-      "status": "done",
-      "word_count": 1080
-    }
-  ]
+  }
 }

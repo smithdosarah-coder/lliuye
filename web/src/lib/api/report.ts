@@ -4,7 +4,7 @@
  * 后端契约 (Phase A worker-A4 align v16 · audit cat 4):
  *   POST /api/report/upload          → {report_id, file_summary, total_*}
  *   POST /api/report/v16/fill        → SSE stage / done events (live · DEEPSEEK 必需)
- *   POST /api/report/demo/run        → SSE 演示 (mock_forced · scenario_id easy/medium/hard)
+ *   POST /api/report/demo/run        → SSE 演示 (live · sample_id DP001-005 · 真后端跑 · Phase B.2)
  *   POST /api/report/refine_section  → {section, status, llm_used}
  *   POST /api/report/export_docx     → docx blob (attachment)
  *   POST /api/report/export_pdf      → pdf blob (attachment · G-10 闭环)
@@ -265,11 +265,21 @@ function parseSseChunk(chunk: string): ReportV16Event | null {
 }
 
 /* ── SSE consume: POST /api/report/demo/run ─────────────────────────────
-   Phase A worker-A4 (2026-04-29) · 纯 mock SSE · 不调 LLM · 客户走访稳定 demo 路径.
-   契约同 v16/fill done event (sections + qc + stats + profile + data_source=mock_forced). */
+   Phase B.2 (PM 2026-05-10 真意 reframe) · 演示 = 上传 sample 跑真后端
+   sample_id 映射到 data/mock/deep-pillar/<id>/ 真材料 (DP001-005) ·
+   后端: v16_runner.fill_stream(explicit_mock=False) · 真 LLM (DeepSeek) + 真 9 维 QC
+   契约同 v16/fill done event (sections + qc + stats + profile + data_source=live)
+   反模式 (已废): scenario_id easy/medium/hard yield fixture (Phase A worker-A4) */
+
+export type ReportSampleId =
+  | "DP001_龙峰精工"
+  | "DP002_蓝汀家电"
+  | "DP003_宸星家装"
+  | "DP004_汇德建材"
+  | "DP005_星胤实业";
 
 export type ReportDemoRunRequest = {
-  scenario_id: "easy" | "medium" | "hard";
+  sample_id: ReportSampleId | string; // string fallback · 后端白名单校验
 };
 
 export async function streamReportDemoRun(

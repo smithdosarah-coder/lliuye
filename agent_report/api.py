@@ -3,7 +3,7 @@
 
 端点:
   POST /api/report/v16/fill     — v16 主管线 SSE (Stage C.1 · classifier→generator→QC)
-  POST /api/report/demo/run     — 纯 mock SSE 演示流 · scenario_id (easy/medium/hard) · Phase A worker-A4 (2026-04-29)
+  POST /api/report/demo/run     — 演示 SSE · 真后端跑 v16 主管线 (sample_id DP001-005) · Phase B.2 (2026-05-10 PM 真意 reframe)
   POST /api/report/upload       — multipart 上传材料 + 解析摘要 (Stage C.1)
   POST /api/report/refine       — session_id 外因续跑(stub,只重跑 external_factor)
   POST /api/report/refine_section — section_id LLM 重写指定章节 (Stage C.1)
@@ -1014,124 +1014,165 @@ async def download_v16_output(filename: str):
 
 
 # ============================================================================
-# POST /api/report/demo/run · Phase A worker-A4 (2026-04-29)
-#   纯 mock SSE · 不调 LLM · 从 data/mock/workspace/report/scenarios/<id>.json 读
-#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
-#   反 5 原则 §3.5 难度分层: easy / medium / hard 三档
-#   契约: 与 /api/report/v16/fill done event 同形 (sections + qc + stats + profile)
+# POST /api/report/demo/run · Phase B.2 (PM 2026-05-10 真意 reframe)
+#   "演示 = 上传 sample 文件 → 真后端 pipeline (LLM/Tavily/算法不变) → 真返结果"
+#
+#   输入: sample_id (data/mock/deep-pillar/<sample_id>/ 真材料 5 优质 batch)
+#   后端: v16_runner.fill_stream(explicit_mock=False) → real_v16_stream → _run_v16_in_thread →
+#         真 v16 主管线 (classifier 复用 cache + generator 真 LLM + QC 真 9 维评分)
+#   契约: 与 /api/report/v16/fill 同 SSE 形 (stage / section / done / error)
+#   data_source: live (非 mock_forced) · mock_pipeline: false
+#
+#   反模式 (已废): scenario_id easy/medium/hard yield fixture event (Phase A worker-A4 旧设计)
+#   不可 GO 条件覆盖: dispatch §"不可 GO 条件" #1 (/demo/run yield fixture)
 # ============================================================================
 
 
+_DEEP_PILLAR_DIR = PROJECT_ROOT / "data" / "mock" / "deep-pillar"
+_DEFAULT_DEMO_SOURCE_DOCX = "samples/经纬测绘_对公成稿A.docx"
+_DEFAULT_CLASSIFIED_JSON = PROJECT_ROOT / "outputs" / "v16_llm_classified.json"
+# sample_id 白名单 · 防路径穿越 + 防 import 任意 dir
+_SAMPLE_ID_RE = re.compile(r"^DP\d{3}_[一-鿿A-Za-z0-9_\-]+$")
+
+
 class ReportDemoRunRequest(BaseModel):
-    scenario_id: str = "medium"  # "easy" | "medium" | "hard"
-
-
-_REPORT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "report" / "scenarios"
+    sample_id: str = "DP001_龙峰精工"  # data/mock/deep-pillar/<sample_id>/ 优质 batch
 
 
 @app.post("/api/report/demo/run")
 async def report_demo_run(
     req: ReportDemoRunRequest,
+    request: Request,
     _user: dict = Depends(require_action("report", "invoke")),
 ):
-    """纯 mock SSE 演示流 · 不依赖 DEEPSEEK_API_KEY / v16 主管线 · 视觉与 live 一致.
+    """演示 SSE · 真后端跑 v16 主管线 (Phase B.2 PM 真意 reframe).
 
-    与 /api/report/v16/fill 共形 (event 名 stage / section / done / error · payload key
-    sections / qc / stats / profile / pending_questions · data_source=mock_forced).
-    Phase A worker-A4 · audit cat 4 align (event v16 同名) · 5 原则 §3.5 难度分层.
+    输入: sample_id (e.g. "DP001_龙峰精工") · 映射到 data/mock/deep-pillar/<sample_id>/
+    后端: 真 LLM (DeepSeek) 跑 v16_generator + 真 9 维 QC · 不调 fixture
+    SSE 输出: 同 /api/report/v16/fill (stage / section / done · data_source=live)
+
+    错误降级 (typed banner · 不 silent · 不 fallback fake):
+      400 SAMPLE_ID_INVALID         · sample_id 命名不合法
+      404 SAMPLE_DIR_MISSING        · sample_id dir 不存在
+      503 DEEPSEEK_KEY_MISSING      · 真路径 LLM key 未配
+      503 DEMO_CLASSIFIER_MISSING   · admin 需先 pre-run v16_classifier 产 classified.json
+      503 DEMO_TEMPLATE_MISSING     · 默认对公模板 docx 缺失
+      其他: SSE error event (stage=ingest · code=V16_REAL_PATH_FAILED)
     """
-    if req.scenario_id not in {"easy", "medium", "hard"}:
+    # 1. sample_id 白名单 (防路径穿越)
+    if not _SAMPLE_ID_RE.match(req.sample_id):
         raise HTTPException(
             status_code=400,
-            detail={"error": {"code": "DEMO_SCENARIO_INVALID",
-                              "message": f"unknown scenario_id: {req.scenario_id} (allowed: easy/medium/hard)"}},
+            detail={"error": {"code": "SAMPLE_ID_INVALID",
+                              "message": f"sample_id 命名不合法: {req.sample_id} · 必须形如 DP001_<name>"}},
         )
-    path = _REPORT_SCENARIO_DIR / f"{req.scenario_id}.json"
-    if not path.exists():
+
+    sample_dir = (_DEEP_PILLAR_DIR / req.sample_id).resolve()
+    # 防穿越 · sample_dir 必在 _DEEP_PILLAR_DIR 下
+    try:
+        sample_dir.relative_to(_DEEP_PILLAR_DIR.resolve())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "SAMPLE_ID_INVALID",
+                              "message": f"sample_id 路径穿越: {req.sample_id}"}},
+        )
+
+    if not sample_dir.is_dir():
         raise HTTPException(
             status_code=404,
-            detail={"error": {"code": "DEMO_SCENARIO_MISSING",
-                              "message": f"scenario file not found: {path.name}"}},
+            detail={"error": {"code": "SAMPLE_DIR_MISSING",
+                              "message": f"sample 目录不存在: {sample_dir.name} · 可选: DP001-DP005"}},
         )
-    try:
-        data = json.loads(path.read_text("utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
+
+    # 2. v16 真路径前置依赖 (拒 silent fallback mock)
+    if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
         raise HTTPException(
-            status_code=500,
-            detail={"error": {"code": "DEMO_SCENARIO_LOAD",
-                              "message": f"scenario load failed: {type(e).__name__}: {e}"}},
-        ) from e
+            status_code=503,
+            detail={"error": {"code": "DEEPSEEK_KEY_MISSING",
+                              "message": "DEEPSEEK_API_KEY 未配置 · v16 真模式不可用 · 演示要求真后端跑通 (PM 真意 reframe)"}},
+        )
+
+    classified_json = _DEFAULT_CLASSIFIED_JSON
+    if not classified_json.exists():
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {"code": "DEMO_CLASSIFIER_MISSING",
+                              "message": (
+                                  f"v16 classifier 产物缺失: {classified_json.name} · "
+                                  "请 admin 一次性预跑: py v16_classifier.py · "
+                                  "(per template 缓存 · 后续 demo 复用 · 不在 demo/run 路径 inline 跑长流程)"
+                              )}},
+        )
+
+    source_docx = (PROJECT_ROOT / _DEFAULT_DEMO_SOURCE_DOCX).resolve()
+    if not source_docx.is_file():
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {"code": "DEMO_TEMPLATE_MISSING",
+                              "message": f"默认对公模板 docx 缺失: {_DEFAULT_DEMO_SOURCE_DOCX}"}},
+        )
+
+    output_dir = (PROJECT_ROOT / "outputs").resolve()
+
+    # 3. report_id 派自 sample_id + ts · session_id 由 SessionStore 给 UUID4
+    report_id = f"demo_{req.sample_id}_{int(time.time())}"
+
+    # 4. 审计上下文 (与 /v16/fill 同源)
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or _user.get("user_id") or "demo_user")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/demo/run",
+        "sample_id": req.sample_id,
+        "report_id": report_id,
+        "source": _DEFAULT_DEMO_SOURCE_DOCX,
+        "material": str(sample_dir),
+    })
+
+    def _emit_audit(status: str) -> None:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/demo/run",
+            "input_hash": _audit_input,
+            "output_status": status,
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+        })
+
+    from agent_report.v16_runner import fill_stream  # noqa: E402
 
     async def gen():
-        stage_msgs = data.get("stage_messages") or {}
-        total = len(STAGE_ORDER)
-        for idx, stage in enumerate(STAGE_ORDER):
-            progress = round((idx + 1) / total, 2)
-            yield _sse("stage", {
-                "stage": stage,
-                "progress": progress,
-                "message": stage_msgs.get(stage, f"{stage}..."),
-                "pipeline": "v16",
+        status = "ok"
+        err: str | None = None
+        try:
+            async for evt in fill_stream(
+                report_id=report_id,
+                source_docx=source_docx,
+                material_dir=sample_dir,
+                classified_json=classified_json,
+                output_dir=output_dir,
+                explicit_mock=False,  # PM 真意: demo = 真后端跑 · 不切 mock
+            ):
+                yield evt
+        except Exception as e:
+            status = "error"
+            err = f"{type(e).__name__}: {e}"
+            yield _sse("error", {
+                "stage": "ingest",
+                "message": f"v16 真模式失败 · {err} · demo 拒 silent fallback mock (PM 真意 reframe)",
+                "code": "V16_REAL_PATH_FAILED",
             })
-            await asyncio.sleep(0.2)
-
-        sections = data.get("sections") or []
-        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 SSE emit 必经 helper
-        # section.id 防 regression placeholder ([object Object] / 未获取 / null) · 同 list unique
-        ensure_list_unique_ids(sections, name_field="title", uscc_field="", id_field="id")
-        for sec in sections:
-            yield _sse("section", {"section": sec})
-            await asyncio.sleep(0.15)
-
-        # V2 fix issue 3 (codex DISAGREE) · session_id 取 SessionStore 返的 UUID4 · 不再
-        # demo_report_* 自造 prefix · 否则 /api/report/refine_section 的 store.get() lookup 必 404
-        # (refine_section 路径 SessionStore 是单一权威源 · UUID 是契约 key).
-        profile_data = data.get("profile") or {}
-        qc_data = data.get("qc") or {"passed": True, "score": 88, "fatal_fail": False, "halluc_count": 0}
-        stats_data = data.get("stats") or {}
-        pending_data = data.get("pending_questions") or []
-        # ALL IN Phase B step 5 · pending_questions 同样必经 helper · 防 fixtures 漏 id
-        ensure_list_unique_ids(pending_data, name_field="label", uscc_field="", id_field="id")
-
-        # 先 store.create 拿 UUID · 再用 UUID 拼 done_payload · 然后 update 把 done_payload 写回
-        session_id = store.create({
-            "mode": "demo",
-            "scenario_id": req.scenario_id,
-            "enterprise_profile": profile_data,
-            "pending_questions": pending_data,
-        })
-        done_payload: dict[str, Any] = {
-            "event": "done",
-            "data_source": "mock_forced",
-            "pipeline": "v16",
-            "mock_pipeline": True,
-            "session_id": session_id,
-            "report_id": session_id,
-            "sections": sections,
-            "profile": profile_data,
-            "stats": stats_data,
-            "qc": qc_data,
-            "pending_questions": pending_data,
-        }
-
-        # ---- Phase B Sprint 1 BE3 · 从 fixture material_gap_inputs 算 graph 注 done_payload ----
-        # mock 路径 · scenarios/<id>.json 仅含 inputs (反 5 原则 §3.5 #5 fixture 不预埋答案) ·
-        # graph 由 material_gap.build_graph 当场算 · 单测 test_fixture_no_graph_field 防回归
-        material_gap_inputs = data.get("material_gap_inputs")
-        if material_gap_inputs:
-            try:
-                from agent_report.material_gap import build_graph
-                done_payload["material_gap_graph"] = build_graph(
-                    material_gap_inputs, report_id=session_id,
-                )
-            except Exception:
-                # 计算失败不阻断 demo · sibling 字段缺时前端 hide panel
-                pass
-
-        # done_payload 持久化 · /api/report/export_docx + /api/report/export_pdf +
-        # /api/report/refine_section 都靠它从 store 拿 sections / profile / pending
-        store.update(session_id, {"done_payload": done_payload})
-        yield _sse("done", done_payload)
+            return
+        finally:
+            _emit_audit(status)
+            audit_stream_event(
+                agent_id="report",
+                endpoint="/api/report/demo/run",
+                model="deepseek-chat",
+                t0=_audit_t0,
+                user_id=_audit_user,
+                error=err,
+            )
 
     return StreamingResponse(
         gen(),

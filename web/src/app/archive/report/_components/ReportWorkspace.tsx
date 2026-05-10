@@ -373,9 +373,13 @@ export function ReportWorkspace() {
     }
   }, [exporting, liveData, businessLine]);
 
-  /* Phase A worker-A4 · demo/run · scenario_id (easy/medium/hard) · 不调 LLM · 5 原则 §3.5 */
+  /* Phase B.2 (PM 2026-05-10 真意 reframe) · demo/run · sample_id (DP001-005)
+     反模式 (已废): scenario_id easy/medium/hard 切假数据 fixture
+     PM 真意: 演示 = 上传 sample 真材料 → 真后端 (v16 主管线) → 真返结果
+     mode 仍设 "mock" 仅作前端 UX flag (区分手动上传 vs 优质 batch 加载) ·
+     done.data_source 真值由后端给 ("live") · 不再前端预判 */
   const handleDemoRun = useCallback(
-    (scenarioId: "easy" | "medium" | "hard") => {
+    (sampleId: string) => {
       if (generating) return;
       setGenerating(true);
       setLiveStages([]);
@@ -390,7 +394,7 @@ export function ReportWorkspace() {
       abortRef.current = ac;
 
       streamReportDemoRun(
-        { scenario_id: scenarioId },
+        { sample_id: sampleId },
         {
           signal: ac.signal,
           onEvent: (evt: ReportV16Event) => {
@@ -499,7 +503,17 @@ export function ReportWorkspace() {
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
         />
-        {/* PM 2026-05-09 ALL IN: 删 DEMO 难度分层 CTA (report 不再有 mock_forced 前端入口 · demo/run 后端端点保留供 dev) */}
+        {/* Phase B.2 (PM 2026-05-10 真意 reframe): 演示形态切换 = 上传材料 vs 加载示例企业
+            · 两条路径都跑真后端 (v16_runner.fill_stream explicit_mock=False · 真 LLM + 真 QC)
+            · 与旧 DEMO 难度档 (easy/medium/hard fixture) 反模式不同
+            · UX: 主入口上传 (LaunchBar) + 兜底示例 (SampleStrip · 5 真 batch)
+            · 不 generating + 未 done · 始终显 SampleStrip · 大空白填示例 · 主活 B + Step 7 */}
+        {!liveData && !generating ? (
+          <ReportSampleStrip
+            onRun={handleDemoRun}
+            disabled={generating}
+          />
+        ) : null}
         {started ? (
           <>
             {liveStages.length > 0 || liveData ? (
@@ -1777,19 +1791,29 @@ const _LAUNCH_SELECT_STYLE: CSSProperties = {
   cursor: "pointer",
 };
 
-/* Phase A worker-A4 (2026-04-29) · 3-档 demo CTA · scenario_id easy/medium/hard
-   反 5 原则 §3.5 难度分层 · 不调 LLM · 客户走访稳定 demo 路径 · POST /api/report/demo/run */
-function ReportDemoStrip({
+/* Phase B.2 (PM 2026-05-10 真意 reframe) · sample CTA · sample_id DP001-005
+   PM 真意: 演示 = 上传 sample 真材料 → 真后端 (v16 主管线) → 真返结果
+   反模式 (已废): scenario_id easy/medium/hard fixture (Phase A worker-A4)
+   POST /api/report/demo/run · 后端 fill_stream(explicit_mock=False) 真 LLM 跑 */
+const REPORT_SAMPLE_OPTIONS = [
+  { id: "DP001_龙峰精工",   label: "DP001 · 龙峰精工",   hint: "精密零部件 · 福建专精特新" },
+  { id: "DP002_蓝汀家电",   label: "DP002 · 蓝汀家电",   hint: "家电制造 · 浙江规上" },
+  { id: "DP003_宸星家装",   label: "DP003 · 宸星家装",   hint: "家装零售 · 民营连锁" },
+  { id: "DP004_汇德建材",   label: "DP004 · 汇德建材",   hint: "建材贸易 · 区域龙头" },
+  { id: "DP005_星胤实业",   label: "DP005 · 星胤实业",   hint: "实业控股 · 多元经营" },
+] as const;
+
+function ReportSampleStrip({
   onRun,
   disabled,
 }: {
-  onRun: (scenarioId: "easy" | "medium" | "hard") => void;
+  onRun: (sampleId: string) => void;
   disabled: boolean;
 }) {
   const btnStyle: CSSProperties = {
     fontFamily: "var(--cjk)",
     fontSize: 12,
-    padding: "6px 12px",
+    padding: "8px 14px",
     background: "transparent",
     color: "var(--ink)",
     border: "1px solid var(--ink-14)",
@@ -1797,57 +1821,50 @@ function ReportDemoStrip({
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.5 : 1,
     whiteSpace: "nowrap",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 2,
+    minWidth: 132,
   };
   return (
     <section
-      data-testid="report-demo-strip"
+      data-testid="report-sample-strip"
       style={{
         margin: "12px 0",
-        padding: "10px 16px",
+        padding: "12px 16px",
         background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
         border: "1px dashed var(--ink-14)",
         borderRadius: "var(--r-md)",
         display: "flex",
-        gap: 12,
+        gap: 10,
         alignItems: "center",
+        flexWrap: "wrap",
         fontFamily: "var(--cjk)",
         fontSize: 12,
         color: "var(--ink)",
       }}
-      aria-label="演示数据 · 难度分层"
+      aria-label="加载示例企业 · 真材料 batch"
     >
-      <span style={{ color: "var(--ink-65)", textTransform: "uppercase", letterSpacing: ".04em", fontSize: 10 }}>
-        演示模式 · 5 原则 §3.5
+      <span style={{ color: "var(--ink-65)", textTransform: "uppercase", letterSpacing: ".04em", fontSize: 10, marginRight: 4 }}>
+        示例企业 · 真材料跑真后端
       </span>
-      <button
-        type="button"
-        data-testid="report-demo-easy"
-        style={btnStyle}
-        disabled={disabled}
-        onClick={() => onRun("easy")}
-      >
-        简单 · 材料齐全
-      </button>
-      <button
-        type="button"
-        data-testid="report-demo-medium"
-        style={btnStyle}
-        disabled={disabled}
-        onClick={() => onRun("medium")}
-      >
-        中等 · 部分缺
-      </button>
-      <button
-        type="button"
-        data-testid="report-demo-hard"
-        style={btnStyle}
-        disabled={disabled}
-        onClick={() => onRun("hard")}
-      >
-        困难 · QC 阻断
-      </button>
+      {REPORT_SAMPLE_OPTIONS.map((opt) => (
+        <button
+          key={opt.id}
+          type="button"
+          data-testid={`report-sample-${opt.id.split("_")[0].toLowerCase()}`}
+          style={btnStyle}
+          disabled={disabled}
+          onClick={() => onRun(opt.id)}
+          title={`${opt.label} · ${opt.hint}`}
+        >
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
+          <span style={{ fontSize: 10, color: "var(--ink-65)" }}>{opt.hint}</span>
+        </button>
+      ))}
       <span style={{ marginLeft: "auto", color: "var(--ink-65)", fontSize: 11, fontStyle: "italic" }}>
-        不调 LLM · 客户走访稳定路径
+        真 LLM (DeepSeek) + 真 9 维 QC · PM 2026-05-10 真意 reframe
       </span>
     </section>
   );
