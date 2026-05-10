@@ -17,7 +17,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
@@ -482,7 +481,6 @@ export function ReportWorkspace() {
           onRetry={() => triggerV16Fill()}
           onDismiss={() => setErrMsg(null)}
         />
-        <ReportMockBanner started={started} mode={mode} />
         <ReportLaunchBar
           started={started}
           mode={mode}
@@ -502,8 +500,7 @@ export function ReportWorkspace() {
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
         />
-        {/* Phase A worker-A4 · 3-档 demo CTA · 5 原则 §3.5 难度分层 · 不调 LLM · 客户走访稳定 */}
-        <ReportDemoStrip onRun={handleDemoRun} disabled={generating} />
+        {/* PM 2026-05-09 ALL IN: 删 DEMO 难度分层 CTA (report 不再有 mock_forced 前端入口 · demo/run 后端端点保留供 dev) */}
         {started ? (
           <>
             {liveStages.length > 0 || liveData ? (
@@ -527,24 +524,7 @@ export function ReportWorkspace() {
                 <TimelinePanel mode={mode} sessionData={sessionData} />
               </aside>
               <main className="rpt-main">
-                {/* B-cta · maxWidth 480 → 320 收紧 · 居中 · 解决 RM 抱怨"巨大不合理交互按钮" */}
-                <div
-                  data-testid="report-scancta-wrapper"
-                  style={{ maxWidth: 320, margin: "0 auto 16px auto" }}
-                >
-                  <ScanCTA
-                    label="生成报告 (mock 路径)"
-                    tone="report"
-                    onDone={() => triggerV16Fill({ explicitMock: true })}
-                    steps={[
-                      { label: "解析企业材料 · OCR 识别", pct: 18 },
-                      { label: "字段结构化预填", pct: 42 },
-                      { label: "段落 Evidence-First 生成", pct: 66 },
-                      { label: "QC 终审 · 占位符检查", pct: 88 },
-                      { label: "导出 Word · 完成", pct: 100 },
-                    ]}
-                  />
-                </div>
+                {/* PM 2026-05-09 ALL IN: 删 ScanCTA "生成报告 (mock 路径)" · ALL IN 后只走真 v16 主管线 · launch bar 已有 "开始生成" 真触发 */}
                 <ConversationPanel sessionData={sessionData}>
                   <ReportComposer sessionData={sessionData} />
                 </ConversationPanel>
@@ -651,10 +631,8 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
           </div>
         </div>
       </div>
-      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
+      {/* ALL IN Phase B · 删 ModePill (mock/live 二元 toggle) · DataSourceBadge 5-enum 即唯一 trust 标记 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <ModePill isLive={isLive ?? false} testId="report-mode-pill" />
-        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
         {dataSourceKind && (
           <DataSourceBadge kind={dataSourceKind} testId="report-data-source-badge" />
         )}
@@ -2117,37 +2095,6 @@ function ReportLaunchErrorBanner(p: {
   );
 }
 
-/* W-FIX-A1 · mock banner 提取为 root-level 组件 · 跟 LiveFailBanner / Hero 对齐
-   live-fallback-banner-spec §2 规则 2 + §3 排版硬线 (margin 16px 0 一致) */
-function ReportMockBanner(p: { started: boolean; mode: "mock" | "live" }) {
-  if (!p.started || p.mode !== "mock") return null;
-  return (
-    <section
-      data-testid="report-mock-banner"
-      role="status"
-      style={{
-        margin: "16px 0",
-        padding: "10px 16px",
-        fontFamily: "var(--cjk)",
-        fontSize: 12,
-        color: "var(--ink)",
-        background: "rgba(180, 140, 60, 0.10)",
-        border: "1px dashed rgba(180, 140, 60, 0.45)",
-        borderRadius: "var(--r-md)",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-      }}
-    >
-      <span aria-hidden style={{ fontSize: 16 }}>⚠️</span>
-      <span style={{ flex: 1 }}>
-        您正在查看 <strong>示例数据 (training mode)</strong>
-        {" · "}切真实路径请上传材料触发 v16 主管线
-      </span>
-    </section>
-  );
-}
-
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  W-FIX-A1 · live-fallback-banner-spec v1.0 §2 规则 1 · live mode 失败 banner */
 /*  顶部 alarm + endpoint + status + retry CTA · empty-state §1.5 配套规范      */
@@ -2272,9 +2219,7 @@ function ReportEmptySkeleton() {
       >
         上传客户
         <strong style={{ color: "var(--t-report)" }}>原始材料</strong>
-        触发 v16 主管线（classifier → generator → QC gate）· 或选
-        <strong style={{ color: "var(--ink)" }}>历史会话</strong>
-        看示例演示。
+        触发 v16 主管线（classifier → generator → QC gate）。
       </p>
       <ul
         style={{
@@ -2460,7 +2405,6 @@ function ReportLiveStrip(p: {
         >
           QC {p.done.qc?.passed ? "✓ 通过" : "△ 阻断"}
           {p.done.qc?.score !== undefined ? ` · ${p.done.qc.score}` : ""}
-          {p.done.mock_pipeline ? " (mock)" : ""}
         </span>
       ) : null}
     </section>
