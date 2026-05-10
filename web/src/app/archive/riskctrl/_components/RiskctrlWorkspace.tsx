@@ -16,6 +16,8 @@ import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
+/* Phase B.2 ALL IN reframe (2026-05-10) · 删 RISKCTRL_EVIDENCE fixture import (硬线 · 禁止 fixtures.ts 任何 import)
+ * 旧 ClaimText 渲染走 fixture 假证据 · 现改 live-only · 无 live 数据时不渲染该 section */
 import {
   LineChart,
   Line,
@@ -33,10 +35,14 @@ import {
   exportDocx as exportDocxApi,
   exportPdf as exportPdfApi,
   exportXlsx as exportXlsxApi,
+  fetchDemoSeeds,
   LiveFailError,
   runBacktest,
+  runDemo,
   runDslGen,
   type BacktestDonePayload,
+  type DemoRunDonePayload,
+  type RiskctrlDemoSeed,
 } from "@/lib/api/riskctrl";
 import {
   RISKCTRL_GLOBAL_STATS,
@@ -100,9 +106,14 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
   };
 }
 
-/* ALL IN Phase B step 1 · 删 secondary_preset / tertiary_history (mock 入口) ·
- * 仅保留 primary_dsl 真路径 (LLM 生成 DSL → 真回测) */
-type RiskTrigger = "primary_dsl";
+/* Phase B.2 ALL IN reframe (2026-05-10) · trigger 二分 · 真实模式 (primary_dsl) + 演示模式 (demo_seed)
+ * 演示模式不是切假数据 · 是用 demo input seed (loans.csv + 预置 strategy_intent) 跑真后端 pipeline
+ * 真后端 = 真 LLM dsl_gen + 真确定性 backtest (KS/AUC numpy · §3.1)
+ * data_source 全部 LIVE · 不再有 fixture-based 假结果路径 */
+type RiskTrigger = "primary_dsl" | "demo_seed";
+
+/* Phase B.2 · workspace 形态切换 · 真实 default · 切演示自动加载优质 batch (loans.csv) */
+type WorkspaceMode = "real" | "demo";
 
 /* ─── backtest done event → liveData session merge (Step 8 · Phase A worker-A4) ───
  * 后端 backtest done 含 panels (ruleset/ks/samples/rule_stats) + metrics 顶层 KPI ·
@@ -172,9 +183,17 @@ export default function RiskctrlWorkspace() {
   /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
 
-  /* ALL IN Phase B step 1 · 删 secondary_preset / tertiary_history state ·
-   * 仅留 primary_dsl 真路径 (LLM 生成 DSL → 真回测) */
+  /* Phase B.2 · trigger 二分 · primary_dsl (真模式 · 用户写策略) + demo_seed (演示模式 · 跑预置 seed) */
   const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
+
+  /* Phase B.2 · workspace 形态 · 真实 default (用户输入 strategy + csv) · 切 demo 自动加载优质 batch */
+  const [mode, setMode] = useState<WorkspaceMode>("real");
+
+  /* Phase B.2 · demo seed 列表 (从后端 GET /api/riskctrl/demo/seeds 拉) + 当前选中 seed
+   * 仅在 mode=demo 时拉 · 失败时记录 (banner 显示) · 不 silent fallback 假 seed */
+  const [demoSeeds, setDemoSeeds] = useState<RiskctrlDemoSeed[]>([]);
+  const [selectedDemoSeedId, setSelectedDemoSeedId] = useState<string>("");
+  const [demoSeedsError, setDemoSeedsError] = useState<string>("");
 
   /* 既有 scanned state (post-backtest 视觉解锁) · 不动 */
   const [scanned, setScanned] = useState(false);
@@ -332,6 +351,66 @@ export default function RiskctrlWorkspace() {
     }
   }, [lastRuleset, lastSampleCsvPath]);
 
+  /* Phase B.2 · 切 mode=demo 时按需拉 demo seed list (lazy · 不进 demo 不浪费请求)
+   * 失败 → 记 demoSeedsError → UI banner 提示 (不 silent fallback 假 seed) */
+  useEffect(() => {
+    if (mode !== "demo" || demoSeeds.length > 0) return;
+    let aborted = false;
+    fetchDemoSeeds()
+      .then((seeds) => {
+        if (aborted) return;
+        setDemoSeeds(seeds);
+        setDemoSeedsError("");
+        if (seeds.length > 0 && !selectedDemoSeedId) {
+          setSelectedDemoSeedId(seeds[0].seed_id);
+        }
+      })
+      .catch((e: unknown) => {
+        if (aborted) return;
+        const msg = e instanceof Error ? e.message : String(e);
+        setDemoSeedsError(`无法加载 demo seed 列表 · ${msg} · 请检查后端 /api/riskctrl/demo/seeds`);
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [mode, demoSeeds.length, selectedDemoSeedId]);
+
+  /* Phase B.2 · 演示模式 CTA · 用 demo seed 跑真后端 pipeline (LLM dsl_gen + 真 backtest)
+   * 与 triggerDslGen 不同: 一步到位完成 LLM + 回测 · 输入是预置 seed (loans.csv + strategy_intent)
+   * 输出是真后端结果 (KS/AUC/通过率) · 不是 fixture pre-baked 答案 */
+  const triggerDemo = useCallback(async () => {
+    const seedId = selectedDemoSeedId || (demoSeeds[0]?.seed_id ?? "credit_v15");
+    setStarted(true);
+    setTrigger("demo_seed");
+    setScanRunning(true);
+    setScanError("");
+    clearLiveFail();
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      const result: DemoRunDonePayload | null = await runDemo(seedId, undefined, ac.signal);
+      if (ac.signal.aborted) return;
+      if (result) {
+        setScanned(true);
+        const merged = mergeBacktestIntoSession(EMPTY_SESSION, result);
+        setLiveData(merged);
+        setCurrentDataSource(normalizeDataSource(result.data_source));
+        if (result.ruleset && typeof result.ruleset === "object") {
+          setLastRuleset(result.ruleset as Record<string, unknown>);
+        }
+        if (result.session_id) setRulesetId(result.session_id);
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      recordLiveFail("演示模式 · 真后端跑", e, () => triggerDemo());
+      setScanError(e instanceof Error ? e.message : String(e));
+      setCurrentDataSource("mock_fallback");
+    } finally {
+      if (!ac.signal.aborted) setScanRunning(false);
+    }
+  }, [selectedDemoSeedId, demoSeeds]);
+
   /* 三件套导出 · POST /api/riskctrl/export_{docx,xlsx,pdf} · backend Step 7 已实装
      (agent_riskctrl/exports.py · python-docx / openpyxl / reportlab 本地渲染 · 不走境外 API) */
   const triggerExport = useCallback(async (kind: ExportKind) => {
@@ -384,8 +463,8 @@ export default function RiskctrlWorkspace() {
 
   return (
     <EvidenceProvider
-      /* Phase B.1 fix #1 · 删 RISKCTRL_EVIDENCE fixture fallback (codex re-review 抓 · 红线 #3 假证据)
-       * live evidence 才显 · 无时 EMPTY · 不显假证据 */
+      /* Phase B.2 ALL IN reframe · live-only evidence · 无 live 数据时空 array
+       * (硬线: fixtures.ts 任何 import = REJECT · 不再 fallback RISKCTRL_EVIDENCE) */
       items={liveEvidenceItems}
       unfilledFields={[]}
     >
@@ -394,6 +473,7 @@ export default function RiskctrlWorkspace() {
         data-scanned={scanned ? "yes" : "no"}
         data-started={started ? "yes" : "no"}
         data-trigger={trigger ?? "none"}
+        data-mode={mode}
         data-session={sessionData.id}
         data-live={isLive ? "yes" : "no"}
         data-testid="riskctrl-workspace"
@@ -401,7 +481,14 @@ export default function RiskctrlWorkspace() {
         <RiskHero sessionData={sessionData} isLive={isLive} dataSourceKind={currentDataSource} />
 
         <RiskTriggerBar
+          mode={mode}
+          onModeChange={setMode}
           onPrimaryDslGen={() => triggerDslGen("")}
+          onDemoRun={() => triggerDemo()}
+          demoSeeds={demoSeeds}
+          selectedDemoSeedId={selectedDemoSeedId}
+          onSelectDemoSeed={setSelectedDemoSeedId}
+          demoSeedsError={demoSeedsError}
           scanRunning={scanRunning}
         />
 
@@ -519,8 +606,9 @@ export default function RiskctrlWorkspace() {
                 />
               </aside>
             </div>
-            {/* Phase B.1 fix #1 · 删 ev-claim-summary RISKCTRL_EVIDENCE.summary 假证据
-             * (codex re-review 抓 · 红线 #3 · live 没数据时不显假摘要) */}
+            {/* Phase B.2 ALL IN reframe · 删 fixture summary 渲染 (硬线: fixtures.ts import = REJECT)
+             * live 数据来时由 RiskOutputPanel 渲染真 KS/AUC + RiskIndicatorRow 渲染真分布
+             * 此处不再单独渲染 ClaimText (旧 fixture summary "[mock] demo 默认策略" 已删) */}
           </>
         ) : (
           <RiskEmptySkeleton />
@@ -530,28 +618,140 @@ export default function RiskctrlWorkspace() {
   );
 }
 
-/* ── Primary CTA bar (ALL IN Phase B step 1 · 删 secondary preset / tertiary history) ─── */
+/* ── Trigger Bar (Phase B.2 ALL IN reframe · mode toggle + 真/演示 双 CTA) ──────────────
+ *
+ * 真实模式 (mode=real · default): 用户写策略 → 真 LLM 生成 DSL → 真 backtest
+ *   保留旧 riskctrl-dsl-gen-cta testid · empty-state.spec 兼容
+ * 演示模式 (mode=demo): 选 demo seed → 一键运行 → 真后端 pipeline (loans.csv 输入 mock · 结果真跑)
+ *   新 riskctrl-demo-run-cta testid · 区分入口 */
 
 function RiskTriggerBar(p: {
+  mode: WorkspaceMode;
+  onModeChange: (m: WorkspaceMode) => void;
   onPrimaryDslGen: () => void;
+  onDemoRun: () => void;
+  demoSeeds: RiskctrlDemoSeed[];
+  selectedDemoSeedId: string;
+  onSelectDemoSeed: (seedId: string) => void;
+  demoSeedsError: string;
   scanRunning: boolean;
 }) {
-  const primaryLabel = p.scanRunning ? "DSL 生成中…" : "选样本 + 写策略 · 生成 DSL";
+  const realLabel = p.scanRunning && p.mode === "real" ? "DSL 生成中…" : "选样本 + 写策略 · 生成 DSL";
+  const demoLabel = p.scanRunning && p.mode === "demo" ? "演示运行中…" : "一键运行示例 · 真后端跑";
+  const selectedSeed = p.demoSeeds.find((s) => s.seed_id === p.selectedDemoSeedId);
   return (
     <section
       className="riskctrl-trigger-bar"
-      aria-label="主入口 · 真接 LLM 生成 DSL"
+      aria-label="入口 · 真实模式 vs 演示模式"
       data-testid="riskctrl-trigger-bar"
+      data-mode={p.mode}
     >
-      <button
-        type="button"
-        className="riskctrl-trigger-bar__primary"
-        onClick={p.onPrimaryDslGen}
-        disabled={p.scanRunning}
-        data-testid="riskctrl-dsl-gen-cta"
+      <div
+        className="riskctrl-mode-toggle"
+        role="tablist"
+        aria-label="模式切换"
+        data-testid="riskctrl-mode-toggle"
       >
-        {primaryLabel}
-      </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={p.mode === "real"}
+          className="riskctrl-mode-toggle__btn"
+          data-active={p.mode === "real" ? "yes" : "no"}
+          data-testid="riskctrl-mode-toggle-real"
+          onClick={() => p.onModeChange("real")}
+          disabled={p.scanRunning}
+        >
+          真实模式
+          <span className="riskctrl-mode-toggle__sub">用户输入策略 + CSV</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={p.mode === "demo"}
+          className="riskctrl-mode-toggle__btn"
+          data-active={p.mode === "demo" ? "yes" : "no"}
+          data-testid="riskctrl-mode-toggle-demo"
+          onClick={() => p.onModeChange("demo")}
+          disabled={p.scanRunning}
+        >
+          演示模式
+          <span className="riskctrl-mode-toggle__sub">优质 mock 输入 · 跑真后端</span>
+        </button>
+      </div>
+
+      {p.mode === "real" ? (
+        <button
+          type="button"
+          className="riskctrl-trigger-bar__primary"
+          onClick={p.onPrimaryDslGen}
+          disabled={p.scanRunning}
+          data-testid="riskctrl-dsl-gen-cta"
+        >
+          {realLabel}
+        </button>
+      ) : (
+        <div className="riskctrl-demo-controls" data-testid="riskctrl-demo-controls">
+          {p.demoSeedsError ? (
+            <div
+              className="riskctrl-demo-error"
+              role="alert"
+              data-testid="riskctrl-demo-seeds-error"
+            >
+              {p.demoSeedsError}
+            </div>
+          ) : null}
+          {p.demoSeeds.length > 0 ? (
+            <>
+              <label className="riskctrl-demo-seed-label" htmlFor="riskctrl-demo-seed-select">
+                Demo 输入档
+              </label>
+              <select
+                id="riskctrl-demo-seed-select"
+                className="riskctrl-demo-seed-select"
+                value={p.selectedDemoSeedId}
+                onChange={(e) => p.onSelectDemoSeed(e.target.value)}
+                disabled={p.scanRunning}
+                data-testid="riskctrl-demo-seed-select"
+              >
+                {p.demoSeeds.map((s) => (
+                  <option key={s.seed_id} value={s.seed_id}>
+                    {s.label} · 难度 {s.difficulty}
+                  </option>
+                ))}
+              </select>
+              {selectedSeed ? (
+                <p
+                  className="riskctrl-demo-seed-hint"
+                  data-testid="riskctrl-demo-seed-hint"
+                  title={selectedSeed.strategy_intent}
+                >
+                  策略意图：{selectedSeed.strategy_intent.slice(0, 60)}
+                  {selectedSeed.strategy_intent.length > 60 ? "…" : ""}
+                  <br />
+                  样本：{selectedSeed.csv_path} (真后端读 · MAX_ROWS=50000)
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="riskctrl-trigger-bar__primary"
+                onClick={p.onDemoRun}
+                disabled={p.scanRunning || !p.selectedDemoSeedId}
+                data-testid="riskctrl-demo-run-cta"
+              >
+                {demoLabel}
+              </button>
+            </>
+          ) : !p.demoSeedsError ? (
+            <span
+              className="riskctrl-demo-loading"
+              data-testid="riskctrl-demo-seeds-loading"
+            >
+              加载 demo seed 列表…
+            </span>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -568,24 +768,22 @@ function RiskEmptySkeleton() {
       <div className="riskctrl-empty__head">
         <h3 className="riskctrl-empty__title">等待触发策略</h3>
         <p className="riskctrl-empty__hint">
-          上方
-          <strong>「选样本 + 写策略 · 生成 DSL」</strong>
-          → 真接 LLM 生成规则树；或
-          <strong>选预置规则集</strong>
-          快速启用；
-          <em>「历史回测（示例）」</em>
-          仅供培训演示。
+          选择上方<strong>「真实模式」</strong>写自己的策略 + CSV 跑真 LLM；
+          或切<strong>「演示模式」</strong>用优质 mock 输入 (loans.csv 7500 行)
+          一键跑真后端 pipeline · 真返 KS / AUC / 通过率结果。
+          <br />
+          <em>不是切假数据 · 是真后端 LLM dsl_gen + 确定性 numpy backtest。</em>
         </p>
       </div>
       <div className="riskctrl-empty__panels">
         <div className="riskctrl-empty__panel" data-panel="dsl">
-          DSL 规则树 · IF / AND / OR / THEN 4 op · 生成后此处显示
+          DSL 规则树 · IF / AND / OR / THEN 4 op · 真 LLM 生成后此处显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="ks">
-          KS / AUC / 通过率 三大指标 + KS 双线图 · 回测完成显示
+          KS / AUC / 通过率 三大指标 + KS 双线图 · 真回测完成显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="sample">
-          样本分布 (pass / review / block) · 回测完成显示
+          样本分布 (通过 / 复核 / 拒绝) · 真回测完成显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="export">
           回测报告导出 · 完成后可一键导出 Word / Excel / PDF

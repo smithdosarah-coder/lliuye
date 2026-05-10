@@ -862,89 +862,354 @@ async def riskctrl_export_xlsx(
 
 
 # ============================================================================
-# Phase A worker-A4 · 2026-04-29 · /api/riskctrl/demo/run · 纯 mock SSE 演示
-#   物理隔离 endpoint · 不复用 _dsl_gen_stream / _backtest_stream
-#   走 fixture · 反 5 原则 §3.5 难度分层 (credit_v15 / aml_kyc / fraud_high)
-#   prod 端点失败时 banner 显式不 silent fallback (live-fallback-banner-spec §1.5)
+# Phase B.2 ALL IN reframe (2026-05-10) · /api/riskctrl/demo/run · 真后端 pipeline
+#   PM 真意: 演示 = 用优质内部 mock 输入 (loans.csv) 跑真后端 (LLM + 确定性 backtest)
+#   旧 fixture-based 实现 (Phase A worker-A4) 已废弃 · 违反反 5 原则 §3.5 (答案给嘴边)
+#   新形态: seed_id → 真 dsl_gen (LLM) → 真 backtest (Python KS/AUC) → 真返结果
+#   data_source = LIVE (后端 pipeline 真跑) · seed_id 标识输入来源 (mock 输入 != mock 结果)
 # ============================================================================
 
 
 class DemoRunRequest(BaseModel):
-    scenario_id: str = Field(default="credit_v15", description="credit_v15 | aml_kyc | fraud_high")
+    """Phase B.2 demo run request · seed_id 选 demo 输入档 (输入 mock · 结果真跑)."""
+
+    seed_id: str = Field(
+        default="credit_v15",
+        description="demo 输入档 ID · 见 GET /api/riskctrl/demo/seeds (credit_v15 | aml_kyc | fraud_high)",
+    )
+    # 旧字段 scenario_id 双兼 (向下兼容前端旧 client 直至 Phase B.2 ship)
+    scenario_id: str | None = Field(
+        default=None,
+        description="(deprecated) 旧名 · 等价于 seed_id · 后端透传",
+    )
 
 
+@app.get("/api/riskctrl/demo/seeds")
+async def riskctrl_demo_seeds():
+    """枚举 demo input seed (前端 dropdown 用 · 仅输入字段 · 不含答案)."""
+    from agent_riskctrl.demo import list_seeds
+    return {"seeds": list_seeds()}
+
+
+# Legacy alias · 旧前端 GET /api/riskctrl/demo/scenarios 调用兼容
 @app.get("/api/riskctrl/demo/scenarios")
-async def riskctrl_demo_scenarios():
-    """枚举 demo scenarios (前端 dropdown 用)."""
+async def riskctrl_demo_scenarios_legacy():
+    """[Deprecated · 改用 /api/riskctrl/demo/seeds] 旧 dropdown 形态 (key/label) 兼容."""
     from agent_riskctrl.demo import list_scenarios
     return {"scenarios": list_scenarios()}
 
 
 @app.post("/api/riskctrl/demo/run")
+@audit_llm_call(
+    agent_id="riskctrl", endpoint="/api/riskctrl/demo/run", model="deepseek-chat",
+)
 async def riskctrl_demo_run(
     req: DemoRunRequest,
     _user: dict = Depends(require_action("riskctrl", "invoke")),
 ):
-    """纯 mock SSE 流 · 不调 LLM / 不读真 csv · 走 fixture json.
+    """Phase B.2 真后端 demo · 用 demo seed 输入跑真 dsl_gen (LLM) + 真 backtest.
 
-    Scenario 选 credit_v15 / aml_kyc / fraud_high · stages: load_csv → hit_rules → calc_ks ·
-    done payload 与 prod backtest endpoint 共形 (panels.{ruleset, ks, samples, rule_stats}
-    + metrics 顶层 KPI).
+    流程:
+      1. 解析 seed (strategy_intent + csv_path · 仅输入 · 无答案)
+      2. 载 CSV (load_csv_data · MAX_ROWS=50000 上限)
+      3. 调 LLM 生成 DSL (走 shared.llm_caller · PIPL fallback chain · 不 mock=true)
+      4. 真 backtest (apply_ruleset + 确定性 KS/AUC · §3.1 不让 LLM 现场算)
+      5. 决策上链 (silent-fail · §3.7.5 retention=short 90d)
+      6. emit done envelope · data_source=LIVE · metrics.demo_seed_id 标识输入来源
+
+    任何 LLM/CSV 失败 → typed make_error event · 不 silent fallback 假数据 (红线 #1).
 
     Auth (Phase B.1 fix · 2026-05-09 · per Q-052 #8): require_action("riskctrl", "invoke")
-    enforce row-level/action gate · 即便是 demo · 也防未授权用户调 (防 demo endpoint 被滥用作免费推理通道)
+    enforce row-level/action gate · 即便 demo · 也防未授权 (防滥用作免费推理通道)
     """
     from shared.sse_envelope import (
-        DATA_SOURCE_MOCK_FORCED,
+        DATA_SOURCE_LIVE,
         encode_event,
         make_done,
         make_error,
+        make_error_from_exception,
         make_stage,
     )
-    import time as _time
 
-    from agent_riskctrl.demo import VALID_SCENARIOS, load_scenario
+    from agent_riskctrl.demo import VALID_SEED_IDS, get_seed
 
     def gen():
-        scenario_id = req.scenario_id or "credit_v15"
-        if scenario_id not in VALID_SCENARIOS:
+        # seed 解析 · scenario_id (legacy) → seed_id (new)
+        seed_id = req.seed_id or req.scenario_id or "credit_v15"
+        if seed_id not in VALID_SEED_IDS:
             yield encode_event(make_error(
-                f"unknown scenario_id: {scenario_id} (allowed: {', '.join(VALID_SCENARIOS)})",
-                code="DEMO_SCENARIO_INVALID",
+                f"unknown seed_id: {seed_id} (allowed: {', '.join(VALID_SEED_IDS)})",
+                code="DEMO_SEED_INVALID",
+            ))
+            return
+        seed = get_seed(seed_id)
+        if seed is None:
+            yield encode_event(make_error(
+                f"seed lookup failed: {seed_id}",
+                code="DEMO_SEED_MISSING",
+            ))
+            return
+
+        # 延迟 import · 避免 module load cost on path miss
+        try:
+            from agent_riskctrl.backtesting import load_csv_data, run_backtest
+            from agent_riskctrl.metrics import calculate_auc, calculate_ks
+            from agent_riskctrl.rule_engine import RuleSet, parse_natural_language_rules
+            from shared.llm_caller import make_json_caller
+            from shared.prompts.agent_helpers import build_riskctrl_ssot_prompt
+        except (ImportError, ModuleNotFoundError) as e:
+            yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
+            return
+
+        # Stage 1 · load CSV (用 demo seed 的 csv_path · 真读 loans.csv)
+        yield encode_event(make_stage(
+            "load_csv", "running",
+            message=f"载入 demo 样本 · {seed['csv_path']} (MAX_ROWS=50000)",
+        ))
+        csv_path = Path(seed["csv_path"])
+        if not csv_path.is_absolute():
+            csv_path = PROJECT_ROOT / seed["csv_path"]
+        if not csv_path.exists():
+            yield encode_event(make_error(
+                f"demo seed CSV 不存在: {csv_path} · 检查 data/mock/agent2-samples/ 是否完整",
+                code="CSV_NOT_FOUND",
             ))
             return
         try:
-            data = load_scenario(scenario_id)
-        except FileNotFoundError as e:
-            yield encode_event(make_error(str(e), code="DEMO_SCENARIO_MISSING"))
+            df = load_csv_data(str(csv_path))
+        except (OSError, ValueError) as e:
+            yield encode_event(make_error_from_exception(e, code="CSV_LOAD_FAILED"))
             return
-        except (json.JSONDecodeError, OSError) as e:
+        yield encode_event(make_stage("load_csv", "done", count=int(len(df))))
+
+        # Stage 2 · 调 LLM 生成 DSL (真路径 · 不 mock=true)
+        yield encode_event(make_stage(
+            "call_llm", "running",
+            message=f"调 LLM 生成 DSL · 策略意图: {seed['label']}",
+        ))
+        csv_columns = [str(c) for c in df.columns]
+        data_context = (
+            f"\n\n参考数据字段:\n{', '.join(csv_columns)}\n"
+            f"前 3 行示例:\n{df.head(3).to_string(index=False)}"
+        )
+        user_prompt = (
+            f"请将以下策略意图转换为结构化规则:\n\n{seed['strategy_intent']}{data_context}"
+        )
+        try:
+            caller = make_json_caller(
+                agent_id="riskctrl",
+                endpoint="/api/riskctrl/demo/run",
+                temperature=0.3,
+            )
+            system_prompt = build_riskctrl_ssot_prompt(
+                task_type="rule_parse",
+                schema_hint=(
+                    '{"rules": [{"rule_id", "name", "description", '
+                    '"conditions": [{"field", "operator", "value"}], '
+                    '"action": "approve/reject/manual_review", "priority": int}], "description"}'
+                ),
+            )
+            llm_json = caller(system_prompt, user_prompt)
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, ImportError) as e:
+            yield encode_event(make_error_from_exception(e, code="LLM_CALL_FAILED"))
+            return
+
+        if llm_json is None:
             yield encode_event(make_error(
-                f"scenario load failed: {type(e).__name__}: {e}",
-                code="DEMO_SCENARIO_LOAD",
+                "LLM 调用失败 · fallback chain 全部不可用 · 请检查 env LLM key (DEEPSEEK_API_KEY / DASHSCOPE_API_KEY) 后重试 · 不 silent fallback 假数据",
+                code="LLM_FALLBACK_EXHAUSTED",
             ))
             return
 
-        stage_msgs = data.get("stage_messages", {}) or {}
-        stages = ["load_csv", "hit_rules", "calc_ks"]
-        for stage_name in stages:
-            yield encode_event(make_stage(
-                stage_name, "running",
-                message=stage_msgs.get(stage_name, f"{stage_name}..."),
+        if not isinstance(llm_json, dict):
+            llm_json = {"rules": llm_json} if isinstance(llm_json, list) else {}
+
+        try:
+            ruleset = parse_natural_language_rules(llm_json)
+        except (ValueError, TypeError, KeyError) as e:
+            yield encode_event(make_error_from_exception(e, code="DSL_PARSE_FAILED"))
+            return
+
+        if not ruleset.rules:
+            yield encode_event(make_error(
+                "LLM 返回未能解析出有效规则 · seed strategy_intent 可能需调整 · 不 silent fallback",
+                code="DSL_EMPTY_RULES",
             ))
-            _time.sleep(0.25)
-            yield encode_event(make_stage(stage_name, "done"))
+            return
+        yield encode_event(make_stage("call_llm", "done", rule_count=len(ruleset.rules)))
+
+        # Stage 3 · 真 backtest (apply_ruleset 走 rule_engine · 不让 LLM 算)
+        yield encode_event(make_stage(
+            "hit_rules", "running",
+            message=f"真规则命中扫描 · {len(df)} 条样本 × {len(ruleset.rules)} 条规则",
+        ))
+        try:
+            result = run_backtest(df, ruleset, label_column=None)  # auto-detect
+        except (ValueError, TypeError, KeyError, AttributeError) as e:
+            yield encode_event(make_error_from_exception(e, code="BACKTEST_FAILED"))
+            return
+        yield encode_event(make_stage("hit_rules", "done"))
+
+        # Stage 4 · KS / AUC (确定性 numpy · §3.1 不让 LLM 现场算)
+        yield encode_event(make_stage(
+            "calc_ks", "running",
+            message="计算 KS / AUC / 通过率 (确定性 Python · 不让 LLM 估)",
+        ))
+        bad_rate: float | None = None
+        ks_peak: float | None = None
+        auc_value: float | None = None
+        ks_points: list[dict[str, Any]] = []
+        label_col: str | None = None
+        for cand in ("days_past_due", "label_default", "label"):
+            if cand in df.columns:
+                label_col = cand
+                break
+
+        if label_col and label_col in df.columns:
+            try:
+                if label_col == "days_past_due":
+                    bad_mask = df[label_col].fillna(0).astype(float) > 30  # default bad_threshold
+                else:
+                    bad_mask = df[label_col].fillna(0).astype(float) > 0.5
+                bad_rate = round(float(bad_mask.mean()), 4)
+                hit_results = result.metrics.get("hit_results", []) if result.metrics else []
+                y_true = bad_mask.astype(int).tolist()
+                y_pred = [
+                    1 if r.get("action") in ("reject", "manual_review") else 0
+                    for r in hit_results
+                ]
+                if len(y_true) == len(y_pred) and y_pred:
+                    ks_peak = calculate_ks(y_true, y_pred)
+                    auc_value = calculate_auc(y_true, y_pred)
+                    ks_points = _ks_curve_points(y_true, y_pred, bins=10)
+            except (TypeError, ValueError, KeyError):
+                pass
+
+        rule_stats_raw = (result.metrics or {}).get("rule_stats", [])
+        rule_stats = [
+            {
+                "rule_id": r.get("rule_id") or r.get("ruleId"),
+                "hit": r.get("hit", 0),
+                "fp": r.get("fp", 0),
+                "tn": r.get("tn", 0),
+            }
+            for r in rule_stats_raw
+        ]
+
+        approved = int(result.approved)
+        rejected = int(result.rejected)
+        manual_review = int(result.manual_review)
+        total = int(result.total_records) or (approved + rejected + manual_review) or 1
+        samples = [
+            {
+                "key": "pass",
+                "label": "通过",
+                "count": approved,
+                "pct": round(approved * 100.0 / total, 1),
+                "bad_rate": round(((bad_rate or 0.0) * 100.0), 1),
+            },
+            {
+                "key": "review",
+                "label": "复核",
+                "count": manual_review,
+                "pct": round(manual_review * 100.0 / total, 1),
+                "bad_rate": 0.0,
+            },
+            {
+                "key": "block",
+                "label": "拒绝",
+                "count": rejected,
+                "pct": round(rejected * 100.0 / total, 1),
+                "bad_rate": 0.0,
+            },
+        ]
+        ks_panel = {
+            "ksPeak": ks_peak or 0.0,
+            "auc": auc_value or 0.0,
+            "passRate": round(approved * 100.0 / total, 1),
+            "badRate": round((bad_rate or 0.0) * 100.0, 1),
+            "points": ks_points,
+        }
+        yield encode_event(make_stage("calc_ks", "done"))
+
+        # 业务指标 (BE6.4) · silent-fail 不破 stream
+        try:
+            from agent_riskctrl.business_metrics import calculate_business_metrics
+            actual_avg_amt: float | None = None
+            if "loan_amount_wan" in df.columns:
+                try:
+                    actual_avg_amt = float(df["loan_amount_wan"].mean())
+                except (ValueError, TypeError):
+                    actual_avg_amt = None
+            business_panel = calculate_business_metrics(
+                {
+                    "total_records": result.total_records,
+                    "approved": approved,
+                    "rejected": rejected,
+                    "manual_review": manual_review,
+                    "approval_rate": result.approval_rate,
+                },
+                avg_loan_amount_wan_actual=actual_avg_amt,
+                bad_rate=bad_rate,
+            )
+        except (ImportError, KeyError, ValueError, TypeError):
+            business_panel = {}
+
+        # Collision report (BE6.3) · silent-fail
+        try:
+            from agent_riskctrl.rule_collision import analyze_collisions
+            sample_records = df.head(500).to_dict(orient="records")
+            collision_panel = analyze_collisions(ruleset, records=sample_records).to_dict()
+        except (ImportError, KeyError, ValueError, TypeError):
+            collision_panel = {}
+
+        # 决策上链 (silent-fail · §3.7.5 retention=short 90d · alert 同档 · 银保监审计每次跑过的 demo 也可追溯)
+        session_id = _deterministic_id("demo_bt", seed_id, seed["csv_path"])
+        try:
+            from agent_riskctrl.ledger_integration import record_backtest_decision
+            record_backtest_decision(
+                ruleset_id=session_id,
+                csv_path=seed["csv_path"],
+                metrics={
+                    "total_records": result.total_records,
+                    "approval_rate": result.approval_rate,
+                    "bad_rate": bad_rate,
+                    "ks_peak": ks_peak,
+                    "auc": auc_value,
+                    "demo_seed_id": seed_id,  # 上链标记 demo 来源 · 区分 prod backtest
+                },
+                business_metrics=business_panel or None,
+            )
+        except (ImportError, RuntimeError, ValueError, TypeError):
+            pass
 
         yield encode_event(make_done(
             panels={
-                "ruleset": data.get("ruleset", {}),
-                "ks": data.get("ks", {}),
-                "samples": data.get("samples", []),
-                "rule_stats": data.get("rule_stats", []),
+                "ruleset": ruleset.model_dump(),
+                "ks": ks_panel,
+                "samples": samples,
+                "rule_stats": rule_stats,
+                "business_metrics": business_panel,
+                "collision": collision_panel,
             },
-            metrics=data.get("metrics", {}),
-            data_source=DATA_SOURCE_MOCK_FORCED,
-            session_id=data.get("session_id", f"demo_{scenario_id}"),
+            metrics={
+                "total_records": result.total_records,
+                "approved": approved,
+                "rejected": rejected,
+                "manual_review": manual_review,
+                "approval_rate": result.approval_rate,
+                "bad_rate": bad_rate,
+                "ks_peak": ks_peak,
+                "label_column_used": label_col,
+                "profit_total_wan": business_panel.get("profit_total_wan"),
+                "pass_rate": business_panel.get("pass_rate"),
+                "reject_rate": business_panel.get("reject_rate"),
+                "demo_seed_id": seed_id,
+                "demo_seed_label": seed["label"],
+                "demo_strategy_intent": seed["strategy_intent"],
+            },
+            data_source=DATA_SOURCE_LIVE,  # 真后端 pipeline · 不是 MOCK_FORCED
+            session_id=session_id,
         ))
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
