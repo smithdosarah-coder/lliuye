@@ -700,15 +700,22 @@ def _enrich_violations_with_reasons(
     violations: list[dict],
     rules_by_id: dict[str, dict],
     events_by_id: dict[str, dict],
+    *,
+    policy_meta: dict | None = None,
+    retrieved_at: str | None = None,
 ) -> list[dict]:
-    """Attach a 7-field ViolationReason to every registry-aware violation.
+    """Attach an 8-field ViolationReason + 3 freshness fields to every registry-aware violation.
 
     For non-registry rules (LLM fallback path with no clause_id/POL-/VER-),
     sets `reason = None` so the SSE schema is still consistent — frontends
     can render "未能自动填写" rather than guessing.
 
+    ALL IN Phase B step 4 (2026-05-09):
+      - 透传 policy_meta + retrieved_at 到 build_violation_reason
+      - clause_text_hash + freshness 三字段同步入 reason dict (SSE 真到 frontend)
+
     Pure-additive: existing violation keys (rule_id, severity, evidence,
-    match_reason, …) are untouched.
+    match_reason, revisions, …) are untouched.
     """
     try:
         from agent_compliance.violation_schema import build_violation_reason
@@ -729,7 +736,13 @@ def _enrich_violations_with_reasons(
             "match_reason": v.get("match_reason", ""),
         }
         try:
-            reason = build_violation_reason(rule=rule, event=event, cell=cell)
+            reason = build_violation_reason(
+                rule=rule,
+                event=event,
+                cell=cell,
+                policy_meta=policy_meta,
+                retrieved_at=retrieved_at,
+            )
         except (RuntimeError, ValueError, AttributeError):
             reason = None
         v["reason"] = reason.to_dict() if reason is not None else None
@@ -804,8 +817,14 @@ def run_policy_scan_and_persist(
 
     rules_by_id = {r.get("rule_id", ""): r for r in rules}
     events_by_id = {e.get("event_id", ""): e for e in events}
+    # ALL IN step 4: 透传 policy_meta + retrieved_at (今天) · build_violation_reason 算 freshness
+    retrieved_at_iso = datetime.now().date().isoformat()
     enriched_violations = _enrich_violations_with_reasons(
-        enriched_violations, rules_by_id, events_by_id,
+        enriched_violations,
+        rules_by_id,
+        events_by_id,
+        policy_meta=policy_meta,
+        retrieved_at=retrieved_at_iso,
     )
     reason_count = sum(1 for v in enriched_violations if v.get("reason"))
     yield {"type": "stage", "stage": "revision_generate", "status": "done",
