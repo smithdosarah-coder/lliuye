@@ -1,0 +1,12 @@
+{
+  "agent": "riskctrl",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/riskctrl",
+  "scope": "agent_riskctrl/ + web/src/app/archive/riskctrl/ + web/src/lib/api/riskctrl.ts + tests/agent_riskctrl/",
+  "redline": "回测 MAX_ROWS=50000 (per Q-040 · 不许回退) · 评分必带回测 · DSL 上线必走 decision_ledger",
+  "input_contract": "entity-resolution-contract / candidate-identity-contract / signal-commit-contract",
+  "output_contract": "DSL 规则 + KS/通过率回测报告 (Managed batch · 回测一次性)",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}

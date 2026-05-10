@@ -1,0 +1,12 @@
+{
+  "agent": "compliance",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/compliance",
+  "scope": "agent_compliance/ + web/src/app/archive/compliance/ + web/src/lib/api/compliance.ts + tests/agent_compliance/",
+  "redline": "监管条款必带原文 hash (per stop-the-line #8) · 政策事件驱动 (不定期巡检) · 违规判定必走 evidence_drawer",
+  "input_contract": "entity-resolution-contract / candidate-identity-contract / signal-commit-contract",
+  "output_contract": "违规冲突点明细清单 (Managed batch · 政策发布事件驱动)",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}
