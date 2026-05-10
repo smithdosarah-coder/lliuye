@@ -1,11 +1,12 @@
 # RFC: 跨 agent feedback channel · 审批/贷后反馈反向链路
 
 **发起人**: riskctrl worker (worktree `D:/claude code/credit_report_agent_work_mesh/riskctrl` · branch `feat/allin-riskctrl`)
-**日期**: 2026-05-09
+**日期**: 2026-05-09 (v1.0) → 2026-05-09 (v1.1 应 common review note `f09766d`)
 **变更类型**: 红区 (新建 `shared/feedback_channel/` + `docs/contracts/cross-agent-feedback-protocol.md` v1.0) · 黄区 (3 agent 加 endpoint · credit/alert/riskctrl)
 **关联 commit**: 待 common worker + 3 worker 协同实施
-**审批状态**: 🟡 PROPOSED · 等 PM + common worker ratify (跨域决策 · 涉 credit + alert + riskctrl 三方)
+**审批状态**: 🟡 v1.1 待主 CLI 再 ratify (v1.0 = MODIFY per common `f09766d` · v1.1 close-out M1/M2/M3)
 **触发来源**: `docs/working/riskctrl-read-through-concerns.md` §2 异议 #4 (read-through verify after common signal `af2ce90`)
+**v1.1 changelog**: M1 §1 retention 继承 consumer · M2 §3 watcher last_read_id 持久化 + 故障恢复 · M3 §4 改名 Phase A.5 + standby 标
 
 ---
 
@@ -59,6 +60,30 @@ riskctrl backtest → ledger ✅ (record_backtest_decision retention=short 90d)
 - `original_decision_id`: 上游决策 id (回溯链)
 - `payload`: 业务数据 (per feedback_type schema)
 
+**M1 · feedback event retention rule** (v1.1 应 common review note · 修订 R5):
+
+feedback event 的 retention class **必须继承 consumer agent retention** · 不取 producer agent retention · 否则 watcher 拉慢 = 丢链路 (alert short 90d 产 loan_outcome → 90d 内 riskctrl 没拉就丢).
+
+实施规则 (本 RFC 落地时 `shared/decision_ledger/store.py` 适配):
+```python
+# 写 feedback event 时 retention 推导:
+if entry.is_feedback:
+    consumer_retentions = [RETENTION_DEFAULTS[c] for c in entry.feedback_meta["consumer_agents"]]
+    # 取最长 retention (consumer 的 ledger 视角必须能保留到自己消费 + 持久化完成)
+    entry.retention_class = max(consumer_retentions, key=RETENTION_DAYS.__getitem__)
+    # 或固定 standard (5y) · 默认走 standard 防丢
+    # entry.retention_class = "standard"  # 简化版 · production 推荐
+```
+
+| feedback event | producer 默认 retention | consumer | v1.1 规则后实际 retention |
+|---|---|---|---|
+| approval_override | credit (standard 5y) | riskctrl (standard 5y) | standard 5y |
+| **loan_outcome** | **alert (short 90d)** | **riskctrl (standard 5y)** | **standard 5y** ⬅ 关键修复 |
+| policy_violation | compliance (standard 5y) | credit/riskctrl (standard 5y) | standard 5y |
+| score_drift | riskctrl (standard 5y) | credit (standard 5y) | standard 5y |
+
+**关键 case** (M1 解决): loan_outcome event 由 alert (short 90d) 产 · 但 consumer 是 riskctrl (standard 5y) · v1.0 R5 写"链路在接收端持久化"假设 watcher 永远在线 · v1.1 改成 ledger 写入时 retention 已升 standard 5y · 即使 watcher 挂 1 周也不丢 raw event.
+
 ## 2. Event 类型
 
 ### 2.1 approval_override (credit → riskctrl)
@@ -108,7 +133,9 @@ LedgerEntry 加 optional 字段:
 - `is_feedback: bool` (默认 False · True 时 watcher 才拉)
 ```
 
-#### `shared/feedback_channel/watcher.py` (新建 · ~150 LOC)
+#### `shared/feedback_channel/watcher.py` (新建 · ~200 LOC v1.1)
+
+**M2 · 加 last_read_id 持久化 + 故障恢复** (v1.1 应 common review note):
 
 ```python
 class FeedbackWatcher:
@@ -116,8 +143,47 @@ class FeedbackWatcher:
     def subscribe(self, feedback_type: str): ...  # decorator
     def start(self): ...  # asyncio.create_task
     def stop(self): ...
-    async def _poll_loop(self): ...  # 拉 ledger 新 entry
+
+    # M2 新增 · last_read_id 持久化 (per consumer_agent)
+    def _load_last_read_id(self) -> int:
+        """从 sqlite metadata table 读 · watcher 重启自动续读"""
+        ...
+    def _save_last_read_id(self, new_id: int) -> None:
+        """边消费边 update · 拉失败不前进"""
+        ...
+
+    async def _poll_loop(self):
+        """拉 ledger 新 entry · 故障恢复友好"""
+        last_id = self._load_last_read_id()
+        try:
+            entries = self._ledger.query(
+                where=f"id > {last_id} AND is_feedback = 1",
+                order="id ASC",
+                limit=100,  # batch · 防 event 风暴 (R3)
+            )
+            for entry in entries:
+                try:
+                    self._dispatch(entry)         # 调 subscribe handler
+                    self._save_last_read_id(entry.id)  # 单条成功才前进
+                except Exception as e:
+                    logger.warning("dispatch failed for entry %s: %s", entry.id, e)
+                    return  # 拉失败 last_read_id 不前进 · 下次重试从断点
+        except Exception as e:
+            logger.error("poll loop failed: %s · last_id=%s 不前进", e, last_id)
+            # 不 raise · 下次 cron 重试
 ```
+
+**故障恢复语义**:
+- watcher 启动: 读 `last_read_id` (默认 0 if 首次) · 从断点续读
+- 消费成功: `_save_last_read_id(entry.id)` 单条更新 · sql 持久化
+- 消费失败: `last_read_id` 不前进 · 下次拉同段 batch 重试
+- watcher 重启 (e.g. systemd restart): 自动从 sqlite 读 last_read_id 续读 · 不丢
+- 拉失败 (sqlite 锁 / 网络抖动 / etc): silent-fail · 下次 cron 重试
+
+**`last_read_id` 存储**:
+- 表: `shared/decision_ledger/store.py` 加 metadata table `feedback_watcher_state`
+- schema: `(consumer_agent VARCHAR PRIMARY KEY, last_read_id INTEGER, updated_at TIMESTAMP)`
+- 写入频率: 每 dispatch 一条成功就写一次 (sqlite write 快 · 7500/24h ≈ 5 min 一次峰值无压力)
 
 #### 3 agent 加 endpoint (黄区 · 各 worker 实施)
 
@@ -142,22 +208,27 @@ class FeedbackWatcher:
 - **R2**: ledger sqlite IO 压力 (6 agent 同时拉) · **mitigation**: watcher 内 dedup 已读 entry id · 每次 query 加 `WHERE id > last_read_id`
 - **R3**: feedback event 风暴 (短时间内大量 approval_override) · **mitigation**: watcher 内 batch handler · 每次拉最多 100 条
 - **R4**: 跨 agent worker 协同 (credit + alert + riskctrl 三方都要改) · 协调成本高 · **mitigation**: Phase B 各 worker 独立 ship 自己那部分 · Phase C 整合时验跨 agent 链路
-- **R5**: 与 §3.7.5 retention 冲突 (alert short 90d · feedback 短期淘汰会丢链路) · **mitigation**: feedback meta 记 `original_decision_id` · short retention 只丢 raw entry · 链路本身在 riskctrl 接收端持久化
+- **R5** (v1.0 mitigation 不够 · v1.1 升级): 与 §3.7.5 retention 冲突 (alert short 90d · feedback 短期淘汰会丢链路) · v1.0 mitigation "链路在接收端持久化" 假设 watcher 永远在线 · **v1.1 真 mitigation**: feedback event 写入时 ledger.record_decision() 自动取 `max(consumer_retentions)` · loan_outcome event 即使 producer 是 alert (90d) 也按 consumer riskctrl/credit (5y) 落盘 · watcher 即使挂 1 周也不丢 raw event (见 §1 M1 规则)
 
-## 4. 实施顺序 (建议)
+## 4. 实施顺序 (v1.1 应 common review note · M3 修订)
 
-**Phase A 延伸** (common worker 加 1-2 day):
+> **M3 修订**: 原 v1.0 称 "Phase A 延伸" · 易与 Phase A 5 件交付物混淆 · v1.1 改 **Phase A.5 延伸** + standby 标 (PM 显式 ratify trailer 才启动 · common worker 默认 standby).
+
+**Phase A.5 延伸** (common worker 加 1-2 day · **standby 状态 · 仅 PM `Authorized-By` ratify 后启动**):
 1. common worker 写 `docs/contracts/cross-agent-feedback-protocol.md` v1.0
-2. common worker 写 `shared/feedback_channel/watcher.py` + tests
-3. common worker 改 `shared/decision_ledger/schema.py` 加 feedback_meta 字段
+2. common worker 写 `shared/feedback_channel/watcher.py` + tests (含 M2 last_read_id 持久化 + 故障恢复)
+3. common worker 改 `shared/decision_ledger/schema.py` 加 `feedback_meta` + `is_feedback` 字段 + `feedback_watcher_state` metadata table
+4. common worker 改 `shared/decision_ledger/store.py` `record_decision()` 适配 M1 retention 继承 consumer
 
-**Phase B 协同** (3 worker 并行):
-4. credit worker 加 approval_override emit
-5. alert worker 加 loan_outcome emit
-6. riskctrl worker (我) 加 watcher.start() + 2 subscribe handler
+**Phase A 与 Phase A.5 不串行阻塞**: 主 CLI 可 cherry-pick Phase A close-out (5 worker READY signal merge) 后再开 Phase A.5 · 不堵 6 step ALL IN 改造.
+
+**Phase B 协同** (3 worker 并行 · 待 Phase A.5 ship 后):
+5. credit worker 加 approval_override emit
+6. alert worker 加 loan_outcome emit
+7. riskctrl worker (我) 加 watcher.start() + 2 subscribe handler · 改 `champion_challenger.py` 接 watcher event
 
 **Phase C 整合** (主 CLI):
-7. 跨 agent 链路 e2e test (Playwright + 真 sqlite)
+8. 跨 agent 链路 e2e test (Playwright + 真 sqlite + M2 故障恢复 verify · kill watcher 进程后重启续读)
 
 ## 5. Authorized-By
 
