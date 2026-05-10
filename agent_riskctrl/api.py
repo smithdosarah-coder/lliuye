@@ -356,7 +356,10 @@ def _ks_curve_points(y_true: list[int], y_pred: list[int], bins: int = 10) -> li
 
 @app.post("/api/riskctrl/backtest")
 @audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/backtest", model="deterministic")
-async def riskctrl_backtest(req: BacktestRequest):
+async def riskctrl_backtest(
+    req: BacktestRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
     """RuleSet + CSV 历史数据 → metrics + KS curve + samples + rule_stats · SSE stream.
 
     Body: { ruleset, csv_path, label_column?, bad_threshold? }
@@ -367,6 +370,9 @@ async def riskctrl_backtest(req: BacktestRequest):
                        metrics={total_records, approved, rejected, manual_review,
                                 approval_rate, bad_rate, ks_peak, label_column_used}
         event: error  {message, code}
+
+    Auth (Phase B.1 fix · 2026-05-09 · per Q-052 #8): require_action("riskctrl", "invoke")
+    enforce row-level/action gate · risk_manager/admin 可调 · RM 不可调 (per Q-052 #8 收窄)
     """
     from shared.sse_envelope import (
         DATA_SOURCE_LIVE,
@@ -687,17 +693,41 @@ class DslDeployRequest(BaseModel):
     agent_id="riskctrl", endpoint="/api/riskctrl/dsl/deploy",
     model="deterministic",
 )
-async def riskctrl_dsl_deploy(req: DslDeployRequest):
+async def riskctrl_dsl_deploy(
+    req: DslDeployRequest,
+    _user: dict = Depends(require_action("riskctrl", "approve")),
+):
     """DSL 部署决策 (production caller for ledger_integration.record_dsl_deploy).
 
     流程:
-      1. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
-      2. 返 decision_id + handoff 触发标记
-      3. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
+      1. 验 approver_user_id (req body) 必 == _user["sub"] (JWT sub) · 防客户端伪造签字人
+      2. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
+      3. 返 decision_id + handoff 触发标记
+      4. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
 
     Body: DslDeployRequest
     Returns: { decision_id, handoff_triggers: [], dsl_version, deployed_at }
+
+    Auth (Phase B.1 fix · 2026-05-09 · 致命修复 · codex 抓到客户端可伪造 approver_user_id):
+    - require_action("riskctrl", "approve") · 仅 risk_manager/admin role 可调 (per RBAC)
+    - approver_user_id verify · 必与 JWT sub 匹配 · 防客户端 body 伪造签字人 (合规审计要求)
     """
+    # Phase B.1 致命修复 · approver_user_id 必与 JWT sub 匹配 · 防伪造
+    jwt_user_id = _user.get("sub")
+    if req.approver_user_id is not None and req.approver_user_id != jwt_user_id:
+        raise HTTPException(
+            403,
+            detail={"error": {
+                "code": "APPROVER_MISMATCH",
+                "message": (
+                    f"approver_user_id (body) 必与 JWT sub 一致 · 防伪造签字人. "
+                    f"body={req.approver_user_id!r} · jwt_sub={jwt_user_id!r}"
+                ),
+            }},
+        )
+    # body 未传 approver_user_id 时 · 自动用 JWT sub 填 (强约束 audit 痕迹)
+    effective_approver = req.approver_user_id or jwt_user_id
+
     try:
         from agent_riskctrl.ledger_integration import record_dsl_deploy
         decision_id = record_dsl_deploy(
@@ -706,7 +736,7 @@ async def riskctrl_dsl_deploy(req: DslDeployRequest):
             rule_count=req.rule_count,
             affected_segments=req.affected_segments,
             backtest_summary=req.backtest_summary,
-            approver_user_id=req.approver_user_id,
+            approver_user_id=effective_approver,
             deploy_endpoint="/api/riskctrl/dsl/deploy",
         )
     except (RuntimeError, ValueError, TypeError, ImportError) as e:
@@ -851,12 +881,18 @@ async def riskctrl_demo_scenarios():
 
 
 @app.post("/api/riskctrl/demo/run")
-async def riskctrl_demo_run(req: DemoRunRequest):
+async def riskctrl_demo_run(
+    req: DemoRunRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
     """纯 mock SSE 流 · 不调 LLM / 不读真 csv · 走 fixture json.
 
     Scenario 选 credit_v15 / aml_kyc / fraud_high · stages: load_csv → hit_rules → calc_ks ·
     done payload 与 prod backtest endpoint 共形 (panels.{ruleset, ks, samples, rule_stats}
     + metrics 顶层 KPI).
+
+    Auth (Phase B.1 fix · 2026-05-09 · per Q-052 #8): require_action("riskctrl", "invoke")
+    enforce row-level/action gate · 即便是 demo · 也防未授权用户调 (防 demo endpoint 被滥用作免费推理通道)
     """
     from shared.sse_envelope import (
         DATA_SOURCE_MOCK_FORCED,
