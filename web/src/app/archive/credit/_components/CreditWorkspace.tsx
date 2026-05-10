@@ -369,6 +369,48 @@ export default function CreditWorkspace() {
     }
   }
 
+  // Phase B.1.5 (PM 2026-05-10) · 一键运行示例 · 调 /api/credit/demo/run sample 跑 · 让 PM 点了能看到东西
+  async function runDemoSample() {
+    if (decisionRunning) return;
+    setDecisionError(null);
+    const apiBase =
+      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
+    setStarted(true);
+    setDecisionRunning(true);
+    setLiveAdvice(null);
+    setDecisionId(null);
+    const fallbackSession = sessionData;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      await streamSse(
+        `${apiBase}/api/credit/demo/run`,
+        { stage_tab: MODE_TO_STAGE_TAB[mode] },
+        (sseEvt) => {
+          if (ac.signal.aborted) return;
+          const data = sseEvt.data as Record<string, unknown>;
+          if (sseEvt.type === "done") {
+            setLiveData(normalizeCreditDone(data, fallbackSession));
+            setSelectedCandidate(null);
+            setScanned(true);
+            setCurrentDataSource("mock_forced");
+          }
+        },
+        { signal: ac.signal },
+      );
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      const msg = e instanceof LiveFailError
+        ? liveFailBannerText(e, "Credit demo/run")
+        : e instanceof Error ? e.message : String(e);
+      setDecisionError(msg);
+      setCurrentDataSource("mock_fallback");
+    } finally {
+      if (!ac.signal.aborted) setDecisionRunning(false);
+    }
+  }
+
   function startGenerate() {
     if (progress.running) return;
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
@@ -470,6 +512,7 @@ export default function CreditWorkspace() {
             mode={mode}
             onModeChange={setMode}
             onPrimary={() => runDecisionWithAgent6Handoff()}
+            onRunDemo={() => runDemoSample()}
             decisionRunning={decisionRunning}
             decisionError={decisionError}
           />
@@ -1785,6 +1828,7 @@ function CreditEmptyState(p: {
   mode: CreditMode;
   onModeChange: (m: CreditMode) => void;
   onPrimary: () => void;       // 起决策 (真接 backend SSE · cat 0 北极星 · Agent6 handoff)
+  onRunDemo?: () => void;      // Phase B.1.5 · 一键运行示例 · sample 跑 (PM 演示路径)
   decisionRunning: boolean;
   decisionError: string | null;
 }) {
@@ -1826,9 +1870,8 @@ function CreditEmptyState(p: {
         </p>
       </header>
 
-      {/* ALL IN Phase B · 主 CTA 单一入口 · 真路径 Agent6 handoff (per cat 0 北极星)
-          演示模式 (mock=true) + demo scenario (file-backed) 已删 · 反假 live 红线 */}
-      <section className="credit-empty__cta-row" aria-label="主 CTA">
+      {/* Phase B.1.5 (PM 2026-05-10) · 双 CTA · 主 = Agent6 handoff · 副 = 一键运行示例 (sample) */}
+      <section className="credit-empty__cta-row" aria-label="主 CTA" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
           type="button"
           className="credit-empty__cta credit-empty__cta--primary"
@@ -1845,6 +1888,25 @@ function CreditEmptyState(p: {
             选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
           </span>
         </button>
+        {p.onRunDemo ? (
+          <button
+            type="button"
+            className="credit-empty__cta credit-empty__cta--primary"
+            data-testid="credit-demo-cta"
+            data-cta="demo"
+            onClick={p.onRunDemo}
+            disabled={p.decisionRunning}
+            style={{ background: "var(--chalk)", color: "var(--ink)", border: "1px solid var(--ink-14)" }}
+          >
+            <span className="credit-empty__cta-rank">演示</span>
+            <span className="credit-empty__cta-title">
+              {p.decisionRunning ? "运行中…" : "一键运行示例"}
+            </span>
+            <span className="credit-empty__cta-sub">
+              加载预制 sample · 真后端跑通完整链路 · 点了立刻看结果
+            </span>
+          </button>
+        ) : null}
       </section>
 
       {/* §2.3 Panel 空骨架 · 不显示模拟数字 · 仅说明文字 */}
