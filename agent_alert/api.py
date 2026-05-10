@@ -61,7 +61,26 @@ from agent_alert.output_validator import soft_clean as _qc_scrub  # noqa: E402
 # ALL IN Phase B step 5 (2026-05-09): per candidate-identity-contract v1.1 §3 ·
 # alert.id 按 client_entity_key 派生 (uscc_X / name_md5 / cand_X) · 防 PM 痛点
 # "左右气泡不联动" 真根因 (后端 candidate 没 id → 前端 find 命中错误).
-from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
+from shared.entity_resolver import ensure_list_unique_ids, resolve_entity  # noqa: E402
+
+# ALL IN Phase B.2 step 10 (2026-05-10): cross-agent decision ledger 上链 ·
+# per CLAUDE.md §3.7.5 + docs/contracts/decision-ledger.md v1.0.
+# alert default retention=short (90d) · severity=red 升 standard (5y) ·
+# subject_id 必 hash · jurisdiction default HQ · failure silent-fail.
+try:
+    from shared.decision_ledger import (  # noqa: E402
+        RETENTION_STANDARD,
+        hash_subject_id,
+        record_decision,
+    )
+    _LEDGER_AVAILABLE = True
+except ImportError:
+    _LEDGER_AVAILABLE = False
+    def record_decision(**_kwargs):  # type: ignore[no-redef]
+        return ""
+    def hash_subject_id(_v):  # type: ignore[no-redef]
+        return None
+    RETENTION_STANDARD = "standard"  # type: ignore[assignment]
 
 
 def _ensure_alert_emit_ids(
@@ -347,6 +366,110 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
     }
 
 
+def _record_alert_decisions_to_ledger(
+    *,
+    hit_list: Any,
+    dispositions: Any,
+    session_id: str,
+    scenario_key: str,
+    mode_label: str,
+    endpoint: str,
+) -> int:
+    """ALL IN Phase B.2 step 10 (2026-05-10) · per CLAUDE.md §3.7.5.
+
+    把每个红/黄客户的预警决策上链 decision_ledger · 1 cluster 1 entry.
+
+    Spec (per docs/contracts/decision-ledger.md + CLAUDE.md §3.7.5 alert 行):
+    - retention default = "short" (90d · alert routine 预警)
+    - severity == "red" → 升 "standard" (5y · 银保监 archive)
+    - subject_id 必 hash (16-hex prefix · 防 PII 入库)
+    - jurisdiction default "HQ" (env LIUYE_LEDGER_JURISDICTION 可覆盖)
+    - failure silent-fail (decision flow 不破)
+
+    Returns:
+        int · 成功上链的 entry 数 (失败也返已成功的 count)
+    """
+    if not _LEDGER_AVAILABLE or hit_list is None:
+        return 0
+
+    written = 0
+    hits = list(getattr(hit_list, "hits", None) or [])
+    dispo_map = dispositions or {}
+
+    for hit in hits:
+        try:
+            level_val = getattr(hit, "level", None)
+            level_str = (level_val.value if hasattr(level_val, "value") else str(level_val)).lower()
+            # 仅红/黄上链 (绿不算预警决策 · routine 不消耗 retention quota)
+            if level_str not in ("red", "yellow"):
+                continue
+
+            target = getattr(hit, "target", None)
+            payload = getattr(target, "payload", {}) if target else {}
+            if isinstance(payload, dict):
+                company_name = str(payload.get("company_name") or "")
+                uscc = str(payload.get("unified_credit_code") or payload.get("uscc") or "")
+            else:
+                company_name = ""
+                uscc = ""
+            if not company_name:
+                continue
+
+            entity = resolve_entity(name=company_name, uscc=uscc)
+            entity_handle = entity.uscc or entity.name_normalized or company_name
+            subject_hash = hash_subject_id(entity_handle) or None
+
+            disposition_plan = dispo_map.get(company_name)
+            if hasattr(disposition_plan, "model_dump"):
+                disposition_serialized = disposition_plan.model_dump(mode="json")
+            elif isinstance(disposition_plan, dict):
+                disposition_serialized = dict(disposition_plan)
+            else:
+                disposition_serialized = {"advice": str(disposition_plan or "")}
+
+            evidences = getattr(hit, "evidences", None) or []
+            evidence_chain = [
+                {
+                    "source": getattr(ev, "source", "") if not isinstance(ev, dict) else ev.get("source", ""),
+                    "snippet": (getattr(ev, "snippet", "") if not isinstance(ev, dict) else ev.get("snippet", ""))[:200],
+                    "url": getattr(ev, "url", "") if not isinstance(ev, dict) else ev.get("url", ""),
+                }
+                for ev in evidences[:10]
+            ]
+
+            input_payload = {
+                "scenario_key": scenario_key,
+                "session_id": session_id,
+                "provider_mode": mode_label,
+                "company_name": company_name,
+            }
+            output_payload = {
+                "level": level_str,
+                "score": float(getattr(hit, "score", 0.0) or 0.0),
+                "matched_rules": list(getattr(hit, "matched_rules", []) or []),
+                "reasons": list(getattr(hit, "reasons", []) or [])[:8],
+                "disposition": disposition_serialized,
+            }
+
+            retention = RETENTION_STANDARD if level_str == "red" else None  # None → 走 alert default "short"
+            record_decision(
+                agent_id="alert",
+                endpoint=endpoint,
+                input_payload=input_payload,
+                output_payload=output_payload,
+                evidence_chain=evidence_chain,
+                jurisdiction=None,  # resolve_jurisdiction 自动 env or HQ
+                retention_class=retention,
+                subject_name=company_name,
+                subject_id=subject_hash,
+            )
+            written += 1
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+            # silent-fail per CLAUDE.md §3.7.5: ledger 不破 disposition flow
+            continue
+    return written
+
+
 def _build_done_envelope(
     *,
     hit_list: Any,
@@ -530,6 +653,16 @@ def _alert_event_stream(req: AlertScanRequest):
                 mode_label=captured_mode,
                 kb_summary=captured_kb_summary,
             )
+            # ALL IN Phase B.2 step 10 · 上链 decision_ledger (silent-fail · 不破 flow)
+            ledger_written = _record_alert_decisions_to_ledger(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "",
+                mode_label=captured_mode,
+                endpoint="/api/alert/scan",
+            )
+            done_evt["ledger_entries_written"] = ledger_written
             yield encode_event(done_evt)
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
             err = f"{type(e).__name__}: {e}"
@@ -691,6 +824,17 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
                 mode_label=captured_mode,
                 kb_summary=captured_kb_summary,
             )
+            # ALL IN Phase B.2 step 10 · 上链 decision_ledger · demo 也真上链
+            # (per dispatch reframe "结果不能 mock" · 真后端跑 → 真 ledger).
+            ledger_written = _record_alert_decisions_to_ledger(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "alert-pool",
+                mode_label=captured_mode,
+                endpoint="/api/alert/demo/run",
+            )
+            done_evt["ledger_entries_written"] = ledger_written
             # demo 模式 banner · 透明告知输入来源 (per CLAUDE.md 反馈引导行动)
             # 仅当 backend 没产 fallback banner (即 Tavily 真接通) 时加 demo-input banner
             if done_evt.get("fallback") is None:
