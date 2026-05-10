@@ -608,6 +608,46 @@ async def channel_handoff(
             f"data/handoff/channel_to_credit/{session_id}/{profile.profile_id}.json"
         )
 
+    # Phase B.2 §10 (PM 2026-05-10) · 决策上链 (per CLAUDE.md §3.7.5 BE7)
+    # /api/channel/handoff 是 RM 显式决策点 (移交候选到 credit) · 上链审计可追溯
+    # retention default = "short" (90d · channel 默认) · jurisdiction default = HQ
+    # subject_id 必 hash (PII safe) · silent-fail 不破 decision flow
+    try:
+        from shared.decision_ledger import record_decision
+        for raw, pid in zip(req.candidates, profile_ids):
+            subject_name = raw.get("name") or raw.get("company_name") or ""
+            subject_uscc = raw.get("uscc") or raw.get("unified_credit_code") or ""
+            record_decision(
+                agent_id="channel",
+                endpoint="/api/channel/handoff",
+                input_payload={
+                    "session_id": session_id,
+                    "business_line": req.business_line,
+                    "candidate_summary": {
+                        "name": subject_name,
+                        "uscc": subject_uscc,
+                        "match_score": raw.get("match_score") or raw.get("matchScore"),
+                        "industry": raw.get("industry"),
+                        "geo": raw.get("geo") or raw.get("region"),
+                    },
+                },
+                output_payload={
+                    "profile_id": pid,
+                    "handoff_path": (
+                        f"data/handoff/channel_to_credit/{session_id}/{pid}.json"
+                    ),
+                    "downstream_agent": "credit",
+                },
+                evidence_chain=raw.get("evidence_chain") or raw.get("signals", []),
+                subject_name=subject_name or None,
+                # subject_id: 走 ledger 内部 hash_subject_id (USCC > name fallback)
+                subject_id=subject_uscc or None,
+            )
+    except (ImportError, RuntimeError, OSError, ValueError, TypeError):
+        # silent-fail · ledger 是观察层 · 不阻 handoff 主路径 (per §3.7.5 失败隔离)
+        import traceback as _tb
+        _tb.print_exc()
+
     return {
         "session_id": session_id,
         "profile_ids": profile_ids,
@@ -980,6 +1020,35 @@ async def channel_conversion(req: ChannelConversionRequest):
             detail={"error": {"code": "INTERNAL_ERROR",
                               "message": f"conversion write failed: {e}"}},
         ) from e
+
+    # Phase B.2 §10 (PM 2026-05-10) · conversion 上链 (per CLAUDE.md §3.7.5 BE7)
+    # /api/channel/conversion 是 RM 显式决策点 (won/lost/quoted...) · 上链审计追溯
+    # silent-fail · 不破 conversion 主路径
+    try:
+        from shared.decision_ledger import record_decision
+        record_decision(
+            agent_id="channel",
+            endpoint="/api/channel/conversion",
+            input_payload={
+                "rm_id": req.rm_id,
+                "stage": req.stage,
+                "amount_yuan": req.amount_yuan,
+                "next_action": req.next_action,
+                "notes": req.notes[:200] if req.notes else "",
+            },
+            output_payload={
+                "stage": req.stage,
+                "tracker_path": result.get("path") if isinstance(result, dict) else None,
+                "timestamp": result.get("timestamp") if isinstance(result, dict) else None,
+            },
+            evidence_chain=[],  # conversion 是 RM 主观决策 · 无外部 evidence
+            subject_name=None,
+            subject_id=req.candidate_id,  # candidate_id 已是 hashed (uscc_*/name_*/cand_*)
+        )
+    except (ImportError, RuntimeError, OSError, ValueError, TypeError):
+        import traceback as _tb
+        _tb.print_exc()
+
     return result
 
 
