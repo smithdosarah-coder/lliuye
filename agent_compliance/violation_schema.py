@@ -1,26 +1,34 @@
 # -*- coding: utf-8 -*-
-"""agent_compliance.violation_schema — auditable 7-field violation reason.
+"""agent_compliance.violation_schema — auditable 8-field violation reason + freshness.
 
 Every Agent5 violation row that crosses a worker boundary (SSE → frontend,
 SSE → ledger, persisted scan → docx export) MUST carry a `ViolationReason`
 that lets a 合规官 sign off without re-reading the entire policy.
 
-The seven mandatory fields (per docs/contracts/agent-compliance-policy-registry.md §4):
+The eight mandatory fields (per docs/contracts/agent-compliance-policy-registry.md §4
++ ALL IN Phase B step 4 · 红线 #8 监管条款必带原文 hash):
 
-  1. policy_id        — registry POL-xxxx (which policy *family*)
-  2. policy_version   — registry VER-xxxx (which immutable revision)
-  3. clause_id        — registry CL-xxxx (which segmented clause)
-  4. conflict_field   — short label for the dimension violated
-                        (e.g. "营业收入门槛" / "可疑交易报告时限")
-  5. business_excerpt — verbatim slice of the business event that
-                        triggered the rule (≤ 300 chars · no LLM rewrite)
-  6. policy_excerpt   — verbatim slice of the clause text that was
-                        violated (≤ 300 chars)
-  7. confidence       — float in [0.0, 1.0] · auditor SLO threshold
+  1. policy_id          — registry POL-xxxx (which policy *family*)
+  2. policy_version     — registry VER-xxxx (which immutable revision)
+  3. clause_id          — registry CL-xxxx (which segmented clause)
+  4. conflict_field     — short label for the dimension violated
+                          (e.g. "营业收入门槛" / "可疑交易报告时限")
+  5. business_excerpt   — verbatim slice of the business event that
+                          triggered the rule (≤ 300 chars · no LLM rewrite)
+  6. policy_excerpt     — verbatim slice of the clause text that was
+                          violated (≤ 300 chars)
+  7. confidence         — float in [0.0, 1.0] · auditor SLO threshold
+  8. clause_text_hash   — sha256 of full clause body (16 hex prefix) ·
+                          篡改防御 · 红线 #8 (监管条款无原文 hash 即 abort)
+
+Plus three *freshness* fields (CLAUDE.md §3.5.1 + §3.7.5 · ALL IN step 4):
+  - evidence_date       — ISO YYYY-MM-DD · 政策生效/抓取日期 (空时退化为 retrieved_at)
+  - freshness_days      — int · 距 retrieved_at 的天数 (-1 = 不可计算)
+  - staleness_passed    — bool · 政策 365d SLA 内 (True) / 失效 (False)
 
 Plus one *derived* narrative field:
-  - review_reason    — single-sentence rationale, computed from the 7
-                       fields above (no LLM dependency).
+  - review_reason       — single-sentence rationale, computed from the 8
+                          fields above (no LLM dependency).
 
 Why a separate module from scan_engine?
   - Schema must be importable by the registry, evaluation runner, ledger
@@ -36,12 +44,20 @@ scan_engine already produces.
 
 from __future__ import annotations
 
+import hashlib
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 # Bound the inline excerpts so a giant clause body never balloons SSE / sqlite.
 EXCERPT_MAX_CHARS = 300
+
+# clause_text_hash 截 16 hex (per shared/evidence_drawer Evidence.content_hash 同 schema)
+CLAUSE_HASH_PREFIX_HEX = 16
+
+# Policy 时效 SLA · per shared/evidence_freshness FRESHNESS_SLA_DAYS["policy"]
+POLICY_FRESHNESS_SLA_DAYS = 365
 
 # Short labels mapping common business-fact field names → human-readable
 # 中文 column. Used only by `derive_conflict_field` as a friendly label;
@@ -76,11 +92,14 @@ def _truncate(text: str | None, max_chars: int = EXCERPT_MAX_CHARS) -> str:
 
 
 class ViolationReason(BaseModel):
-    """Auditable 7-field reason · plus derived narrative.
+    """Auditable 8-field reason + 3 freshness · plus derived narrative.
 
     Construction: prefer `build_violation_reason(rule, event, cell, …)`
     over instantiating directly — it pulls the right fields off the
     rule + event + matrix-cell triple.
+
+    ALL IN Phase B step 4 (2026-05-09): 加 clause_text_hash (红线 #8) +
+    evidence_date / freshness_days / staleness_passed (CLAUDE.md §3.5.1 政策 365d).
     """
 
     policy_id: str = Field(..., description="registry POL-xxxx · which policy family")
@@ -90,7 +109,14 @@ class ViolationReason(BaseModel):
     business_excerpt: str = Field(..., description="verbatim business-event slice (≤300 chars)")
     policy_excerpt: str = Field(..., description="verbatim policy-clause slice (≤300 chars)")
     confidence: float = Field(..., ge=0.0, le=1.0, description="0..1 · LLM=lower, hard-rule=1.0")
+    clause_text_hash: str = Field(..., description="sha256(clause body) 前 16 hex · 红线 #8 篡改防御")
     review_reason: str = Field(default="", description="derived single-sentence rationale")
+
+    # Freshness (ALL IN step 4 · CLAUDE.md §3.5.1 第 6 原则)
+    evidence_date: str = Field(default="", description="ISO YYYY-MM-DD · 政策生效/抓取日 · 空表示不可知")
+    retrieved_at: str = Field(default="", description="ISO YYYY-MM-DD · 本次扫描时间")
+    freshness_days: int = Field(default=-1, description="距 retrieved_at 的天数 · -1 = 不可计算")
+    staleness_passed: bool = Field(default=True, description="True = 政策 365d SLA 内 · False = 失效需重抓")
 
     @field_validator("business_excerpt", "policy_excerpt")
     @classmethod
@@ -117,6 +143,21 @@ class ViolationReason(BaseModel):
         if not v or not v.startswith("CL-"):
             raise ValueError(f"clause_id must start with CL- (got {v!r})")
         return v
+
+    @field_validator("clause_text_hash")
+    @classmethod
+    def _check_hash_format(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("clause_text_hash 不能空 (红线 #8)")
+        s = v.strip().lower()
+        if len(s) != CLAUSE_HASH_PREFIX_HEX:
+            raise ValueError(f"clause_text_hash must be {CLAUSE_HASH_PREFIX_HEX} hex chars (got len={len(s)})")
+        # 验 hex 字符 (0-9 a-f)
+        try:
+            int(s, 16)
+        except ValueError as e:
+            raise ValueError(f"clause_text_hash must be hex (got {v!r})") from e
+        return s
 
     @field_validator("conflict_field", "business_excerpt", "policy_excerpt")
     @classmethod
@@ -238,6 +279,67 @@ def _event_to_excerpt(event: dict) -> str:
     return f"{et} ({eid})"
 
 
+def compute_clause_text_hash(clause_text: str) -> str:
+    """sha256(clause body).hexdigest()[:16] · 红线 #8 篡改防御 anchor.
+
+    输入空 → 返空字符串 (caller 决定是否当 None 处理).
+    与 shared.evidence_drawer.Evidence.content_hash 同 schema (前 16 hex).
+    """
+    if not clause_text or not clause_text.strip():
+        return ""
+    return hashlib.sha256(clause_text[:1024].encode("utf-8")).hexdigest()[:CLAUSE_HASH_PREFIX_HEX]
+
+
+def _today_iso() -> str:
+    """ISO YYYY-MM-DD · today's local date · stable for tests via monkeypatch."""
+    return date.today().isoformat()
+
+
+def _parse_iso_date(s: str) -> date | None:
+    """ISO YYYY-MM-DD → date · None on parse failure (容错 · 不抛)."""
+    if not s or not s.strip():
+        return None
+    s = s.strip()
+    # 试 datetime.fromisoformat (含 time 也接) · 退化到 date.fromisoformat
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+    except ValueError:
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            return None
+
+
+def compute_freshness(
+    evidence_date: str,
+    retrieved_at: str,
+    *,
+    sla_days: int = POLICY_FRESHNESS_SLA_DAYS,
+) -> tuple[int, bool]:
+    """计算 (freshness_days, staleness_passed).
+
+    Args:
+        evidence_date: 政策生效/抓取日期 ISO (空 → 用 retrieved_at)
+        retrieved_at: 本次扫描时间 ISO (空 → today)
+        sla_days: 政策 SLA · 默认 365 天
+
+    Returns:
+        (freshness_days, staleness_passed):
+          freshness_days: 距 retrieved_at 的天数 · -1 if evidence_date 不可解析
+          staleness_passed: True if freshness_days <= sla_days · 也 True if 不可计算 (容错)
+    """
+    ev = _parse_iso_date(evidence_date)
+    rt = _parse_iso_date(retrieved_at) or date.today()
+    if ev is None:
+        # 无 evidence_date · 不可计算 · 容错通过 (caller 可决定是否提 RFC 加严)
+        return -1, True
+    delta = (rt - ev).days
+    if delta < 0:
+        # 未来日期 · 异常 · 视作通过 (容错 · 但 freshness_days 用 abs)
+        delta = abs(delta)
+    return delta, delta <= sla_days
+
+
 def build_violation_reason(
     *,
     rule: dict,
@@ -246,12 +348,19 @@ def build_violation_reason(
     policy_id: str = "",
     policy_version: str = "",
     confidence_override: float | None = None,
+    policy_meta: dict | None = None,
+    retrieved_at: str | None = None,
 ) -> ViolationReason | None:
-    """Construct a `ViolationReason` from a rule + event + matrix cell.
+    """Construct a `ViolationReason` from a rule + event + matrix cell + policy_meta.
 
-    Returns None if any of the 7 mandatory fields cannot be filled
+    Returns None if any of the 8 mandatory fields cannot be filled
     deterministically — caller should mark "未能自动填写" rather than
     forcing a half-valid reason (per CLAUDE.md §3.3 Evidence-First).
+
+    ALL IN Phase B step 4 (2026-05-09):
+      - 加 clause_text_hash 计算 (rule.policy_excerpt or rule.condition · 16 hex)
+      - 加 evidence_date / freshness_days / staleness_passed (policy_meta.effective_date)
+      - 接收 policy_meta + retrieved_at · caller 透传 scan-time metadata
 
     Confidence:
       - 1.0 when cell.evidence carries hard-rule hints (deterministic path)
@@ -272,10 +381,18 @@ def build_violation_reason(
         return None
 
     cf = derive_conflict_field(rule, event, cell)
+    # 优先 policy_excerpt (registry 加载) · 退化到 condition (heuristic 抽取)
+    pol_full = rule.get("policy_excerpt") or rule.get("condition") or ""
     biz_ex = _truncate(_event_to_excerpt(event))
-    pol_ex = _truncate(rule.get("policy_excerpt") or rule.get("condition") or "")
+    pol_ex = _truncate(pol_full)
 
     if not biz_ex or not pol_ex or not cf:
+        return None
+
+    # ALL IN step 4: clause_text_hash 红线 #8 闭环
+    clause_hash = compute_clause_text_hash(pol_full)
+    if not clause_hash:
+        # 政策原文真为空 (异常) · 不能补 hash · 拒绝构造
         return None
 
     if confidence_override is not None:
@@ -287,6 +404,16 @@ def build_violation_reason(
     else:
         conf = 0.5
 
+    # ALL IN step 4: freshness 三字段
+    meta = policy_meta or {}
+    ev_date = (
+        str(meta.get("effective_date") or "")
+        or str(meta.get("fetched_at") or "")
+        or str(rule.get("evidence_date") or "")
+    ).strip()
+    rt_iso = (retrieved_at or _today_iso()).strip()
+    freshness_days, staleness_passed = compute_freshness(ev_date, rt_iso)
+
     try:
         reason = ViolationReason(
             policy_id=pid,
@@ -296,6 +423,11 @@ def build_violation_reason(
             business_excerpt=biz_ex,
             policy_excerpt=pol_ex,
             confidence=conf,
+            clause_text_hash=clause_hash,
+            evidence_date=ev_date,
+            retrieved_at=rt_iso,
+            freshness_days=freshness_days,
+            staleness_passed=staleness_passed,
         )
     except ValidationError:
         return None
@@ -305,8 +437,12 @@ def build_violation_reason(
 
 __all__ = [
     "EXCERPT_MAX_CHARS",
+    "CLAUSE_HASH_PREFIX_HEX",
+    "POLICY_FRESHNESS_SLA_DAYS",
     "ViolationReason",
     "build_violation_reason",
+    "compute_clause_text_hash",
+    "compute_freshness",
     "derive_conflict_field",
     "derive_review_reason",
 ]
