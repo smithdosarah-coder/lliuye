@@ -143,8 +143,9 @@ export default function CreditWorkspace() {
   const [started, setStarted] = useState<boolean>(false);
   const [mode, setModeState] = useState<CreditMode>("corp");
   const [liveData, setLiveData] = useState<CreditSession | null>(null);
-  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet · Step 3 改) */
-  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · ALL IN 默认 "live" (单一真路径)
+     · LiveFailError → "mock_fallback" 降级标 (trust model 一级 · 非 silent fallback 假数据) */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
   /* ALL IN Phase B · sessionData 不 fallback mock · 改 EMPTY_SESSION (per channel 模板 de79725)
@@ -213,84 +214,10 @@ export default function CreditWorkspace() {
     };
   }, []);
 
-  /* 起授信决策 · POST /api/credit/decision SSE (Step 7 · 2026-04-29 worker-A4-credit)
-     - 改 streamSse (per A2 _live.ts SSOT) · 删 35 行内联 res.body.getReader() reader (cat 3 修)
-     - done event normalize 后 setLiveData → 4-gate liveData 优先 · panel 全 hydrate
-     - mock=true 兼容无 LLM key 环境 · streamSse 内部已有 LiveFailError 4xx/5xx → 显式 error */
-  async function runDecision(opts: { mockMode: boolean }) {
-    if (decisionRunning) return;
-    setStarted(true);
-    setDecisionRunning(true);
-    setDecisionError(null);
-    setLiveAdvice(null);
-    setDecisionId(null);
-    const apiBase =
-      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-    const stageTab = MODE_TO_STAGE_TAB[mode];
-    // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
-    const presetByMode: Record<CreditMode, string> = {
-      corp: "dingsheng_trade",
-      small: "dingsheng_trade",
-      retail: "zhangsan_restaurant",
-    };
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      // sessionData snapshot at start · 用作 normalize fallback (panels 未 backend 透传字段)
-      const fallbackSession = sessionData;
-      await streamSse(
-        `${apiBase}/api/credit/decision`,
-        {
-          stage_tab: stageTab,
-          mock: opts.mockMode,
-          preset_name: opts.mockMode ? null : presetByMode[mode],
-        },
-        (sseEvt) => {
-          if (ac.signal.aborted) return;
-          const data = sseEvt.data as {
-            event?: string;
-            stage?: string;
-            decision_id?: string;
-            payload?: Record<string, unknown>;
-            message?: string;
-          };
-          // 保留旧 advising_done capture · 兼容现有 panel 直读 liveAdvice
-          if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
-            setLiveAdvice(data.payload);
-            setScanned(true);
-          }
-          if (sseEvt.type === "decision_cached" && data.decision_id) {
-            setDecisionId(data.decision_id);
-          }
-          if (sseEvt.type === "done") {
-            // Step 7 · cat 4 done envelope normalize → 4-gate liveData 注入
-            const liveSession = normalizeCreditDone(
-              data as Record<string, unknown>,
-              fallbackSession,
-            );
-            setLiveData(liveSession);
-            setSelectedCandidate(null);
-            setScanned(true);
-            /* 件 #2 · data_source SSOT 真消费 (per shared/sse_envelope canon) */
-            const rawDs = (data as Record<string, unknown>).data_source;
-            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "live");
-          }
-        },
-        { signal: ac.signal },
-      );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      const msg = err instanceof LiveFailError
-        ? liveFailBannerText(err, "Credit /api/credit/decision")
-        : err instanceof Error ? err.message : String(err);
-      setDecisionError(msg);
-      /* 件 #2 · live 失败 → trust model 一级降级 */
-      setCurrentDataSource("mock_fallback");
-    } finally {
-      if (!ac.signal.aborted) setDecisionRunning(false);
-    }
-  }
+  /* ALL IN Phase B step 3 · runDecision (preset fallback) 删除
+     · 旧路径 mock=true / preset_name=presetByMode 都是 mock 残留 · 不再保留
+     · 真路径单一: runDecisionWithAgent6Handoff (Agent6 → ReportJSON → /decision live SSE)
+     · retry button 也走 runDecisionWithAgent6Handoff · 反 KT §3.6 红线 #1 假 live */
 
   /* primary CTA · Cat 0 北极星核心: Agent6 handoff → 注入 enterprise_profile → 起决策
      Step 9 · 2026-04-29 worker-A4-credit · per agent-handoff-schemas §2 + spec §3 触发源 2
@@ -402,6 +329,9 @@ export default function CreditWorkspace() {
               ));
               setSelectedCandidate(null);
               setScanned(true);
+              /* ALL IN Phase B step 3 · data_source SSOT · live 成功标 */
+              const rawDs = (data as Record<string, unknown>).data_source;
+              setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "live");
             }
           },
           { signal: ac.signal },
@@ -417,6 +347,8 @@ export default function CreditWorkspace() {
         ? liveFailBannerText(err, "Credit handoff/from_report")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
+      /* ALL IN Phase B step 3 · live 失败 → trust model 一级降级标 (per Q-054 risk #1) */
+      setCurrentDataSource("mock_fallback");
       setDecisionRunning(false);
     }
   }
@@ -489,7 +421,7 @@ export default function CreditWorkspace() {
       <button
         type="button"
         className="credit-error-banner__retry"
-        onClick={() => runDecision({ mockMode: false })}
+        onClick={() => runDecisionWithAgent6Handoff()}
       >
         重试
       </button>
