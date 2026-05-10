@@ -729,7 +729,13 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 from agent_credit.agent import CreditDecisionAgent
             except ImportError as e:
                 err = f"ImportError: {e}"
-                yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
+                # Phase B.2 step 5 · typed error banner (反 silent fallback fake)
+                yield sse_encode({
+                    "event": "error",
+                    "code": "IMPORT_ERROR",
+                    "message": f"CreditDecisionAgent 模块导入失败 · {e} · 联系运维",
+                    "raw": err[:200],
+                })
                 return
 
             agent = CreditDecisionAgent(
@@ -824,12 +830,44 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 ledger=last_ledger,
             ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-            err = f"{type(e).__name__}: {e}"
-            traceback.print_exc()
+            err_str = f"{type(e).__name__}: {e}"
+            err = err_str
+            traceback.print_exc()  # stderr log only · 不给 client (security · 不 leak 文件路径)
+
+            # Phase B.2 step 5 · typed error banner 分类 (per onboarding "NotImplementedError / API key
+            # missing / Tavily down 显 typed banner · 不 silent · 不 fallback fake")
+            err_lower = err_str.lower()
+            if any(k in err_lower for k in ("401", "unauthorized", "authentication", "api key", "api_key")):
+                code = "LLM_KEY_MISSING"
+                friendly = (
+                    "LLM 密钥未配置或失效 (DEEPSEEK_API_KEY / DASHSCOPE_API_KEY) · "
+                    "联系运维补 key · 反假 live 不切 fallback fake"
+                )
+            elif any(k in err_lower for k in ("rate limit", "429", "quota")):
+                code = "LLM_RATE_LIMITED"
+                friendly = "LLM 调用配额已满 · 稍后重试 · 反假 live 不切 fallback fake"
+            elif any(k in err_lower for k in ("all providers failed", "fallback chain", "no provider")):
+                code = "LLM_FALLBACK_EXHAUSTED"
+                friendly = (
+                    "LLM 主+备 provider 全降级 (deepseek + dashscope · PIPL 境内 fallback) · "
+                    "检查 LLM 服务可用性 · 反假 live 不切 fallback fake"
+                )
+            elif isinstance(e, ImportError):
+                code = "IMPORT_ERROR"
+                friendly = f"模块导入失败 · {e} · 联系运维"
+            elif isinstance(e, NotImplementedError):
+                # NotImplementedError 不可在 demo/run 路径出现 (反不可 GO 条件 #5)
+                code = "NOT_IMPLEMENTED"
+                friendly = f"功能未实装 · {e} · 反不可 GO 条件 #5 · 主 CLI fix-forward"
+            else:
+                code = "INTERNAL_ERROR"
+                friendly = f"内部错误 · {type(e).__name__}: {str(e)[:200]}"
+
             yield sse_encode({
                 "event": "error",
-                "message": f"{type(e).__name__}: {e}",
-                "traceback": traceback.format_exc()[-2000:],
+                "code": code,
+                "message": friendly,
+                "raw": err_str[:200],  # dev debug 用 · 非 stack trace
             })
     finally:
         # bug #11 fix · audit 写在 generator 末尾 · latency 含全 stream 真实延迟
