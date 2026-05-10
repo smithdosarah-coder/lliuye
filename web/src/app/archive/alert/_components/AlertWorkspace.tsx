@@ -415,6 +415,22 @@ export default function AlertWorkspace() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
+  /**
+   * ALL IN Phase B.2 (2026-05-10) · backend done envelope 的 fallback banner.
+   * shape: {source, reason, severity, message, hint, retried} (per backend
+   * agent_alert/api.py:_resolve_fallback_banner · live-fallback-banner-spec).
+   * 用户必看见 trust model 真实状态 (Tavily key 缺 / web_fallback / demo input 等).
+   */
+  type BackendFallbackBanner = {
+    source: string;
+    reason: string;
+    severity: "info" | "warn" | "error";
+    message: string;
+    hint: string;
+    retried: boolean;
+  };
+  const [backendFallback, setBackendFallback] = useState<BackendFallbackBanner | null>(null);
+
   /* ───────── derived UI state ───────── */
 
   const after = sessionData.scanSnapshotAfter;
@@ -522,6 +538,25 @@ export default function AlertWorkspace() {
       if (evtType === "done") {
         const live = normalizeAlertSession(evt.data, sessionData);
         setLiveData(live);
+        /* ALL IN Phase B.2 (2026-05-10) · backend fallback banner 真消费.
+           backend 已 emit {source, reason, severity, message, hint, retried} ·
+           前端 silent 忽略是 step 5 错误降级 redesign 的 root cause. */
+        const fb = evt.data?.fallback;
+        if (fb && typeof fb === "object") {
+          const b = fb as Record<string, unknown>;
+          setBackendFallback({
+            source: String(b.source ?? ""),
+            reason: String(b.reason ?? ""),
+            severity: (["info", "warn", "error"].includes(String(b.severity))
+              ? String(b.severity)
+              : "info") as "info" | "warn" | "error",
+            message: String(b.message ?? ""),
+            hint: String(b.hint ?? ""),
+            retried: Boolean(b.retried),
+          });
+        } else {
+          setBackendFallback(null);
+        }
       }
     };
     void (async () => {
@@ -715,6 +750,40 @@ export default function AlertWorkspace() {
           </>
         ) : (
           <>
+            {/* ALL IN Phase B.2 (2026-05-10) · backend fallback banner ·
+                trust model 真实状态 · 用户必看见 (Tavily 缺 / web_fallback / demo input 等).
+                源: backend agent_alert/api.py:_resolve_fallback_banner · done envelope.fallback */}
+            {backendFallback ? (
+              <div
+                className="alert-backend-fallback-banner"
+                role="status"
+                data-testid="alert-backend-fallback-banner"
+                data-severity={backendFallback.severity}
+                data-reason={backendFallback.reason}
+              >
+                <span className="alert-backend-fallback-banner__icon" aria-hidden>
+                  {backendFallback.severity === "error" ? "⚠️" :
+                    backendFallback.severity === "warn" ? "⚡" : "ℹ️"}
+                </span>
+                <span className="alert-backend-fallback-banner__text">
+                  <b>{backendFallback.source}</b> · {backendFallback.message}
+                  {backendFallback.hint ? (
+                    <span className="alert-backend-fallback-banner__hint">
+                      → {backendFallback.hint}
+                    </span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  className="alert-backend-fallback-banner__dismiss"
+                  onClick={() => setBackendFallback(null)}
+                  aria-label="关闭横幅"
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
+
             {scanError && !liveFail ? (
               <div className="alert-live-fail-banner" role="alert" data-testid="alert-scan-error-banner">
                 <span className="alert-live-fail-banner__icon" aria-hidden>⚠️</span>

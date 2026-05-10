@@ -2288,3 +2288,67 @@
   color: var(--ink-50);
   padding: 4px 10px;
 }
+
+/* ALL IN Phase B.2 (2026-05-10) · backend fallback banner · 3 severity tones.
+   trust model 真实状态透传 · 区别于 LiveFailError (那是前端调用失败) ·
+   本 banner 是 backend 自己 emit 的状态 (Tavily key 缺 / web_fallback / demo input). */
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 16px;
+  margin: 12px 0;
+  border-radius: 8px;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="info"] {
+  background: color-mix(in srgb, var(--t-alert) 6%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--t-alert) 60%, transparent);
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="warn"] {
+  background: color-mix(in srgb, #d4a44a 12%, transparent);
+  border-left: 4px solid #d4a44a;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner[data-severity="error"] {
+  background: color-mix(in srgb, #d44a4a 12%, transparent);
+  border-left: 4px solid #d44a4a;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+  padding-top: 2px;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__text b {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-65);
+  font-style: italic;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__dismiss {
+  flex-shrink: 0;
+  font-family: var(--cjk);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--ink-12);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--ink-50);
+  transition: background 0.18s ease;
+}
+.v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__dismiss:hover {
+  background: var(--ink-12);
+}
