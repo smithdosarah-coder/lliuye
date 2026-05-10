@@ -869,13 +869,11 @@ async def credit_decision_v4(
                 "error": {
                     "code": "DEMO_ACCESS_DENIED",
                     "message": (
-                        "mock=true 演示路径需 credit:demo action 或 demoModeAvailable=true · "
+                        "mock=true 演示路径需 credit:demo action (env DEMO_MODE_VISIBLE=1 + role admin/demo_user) · "
                         "默认 invoke 路径走 mock=false (per PM Phase B.1 #5)"
                     ),
                     "details": {
                         "role": user.get("role"),
-                        "demoModeAvailable": has_demo_flag,
-                        "credit_demo_action": has_demo_action,
                     },
                 }
             })

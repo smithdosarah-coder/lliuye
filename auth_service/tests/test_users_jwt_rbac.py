@@ -307,13 +307,17 @@ for _ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
         _EXPECTED_MATRIX[("demo_user", _ag, _act)] = False
 
 
-def test_access_v2_full_matrix_5_role_x_6_agent_x_5_action():
+def test_access_v2_full_matrix_5_role_x_6_agent_x_5_action(monkeypatch):
     """RBAC matrix full coverage · Phase A.6 后 6 role × 6 agent × 6 action = 216 assertion.
 
     per Codex V2-FIX review Major 2: 缺 RM riskctrl/credit/alert 等 RBAC matrix 系统覆盖 ·
     本 test 一次性覆盖全 ACCESS_V2 spec · 任何 ACCESS_V2 改 (e.g. 新角色 / 新 action / 新 agent)
     必同 _EXPECTED_MATRIX 同步 · 否则 test fail · 防 ACCESS_V2 漂移.
+
+    Phase B.1 fix #2 (codex 3rd re-review 抓): can_action("demo") 现已加 env DEMO_MODE_VISIBLE=1 check
+    本 test matrix 期望 admin/demo_user demo = True · 故 monkeypatch env=1 让双控满足.
     """
+    monkeypatch.setenv("DEMO_MODE_VISIBLE", "1")
     from auth_service.rbac import VALID_ACTIONS, can_action
 
     # Phase A.6 · 6 role × 6 agent × 6 action = 216
