@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Phase B.2 真意 reframe (PM 2026-05-10) · 演示=上传 sample 跑真后端 · 不 mock 结果",
+  "anchor": "反 5 原则 §3.5 · 内部稳态 mock OK · 外部源 (政策原文) 改真接 Tavily/银保监 RSS 才是终极",
+  "scenarios": {
+    "online_loan": {
+      "label": "互联网贷款新规 vs 我行制度库",
+      "policy_path": "data/mock/compliance-kb/sample-policies/online_loan_2026.txt",
+      "policy_meta": {
+        "title": "互联网贷款管理办法（2026 修订版）",
+        "issuer": "国家金融监督管理总局",
+        "doc_no": "金监总规〔2026〕第 9 号",
+        "effective_date": "2026-06-01",
+        "issue_date": "2026-03-18",
+        "source_url": "(mock · 锚定银保监 2020 第 9 号 · 数字脱敏)",
+        "fetched_at": "2026-05-10"
+      },
+      "business_doc_paths": [
+        "data/mock/compliance-kb/credit-sop/小微企业流动资金贷款操作手册（2025版）.docx",
+        "data/mock/compliance-kb/review-checklists/贷前合规审查清单.docx",
+        "data/mock/compliance-kb/review-checklists/授信审查会审批要点.docx",
+        "data/mock/compliance-kb/customer-admission/对公企业客户准入标准（2026版）.docx"
+      ],
+      "expected_categories": ["期限", "资金", "风控", "信息披露", "集中度"]
+    },
+    "aml": {
+      "label": "反洗钱新规 vs 我行 KYC/AML 制度",
+      "policy_path": "data/mock/compliance-kb/sample-policies/aml_2026.txt",
+      "policy_meta": {
+        "title": "银行业反洗钱与反恐怖融资管理办法（2026 修订版）",
+        "issuer": "中国人民银行 国家金融监督管理总局",
+        "doc_no": "人行金监〔2026〕第 14 号",
+        "effective_date": "2026-04-01",
+        "issue_date": "2026-02-25",
+        "source_url": "(mock · 锚定 PBoC 反洗钱办法 · 数字脱敏)",
+        "fetched_at": "2026-05-10"
+      },
+      "business_doc_paths": [
+        "data/mock/compliance-kb/kyc-aml/KYC客户尽职调查操作规范（2025版）.docx",
+        "data/mock/compliance-kb/kyc-aml/反洗钱可疑交易识别与报告手册.docx",
+        "data/mock/compliance-kb/kyc-aml/受益所有人识别操作规范.docx"
+      ],
+      "expected_categories": ["客户识别", "可疑交易", "制裁名单", "数据保存"]
+    },
+    "data_protect": {
+      "label": "金融数据安全新规 vs 我行客户准入/制裁制度",
+      "policy_path": "data/mock/compliance-kb/sample-policies/data_protect_2026.txt",
+      "policy_meta": {
+        "title": "金融数据安全分级管理规定（2026 实施）",
+        "issuer": "国家金融监督管理总局 国家网信办",
+        "doc_no": "金监网信〔2026〕第 7 号",
+        "effective_date": "2026-05-01",
+        "issue_date": "2026-01-16",
+        "source_url": "(mock · 锚定 GB/T 35273 + 金融数据安全分级指南 · 数字脱敏)",
+        "fetched_at": "2026-05-10"
+      },
+      "business_doc_paths": [
+        "data/mock/compliance-kb/customer-admission/重点行业限制客群目录.docx",
+        "data/mock/compliance-kb/kyc-aml/受益所有人识别操作规范.docx",
+        "data/mock/compliance-kb/risk-preference/2026年度授信风险偏好政策.docx"
+      ],
+      "expected_categories": ["数据分级", "客户告知", "跨境传输", "安全保护"]
+    }
+  },
+  "default_scenario": "online_loan"
+}
