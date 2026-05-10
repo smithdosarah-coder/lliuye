@@ -61,6 +61,44 @@
 
 ---
 
+## 2026-05-10 02:32 · ALL IN Phase B.2 · 6 worker mesh + production deploy (PM 2026-05-10 真意 reframe)
+
+### What happened
+- PM 02:00 AM ultrathink reframe: "演示 = 上传 sample → 真后端跑 → 真结果" (mock 只能 mock 输入 · 不能 mock 结果)
+- 主 CLI ship 6 批 hotfix B.1.1-B.1.6 (alert NotImplementedError + channel fixtures + 6 agent /demo/run + ModePill revert + compliance 展开 + report 上传模板 + credit demo CTA + rbac demo env revert)
+- codex 复盘 5 漏项 (xhigh) · 给完整 4 层方案 (Layer A 后端 / B 前端 / C UX / D 流程)
+- 主 CLI 改 launch-allin.ps1 + 6 worker prompt + dispatch md (`docs/onboarding/B2-phase-b2-dispatch.md`)
+- PM 双击 launcher 启 6 worker (channel/report/credit/alert/riskctrl/compliance)
+- 6 worker 各自 fire RESUMED + verbatim PM 真意复述 + 主 CLI verify 全 PASS
+- 6 worker 平均 1-1.5h 干完 4 主活 + 11 step:
+  - **alert** READY `94de691` (NullSearchProvider 替 silent fallback · backend banner 真消费 · ledger 上链)
+  - **credit** READY `de3407d` (3 入口设计补全 CR1+CR2 · evidence drawer live wire · ledger subject_id hash)
+  - **compliance** READY `00b6529` (compliance-kb 优质 batch · clause_text_hash 闭红线 #8 · ledger)
+  - **report** BLOCKED `1a69bf1` (deep-pillar/DP001 真材料 + v16 真跑 + typed banner · E2E 接力)
+  - **riskctrl** BLOCKED `caa6fd6` (sample DSL + 真 backtest engine + KS/AUC · E2E 接力)
+  - **channel** BLOCKED `874fc56` (channel-kb 8 源多源交叉 + LLM 抽 4 字段真评分 + handoff 上链 · E2E 接力)
+- 主 CLI Phase C: cherry-pick 失败 (撞 hotfix B.1.x 改的 file 冲突) → 改 `git merge -X theirs --no-ff` 6 worker 分支 → 6 merge 全完成
+- main HEAD `082c427` push origin main → ECS deploy 200 OK https://liuye.me
+
+### Triggered by
+- PM 2026-05-10 02:00 AM ultrathink reframe + codex 复盘 + "现在就干 + 10 小时"
+
+### State change (delta)
+- main HEAD: 40f881f (B.1.6 revert) → f658846 (dispatch md) → 082c427 (6 merge)
+- production: 6 agent 真后端跑 sample · 形态切换 toggle · ledger 上链 · typed banner 错误降级
+- 6 worker mesh 全 fire (3 READY + 3 BLOCKED · 同模式 · E2E 接力)
+- 优质 mock batch 真接入: deep-pillar/DP001 + alert-pool + channel-kb + compliance-kb + agent2-samples
+- ModePill 双控错设计全 revert (Phase A.6 + B.1 fix #2-#7)
+- 演示语义 reframe: 切按钮假数据 → 切输入来源真后端
+
+### Next
+- 主 CLI 跑 admin E2E Playwright 6 agent × 5 步 spec (4 件套录屏/截图/HAR/run log)
+- PM admin 真号亲跑 verification (PM 端真验)
+- 7 day 监控 production: 401/403/5xx + 错误降级 banner 出现率 + ledger 上链率
+- 6 mesh worktree cleanup (production 稳定 24h 后 git worktree remove)
+
+---
+
 ## 2026-05-09 23:50 · ALL IN FINAL COMPLETE · production deployed (https://liuye.me)
 
 ### What happened
