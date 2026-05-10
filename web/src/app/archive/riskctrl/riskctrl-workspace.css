@@ -152,6 +152,18 @@
   display: flex;
   flex-direction: column;
 }
+
+/* ALL IN Phase B step 2 · RecentPanel 空状态 (无历史 backtest 时) */
+.v-archive--canon[data-agent="riskctrl"] .rc-rc-empty {
+  padding: 16px;
+  font-size: 11.5px;
+  color: var(--ink-50);
+  text-align: center;
+  font-style: italic;
+  border: 1px dashed var(--ink-10);
+  margin: 12px;
+  border-radius: 6px;
+}
 .v-archive--canon[data-agent="riskctrl"] .rc-rc-row {
   position: relative;
   padding: 10px 16px 10px 26px;
