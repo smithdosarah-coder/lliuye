@@ -3,17 +3,20 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * F-RISKCTRL-MOCK-SWITCH · workspace 4 gate · selectedSession dropdown 切下拉
  *
- * 验证: 切 RecentPanel 内 riskctrl-session-switch 下拉 · 5 panel 全跟切
- *   - data-session attr 改
- *   - Hero 副标 (objective / KS / 通过率) 切
- *   - QueryPanel objective 切
- *   - RulesPanel current rule 切
- *   - RiskOutputPanel KS / 通过 切
- *
- * Phase A worker-A4 · sessions array (sess_credit_v15 / sess_aml_kyc / sess_fraud_high).
+ * ALL IN Phase B step 1 (2026-05-09) · 整文件 skip:
+ *   原 setup 用 riskctrl-history-dropdown + riskctrl-apply-cta 进 mock session · 这两个
+ *   testid 在 Step 1 删 mock UI 时已移除 (违反红线 #1 假 live · per KT §3.6)
+ *   sidebar RecentPanel 切 mock session 的语义在 Step 2 sessionData=EMPTY_SESSION 后
+ *   也将被替换为真 live ruleset 切换 · 本 spec 重写于 Step 2 后 (新 testid 待定)
  *
  * Auth seed: archive/* 受 AuthGate 保护 · 默认 u_wangzhe (rm role)
  */
+test.describe.skip("F-RISKCTRL-MOCK-SWITCH · workspace 4 gate · session 切换 (ALL IN Phase B step 1 skip · 重写于 Step 2)", () => {
+  test("placeholder · 待 Step 2 重写", () => {});
+});
+
+/* === 以下 legacy spec 暂保留作 Step 2 重写参考 · skip 已生效 === */
+test.describe.skip("legacy · pre-ALL-IN", () => {
 
 const AUTH_KEY = "platform.auth.v1";
 const DEMO_USER_RM = {
@@ -124,3 +127,4 @@ test.describe("F-RISKCTRL-MOCK-SWITCH · 4 gate session dropdown", () => {
     ).toHaveValue("sess_fraud_high");
   });
 });
+}); /* end legacy describe.skip */
