@@ -571,72 +571,142 @@ async def alert_scan(
 
 
 # ============================================================================
-# POST /api/alert/demo/run — Demo fixture mode (worker-A4-alert · 2026-04-29)
+# POST /api/alert/demo/run — ALL IN Phase B.2 (PM 2026-05-10 真意 reframe)
+# ============================================================================
+#
+# OLD (Phase A · 2026-04-29 · REVERTED):
+#   读 data/mock/workspace/alert/scenarios/<key>.json fixture · yield 5 stage 假节拍
+#   + 假 done envelope (mode=mock_forced) · 不读 KB / 不调 LLM / 不持久化.
+#
+# NEW (Phase B.2 · 2026-05-10 · per dispatch §A 主活):
+#   "演示 = 上传 sample → 真 backend pipeline → 真返结果" verbatim PM 真意.
+#   demo 输入 = data/mock/alert-pool/clients.csv (180 户在贷客户池 · 优质 batch ·
+#   per dispatch §3.5 表 alert 行内部 mock).
+#   backend pipeline = scan_engine.run_scan_and_persist · 与 /api/alert/scan 同 ·
+#   force_mock=False · Tavily 真接 · 真 LLM disposition · 真持久化 · 真上链 ledger.
+#   mock 只能 mock 输入 · 不能 mock 结果.
 # ============================================================================
 
 
-SCENARIOS_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "alert" / "scenarios"
-
-
-def _load_scenario_fixture(scenario_key: str) -> dict[str, Any]:
-    """从 data/mock/workspace/alert/scenarios/<key>.json 读 fixture。
-
-    反 5 原则 #5 环境边界: fixture 是稳态 internal context · 不替 Agent
-    做"本该外搜"的工作 · 故 fixture 不含答案字段 (难度档 / 风险评级是 Agent
-    自己根据规则算 · 这里只给原始命中 + 元信息)。
-    """
-    import json as _json
-    safe_key = (scenario_key or "baseline_100").strip()
-    if not safe_key.replace("_", "").replace("-", "").isalnum():
-        raise HTTPException(status_code=400, detail=f"invalid scenario_key={safe_key!r}")
-    path = SCENARIOS_DIR / f"{safe_key}.json"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail=f"scenario fixture not found: {safe_key}")
-    return _json.loads(path.read_text(encoding="utf-8"))
+ALERT_POOL_DIR = PROJECT_ROOT / "data" / "mock" / "alert-pool"
+ALERT_POOL_CLIENTS_CSV = ALERT_POOL_DIR / "clients.csv"
 
 
 def _alert_demo_event_stream(req: AlertDemoRunRequest):
-    """Demo SSE 流 · 5 stage 节拍 + done envelope (mock_forced)。
+    """ALL IN Phase B.2 demo stream · 真跑 backend pipeline (per PM 真意 reframe).
 
-    与 /api/alert/scan 共形 envelope shape · 但不读 KB / 不调 LLM / 不持久化。
-    用于 worker-A4-alert Playwright smoke + 客户走访演示。
+    输入: data/mock/alert-pool/clients.csv (180 户) 作为 uploaded_files ·
+        通过 AlertKnowledgeBase.from_uploads → 真 KB 装载.
+    pipeline: scan_engine.run_scan_and_persist · 同 /api/alert/scan ·
+        Tavily 真接 (force_mock=False) · 真 cross_matcher · 真 LLM disposition ·
+        真 persist_hitlist · 真 decision_ledger 上链 (per CLAUDE.md §3.7.5).
+    输出: SSE 共形 envelope · mode=web_live | tavily_key_missing | web_fallback_X
+        (与 /api/alert/scan 完全相同的 mode label · 透明 banner).
+
+    红线 (per dispatch §不可 GO 条件):
+      - 不 yield fixture event (fixture 路径已删)
+      - 不 silent fallback fake 数据 (走 build_alert_provider banner 路径)
+      - 评分真 LLM 算 (走 disposition.py · 不静态)
     """
-    try:
-        fixture = _load_scenario_fixture(req.scenario_key)
-    except HTTPException:
-        raise
-    except (RuntimeError, ValueError, OSError, AttributeError, KeyError) as e:
-        yield encode_event(make_error_from_exception(e, code="FIXTURE_LOAD_FAILED"))
+    t0 = time.time()
+    err: str | None = None
+
+    if not ALERT_POOL_CLIENTS_CSV.is_file():
+        yield encode_event(make_error(
+            message=f"alert-pool batch missing: {ALERT_POOL_CLIENTS_CSV} not found",
+            code="DEMO_BATCH_NOT_FOUND",
+        ))
         return
 
-    stages = ["kb_load", "external_scan", "internal_match", "cross", "summary"]
-    for stage in stages:
-        yield encode_event(make_stage(stage, "done", message=f"demo · {stage} · fixture={req.scenario_key}"))
-        time.sleep(0.25)
+    captured_hit_list: Any = None
+    captured_dispositions: Any = None
+    captured_session_id: str = ""
+    captured_mode: str = ""
+    captured_kb_summary: str = ""
 
-    done_evt = make_done(
-        panels={
-            "hit_list": fixture.get("hit_list", {}),
-            "top_cases": fixture.get("top_cases", []),
-            "dispositions": fixture.get("dispositions", {}),
-        },
-        metrics=fixture.get("metrics", {}),
-        data_source=DATA_SOURCE_MOCK_FORCED,
-        session_id=f"demo-{req.scenario_key}",
-        summary=fixture.get("summary", ""),
-        scenario_key=req.scenario_key,
-        kb_state=fixture.get("kb_state", "demo · 不读 KB"),
-        mode="demo_forced",
-        totals=fixture.get("totals", {}),
-        industry_distribution=fixture.get("industry_distribution", []),
-        signal_heatmap=fixture.get("signal_heatmap", []),
-        reach_rate=fixture.get("reach_rate", []),
-    )
-    # BE5: demo path 也透明显示 banner (per live-fallback-banner-spec §2 规则 2)
-    fallback_banner = _resolve_fallback_banner("demo_forced")
-    if fallback_banner:
-        done_evt["fallback"] = fallback_banner
-    yield encode_event(done_evt)
+    try:
+        try:
+            from agent_alert.scan_engine import run_scan_and_persist
+        except ImportError as e:
+            err = f"ImportError: {e}"
+            yield encode_event(make_error_from_exception(e, code="SCAN_ENGINE_IMPORT_FAILED"))
+            return
+
+        # Stage banner: demo input batch loaded
+        yield encode_event(make_stage(
+            "kb_load",
+            "running",
+            message=f"加载 demo batch · alert-pool · 客户池 {ALERT_POOL_CLIENTS_CSV.name}",
+        ))
+
+        try:
+            for evt in run_scan_and_persist(
+                scenario_key=req.scenario_key or "alert-pool",
+                uploaded_files=[str(ALERT_POOL_CLIENTS_CSV)],
+                api_key=os.environ.get("DEEPSEEK_API_KEY", "dummy"),
+                provider="deepseek",
+                force_mock=False,  # backend 真跑 · 不退 mock 路径
+            ):
+                etype = evt.get("type", "") if isinstance(evt, dict) else ""
+                if etype == "hitlist":
+                    captured_hit_list = evt.get("hitlist")
+                    captured_dispositions = evt.get("dispositions")
+                elif etype == "session":
+                    captured_session_id = str(evt.get("session_id", ""))
+                    captured_mode = str(evt.get("mode", ""))
+                elif etype == "tool_result" and (evt.get("tool") or "").lower() == "load_kb":
+                    captured_kb_summary = str(evt.get("result", ""))
+
+                payload = to_jsonable(evt)
+                cleaned, hits = _qc_scrub(payload)
+                stage_name = _stage_for_event(evt if isinstance(evt, dict) else {})
+                wrap: dict[str, Any] = make_stage(
+                    stage_name,
+                    "running",
+                    payload=cleaned,
+                )
+                if hits:
+                    wrap["_qc_placeholder_hits"] = hits
+                yield encode_event(wrap)
+
+            yield encode_event(make_stage(
+                "summary",
+                "done",
+                message="扫描完成 · alert-pool 真 backend pipeline (Tavily + LLM + ledger)",
+            ))
+
+            done_evt = _build_done_envelope(
+                hit_list=captured_hit_list,
+                dispositions=captured_dispositions,
+                session_id=captured_session_id,
+                scenario_key=req.scenario_key or "alert-pool",
+                mode_label=captured_mode,
+                kb_summary=captured_kb_summary,
+            )
+            # demo 模式 banner · 透明告知输入来源 (per CLAUDE.md 反馈引导行动)
+            # 仅当 backend 没产 fallback banner (即 Tavily 真接通) 时加 demo-input banner
+            if done_evt.get("fallback") is None:
+                done_evt["fallback"] = {
+                    "source": "Demo Input",
+                    "reason": "alert_pool_batch",
+                    "severity": "info",
+                    "message": "演示模式 · 输入 alert-pool 180 户在贷客户池 · backend 真跑双路扫 + LLM 处置",
+                    "hint": "线上场景把 clients.csv 替换为银行真实在贷客户名录即可 · backend 路径不变",
+                    "retried": False,
+                }
+            yield encode_event(done_evt)
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            err = f"{type(e).__name__}: {e}"
+            traceback.print_exc()
+            yield encode_event(make_error_from_exception(e, code="DEMO_RUN_FAILED"))
+    finally:
+        audit_stream_event(
+            agent_id="alert",
+            endpoint="/api/alert/demo/run",
+            model="deepseek-chat",
+            t0=t0,
+            error=err,
+        )
 
 
 @app.post("/api/alert/demo/run")
@@ -644,15 +714,23 @@ async def alert_demo_run(
     req: AlertDemoRunRequest,
     _user: dict = Depends(require_action("alert", "invoke")),
 ):
-    """Demo fixture mode (worker-A4-alert · 2026-04-29).
+    """ALL IN Phase B.2 demo mode (2026-05-10 · PM 真意 reframe).
+
+    PM verbatim 真意 (02:00 AM):
+      "我要的演示不是一键切换 · 而是把本地的 mock 数据真实上传 ·
+       通过真实后端代码跑一遍 · 最后给出结果"
+
+    Demo input: data/mock/alert-pool/clients.csv (180 户在贷客户池 · 优质 batch ·
+      per dispatch §3.5 alert 行 · 已就位 commit cf7e4b1).
+    Backend: scan_engine.run_scan_and_persist · 同 /api/alert/scan · 真 KB 真 Tavily
+      真 LLM disposition 真 persist 真 ledger.
+    SSE envelope: 共形 panels + metrics + data_source + fallback banner.
 
     Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
-    与 /api/alert/scan + /api/alert/batch_scan 一致 · 防未授权用户触发 demo SSE.
+      与 /api/alert/scan + /api/alert/batch_scan 一致.
 
-    与 /api/alert/scan 共形 done envelope shape · mode=mock_forced ·
-    不读 KB / 不调 LLM / 不持久化 · 适合 Playwright smoke + 客户走访演示。
-
-    Body: {scenario_key: "baseline_100" | "manuf_policy_event" | "judicial_news_dual"}
+    Body: {scenario_key: str = ""} (legacy field · 透传到 captured_kb_summary 标签 ·
+      不再控制 fixture 路径 · fixture 路径已废)
     """
     def gen():
         yield from _alert_demo_event_stream(req)
