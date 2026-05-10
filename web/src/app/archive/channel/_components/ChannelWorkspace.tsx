@@ -531,85 +531,150 @@ export default function ChannelWorkspace() {
       ) : (
         <section
           aria-label="等待触发"
+          data-testid="channel-empty-state"
           style={{
-            padding: "64px 24px",
-            textAlign: "center",
+            padding: "44px 32px 38px 32px",
             background:
-              "color-mix(in srgb, var(--chalk) 50%, transparent)",
+              "color-mix(in srgb, var(--chalk) 55%, transparent)",
             borderRadius: "var(--r-md)",
             border: "1px dashed var(--ink-14)",
-            margin: "24px 0",
+            margin: "20px 0",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 28,
           }}
         >
-          <h3
-            style={{
-              fontFamily: "var(--display)",
-              fontSize: 20,
-              color: "var(--ink)",
-              fontWeight: 500,
-              margin: "0 0 14px 0",
-              letterSpacing: ".02em",
-            }}
-          >
-            输入业务诉求开始 look-alike 获客
-          </h3>
-          <p
-            style={{
-              fontFamily: "var(--cjk)",
-              fontSize: 14,
-              color: "var(--ink-65)",
-              lineHeight: 1.7,
-              maxWidth: 520,
-              margin: "0 auto 18px auto",
-            }}
-          >
-            上方输入业务诉求 (e.g.{" "}
-            <strong style={{ color: "var(--accent)" }}>
-              "找江苏中型 SaaS 企业 · ARR 1-3 亿 · 专精特新"
-            </strong>
-            ), 系统真接多源信源 (工商 + 司法 + 招投标 + 资质 + 行情) 搜出 look-alike 相似企业 · 9 维评分 · 字段级溯源.
-          </p>
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <span
+          {/* 左 · 自由查询 (RM 主路径) */}
+          <div>
+            <div
               style={{
-                fontSize: 12,
-                color: "var(--ink-48)",
                 fontFamily: "var(--cjk)",
-                marginRight: 8,
+                fontSize: 11,
+                color: "var(--ink-48)",
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                marginBottom: 8,
               }}
             >
-              示例诉求:
-            </span>
-            {[
-              "江苏中型 SaaS · ARR 1-3 亿",
-              "长三角专精特新小巨人 · 工业软件",
-              "B 轮已完成 · CFO 公开活跃",
-            ].map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setExternalTrigger({ input: q, nonce: Date.now() })}
-                style={{
-                  fontFamily: "var(--cjk)",
-                  fontSize: 12,
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "1px solid var(--ink-20)",
-                  background: "transparent",
-                  color: "var(--ink-65)",
-                  cursor: "pointer",
-                }}
-              >
-                {q}
-              </button>
-            ))}
+              形态 · A · 自由查询
+            </div>
+            <h3
+              style={{
+                fontFamily: "var(--display)",
+                fontSize: 18,
+                color: "var(--ink)",
+                fontWeight: 500,
+                margin: "0 0 10px 0",
+              }}
+            >
+              输入业务诉求 → 真接 Tavily/AI 搜出 look-alike
+            </h3>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 13,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: "0 0 14px 0",
+              }}
+            >
+              上方搜索框输入业务诉求 (e.g.{" "}
+              <strong style={{ color: "var(--accent)" }}>
+                找江苏中型 SaaS · ARR 1-3 亿 · 专精特新
+              </strong>
+              ) · 多源信源 (工商 + 司法 + 招投标 + 资质 + 行情) 实搜 · 9 维评分 · 字段级溯源.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              {[
+                "江苏中型 SaaS · ARR 1-3 亿",
+                "长三角专精特新小巨人 · 工业软件",
+                "B 轮已完成 · CFO 公开活跃",
+              ].map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  data-testid="channel-empty-quick"
+                  onClick={() => setExternalTrigger({ input: q, nonce: Date.now() })}
+                  style={{
+                    fontFamily: "var(--cjk)",
+                    fontSize: 12,
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "1px solid var(--ink-20)",
+                    background: "transparent",
+                    color: "var(--ink-65)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 右 · 一键示例 (channel-kb 优质 batch · PM 真意) */}
+          <div
+            style={{
+              borderLeft: "1px solid var(--ink-14)",
+              paddingLeft: 28,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 11,
+                color: "var(--accent)",
+                letterSpacing: ".08em",
+                textTransform: "uppercase",
+                marginBottom: 8,
+                fontWeight: 600,
+              }}
+            >
+              形态 · B · 一键示例 · 推荐
+            </div>
+            <h3
+              style={{
+                fontFamily: "var(--display)",
+                fontSize: 18,
+                color: "var(--ink)",
+                fontWeight: 500,
+                margin: "0 0 10px 0",
+              }}
+            >
+              银行营销倾向 docx → 真后端跑一遍
+            </h3>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 13,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: "0 0 14px 0",
+              }}
+            >
+              用 <code style={{ fontFamily: "var(--mono)", color: "var(--accent)" }}>
+                channel-kb/marketing-preferences/
+              </code> 真上传 · 派生 seed query · 走真 Tavily/AI 跑全管线 · 候选/评分/匹配理由全 LLM 抽 · 不写死.
+            </p>
+            <p
+              style={{
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+                color: "var(--ink-48)",
+                lineHeight: 1.6,
+                margin: "0 0 14px 0",
+              }}
+            >
+              已加载: 2026-Q1-重点拓展.docx · 2026-Q2-区域重点.docx · 2026年度行业组合建议.docx
+            </p>
+            <div style={{ fontFamily: "var(--cjk)", fontSize: 12, color: "var(--ink-48)" }}>
+              ↑ 上方切到 <strong style={{ color: "var(--accent)" }}>"一键示例"</strong> tab 即可点 3 档难度运行
+            </div>
           </div>
         </section>
       )}

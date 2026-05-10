@@ -312,17 +312,34 @@ async def channel_demo_run(
             return
 
         # 5) 真跑 backend pipeline (Tavily + LLM + 8 源 + 评分 + 证据)
-        for evt in run_channel_search_stream(
-            query=seed_query,
-            provider="deepseek",
-            api_key="",  # 走 env DEEPSEEK_API_KEY
-            top_n=8,
-            force_mock=False,
-            rm_region=req.rm_region or "华东",
-        ):
-            yield sse_encode(_qc_clean_event(
-                {k: to_jsonable(v) for k, v in evt.items()}
-            ))
+        # 错误降级 (per dispatch §5): NotImplementedError / API key missing / Tavily down
+        # 走 typed banner · 不 silent fallback fake · run_channel_search_stream 内部已 catch
+        # (RuntimeError/ValueError/TypeError/OSError/AttributeError/KeyError) · 这里额外 catch
+        # NotImplementedError (build_search_provider demo_mode=False · 缺 Tavily key 时 raise)
+        try:
+            for evt in run_channel_search_stream(
+                query=seed_query,
+                provider="deepseek",
+                api_key="",  # 走 env DEEPSEEK_API_KEY
+                top_n=8,
+                force_mock=False,
+                rm_region=req.rm_region or "华东",
+            ):
+                yield sse_encode(_qc_clean_event(
+                    {k: to_jsonable(v) for k, v in evt.items()}
+                ))
+        except NotImplementedError as e:
+            # 触发源: agent_channel.agent.build_search_provider(demo_mode=False) 无 Tavily 时
+            # 上抛 NotImplementedError · 走 typed banner · 不 silent
+            yield sse_encode({
+                "event": "error",
+                "stage": "pipeline",
+                "code": "BACKEND_NOT_IMPLEMENTED",
+                "message": (
+                    f"后端搜索器未配置可用 provider · {type(e).__name__}: {e} · "
+                    "请联系运维补全 Tavily/akshare 配置"
+                ),
+            })
 
     return StreamingResponse(
         gen(),

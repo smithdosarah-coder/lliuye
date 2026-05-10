@@ -140,6 +140,40 @@ def test_demo_run_does_not_read_old_fixture_scenarios():
     )
 
 
+def test_demo_run_not_implemented_yields_typed_banner(monkeypatch):
+    """run_channel_search_stream raise NotImplementedError → typed banner BACKEND_NOT_IMPLEMENTED.
+
+    硬线 (per dispatch §5): NotImplementedError 任何运行路径 raise = REJECT
+    必须 typed banner · 不 silent · 不 fallback fake.
+    """
+    # 设 TAVILY 让 endpoint 走到 pipeline 调用步
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+    # patch run_channel_search_stream raise NotImplementedError
+    import agent_channel.realtime_stream as rts
+
+    def boom(*_args, **_kwargs):
+        raise NotImplementedError("build_search_provider · no Tavily configured")
+        # 让生成器 not iterable 也触发 raise
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(rts, "run_channel_search_stream", boom)
+    # endpoint 内 from agent_channel.realtime_stream import run_channel_search_stream
+    # 是 lazy import (在 def gen() 内) · monkeypatch 模块属性后 endpoint 拿到 patched
+    client = TestClient(app)
+    resp = client.post("/api/channel/demo/run", json={"scenario_id": "easy"})
+    assert resp.status_code == 200
+    events = _parse_sse_lines(resp.text)
+    err = next(
+        (e for e in events
+         if e.get("event") == "error" and e.get("code") == "BACKEND_NOT_IMPLEMENTED"),
+        None,
+    )
+    assert err is not None, (
+        f"NotImplementedError 应转 typed banner BACKEND_NOT_IMPLEMENTED · events={events!r}"
+    )
+    assert "NotImplementedError" in err["message"]
+
+
 def test_demo_run_kb_path_missing_returns_typed_error(tmp_path, monkeypatch):
     """如果 channel-kb 路径不在 (CI 极端 case) → typed error DEMO_KB_MISSING / EMPTY · 不 crash."""
     # 这个 test 不实际删 fs · 而是验证 endpoint 当 kb 解析空时 yield typed error
