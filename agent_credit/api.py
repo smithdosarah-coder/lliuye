@@ -113,6 +113,57 @@ _DECISION_CACHE: dict[str, dict[str, Any]] = {}
 _DECISION_TTL_SEC = 1800
 
 
+def _build_data_sources_panel(
+    *,
+    rule_hits: list | None,
+    case_matches: list | None,
+    scoring: dict | None,
+    advice: dict | None,
+    timestamp: str,
+) -> dict[str, Any]:
+    """ALL IN Phase B step 4 (2026-05-09) · per AGENT_IDENTITY-credit step 4 + EvidenceDrawer
+    + KT §3.6 红线 #3 无证据 claim · 反 silent decision 无源.
+
+    返 DataSourcesPanel shape (per CreditSession.dataSources frontend type)
+    描述本次决策实际使用的 4 evidence 类源 · trust display + 反假分根据。
+    """
+    has_rules = bool(rule_hits)
+    has_cases = bool(case_matches)
+    has_scoring = bool(scoring)
+    has_advice = bool(advice)
+    active_count = sum([has_rules, has_cases, has_scoring, has_advice])
+    return {
+        "summary": f"{active_count} 项已接入 · 3 deterministic + 1 LLM",
+        "updated": timestamp,
+        "sources": [
+            {
+                "id": "scoring_model",
+                "name": "四维评分模型 (确定性)",
+                "desc": "财 / 行 / 经 / 担 · Python 计算 · 不让 LLM 现场算",
+                "status": "online" if has_scoring else "offline",
+            },
+            {
+                "id": "rule_engine_v2",
+                "name": "红线规则引擎 v2 (确定性)",
+                "desc": "对公 30 条 / 普惠 20 条 / 对私 20 条 · 阈值规则 + 豁免条件",
+                "status": "online" if has_rules else "offline",
+            },
+            {
+                "id": "case_retriever",
+                "name": "历史案例库 (确定性)",
+                "desc": "Top 5 相似案例 · 相似度 ≥ 0.75 · 同业对标参考",
+                "status": "online" if has_cases else "offline",
+            },
+            {
+                "id": "advisor_llm",
+                "name": "LLM 决策建议生成器",
+                "desc": "PIPL fallback chain · deepseek 主 + dashscope 备 · 全境内合规",
+                "status": "online" if has_advice else "offline",
+            },
+        ],
+    }
+
+
 def _build_done_envelope(
     *,
     stage_tab: str,
@@ -136,6 +187,8 @@ def _build_done_envelope(
     前端 normalize 后整体注入 setLiveData → 5 panel 单点派生 · 不再分 stage 累积本地 state。
 
     BE2 (Phase B-3 · 2026-05-01): 新增 `decision_graph` 字段 · null 兼容旧前端。
+    BE7 (Phase B-3 · 2026-05-01): 新增 `ledger` 字段。
+    ALL IN Phase B step 4 (2026-05-09): 新增 `data_sources` 字段 (4 evidence 类源 trust display)。
     Schema: docs/contracts/agent-credit-decision-graph.md v1.0
     """
     return {
@@ -151,6 +204,13 @@ def _build_done_envelope(
         "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
         "decision_graph": decision_graph,    # BE2 audit-grade evidence graph (null when absent)
         "ledger": ledger,                    # BE7 ledger persist result {decision_id, persisted, error?} (null when absent)
+        "data_sources": _build_data_sources_panel(  # ALL IN step 4 · 4 evidence 类源 trust display
+            rule_hits=rule_hits,
+            case_matches=case_matches,
+            scoring=scoring,
+            advice=advice,
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+        ),
     }
 
 
