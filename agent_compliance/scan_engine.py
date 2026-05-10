@@ -696,6 +696,63 @@ def _registry_rules_for_policy(
     }
 
 
+_CLIENT_NAME_ALIASES = ("client", "client_name", "customer", "customer_name", "企业名", "企业名称", "公司")
+_CLIENT_USCC_ALIASES = ("client_uscc", "uscc", "USCC", "credit_code", "统一社会信用代码", "社会信用代码")
+
+
+def _extract_client_fields(violation: dict) -> tuple[str, str]:
+    """从 violation.event_fields 抽 client + client_uscc · 用于 ensure_candidate_id.
+
+    业务事件有多种字段名 · 容错扫几个常见 alias.
+    返 ("", "") 时 ensure_candidate_id 退化到 cand_<idx> 兜底.
+    """
+    fields = violation.get("event_fields") or {}
+    if not isinstance(fields, dict):
+        return "", ""
+    name = ""
+    uscc = ""
+    for k in _CLIENT_NAME_ALIASES:
+        if isinstance(fields.get(k), str) and fields[k].strip():
+            name = fields[k].strip()
+            break
+    for k in _CLIENT_USCC_ALIASES:
+        if isinstance(fields.get(k), str) and fields[k].strip():
+            uscc = fields[k].strip()
+            break
+    return name, uscc
+
+
+def _ensure_violation_ids(violations: list[dict]) -> list[dict]:
+    """ALL IN step 5 (per candidate-identity-contract v1.1):
+
+    每条 violation 出 unique `id` 字段 (按 client + client_uscc 派生 · cand_<idx> 兜底).
+    保 violation_id (VIO-NNN) backwards-compat · 仅添加新 id 字段.
+
+    业务事件字段 client / client_uscc 多 alias 容错抽取 · 缺失走 cand_<idx>.
+    """
+    try:
+        from shared.entity_resolver import ensure_list_unique_ids
+    except ImportError:
+        # shared.entity_resolver 缺 · in-place 兜底 cand_NNN
+        for idx, v in enumerate(violations):
+            v.setdefault("id", f"cand_{idx:03d}")
+        return violations
+
+    # 把 client / client_uscc 平铺到 violation 顶层 · 让 ensure_candidate_id 能取
+    for v in violations:
+        client, client_uscc = _extract_client_fields(v)
+        v.setdefault("client", client)
+        v.setdefault("client_uscc", client_uscc)
+
+    ensure_list_unique_ids(
+        violations,
+        name_field="client",
+        uscc_field="client_uscc",
+        id_field="id",
+    )
+    return violations
+
+
 def _enrich_violations_with_reasons(
     violations: list[dict],
     rules_by_id: dict[str, dict],
@@ -826,6 +883,11 @@ def run_policy_scan_and_persist(
         policy_meta=policy_meta,
         retrieved_at=retrieved_at_iso,
     )
+
+    # ALL IN step 5 (per candidate-identity-contract v1.1 §3 + ensure_*):
+    # 每条 violation 必出 unique id 字段 (按 client + client_uscc 派生 · cand_<idx> 兜底)
+    # 旧 violation_id (VIO-NNN) 保留 backwards-compat · 前端可优先消费新 id 字段
+    enriched_violations = _ensure_violation_ids(enriched_violations)
     reason_count = sum(1 for v in enriched_violations if v.get("reason"))
     yield {"type": "stage", "stage": "revision_generate", "status": "done",
            "duration_s": round(time.time() - t3, 2),
