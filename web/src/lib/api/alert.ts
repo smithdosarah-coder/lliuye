@@ -3,6 +3,7 @@
  *
  * Endpoints (按 backend agent_alert/api.py):
  *   POST /api/alert/scan          · SSE · {scenario_key?, uploaded_files?, force_mock?}
+ *   POST /api/alert/demo/run      · SSE · ALL IN Phase B.2 · 真后端 + alert-pool 180 户输入
  *   GET  /api/alert/hitlist       · 持久化榜单
  *   GET  /api/alert/drill/{cid}   · 单客户 drill
  *
@@ -17,6 +18,7 @@ export { LiveFailError };
 export type { DataSourceKind };
 
 const ENDPOINT_SCAN = "/api/alert/scan";
+const ENDPOINT_DEMO_RUN = "/api/alert/demo/run";
 const ENDPOINT_HITLIST = "/api/alert/hitlist";
 
 
@@ -75,6 +77,44 @@ export async function runAlertScan(
     }
 
     // V2 fix · canon path · make_done 顶层 session_id (per shared.sse_envelope)
+    if (data.event === "done") {
+      if (data.session_id) sessionId = String(data.session_id);
+      if (data.mode) mode = String(data.mode);
+      if (data.data_source) dataSource = normalizeDataSource(data.data_source);
+    }
+  }, { signal });
+  return { sessionId, mode, dataSource };
+}
+
+
+/**
+ * ALL IN Phase B.2 (PM 2026-05-10 真意 reframe):
+ * runAlertDemo · 调 /api/alert/demo/run · backend 真跑 + alert-pool 180 户输入 batch.
+ *
+ * 与 runAlertScan 共形 SSE envelope · 区别仅是输入来源 (live = 客户经理上传 ·
+ * demo = backend 自动加载 data/mock/alert-pool/clients.csv) · backend pipeline 100% 同 ·
+ * 真 Tavily 真 LLM disposition 真 persist 真 ledger.
+ *
+ * 结果不能 mock · 仅输入是 mock · backend emit 的 dataSource 反映真实路径 (live /
+ * mock_fallback / mock_forced 取决 Tavily key/build · 与 /api/alert/scan 完全相同).
+ */
+export async function runAlertDemo(
+  req: AlertScanRequest,
+  onEvent?: AlertSseHandler,
+  signal?: AbortSignal,
+): Promise<AlertScanResult> {
+  const body = {
+    scenario_key: req.scenarioKey ?? "alert-pool",
+  };
+  let sessionId = "";
+  let mode = "";
+  /* demo 默认 expect "live" (Tavily 真接 · alert-pool input · backend 真跑) ·
+     backend emit 真 data_source · 此处 preferred default. */
+  let dataSource: DataSourceKind = "live";
+  await streamSse(ENDPOINT_DEMO_RUN, body, (evt) => {
+    if (signal?.aborted) return;
+    onEvent?.(evt);
+    const data = (evt.data ?? {}) as Record<string, unknown>;
     if (data.event === "done") {
       if (data.session_id) sessionId = String(data.session_id);
       if (data.mode) mode = String(data.mode);

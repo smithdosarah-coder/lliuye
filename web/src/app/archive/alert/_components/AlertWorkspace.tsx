@@ -75,9 +75,21 @@ const EMPTY_EVIDENCE: {
 import {
   fetchDrill,
   LiveFailError,
+  runAlertDemo,
   runAlertScan,
   type AlertDrillResponse,
 } from "@/lib/api/alert";
+
+/**
+ * ALL IN Phase B.2 (2026-05-10 · PM 真意 reframe) · 输入来源切换 toggle.
+ *
+ * "live"  · 客户经理触发 · /api/alert/scan · 真 KB (上传或预置) + Tavily 真接
+ * "demo"  · backend 自动加载 data/mock/alert-pool/clients.csv (180 户) · 同走真 pipeline
+ *
+ * 红线 (per dispatch §不可 GO): 这是"输入来源"切换 · 不是"真假数据"切换 ·
+ * 两个模式 backend 路径都真跑 · 出真结果 · 不允许 demo 走 yield-fixture 假路径.
+ */
+type InputMode = "live" | "demo";
 
 /** 截断消息内容作 pin title。 */
 function msgTitle(raw: string): string {
@@ -346,8 +358,21 @@ export default function AlertWorkspace() {
 
   /** Gate 3 · liveData · SSE done envelope 注入完整 session · null = 等扫描启动 (EMPTY) */
   const [liveData, setLiveData] = useState<AlertSession | null>(null);
-  /** 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
-  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
+  /**
+   * 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1).
+   * ALL IN Phase B.2 (PM 真意 reframe · 2026-05-10): default 改 "live".
+   * - 旧 default "mock" 暗示无 run 时已是 mock 数据 · 误导用户;
+   * - 新 default "live" 反映 trust model 真实期望 · backend emit 后覆盖真值;
+   * - scan 失败时不再 silent 切 "mock_fallback" 标 (那是把 fail 包装成 fake-OK · 派活红线 #4).
+   */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
+
+  /**
+   * ALL IN Phase B.2 输入来源 toggle · default "live" (per dispatch "真实 default").
+   * - "live": /api/alert/scan · 客户经理触发 · 真 KB + 真 Tavily
+   * - "demo": /api/alert/demo/run · backend 自动加载 alert-pool 180 户 · 同走真 pipeline
+   */
+  const [inputMode, setInputMode] = useState<InputMode>("live");
 
   /** Gate 4 · selectedClientId · TopCase 行 click → drill drawer (用 client_id 与 backend 对齐) */
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -474,47 +499,58 @@ export default function AlertWorkspace() {
       }
     }, 500);
 
-    /* 真接 POST /api/alert/scan SSE · streamSse helper · 失败 banner */
-    /* PB#5 · cancel 之前未完成的 scan · 防多次连点 leak */
+    /* 真接 POST /api/alert/scan (live mode) OR /api/alert/demo/run (demo mode) ·
+       两个 mode backend pipeline 都真跑 · 区别仅是输入来源 (per dispatch B.2 §A 主活).
+       PB#5 · cancel 之前未完成的 scan · 防多次连点 leak */
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
+    const sseHandler = (evt: { type: string; data: Record<string, unknown> }) => {
+      // stage event 推进 stepIdx (per stage name 映射 · 后端 stage names: kb_load/external_scan/internal_match/cross/summary)
+      const evtType = evt.data?.event ?? evt.type;
+      if (evtType === "stage") {
+        const stage = String(evt.data?.stage ?? "");
+        const stageMap: Record<string, number> = {
+          kb_load: 0,
+          external_scan: 1,
+          internal_match: 2,
+          cross: 3,
+          summary: 4,
+        };
+        if (stageMap[stage] != null) setStepIdx(stageMap[stage]);
+      }
+      if (evtType === "done") {
+        const live = normalizeAlertSession(evt.data, sessionData);
+        setLiveData(live);
+      }
+    };
     void (async () => {
       try {
-        const result = await runAlertScan(
-          { scenarioKey: rangeId || sessionData.scenario_key || "", forceMock: false },
-          (evt) => {
-            // stage event 推进 stepIdx (per stage name 映射 · 后端 stage names: kb_load/external_scan/internal_match/cross/summary)
-            const evtType = evt.data?.event ?? evt.type;
-            if (evtType === "stage") {
-              const stage = String(evt.data?.stage ?? "");
-              const stageMap: Record<string, number> = {
-                kb_load: 0,
-                external_scan: 1,
-                internal_match: 2,
-                cross: 3,
-                summary: 4,
-              };
-              if (stageMap[stage] != null) setStepIdx(stageMap[stage]);
-            }
-            if (evtType === "done") {
-              const live = normalizeAlertSession(evt.data, sessionData);
-              setLiveData(live);
-            }
-          },
-          ac.signal,
-        );
+        const result = inputMode === "demo"
+          ? await runAlertDemo(
+              { scenarioKey: rangeId || sessionData.scenario_key || "alert-pool" },
+              sseHandler,
+              ac.signal,
+            )
+          : await runAlertScan(
+              { scenarioKey: rangeId || sessionData.scenario_key || "", forceMock: false },
+              sseHandler,
+              ac.signal,
+            );
         if (ac.signal.aborted) return;
         if (result.sessionId) setScanSessionId(result.sessionId);
-        /* 件 #2 · data_source SSOT 真消费 · result.dataSource 来自 runAlertScan T3 加 (per shared/sse_envelope canon) */
+        /* 件 #2 · data_source SSOT 真消费 · backend emit 真 dataSource ·
+           live mode: web_live=live / web_fallback_X=mock_fallback (banner 真显)
+           demo mode: 同上 (alert-pool 输入但 backend 真跑) */
         setCurrentDataSource(result.dataSource);
         setPhase("after");
       } catch (e) {
         /* PB#5 · AbortError 是预期 · 不显 banner */
         if (e instanceof DOMException && e.name === "AbortError") return;
-        recordLiveFail("alert scan", e, () => startScan());
-        /* 件 #2 · live 失败 → trust model 一级降级 (banner-spec rule 1) */
-        setCurrentDataSource("mock_fallback");
+        recordLiveFail(inputMode === "demo" ? "alert demo run" : "alert scan", e, () => startScan());
+        /* ALL IN Phase B.2 (2026-05-10): scan fail 不再 silent 切 "mock_fallback" 标 ·
+           那是把 fail 包装成 fake-OK · 派活红线 #4. liveFail banner 已显 typed 错误 + retry ·
+           data_source 留原 default ("live") · 用户清楚 "扫描没成 · 没真数据 · 可重试". */
         if (timerRef.current != null) {
           window.clearInterval(timerRef.current);
           timerRef.current = null;
@@ -611,6 +647,8 @@ export default function AlertWorkspace() {
         data-session-id={sessionData.id}
         data-live-mode={liveData ? "yes" : "no"}
         data-scan-session-id={scanSessionId}
+        data-input-mode={inputMode}
+        data-data-source={currentDataSource}
       >
         {!started ? (
           <>
@@ -670,6 +708,8 @@ export default function AlertWorkspace() {
                 onSecondary={triggerSecondaryScan}
                 scanRunning={phase === "scanning"}
                 scanError={scanError}
+                inputMode={inputMode}
+                onInputModeChange={setInputMode}
               />
             </ActionGate>
           </>
@@ -1927,9 +1967,21 @@ function AlertEmptyState(p: {
   onSecondary: () => void;
   scanRunning: boolean;
   scanError: string | null;
+  inputMode: InputMode;
+  onInputModeChange: (m: InputMode) => void;
 }) {
+  const isDemo = p.inputMode === "demo";
+  const ctaTitle = p.scanRunning
+    ? "扫描中…"
+    : isDemo
+    ? "启动 demo 扫描 · alert-pool 180 户"
+    : "启动风险扫描 · 上传客户名录后真跑";
+  const ctaSub = isDemo
+    ? "POST /api/alert/demo/run · backend 真跑 + Tavily + LLM 处置 · 输入 alert-pool/clients.csv"
+    : "POST /api/alert/scan · 在贷客户池规则扫 + 双路交叉 · 真 Tavily + 真 LLM";
+
   return (
-    <div className="alert-empty" data-testid="alert-empty-skeleton">
+    <div className="alert-empty" data-testid="alert-empty-skeleton" data-input-mode={p.inputMode}>
       <header className="alert-empty__hero">
         <div className="alert-empty__hero-eyebrow">AGENT · 04 · TOWER · 贷中预警引擎</div>
         <h1 className="alert-empty__hero-title">
@@ -1941,6 +1993,42 @@ function AlertEmptyState(p: {
         </p>
       </header>
 
+      {/* ALL IN Phase B.2 (PM 真意 reframe · 2026-05-10) · 输入来源 toggle ·
+          两个 mode backend pipeline 都真跑 · 区别仅输入来源 (live = 客户经理 ·
+          demo = backend 自动 alert-pool 180 户) · 派活红线: 这是输入切换 不是真假切换. */}
+      <section
+        className="alert-empty__input-toggle"
+        aria-label="输入来源切换 · 真实 vs 演示"
+        data-testid="alert-input-mode-toggle"
+      >
+        <span className="alert-empty__input-toggle-label">输入来源:</span>
+        <button
+          type="button"
+          className="alert-empty__input-toggle-btn"
+          data-testid="alert-input-mode-live"
+          data-active={p.inputMode === "live" ? "yes" : "no"}
+          onClick={() => p.onInputModeChange("live")}
+          disabled={p.scanRunning}
+          aria-pressed={p.inputMode === "live"}
+        >
+          真实模式 · 客户经理上传名录
+        </button>
+        <button
+          type="button"
+          className="alert-empty__input-toggle-btn"
+          data-testid="alert-input-mode-demo"
+          data-active={p.inputMode === "demo" ? "yes" : "no"}
+          onClick={() => p.onInputModeChange("demo")}
+          disabled={p.scanRunning}
+          aria-pressed={p.inputMode === "demo"}
+        >
+          演示模式 · alert-pool 180 户内部 batch
+        </button>
+        <span className="alert-empty__input-toggle-hint">
+          backend 真跑 · 两 mode 同 pipeline · 仅输入不同
+        </span>
+      </section>
+
       <section className="alert-empty__cta-row" aria-label="2 CTA 分级">
         <button
           type="button"
@@ -1951,12 +2039,8 @@ function AlertEmptyState(p: {
           disabled={p.scanRunning}
         >
           <span className="alert-empty__cta-rank">主操作</span>
-          <span className="alert-empty__cta-title">
-            {p.scanRunning ? "扫描中…" : "启动风险扫描"}
-          </span>
-          <span className="alert-empty__cta-sub">
-            POST /api/alert/scan · 在贷客户池规则扫 + 双路交叉
-          </span>
+          <span className="alert-empty__cta-title">{ctaTitle}</span>
+          <span className="alert-empty__cta-sub">{ctaSub}</span>
         </button>
         <button
           type="button"

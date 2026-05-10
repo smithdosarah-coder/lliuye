@@ -1820,6 +1820,57 @@
   line-height: 1.6;
 }
 
+/* ALL IN Phase B.2 (2026-05-10 · PM 真意 reframe) · 输入来源 toggle.
+   两 mode 都跑真 backend pipeline · 区别仅是输入来源. */
+.alert-empty__input-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--chalk) 70%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  margin: 0 0 18px;
+}
+.alert-empty__input-toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  letter-spacing: 0.01em;
+}
+.alert-empty__input-toggle-btn {
+  appearance: none;
+  border: 1px solid var(--ink-14);
+  background: transparent;
+  color: var(--ink-strong);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.alert-empty__input-toggle-btn:hover:not(:disabled) {
+  border-color: var(--t-alert);
+}
+.alert-empty__input-toggle-btn[data-active="yes"] {
+  background: var(--t-alert);
+  color: var(--chalk);
+  border-color: var(--t-alert);
+}
+.alert-empty__input-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.alert-empty__input-toggle-hint {
+  flex: 1;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink-65);
+  font-style: italic;
+}
+
 .alert-empty__cta-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
