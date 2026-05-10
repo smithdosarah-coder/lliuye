@@ -144,6 +144,9 @@ export type ReportV16ErrorEvent = {
   stage?: string;
   message: string;
   pipeline?: "v16";
+  /* Phase B.2 (PM 2026-05-10) · 后端 SSE error event 可带 typed code (V16_REAL_PATH_FAILED 等) ·
+     前端 typed banner 消费 (per dispatch §"错误降级" Step 5) */
+  code?: string;
 };
 
 export type ReportV16Event =
@@ -305,10 +308,26 @@ export async function streamReportDemoRun(
     return;
   }
   if (!resp.ok || !resp.body) {
+    /* Phase B.2 (PM 2026-05-10) · 错误降级 typed banner · Step 5
+       后端 typed error: 503 + {detail: {error: {code, message}}} (DEEPSEEK_KEY_MISSING /
+       DEMO_CLASSIFIER_MISSING / DEMO_TEMPLATE_MISSING / SAMPLE_DIR_MISSING / SAMPLE_ID_INVALID)
+       不 silent · 不 fallback fake · 直接抛带 code 的 Error · ReportLaunchErrorBanner 消费 */
     const txt = await resp.text().catch(() => "");
-    callbacks.onError?.(
-      new Error(`demo/run HTTP ${resp.status} · ${txt.slice(0, 120)}`),
-    );
+    let typedMsg = `demo/run HTTP ${resp.status}`;
+    let typedCode: string | undefined;
+    try {
+      const parsed = JSON.parse(txt) as { detail?: { error?: { code?: string; message?: string } } };
+      const inner = parsed?.detail?.error;
+      if (inner?.code) {
+        typedCode = inner.code;
+        typedMsg = `[${inner.code}] ${inner.message ?? ""}`.trim();
+      }
+    } catch {
+      typedMsg = `${typedMsg} · ${txt.slice(0, 200)}`;
+    }
+    const err = new Error(typedMsg);
+    if (typedCode) (err as Error & { code?: string }).code = typedCode;
+    callbacks.onError?.(err);
     return;
   }
   const reader = resp.body.getReader();

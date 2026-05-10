@@ -377,7 +377,31 @@ export function ReportWorkspace() {
      反模式 (已废): scenario_id easy/medium/hard 切假数据 fixture
      PM 真意: 演示 = 上传 sample 真材料 → 真后端 (v16 主管线) → 真返结果
      mode 仍设 "mock" 仅作前端 UX flag (区分手动上传 vs 优质 batch 加载) ·
-     done.data_source 真值由后端给 ("live") · 不再前端预判 */
+     done.data_source 真值由后端给 ("live") · 不再前端预判
+     错误降级 (Step 5 typed banner · 不 silent · 不 fallback fake) · 把后端 typed error code
+     翻成客户经理可读的 actionable hint (per dispatch §"错误降级") */
+  const _formatDemoError = useCallback((codeOrMsg: string): string => {
+    if (codeOrMsg.includes("DEEPSEEK_KEY_MISSING")) {
+      return "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 请联系运维配置 (PM 真意: 演示 = 上传 sample 跑真后端 · 不切假数据)";
+    }
+    if (codeOrMsg.includes("DEMO_CLASSIFIER_MISSING")) {
+      return "v16 分类器 cache 缺失 · 请管理员一次性预跑 `py v16_classifier.py` (per template 缓存 · 后续演示复用)";
+    }
+    if (codeOrMsg.includes("DEMO_TEMPLATE_MISSING")) {
+      return "默认对公模板 docx 缺失 · 请检查 samples/ 目录";
+    }
+    if (codeOrMsg.includes("SAMPLE_DIR_MISSING")) {
+      return "示例企业目录不存在 · 可选: DP001 龙峰精工 / DP002 蓝汀家电 / DP003 宸星家装 / DP004 汇德建材 / DP005 星胤实业";
+    }
+    if (codeOrMsg.includes("SAMPLE_ID_INVALID")) {
+      return "示例企业 ID 命名不合法 · 必须形如 DP001_<name>";
+    }
+    if (codeOrMsg.includes("V16_REAL_PATH_FAILED")) {
+      return "v16 真模式跑失败 · 演示拒 silent fallback mock · 请查后端日志或重试";
+    }
+    return codeOrMsg;
+  }, []);
+
   const handleDemoRun = useCallback(
     (sampleId: string) => {
       if (generating) return;
@@ -405,18 +429,32 @@ export function ReportWorkspace() {
               setLiveData(done);
               if (done.session_id) setReportId(done.session_id);
             } else if (evt.event === "error") {
-              setErrMsg((evt as ReportV16ErrorEvent).message);
+              const err = evt as ReportV16ErrorEvent;
+              const friendly = _formatDemoError(`${err.code ?? ""} ${err.message ?? ""}`);
+              setErrMsg(friendly);
+              setLiveFailErr({
+                endpoint: "/api/report/demo/run",
+                status: err.code ?? "SSE error",
+                message: friendly,
+              });
             }
           },
           onClose: () => setGenerating(false),
           onError: (e) => {
-            setErrMsg(e.message);
+            const friendly = _formatDemoError(e.message);
+            setErrMsg(friendly);
+            // 真路径 demo 失败 · 顶部 banner (与 v16/fill 同 UX)
+            setLiveFailErr({
+              endpoint: "/api/report/demo/run",
+              status: (e as Error & { code?: string }).code ?? `HTTP ${e.message.match(/HTTP (\d+)/)?.[1] ?? "ERR"}`,
+              message: friendly,
+            });
             setGenerating(false);
           },
         },
       );
     },
-    [generating],
+    [generating, _formatDemoError],
   );
 
   /* G-10 闭环 · export PDF 真接 · 与 export Word 同源 payload · pdf 走 reportlab */
