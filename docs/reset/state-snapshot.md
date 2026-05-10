@@ -61,6 +61,43 @@
 
 ---
 
+## 2026-05-09 20:25 · ALL IN Phase A close-out · 5/5 OK signal ratify
+
+### What happened
+- common worker 9 step commit + 1 utf-8 hotfix + signal commit (`af2ce90` chore(mesh): signal common worker ready · ALLIN Phase A complete) · 5 件交付物全 ship · 135 新单测全绿 · 体感 ~50 min wall-clock (远超估 0.5d)
+- 5 agent worker 全 fire OK signal:
+  - alert `9645632` (20 Q 判定 · 0 RFC)
+  - credit `20788ab` (5 类担忧 cover · 0 RFC)
+  - report `1e9be0d` (6 类担忧 cover · 0 RFC)
+  - riskctrl `8d185bf` (4 异议 verify · 2 RFC 真 gap)
+  - compliance `b6116ae` (5 维度 cover · 0 RFC)
+- riskctrl 提 2 RFC (真 contract gap):
+  - `docs/contracts/rfc/freshness-claim-loan-sample.md` (LOAN_SAMPLE/BACKTEST_FIXTURE ClaimType 缺 · 365d/730d SLA · 纯加法)
+  - `docs/contracts/rfc/cross-agent-feedback-channel.md` (审批/贷后反馈反向链路 · 红线 #9 · 3 方案推 B 共享 ledger watcher · 4 event type)
+- 主 CLI verify 全合规: 5 signal commit body 7 段 + 5 trailer 全合规 · 2 RFC 写得严谨 · 推荐 common ratify
+
+### Triggered by
+- common worker 9 step + signal · 5 agent worker verify · 主 CLI 5 分钟回扫监控 7 轮
+
+### State change (delta)
+- Phase A: 启动前 → close-out ratify (gate 通过)
+- common: registered → 9 件交付 ship + READY (Phase A 主活完 · 转 RFC standby)
+- 5 agent: registered → all OK signal fire (riskctrl 含 2 RFC) · 等 Phase B 派活
+- 主 CLI: monitoring → ratify Phase A close-out · 待启 Phase B
+- shared/ 新增: entity_resolver (USCC GB 32100 真校验) · live_shell · evidence_drawer · source_health · 4 module · 共 ~3950 行
+- docs/contracts/ 新增: 3 contract v1.1 frozen + 2 RFC PROPOSED
+- scripts/mesh/: verify_signal_commit.py + cherry_pick_worker.py + create_lark_dashboard.sh
+- .mesh-launcher/: 6 resume 脚本
+
+### Next
+- (1) common ratify RFC 1 (freshness-claim-loan-sample) · fire `chore(mesh): RFC ... ratified` · Phase A.1 hotfix 加 ClaimType (30 min)
+- (2) PM 拍板 RFC 2 (cross-agent-feedback-channel) 时机: 推荐 Phase B 并行 (common 1-2d · 不阻 5 worker 起步)
+- (3) 5 worker 各自启 Phase B: 拷 `docs/working/agent-identity-templates/AGENT_IDENTITY-<X>.md` 到 mesh/<X>/AGENT_IDENTITY.md · 跑 6 step 改造 (per channel ALL IN 模板) · 1-1.5d wall-clock 并行
+- (4) 主 CLI 收 5 worker READY signal → cherry-pick 整合 (含 common 9 step + 1 hotfix) → pytest + Playwright 6 agent → ECS deploy → close-out Phase C
+- PM 决策待办 (不阻 close-out): export_docx/pdf 是否上链 ledger (credit + report 提) · 默认跟现状 (仅 audit_log)
+
+---
+
 ## 2026-05-09 · 新一任主 CLI 接手 · ALL IN Phase A 启动前 (二度 resume)
 
 ### What happened
