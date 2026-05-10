@@ -19,7 +19,12 @@ import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
-import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
+
+/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array
+   · 旧 CREDIT_EVIDENCE.items / unfilledFields = mock 演示数据 · 反 KT §3.6 红线 #3 无证据 claim
+   · 真 evidence 数据 backend done envelope.data_sources + dataSources panel 直接消费 · 不靠 fixtures 兜底 */
+const EMPTY_EVIDENCE_ITEMS: never[] = [];
+const EMPTY_UNFILLED_FIELDS: never[] = [];
 import {
   Radar,
   RadarChart,
@@ -446,8 +451,8 @@ export default function CreditWorkspace() {
   if (!started) {
     return (
       <EvidenceProvider
-        items={CREDIT_EVIDENCE.items}
-        unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+        items={EMPTY_EVIDENCE_ITEMS}
+        unfilledFields={EMPTY_UNFILLED_FIELDS}
       >
         <div
           className="rpt-workspace credit-empty-root"
@@ -471,8 +476,8 @@ export default function CreditWorkspace() {
 
   return (
     <EvidenceProvider
-      items={CREDIT_EVIDENCE.items}
-      unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+      items={EMPTY_EVIDENCE_ITEMS}
+      unfilledFields={EMPTY_UNFILLED_FIELDS}
     >
     <div
       className="rpt-workspace"
