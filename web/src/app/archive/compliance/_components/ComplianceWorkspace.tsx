@@ -951,11 +951,16 @@ function EmptyStateSkeleton() {
       <div className="compliance-empty__head">
         <h3 className="compliance-empty__title">等待触发巡检</h3>
         <p className="compliance-empty__hint">
-          上方
-          <strong>上传政策文件 + 业务制度</strong>
-          → 点击「开始政策比对」启动真扫描；或
-          <strong>用模板快速比对</strong>
-          一键演示。
+          上方<strong>选择输入来源</strong>:
+          <em> sample 批</em>
+          (内置政策 + 制度库 · 1 click 跑真后端) 或
+          <em> 自上传</em>
+          (拖政策原文 + 业务文档进 UploadRail) →
+          <strong>backend pipeline 都真跑</strong>
+          (LLM 抽规则 / Tavily 真接 / 真矩阵命中 / 真修订意见).
+        </p>
+        <p className="compliance-empty__sublike">
+          产出: 真违规 + ViolationReason 8 字段 + 监管原文 hash + freshness · 决策可上链 · Word 导出.
         </p>
       </div>
       <div className="compliance-empty__panels">

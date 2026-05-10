@@ -2051,6 +2051,20 @@
   font-weight: 500;
 }
 
+.v-archive--canon[data-agent="compliance"] .compliance-empty__sublike {
+  margin: 12px auto 0;
+  padding: 10px 14px;
+  max-width: 640px;
+  background: color-mix(in srgb, var(--t-compli) 6%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--t-compli) 40%, transparent);
+  border-radius: 6px;
+  font-family: var(--cjk);
+  font-size: 12px;
+  color: var(--ink-65);
+  line-height: 1.6;
+  text-align: left;
+}
+
 .v-archive--canon[data-agent="compliance"] .compliance-empty__hint em {
   color: var(--ink-50);
   font-style: normal;
