@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ModePill } from "@/components/shared/ModePill";
+// Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传 sample 跑真后端
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
@@ -155,13 +155,7 @@ export default function CreditWorkspace() {
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  /* Phase B.1 fix #5 · ModePill 双控 · 仅 demoModeAvailable=true 用户可见
-     · demoModeAvailable 字段从 /api/auth/me payload 读 (common worker 加 · 未到时 defensive false)
-     · 普通用户 (RM / credit_officer / 风控) 看不到 ModePill · 防误触 mock 路径 */
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const demoModeAvailable = Boolean(
-    currentUser && (currentUser as { demoModeAvailable?: boolean }).demoModeAvailable === true,
-  );
+  /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计 · 演示=上传sample真后端 */
 
   /* ALL IN Phase B · sessionData 不 fallback mock · 改 EMPTY_SESSION (per channel 模板 de79725)
      panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 + #2 */
@@ -502,11 +496,8 @@ export default function CreditWorkspace() {
         onModeChange={setMode}
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
-      {/* Phase B.1 fix #5 · ModePill 双控 (仅 demoModeAvailable=true 用户可见) + DataSourceBadge 单源 trust model */}
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
-        {demoModeAvailable ? (
-          <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
-        ) : null}
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 

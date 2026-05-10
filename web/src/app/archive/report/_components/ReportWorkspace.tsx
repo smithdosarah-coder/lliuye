@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
+// Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传sample跑真后端 · 不是切假按钮
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
@@ -123,11 +123,8 @@ export function ReportWorkspace() {
   // gate 4 · selectedSection · TOC click 切章节 · ESC 关 (Channel 4-gate parity · drawer pattern 复用)
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
-  /* PM 2026-05-09 ALL IN Phase B.1 fix · ModePill 双控:
-     仅 admin role (training/审核) 可见 ModePill mock/live toggle ·
-     RM/审贷员/合规官 看不到 (per backend /v16/fill mock=true 时 require admin role) */
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const demoModeAvailable = currentUser?.role === "admin";
+  /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计
+     PM 真意: 演示 = 上传 sample 跑真后端 · 不需切按钮 */
 
   /* sessionData 单点派生 · ALL IN 真产品 · liveData → ReportSession ·
      liveData null 时 fallback EMPTY_SESSION (不 fallback 到 REPORT_SESSION mock · 防显假数据).
@@ -466,7 +463,6 @@ export function ReportWorkspace() {
           coverPct={coverPct}
           sessionData={sessionData}
           isLive={derivedFromLive !== null}
-          demoModeAvailable={demoModeAvailable}
           dataSourceKind={
             liveFailErr
               ? "mock_fallback"
@@ -611,16 +607,16 @@ export function ReportWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ReportHero({ coverPct, sessionData, isLive, dataSourceKind, demoModeAvailable }: {
+function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
   coverPct: number;
   sessionData: ReportSession;
   isLive?: boolean;
   /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
   dataSourceKind?: DataSourceKind;
-  /* ALL IN Phase B.1 fix · ModePill 双控 · 仅 admin role 渲染 */
-  demoModeAvailable: boolean;
 }) {
   const s = sessionData;
+  // Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · isLive 留作 future ref
+  void isLive;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -637,12 +633,8 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind, demoModeAva
           </div>
         </div>
       </div>
-      {/* ALL IN Phase B.1 fix · ModePill 双控: 仅 demoModeAvailable===true 渲染 (admin training 路径).
-          DataSourceBadge 5-enum 是 SSOT trust 标记 · ModePill 是 demo session 显式标. */}
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        {demoModeAvailable ? (
-          <ModePill isLive={isLive ?? false} testId="report-mode-pill" />
-        ) : null}
         {dataSourceKind && (
           <DataSourceBadge kind={dataSourceKind} testId="report-data-source-badge" />
         )}
