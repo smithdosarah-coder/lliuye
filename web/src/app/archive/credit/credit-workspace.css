@@ -1740,9 +1740,63 @@
   font-weight: 500;
 }
 
+/* Phase B.2 主活 B · 输入形态切换 toggle (真实 default · demo 内置 sample) */
+.credit-empty__input-mode {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 0 4px;
+}
+.credit-empty__input-mode-lbl {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-right: 6px;
+  align-self: center;
+}
+.credit-empty__input-mode-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--cjk);
+  font-size: 13px;
+  color: var(--ink-65);
+  background: transparent;
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.credit-empty__input-mode-tab:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-28);
+}
+.credit-empty__input-mode-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.credit-empty__input-mode-tab[data-active="yes"] {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--t-credit) 14%, transparent);
+  border-color: var(--t-credit);
+}
+.credit-empty__input-mode-sub {
+  font-family: var(--cjk);
+  font-size: 11px;
+  color: var(--ink-55);
+  font-weight: 400;
+}
+.credit-empty__input-mode-tab[data-active="yes"] .credit-empty__input-mode-sub {
+  color: var(--t-credit);
+}
+
 .credit-empty__cta-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;  /* Phase B.2 · 单 CTA 占满 (input-mode toggle 后渲染对应单按钮) */
   gap: 14px;
 }
 .credit-empty__cta {

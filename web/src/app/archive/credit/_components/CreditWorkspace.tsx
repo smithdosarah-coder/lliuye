@@ -146,6 +146,20 @@ const MODE_TO_SAMPLE_ID: Record<CreditMode, string> = {
   retail: "retail_lisi_education",
 };
 
+/* Phase B.2 主活 B · sample 显示名 (CTA 副标题用 · 让用户明确点了会跑哪个 sample) */
+const SAMPLE_DISPLAY_NAME: Record<CreditMode, string> = {
+  corp: "鼎盛商贸 (对公 · 建材批发 · 关联交易高)",
+  small: "鼎盛商贸 (小微复用对公 · 抵押权重提升)",
+  retail: "李四 (对私 · 教育行业 · FICO 式)",
+};
+
+/* Phase B.2 主活 B (PM 2026-05-10 真意 reframe) · 输入形态切换
+   · "real": 真实数据 · 从 Agent6 报告起决策 (handoff archive · LLM 真跑)
+   · "demo": 演示数据 · 一键加载内置 sample (corp/retail · LLM 真跑 · 输入是 sample)
+   · 两形态共点: 后端 LLM/scoring/rule/case/ledger 全真 · 区别仅"输入来源"
+   · 不是 ModePill (那是切假数据 · 已 revert) · 是显式输入来源 toggle */
+type CreditInputMode = "real" | "demo";
+
 const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
   corp: "对公授信 · 50-5000 万 · 4 维评分 + 30 红线",
   small: "普惠 / 小微 · 10-500 万 · 抵押权重高 · 阈值放宽 5 分",
@@ -163,6 +177,9 @@ export default function CreditWorkspace() {
      · LiveFailError → "mock_fallback" 降级标 (trust model 一级 · 非 silent fallback 假数据) */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+
+  /* Phase B.2 主活 B · 输入形态 toggle · 真实 default (per onboarding B2) · demo 选了显内置 sample CTA */
+  const [inputMode, setInputMode] = useState<CreditInputMode>("real");
 
   /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计 · 演示=上传sample真后端 */
 
@@ -525,6 +542,8 @@ export default function CreditWorkspace() {
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
+            inputMode={inputMode}
+            onInputModeChange={setInputMode}
             onPrimary={() => runDecisionWithAgent6Handoff()}
             onRunDemo={() => runDemoSample()}
             decisionRunning={decisionRunning}
@@ -1841,13 +1860,16 @@ function PipelineLane({
 function CreditEmptyState(p: {
   mode: CreditMode;
   onModeChange: (m: CreditMode) => void;
+  inputMode: CreditInputMode;       // Phase B.2 · "real" | "demo"
+  onInputModeChange: (im: CreditInputMode) => void;
   onPrimary: () => void;       // 起决策 (真接 backend SSE · cat 0 北极星 · Agent6 handoff)
-  onRunDemo?: () => void;      // Phase B.1.5 · 一键运行示例 · sample 跑 (PM 演示路径)
+  onRunDemo?: () => void;      // Phase B.2 · 一键运行示例 · sample 跑 (真后端 LLM)
   decisionRunning: boolean;
   decisionError: string | null;
 }) {
   const stageTab = MODE_TO_STAGE_TAB[p.mode];
   const stageDesc = STAGE_TAB_DESCRIPTION[p.mode];
+  const sampleName = SAMPLE_DISPLAY_NAME[p.mode];
   return (
     <div className="credit-empty" data-testid="credit-empty-skeleton">
       {/* Stage tabs · 与 backend stage_tab 命名对齐 */}
@@ -1884,43 +1906,82 @@ function CreditEmptyState(p: {
         </p>
       </header>
 
-      {/* Phase B.1.5 (PM 2026-05-10) · 双 CTA · 主 = Agent6 handoff · 副 = 一键运行示例 (sample) */}
-      <section className="credit-empty__cta-row" aria-label="主 CTA" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      {/* Phase B.2 主活 B (PM 2026-05-10 真意 reframe) · 输入形态切换 toggle
+         · 真实 default (从 Agent6 真产物起决策) / 演示 (内置 sample · 真后端跑)
+         · 共点: 后端 LLM/scoring/rule/case/ledger 全真 · 区别仅"输入来源"
+         · 不是 ModePill (切假数据 · 已 revert) · 是显式输入形态 toggle */}
+      <div
+        className="credit-empty__input-mode"
+        role="tablist"
+        aria-label="输入形态切换"
+        data-testid="credit-input-mode-toggle"
+      >
+        <span className="credit-empty__input-mode-lbl">形态</span>
         <button
           type="button"
-          className="credit-empty__cta credit-empty__cta--primary"
-          data-testid="credit-decision-cta"
-          data-cta="primary"
-          onClick={p.onPrimary}
+          role="tab"
+          aria-selected={p.inputMode === "real"}
+          className="credit-empty__input-mode-tab"
+          data-active={p.inputMode === "real" ? "yes" : "no"}
+          data-testid="credit-input-mode-real"
+          onClick={() => p.onInputModeChange("real")}
           disabled={p.decisionRunning}
         >
-          <span className="credit-empty__cta-rank">主操作</span>
-          <span className="credit-empty__cta-title">
-            {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
-          </span>
-          <span className="credit-empty__cta-sub">
-            选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
-          </span>
+          真实数据
+          <span className="credit-empty__input-mode-sub">从 Agent6 报告起决策</span>
         </button>
-        {p.onRunDemo ? (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={p.inputMode === "demo"}
+          className="credit-empty__input-mode-tab"
+          data-active={p.inputMode === "demo" ? "yes" : "no"}
+          data-testid="credit-input-mode-demo"
+          onClick={() => p.onInputModeChange("demo")}
+          disabled={p.decisionRunning || !p.onRunDemo}
+        >
+          演示数据
+          <span className="credit-empty__input-mode-sub">内置 sample · 真后端跑</span>
+        </button>
+      </div>
+
+      {/* Phase B.2 · CTA 按 inputMode 条件渲染 (单 CTA · 不再并列双按钮 · 减少认知负担) */}
+      <section className="credit-empty__cta-row" aria-label="主 CTA">
+        {p.inputMode === "real" ? (
+          <button
+            type="button"
+            className="credit-empty__cta credit-empty__cta--primary"
+            data-testid="credit-decision-cta"
+            data-cta="primary"
+            onClick={p.onPrimary}
+            disabled={p.decisionRunning}
+          >
+            <span className="credit-empty__cta-rank">真实数据 · 主操作</span>
+            <span className="credit-empty__cta-title">
+              {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
+            </span>
+            <span className="credit-empty__cta-sub">
+              选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
+            </span>
+          </button>
+        ) : (
           <button
             type="button"
             className="credit-empty__cta credit-empty__cta--primary"
             data-testid="credit-demo-cta"
             data-cta="demo"
             onClick={p.onRunDemo}
-            disabled={p.decisionRunning}
-            style={{ background: "var(--chalk)", color: "var(--ink)", border: "1px solid var(--ink-14)" }}
+            disabled={p.decisionRunning || !p.onRunDemo}
           >
-            <span className="credit-empty__cta-rank">演示</span>
+            <span className="credit-empty__cta-rank">演示数据 · 内置 sample</span>
             <span className="credit-empty__cta-title">
-              {p.decisionRunning ? "运行中…" : "一键运行示例"}
+              {p.decisionRunning ? "运行中…" : `一键运行 · ${sampleName}`}
             </span>
             <span className="credit-empty__cta-sub">
-              加载预制 sample · 真后端跑通完整链路 · 点了立刻看结果
+              加载内置 ReportJSON · 真后端 LLM/评分/红线/案例/ledger 全真跑 · 演示 ≠ 假数据
             </span>
           </button>
-        ) : null}
+        )}
       </section>
 
       {/* §2.3 Panel 空骨架 · 不显示模拟数字 · 仅说明文字 */}
