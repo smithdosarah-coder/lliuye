@@ -15,8 +15,7 @@ import type { KeyboardEvent, ChangeEvent } from "react";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
-import { ClaimText, EvidenceProvider } from "@/components/evidence";
-import { RISKCTRL_EVIDENCE } from "@/components/evidence/fixtures";
+import { EvidenceProvider } from "@/components/evidence";
 import {
   LineChart,
   Line,
@@ -385,10 +384,10 @@ export default function RiskctrlWorkspace() {
 
   return (
     <EvidenceProvider
-      /* ALL IN Phase B step 4 · live evidence 优先 · 无 live 时 fallback RISKCTRL_EVIDENCE fixture
-       * (channel 模板 ef5ba13 做法 · 真路径触发后 sidebar evidence drawer 显真证据) */
-      items={liveEvidenceItems.length > 0 ? liveEvidenceItems : RISKCTRL_EVIDENCE.items}
-      unfilledFields={RISKCTRL_EVIDENCE.unfilledFields}
+      /* Phase B.1 fix #1 · 删 RISKCTRL_EVIDENCE fixture fallback (codex re-review 抓 · 红线 #3 假证据)
+       * live evidence 才显 · 无时 EMPTY · 不显假证据 */
+      items={liveEvidenceItems}
+      unfilledFields={[]}
     >
       <div
         data-view="archive-riskctrl"
@@ -520,10 +519,8 @@ export default function RiskctrlWorkspace() {
                 />
               </aside>
             </div>
-            <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-              <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-              <ClaimText text={RISKCTRL_EVIDENCE.summary} />
-            </section>
+            {/* Phase B.1 fix #1 · 删 ev-claim-summary RISKCTRL_EVIDENCE.summary 假证据
+             * (codex re-review 抓 · 红线 #3 · live 没数据时不显假摘要) */}
           </>
         ) : (
           <RiskEmptySkeleton />
