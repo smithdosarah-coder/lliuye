@@ -115,8 +115,9 @@ type KbUploadResult = {
 type KbUploadStatus = "idle" | "uploading" | "success" | "error";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import { ClaimText, EvidenceProvider } from "@/components/evidence";
-import { CHANNEL_EVIDENCE } from "@/components/evidence/fixtures";
+import { EvidenceProvider } from "@/components/evidence";
+// Phase B.1.1 hotfix · 删 CHANNEL_EVIDENCE fixtures (codex 复盘抓 · ALL IN 漏修)
+// fixtures.ts 硬编"福鼎明辉/F5189/地铁配件" 跟真候选脱钩 · 红线 #3 假证据
 
 /** 截断消息内容作 pin title，避免白板/画布过长；尾部加 …。 */
 function msgTitle(raw: string): string {
@@ -419,8 +420,8 @@ export default function ChannelWorkspace() {
 
   return (
     <EvidenceProvider
-      items={CHANNEL_EVIDENCE.items}
-      unfilledFields={CHANNEL_EVIDENCE.unfilledFields}
+      items={[]}
+      unfilledFields={[]}
     >
     <div
       data-view="archive-channel"
@@ -523,10 +524,9 @@ export default function ChannelWorkspace() {
           </div>
           <ChannelComposer sessionData={s} onSubmit={submit} />
 
-          <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-            <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-            <ClaimText text={CHANNEL_EVIDENCE.summary} />
-          </section>
+          {/* Phase B.1.1 hotfix (PM 2026-05-10 抓 production bug · ALL IN 漏修):
+           * 删 CHANNEL_EVIDENCE.summary 硬编"福鼎明辉/F5189/地铁配件订单" · 跟真候选脱钩
+           * 红线 #3 无证据 claim · 真闭环 (live 数据出来时由 evidence drawer 渲染) */}
         </>
       ) : (
         <section

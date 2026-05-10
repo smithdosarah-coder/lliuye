@@ -53,7 +53,10 @@ def build_alert_provider(*, force_mock: bool = False) -> tuple[Any, str]:
     if force_mock:
         return build_search_provider(demo_mode=True), "demo_forced"
 
-    use_web = os.environ.get("ALERT_USE_TAVILY", "0").strip() in {"1", "true", "yes"}
+    # ALL IN Phase B step 3 (2026-05-09 · per channel 模板 commit 4d5ab20):
+    # 默认 ALERT_USE_TAVILY=1 (真接 Tavily) · 不再 silent default to demo.
+    # 显式 ALERT_USE_TAVILY=0 才走 demo + banner "tavily_disabled" (用户透明告知).
+    use_web = os.environ.get("ALERT_USE_TAVILY", "1").strip() in {"1", "true", "yes"}
     if not use_web:
         return build_search_provider(demo_mode=True), "tavily_disabled"
 

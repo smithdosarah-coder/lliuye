@@ -4,6 +4,9 @@
 端点 (Phase A worker-A4 · 2026-04-29 · sse-envelope.md §1.5 + workspace-state-protocol §4):
   POST /api/riskctrl/dsl_gen          — SSE · 自然语言 → RuleSet JSON (LLM 真接 · stream)
   POST /api/riskctrl/backtest         — SSE · RuleSet + CSV → metrics JSON (KS / 通过率 / 坏账率)
+  POST /api/riskctrl/dsl/deploy       — REST · 风险经理签字 DSL 上线 (BE7 ledger)
+  POST /api/riskctrl/demo/run         — SSE · 物理隔离 fixture demo
+  POST /api/riskctrl/export_{docx,xlsx,pdf}  — REST · 三件套导出
 
 设计:
 - 独立 FastAPI app · api_server.py routes 合并装载
@@ -12,13 +15,50 @@
 - mock=true 切预设 RuleSet · 不调 LLM · curl / 无 key 环境可演示
 - 输出过 shared.qc.placeholder_guard (V2 后续接入 · 当前不阻塞)
 
+ALL IN Phase B step 3 demo_mode audit (2026-05-09):
+  data_source 5 enum 决策树 (per shared.sse_envelope §):
+  - dsl_gen mock=False (默认):
+      LLM 成功 → DATA_SOURCE_LIVE
+      LLM fail → make_error (不 silent fallback · code=LLM_FALLBACK_EXHAUSTED · 红线 #1 守住)
+  - dsl_gen mock=True (显式 demo):
+      → DATA_SOURCE_MOCK_FORCED + WARN log (audit 痕迹)
+  - backtest:
+      → DATA_SOURCE_LIVE (无 mock 模式 · 必走 deterministic Python 真算 KS/AUC)
+  - demo/run (物理隔离 endpoint):
+      → DATA_SOURCE_MOCK_FORCED (fixture 演示 · 不调 LLM/真 csv)
+  - dsl/deploy (REST):
+      ledger 写入 silent-fail per §3.7.5 失败隔离 · 决策本身仍生效
+  无 silent mock fallback 路径 · 任何 LLM/source fail 必走 make_error +
+  前端 banner-spec 显式 retry · 红线 #1 (假 live · silent fallback mock) 全栈守住.
+
 字段契约: docs/contracts/field-naming.md + docs/contracts/sse-envelope.md
 """
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def _deterministic_id(prefix: str, *parts: str) -> str:
+    """ALL IN Phase B step 5 · ruleset_id / session_id 派生 helper.
+
+    替代 hash(...) % 10_000_000 · Python hash() 跨进程不稳 (PYTHONHASHSEED randomization)
+    + 碰撞概率高 (10M 桶 · 100 万 ruleset 时 ~5% 碰撞 per birthday paradox).
+
+    sha256 前 12 hex (48 bit · 281 万亿桶 · 实际碰撞概率可忽略) · 跨进程稳定 ·
+    同 input 必同 output · 防 ruleset_id flapping (同样的策略意图 + csv 应得同 id).
+
+    Args:
+        prefix: e.g. "rs_mock" / "rs_llm" / "bt"
+        *parts: input strings to hash (e.g. strategy_intent, csv_path)
+
+    Returns:
+        f"{prefix}_{12-char hex}" e.g. "rs_llm_a3f9c8d12b4e"
+    """
+    blob = "\x00".join(str(p) for p in parts).encode("utf-8")
+    return f"{prefix}_{hashlib.sha256(blob).hexdigest()[:12]}"
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import Response, StreamingResponse
@@ -175,9 +215,16 @@ async def riskctrl_dsl_gen(
 
         # mock 模式 (curl demo / 无 key) → 预设 RuleSet 不调 LLM
         if req.mock:
+            # ALL IN Phase B step 3 · audit 痕迹 · 显式 mock=True 调用必有 WARN log ·
+            # 银保监审计可追溯 · 防 production 误开 mock 模式而无觉
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "DSL gen mock=True 显式触发 · DATA_SOURCE_MOCK_FORCED · intent=%s",
+                req.strategy_intent[:80],
+            )
             yield encode_event(make_stage("build_prompt", "skipped", message="mock 模式 · 跳 LLM"))
             ruleset = parse_natural_language_rules(_MOCK_DSL_RESPONSE)
-            ruleset_id = f"rs_mock_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+            ruleset_id = _deterministic_id("rs_mock", req.strategy_intent)
             yield encode_event(make_done(
                 panels={
                     "ruleset": ruleset.model_dump(),
@@ -245,7 +292,7 @@ async def riskctrl_dsl_gen(
 
         yield encode_event(make_stage("validate_dsl", "done"))
 
-        ruleset_id = f"rs_llm_{abs(hash(req.strategy_intent)) % 10_000_000:07d}"
+        ruleset_id = _deterministic_id("rs_llm", req.strategy_intent)
         yield encode_event(make_done(
             panels={
                 "ruleset": ruleset.model_dump(),
@@ -309,7 +356,10 @@ def _ks_curve_points(y_true: list[int], y_pred: list[int], bins: int = 10) -> li
 
 @app.post("/api/riskctrl/backtest")
 @audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/backtest", model="deterministic")
-async def riskctrl_backtest(req: BacktestRequest):
+async def riskctrl_backtest(
+    req: BacktestRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
     """RuleSet + CSV 历史数据 → metrics + KS curve + samples + rule_stats · SSE stream.
 
     Body: { ruleset, csv_path, label_column?, bad_threshold? }
@@ -320,6 +370,9 @@ async def riskctrl_backtest(req: BacktestRequest):
                        metrics={total_records, approved, rejected, manual_review,
                                 approval_rate, bad_rate, ks_peak, label_column_used}
         event: error  {message, code}
+
+    Auth (Phase B.1 fix · 2026-05-09 · per Q-052 #8): require_action("riskctrl", "invoke")
+    enforce row-level/action gate · risk_manager/admin 可调 · RM 不可调 (per Q-052 #8 收窄)
     """
     from shared.sse_envelope import (
         DATA_SOURCE_LIVE,
@@ -502,7 +555,51 @@ async def riskctrl_backtest(req: BacktestRequest):
         except (ImportError, KeyError, ValueError, TypeError):
             collision_panel = {}
 
-        session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+        # ALL IN Phase B step 4 · EvidenceDrawer wire (per RFC freshness-claim-loan-sample)
+        # 用 evidence_pipeline 收集证据 · 用 shared.evidence_drawer 挂到 claim · 加 done panel
+        # 失败隔离: drawer 写入失败不破 SSE stream (silent-fail)
+        evidence_panel: dict[str, Any] = {}
+        try:
+            from agent_riskctrl.evidence_pipeline import (
+                RiskctrlCommentaryContext,
+                RiskctrlCommentaryPipeline,
+            )
+            from shared.evidence_drawer import default_drawer
+
+            commentary_ctx = RiskctrlCommentaryContext(
+                ruleset_name=getattr(ruleset, "name", "") or req.csv_path,
+                metrics={
+                    "ks": ks_peak,
+                    "pass_rate": result.approval_rate,
+                    "bad_rate": bad_rate,
+                    "psi": None,  # PSI v2 后续接入
+                },
+                per_rule_fp=rule_stats,
+            )
+            pipeline = RiskctrlCommentaryPipeline()
+            bundle = pipeline.collect(commentary_ctx)
+
+            # Phase A.1 RFC ratify · 回测样本走 LOAN_SAMPLE ClaimType · 365d SLA
+            drawer = default_drawer()
+            session_id_for_claim = _deterministic_id("bt", req.csv_path)
+            claim_id = f"riskctrl_backtest_{session_id_for_claim}"
+            for ev_item in bundle.items:
+                # source tier 按 source 区分: input/metrics_analyze=Tier 1 (内部权威) · backtest=Tier 1
+                drawer.attach(
+                    claim_id=claim_id,
+                    source=f"riskctrl:{ev_item.source}:{ev_item.ref_id}",
+                    anchor=ev_item.ref_id,
+                    snippet=ev_item.snippet,
+                    source_tier=1,  # 内部回测引擎 = Tier 1 内部权威
+                    claim_type="loan_sample",  # Phase A.1 RFC ratify · 365d SLA
+                    confidence=ev_item.confidence,
+                    meta=ev_item.meta or {},
+                )
+            evidence_panel = drawer.to_drawer_payload(claim_id)
+        except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+            pass  # silent-fail · 不破 stream · 前端 fallback fixture
+
+        session_id = _deterministic_id("bt", req.csv_path)
 
         # V2 fix (codex review major 1): 单次 backtest 决策上链 (retention=short
         # 90 天 · §3.7.5 alert 同档 · 银保监审计每次跑过的回测可追溯).
@@ -534,6 +631,7 @@ async def riskctrl_backtest(req: BacktestRequest):
                 "rule_stats": rule_stats,
                 "business_metrics": business_panel,  # BE6.4 业务口径
                 "collision": collision_panel,        # BE6.3 互斥/遮蔽
+                "evidence": evidence_panel,          # ALL IN step 4 · EvidenceDrawer payload
             },
             metrics={
                 "total_records": result.total_records,
@@ -595,17 +693,41 @@ class DslDeployRequest(BaseModel):
     agent_id="riskctrl", endpoint="/api/riskctrl/dsl/deploy",
     model="deterministic",
 )
-async def riskctrl_dsl_deploy(req: DslDeployRequest):
+async def riskctrl_dsl_deploy(
+    req: DslDeployRequest,
+    _user: dict = Depends(require_action("riskctrl", "approve")),
+):
     """DSL 部署决策 (production caller for ledger_integration.record_dsl_deploy).
 
     流程:
-      1. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
-      2. 返 decision_id + handoff 触发标记
-      3. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
+      1. 验 approver_user_id (req body) 必 == _user["sub"] (JWT sub) · 防客户端伪造签字人
+      2. 调 record_dsl_deploy 上链 (silent-fail · 不破 deploy 流程)
+      3. 返 decision_id + handoff 触发标记
+      4. (后续 Sprint 4) 真触 Agent4 rebuild_index endpoint + Agent3 rubric_sync
 
     Body: DslDeployRequest
     Returns: { decision_id, handoff_triggers: [], dsl_version, deployed_at }
+
+    Auth (Phase B.1 fix · 2026-05-09 · 致命修复 · codex 抓到客户端可伪造 approver_user_id):
+    - require_action("riskctrl", "approve") · 仅 risk_manager/admin role 可调 (per RBAC)
+    - approver_user_id verify · 必与 JWT sub 匹配 · 防客户端 body 伪造签字人 (合规审计要求)
     """
+    # Phase B.1 致命修复 · approver_user_id 必与 JWT sub 匹配 · 防伪造
+    jwt_user_id = _user.get("sub")
+    if req.approver_user_id is not None and req.approver_user_id != jwt_user_id:
+        raise HTTPException(
+            403,
+            detail={"error": {
+                "code": "APPROVER_MISMATCH",
+                "message": (
+                    f"approver_user_id (body) 必与 JWT sub 一致 · 防伪造签字人. "
+                    f"body={req.approver_user_id!r} · jwt_sub={jwt_user_id!r}"
+                ),
+            }},
+        )
+    # body 未传 approver_user_id 时 · 自动用 JWT sub 填 (强约束 audit 痕迹)
+    effective_approver = req.approver_user_id or jwt_user_id
+
     try:
         from agent_riskctrl.ledger_integration import record_dsl_deploy
         decision_id = record_dsl_deploy(
@@ -614,7 +736,7 @@ async def riskctrl_dsl_deploy(req: DslDeployRequest):
             rule_count=req.rule_count,
             affected_segments=req.affected_segments,
             backtest_summary=req.backtest_summary,
-            approver_user_id=req.approver_user_id,
+            approver_user_id=effective_approver,
             deploy_endpoint="/api/riskctrl/dsl/deploy",
         )
     except (RuntimeError, ValueError, TypeError, ImportError) as e:
@@ -759,12 +881,18 @@ async def riskctrl_demo_scenarios():
 
 
 @app.post("/api/riskctrl/demo/run")
-async def riskctrl_demo_run(req: DemoRunRequest):
+async def riskctrl_demo_run(
+    req: DemoRunRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
     """纯 mock SSE 流 · 不调 LLM / 不读真 csv · 走 fixture json.
 
     Scenario 选 credit_v15 / aml_kyc / fraud_high · stages: load_csv → hit_rules → calc_ks ·
     done payload 与 prod backtest endpoint 共形 (panels.{ruleset, ks, samples, rule_stats}
     + metrics 顶层 KPI).
+
+    Auth (Phase B.1 fix · 2026-05-09 · per Q-052 #8): require_action("riskctrl", "invoke")
+    enforce row-level/action gate · 即便是 demo · 也防未授权用户调 (防 demo endpoint 被滥用作免费推理通道)
     """
     from shared.sse_envelope import (
         DATA_SOURCE_MOCK_FORCED,

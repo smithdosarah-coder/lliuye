@@ -1,0 +1,3 @@
+# report → credit handoff dir · Phase B.1 fix
+# v16_runner.mock_v16_stream done emit 时写盘 <entity_key 派生 id>.json
+# 跨 agent (Agent6 报告 → Agent3 授信) 决策回写主键 · per entity-resolution-contract v1.1 §5

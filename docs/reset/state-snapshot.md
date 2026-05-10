@@ -61,6 +61,80 @@
 
 ---
 
+## 2026-05-09 23:50 · ALL IN FINAL COMPLETE · production deployed (https://liuye.me)
+
+### What happened
+- codex 4 轮 xhigh re-review 收 GO verdict (最终 commit `3929df2`)
+- `git push origin main` ✅ + `bash scripts/deploy_to_ecs.sh` ✅
+- ECS production: 4 service 全 active (nginx + cloudflared + lliuye-frontend + lliuye-backend)
+- healthcheck HTTP 200 OK · public URL https://liuye.me/login
+- 完整 ALL IN 6 agent 真产品化 ship 到 production
+
+### Triggered by
+- PM 2026-05-09 拍板 "如果是你和 codex 一起出的方案就 PUSH" (确认双 AI 协作 ratify) → 主 CLI 立即 push + deploy
+
+### 真锚点全景 (vs 原估)
+- Phase A common (50 min vs 0.5d · 14x)
+- Phase B 5 worker 并行 (50 min vs 1-1.5d · 28x)
+- Phase C cherry-pick (3 min vs 0.5d · 240x)
+- Phase B.1 fix (codex 2-4 轮 review 抓 7+ blocker · 主 CLI 自己修 ~80 min)
+- 总 (Phase A → B → C → B.1 → push → deploy) ~4h wall-clock vs 原估 2-2.5d (~12x 加速)
+
+### State change (delta)
+- main HEAD: dfb5dd3 → 3929df2 (Phase B.1 fix 全 commit)
+- ECS production: channel 单 agent ALL IN → 6 agent 全 ALL IN
+- shared/ 4 新模块 + 6 升级 + 3 contract v1.1 + 2 RFC 实施 全 production 上线
+- demo 双控基础设施 (env DEMO_MODE_VISIBLE + role) + 6 agent demo endpoint 全 require_action(<x>, "demo")
+- decision_ledger feedback event + cross-agent feedback channel ship (watcher Phase C+ 接入)
+
+### codex review 4 轮抓的 ship blocker (主 CLI 自己修)
+- 第 2 轮: 3 Tier 1 (RBAC 漏 + 假 live demo_data + 假证据 fixtures)
+- 第 3 轮: 4 Tier 1 (riskctrl fixtures 没真删 + demo 双控漏 env + report real path 漏 handoff + compliance/demo/run 无 auth)
+- 第 4 轮: 3 残留 (credit error msg 残留引用 + 5 agent demo endpoint 用 invoke 不是 demo + test matrix 没 monkeypatch env=1)
+- 第 4 轮收 GO
+
+### Next
+- (本 commit 含 ALLIN-FINAL-COMPLETE close-out · state-snapshot 同步)
+- 监控 production: demo endpoint 401/403/5xx + DEMO_ACCESS_DENIED 频率 (per codex 上线建议)
+- smoke test: env=0 demo endpoint 拒 / env=1 admin/demo_user 放行
+- Playwright 6 agent 真测 (production · 跟 channel ALL IN 同款)
+- 6 mesh worktree cleanup (PM 决定时机 · 通常 production 稳定 24h 后 git worktree remove)
+- known issues 留 sub-PR 修: Q-052 #8 conftest auth mock (28 test 401)
+
+---
+
+## 2026-05-09 21:25 · ALL IN Phase C close-out · 5 worker cherry-pick + 总验收
+
+### What happened
+- common merge 入 main `94308cb` (Phase A + A.1 + A.5 全产出 · 54 文件 · +13199 -7964 · merge-tree dry-run 验 0 冲突)
+- 5 worker fire READY 全到位 + cherry-pick 30 commit 全干净 0 冲突:
+  - credit `ccb5ef5` (READY) → cherry-pick 6 step debb35e..6304131 → main bf08545..66ad454
+  - compliance `2ae0b43` (READY) → cherry-pick 6 step 995d43f..d3acb27 → main ...d15ad9b
+  - alert `3b47482` (READY) → cherry-pick 6 step 75fc244..1a5814d → main ...16a02ec
+  - riskctrl `1586187` (READY · OK with RFC) → cherry-pick 6 step d24b300..629e627 → main ...99b2ff3
+  - report `5f1ec10` (READY) → cherry-pick 6 step 6f9fbcd..e668074 → main ...0c1ced3
+- pytest 总验收: 879 PASS · 2 skip · 19 known 401 auth gate fail (agent_credit/tests/ · per Q-052 #8 conftest auth mock · 待 sub-PR) · 1 known prompts_contract pre-existing fail
+- tsc 各 worker fire READY 时各自跑过 0 type error (alert/credit/report signal body verbatim)
+- Playwright 暂跳 (主 CLI worktree 需 pnpm install + dev server 15-20 min · 推 ECS deploy 后真测)
+
+### Triggered by
+- Phase B 5 worker 全 fire READY signal · 主 CLI 立刻启 Phase C (~3 min cherry-pick + ~1 min pytest verify · vs estimated 0.5d)
+
+### State change (delta)
+- main HEAD: 4d0c836 (Phase A close-out ratify) → 94308cb (common merge) → 待 close-out commit (本段写完后)
+- Phase A (~50 min) + Phase B (~50 min) + Phase C cherry-pick (~3 min) = total ~1h 45 min wall-clock (vs 估 2-2.5d · ~30x)
+- 6 mesh worktree 全 idle · 等 PM push 决定
+- ECS production: 当前 main 旧版 (channel 单 agent ALL IN done) · 待 PM 显说 push + git pull + systemd restart 才上线 5 agent ALL IN
+
+### Next
+- (本 commit 含 ALLIN-PHASE-C-COMPLETE close-out signal · 等 PM verify)
+- PM 显说 "push" → git push origin main → ECS git pull → systemd restart → Playwright 6 agent 真测 production
+- ECS deploy 后跑 Playwright 6 agent · 撞 BLOCKER 立刻 fix-forward
+- known issues 不阻 ship · 留 sub-PR 修 (auth gate + prompts contract · 非 ALLIN scope)
+- 6 mesh worktree cleanup (PM 决定时机 · 通常 deploy verified 后 git worktree remove)
+
+---
+
 ## 2026-05-09 20:25 · ALL IN Phase A close-out · 5/5 OK signal ratify
 
 ### What happened

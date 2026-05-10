@@ -118,25 +118,30 @@ def test_should_use_mock_explicit_mock():
     assert "explicit" in reason.lower()
 
 
-def test_should_use_mock_no_key():
-    use, reason = should_use_mock_v16(
-        classified_json=Path("/tmp/exists.json"),
-        has_dee_pseek_key=False,
-        explicit_mock=False,
-    )
-    assert use is True
-    assert "deepseek" in reason.lower() or "DEEPSEEK" in reason
+def test_should_use_mock_no_key_raises_in_all_in():
+    """ALL IN Phase B (per AGENT_IDENTITY-report.md §6 step 3 红线 1):
+    has_dee_pseek_key=False + explicit_mock=False → raise (拒 silent fallback mock)."""
+    with pytest.raises(RuntimeError) as excinfo:
+        should_use_mock_v16(
+            classified_json=Path("/tmp/exists.json"),
+            has_dee_pseek_key=False,
+            explicit_mock=False,
+        )
+    assert "DEEPSEEK_API_KEY" in str(excinfo.value)
+    assert "silent" in str(excinfo.value).lower() or "拒" in str(excinfo.value)
 
 
-def test_should_use_mock_no_classified_json(tmp_path):
+def test_should_use_mock_no_classified_json_raises_in_all_in(tmp_path):
+    """ALL IN Phase B: classified_json 不存在 + explicit_mock=False → raise (拒 silent fallback mock)."""
     nonexist = tmp_path / "absent.json"
-    use, reason = should_use_mock_v16(
-        classified_json=nonexist,
-        has_dee_pseek_key=True,
-        explicit_mock=False,
-    )
-    assert use is True
-    assert "classified" in reason.lower()
+    with pytest.raises(RuntimeError) as excinfo:
+        should_use_mock_v16(
+            classified_json=nonexist,
+            has_dee_pseek_key=True,
+            explicit_mock=False,
+        )
+    assert "classified" in str(excinfo.value).lower()
+    assert "v16_classifier" in str(excinfo.value).lower() or "silent" in str(excinfo.value).lower()
 
 
 def test_should_use_real_when_all_present(tmp_path):
@@ -152,8 +157,8 @@ def test_should_use_real_when_all_present(tmp_path):
 
 
 def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path, monkeypatch):
-    """真路径触发条件 · 但 classifier 缺 → mock 路径自动接管(see should_use_mock)."""
-    # 模拟有 key 但走 explicit_mock=false · v16_runner 内部应识别 classifier 缺失 → 走 mock
+    """ALL IN Phase B (per AGENT_IDENTITY-report.md §6 step 3 红线 1):
+    真路径触发 · classifier 缺 → emit error event (拒 silent fallback mock 接管)."""
     monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-key-for-test")
     resp = client.post(
         "/api/report/v16/fill",
@@ -165,9 +170,79 @@ def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path
     )
     assert resp.status_code == 200
     events = _parse_sse_events(resp.text)
-    # mock 接管 · 仍然有 5 stage + 1 done
-    stages = [e for e in events if e["event"] == "stage"]
+    # ALL IN: error event 替代 mock 接管 · v16_runner.should_use_mock_v16 raise → api.py emit error
+    errors = [e for e in events if e["event"] == "error"]
+    assert len(errors) >= 1, f"期望 error event · 实际 events: {[e['event'] for e in events]}"
+    err_data = errors[0]["data"]
+    assert err_data.get("code") == "V16_REAL_PATH_FAILED"
+    # 不应有 done · classifier 缺 → silent fallback 拒 → 流终止
     dones = [e for e in events if e["event"] == "done"]
-    assert len(stages) == 5
-    assert len(dones) == 1
-    assert dones[0]["data"]["mock_pipeline"] is True
+    assert len(dones) == 0, "ALL IN 拒 silent fallback · 不应 emit done"
+
+
+def test_v16_fill_explicit_mock_done_has_entity_key(client):
+    """ALL IN Phase B step 6 (per entity-resolution-contract v1.1 §5):
+    mock_v16_stream done payload profile.entity_key 必出 · 含 uscc / name_normalized / confidence."""
+    resp = client.post(
+        "/api/report/v16/fill",
+        json={"report_id": "entity-key-test", "mock": True},
+    )
+    assert resp.status_code == 200
+    events = _parse_sse_events(resp.text)
+    done = [e for e in events if e["event"] == "done"][0]["data"]
+
+    profile = done.get("profile") or {}
+    assert "entity_key" in profile, "profile.entity_key 缺失 · 跨 agent handoff 主键不稳"
+    ek = profile["entity_key"]
+    # entity_key 三字段全 (per shared/entity_resolver/resolver.py:EntityKey)
+    assert "uscc" in ek
+    assert "name_normalized" in ek
+    assert "confidence" in ek
+    # mock 路径 USCC anchored · confidence 应 == 1.0
+    assert ek["confidence"] == 1.0, f"USCC anchored 应 confidence=1.0 · got {ek['confidence']}"
+    assert len(ek["uscc"]) == 18, f"USCC 必 18 位 · got len={len(ek['uscc'])}"
+    assert ek["name_normalized"]  # non-empty
+
+
+def test_v16_fill_explicit_mock_sections_have_unique_id(client):
+    """ALL IN Phase B step 5 (per candidate-identity-contract v1.1 §3 + §4.2):
+    mock_v16_stream done payload sections / pending_questions / evidences 全经 ensure_list_unique_ids ·
+    每条必含 id 字段 · 同 list unique · 防 regression placeholder."""
+    resp = client.post(
+        "/api/report/v16/fill",
+        json={"report_id": "mock-id-test", "mock": True},
+    )
+    assert resp.status_code == 200
+    events = _parse_sse_events(resp.text)
+    done = [e for e in events if e["event"] == "done"][0]["data"]
+
+    REGRESSION_PLACEHOLDER = {"", "未获取", "[object Object]", "null", "undefined", None}
+
+    # sections id check
+    sections = done.get("sections") or []
+    assert len(sections) == 4
+    section_ids = [s.get("id") for s in sections]
+    for sid in section_ids:
+        assert sid not in REGRESSION_PLACEHOLDER, f"section id regression: {sid!r}"
+    assert len(set(section_ids)) == len(section_ids), f"sections id 重复: {section_ids}"
+
+    # pending_questions id check
+    pendings = done.get("pending_questions") or []
+    pending_ids = [p.get("id") for p in pendings]
+    for pid in pending_ids:
+        assert pid not in REGRESSION_PLACEHOLDER, f"pending id regression: {pid!r}"
+    assert len(set(pending_ids)) == len(pending_ids), f"pending id 重复: {pending_ids}"
+
+    # evidences id check (step 4 + step 5)
+    evidences = done.get("evidences") or []
+    assert len(evidences) >= 3, "step 4 mock 至少 3 条 evidence 示范"
+    ev_ids = [e.get("evidence_id") for e in evidences]
+    for eid in ev_ids:
+        assert eid not in REGRESSION_PLACEHOLDER, f"evidence id regression: {eid!r}"
+    assert len(set(ev_ids)) == len(ev_ids), f"evidence id 重复: {ev_ids}"
+    # claim_id 必关联 section.id (跨表引用一致性)
+    valid_claim_ids = set(section_ids)
+    for ev in evidences:
+        assert ev.get("claim_id") in valid_claim_ids, (
+            f"evidence claim_id {ev.get('claim_id')!r} 未关联到任何 section"
+        )

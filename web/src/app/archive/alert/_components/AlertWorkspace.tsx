@@ -27,7 +27,6 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -35,15 +34,11 @@ import {
   type ChangeEvent,
 } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
-  ALERT_MOCK_SESSIONS_LIST,
-  ALERT_MOCK_SESSIONS_MAP,
-  DEFAULT_SESSION_ID,
   type AlertPipelineStep,
   type AlertRecentSession,
   type AlertRule,
@@ -64,7 +59,19 @@ import { ActionGate } from "@/components/shell/AuthGate";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
-import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
+import type { EvidenceItem } from "@/components/evidence/types";
+// ALL IN Phase B.1 fix (2026-05-09): 删假证据 fixture (旧 ALERT_EVIDENCE) · 那是
+// hard-coded 静态数据 · 与真实 SSE done envelope / signal_timeline 无关 · 误导用户.
+// 真证据走 AlertDrillDrawer signal_timeline (per step 4 · scan_engine.build_drill_payload).
+const EMPTY_EVIDENCE: {
+  items: EvidenceItem[];
+  unfilledFields: string[];
+  summary: string;
+} = {
+  items: [],
+  unfilledFields: [],
+  summary: "",
+};
 import {
   fetchDrill,
   LiveFailError,
@@ -111,6 +118,69 @@ const GRADE_LABEL: Record<RiskGrade, string> = {
   red: "红档 · 立即处置",
   yellow: "黄档 · 重点观察",
   green: "绿档 · 常规跟踪",
+};
+
+/**
+ * EMPTY_SESSION · ALL IN Phase B step 2 · sessionData fallback 不再走 mock.
+ *
+ * 替代 (旧): liveData ?? ALERT_MOCK_SESSIONS_MAP[selectedSessionId] ?? ALERT_MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID]
+ * 新:        liveData ?? EMPTY_SESSION
+ *
+ * EMPTY_SESSION 仅作为 SSE 回流前的 schema 桥接 placeholder · 字段全空/零 ·
+ * panel 自己 render empty state. Live data 到达后 normalizeAlertSession 注入 liveData.
+ *
+ * scanSteps 5 步保留 (扫描进度条视觉) · 与 backend stage map 一致 (kb_load/external_scan/internal_match/cross/summary).
+ */
+const EMPTY_SESSION: AlertSession = {
+  id: "",
+  objective: "贷中预警 · 等待用户启动扫描",
+  stage: "等待启动",
+  updated: "—",
+  scenario_key: "",
+  difficulty_label: "",
+  trigger_source_label: "",
+  query: {
+    id: "",
+    objective: "",
+    poolLabel: "",
+    poolSize: 0,
+    windowLabel: "",
+    ruleVersion: "",
+    triggerSource: "",
+    updated: "",
+  },
+  rules: [],
+  pipeline: [],
+  distribution: [],
+  totals: { red: 0, yellow: 0, green: 0 },
+  heat: [],
+  reach: [],
+  topCases: [],
+  conversation: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+  scanRange: [],
+  knowledgeBaseSources: [],
+  scanQueueCases: [],
+  signalHeatmap: [],
+  scanSteps: [
+    { id: "st-1", text: "外部信号扫描", pct: 18 },
+    { id: "st-2", text: "内部规则匹配", pct: 43 },
+    { id: "st-3", text: "客户流水分析", pct: 71 },
+    { id: "st-4", text: "双路交叉合成", pct: 93 },
+    { id: "st-5", text: "扫描完成", pct: 100 },
+  ],
+  scanSnapshotAfter: {
+    summary: "",
+    warnCount: 0,
+    warnDelta: "",
+    kbState: "",
+    tiers: [],
+    signals: [],
+    queue: [],
+    heat: [],
+    sources: [],
+  },
 };
 
 /**
@@ -274,10 +344,7 @@ export default function AlertWorkspace() {
   /** Gate 1 · started · W-CF2-A2 · empty-state default false */
   const [started, setStarted] = useState<boolean>(false);
 
-  /** Gate 2 · selectedSessionId · mock dropdown 切 · default = baseline_100 */
-  const [selectedSessionId, setSelectedSessionId] = useState<string>(DEFAULT_SESSION_ID);
-
-  /** Gate 3 · liveData · SSE done envelope 注入完整 session · null = mock 优先 */
+  /** Gate 3 · liveData · SSE done envelope 注入完整 session · null = 等扫描启动 (EMPTY) */
   const [liveData, setLiveData] = useState<AlertSession | null>(null);
   /** 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
@@ -285,12 +352,12 @@ export default function AlertWorkspace() {
   /** Gate 4 · selectedClientId · TopCase 行 click → drill drawer (用 client_id 与 backend 对齐) */
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
-  /* ───────── derived sessionData (5 panel 全消费这一个) ───────── */
+  /* ───────── derived sessionData (5 panel 全消费这一个) ─────────
+   * ALL IN Phase B step 2 · 不 fallback mock · liveData ?? EMPTY_SESSION ·
+   * panel 自己 render empty state · 不假装有数据.
+   */
 
-  const sessionData: AlertSession =
-    liveData ??
-    ALERT_MOCK_SESSIONS_MAP[selectedSessionId] ??
-    ALERT_MOCK_SESSIONS_MAP[DEFAULT_SESSION_ID];
+  const sessionData: AlertSession = liveData ?? EMPTY_SESSION;
 
   /* ───────── 视觉 phase / step / range / tab ───────── */
 
@@ -339,9 +406,6 @@ export default function AlertWorkspace() {
       ? after.summary
       : `${sessionData.stage} · 红 ${sessionData.totals.red} / 黄 ${sessionData.totals.yellow} / 绿 ${sessionData.totals.green} · ${sessionData.updated}`;
 
-  /** training-mode banner · selectedSessionId != default + !liveData (live-fallback-banner-spec §2 规则 2) */
-  const showTrainingModeBanner = liveData == null && selectedSessionId !== DEFAULT_SESSION_ID;
-
   /* ───────── effects ───────── */
 
   useEffect(() => {
@@ -387,24 +451,6 @@ export default function AlertWorkspace() {
     }
     setRetryHandler(() => retry);
   }
-
-  /** dropdown 切 session · reset 视觉 / live state · 关 drawer (A3 模板段 3) */
-  const handleSelectSession = useCallback(
-    (id: string) => {
-      if (!ALERT_MOCK_SESSIONS_MAP[id]) return;
-      setSelectedSessionId(id);
-      setLiveData(null);
-      setPhase("before");
-      setStepIdx(0);
-      setTab("dist");
-      setSelectedClientId(null);
-      const next = ALERT_MOCK_SESSIONS_MAP[id];
-      setRangeId(next.scanRange[0]?.id ?? "");
-      clearLiveFail();
-      setScanError(null);
-    },
-    [],
-  );
 
   /* ───────── scan workflow ───────── */
 
@@ -490,19 +536,6 @@ export default function AlertWorkspace() {
     startScan();
   }
 
-  /** tertiary · 历史 (示例) · 直接走 mock dropdown 切到 manuf_policy_event (training mode) */
-  function triggerTertiaryDemo() {
-    setStarted(true);
-    setScanError(null);
-    handleSelectSession("sess_manuf_policy_event");
-    if (timerRef.current != null) {
-      window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setStepIdx(steps.length - 1);
-    setPhase("after");
-  }
-
   function resetScan() {
     if (timerRef.current != null) {
       window.clearInterval(timerRef.current);
@@ -568,7 +601,7 @@ export default function AlertWorkspace() {
   /* ───────── render: 4 gate root branch ───────── */
 
   return (
-    <EvidenceProvider items={ALERT_EVIDENCE.items} unfilledFields={ALERT_EVIDENCE.unfilledFields}>
+    <EvidenceProvider items={EMPTY_EVIDENCE.items} unfilledFields={EMPTY_EVIDENCE.unfilledFields}>
       <div
         className="rpt-workspace"
         data-view="archive-alert"
@@ -635,7 +668,6 @@ export default function AlertWorkspace() {
               <AlertEmptyState
                 onPrimary={triggerPrimaryScan}
                 onSecondary={triggerSecondaryScan}
-                onTertiary={triggerTertiaryDemo}
                 scanRunning={phase === "scanning"}
                 scanError={scanError}
               />
@@ -643,30 +675,6 @@ export default function AlertWorkspace() {
           </>
         ) : (
           <>
-            {/* training-mode banner · live-fallback-banner-spec §2 规则 2 */}
-            {showTrainingModeBanner ? (
-              <div
-                className="alert-demo-banner"
-                role="note"
-                aria-label="示例数据 · 培训演示模式"
-                data-testid="alert-training-mode-banner"
-              >
-                <span className="alert-demo-banner__icon" aria-hidden>⚠</span>
-                <span className="alert-demo-banner__text">
-                  示例数据 (training mode) · 当前看的是「{sessionData.difficulty_label}」
-                  · 切真实输入 → 点
-                  <button
-                    type="button"
-                    className="alert-demo-banner__cta"
-                    data-testid="alert-training-mode-banner-cta"
-                    onClick={() => handleSelectSession(DEFAULT_SESSION_ID)}
-                  >
-                    回基线场景
-                  </button>
-                </span>
-              </div>
-            ) : null}
-
             {scanError && !liveFail ? (
               <div className="alert-live-fail-banner" role="alert" data-testid="alert-scan-error-banner">
                 <span className="alert-live-fail-banner__icon" aria-hidden>⚠️</span>
@@ -786,14 +794,6 @@ export default function AlertWorkspace() {
               </div>
             ) : null}
 
-            <SessionPickerBar
-              sessions={ALERT_MOCK_SESSIONS_LIST}
-              selectedId={selectedSessionId}
-              onSelect={handleSelectSession}
-              liveMode={liveData != null}
-              currentLabel={sessionData.difficulty_label}
-            />
-
             <HeroSection
               weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
               redRate={ALERT_GLOBAL_STATS.redRate}
@@ -896,7 +896,7 @@ export default function AlertWorkspace() {
 
             <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
               <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-              <ClaimText text={ALERT_EVIDENCE.summary} />
+              <ClaimText text={EMPTY_EVIDENCE.summary} />
             </section>
           </>
         )}
@@ -906,37 +906,6 @@ export default function AlertWorkspace() {
 }
 
 /* ────────────────────── SESSION PICKER ────────────────────── */
-
-function SessionPickerBar(p: {
-  sessions: AlertRecentSession[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  liveMode: boolean;
-  currentLabel: string;
-}) {
-  return (
-    <div className="alert-session-picker" data-testid="alert-session-picker">
-      <span className="alert-session-picker__eyebrow">SESSION · 切场景</span>
-      <select
-        className="alert-session-picker__select"
-        data-testid="alert-session-select"
-        value={p.selectedId}
-        onChange={(e: ChangeEvent<HTMLSelectElement>) => p.onSelect(e.target.value)}
-        disabled={p.liveMode}
-        aria-label="切扫描场景"
-      >
-        {p.sessions.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.objective} · 池 {s.pool} · 红 {s.redCount}
-          </option>
-        ))}
-      </select>
-      <span className="alert-session-picker__hint">
-        {p.liveMode ? "Live 模式 · 已锁定 backend session" : `当前 mock · ${p.currentLabel}`}
-      </span>
-    </div>
-  );
-}
 
 /* ────────────────────── HERO ────────────────────── */
 
@@ -976,8 +945,6 @@ function HeroSection(p: {
           <span className="al-hero__kb-dot" aria-hidden />
           {p.kbState}
         </span>
-        {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
-        <ModePill isLive={p.isLive ?? false} testId="alert-mode-pill" size="sm" />
         {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1 fix) */}
         {p.dataSourceKind && (
           <DataSourceBadge kind={p.dataSourceKind} testId="alert-data-source-badge" size="sm" />
@@ -1958,7 +1925,6 @@ function ReachView({ reach }: { reach: ReachRate[] }) {
 function AlertEmptyState(p: {
   onPrimary: () => void;
   onSecondary: () => void;
-  onTertiary: () => void;
   scanRunning: boolean;
   scanError: string | null;
 }) {
@@ -1975,7 +1941,7 @@ function AlertEmptyState(p: {
         </p>
       </header>
 
-      <section className="alert-empty__cta-row" aria-label="3 CTA 分级">
+      <section className="alert-empty__cta-row" aria-label="2 CTA 分级">
         <button
           type="button"
           className="alert-empty__cta alert-empty__cta--primary"
@@ -2004,21 +1970,6 @@ function AlertEmptyState(p: {
           <span className="alert-empty__cta-title">选规则集 + 调阈值</span>
           <span className="alert-empty__cta-sub">
             22 条规则 · 风险偏好 toggle · 阈值 inline edit
-          </span>
-        </button>
-        <button
-          type="button"
-          className="alert-empty__cta alert-empty__cta--tertiary"
-          data-testid="alert-history-tertiary"
-          data-cta="tertiary"
-          onClick={p.onTertiary}
-        >
-          <span className="alert-empty__cta-rank alert-empty__cta-rank--demo">
-            历史 (示例)
-          </span>
-          <span className="alert-empty__cta-title">看示例扫描</span>
-          <span className="alert-empty__cta-sub">
-            微贷组合 100 家 · 培训演示用 · 切真实路径随时返回
           </span>
         </button>
       </section>
@@ -2277,6 +2228,66 @@ function AlertDrillDrawer(p: {
               <div>
                 <dt>处置建议{data?.disposition_source ? ` (${data.disposition_source})` : ""}</dt>
                 <dd>{advice}</dd>
+              </div>
+            ) : null}
+            {/* ALL IN Phase B step 4 (2026-05-09) · 字段级溯源 evidence chain
+             *  消费 backend build_drill_payload signal_timeline · 每条 {source, snippet, url}
+             *  红线 #3 (无证据 claim) 防御 · 触发信号都有跳源 URL · 可点验证. */}
+            {(data?.signal_timeline ?? []).length > 0 ? (
+              <div data-testid="alert-drill-evidence">
+                <dt>证据链 ({(data?.signal_timeline ?? []).length})</dt>
+                <dd>
+                  <ul
+                    className="alert-drill-evidence-list"
+                    style={{ listStyle: "none", padding: 0, margin: 0 }}
+                  >
+                    {(data?.signal_timeline ?? []).map((ev, i) => (
+                      <li
+                        key={`ev-${i}`}
+                        data-testid={`alert-drill-evidence-item-${i}`}
+                        data-evidence-source={ev.source || "—"}
+                        style={{
+                          padding: "8px 10px",
+                          marginBottom: 6,
+                          borderLeft: "3px solid var(--t-alert, #b8534b)",
+                          background: "rgba(184,83,75,0.06)",
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 11,
+                            opacity: 0.7,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.4,
+                          }}
+                        >
+                          {ev.source || "(无源)"}
+                        </div>
+                        <div style={{ marginTop: 2 }}>{ev.snippet || "(无摘录)"}</div>
+                        {ev.url ? (
+                          <a
+                            href={ev.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid={`alert-drill-evidence-link-${i}`}
+                            style={{
+                              display: "inline-block",
+                              marginTop: 4,
+                              fontSize: 12,
+                              color: "var(--t-alert, #b8534b)",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            跳源 ↗
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
               </div>
             ) : null}
           </dl>

@@ -130,6 +130,29 @@ export type BacktestDonePayload = {
     ks_peak: number | null;
     label_column_used: string | null;
   };
+  /* ALL IN Phase B step 4 · EvidenceDrawer payload (后端 shared/evidence_drawer.to_drawer_payload) */
+  evidence?: {
+    claim_id: string;
+    evidence_count: number;
+    tier_distribution: Record<string, number>;
+    min_tier: number | null;
+    items: Array<{
+      evidence_id: string;
+      claim_id: string;
+      source: string;
+      anchor: string;
+      snippet: string;
+      source_tier: number;
+      source_url: string | null;
+      evidence_date: string | null;
+      retrieved_at: string;
+      claim_type: string;
+      version: string;
+      content_hash: string;
+      confidence: number;
+      meta: Record<string, unknown>;
+    }>;
+  };
   data_source: "live" | "mock_forced" | "mock" | "mock_fallback" | "cached";
   session_id?: string;
 };

@@ -506,7 +506,10 @@ class ComplianceDemoRunRequest(BaseModel):
 
 
 @app.post("/api/compliance/demo/run")
-async def compliance_demo_run(req: ComplianceDemoRunRequest):
+async def compliance_demo_run(
+    req: ComplianceDemoRunRequest,
+    _user: dict = Depends(require_action("compliance", "invoke")),
+):
     """纯 mock SSE 演示流 · 不依赖 Tavily / LLM · 视觉与 live 一致 (4 stage 流 + done envelope).
 
     Per agent-compli-spec §6.2 + sse-envelope §3.1 · done event panels 4 keys

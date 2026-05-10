@@ -120,6 +120,17 @@ export async function fetchHitlist(sessionId?: string): Promise<AlertHitListResp
 }
 
 
+/** ALL IN Phase B step 4 (2026-05-09): 收紧 signal_timeline 类型 ·
+ *  字段级溯源 evidence chain (per scan_engine.build_drill_payload §197 · evidence per source).
+ *  source: 数据源标签 (e.g. "external_scan" / "internal_txn" / "cross_match")
+ *  snippet: 证据节选 (≤ 120 char)
+ *  url: 跳源 URL (Tavily 抓的真实链接 · 空表示内部信号无 URL) */
+export type AlertEvidence = {
+  source: string;
+  snippet: string;
+  url: string;
+};
+
 export type AlertDrillResponse = {
   client_id: string;
   company_name?: string;
@@ -127,7 +138,7 @@ export type AlertDrillResponse = {
   score?: number;
   matched_rules?: string[];
   reasons?: string[];
-  signal_timeline?: Array<Record<string, unknown>>;
+  signal_timeline?: AlertEvidence[];
   disposition?: Record<string, unknown>;
   disposition_source?: string;
 };

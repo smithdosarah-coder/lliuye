@@ -1,21 +1,24 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * F-051 · Riskctrl/Forge Workspace · 空白启动 + 3 CTA 分级
+ * F-051 · Riskctrl/Forge Workspace · 空白启动 + Primary DSL CTA
+ *
+ * ALL IN Phase B step 1 重写 (2026-05-09):
+ *   原 3 CTA (Primary DSL gen / Secondary preset / Tertiary history) 删除
+ *   secondary_preset / tertiary_history 是 mock 入口 · 违反红线 #1 (假 live)
+ *   Phase B 后入口收敛到 Primary DSL gen 真路径 (LLM 生成 → 真回测)
  *
  * 必读 contracts:
  *   - docs/contracts/empty-state-design-protocol.md v1.0
  *   - docs/contracts/agent-forge-spec.md (Stage A.5)
  *
  * 验:
- *   1. /archive/riskctrl default state · started=no · 7 必备 testid 全在 (含 empty-skeleton)
+ *   1. /archive/riskctrl default state · started=no · 必备 testid 都在
  *   2. mock 数据**不 default load** · DSL editor / KS chart / sample dist / export btn 不渲染
- *   3. dropdown 标 (示例) tag · production 路径分离
- *   4. Tertiary 历史选项触发 → started=yes + demo banner 显示
- *   5. Primary CTA「生成 DSL」按钮可点击 (mock SSE)
- *   6. Secondary 「预置规则集」dropdown 存在
+ *   3. Primary DSL CTA 单入口 · click 后 started=yes (mock SSE)
+ *   4. (已删) preset / history dropdown · ModePill · demo banner
  */
-test.describe("F-051 · Riskctrl Workspace 空白启动 + 3 CTA", () => {
+test.describe("F-051 · Riskctrl Workspace 空白启动 + Primary DSL CTA", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
   });
@@ -27,10 +30,11 @@ test.describe("F-051 · Riskctrl Workspace 空白启动 + 3 CTA", () => {
     await expect(root).toBeVisible();
     await expect(root).toHaveAttribute("data-started", "no");
 
-    /* 7 onboarding 必备 testid · empty 状态下应可见的:
-       dsl-gen-cta · empty-skeleton (在 empty 状态可见) */
+    /* 必备 testid · empty 状态下应可见的:
+       dsl-gen-cta · empty-skeleton · trigger-bar */
     await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toBeVisible();
     await expect(page.locator('[data-testid="riskctrl-empty-skeleton"]')).toBeVisible();
+    await expect(page.locator('[data-testid="riskctrl-trigger-bar"]')).toBeVisible();
 
     /* empty 状态下 · DSL editor / KS / sample / export / backtest 不渲染 (在 started 块内) */
     await expect(page.locator('[data-testid="riskctrl-dsl-editor"]')).toHaveCount(0);
@@ -40,56 +44,19 @@ test.describe("F-051 · Riskctrl Workspace 空白启动 + 3 CTA", () => {
     await expect(page.locator('[data-testid="riskctrl-export-docx-btn"]')).toHaveCount(0);
   });
 
-  test("dropdown 显式标 (示例) tag · production / demo 路径分离", async ({ page }) => {
-    const dropdown = page.locator('[data-testid="riskctrl-history-dropdown"]');
-    await expect(dropdown).toBeVisible();
-    /* 至少含一个 (示例) 选项 */
-    await expect(dropdown.locator("option")).toContainText(/示例/);
-  });
-
-  test("3 CTA 分级 · primary · secondary · tertiary 都存在", async ({ page }) => {
-    /* Primary · 生成 DSL 按钮 */
-    await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toBeVisible();
-    /* Secondary · 预置规则集 dropdown */
-    await expect(page.locator('[data-testid="riskctrl-preset-dropdown"]')).toBeVisible();
-    /* Tertiary · 历史 dropdown */
-    await expect(page.locator('[data-testid="riskctrl-history-dropdown"]')).toBeVisible();
-  });
-
-  test("Tertiary 历史选项触发 → started=yes · demo banner 显示", async ({ page }) => {
-    const dropdown = page.locator('[data-testid="riskctrl-history-dropdown"]');
-    const firstDemoOption = dropdown.locator("option").nth(1);
-    const value = await firstDemoOption.getAttribute("value");
-    if (!value) test.skip(true, "no demo option to select");
-
-    await dropdown.selectOption(value!);
-
-    await expect(page.locator('[data-testid="riskctrl-workspace"]')).toHaveAttribute(
-      "data-started",
-      "yes",
-    );
-    await expect(page.locator('[data-testid="riskctrl-demo-banner"]')).toBeVisible();
-    await expect(page.locator('[data-testid="riskctrl-empty-skeleton"]')).toHaveCount(0);
-
-    /* mock 数据现在出现 (DSL editor / KS chart 渲染) */
-    await expect(page.locator('[data-testid="riskctrl-dsl-editor"]').first()).toBeVisible();
-  });
-
-  test("Secondary 预置触发 → started=yes · trigger=secondary_preset", async ({ page }) => {
-    const presetDropdown = page.locator('[data-testid="riskctrl-preset-dropdown"]');
-    const firstOption = presetDropdown.locator("option").nth(1);
-    const value = await firstOption.getAttribute("value");
-    if (!value) test.skip(true, "no preset option to select");
-
-    await presetDropdown.selectOption(value!);
-    await expect(page.locator('[data-testid="riskctrl-workspace"]')).toHaveAttribute(
-      "data-started",
-      "yes",
-    );
-    await expect(page.locator('[data-testid="riskctrl-workspace"]')).toHaveAttribute(
-      "data-trigger",
-      "secondary_preset",
-    );
+  test("ALL IN step 1 · 已删 mock UI 入口 (preset / history dropdown · ModePill · demo banner)", async ({
+    page,
+  }) => {
+    /* preset dropdown 已删 */
+    await expect(page.locator('[data-testid="riskctrl-preset-dropdown"]')).toHaveCount(0);
+    /* history dropdown 已删 */
+    await expect(page.locator('[data-testid="riskctrl-history-dropdown"]')).toHaveCount(0);
+    /* "应用" 按钮已删 */
+    await expect(page.locator('[data-testid="riskctrl-apply-cta"]')).toHaveCount(0);
+    /* ModePill 已删 (DataSourceBadge 5-enum trust model 已含 LIVE/MOCK 区分) */
+    await expect(page.locator('[data-testid="riskctrl-mode-pill"]')).toHaveCount(0);
+    /* tertiary_history demo banner 已删 (history dropdown 入口已无) */
+    await expect(page.locator('[data-testid="riskctrl-demo-banner"]')).toHaveCount(0);
   });
 
   test("Primary CTA 可触发 · DSL gen 按钮 click 后 started=yes (mock SSE)", async ({
@@ -119,6 +86,11 @@ test.describe("F-051 · Riskctrl Workspace 空白启动 + 3 CTA", () => {
     await expect(page.locator('[data-testid="riskctrl-workspace"]')).toHaveAttribute(
       "data-started",
       "yes",
+    );
+    /* trigger 仅 primary_dsl 单值 · secondary_preset / tertiary_history 已删 */
+    await expect(page.locator('[data-testid="riskctrl-workspace"]')).toHaveAttribute(
+      "data-trigger",
+      "primary_dsl",
     );
   });
 });

@@ -53,6 +53,9 @@ from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  
 from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
 from auth_service.dependencies import require_action  # noqa: E402
+# ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 (report 行: section.id) +
+# §4.2 SSE event emit 必经 helper · 不允许直接 emit raw dict
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
 try:
@@ -161,85 +164,10 @@ def map_log_to_stage(msg: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Mock 模式
+# PM 2026-05-09 ALL IN: 删 _mock_stream 死代码 (~80 LOC) · 无路由调用 + 含 fallback_docx
+# 未定义 reference (NameError if invoked) · 历史 stub · v16/fill 主路径已 fail-fast 503 +
+# v16_runner.should_use_mock_v16 现已 raise 不 silent 切 mock (per 红线 1).
 # ---------------------------------------------------------------------------
-async def _mock_stream(preset: str, business_line: Optional[str] = None) -> AsyncIterator[str]:
-    """Mock 模式 SSE 事件流.
-
-    串行推 5 个 stage 事件(每个 500ms),最后发 done。
-    business_line 会写入 enterprise_profile.business_line(供下游 Agent 消费)。
-    """
-    messages = {
-        STAGE_INGEST: "材料上传解析中...",
-        STAGE_EXTRACT: "结构化数据抽取中...",
-        STAGE_INFER: "企业画像与财务指标推断中...",
-        STAGE_WRITE: "报告章节生成中...",
-        STAGE_AUDIT: "数值校验与合规复核中...",
-    }
-    total = len(STAGE_ORDER)
-    for idx, stage in enumerate(STAGE_ORDER):
-        progress = round((idx + 1) / total, 2)
-        yield _sse("stage", {
-            "stage": stage,
-            "progress": progress,
-            "message": messages[stage],
-        })
-        await asyncio.sleep(0.5)
-
-    # 组装 done payload
-    profile_dict = mock_fixtures.load_preset_profile(preset)
-    if business_line and not profile_dict.get("business_line"):
-        profile_dict["business_line"] = business_line
-    enterprise = EnterpriseProfile(**_coerce_profile(profile_dict))
-    pending = mock_fixtures.sample_pending_questions(preset)
-
-    # Mock 模式 docx_url 不再可用 (legacy 下载端点已下架 · batch 4 cleanup)
-    report_docx_url = None
-
-    # mock 场景也推几节 section,让前端看到内容
-    chapters = profile_dict.get("chapters") or {}
-    mock_sections = []
-    for i, (k, v) in enumerate(chapters.items()):
-        if not v:
-            continue
-        sec = {
-            "id": k,
-            "title": _chapter_title(k),
-            "content": str(v),
-        }
-        mock_sections.append(sec)
-        yield _sse("section", {"section": sec})
-        await asyncio.sleep(0.2)
-
-    session_id = store.create({
-        "mode": "mock",
-        "preset": preset,
-        "enterprise_profile": enterprise.model_dump(),
-        "pending_questions": pending,
-        "report_docx_path": str(fallback_docx) if fallback_docx else None,
-    })
-
-    done_payload = {
-        "profile": enterprise.model_dump(),
-        "sections": mock_sections,
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(preset),
-        "stats": {
-            "total_fields": 492,
-            "auto_filled": 460,
-            "unfilled": 32,
-        },
-        "docx_url": report_docx_url,
-    }
-    yield _sse("done", {
-        "session_id": session_id,
-        "report_docx_url": report_docx_url,
-        "enterprise_profile": enterprise.model_dump(),
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(preset),
-        # v16 payload:前端 applyEvent 读 evt.payload.* (audit cat 4 align · Phase A worker-A4)
-        "payload": done_payload,
-    })
 
 
 _CHAPTER_TITLES = {
@@ -331,7 +259,11 @@ class RefineRequest(BaseModel):
 
 
 @app.post("/api/report/refine")
-async def report_refine(req: RefineRequest, request: Request):
+async def report_refine(
+    req: RefineRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """基于 session_id 的外因续跑.
 
     当前版本为 stub:
@@ -480,6 +412,7 @@ async def report_upload(
     request: Request,
     files: list[UploadFile] = File(default=[]),
     business_line: str = Query("corporate"),
+    _user: dict = Depends(require_action("report", "invoke")),
 ):
     """multipart 上传 1+ 材料文件 · 持久化到 ``data/kb/report/{report_id}/`` ·
     返 ``{report_id, file_summary}`` 供 fill 阶段引用同一 report_id 跳过重传。
@@ -567,7 +500,22 @@ async def report_v16_fill(
 
     Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("report", "invoke")
     enforce row-level/action gate · RM/credit_officer/compliance_officer/admin 可调 (read 各自).
+
+    ALL IN Phase B.1 fix · 2026-05-09 · mock 路径 demo gate (per PM 命令 "require_action(report, demo)"):
+    mock=True 时额外 require role=admin · 拒 RM/审贷员/合规官走 mock 路径 (training only).
+    "demo" 不在 RBAC ACCESS_V2 (auth_service 写域 · 待 RFC 加 action).
     """
+    # ALL IN Phase B.1 · mock=true 时 demo gate (admin only)
+    if bool(req.mock) and (_user.get("role") != "admin"):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {
+                "code": "MOCK_REQUIRES_DEMO_ROLE",
+                "message": "mock 路径仅 admin/training 可调 · per ALL IN demo action gate (RFC 待 auth_service 加 demo action)",
+                "details": {"role": _user.get("role"), "agent": "report", "action": "demo"},
+            }},
+        )
+
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
 
@@ -646,7 +594,14 @@ async def report_v16_fill(
         except Exception as e:
             status = "error"
             err = f"{type(e).__name__}: {e}"
-            raise
+            # PM 2026-05-09 ALL IN: silent fallback mock 删 (red line 1) · v16_runner 现在 raise 不 silent 切 mock
+            # 不 raise 让 stream 自然结束 · emit error event 给前端 banner 显示
+            yield _sse("error", {
+                "stage": "ingest",
+                "message": f"v16 真模式失败 · {err} · 拒 silent fallback mock",
+                "code": "V16_REAL_PATH_FAILED",
+            })
+            return
         finally:
             _emit_audit(status)
             # W-FIX2 修 bug #11: SSE-aware audit (latency 含全流) · 替代 decorator
@@ -678,7 +633,11 @@ class RefineSectionRequest(BaseModel):
 
 
 @app.post("/api/report/refine_section")
-async def report_refine_section(req: RefineSectionRequest, request: Request):
+async def report_refine_section(
+    req: RefineSectionRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """LLM 重写指定 section · 用户给 ``user_edit`` 引导(增删改方向).
 
     返回:
@@ -1071,7 +1030,10 @@ _REPORT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "report" /
 
 
 @app.post("/api/report/demo/run")
-async def report_demo_run(req: ReportDemoRunRequest):
+async def report_demo_run(
+    req: ReportDemoRunRequest,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """纯 mock SSE 演示流 · 不依赖 DEEPSEEK_API_KEY / v16 主管线 · 视觉与 live 一致.
 
     与 /api/report/v16/fill 共形 (event 名 stage / section / done / error · payload key
@@ -1114,6 +1076,9 @@ async def report_demo_run(req: ReportDemoRunRequest):
             await asyncio.sleep(0.2)
 
         sections = data.get("sections") or []
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 SSE emit 必经 helper
+        # section.id 防 regression placeholder ([object Object] / 未获取 / null) · 同 list unique
+        ensure_list_unique_ids(sections, name_field="title", uscc_field="", id_field="id")
         for sec in sections:
             yield _sse("section", {"section": sec})
             await asyncio.sleep(0.15)
@@ -1125,6 +1090,8 @@ async def report_demo_run(req: ReportDemoRunRequest):
         qc_data = data.get("qc") or {"passed": True, "score": 88, "fatal_fail": False, "halluc_count": 0}
         stats_data = data.get("stats") or {}
         pending_data = data.get("pending_questions") or []
+        # ALL IN Phase B step 5 · pending_questions 同样必经 helper · 防 fixtures 漏 id
+        ensure_list_unique_ids(pending_data, name_field="label", uscc_field="", id_field="id")
 
         # 先 store.create 拿 UUID · 再用 UUID 拼 done_payload · 然后 update 把 done_payload 写回
         session_id = store.create({
@@ -1188,7 +1155,10 @@ async def report_demo_run(req: ReportDemoRunRequest):
 
 
 @app.post("/api/report/section_supplement")
-async def report_section_supplement(req: dict):
+async def report_section_supplement(
+    req: dict,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
     """§6.2 反向链 endpoint scaffold · Agent3 → Agent6.
 
     Sprint 1: 接 payload + Pydantic 校验 + emit ack event (received not processed).

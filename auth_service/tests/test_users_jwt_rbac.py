@@ -189,9 +189,11 @@ def test_handoffs_rm_3_pairs():
 
 
 def test_valid_roles_count():
-    assert len(VALID_ROLES) == 5
+    # Phase A.6 (2026-05-09) · 加 demo_user role · 6 roles
+    assert len(VALID_ROLES) == 6
     assert "admin" in VALID_ROLES
     assert "rm" in VALID_ROLES
+    assert "demo_user" in VALID_ROLES
 
 
 def test_valid_agents_count():
@@ -291,18 +293,31 @@ for _ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
     for _act in ("invoke", "read", "export", "handoff", "approve"):
         _EXPECTED_MATRIX[("admin", _ag, _act)] = True
 
+# Phase A.6 (2026-05-09) · 加 demo action × 6 agent · 5 existing role + admin + demo_user
+# - admin: demo on all agents = True
+# - rm/credit_officer/compliance_officer/risk_manager: demo = False (无 demo 权限)
+# - demo_user: demo on all agents = True · 其他 5 action 全 False (仅触发 demo 模式 · 不读不写 agent)
+for _ag in ("channel", "report", "credit", "alert", "compliance", "riskctrl"):
+    _EXPECTED_MATRIX[("admin", _ag, "demo")] = True
+    for _r in ("rm", "credit_officer", "compliance_officer", "risk_manager"):
+        _EXPECTED_MATRIX[(_r, _ag, "demo")] = False
+    # demo_user · 6 action × 6 agent
+    _EXPECTED_MATRIX[("demo_user", _ag, "demo")] = True
+    for _act in ("invoke", "read", "export", "handoff", "approve"):
+        _EXPECTED_MATRIX[("demo_user", _ag, _act)] = False
+
 
 def test_access_v2_full_matrix_5_role_x_6_agent_x_5_action():
-    """RBAC matrix full coverage · 5 role × 6 agent × 5 action = 150 assertion.
+    """RBAC matrix full coverage · 6 role × 6 agent × 6 action = 216 assertion.
 
-    per Codex V2-FIX review Major 2: 缺 RM riskctrl/credit/alert 等 RBAC matrix 系统覆盖 ·
-    本 test 一次性覆盖全 ACCESS_V2 spec · 任何 ACCESS_V2 改 (e.g. 新角色 / 新 action / 新 agent)
-    必同 _EXPECTED_MATRIX 同步 · 否则 test fail · 防 ACCESS_V2 漂移.
+    Phase B.1.6 (PM 2026-05-10) · revert env DEMO_MODE_VISIBLE check ·
+    can_action("demo") 仅 role check · 不再 env 双控 · matrix 期望同 ACCESS_V2 dict.
     """
     from auth_service.rbac import VALID_ACTIONS, can_action
 
-    assert len(_EXPECTED_MATRIX) == 5 * 6 * 5, (
-        f"_EXPECTED_MATRIX should cover 5 role × 6 agent × 5 action = 150 · "
+    # Phase A.6 · 6 role × 6 agent × 6 action = 216
+    assert len(_EXPECTED_MATRIX) == 6 * 6 * 6, (
+        f"_EXPECTED_MATRIX should cover 6 role × 6 agent × 6 action = 216 · "
         f"got {len(_EXPECTED_MATRIX)}"
     )
 

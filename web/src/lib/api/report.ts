@@ -64,6 +64,40 @@ export type ReportV16PendingQuestion = {
   source_ref?: string;
 };
 
+/** ALL IN Phase B step 6 · per shared/entity_resolver/resolver.py:EntityKey dataclass.
+ *  报告对象企业归一 · 防同企业多次写报告 + 跨 agent handoff 主键稳定 (per entity-resolution-contract v1.1 §5) */
+export type ReportEntityKey = {
+  uscc: string;            // 18 位 USCC (per GB 32100-2015) · empty 时退化 name_only
+  name_normalized: string; // 规则化清洗后企业名
+  confidence: number;      // 1.0 (USCC anchored) / 0.5 (name only) / 0.0 (empty)
+};
+
+export type ReportProfile = {
+  company_name?: string;
+  uscc?: string;
+  entity_key?: ReportEntityKey;  // ALL IN step 6 · 跨 agent handoff 主键 (Agent3 决策回写 / Agent6 重复检测)
+  [k: string]: unknown;
+};
+
+/** ALL IN Phase B step 4 · per shared/evidence_drawer/drawer.py:Evidence dataclass.
+ *  字段级 evidence · claim_id 关联到具体 section/field (e.g. "chapter_3_finance")
+ *  EvidenceDrawer 渲染时按 claim_id group · 消费 to_drawer_payload 同源 schema. */
+export type ReportV16Evidence = {
+  evidence_id: string;
+  claim_id: string;
+  source: string;            // "uploaded_material:行业研究.docx" / "tavily:url" / "gsxt:USCC"
+  anchor: string;            // "page=3§2" / "Sheet1!B7" / "para=2"
+  snippet: string;
+  source_tier: 1 | 2 | 3 | 4; // 1=内部权威 / 2=政府监管 / 3=行业 / 4=公开 web
+  source_url?: string | null;
+  evidence_date?: string | null;
+  retrieved_at: string;
+  claim_type: string;        // "news" / "financial" / "registry" / "industry" / ...
+  version: string;
+  content_hash: string;
+  confidence: number;        // 0.0-1.0
+};
+
 export type ReportV16DoneEvent = {
   event: "done";
   report_id: string;
@@ -85,6 +119,10 @@ export type ReportV16DoneEvent = {
   stats?: Record<string, unknown>;
   pending_questions?: ReportV16PendingQuestion[];
   sections?: ReportV16Section[];
+  /** ALL IN Phase B step 4 · 字段级 evidence list · per shared/evidence_drawer · 前端按 claim_id group */
+  evidences?: ReportV16Evidence[];
+  /** ALL IN Phase B step 6 · 报告对象企业归一 · 含 entity_key (per entity-resolution-contract v1.1 §5) */
+  profile?: ReportProfile;
 };
 
 

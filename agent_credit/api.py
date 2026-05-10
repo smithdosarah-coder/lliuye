@@ -41,7 +41,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from auth_service.dependencies import require_action  # noqa: E402
+from auth_service.rbac import can_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
@@ -113,6 +115,57 @@ _DECISION_CACHE: dict[str, dict[str, Any]] = {}
 _DECISION_TTL_SEC = 1800
 
 
+def _build_data_sources_panel(
+    *,
+    rule_hits: list | None,
+    case_matches: list | None,
+    scoring: dict | None,
+    advice: dict | None,
+    timestamp: str,
+) -> dict[str, Any]:
+    """ALL IN Phase B step 4 (2026-05-09) · per AGENT_IDENTITY-credit step 4 + EvidenceDrawer
+    + KT §3.6 红线 #3 无证据 claim · 反 silent decision 无源.
+
+    返 DataSourcesPanel shape (per CreditSession.dataSources frontend type)
+    描述本次决策实际使用的 4 evidence 类源 · trust display + 反假分根据。
+    """
+    has_rules = bool(rule_hits)
+    has_cases = bool(case_matches)
+    has_scoring = bool(scoring)
+    has_advice = bool(advice)
+    active_count = sum([has_rules, has_cases, has_scoring, has_advice])
+    return {
+        "summary": f"{active_count} 项已接入 · 3 deterministic + 1 LLM",
+        "updated": timestamp,
+        "sources": [
+            {
+                "id": "scoring_model",
+                "name": "四维评分模型 (确定性)",
+                "desc": "财 / 行 / 经 / 担 · Python 计算 · 不让 LLM 现场算",
+                "status": "online" if has_scoring else "offline",
+            },
+            {
+                "id": "rule_engine_v2",
+                "name": "红线规则引擎 v2 (确定性)",
+                "desc": "对公 30 条 / 普惠 20 条 / 对私 20 条 · 阈值规则 + 豁免条件",
+                "status": "online" if has_rules else "offline",
+            },
+            {
+                "id": "case_retriever",
+                "name": "历史案例库 (确定性)",
+                "desc": "Top 5 相似案例 · 相似度 ≥ 0.75 · 同业对标参考",
+                "status": "online" if has_cases else "offline",
+            },
+            {
+                "id": "advisor_llm",
+                "name": "LLM 决策建议生成器",
+                "desc": "PIPL fallback chain · deepseek 主 + dashscope 备 · 全境内合规",
+                "status": "online" if has_advice else "offline",
+            },
+        ],
+    }
+
+
 def _build_done_envelope(
     *,
     stage_tab: str,
@@ -136,6 +189,8 @@ def _build_done_envelope(
     前端 normalize 后整体注入 setLiveData → 5 panel 单点派生 · 不再分 stage 累积本地 state。
 
     BE2 (Phase B-3 · 2026-05-01): 新增 `decision_graph` 字段 · null 兼容旧前端。
+    BE7 (Phase B-3 · 2026-05-01): 新增 `ledger` 字段。
+    ALL IN Phase B step 4 (2026-05-09): 新增 `data_sources` 字段 (4 evidence 类源 trust display)。
     Schema: docs/contracts/agent-credit-decision-graph.md v1.0
     """
     return {
@@ -151,6 +206,13 @@ def _build_done_envelope(
         "advice": advice,                    # advising_done payload (decision/amount/term/rate/reason)
         "decision_graph": decision_graph,    # BE2 audit-grade evidence graph (null when absent)
         "ledger": ledger,                    # BE7 ledger persist result {decision_id, persisted, error?} (null when absent)
+        "data_sources": _build_data_sources_panel(  # ALL IN step 4 · 4 evidence 类源 trust display
+            rule_hits=rule_hits,
+            case_matches=case_matches,
+            scoring=scoring,
+            advice=advice,
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+        ),
     }
 
 
@@ -348,18 +410,28 @@ def _build_session_meta(path: Path, source: str) -> dict[str, Any]:
 
 
 @app.get("/api/credit/reports/sessions")
-async def list_credit_reports(status: str = "done"):
+async def list_credit_reports(
+    status: str = "done",
+    user: dict = Depends(require_action("credit", "invoke")),
+):
     """列出 Agent6 已生成的报告 session list (供 EmptyState onPrimary 选 handoff 源)。
 
-    V2 fix · codex DISAGREE issue 2 (cat 0 北极星): 双源扫描 · 真 Agent6 v16 archive 优先暴露 · demo_data 兜底
-      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真输出)
-      - source="demo"    · `demo_data/agent_credit/*.json` (Phase A fallback 4 sample · 在 archive 空时唯一可选)
+    Phase B.1 fix #2 · 假 live root cause:
+      - 旧: 默认双源扫描 · archive (Agent6 真产物) + demo_data (Phase A fallback) · 用户看见 4 sample 误认 production
+      - 新: 默认仅扫 archive · 仅 user.demoModeAvailable=true 时附加 demo_data
+      - 反 KT §3.6 红线 #1 假 live · 演示报告不能混入生产 list 让客户经理误用
 
-    EmptyState onPrimary 走 sessions[0] · 真 Agent6 报告优先 · A6 v16 production-wire 后真消费 · 不再仅 demo
+    Source path:
+      - source="archive" · `data/handoff/report_to_credit/*.json` (Agent6 v16 pipeline 真产物 · report worker 写本 worker 读)
+      - source="demo"    · `demo_data/agent_credit/*.json` (4 sample · 仅 demoModeAvailable 解锁)
     """
     if status not in ("done", "all"):
         raise HTTPException(400, "status must be 'done' or 'all'")
     sessions: list[dict[str, Any]] = []
+    # Phase B.1 fix #2 (codex re-review 抓) · JWT payload 没 demoModeAvailable 字段
+    # 改用 demo_mode_visible(user) helper · 动态 check env DEMO_MODE_VISIBLE + role
+    from auth_service.rbac import demo_mode_visible as _demo_visible
+    demo_unlocked = _demo_visible(user)
 
     # 先扫真 Agent6 archive · 真 session 优先 (sort: 时间倒序 · 最新报告排首)
     if _AGENT6_ARCHIVE_DIR.exists():
@@ -369,8 +441,8 @@ async def list_credit_reports(status: str = "done"):
             if meta:
                 sessions.append(meta)
 
-    # 再扫 demo_data · phase A fallback (在 archive 空 / 用户选演示时可用)
-    if _HANDOFF_DIR.exists():
+    # Phase B.1 fix #2 · demo_data 仅 demoModeAvailable=true 才附加 (反假 live · 默认生产 only)
+    if demo_unlocked and _HANDOFF_DIR.exists():
         for path in sorted(_HANDOFF_DIR.glob("*.json")):
             meta = _build_session_meta(path, "demo")
             if meta:
@@ -383,9 +455,10 @@ async def list_credit_reports(status: str = "done"):
         "count": len(sessions),
         "archive_count": archive_count,
         "demo_count": demo_count,
-        "source": "phase_a_dual_scan",
+        "demo_unlocked": demo_unlocked,
+        "source": "archive_only" if not demo_unlocked else "archive_plus_demo",
         "archive_dir": str(_AGENT6_ARCHIVE_DIR.relative_to(PROJECT_ROOT)),
-        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)),
+        "demo_dir": str(_HANDOFF_DIR.relative_to(PROJECT_ROOT)) if demo_unlocked else None,
     }
 
 
@@ -396,14 +469,16 @@ class HandoffFromReportRequest(BaseModel):
 @app.post("/api/credit/handoff/from_report")
 async def handoff_from_report(
     req: HandoffFromReportRequest,
-    _user: dict = Depends(require_action("credit", "handoff")),
+    user: dict = Depends(require_action("credit", "handoff")),
 ):
     """Agent6→Agent3 handoff · Cat 0 北极星核心: EmptyState onPrimary 真消费 ReportJSON。
 
     返 enterprise_profile + ready_for_decision flag · 前端注入 /api/credit/decision body。
 
-    Phase A 路径: session_id "demo_corp_dingsheng_trade" → 读 demo_data/agent_credit/corp_dingsheng_trade.json
-    Phase B 路径: 真接 data/handoff/report_to_credit/<report_id>.json (Agent6 v16 pipeline 输出)
+    Phase B.1 fix #3 · 改默认读 Agent6 真产物 archive (report worker 写本 worker 读):
+      - 默认路径: data/handoff/report_to_credit/<sid>.json
+      - Demo 路径: 仅 user.demoModeAvailable=true 时 sid 可用 "demo_" 前缀解锁 demo_data/agent_credit/<stem>.json
+      - 反 KT §3.6 红线 #1 假 live · 默认生产路径 only · demo 显式解锁
     """
     sid = req.session_id
     if not sid:
@@ -411,8 +486,25 @@ async def handoff_from_report(
             "error": {"code": "VALIDATION_FAILED", "message": "session_id required"}
         })
 
-    # Phase A demo · session_id "demo_<filename_stem>" → 找 demo_data/agent_credit/<stem>.json
-    if sid.startswith("demo_"):
+    # Phase B.1 fix #2 (codex re-review 抓 · 第 2 处) · 同 line 433 · JWT 没 demoModeAvailable
+    # 改用 demo_mode_visible(user) helper · 动态 check env DEMO_MODE_VISIBLE + role
+    from auth_service.rbac import demo_mode_visible as _demo_visible
+    demo_unlocked = _demo_visible(user)
+    is_demo_sid = sid.startswith("demo_")
+
+    if is_demo_sid:
+        # Phase B.1 fix #3 · demo 路径仅 demoModeAvailable 解锁
+        if not demo_unlocked:
+            raise HTTPException(403, detail={
+                "error": {
+                    "code": "DEMO_LOCKED",
+                    "message": (
+                        "demo session_id 不允许 (per Phase B.1 fix #3) · "
+                        "需 demoModeAvailable=true 解锁 (从 /api/auth/me payload 读)"
+                    ),
+                    "details": {"sid": sid, "demoModeAvailable": False},
+                }
+            })
         stem = sid[len("demo_"):]
         path = _HANDOFF_DIR / f"{stem}.json"
         if not path.exists():
@@ -422,12 +514,18 @@ async def handoff_from_report(
                           "available": [p.stem for p in _HANDOFF_DIR.glob("*.json")]}
             })
     else:
-        # Phase B path · 真接 Agent6 archive (待 A6 v16 pipeline production-wire)
-        archive = PROJECT_ROOT / "data" / "handoff" / "report_to_credit" / f"{sid}.json"
+        # 默认路径 · Agent6 真产物 archive (data/handoff/report_to_credit/<sid>.json)
+        archive = _AGENT6_ARCHIVE_DIR / f"{sid}.json"
         if not archive.exists():
             raise HTTPException(404, detail={
                 "error": {"code": "REPORT_NOT_FOUND",
-                          "message": f"Agent6 archive not found: {sid} (Phase B path 待 A6 production wire)"}
+                          "message": (
+                              f"Agent6 archive not found: {sid}.json · "
+                              "report worker 应已写本路径 · 检查 /archive/report 是否完成尽调"
+                          ),
+                          "details": {
+                              "expected_path": str(archive.relative_to(PROJECT_ROOT)),
+                          }}
             })
         path = archive
 
@@ -529,27 +627,37 @@ def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
             for i, d in enumerate(seg_dim["scoring_dimensions"])
         },
     }
-    rule_done_payload = [
-        {
-            "rule_id": f"{stage_tab[:4]}_rl_001",
-            "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
-            "is_hard": False,
-            "can_waive": True,
-            "severity": "medium",
-            "actual_value": 0.32 if not is_retail else 1,
-            "threshold": 0.30 if not is_retail else 0,
-            "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
-        },
-    ]
-    case_done_payload = [
-        {
-            "case_id": f"case_{stage_tab[:4]}_022",
-            "company_name": "启明软件" if not is_retail else "李四",
-            "similarity": 0.92,
-            "decision": "批",
-            "approved_amount": 400 if not is_retail else 50,
-        },
-    ]
+    rule_done_payload = ensure_list_unique_ids(
+        [
+            {
+                "rule_id": f"{stage_tab[:4]}_rl_001",
+                "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
+                "is_hard": False,
+                "can_waive": True,
+                "severity": "medium",
+                "actual_value": 0.32 if not is_retail else 1,
+                "threshold": 0.30 if not is_retail else 0,
+                "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
+            },
+        ],
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4 · 后端 emit 必经 helper
+        name_field="rule_name",
+        uscc_field="",
+    )
+    case_done_payload = ensure_list_unique_ids(
+        [
+            {
+                "case_id": f"case_{stage_tab[:4]}_022",
+                "company_name": "启明软件" if not is_retail else "李四",
+                "similarity": 0.92,
+                "decision": "批",
+                "approved_amount": 400 if not is_retail else 50,
+            },
+        ],
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4
+        name_field="company_name",
+        uscc_field="",
+    )
     advising_done_payload = {
         "decision": "有条件批准",
         "approved_amount": 300 if stage_tab == "corporate"
@@ -669,9 +777,15 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 if stage == "scoring_done" and isinstance(cleaned, dict):
                     last_scoring = cleaned
                 elif stage == "rule_done" and isinstance(cleaned, list):
-                    last_rules = cleaned
+                    # ALL IN Phase B step 5 (2026-05-09) · ensure unique id per candidate-identity-contract v1.1 §4
+                    last_rules = ensure_list_unique_ids(
+                        cleaned, name_field="rule_name", uscc_field="",
+                    )
                 elif stage == "case_done" and isinstance(cleaned, list):
-                    last_cases = cleaned
+                    # ALL IN Phase B step 5 · ensure unique id (case_id 已 unique · helper 在缺失时兜底)
+                    last_cases = ensure_list_unique_ids(
+                        cleaned, name_field="company_name", uscc_field="",
+                    )
                 elif stage == "advising_done" and isinstance(cleaned, dict):
                     last_advice = cleaned
                 elif stage == "graph_done" and isinstance(cleaned, dict):
@@ -731,7 +845,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
 @app.post("/api/credit/decision")
 async def credit_decision_v4(
     req: DecisionRequestV4,
-    _user: dict = Depends(require_action("credit", "invoke")),
+    user: dict = Depends(require_action("credit", "invoke")),
 ):
     """v4.0 SSE · stage_tab 3 板块 + report_json/preset_name 双源 + mock fallback.
 
@@ -741,7 +855,29 @@ async def credit_decision_v4(
 
     Auth (B5 sub-PR 2 · 2026-05-05 · per Q-052 #8): require_action("credit", "invoke")
     enforce row-level/action gate · credit_officer/risk_manager/admin 可调 · RM read-only 403.
+
+    Phase B.1 fix #5 · 双控 demo gate (per PM 2026-05-09):
+      - 默认 invoke 路径 (mock=False) · require_action("credit", "invoke") 已 OK
+      - mock=True 路径 · 额外 require credit:demo action 或 user.demoModeAvailable=true
+      - 反 KT §3.6 红线 #1 假 live · 普通用户不能误触 mock fixture 路径
     """
+    # Phase B.1 fix #5 · mock 路径双控
+    # Phase B.1 fix #2 (codex re-review 抓) · can_action("demo") 现已含 env+role 双控 · 删 demoModeAvailable OR (redundant + buggy)
+    if req.mock:
+        if not can_action(user.get("role", ""), "credit", "demo"):
+            raise HTTPException(403, detail={
+                "error": {
+                    "code": "DEMO_ACCESS_DENIED",
+                    "message": (
+                        "mock=true 演示路径需 credit:demo action (env DEMO_MODE_VISIBLE=1 + role admin/demo_user) · "
+                        "默认 invoke 路径走 mock=false (per PM Phase B.1 #5)"
+                    ),
+                    "details": {
+                        "role": user.get("role"),
+                    },
+                }
+            })
+
     # 提前校验 stage_tab (mock 路径也要)
     _stage_to_segment(req.stage_tab)
 
@@ -862,7 +998,10 @@ def _credit_demo_event_stream(scenario_id: str):
 
 
 @app.post("/api/credit/demo/run")
-async def credit_demo_run(req: CreditDemoRunRequest):
+async def credit_demo_run(
+    req: CreditDemoRunRequest,
+    _user: dict = Depends(require_action("credit", "invoke")),
+):
     """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
 
     与 /api/credit/decision (mock=true) 区别:

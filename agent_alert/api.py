@@ -58,6 +58,40 @@ from shared.sse_envelope import (  # noqa: E402
 
 from agent_alert.output_validator import soft_clean as _qc_scrub  # noqa: E402
 
+# ALL IN Phase B step 5 (2026-05-09): per candidate-identity-contract v1.1 §3 ·
+# alert.id 按 client_entity_key 派生 (uscc_X / name_md5 / cand_X) · 防 PM 痛点
+# "左右气泡不联动" 真根因 (后端 candidate 没 id → 前端 find 命中错误).
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
+
+
+def _ensure_alert_emit_ids(
+    by_grade: dict[str, list[dict]],
+    top_cases: list[dict],
+    *,
+    name_field_compact: str = "company_name",
+    name_field_top: str = "customer",
+    uscc_field: str = "uscc",
+) -> None:
+    """ALL IN Phase B step 5 · in-place 给 hit_list buckets + top_cases 加 id 字段.
+
+    每个 list 内独立 unique (red / yellow / green / top_cases 4 条 list).
+    USCC 不在 emitted dict 时 (后端未带 uscc 字段) · 派生 fallback 走 name_md5 (confidence 0.5).
+    """
+    for grade in ("red", "yellow", "green"):
+        bucket = by_grade.get(grade) or []
+        if bucket:
+            ensure_list_unique_ids(
+                bucket,
+                name_field=name_field_compact,
+                uscc_field=uscc_field,
+            )
+    if top_cases:
+        ensure_list_unique_ids(
+            top_cases,
+            name_field=name_field_top,
+            uscc_field=uscc_field,
+        )
+
 # Stage W-FIX2 · audit log SSE-aware finally hook (silent fail if unavailable)
 try:
     from audit_service.stream_helpers import audit_stream_event  # noqa: E402
@@ -175,13 +209,18 @@ def _grade_value(level: Any) -> str:
 
 
 def _to_compact_hit(hit: Any) -> dict:
-    """HitItem → 前端 hit_list bucket 单条 (V2 · per A6 schema · `tier` red/yellow/green)."""
+    """HitItem → 前端 hit_list bucket 单条 (V2 · per A6 schema · `tier` red/yellow/green).
+
+    ALL IN Phase B step 5: 加 uscc 字段 (来自 target.payload.unified_credit_code) ·
+    供下游 ensure_list_unique_ids 派生 entity-key based id (uscc_X · confidence 1.0).
+    """
     payload = _hit_target_payload(hit)
     matched = list(getattr(hit, "matched_rules", None) or [])
     reasons = list(getattr(hit, "reasons", None) or [])
     return {
         "client_id": getattr(hit, "hit_id", None) or (hit.get("hit_id") if isinstance(hit, dict) else "") or "",
         "company_name": payload.get("company_name", ""),
+        "uscc": payload.get("unified_credit_code", "") or payload.get("uscc", ""),
         "amount": payload.get("credit_balance", "") or payload.get("amount", ""),
         "tier": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
         "score": float(getattr(hit, "score", 0.0) if not isinstance(hit, dict) else hit.get("score", 0.0)),
@@ -191,15 +230,20 @@ def _to_compact_hit(hit: Any) -> dict:
 
 
 def _to_top_case(hit: Any) -> dict:
-    """HitItem → 前端 topCases 单条 (V2 · per A6 schema · `tier` red/yellow/green + triggers)."""
+    """HitItem → 前端 topCases 单条 (V2 · per A6 schema · `tier` red/yellow/green + triggers).
+
+    ALL IN Phase B step 5: 加 uscc 字段 · id 字段下游 ensure_list_unique_ids 重写
+    (现 hit_id-based id 不是 entity-key 派生 · 不满足 candidate-identity-contract v1.1 §2).
+    """
     payload = _hit_target_payload(hit)
     reasons = list(getattr(hit, "reasons", None) or [])
     matched = list(getattr(hit, "matched_rules", None) or [])
     triggers = (reasons or matched)[:4]
     return {
-        "id": getattr(hit, "hit_id", None) or (hit.get("hit_id") if isinstance(hit, dict) else ""),
+        # id 字段由 _ensure_alert_emit_ids 派生 (uscc_X / name_md5 / cand_X) · 不再用 hit_id
         "client_id": getattr(hit, "hit_id", None) or (hit.get("hit_id") if isinstance(hit, dict) else ""),
         "customer": payload.get("company_name", ""),
+        "uscc": payload.get("unified_credit_code", "") or payload.get("uscc", ""),
         "amount": payload.get("credit_balance", "") or payload.get("amount", ""),
         "tier": _grade_value(getattr(hit, "level", None) if not isinstance(hit, dict) else hit.get("level")),
         "triggers": triggers,
@@ -365,6 +409,9 @@ def _build_done_envelope(
         reverse=True,
     )
     top_cases = [_to_top_case(h) for h in sorted_hits[:10]]
+
+    # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 alert.id 派生
+    _ensure_alert_emit_ids(by_grade, top_cases)
 
     red_count = int(getattr(hit_list, "red_count", 0))
     yellow_count = int(getattr(hit_list, "yellow_count", 0))
@@ -593,8 +640,14 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
 
 
 @app.post("/api/alert/demo/run")
-async def alert_demo_run(req: AlertDemoRunRequest):
+async def alert_demo_run(
+    req: AlertDemoRunRequest,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """Demo fixture mode (worker-A4-alert · 2026-04-29).
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan + /api/alert/batch_scan 一致 · 防未授权用户触发 demo SSE.
 
     与 /api/alert/scan 共形 done envelope shape · mode=mock_forced ·
     不读 KB / 不调 LLM / 不持久化 · 适合 Playwright smoke + 客户走访演示。
@@ -794,15 +847,19 @@ def _alert_batch_event_stream(req: AlertBatchScanRequest):
     for h in sorted_hits[:20]:  # batch 给 20 (vs scan 10) · 跨 scenario 可见
         triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
         top_cases.append({
-            "id": h.get("client_id", ""),
+            # ALL IN Phase B step 5 · 删旧 id=client_id · 由 _ensure_alert_emit_ids 派生
             "client_id": h.get("client_id", ""),
             "customer": h.get("company_name", ""),
+            "uscc": h.get("uscc", "") or h.get("unified_credit_code", ""),
             "amount": h.get("amount", ""),
             "tier": h.get("tier", ""),
             "triggers": triggers,
             "scenario_key": h.get("scenario_key", ""),
             "lastUpdate": "刚刚",
         })
+
+    # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 alert.id 派生
+    _ensure_alert_emit_ids(by_grade, top_cases)
 
     red_total = sum(s.get("red", 0) for s in per_scenario_breakdown.values())
     yellow_total = sum(s.get("yellow", 0) for s in per_scenario_breakdown.values())
@@ -857,8 +914,14 @@ def _alert_batch_event_stream(req: AlertBatchScanRequest):
 
 
 @app.post("/api/alert/batch_scan")
-async def alert_batch_scan(req: AlertBatchScanRequest):
+async def alert_batch_scan(
+    req: AlertBatchScanRequest,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """BE9.1 (2026-05-04): 跨 scenario 批量扫描端点.
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan 一致 · 防未授权用户触发跨 scenario 批量扫.
 
     输入 1+ scenario_key + 可选 client_ids filter · 顺序跑每个 scenario ·
     SSE 流 per-client tick + per-scenario aggregate · 最终 done event 含跨
@@ -944,11 +1007,12 @@ def _alert_replay_event_stream(scan_id: str):
     for h in hits:
         level = (h.get("level") or "").lower()
         if level in by_grade:
+            target_payload = (h.get("target") or {}).get("payload", {})
             by_grade[level].append({
                 "client_id": h.get("hit_id", ""),
-                "company_name": (h.get("target") or {}).get("payload", {}).get("company_name", ""),
-                "amount": (h.get("target") or {}).get("payload", {}).get("credit_balance", "")
-                          or (h.get("target") or {}).get("payload", {}).get("amount", ""),
+                "company_name": target_payload.get("company_name", ""),
+                "uscc": target_payload.get("unified_credit_code", "") or target_payload.get("uscc", ""),
+                "amount": target_payload.get("credit_balance", "") or target_payload.get("amount", ""),
                 "tier": level,
                 "score": float(h.get("score", 0.0) or 0.0),
                 "matched_rules": h.get("matched_rules", []) or [],
@@ -961,15 +1025,19 @@ def _alert_replay_event_stream(scan_id: str):
         target_payload = (h.get("target") or {}).get("payload", {})
         triggers = (h.get("reasons") or h.get("matched_rules") or [])[:4]
         top_cases.append({
-            "id": h.get("hit_id", ""),
+            # ALL IN Phase B step 5 · 删旧 id=hit_id · 由 _ensure_alert_emit_ids 派生
             "client_id": h.get("hit_id", ""),
             "customer": target_payload.get("company_name", ""),
+            "uscc": target_payload.get("unified_credit_code", "") or target_payload.get("uscc", ""),
             "amount": target_payload.get("credit_balance", "") or target_payload.get("amount", ""),
             "tier": (h.get("level") or "").lower(),
             "triggers": triggers,
             "advice": "",
             "lastUpdate": "历史 (replay)",
         })
+
+    # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 alert.id 派生
+    _ensure_alert_emit_ids(by_grade, top_cases)
 
     red_count = int(hit_list_dict.get("red_count", 0))
     yellow_count = int(hit_list_dict.get("yellow_count", 0))
@@ -1018,8 +1086,14 @@ def _alert_replay_event_stream(scan_id: str):
 
 
 @app.post("/api/alert/scan/replay/{scan_id}")
-async def alert_scan_replay(scan_id: str):
+async def alert_scan_replay(
+    scan_id: str,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """BE5.5 (2026-05-04): 历史 scan 重放端点 · audit 复核 / 培训 / 演示场景.
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan 一致 · 防未授权用户重放历史 scan SSE.
 
     与 /api/alert/scan 共形 SSE 流形态 · 但:
     - mode=replay · data_source=cached

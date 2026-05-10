@@ -35,6 +35,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# ALL IN Phase B step 5 + 6 · per candidate-identity-contract v1.1 §4.2 + entity-resolution-contract v1.1 §5
+from shared.entity_resolver import ensure_list_unique_ids, resolve_entity  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 # 5 阶段(同 api.py STAGE_*)
@@ -178,6 +181,21 @@ async def mock_v16_stream(
         yield _stage(st, (i + 1) / n, messages[st])
         await asyncio.sleep(0.15)
 
+    # ALL IN Phase B step 6 · per entity-resolution-contract v1.1 §5 (report 必接入点):
+    # 报告对象企业归一 · 防同企业多次写报告 + 跨 agent handoff 主键稳定
+    # mock 路径用固定企业名 + USCC · 真路径 v16_generator 内部从材料抽 USCC 后 resolve_entity
+    _mock_company_name = "测试样本有限公司"
+    _mock_uscc = "91440300708461136T"  # 腾讯科技深圳 USCC (NECIPS 公开 · 算法 valid · per contract §4.4)
+    entity_key = resolve_entity(name=_mock_company_name, uscc=_mock_uscc)
+    profile = {
+        "company_name": _mock_company_name,
+        "uscc": _mock_uscc,
+        "entity_key": {
+            "uscc": entity_key.uscc,
+            "name_normalized": entity_key.name_normalized,
+            "confidence": entity_key.confidence,
+        },
+    }
     # mock done payload
     done = {
         "event": "done",
@@ -187,6 +205,7 @@ async def mock_v16_stream(
         "mock_pipeline": True,
         "source_docx": source_docx,
         "report_docx_url": None,
+        "profile": profile,  # ALL IN step 6 · 含 entity_key 跨 agent handoff 主键
         "qc": {
             "passed": pretend_pass,
             "score": 86.5 if pretend_pass else 64.2,
@@ -236,7 +255,95 @@ async def mock_v16_stream(
                 "word_count": 0,
             },
         ],
+        # ALL IN Phase B step 4 · per AGENT_IDENTITY-report.md §6 + shared/evidence_drawer.Evidence schema:
+        # 字段级 evidence · 每 section 关联 1-2 条 source · 前端 EvidenceDrawer 消费 (mock 路径示范 · 真路径 v16_generator 内挂)
+        "evidences": [
+            {
+                "evidence_id": "ev_mock_001",
+                "claim_id": "chapter_1_background",
+                "source": "uploaded_material:营业执照.pdf",
+                "anchor": "page=1",
+                "snippet": "测试样本有限公司 · 统一社会信用代码 91440300708461136T · 注册日期 2015-03",
+                "source_tier": 2,  # Tier 2 政府监管(工商)
+                "source_url": None,  # 内部上传材料无外链
+                "evidence_date": "2015-03-15",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "registry",
+                "version": "v1",
+                "content_hash": "mock_hash_001",
+                "confidence": 1.0,
+            },
+            {
+                "evidence_id": "ev_mock_002",
+                "claim_id": "chapter_2_operation",
+                "source": "uploaded_material:行业研究.docx",
+                "anchor": "page=3§2",
+                "snippet": "精密零部件行业 2024 年市场规模同比增长 12.4%",
+                "source_tier": 3,  # Tier 3 行业
+                "source_url": None,
+                "evidence_date": "2024-Q4",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "industry",
+                "version": "v1",
+                "content_hash": "mock_hash_002",
+                "confidence": 0.85,
+            },
+            {
+                "evidence_id": "ev_mock_003",
+                "claim_id": "chapter_3_finance",
+                "source": "uploaded_material:财务报表_2024.xlsx",
+                "anchor": "Sheet1!B7",
+                "snippet": "资产负债率 45.2% · 流动比率 1.62 · 速动比率 0.98",
+                "source_tier": 1,  # Tier 1 内部权威(客户提交底稿)
+                "source_url": None,
+                "evidence_date": "2024-12-31",
+                "retrieved_at": "2026-05-09",
+                "claim_type": "financial",
+                "version": "v1",
+                "content_hash": "mock_hash_003",
+                "confidence": 1.0,
+            },
+        ],
     }
+    # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 (硬规) ·
+    # sections / pending_questions / evidences 全经 helper · 防 regression placeholder
+    ensure_list_unique_ids(done["sections"], name_field="title", uscc_field="", id_field="id")
+    ensure_list_unique_ids(done["pending_questions"], name_field="label", uscc_field="", id_field="id")
+    ensure_list_unique_ids(done["evidences"], name_field="source", uscc_field="", id_field="evidence_id")
+
+    # ALL IN Phase B.1 fix · handoff 真产物 · per entity-resolution-contract v1.1 §5
+    # report → credit 跨 agent handoff 主键 · 决策回写写盘 · 静态 ledger evidence
+    # handoff_id 派自 entity_key (uscc anchored 优先 · name_normalized 兜底 · report_id 终极 fallback)
+    try:
+        _ek = profile.get("entity_key", {}) if isinstance(profile, dict) else {}
+        handoff_id = (
+            _ek.get("uscc")
+            or (_ek.get("name_normalized") or "")[:12]
+            or report_id
+        )
+        if handoff_id:
+            handoff_dir = PROJECT_ROOT / "data" / "handoff" / "report_to_credit"
+            handoff_dir.mkdir(parents=True, exist_ok=True)
+            # 防 path traversal · 仅允字母数字 + 下划线
+            import re as _re
+            safe_id = _re.sub(r"[^a-zA-Z0-9_-]", "_", str(handoff_id))[:64]
+            handoff_path = handoff_dir / f"{safe_id}.json"
+            handoff_payload = {
+                **done,
+                "handoff_id": safe_id,
+                "wrote_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "agent_from": "report",
+                "agent_to": "credit",
+            }
+            handoff_path.write_text(
+                json.dumps(handoff_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            done["handoff_path"] = str(handoff_path.relative_to(PROJECT_ROOT))
+    except Exception as exc:
+        # silent-fail · 不破 SSE 流 (per BE7 ledger 模式 · handoff 是观察层不是阻塞层)
+        logger.warning("handoff write failed (silent): %s", exc)
+
     yield _sse("done", done)
 
 
@@ -435,6 +542,39 @@ def _run_v16_in_thread(
         except Exception:
             pass
 
+        # Phase B.1 fix #3 (codex re-review 抓) · real 路径同样写 handoff (与 mock 路径对称)
+        # codex 抓 mock_v16_stream 写了 · real path 漏 · credit 切真路径就拿不到 ReportJSON
+        try:
+            from pathlib import Path as _Path
+            _project_root = _Path(__file__).resolve().parent.parent
+            _ek = profile.get("entity_key", {}) if isinstance(profile, dict) else {}
+            handoff_id = (
+                _ek.get("uscc")
+                or (_ek.get("name_normalized") or "")[:12]
+                or session_id
+            )
+            if handoff_id:
+                handoff_dir = _project_root / "data" / "handoff" / "report_to_credit"
+                handoff_dir.mkdir(parents=True, exist_ok=True)
+                import re as _re
+                safe_id = _re.sub(r"[^a-zA-Z0-9_-]", "_", str(handoff_id))[:64]
+                handoff_path = handoff_dir / f"{safe_id}.json"
+                handoff_payload = {
+                    **done_payload,
+                    "handoff_id": safe_id,
+                    "wrote_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "agent_from": "report",
+                    "agent_to": "credit",
+                }
+                handoff_path.write_text(
+                    json.dumps(handoff_payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                done_payload["handoff_path"] = str(handoff_path.relative_to(_project_root))
+        except Exception as exc:
+            # silent-fail · 不破 SSE 流 (per BE7 ledger 模式 · handoff 是观察层不是阻塞层)
+            logger.warning("real path handoff write failed (silent): %s", exc)
+
         emit.put(_sse("done", done_payload))
     except Exception as e:  # noqa: BLE001 — last-resort crash guard
         traceback.print_exc()
@@ -493,13 +633,22 @@ def should_use_mock_v16(
     has_dee_pseek_key: bool,
     explicit_mock: bool,
 ) -> tuple[bool, str]:
-    """判断 v16 fill 应走 mock 还是 real · 返 (should_mock, reason)."""
+    """判断 v16 fill 应走 mock 还是 real · 返 (should_mock, reason).
+
+    PM 2026-05-09 ALL IN 真产品 (per AGENT_IDENTITY-report.md §6 step 3 + 红线 1 假 live):
+    silent mock fallback 全删 · 仅 explicit_mock=True 走 mock · 其他全 raise · 不假装真路径.
+    """
     if explicit_mock:
         return True, "explicit_mock=true"
     if not has_dee_pseek_key:
-        return True, "DEEPSEEK_API_KEY 未配置 · 切 mock"
+        # 此处通常不到 (api.py /v16/fill 在 fill_stream 前已 fail-fast 503 拒 silent fallback) · 防御性 raise
+        raise RuntimeError(
+            "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 拒 silent mock fallback (红线 1)"
+        )
     if classified_json is None or not classified_json.exists():
-        return True, "v16_llm_classified.json 不存在 · 切 mock(请先跑 v16_classifier)"
+        raise RuntimeError(
+            f"v16_llm_classified.json 不存在 ({classified_json}) · 请先跑 v16_classifier · 拒 silent mock fallback (红线 1)"
+        )
     return False, "real_v16"
 
 

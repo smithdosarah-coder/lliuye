@@ -15,12 +15,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ModePill } from "@/components/shared/ModePill";
+// Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传 sample 跑真后端
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
-import { CREDIT_EVIDENCE } from "@/components/evidence/fixtures";
+
+/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array
+   · 旧 CREDIT_EVIDENCE.items / unfilledFields = mock 演示数据 · 反 KT §3.6 红线 #3 无证据 claim
+   · 真 evidence 数据 backend done envelope.data_sources + dataSources panel 直接消费 · 不靠 fixtures 兜底 */
+const EMPTY_EVIDENCE_ITEMS: never[] = [];
+const EMPTY_UNFILLED_FIELDS: never[] = [];
 import {
   Radar,
   RadarChart,
@@ -36,19 +42,14 @@ import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
 import { normalizeCreditDone } from "./_normalize";
 import {
-  CREDIT_DEFAULT_SESSION_ID,
   CREDIT_GLOBAL_STATS,
-  CREDIT_MOCK_SESSIONS,
-  CREDIT_MOCK_SESSIONS_MAP,
   CREDIT_MODE_LABEL,
-  CREDIT_SESSIONS,
   type CaseRecall,
   type ConversationMessage,
   type CreditMode,
   type CreditProfile,
   type CreditRadarDim,
   type CreditQuery,
-  type CreditRecentSession,
   type CreditSession,
   type DataSourcesPanel,
   type EvidenceItem,
@@ -59,6 +60,60 @@ import {
   type RedLine,
   type CreditPipelineStep,
 } from "@/lib/mock/agent-credit-session";
+
+/* ALL IN Phase B step 2 · per channel 模板 (de79725 EMPTY_SESSION pattern):
+   sessionData fallback 用空对象 · 不再 fallback CREDIT_MOCK_SESSIONS_MAP (47 分 D 级假分根因)
+   panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 假 live + #2 假分 */
+const EMPTY_SESSION: CreditSession = {
+  id: "empty",
+  mode: "corp",
+  objective: "",
+  stage: "",
+  updated: "",
+  profile: { chips: [], tagline: "" },
+  query: {
+    id: "",
+    customer: "",
+    customerCode: "",
+    product: "对公经营贷",
+    applyAmount: "",
+    applyTenor: "",
+    purpose: "",
+    industry: "",
+    updated: "",
+  },
+  pipeline: [],
+  radar: [],
+  overallScore: 0,
+  decision: "pending",
+  limit: {
+    applied: 0,
+    suggested: 0,
+    floor: 0,
+    ceiling: 0,
+    tenorMonths: 0,
+    tenorRange: [0, 0],
+    rateBps: 0,
+    rateRange: [0, 0],
+    rationale: [],
+  },
+  redLines: [],
+  cases: [],
+  conversation: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+  materials: { completeness: 0, missing: "", files: [] },
+  dataSources: { summary: "", updated: "", sources: [] },
+  evidences: { positive: [], warnings: [], missing: [] },
+  /* generateSteps · UI 动画 5 步 · 与数据无关 · ALL IN 后改为"等待 / 处理中"措辞反映真实路径 */
+  generateSteps: [
+    { label: "等待 Agent6 报告 handoff", pct: 22 },
+    { label: "拉取 ReportJSON · 注入企业画像", pct: 48 },
+    { label: "LLM 评分 · 红线检查 · 案例召回", pct: 76 },
+    { label: "决策建议生成中", pct: 96 },
+    { label: "综合判断完成", pct: 100 },
+  ],
+};
 
 type OutputTab = "radar" | "limit" | "cases";
 
@@ -89,34 +144,38 @@ const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
 };
 
 export default function CreditWorkspace() {
-  /* workspace-state-protocol §2 · 4 gate state model · Phase A worker-A4-credit (2026-04-29)
-     (1) started · (2) selectedSession · (3) liveData · (4) selectedCandidate
-     sessionData = liveData ?? mock[selectedSession] · panel 单点派生
-     旧 mode/setMode/session = CREDIT_SESSIONS[mode] alias 派生 · 1800 行内 mode/session 引用最小漂 */
+  /* ALL IN Phase B · workspace-state-protocol §2 · 3 gate state model (selectedSession 删 · 历史 session 已下架)
+     (1) started · (2) liveData · (3) selectedCandidate · 加 mode 独立 state (3 板块 stage_tab tab 切换)
+     sessionData = liveData ?? EMPTY_SESSION · panel 单点派生 · 不 fallback mock */
   const [started, setStarted] = useState<boolean>(false);
-  const [selectedSession, setSelectedSession] = useState<string>(CREDIT_DEFAULT_SESSION_ID);
+  const [mode, setModeState] = useState<CreditMode>("corp");
   const [liveData, setLiveData] = useState<CreditSession | null>(null);
-  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
-  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
+  /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · ALL IN 默认 "live" (单一真路径)
+     · LiveFailError → "mock_fallback" 降级标 (trust model 一级 · 非 silent fallback 假数据) */
+  const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
-  const sessionData: CreditSession =
-    liveData ??
-    CREDIT_MOCK_SESSIONS_MAP[selectedSession] ??
-    CREDIT_MOCK_SESSIONS_MAP[CREDIT_DEFAULT_SESSION_ID];
+  /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计 · 演示=上传sample真后端 */
 
-  /* alias · minimize churn through 1800 lines · session/mode 不再独立 useState */
+  /* ALL IN Phase B · sessionData 不 fallback mock · 改 EMPTY_SESSION (per channel 模板 de79725)
+     panel 内 .find/.map/.reduce 安全 render · 无虚构企业 · 反 KT §3.6 红线 #1 + #2 */
+  const sessionData: CreditSession = liveData ?? EMPTY_SESSION;
+
+  /* alias · minimize churn through 1800 lines */
   const session = sessionData;
-  const mode: CreditMode = sessionData.mode;
 
-  /* setMode 适配 · 切 mode 时找该 mode 第一个 session · 同步 reset live + drawer */
+  /* ALL IN Phase B step 6 · setMode 干净切换 3 板块 (corp/small/retail)
+     · 切板块后所有 per-entity 状态全清 (live / drawer / error / handoff banner)
+     · per-entity 评分维度 (radar 4 axis dict) 由 _normalize.RADAR_AXIS_LABEL 派生:
+       - corp/small_business: financial / industry / operational / guarantee
+       - retail: ability / willingness / stability / collateral (FICO 式)
+     · 用户切板块后必须点 CTA 重新起决策 · 不靠 mock data 自动派生 */
   const setMode = useCallback((newMode: CreditMode) => {
-    const target = CREDIT_MOCK_SESSIONS.find((s) => s.mode === newMode);
-    if (!target) return;
-    setSelectedSession(target.id);
+    setModeState(newMode);
     setLiveData(null);
     setSelectedCandidate(null);
+    setDecisionError(null);
+    setHandoffSource(null);
   }, []);
 
   /* ESC 关 case detail drawer (Step 10 · selectedCandidate gate) */
@@ -171,84 +230,10 @@ export default function CreditWorkspace() {
     };
   }, []);
 
-  /* 起授信决策 · POST /api/credit/decision SSE (Step 7 · 2026-04-29 worker-A4-credit)
-     - 改 streamSse (per A2 _live.ts SSOT) · 删 35 行内联 res.body.getReader() reader (cat 3 修)
-     - done event normalize 后 setLiveData → 4-gate liveData 优先 · panel 全 hydrate
-     - mock=true 兼容无 LLM key 环境 · streamSse 内部已有 LiveFailError 4xx/5xx → 显式 error */
-  async function runDecision(opts: { mockMode: boolean }) {
-    if (decisionRunning) return;
-    setStarted(true);
-    setDecisionRunning(true);
-    setDecisionError(null);
-    setLiveAdvice(null);
-    setDecisionId(null);
-    const apiBase =
-      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-    const stageTab = MODE_TO_STAGE_TAB[mode];
-    // preset_name 默认用 mode 的第一个预置 (后续 Stage 可让用户在 Drawer 选)
-    const presetByMode: Record<CreditMode, string> = {
-      corp: "dingsheng_trade",
-      small: "dingsheng_trade",
-      retail: "zhangsan_restaurant",
-    };
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      // sessionData snapshot at start · 用作 normalize fallback (panels 未 backend 透传字段)
-      const fallbackSession = sessionData;
-      await streamSse(
-        `${apiBase}/api/credit/decision`,
-        {
-          stage_tab: stageTab,
-          mock: opts.mockMode,
-          preset_name: opts.mockMode ? null : presetByMode[mode],
-        },
-        (sseEvt) => {
-          if (ac.signal.aborted) return;
-          const data = sseEvt.data as {
-            event?: string;
-            stage?: string;
-            decision_id?: string;
-            payload?: Record<string, unknown>;
-            message?: string;
-          };
-          // 保留旧 advising_done capture · 兼容现有 panel 直读 liveAdvice
-          if (sseEvt.type === "stage" && data.stage === "advising_done" && data.payload) {
-            setLiveAdvice(data.payload);
-            setScanned(true);
-          }
-          if (sseEvt.type === "decision_cached" && data.decision_id) {
-            setDecisionId(data.decision_id);
-          }
-          if (sseEvt.type === "done") {
-            // Step 7 · cat 4 done envelope normalize → 4-gate liveData 注入
-            const liveSession = normalizeCreditDone(
-              data as Record<string, unknown>,
-              fallbackSession,
-            );
-            setLiveData(liveSession);
-            setSelectedCandidate(null);
-            setScanned(true);
-            /* 件 #2 · data_source SSOT 真消费 (per shared/sse_envelope canon) */
-            const rawDs = (data as Record<string, unknown>).data_source;
-            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "live");
-          }
-        },
-        { signal: ac.signal },
-      );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      const msg = err instanceof LiveFailError
-        ? liveFailBannerText(err, "Credit /api/credit/decision")
-        : err instanceof Error ? err.message : String(err);
-      setDecisionError(msg);
-      /* 件 #2 · live 失败 → trust model 一级降级 */
-      setCurrentDataSource("mock_fallback");
-    } finally {
-      if (!ac.signal.aborted) setDecisionRunning(false);
-    }
-  }
+  /* ALL IN Phase B step 3 · runDecision (preset fallback) 删除
+     · 旧路径 mock=true / preset_name=presetByMode 都是 mock 残留 · 不再保留
+     · 真路径单一: runDecisionWithAgent6Handoff (Agent6 → ReportJSON → /decision live SSE)
+     · retry button 也走 runDecisionWithAgent6Handoff · 反 KT §3.6 红线 #1 假 live */
 
   /* primary CTA · Cat 0 北极星核心: Agent6 handoff → 注入 enterprise_profile → 起决策
      Step 9 · 2026-04-29 worker-A4-credit · per agent-handoff-schemas §2 + spec §3 触发源 2
@@ -360,6 +345,9 @@ export default function CreditWorkspace() {
               ));
               setSelectedCandidate(null);
               setScanned(true);
+              /* ALL IN Phase B step 3 · data_source SSOT · live 成功标 */
+              const rawDs = (data as Record<string, unknown>).data_source;
+              setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "live");
             }
           },
           { signal: ac.signal },
@@ -375,28 +363,22 @@ export default function CreditWorkspace() {
         ? liveFailBannerText(err, "Credit handoff/from_report")
         : err instanceof Error ? err.message : String(err);
       setDecisionError(msg);
+      /* ALL IN Phase B step 3 · live 失败 → trust model 一级降级标 (per Q-054 risk #1) */
+      setCurrentDataSource("mock_fallback");
       setDecisionRunning(false);
     }
   }
 
-  /* tertiary CTA · /api/credit/demo/run · 6 scenario JSON 之一 · 完全 mock SSE · 不调 LLM
-     与 onPrimary (真起决策) / onSecondary (mock decision) 区别: 走 file-backed scenario · 视觉一致 */
-  async function runDemoScenario() {
+  // Phase B.1.5 (PM 2026-05-10) · 一键运行示例 · 调 /api/credit/demo/run sample 跑 · 让 PM 点了能看到东西
+  async function runDemoSample() {
     if (decisionRunning) return;
-    setStarted(true);
-    setDecisionRunning(true);
     setDecisionError(null);
-    setLiveAdvice(null);
-    setDecisionId(null);
-    setHandoffSource(null);   // demo 路非 handoff 源
     const apiBase =
       (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
-    // mode → 默认 scenario_id (覆盖 6 标杆)
-    const scenarioByMode: Record<CreditMode, string> = {
-      corp: "corp-zhongrui-003",     // hard · B 级有条件批 · 演示典型
-      small: "corp-ruiheng-002",     // simple · A 级直接批 · 演示流畅
-      retail: "retail-zhangsan-001", // medium · 720 良好批 · 演示稳态
-    };
+    setStarted(true);
+    setDecisionRunning(true);
+    setLiveAdvice(null);
+    setDecisionId(null);
     const fallbackSession = sessionData;
     abortRef.current?.abort();
     const ac = new AbortController();
@@ -404,7 +386,7 @@ export default function CreditWorkspace() {
     try {
       await streamSse(
         `${apiBase}/api/credit/demo/run`,
-        { scenario_id: scenarioByMode[mode] },
+        { stage_tab: MODE_TO_STAGE_TAB[mode] },
         (sseEvt) => {
           if (ac.signal.aborted) return;
           const data = sseEvt.data as Record<string, unknown>;
@@ -412,18 +394,16 @@ export default function CreditWorkspace() {
             setLiveData(normalizeCreditDone(data, fallbackSession));
             setSelectedCandidate(null);
             setScanned(true);
-            /* 件 #2 · data_source SSOT 真消费 · demo 默认 mock_forced */
-            const rawDs = data.data_source;
-            setCurrentDataSource(rawDs ? normalizeDataSource(rawDs) : "mock_forced");
+            setCurrentDataSource("mock_forced");
           }
         },
         { signal: ac.signal },
       );
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      const msg = err instanceof LiveFailError
-        ? liveFailBannerText(err, "Credit /api/credit/demo/run")
-        : err instanceof Error ? err.message : String(err);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      const msg = e instanceof LiveFailError
+        ? liveFailBannerText(e, "Credit demo/run")
+        : e instanceof Error ? e.message : String(e);
       setDecisionError(msg);
       setCurrentDataSource("mock_fallback");
     } finally {
@@ -499,7 +479,7 @@ export default function CreditWorkspace() {
       <button
         type="button"
         className="credit-error-banner__retry"
-        onClick={() => runDecision({ mockMode: false })}
+        onClick={() => runDecisionWithAgent6Handoff()}
       >
         重试
       </button>
@@ -517,8 +497,8 @@ export default function CreditWorkspace() {
   if (!started) {
     return (
       <EvidenceProvider
-        items={CREDIT_EVIDENCE.items}
-        unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+        items={EMPTY_EVIDENCE_ITEMS}
+        unfilledFields={EMPTY_UNFILLED_FIELDS}
       >
         <div
           className="rpt-workspace credit-empty-root"
@@ -532,8 +512,7 @@ export default function CreditWorkspace() {
             mode={mode}
             onModeChange={setMode}
             onPrimary={() => runDecisionWithAgent6Handoff()}
-            onSecondary={() => runDecision({ mockMode: true })}
-            onTertiary={() => runDemoScenario()}
+            onRunDemo={() => runDemoSample()}
             decisionRunning={decisionRunning}
             decisionError={decisionError}
           />
@@ -544,8 +523,8 @@ export default function CreditWorkspace() {
 
   return (
     <EvidenceProvider
-      items={CREDIT_EVIDENCE.items}
-      unfilledFields={CREDIT_EVIDENCE.unfilledFields}
+      items={EMPTY_EVIDENCE_ITEMS}
+      unfilledFields={EMPTY_UNFILLED_FIELDS}
     >
     <div
       className="rpt-workspace"
@@ -560,10 +539,8 @@ export default function CreditWorkspace() {
         onModeChange={setMode}
         sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
       />
-      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 (credit 用 floating 顶部) */}
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
-        <ModePill isLive={liveData != null} testId="credit-mode-pill" size="sm" />
-        {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
 
@@ -591,16 +568,12 @@ export default function CreditWorkspace() {
 
       <div className="rpt-grid">
         <aside className="rpt-col rpt-col--left">
-          {/* Sprint 4 D1 Atomic 2 (per Codex R3 redesign · PRD v2.0 "Agent3 输入 = Agent6 ReportJSON + 多源补充"):
-              - DELETE QueryPanel (PRD verbatim "不需 query · 输入是 ReportJSON")
+          {/* ALL IN Phase B step 1 cleanup (per channel 模板 de79725 + 1c6aa34):
+              - DELETE QueryPanel (PRD verbatim "Agent3 输入 = Agent6 ReportJSON · 不需 query")
               - KEEP MaterialsPanel + DataSourcesPanel (PRD "多源补充")
-              - COLLAPSE RecentPanel (移 details · 默认收起 · per "证据下钻"模式) */}
+              - DELETE RecentPanel (历史 session mock UI · ALL IN 真路径走 Agent6 handoff) */}
           <MaterialsPanel data={session.materials} />
           <DataSourcesPanel data={session.dataSources} />
-          <details className="rpt-recent-collapse">
-            <summary>📋 历史会话 (展开)</summary>
-            <RecentPanel recent={session.recentSessions} />
-          </details>
         </aside>
 
         <section className="rpt-col rpt-col--mid">
@@ -1090,46 +1063,7 @@ function DataSourcesPanel({ data }: { data: DataSourcesPanel }) {
   );
 }
 
-/* ─────────── LEFT · 近期（压缩） ─────────── */
-
-function RecentPanel({ recent }: { recent: CreditRecentSession[] }) {
-  return (
-    <div className="rpt-panel cr-rc">
-      <PanelPinHandle
-        id={`credit:recent`}
-        title={`近期 · ${recent.length} 条`}
-        subtitle="跨三板块"
-        accentVar={AGENT_ACCENT}
-        agentKey={AGENT_KEY}
-        href={AGENT_HREF}
-        blurb={`最近 ${recent[0]?.customer ?? "—"} ${recent[0]?.decision ?? ""}`}
-      />
-      <div className="rpt-panel__head">
-        <div className="rpt-panel__eyebrow">近期</div>
-        <div className="rpt-panel__counter">{recent.length}</div>
-      </div>
-      <div className="rpt-panel__body">
-        <ul className="cr-rc__list">
-          {recent.slice(0, 5).map((r) => (
-            <li key={r.id} className="cr-rc__item">
-              <div className="cr-rc__head">
-                <div className="cr-rc__name">{r.customer}</div>
-                <span className="cr-rc__chip" data-decision={r.decision}>
-                  {DECISION_LABEL[r.decision]}
-                </span>
-              </div>
-              <div className="cr-rc__meta">
-                <span>{r.product}</span>
-                <span>{r.amount}</span>
-                <span className="cr-rc__time">{r.updated}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
+/* ─────────── LEFT · RecentPanel 已删 (ALL IN Phase B step 1 · 历史 session mock UI 残留) ─────────── */
 
 /* ─────────── MID · 对话面板 ─────────── */
 
@@ -1893,9 +1827,8 @@ function PipelineLane({
 function CreditEmptyState(p: {
   mode: CreditMode;
   onModeChange: (m: CreditMode) => void;
-  onPrimary: () => void;       // 起决策 (真接 backend SSE)
-  onSecondary: () => void;     // 起决策 (mock=true · 无 LLM key 演示)
-  onTertiary: () => void;      // 选历史 (示例) session
+  onPrimary: () => void;       // 起决策 (真接 backend SSE · cat 0 北极星 · Agent6 handoff)
+  onRunDemo?: () => void;      // Phase B.1.5 · 一键运行示例 · sample 跑 (PM 演示路径)
   decisionRunning: boolean;
   decisionError: string | null;
 }) {
@@ -1937,8 +1870,8 @@ function CreditEmptyState(p: {
         </p>
       </header>
 
-      {/* §2.2 主 CTA · 3 入口分级 */}
-      <section className="credit-empty__cta-row" aria-label="3 CTA 分级">
+      {/* Phase B.1.5 (PM 2026-05-10) · 双 CTA · 主 = Agent6 handoff · 副 = 一键运行示例 (sample) */}
+      <section className="credit-empty__cta-row" aria-label="主 CTA" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
           type="button"
           className="credit-empty__cta credit-empty__cta--primary"
@@ -1955,36 +1888,25 @@ function CreditEmptyState(p: {
             选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
           </span>
         </button>
-        <button
-          type="button"
-          className="credit-empty__cta credit-empty__cta--secondary"
-          data-testid="credit-decision-cta-secondary"
-          data-cta="secondary"
-          onClick={p.onSecondary}
-          disabled={p.decisionRunning}
-        >
-          <span className="credit-empty__cta-rank">次操作</span>
-          <span className="credit-empty__cta-title">演示模式起决策</span>
-          <span className="credit-empty__cta-sub">
-            无 LLM key 也能看流程 · backend mock=true · in-memory fixture
-          </span>
-        </button>
-        <button
-          type="button"
-          className="credit-empty__cta credit-empty__cta--tertiary"
-          data-testid="credit-history-tertiary"
-          data-cta="tertiary"
-          onClick={p.onTertiary}
-          disabled={p.decisionRunning}
-        >
-          <span className="credit-empty__cta-rank credit-empty__cta-rank--demo">
-            演示场景
-          </span>
-          <span className="credit-empty__cta-title">demo scenario · 6 标杆</span>
-          <span className="credit-empty__cta-sub">
-            {CREDIT_MODE_LABEL[p.mode]} · file-backed scenario · /api/credit/demo/run · 客户走访稳定路径
-          </span>
-        </button>
+        {p.onRunDemo ? (
+          <button
+            type="button"
+            className="credit-empty__cta credit-empty__cta--primary"
+            data-testid="credit-demo-cta"
+            data-cta="demo"
+            onClick={p.onRunDemo}
+            disabled={p.decisionRunning}
+            style={{ background: "var(--chalk)", color: "var(--ink)", border: "1px solid var(--ink-14)" }}
+          >
+            <span className="credit-empty__cta-rank">演示</span>
+            <span className="credit-empty__cta-title">
+              {p.decisionRunning ? "运行中…" : "一键运行示例"}
+            </span>
+            <span className="credit-empty__cta-sub">
+              加载预制 sample · 真后端跑通完整链路 · 点了立刻看结果
+            </span>
+          </button>
+        ) : null}
       </section>
 
       {/* §2.3 Panel 空骨架 · 不显示模拟数字 · 仅说明文字 */}

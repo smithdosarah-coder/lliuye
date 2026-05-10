@@ -159,7 +159,7 @@ async def extended_health(ping: int = 0, timeout: float = 5.0):
 
 from auth_service.dependencies import COOKIE_NAME, require_user  # noqa: E402
 from auth_service.jwt_util import JWT_EXP_HOURS, JWTError, issue, verify  # noqa: E402
-from auth_service.rbac import access_for  # noqa: E402
+from auth_service.rbac import access_for, demo_mode_visible  # noqa: E402
 from auth_service.users import authenticate, get_user_public  # noqa: E402
 
 # Cookie strategy (per auth-protocol.md §5)
@@ -230,6 +230,10 @@ async def auth_me(payload=Depends(require_user)):
         "user": user,
         "roles": [user["role"]],
         "accessibleAgents": access_for(user["role"]),
+        # Phase A.6 (2026-05-09) · demo_mode 双控 · per cross-agent-feedback-protocol
+        # adjacent · env DEMO_MODE_VISIBLE=1 AND role in {admin, demo_user} 才 True
+        # 默认 production env=0 安全 · 不暴露 demo 入口
+        "demoModeAvailable": demo_mode_visible(user),
     }
 
 

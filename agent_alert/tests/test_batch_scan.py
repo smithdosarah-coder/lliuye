@@ -19,6 +19,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agent_alert.api import AlertBatchScanRequest, _alert_batch_event_stream, app
+from auth_service.dependencies import COOKIE_NAME
+from auth_service.jwt_util import issue
+
+
+def _make_client() -> TestClient:
+    """TestClient with admin cookie · pass require_action gate.
+
+    Phase B.1 fix (2026-05-09): /api/alert/batch_scan 加 require_action("alert", "invoke") ·
+    旧 test 没 cookie 返 401 · admin 跨 action 跨 agent OK · 与 test_export_docx_endpoint 一致.
+    """
+    c = TestClient(app)
+    c.cookies.set(COOKIE_NAME, issue("u_test", "admin"))
+    return c
 
 
 def _collect_stream(req: AlertBatchScanRequest) -> str:
@@ -124,20 +137,20 @@ class TestClientIdsFilter:
 
 class TestEndpointRegistration:
     def test_endpoint_exists(self):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post("/api/alert/batch_scan", json={"scenarios": ["demo_data/agent_alert"]})
         assert r.status_code == 200
         assert "text/event-stream" in r.headers["content-type"]
 
     def test_endpoint_validates_body_shape(self):
-        client = TestClient(app)
+        client = _make_client()
         # 缺 scenarios · pydantic 验证默认空 list · 走 EMPTY_SCENARIOS error event
         r = client.post("/api/alert/batch_scan", json={})
         assert r.status_code == 200  # SSE 200 + error event
         assert "EMPTY_SCENARIOS" in r.text
 
     def test_endpoint_returns_done_event(self):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(
             "/api/alert/batch_scan",
             json={"scenarios": ["demo_data/agent_alert"], "force_mock": True},
