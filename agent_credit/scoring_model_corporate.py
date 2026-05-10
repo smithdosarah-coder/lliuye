@@ -23,7 +23,8 @@ class CorporateScoringResult:
     guarantee_score: int = 0
     composite_score: int = 0
     risk_grade: str = "D"
-    sub_scores: dict = field(default_factory=dict)
+    sub_scores: dict = field(default_factory=dict)  # Phase B.2.1 hotfix · int dict (frontend 渲染需 number)
+    sub_details: dict = field(default_factory=dict)  # Phase B.2.1 hotfix · dict detail (decision_graph evidence 用)
     industry_peer_gap: dict = field(default_factory=dict)
     amount_methods: dict = field(default_factory=dict)  # 四种额度测算结果
 
@@ -231,7 +232,15 @@ class CorporateScoringModel:
             guarantee_score=guar_score,
             composite_score=composite_int,
             risk_grade=self._grade(composite_int),
+            # Phase B.2.1 hotfix (PM 2026-05-10) · sub_scores 必须是 int (frontend 雷达图渲染需 number)
             sub_scores={
+                "financial": fin_score,
+                "industry": ind_score,
+                "operational": ope_score,
+                "guarantee": guar_score,
+            },
+            # detail dict (decision_graph evidence chain 用)
+            sub_details={
                 "financial": fin_sub,
                 "industry": ind_sub,
                 "operational": ope_sub,

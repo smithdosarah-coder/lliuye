@@ -28,7 +28,8 @@ def _load_weights() -> dict:
 class RetailScoringResult:
     fico_score: int = 500
     grade: str = "拒绝"
-    sub_scores: dict = field(default_factory=dict)     # {category: {var: score}}
+    sub_scores: dict = field(default_factory=dict)     # Phase B.2.1 · int dict (frontend 渲染 · = category_scores)
+    sub_details: dict = field(default_factory=dict)    # Phase B.2.1 · dict detail (decision_graph evidence)
     category_scores: dict = field(default_factory=dict)  # {category: int}
     approved_limit_cap: float = 0.0     # 万元，档位允许上限
     rate_tier: str = ""
@@ -174,10 +175,12 @@ class RetailScoringModel:
         fico = max(300, min(850, fico))
         grade, rate_tier, cap = self._pick_grade(fico)
 
+        # Phase B.2.1 hotfix (PM 2026-05-10) · sub_scores = int dict (frontend) · sub_details = dict detail (decision_graph)
         return RetailScoringResult(
             fico_score=fico,
             grade=grade,
-            sub_scores=sub_scores,
+            sub_scores=cat_scores,  # int dict · 前端渲染雷达
+            sub_details=sub_scores,  # dict detail · evidence chain 用 (变量原本叫 sub_scores)
             category_scores=cat_scores,
             approved_limit_cap=cap,
             rate_tier=rate_tier or "",

@@ -550,7 +550,8 @@ def build_decision_graph(
         weights = _DEFAULT_WEIGHTS_CORPORATE
         if appetite is not None and appetite.dimension_weights:
             weights = {**weights, **appetite.dimension_weights}
-        sub_scores = getattr(scoring, "sub_scores", {}) or {}
+        # Phase B.2.1 hotfix · sub_scores 改 int dict 后 evidence detail 走 sub_details
+        sub_details = getattr(scoring, "sub_details", {}) or {}
         for dim in ("financial", "industry", "operational", "guarantee"):
             score_attr = f"{dim}_score"
             if not hasattr(scoring, score_attr):
@@ -559,7 +560,7 @@ def build_decision_graph(
                 dimension=dim,
                 score=getattr(scoring, score_attr, 0) or 0,
                 weight=weights.get(dim, _DEFAULT_WEIGHTS_CORPORATE[dim]),
-                sub_scores=sub_scores.get(dim),
+                sub_scores=sub_details.get(dim),  # detail dict · for evidence chain
             )
             _add_node(dim_node)
             _add_edge(dim_node.id, decision_node.id, "evidenced_by")
