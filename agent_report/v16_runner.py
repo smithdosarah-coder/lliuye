@@ -310,6 +310,40 @@ async def mock_v16_stream(
     ensure_list_unique_ids(done["sections"], name_field="title", uscc_field="", id_field="id")
     ensure_list_unique_ids(done["pending_questions"], name_field="label", uscc_field="", id_field="id")
     ensure_list_unique_ids(done["evidences"], name_field="source", uscc_field="", id_field="evidence_id")
+
+    # ALL IN Phase B.1 fix · handoff 真产物 · per entity-resolution-contract v1.1 §5
+    # report → credit 跨 agent handoff 主键 · 决策回写写盘 · 静态 ledger evidence
+    # handoff_id 派自 entity_key (uscc anchored 优先 · name_normalized 兜底 · report_id 终极 fallback)
+    try:
+        _ek = profile.get("entity_key", {}) if isinstance(profile, dict) else {}
+        handoff_id = (
+            _ek.get("uscc")
+            or (_ek.get("name_normalized") or "")[:12]
+            or report_id
+        )
+        if handoff_id:
+            handoff_dir = PROJECT_ROOT / "data" / "handoff" / "report_to_credit"
+            handoff_dir.mkdir(parents=True, exist_ok=True)
+            # 防 path traversal · 仅允字母数字 + 下划线
+            import re as _re
+            safe_id = _re.sub(r"[^a-zA-Z0-9_-]", "_", str(handoff_id))[:64]
+            handoff_path = handoff_dir / f"{safe_id}.json"
+            handoff_payload = {
+                **done,
+                "handoff_id": safe_id,
+                "wrote_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "agent_from": "report",
+                "agent_to": "credit",
+            }
+            handoff_path.write_text(
+                json.dumps(handoff_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            done["handoff_path"] = str(handoff_path.relative_to(PROJECT_ROOT))
+    except Exception as exc:
+        # silent-fail · 不破 SSE 流 (per BE7 ledger 模式 · handoff 是观察层不是阻塞层)
+        logger.warning("handoff write failed (silent): %s", exc)
+
     yield _sse("done", done)
 
 
