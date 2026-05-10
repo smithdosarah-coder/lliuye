@@ -37,6 +37,7 @@ import {
   type ReportV16DoneEvent,
   type ReportV16ErrorEvent,
   type ReportV16Event,
+  type ReportV16Evidence,
   type ReportV16Section,
   type ReportV16StageEvent,
 } from "@/lib/api/report";
@@ -517,6 +518,7 @@ export function ReportWorkspace() {
                 {liveData?.sections && liveData.sections.length > 0 ? (
                   <ReportLiveSections
                     sections={liveData.sections}
+                    evidences={liveData.evidences}
                     onRefine={handleRefineSection}
                     mode={mode}
                   />
@@ -2374,6 +2376,7 @@ function ReportLiveStrip(p: {
 
 function ReportLiveSections(p: {
   sections: ReportV16Section[];
+  evidences?: ReportV16Evidence[];
   onRefine: (sectionId: string, userEdit: string) => void;
   mode: "mock" | "live";
 }) {
@@ -2382,6 +2385,11 @@ function ReportLiveSections(p: {
   );
   const [draft, setDraft] = useState<string>("");
   const active = p.sections.find((s) => s.id === activeId) ?? null;
+  /* ALL IN Phase B step 4 · 字段级 evidence drawer · per shared/evidence_drawer + AGENT_IDENTITY-report.md §6
+     filter 当前 active section 的 evidence (claim_id 关联) · 显示 source / tier / date 等 */
+  const activeEvidences = (p.evidences ?? []).filter(
+    (ev) => ev.claim_id === activeId,
+  );
 
   return (
     <section
@@ -2466,6 +2474,80 @@ function ReportLiveSections(p: {
           }}
         >
           {active.content}
+        </div>
+      ) : null}
+      {/* ALL IN Phase B step 4 · 字段级 evidence drawer · per shared/evidence_drawer
+          每 active section 下方列证据来源 · source / tier / date / snippet · 红线 3 (无证据 claim) 闸门 */}
+      {activeEvidences.length > 0 ? (
+        <div
+          data-testid="report-evidence-drawer"
+          style={{
+            marginTop: 10,
+            padding: "10px 12px",
+            background: "color-mix(in srgb, var(--t-report) 6%, transparent)",
+            border: "1px dashed color-mix(in srgb, var(--t-report) 40%, transparent)",
+            borderRadius: 6,
+            fontFamily: "var(--cjk)",
+            fontSize: 11.5,
+            color: "var(--ink-65)",
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 6, color: "var(--ink)", fontSize: 12 }}>
+            §证 字段级溯源 · {activeEvidences.length} 条
+          </strong>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            {activeEvidences.map((ev) => (
+              <li
+                key={ev.evidence_id}
+                data-testid="report-evidence-item"
+                data-evidence-id={ev.evidence_id}
+                style={{
+                  padding: "6px 8px",
+                  background: "var(--chalk)",
+                  borderRadius: 4,
+                  borderLeft: `3px solid ${
+                    ev.source_tier === 1
+                      ? "var(--t-compli, #4A7A5E)"
+                      : ev.source_tier === 2
+                        ? "var(--t-report)"
+                        : ev.source_tier === 3
+                          ? "var(--ink-65)"
+                          : "var(--ink-14)"
+                  }`,
+                }}
+              >
+                <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--ink-14)", color: "var(--ink)" }}>
+                    Tier {ev.source_tier}
+                  </span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10.5 }}>
+                    {ev.source}
+                  </span>
+                  {ev.evidence_date ? (
+                    <span style={{ fontSize: 10, color: "var(--ink-65)" }}>
+                      · {ev.evidence_date}
+                    </span>
+                  ) : null}
+                  {ev.source_url ? (
+                    <a
+                      href={ev.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 10, color: "var(--t-report)", textDecoration: "underline" }}
+                    >
+                      跳源 ↗
+                    </a>
+                  ) : null}
+                </div>
+                <div style={{ marginTop: 3, color: "var(--ink)", fontSize: 11 }}>
+                  {ev.anchor} · {ev.snippet}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p style={{ margin: "6px 0 0 0", fontSize: 10, color: "var(--ink-65)", fontStyle: "italic" }}>
+            后续 step: freshness 衰减 + Tier 4 单源拒 + LLM 输出溯源闭环
+          </p>
         </div>
       ) : null}
       <div style={{ marginTop: 10 }}>
