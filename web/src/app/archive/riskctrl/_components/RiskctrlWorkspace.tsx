@@ -12,7 +12,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
@@ -74,7 +73,9 @@ function msgPinProps(msg: ConversationMessage, speaker: string) {
   };
 }
 
-type RiskTrigger = "primary_dsl" | "secondary_preset" | "tertiary_history";
+/* ALL IN Phase B step 1 · 删 secondary_preset / tertiary_history (mock 入口) ·
+ * 仅保留 primary_dsl 真路径 (LLM 生成 DSL → 真回测) */
+type RiskTrigger = "primary_dsl";
 
 /* ─── backtest done event → liveData session merge (Step 8 · Phase A worker-A4) ───
  * 后端 backtest done 含 panels (ruleset/ks/samples/rule_stats) + metrics 顶层 KPI ·
@@ -124,19 +125,8 @@ type ExportInfo = {
 
 type RecentLabel = { value: string; label: string; demo?: boolean };
 
-/* Recent dropdown options 由 3 mock session array 派生 (workspace-state-protocol §3 mock array)
- * 每条选中后 onSelectRecent 同步 setSelectedSession · 切下拉 panel 全跟切 (Step 3 panel props 化后生效) */
-const RISKCTRL_RECENT_DEMO_OPTIONS: RecentLabel[] = RISKCTRL_MOCK_SESSIONS_LIST.map((s) => ({
-  value: s.id,
-  label: `${s.objective} · KS ${s.ks.toFixed(2)} (示例)`,
-  demo: true,
-}));
-
-const RISKCTRL_PRESET_OPTIONS: RecentLabel[] = [
-  { value: "preset-credit-baseline", label: "信贷基线 · 通用 8 维评分卡" },
-  { value: "preset-credit-fraud", label: "反欺诈 · 高风险拦截集" },
-  { value: "preset-credit-aml", label: "反洗钱 · KYC 强校验" },
-];
+/* ALL IN Phase B step 1 · 删 RISKCTRL_RECENT_DEMO_OPTIONS / RISKCTRL_PRESET_OPTIONS
+ * (history + preset dropdown 入口删除 · 仅保留 primary DSL gen 真路径) */
 
 export default function RiskctrlWorkspace() {
   /* workspace-state-protocol v1.1 §2 强制 4 gate ·
@@ -160,10 +150,9 @@ export default function RiskctrlWorkspace() {
   /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("mock");
 
-  /* 3 CTA 触发分支 + 既有 trigger/recent/preset 选择 state */
+  /* ALL IN Phase B step 1 · 删 secondary_preset / tertiary_history state ·
+   * 仅留 primary_dsl 真路径 (LLM 生成 DSL → 真回测) */
   const [trigger, setTrigger] = useState<RiskTrigger | null>(null);
-  const [recent, setRecent] = useState<string>("");
-  const [preset, setPreset] = useState<string>("");
 
   /* 既有 scanned state (post-backtest 视觉解锁) · 不动 */
   const [scanned, setScanned] = useState(false);
@@ -259,32 +248,8 @@ export default function RiskctrlWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastSampleCsvPath]);
 
-  /* B-2 click-to-fire · dropdown 仅 set 选择 state · "应用" button 显式触发 ·
-     选 recent (mock session) 时同步切 selectedSession · 退 live mode · 清 selection */
-  const onSelectPreset = useCallback((value: string) => {
-    setPreset(value);
-  }, []);
-  const onSelectRecent = useCallback((value: string) => {
-    setRecent(value);
-    if (value && RISKCTRL_MOCK_SESSIONS_MAP[value]) {
-      setSelectedSession(value);
-      setLiveData(null);
-      setSelectedRuleOrSegment(null);
-    }
-  }, []);
-  /* 单 "应用" button · preset 优先于 recent · 都没选则 disabled */
-  const onApplySelection = useCallback(() => {
-    if (preset) {
-      setStarted(true);
-      setTrigger("secondary_preset");
-      setRulesetId(preset);
-      return;
-    }
-    if (recent) {
-      setStarted(true);
-      setTrigger("tertiary_history");
-    }
-  }, [preset, recent]);
+  /* ALL IN Phase B step 1 · 删 onSelectPreset / onSelectRecent / onApplySelection ·
+   * 入口收敛到 onPrimaryDslGen 真路径 */
 
   /* 样本回测 · POST /api/riskctrl/backtest · ScanCTA onDone 触发.
      Phase A worker-A4 · backend SSE body 改 {ruleset, csv_path, ...} · 必须先 dsl_gen
@@ -340,7 +305,8 @@ export default function RiskctrlWorkspace() {
       return;
     }
     setExportInfo({ status: "running", kind });
-    const sid = rulesetId || preset || "demo";
+    /* ALL IN Phase B step 1 · 移除 preset fallback · sid 仅来自真 ruleset_id 或最小默认 */
+    const sid = rulesetId || "demo";
     const apiByKind = {
       docx: exportDocxApi,
       xlsx: exportXlsxApi,
@@ -375,7 +341,7 @@ export default function RiskctrlWorkspace() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rulesetId, preset, scanned]);
+  }, [rulesetId, scanned]);
 
   return (
     <EvidenceProvider
@@ -394,33 +360,13 @@ export default function RiskctrlWorkspace() {
         <RiskHero sessionData={sessionData} isLive={isLive} dataSourceKind={currentDataSource} />
 
         <RiskTriggerBar
-          recent={recent}
-          recentOptions={RISKCTRL_RECENT_DEMO_OPTIONS}
-          preset={preset}
-          presetOptions={RISKCTRL_PRESET_OPTIONS}
-          onSelectRecent={onSelectRecent}
-          onSelectPreset={onSelectPreset}
-          onApplySelection={onApplySelection}
           onPrimaryDslGen={() => triggerDslGen("")}
           scanRunning={scanRunning}
-          trigger={trigger}
         />
 
         {started ? (
           <>
-            {trigger === "tertiary_history" ? (
-              <div
-                className="riskctrl-demo-banner"
-                role="note"
-                aria-label="示例数据 · 培训演示模式"
-                data-testid="riskctrl-demo-banner"
-              >
-                <span className="riskctrl-demo-banner__icon" aria-hidden>⚠</span>
-                <span className="riskctrl-demo-banner__text">
-                  您正在查看示例数据（training mode）· 切真实路径请写策略 → 生成 DSL 真接 LLM。
-                </span>
-              </div>
-            ) : null}
+            {/* ALL IN Phase B step 1 · 删 tertiary_history demo-banner (history dropdown 入口已删) */}
 
             {liveFail ? (
               <div
@@ -489,10 +435,11 @@ export default function RiskctrlWorkspace() {
                   sessionData={sessionData}
                   selectedSession={selectedSession}
                   onSelectSession={(id) => {
+                    /* ALL IN Phase B step 1 · 删 setRecent(id) (recent state 已移除) ·
+                     * 仅 sidebar RecentPanel 切换 mock session · Step 2 改成 EMPTY_SESSION 后此逻辑会再清 */
                     setSelectedSession(id);
                     setLiveData(null);
                     setSelectedRuleOrSegment(null);
-                    setRecent(id);
                   }}
                 />
               </aside>
@@ -546,27 +493,17 @@ export default function RiskctrlWorkspace() {
   );
 }
 
-/* ── 3 CTA bar (Primary DSL gen · Secondary preset · Tertiary history) ─── */
+/* ── Primary CTA bar (ALL IN Phase B step 1 · 删 secondary preset / tertiary history) ─── */
 
 function RiskTriggerBar(p: {
-  recent: string;
-  recentOptions: RecentLabel[];
-  preset: string;
-  presetOptions: RecentLabel[];
-  onSelectRecent: (v: string) => void;
-  onSelectPreset: (v: string) => void;
-  onApplySelection: () => void;
   onPrimaryDslGen: () => void;
   scanRunning: boolean;
-  trigger: RiskTrigger | null;
 }) {
-  const primaryLabel = p.scanRunning && p.trigger === "primary_dsl"
-    ? "DSL 生成中…"
-    : "选样本 + 写策略 · 生成 DSL";
+  const primaryLabel = p.scanRunning ? "DSL 生成中…" : "选样本 + 写策略 · 生成 DSL";
   return (
     <section
       className="riskctrl-trigger-bar"
-      aria-label="3 CTA 触发入口 · 主/次/降级"
+      aria-label="主入口 · 真接 LLM 生成 DSL"
       data-testid="riskctrl-trigger-bar"
     >
       <button
@@ -577,52 +514,6 @@ function RiskTriggerBar(p: {
         data-testid="riskctrl-dsl-gen-cta"
       >
         {primaryLabel}
-      </button>
-
-      <label className="riskctrl-trigger-bar__field">
-        <span className="riskctrl-trigger-bar__lbl">预置规则集</span>
-        <select
-          className="riskctrl-trigger-bar__select"
-          value={p.preset}
-          onChange={(e) => p.onSelectPreset(e.target.value)}
-          aria-label="选预置规则集"
-          data-testid="riskctrl-preset-dropdown"
-        >
-          <option value="">— 选预置规则集 —</option>
-          {p.presetOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="riskctrl-trigger-bar__field">
-        <span className="riskctrl-trigger-bar__lbl">历史回测（示例 · 仅培训演示）</span>
-        <select
-          className="riskctrl-trigger-bar__select"
-          value={p.recent}
-          onChange={(e) => p.onSelectRecent(e.target.value)}
-          aria-label="选择历史回测 / 示例"
-          data-testid="riskctrl-history-dropdown"
-        >
-          <option value="">— 选择历史回测 / 示例 —</option>
-          {p.recentOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <button
-        type="button"
-        className="riskctrl-trigger-bar__apply"
-        onClick={p.onApplySelection}
-        disabled={(!p.preset && !p.recent) || p.scanRunning}
-        data-testid="riskctrl-apply-cta"
-      >
-        应用
       </button>
     </section>
   );
@@ -677,7 +568,7 @@ function RiskHero({ sessionData, isLive, dataSourceKind }: {
 }) {
   const s = sessionData;
   return (
-    <header className="rpt-hero">
+    <header className="rpt-hero" data-live={isLive ? "yes" : "no"}>
       <div className="rpt-hero-left">
         <div className="rpt-hero-badge" aria-hidden>⌘</div>
         <div>
@@ -691,9 +582,8 @@ function RiskHero({ sessionData, isLive, dataSourceKind }: {
           </div>
         </div>
       </div>
-      {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
+      {/* ALL IN Phase B step 1 · 删 ModePill (DataSourceBadge 5-enum trust model 已含 LIVE/MOCK 区分) */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <ModePill isLive={isLive ?? false} testId="riskctrl-mode-pill" />
         {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1) */}
         {dataSourceKind && (
           <DataSourceBadge kind={dataSourceKind} testId="riskctrl-data-source-badge" />
