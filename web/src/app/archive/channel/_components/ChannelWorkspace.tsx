@@ -948,8 +948,9 @@ function ConversationPanel({
   }, [messages.length]);
   /* PM 2026-05-07 ALL IN v2: 实时流版面控高 · 永远固定可视区 + 永远滚动 + 永远显展开按钮
      不再按消息数 trigger · 即使少消息也限高 · 多消息时点"展开全部"放高
-     UX 简单: 默认看最近的 · 想看历史用展开 (放高) 或 scroll */
-  const [expanded, setExpanded] = useState(false);
+     UX 简单: 默认看最近的 · 想看历史用展开 (放高) 或 scroll
+     Phase B.2 (PM 2026-05-10 §7 信息密度): 默认展开 · 短对话不顶高 · 长对话减少 1 次点击 */
+  const [expanded, setExpanded] = useState(true);
   const total = messages.length;
   return (
     <section className="rpt-panel rpt-panel--conv" data-testid="channel-pilot-conversation">
@@ -2076,7 +2077,10 @@ function QueryBar({
       {streamEvents.length > 0 && (
         <div className="ch-querybar-stream" data-testid="scout-live-stream">
           <div className="ch-querybar-stream-head">
-            ▶ AI 实时流 · /api/channel/run SSE
+            ▶ AI 实时流 ·{" "}
+            {inputMode === "sample"
+              ? "/api/channel/demo/run · 真后端跑 channel-kb 派生 query"
+              : "/api/channel/run · 真后端跑 RM 输入 query"}
           </div>
           {(
             <ul className="ch-querybar-stream-list">
