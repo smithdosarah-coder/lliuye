@@ -35,8 +35,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 (硬规)
-from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
+# ALL IN Phase B step 5 + 6 · per candidate-identity-contract v1.1 §4.2 + entity-resolution-contract v1.1 §5
+from shared.entity_resolver import ensure_list_unique_ids, resolve_entity  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,21 @@ async def mock_v16_stream(
         yield _stage(st, (i + 1) / n, messages[st])
         await asyncio.sleep(0.15)
 
+    # ALL IN Phase B step 6 · per entity-resolution-contract v1.1 §5 (report 必接入点):
+    # 报告对象企业归一 · 防同企业多次写报告 + 跨 agent handoff 主键稳定
+    # mock 路径用固定企业名 + USCC · 真路径 v16_generator 内部从材料抽 USCC 后 resolve_entity
+    _mock_company_name = "测试样本有限公司"
+    _mock_uscc = "91440300708461136T"  # 腾讯科技深圳 USCC (NECIPS 公开 · 算法 valid · per contract §4.4)
+    entity_key = resolve_entity(name=_mock_company_name, uscc=_mock_uscc)
+    profile = {
+        "company_name": _mock_company_name,
+        "uscc": _mock_uscc,
+        "entity_key": {
+            "uscc": entity_key.uscc,
+            "name_normalized": entity_key.name_normalized,
+            "confidence": entity_key.confidence,
+        },
+    }
     # mock done payload
     done = {
         "event": "done",
@@ -190,6 +205,7 @@ async def mock_v16_stream(
         "mock_pipeline": True,
         "source_docx": source_docx,
         "report_docx_url": None,
+        "profile": profile,  # ALL IN step 6 · 含 entity_key 跨 agent handoff 主键
         "qc": {
             "passed": pretend_pass,
             "score": 86.5 if pretend_pass else 64.2,

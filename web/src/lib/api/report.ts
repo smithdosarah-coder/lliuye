@@ -64,6 +64,21 @@ export type ReportV16PendingQuestion = {
   source_ref?: string;
 };
 
+/** ALL IN Phase B step 6 · per shared/entity_resolver/resolver.py:EntityKey dataclass.
+ *  报告对象企业归一 · 防同企业多次写报告 + 跨 agent handoff 主键稳定 (per entity-resolution-contract v1.1 §5) */
+export type ReportEntityKey = {
+  uscc: string;            // 18 位 USCC (per GB 32100-2015) · empty 时退化 name_only
+  name_normalized: string; // 规则化清洗后企业名
+  confidence: number;      // 1.0 (USCC anchored) / 0.5 (name only) / 0.0 (empty)
+};
+
+export type ReportProfile = {
+  company_name?: string;
+  uscc?: string;
+  entity_key?: ReportEntityKey;  // ALL IN step 6 · 跨 agent handoff 主键 (Agent3 决策回写 / Agent6 重复检测)
+  [k: string]: unknown;
+};
+
 /** ALL IN Phase B step 4 · per shared/evidence_drawer/drawer.py:Evidence dataclass.
  *  字段级 evidence · claim_id 关联到具体 section/field (e.g. "chapter_3_finance")
  *  EvidenceDrawer 渲染时按 claim_id group · 消费 to_drawer_payload 同源 schema. */
@@ -106,6 +121,8 @@ export type ReportV16DoneEvent = {
   sections?: ReportV16Section[];
   /** ALL IN Phase B step 4 · 字段级 evidence list · per shared/evidence_drawer · 前端按 claim_id group */
   evidences?: ReportV16Evidence[];
+  /** ALL IN Phase B step 6 · 报告对象企业归一 · 含 entity_key (per entity-resolution-contract v1.1 §5) */
+  profile?: ReportProfile;
 };
 
 
