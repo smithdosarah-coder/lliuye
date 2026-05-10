@@ -1,0 +1,12 @@
+{
+  "agent": "alert",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/alert",
+  "scope": "agent_alert/ + web/src/app/archive/alert/ + web/src/lib/api/alert.ts + tests/agent_alert/",
+  "redline": "Managed batch 模式 (per §3.1.1) 不强 SSE 假实时 · job_id + status + retry · 双路扫不 silent fallback",
+  "input_contract": "entity-resolution-contract / candidate-identity-contract / signal-commit-contract",
+  "output_contract": "红/黄/绿分级客户榜单 (Managed batch · 客户行为变化驱动)",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}
