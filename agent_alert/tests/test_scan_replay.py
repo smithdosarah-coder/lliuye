@@ -24,6 +24,19 @@ from fastapi.testclient import TestClient
 
 from agent_alert.api import app
 from agent_alert.scan_engine import SESSIONS_DIR, persist_hitlist
+from auth_service.dependencies import COOKIE_NAME
+from auth_service.jwt_util import issue
+
+
+def _make_client() -> TestClient:
+    """TestClient with admin cookie · pass require_action gate.
+
+    Phase B.1 fix (2026-05-09): /api/alert/scan/replay/{scan_id} 加 require_action("alert", "invoke") ·
+    旧 test 没 cookie 返 401 · admin 跨 action 跨 agent OK · 与 test_export_docx_endpoint 一致.
+    """
+    c = TestClient(app)
+    c.cookies.set(COOKIE_NAME, issue("u_test", "admin"))
+    return c
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +119,7 @@ def replay_session(tmp_path, monkeypatch):
 
 class TestScanReplayEndpoint:
     def test_replay_invalid_scan_id_400(self):
-        client = TestClient(app)
+        client = _make_client()
         # 含特殊字符 · 路径参数验证拒
         r = client.post("/api/alert/scan/replay/.\\..\\evil")
         assert r.status_code in (400, 404)
@@ -117,14 +130,14 @@ class TestScanReplayEndpoint:
         monkeypatch.setattr("agent_alert.scan_engine.SESSIONS_DIR", sessions_dir)
         monkeypatch.setattr("agent_alert.scan_engine.LATEST_POINTER", tmp_path / "latest.json")
 
-        client = TestClient(app)
+        client = _make_client()
         r = client.post("/api/alert/scan/replay/missing-xyz")
         assert r.status_code == 200  # SSE 200 OK · error 在 stream 内
         body = r.text
         assert "HITLIST_NOT_FOUND" in body or "missing-xyz" in body
 
     def test_replay_existing_session_streams_done(self, replay_session):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         assert r.status_code == 200
         assert "text/event-stream" in r.headers["content-type"]
@@ -140,7 +153,7 @@ class TestScanReplayEndpoint:
         assert "replay" in body  # mode
 
     def test_replay_done_event_contains_panels(self, replay_session):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         body = r.text
         assert "测试公司A" in body
@@ -149,7 +162,7 @@ class TestScanReplayEndpoint:
         assert "加快贷后跟进" in body  # disposition 复刻
 
     def test_replay_includes_replayed_at_marker(self, replay_session):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         body = r.text
         assert "replayed_at" in body
@@ -157,14 +170,14 @@ class TestScanReplayEndpoint:
         assert "2026-04-15T10:00:00" in body  # 原 generated_at 复刻
 
     def test_replay_fallback_banner_replay_severity(self, replay_session):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         body = r.text
         assert "scan_replay" in body  # banner reason
         assert "历史扫描重放" in body  # banner message
 
     def test_replay_metrics_match_original(self, replay_session):
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         body = r.text
         # 1 red + 1 yellow + 0 green 复刻
@@ -193,7 +206,7 @@ class TestScanReplayEndpoint:
             "agent_alert.knowledge_base.AlertKnowledgeBase.from_scenario", _fake_kb, raising=False,
         )
 
-        client = TestClient(app)
+        client = _make_client()
         r = client.post(f"/api/alert/scan/replay/{replay_session}")
         assert r.status_code == 200
         assert called["llm"] is False, "replay 不应调 LLM"
