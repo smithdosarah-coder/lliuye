@@ -14,19 +14,19 @@
  * 所有 .rpt-panel 挂 PanelPinHandle · 所有消息挂 MessagePinHandle（拖到白板/画布）
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 // Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传 sample 跑真后端
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
-import { EvidenceProvider } from "@/components/evidence";
+import { EvidenceProvider, type EvidenceItem as EvidenceItemShared } from "@/components/evidence";
 
-/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array
+/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array fallback
    · 旧 CREDIT_EVIDENCE.items / unfilledFields = mock 演示数据 · 反 KT §3.6 红线 #3 无证据 claim
-   · 真 evidence 数据 backend done envelope.data_sources + dataSources panel 直接消费 · 不靠 fixtures 兜底 */
-const EMPTY_EVIDENCE_ITEMS: never[] = [];
-const EMPTY_UNFILLED_FIELDS: never[] = [];
+   · Phase B.2 step 9 · live wire (从 liveData 派生 evidence items · grep CREDIT_EVIDENCE 0 命中) */
+const EMPTY_EVIDENCE_ITEMS: EvidenceItemShared[] = [];
+const EMPTY_UNFILLED_FIELDS: string[] = [];
 import {
   Radar,
   RadarChart,
@@ -180,6 +180,51 @@ export default function CreditWorkspace() {
 
   /* Phase B.2 主活 B · 输入形态 toggle · 真实 default (per onboarding B2) · demo 选了显内置 sample CTA */
   const [inputMode, setInputMode] = useState<CreditInputMode>("real");
+
+  /* Phase B.2 step 9 · evidence drawer 真 wire · 从 liveData 派生 EvidenceItem[]
+     · 不再 import fixtures.ts 跨 agent shared 假证据 (Phase B.1 fix #4 已删 import · 仍存 fixture 文件)
+     · 真 evidence 来源: backend done envelope.data_sources + redLines + cases (合并三源)
+     · 每条 evidence 都带 source / snippet / ref_id / confidence (per shared/evidence/types EvidenceItem)
+     · liveData=null → 空 (per onboarding "live 数据触发" · 无 live 不假装) */
+  const liveEvidenceItems = useMemo<EvidenceItemShared[]>(() => {
+    if (!liveData) return EMPTY_EVIDENCE_ITEMS;
+    const items: EvidenceItemShared[] = [];
+    /* dataSources panel · 4 evidence 类源 trust display (Step 4 backend _build_data_sources_panel) */
+    liveData.dataSources?.sources?.forEach((s, i) => {
+      items.push({
+        source: s.id,
+        snippet: `${s.name} · ${s.desc}`,
+        ref_id: `live_ds_${i}`,
+        confidence: s.status === "online" ? 1 : 0,
+      });
+    });
+    /* redLines · 红线命中 (rule_id + name + threshold + actual_value · backend rule_engine_v2) */
+    liveData.redLines?.forEach((r, i) => {
+      const refId = (r as { id?: string }).id || `live_rl_${i}`;
+      const nameField = (r as { name?: string }).name || "(unnamed rule)";
+      items.push({
+        source: "rule_engine_v2",
+        snippet: `${nameField}`,
+        ref_id: refId,
+        confidence: 1,
+      });
+    });
+    /* cases · 相似案例 (case_id + company_name + similarity · backend case_retriever) */
+    liveData.cases?.forEach((c, i) => {
+      const refId = (c as { id?: string }).id || `live_case_${i}`;
+      const nameField = (c as { customer?: string; companyName?: string }).customer
+        || (c as { customer?: string; companyName?: string }).companyName
+        || "(unnamed case)";
+      const similarity = (c as { similarity?: number }).similarity ?? 0;
+      items.push({
+        source: "case_retriever",
+        snippet: `${nameField}`,
+        ref_id: refId,
+        confidence: similarity,
+      });
+    });
+    return items;
+  }, [liveData]);
 
   /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计 · 演示=上传sample真后端 */
 
@@ -566,7 +611,7 @@ export default function CreditWorkspace() {
 
   return (
     <EvidenceProvider
-      items={EMPTY_EVIDENCE_ITEMS}
+      items={liveEvidenceItems}
       unfilledFields={EMPTY_UNFILLED_FIELDS}
     >
     <div
