@@ -740,7 +740,11 @@ function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
   const secPct = secTotal ? Math.round(((secDone + secRun * 0.5) / secTotal) * 100) : 0;
 
   const qcTotal = s.qcCounts.block + s.qcCounts.warn + s.qcCounts.info;
-  const qcPct = s.qcCounts.block === 0 ? (s.qcCounts.warn === 0 ? 100 : 70) : 40;
+  // Phase B.2.2 hotfix · 上游未完成时 QC 强制 0/pending · 修复 0 材料时 PIPELINE 100% 假完成
+  const upstreamDone = matTotal > 0 && matPct === 100 && fieldPct >= 90 && secPct >= 80;
+  const qcPct = !upstreamDone
+    ? 0
+    : (s.qcCounts.block === 0 ? (s.qcCounts.warn === 0 ? 100 : 70) : 40);
 
   const stages = [
     {
@@ -749,7 +753,7 @@ function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
       caption: `${matParsed} / ${matTotal} 已解析`,
       detail: matTotal - matParsed === 0 ? "全部就位" : `${matTotal - matParsed} 份待处理`,
       pct: matPct,
-      state: matPct === 100 ? "done" : matPct > 0 ? "running" : "pending",
+      state: matTotal === 0 ? "pending" : matPct === 100 ? "done" : matPct > 0 ? "running" : "pending",
     },
     {
       key: "field",
@@ -757,7 +761,7 @@ function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
       caption: `${s.coverage.filled} / ${s.coverage.total} 字段`,
       detail: `${s.coverage.marked} 项标未填`,
       pct: fieldPct,
-      state: fieldPct >= 90 ? "done" : fieldPct > 0 ? "running" : "pending",
+      state: s.coverage.total === 0 ? "pending" : fieldPct >= 90 ? "done" : fieldPct > 0 ? "running" : "pending",
     },
     {
       key: "sec",
@@ -765,7 +769,7 @@ function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
       caption: `${secDone} / ${secTotal} 段完成`,
       detail: secRun > 0 ? `${secRun} 段生成中` : "—",
       pct: secPct,
-      state: secPct >= 80 ? "done" : secPct > 0 ? "running" : "pending",
+      state: secTotal === 0 ? "pending" : secPct >= 80 ? "done" : secPct > 0 ? "running" : "pending",
     },
     {
       key: "qc",
@@ -773,7 +777,13 @@ function ReportPipelineBand({ sessionData }: { sessionData: ReportSession }) {
       caption: `阻断 ${s.qcCounts.block} · 警告 ${s.qcCounts.warn}`,
       detail: `${qcTotal} 条问题`,
       pct: qcPct,
-      state: s.qcCounts.block === 0 && s.qcCounts.warn === 0 ? "done" : s.qcCounts.block > 0 ? "pending" : "running",
+      state: !upstreamDone
+        ? "pending"
+        : s.qcCounts.block === 0 && s.qcCounts.warn === 0
+          ? "done"
+          : s.qcCounts.block > 0
+            ? "pending"
+            : "running",
     },
   ] as const;
 
