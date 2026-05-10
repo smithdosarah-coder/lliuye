@@ -38,8 +38,7 @@ import {
 } from "@/lib/mock/agent-compliance-session";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
-import { ClaimText, EvidenceProvider } from "@/components/evidence";
-import { COMPLIANCE_EVIDENCE } from "@/components/evidence/fixtures";
+import { EvidenceProvider } from "@/components/evidence";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 
@@ -453,10 +452,9 @@ export default function ComplianceWorkspace() {
   }, [scanId, session.objective]);
 
   return (
-    <EvidenceProvider
-      items={COMPLIANCE_EVIDENCE.items}
-      unfilledFields={COMPLIANCE_EVIDENCE.unfilledFields}
-    >
+    /* ALL IN Phase B.1 fix (2026-05-09) · 删 COMPLIANCE_EVIDENCE 假证据 fixtures · EMPTY fallback ·
+       真证据 step 4 已通过 Conflict.clauseHash + reason.* 字段级溯源闭环 · Evidence drawer 待 phase C 接 shared/evidence_drawer */
+    <EvidenceProvider items={[]} unfilledFields={[]}>
     <div
       className="rpt-workspace"
       data-testid="compli-workspace"
@@ -639,10 +637,9 @@ export default function ComplianceWorkspace() {
             </div>
           </details>
 
-          <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
-            <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-            <ClaimText text={COMPLIANCE_EVIDENCE.summary} />
-          </section>
+          {/* ALL IN Phase B.1 fix (2026-05-09): 删 COMPLIANCE_EVIDENCE.summary 假证据
+              · 真分析结论 step 4 已通过每 violation 的 reviewReason (派生 narrative) 显示
+              · 不再单独渲染顶层 "Evidence-grounded 结论" mock 块 · 避免误导审计 */}
         </>
       ) : (
         <EmptyStateSkeleton />
