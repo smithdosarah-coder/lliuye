@@ -603,9 +603,12 @@ export function ReportWorkspace() {
                 />
                 {/* Sprint 5 D3 · Truth-First 字段清单 drawer (Codex+Claude R1 minimal · per CLAUDE.md §3.1 确定性 vs 概率性硬隔离)
                     审贷员可一眼看哪些字段是 Python 规则计算 (truth-first · 不可幻觉) vs LLM 生成 (概率 · 需 evidence) */}
+                {/* Phase B.2 (PM 2026-05-10) Step 7 信息密度: 折叠 default → 展开 default ·
+                    审贷员一开就看到 truth/llm 分层 · 不再隐藏 · per dispatch §"信息密度" */}
                 <details
                   className="report-truth-first-drawer"
                   data-testid="report-truth-first-drawer"
+                  open
                 >
                   <summary>Truth-First 字段清单 · 审贷员核对</summary>
                   <dl className="report-truth-first-drawer__list">
@@ -680,8 +683,18 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
             报告 <em>Report Press.</em>
           </h1>
           <CustomerSelector className="rpt-hero__customer" />
+          {/* Phase B.2 (PM 2026-05-10) Step 7 信息密度: empty state 文案明确动作 ·
+              不再显 "·  ·  · 字段覆盖 0%" 一串空 separator · 客户经理直观知下一步做啥 */}
           <div className="rpt-hero-sub">
-            {s.clientName} · {s.amount} · {s.stage} · 字段覆盖 {coverPct}%
+            {s.clientName ? (
+              <>
+                {s.clientName} · {s.amount} · {s.stage} · 字段覆盖 {coverPct}%
+              </>
+            ) : (
+              <span style={{ color: "var(--ink-65)", fontStyle: "italic" }}>
+                尚未开始 · 请<strong>上传客户材料</strong>(主入口) 或<strong>加载示例企业</strong>(下方 5 个真 batch) → 真后端 v16 主管线
+              </span>
+            )}
           </div>
         </div>
       </div>
