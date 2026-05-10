@@ -1,0 +1,35 @@
+{
+  "ts": "2026-05-10T09:19:32.281Z",
+  "test": "compliance-b2-sample-batch-e2e",
+  "worker": "compliance",
+  "phase": "B.2",
+  "refs": "ALLIN-2026-05-10",
+  "admin_role": "admin",
+  "scenarios_loaded": true,
+  "demo_endpoint_hit": true,
+  "scenario_payload": {
+    "scenario_id": "online_loan"
+  },
+  "ledger_decision_id": "6da4fdce-85bb-43a2-9180-3d3a2cb5e9d2",
+  "input_source_observed": "sample_batch",
+  "data_source_observed": "live",
+  "violations_observed": 2,
+  "clause_text_hash_present": true,
+  "ui_panel_testids_visible": [
+    "compli-input-source-panel",
+    "compli-input-source-toggle",
+    "compli-sample-batch-run",
+    "compli-workspace"
+  ],
+  "artifacts": {
+    "videos": "web/test-results/.../video.webm (Playwright auto)",
+    "screenshots": [
+      "step1-landing.png",
+      "step2-scenario-selected.png",
+      "step3-done-violations.png",
+      "step4-upload-mode.png"
+    ],
+    "har": "network.har",
+    "run_log": "run.json (this file)"
+  }
+}
