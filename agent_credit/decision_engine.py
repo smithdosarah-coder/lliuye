@@ -166,17 +166,26 @@ class DecisionEngine:
         yield "ledger_persisting", None
         try:
             from shared.decision_ledger import default_ledger
+            # ALL IN Phase B step 5 (2026-05-09) · subject_id thread-through
+            # per CLAUDE.md §3.7.5 + AGENT_IDENTITY-credit 红线 #4 (subject_id 必 hash · plain PII 禁入 ledger)
+            # 从 Agent6 handoff ReportJSON 提取 USCC · fallback 路径多源 (production · 多种命名都覆盖)
+            # ledger.record() 内部 hash_subject_id 自动 hash · 此处传 plain USCC 即可 (双 hash 会冲突)
+            uscc = (
+                profile.get("unified_social_credit_code")
+                or profile.get("usuc")
+                or profile.get("uscc")
+                or profile.get("business_license_no")
+                or (profile.get("legal_info") or {}).get("unified_social_credit_code")
+                or (profile.get("financial_anchors") or {}).get("unified_social_credit_code")
+            )
             ledger_result = default_ledger().record(
                 agent_id="credit",
                 endpoint="/api/credit/decision",
                 input_payload=profile,
                 output_payload=advice.to_dict(),
                 evidence_chain=advice.decision_graph,
-                subject_name=getattr(advice, "subject_name", None) or None,
-                # subject_id intentionally not threaded through yet — Agent3
-                # currently doesn't carry the 统一社会信用代码 / 身份证号 in
-                # the standard profile shape. Phase C (multi-tenant) will
-                # add the field via the Agent6 → Agent3 handoff schema.
+                subject_name=getattr(advice, "subject_name", None) or profile.get("company_name") or None,
+                subject_id=uscc,  # plain USCC · ledger.record() 内部 hash_subject_id 自动 hash 16-hex
             )
             # Reuse advice_id slot · 1:1 mapping with ledger decision_id.
             advice.advice_id = ledger_result.decision_id

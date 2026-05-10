@@ -28,7 +28,11 @@ if PROJECT_ROOT not in sys.path:
 
 from shared.base_agent import BaseAgent
 from shared.kb_scan.models import HitItem, HitList, RiskLevel
-from shared.kb_scan.search_provider import build_search_provider
+# ALL IN Phase B step 3 (2026-05-09): module-level import (不用 from ... import) 让
+# scan_engine.run_scan_and_persist 的 monkey-patch 真生效.
+# (`from shared.kb_scan.search_provider import build_search_provider` 会在 agent.py 命名空间
+#  绑定原始函数引用 · 后续 sp_mod.build_search_provider = _patched 不会同步本命名空间.)
+from shared.kb_scan import search_provider as _sp_mod
 
 from .knowledge_base import AlertKnowledgeBase, DEFAULT_SCENARIO_DIR
 from .customer_scanner import CustomerScanner, ScanProgress
@@ -76,8 +80,12 @@ class AlertRadarAgent(BaseAgent):
         yield self._tool_result("load_kb", kb.summary())
 
         # ---- 2. 构造 SearchProvider（禁止 isinstance）----
-        yield self._thinking("初始化搜索数据源（MockSearchProvider 走 demo_data/mock_pool/）...")
-        provider = build_search_provider(demo_mode=True)
+        # ALL IN Phase B step 3 (2026-05-09 · per channel 模板 commit 4d5ab20):
+        # demo_mode=False · 真接 web 搜索器 · 缺 TAVILY_API_KEY 时上层 build_search_provider 抛 NotImplementedError
+        # → realtime_stream 显式 LiveFallbackBanner · 不 silent fallback (per CLAUDE.md §3.6 stop-the-line #1)
+        # (生产路径走 scan_engine.run_scan_and_persist 的 monkey-patch · 强制 mock provider · agent 不直接接 web)
+        yield self._thinking("初始化搜索数据源（生产 web 路径 · 真接 Tavily）...")
+        provider = _sp_mod.build_search_provider(demo_mode=False)
         yield self._tool_result(
             "search_provider",
             f"provider={provider.provider_name} 就绪",
@@ -151,7 +159,10 @@ class AlertRadarAgent(BaseAgent):
         kb = self._load_kb(uploaded_files, scenario_key)
         if kb is None or not kb.companies:
             raise RuntimeError("知识库未能装载在贷客户名录")
-        provider = build_search_provider(demo_mode=True)
+        # ALL IN Phase B step 3 (2026-05-09 · per channel 模板 commit 4d5ab20):
+        # demo_mode=False · 真接 web 搜索器 · 同 stream_chat 上方
+        # (用 _sp_mod.build_search_provider 让 scan_engine 的 monkey-patch 生效)
+        provider = _sp_mod.build_search_provider(demo_mode=False)
         scanner = CustomerScanner(kb=kb, search_provider=provider,
                                   matcher=CrossMatcher(provider))
         hl = scanner.scan_all()

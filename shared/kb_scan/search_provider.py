@@ -414,7 +414,10 @@ class WebSearchProvider(SearchProvider):
         self._not_implemented("search_policy_clauses")
 
     def iter_loan_customers(self, filters=None):
-        self._not_implemented("iter_loan_customers")
+        # Phase B.1.2 hotfix (PM 2026-05-10) · 在贷客户池属银行内部数据 · web 搜索器本不该返
+        # 改 NotImplementedError → 返 iter([]) · alert customer_scanner.py 已 try/except 双保险
+        # 演示路径: 用户上传 KB Excel/JSON → customer_scanner 优先 KB · provider 0 数据不 raise
+        return iter([])
 
     def iter_business_events(self, customer_id="", event_types=None, days=90):
         self._not_implemented("iter_business_events")

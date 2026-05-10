@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ChangeEvent } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
+// Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传sample跑真后端 · 不是切假按钮
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
@@ -123,11 +123,8 @@ export function ReportWorkspace() {
   // gate 4 · selectedSection · TOC click 切章节 · ESC 关 (Channel 4-gate parity · drawer pattern 复用)
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
-  /* PM 2026-05-09 ALL IN Phase B.1 fix · ModePill 双控:
-     仅 admin role (training/审核) 可见 ModePill mock/live toggle ·
-     RM/审贷员/合规官 看不到 (per backend /v16/fill mock=true 时 require admin role) */
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const demoModeAvailable = currentUser?.role === "admin";
+  /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计
+     PM 真意: 演示 = 上传 sample 跑真后端 · 不需切按钮 */
 
   /* sessionData 单点派生 · ALL IN 真产品 · liveData → ReportSession ·
      liveData null 时 fallback EMPTY_SESSION (不 fallback 到 REPORT_SESSION mock · 防显假数据).
@@ -466,7 +463,6 @@ export function ReportWorkspace() {
           coverPct={coverPct}
           sessionData={sessionData}
           isLive={derivedFromLive !== null}
-          demoModeAvailable={demoModeAvailable}
           dataSourceKind={
             liveFailErr
               ? "mock_fallback"
@@ -611,16 +607,16 @@ export function ReportWorkspace() {
 
 /* ── Hero ────────────────────────────────────────────── */
 
-function ReportHero({ coverPct, sessionData, isLive, dataSourceKind, demoModeAvailable }: {
+function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
   coverPct: number;
   sessionData: ReportSession;
   isLive?: boolean;
   /* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge */
   dataSourceKind?: DataSourceKind;
-  /* ALL IN Phase B.1 fix · ModePill 双控 · 仅 admin role 渲染 */
-  demoModeAvailable: boolean;
 }) {
   const s = sessionData;
+  // Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · isLive 留作 future ref
+  void isLive;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -637,12 +633,8 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind, demoModeAva
           </div>
         </div>
       </div>
-      {/* ALL IN Phase B.1 fix · ModePill 双控: 仅 demoModeAvailable===true 渲染 (admin training 路径).
-          DataSourceBadge 5-enum 是 SSOT trust 标记 · ModePill 是 demo session 显式标. */}
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        {demoModeAvailable ? (
-          <ModePill isLive={isLive ?? false} testId="report-mode-pill" />
-        ) : null}
         {dataSourceKind && (
           <DataSourceBadge kind={dataSourceKind} testId="report-data-source-badge" />
         )}
@@ -1743,10 +1735,12 @@ const _LAUNCH_HINT_STYLE: CSSProperties = {
 
 /* B-cta · chip-style 紧凑 · 单按钮 ≤ 200px · 不充满列宽
    primary 上传材料 / secondary 重新生成+导出 一致紧凑 · 解决 RM 抱怨"巨大不合理交互按钮" */
+/* Phase B.1.4 (PM 2026-05-10) · 统一 height 36 · 业务线 select 跟主入口 button 对齐 */
 const _LAUNCH_BTN_PRIMARY: CSSProperties = {
   fontFamily: "var(--cjk)",
   fontSize: 13,
-  padding: "8px 14px",
+  padding: "0 14px",
+  height: 36,
   background: "var(--t-report)",
   color: "var(--chalk)",
   border: "none",
@@ -1759,9 +1753,10 @@ const _LAUNCH_BTN_PRIMARY: CSSProperties = {
 
 const _LAUNCH_BTN_SECONDARY: CSSProperties = {
   fontFamily: "var(--cjk)",
-  fontSize: 12,
-  padding: "6px 12px",
-  background: "transparent",
+  fontSize: 13,
+  padding: "0 14px",
+  height: 36,
+  background: "var(--chalk)",
   color: "var(--ink)",
   border: "1px solid var(--ink-14)",
   borderRadius: "var(--r-md)",
@@ -1773,7 +1768,8 @@ const _LAUNCH_BTN_SECONDARY: CSSProperties = {
 const _LAUNCH_SELECT_STYLE: CSSProperties = {
   fontFamily: "var(--cjk)",
   fontSize: 13,
-  padding: "7px 10px",
+  padding: "0 10px",
+  height: 36,
   background: "var(--chalk)",
   color: "var(--ink)",
   border: "1px solid var(--ink-14)",
@@ -1875,10 +1871,18 @@ function ReportLaunchBar(p: {
   onExport: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const templateInputRef = useRef<HTMLInputElement | null>(null);
   /* PM 2026-05-09 ALL IN: 历史 session dropdown 删 (mock 残留) · 模板列表 EMPTY (后端 templates endpoint 待 Phase C) */
   const templates: ReportSession["availableTemplates"] = [];
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length) p.onUpload(files);
+    e.target.value = "";
+  }
+
+  function handleTemplateChange(e: ChangeEvent<HTMLInputElement>) {
+    // Phase B.1.4 (PM 2026-05-10) · "上传模板" 按钮 · 复用 onUpload (后端 /api/report/upload 区分 type)
     const files = Array.from(e.target.files ?? []);
     if (files.length) p.onUpload(files);
     e.target.value = "";
@@ -1916,23 +1920,40 @@ function ReportLaunchBar(p: {
         </span>
       </div>
 
-      {/* Secondary: 模板选择 */}
+      {/* Secondary: 模板 · 双入口 (Phase B.1.4 PM 2026-05-10): 上传模板 + 选预制模板 */}
       <div style={_LAUNCH_GROUP_STYLE}>
         <span style={_LAUNCH_LABEL_STYLE}>模板</span>
-        <select
-          data-testid="report-template-select"
-          value={p.templateChoice}
-          onChange={(e) => p.onSelectTemplate(e.target.value)}
-          style={_LAUNCH_SELECT_STYLE}
-        >
-          <option value="">默认 (按业务线)</option>
-          {templates.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} · {t.version}
-            </option>
-          ))}
-        </select>
-        <span style={_LAUNCH_HINT_STYLE}>选模板或留默认</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            data-testid="report-upload-template-cta-launch"
+            onClick={() => templateInputRef.current?.click()}
+            style={_LAUNCH_BTN_SECONDARY}
+          >
+            ⇪ 上传模板
+          </button>
+          <input
+            ref={templateInputRef}
+            type="file"
+            hidden
+            accept=".docx,.doc,.xlsx,.xls"
+            onChange={handleTemplateChange}
+          />
+          <select
+            data-testid="report-template-select"
+            value={p.templateChoice}
+            onChange={(e) => p.onSelectTemplate(e.target.value)}
+            style={_LAUNCH_SELECT_STYLE}
+          >
+            <option value="">默认 (按业务线)</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} · {t.version}
+              </option>
+            ))}
+          </select>
+        </div>
+        <span style={_LAUNCH_HINT_STYLE}>上传自定义模板 或 选预制</span>
       </div>
 
       {/* PM 2026-05-09 ALL IN: 删 "历史 (示例 · 仅培训演示)" dropdown · 历史 session 走 mock 残留 · 后端 history endpoint 待 Phase C */}

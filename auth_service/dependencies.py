@@ -24,7 +24,7 @@ from typing import Any
 from fastapi import Cookie, HTTPException
 
 from auth_service.jwt_util import JWTError, verify
-from auth_service.rbac import can_access, can_action
+from auth_service.rbac import DEMO_ELIGIBLE_ROLES, can_access, can_action
 
 COOKIE_NAME = "zhongan_auth"
 
@@ -107,11 +107,15 @@ def require_action(agent_id: str, action: str):
                 detail={"error": {"code": "AUTH_INVALID", "message": str(e)}},
             ) from e
         if not can_action(payload.get("role", ""), agent_id, action):
+            # Phase A.6 · demo action 拒绝时返 401 (per PM spec · 不暴露 agent 存在性)
+            # · 其他 action 拒绝返 403 (经典 RBAC 语义)
+            status_code = 401 if action == "demo" else 403
+            err_code = "AUTH_DEMO_FORBIDDEN" if action == "demo" else "ACCESS_DENIED"
             raise HTTPException(
-                403,
+                status_code,
                 detail={
                     "error": {
-                        "code": "ACCESS_DENIED",
+                        "code": err_code,
                         "message": (
                             f"role {payload.get('role')!r} 对 agent {agent_id!r} "
                             f"无 {action!r} 权限"
@@ -121,6 +125,47 @@ def require_action(agent_id: str, action: str):
                             "agent": agent_id,
                             "action": action,
                         },
+                    }
+                },
+            )
+        return payload
+
+    return _check
+
+
+def require_demo():
+    """Phase A.6 · 便捷封装 · admin / demo_user 才允 invoke "demo" action.
+
+    与 `require_action(<agent>, "demo")` 等价 · 但 agent 维度抽掉 (demo 跨 agent).
+    内部用 "_global" 占位 · 实际靠 can_action 的 "demo" 特殊分支判定.
+
+    Usage:
+        @app.post("/api/demo/seed")
+        async def demo_seed(user=Depends(require_demo())):
+            ...
+    """
+    async def _check(zhongan_auth: str | None = Cookie(default=None)) -> dict[str, Any]:
+        if not zhongan_auth:
+            raise HTTPException(
+                401,
+                detail={"error": {"code": "AUTH_MISSING", "message": "未登录"}},
+            )
+        try:
+            payload = verify(zhongan_auth)
+        except JWTError as e:
+            raise HTTPException(
+                401,
+                detail={"error": {"code": "AUTH_INVALID", "message": str(e)}},
+            ) from e
+        role = payload.get("role", "")
+        if role not in DEMO_ELIGIBLE_ROLES:
+            raise HTTPException(
+                401,
+                detail={
+                    "error": {
+                        "code": "AUTH_DEMO_FORBIDDEN",
+                        "message": f"role {role!r} 无 demo 权限",
+                        "details": {"role": role},
                     }
                 },
             )

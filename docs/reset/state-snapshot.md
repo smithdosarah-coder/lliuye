@@ -36,6 +36,173 @@
 
 ---
 
+## 2026-05-08 · 新主 CLI 接手 · ALL IN Phase A 启动前 resume
+
+### What happened
+- 新主 CLI session 启 · 按 CLAUDE.md §14 流程读完 KT 5 文件 (`allin-final-exec-2026-05-08.md` + 3 contract + `phase-r3-worker-runbook.md`) + git log -20 + `docs/handoff/mesh.json` + `decisions-log` Q-055/Q-056
+- verify 当前 git tree: HEAD `035b4ff` (上一任主 CLI close-out) · branch `main` · 6 ALL IN worktree 全在 `aefa690` (KT commit · 等 Phase A 启动)
+- scoreboard.py 跑挂 OS 页面文件不足 (WinError 1455) · 不是 mesh 状态错 · mesh.json 直读 OK
+- 7 个 untracked working draft (`docs/working/{round1,round2,round3}-prompt.md` 等) 是 Q-056 真双辩论过程产物 · 不属本次 resume scope · 留 PM 处置
+- 本 session 不动代码 · 仅 NEW-MAIN-CLI-RESUMED commit + state-snapshot 同步 · 等 PM verify GO
+
+### Triggered by
+- PM 2026-05-08 重启电脑 + 双击桌面 launcher 后 · 给本主 CLI 第一句指令 "读 AGENT_IDENTITY 列文档 + 跑 git log + scoreboard + 写 NEW-MAIN-CLI-RESUMED"
+
+### State change (delta)
+- 主 CLI orchestrator: 上一任 (035b4ff Author) → 本任 (Claude Opus 4.7 · 1M context · 本 session)
+- ALL IN mesh: registered → resume 完成等 PM GO
+- 6 mesh worktree 物理状态: 全在 `aefa690` · AGENT_IDENTITY 已就位 · 等 worker CLI 自启 RESUMED
+
+### Next
+- (本 commit 含 §14 NEW-MAIN-CLI-RESUMED 模板 · 等 PM verify)
+- PM 双击 `launch-all-LIUYE.bat` 启 7 cmd · 6 worker 各自 RESUMED commit
+- 主 CLI verify 6 RESUMED commit 齐 → GO common worker → Phase A 5 件交付物 (~0.5d)
+- Gate (5 worker read-through 通过) → Phase B 并行 → Phase C 主 CLI 整合 + ECS deploy
+
+---
+
+## 2026-05-09 23:50 · ALL IN FINAL COMPLETE · production deployed (https://liuye.me)
+
+### What happened
+- codex 4 轮 xhigh re-review 收 GO verdict (最终 commit `3929df2`)
+- `git push origin main` ✅ + `bash scripts/deploy_to_ecs.sh` ✅
+- ECS production: 4 service 全 active (nginx + cloudflared + lliuye-frontend + lliuye-backend)
+- healthcheck HTTP 200 OK · public URL https://liuye.me/login
+- 完整 ALL IN 6 agent 真产品化 ship 到 production
+
+### Triggered by
+- PM 2026-05-09 拍板 "如果是你和 codex 一起出的方案就 PUSH" (确认双 AI 协作 ratify) → 主 CLI 立即 push + deploy
+
+### 真锚点全景 (vs 原估)
+- Phase A common (50 min vs 0.5d · 14x)
+- Phase B 5 worker 并行 (50 min vs 1-1.5d · 28x)
+- Phase C cherry-pick (3 min vs 0.5d · 240x)
+- Phase B.1 fix (codex 2-4 轮 review 抓 7+ blocker · 主 CLI 自己修 ~80 min)
+- 总 (Phase A → B → C → B.1 → push → deploy) ~4h wall-clock vs 原估 2-2.5d (~12x 加速)
+
+### State change (delta)
+- main HEAD: dfb5dd3 → 3929df2 (Phase B.1 fix 全 commit)
+- ECS production: channel 单 agent ALL IN → 6 agent 全 ALL IN
+- shared/ 4 新模块 + 6 升级 + 3 contract v1.1 + 2 RFC 实施 全 production 上线
+- demo 双控基础设施 (env DEMO_MODE_VISIBLE + role) + 6 agent demo endpoint 全 require_action(<x>, "demo")
+- decision_ledger feedback event + cross-agent feedback channel ship (watcher Phase C+ 接入)
+
+### codex review 4 轮抓的 ship blocker (主 CLI 自己修)
+- 第 2 轮: 3 Tier 1 (RBAC 漏 + 假 live demo_data + 假证据 fixtures)
+- 第 3 轮: 4 Tier 1 (riskctrl fixtures 没真删 + demo 双控漏 env + report real path 漏 handoff + compliance/demo/run 无 auth)
+- 第 4 轮: 3 残留 (credit error msg 残留引用 + 5 agent demo endpoint 用 invoke 不是 demo + test matrix 没 monkeypatch env=1)
+- 第 4 轮收 GO
+
+### Next
+- (本 commit 含 ALLIN-FINAL-COMPLETE close-out · state-snapshot 同步)
+- 监控 production: demo endpoint 401/403/5xx + DEMO_ACCESS_DENIED 频率 (per codex 上线建议)
+- smoke test: env=0 demo endpoint 拒 / env=1 admin/demo_user 放行
+- Playwright 6 agent 真测 (production · 跟 channel ALL IN 同款)
+- 6 mesh worktree cleanup (PM 决定时机 · 通常 production 稳定 24h 后 git worktree remove)
+- known issues 留 sub-PR 修: Q-052 #8 conftest auth mock (28 test 401)
+
+---
+
+## 2026-05-09 21:25 · ALL IN Phase C close-out · 5 worker cherry-pick + 总验收
+
+### What happened
+- common merge 入 main `94308cb` (Phase A + A.1 + A.5 全产出 · 54 文件 · +13199 -7964 · merge-tree dry-run 验 0 冲突)
+- 5 worker fire READY 全到位 + cherry-pick 30 commit 全干净 0 冲突:
+  - credit `ccb5ef5` (READY) → cherry-pick 6 step debb35e..6304131 → main bf08545..66ad454
+  - compliance `2ae0b43` (READY) → cherry-pick 6 step 995d43f..d3acb27 → main ...d15ad9b
+  - alert `3b47482` (READY) → cherry-pick 6 step 75fc244..1a5814d → main ...16a02ec
+  - riskctrl `1586187` (READY · OK with RFC) → cherry-pick 6 step d24b300..629e627 → main ...99b2ff3
+  - report `5f1ec10` (READY) → cherry-pick 6 step 6f9fbcd..e668074 → main ...0c1ced3
+- pytest 总验收: 879 PASS · 2 skip · 19 known 401 auth gate fail (agent_credit/tests/ · per Q-052 #8 conftest auth mock · 待 sub-PR) · 1 known prompts_contract pre-existing fail
+- tsc 各 worker fire READY 时各自跑过 0 type error (alert/credit/report signal body verbatim)
+- Playwright 暂跳 (主 CLI worktree 需 pnpm install + dev server 15-20 min · 推 ECS deploy 后真测)
+
+### Triggered by
+- Phase B 5 worker 全 fire READY signal · 主 CLI 立刻启 Phase C (~3 min cherry-pick + ~1 min pytest verify · vs estimated 0.5d)
+
+### State change (delta)
+- main HEAD: 4d0c836 (Phase A close-out ratify) → 94308cb (common merge) → 待 close-out commit (本段写完后)
+- Phase A (~50 min) + Phase B (~50 min) + Phase C cherry-pick (~3 min) = total ~1h 45 min wall-clock (vs 估 2-2.5d · ~30x)
+- 6 mesh worktree 全 idle · 等 PM push 决定
+- ECS production: 当前 main 旧版 (channel 单 agent ALL IN done) · 待 PM 显说 push + git pull + systemd restart 才上线 5 agent ALL IN
+
+### Next
+- (本 commit 含 ALLIN-PHASE-C-COMPLETE close-out signal · 等 PM verify)
+- PM 显说 "push" → git push origin main → ECS git pull → systemd restart → Playwright 6 agent 真测 production
+- ECS deploy 后跑 Playwright 6 agent · 撞 BLOCKER 立刻 fix-forward
+- known issues 不阻 ship · 留 sub-PR 修 (auth gate + prompts contract · 非 ALLIN scope)
+- 6 mesh worktree cleanup (PM 决定时机 · 通常 deploy verified 后 git worktree remove)
+
+---
+
+## 2026-05-09 20:25 · ALL IN Phase A close-out · 5/5 OK signal ratify
+
+### What happened
+- common worker 9 step commit + 1 utf-8 hotfix + signal commit (`af2ce90` chore(mesh): signal common worker ready · ALLIN Phase A complete) · 5 件交付物全 ship · 135 新单测全绿 · 体感 ~50 min wall-clock (远超估 0.5d)
+- 5 agent worker 全 fire OK signal:
+  - alert `9645632` (20 Q 判定 · 0 RFC)
+  - credit `20788ab` (5 类担忧 cover · 0 RFC)
+  - report `1e9be0d` (6 类担忧 cover · 0 RFC)
+  - riskctrl `8d185bf` (4 异议 verify · 2 RFC 真 gap)
+  - compliance `b6116ae` (5 维度 cover · 0 RFC)
+- riskctrl 提 2 RFC (真 contract gap):
+  - `docs/contracts/rfc/freshness-claim-loan-sample.md` (LOAN_SAMPLE/BACKTEST_FIXTURE ClaimType 缺 · 365d/730d SLA · 纯加法)
+  - `docs/contracts/rfc/cross-agent-feedback-channel.md` (审批/贷后反馈反向链路 · 红线 #9 · 3 方案推 B 共享 ledger watcher · 4 event type)
+- 主 CLI verify 全合规: 5 signal commit body 7 段 + 5 trailer 全合规 · 2 RFC 写得严谨 · 推荐 common ratify
+
+### Triggered by
+- common worker 9 step + signal · 5 agent worker verify · 主 CLI 5 分钟回扫监控 7 轮
+
+### State change (delta)
+- Phase A: 启动前 → close-out ratify (gate 通过)
+- common: registered → 9 件交付 ship + READY (Phase A 主活完 · 转 RFC standby)
+- 5 agent: registered → all OK signal fire (riskctrl 含 2 RFC) · 等 Phase B 派活
+- 主 CLI: monitoring → ratify Phase A close-out · 待启 Phase B
+- shared/ 新增: entity_resolver (USCC GB 32100 真校验) · live_shell · evidence_drawer · source_health · 4 module · 共 ~3950 行
+- docs/contracts/ 新增: 3 contract v1.1 frozen + 2 RFC PROPOSED
+- scripts/mesh/: verify_signal_commit.py + cherry_pick_worker.py + create_lark_dashboard.sh
+- .mesh-launcher/: 6 resume 脚本
+
+### Next
+- (1) common ratify RFC 1 (freshness-claim-loan-sample) · fire `chore(mesh): RFC ... ratified` · Phase A.1 hotfix 加 ClaimType (30 min)
+- (2) PM 拍板 RFC 2 (cross-agent-feedback-channel) 时机: 推荐 Phase B 并行 (common 1-2d · 不阻 5 worker 起步)
+- (3) 5 worker 各自启 Phase B: 拷 `docs/working/agent-identity-templates/AGENT_IDENTITY-<X>.md` 到 mesh/<X>/AGENT_IDENTITY.md · 跑 6 step 改造 (per channel ALL IN 模板) · 1-1.5d wall-clock 并行
+- (4) 主 CLI 收 5 worker READY signal → cherry-pick 整合 (含 common 9 step + 1 hotfix) → pytest + Playwright 6 agent → ECS deploy → close-out Phase C
+- PM 决策待办 (不阻 close-out): export_docx/pdf 是否上链 ledger (credit + report 提) · 默认跟现状 (仅 audit_log)
+
+---
+
+## 2026-05-09 · 新一任主 CLI 接手 · ALL IN Phase A 启动前 (二度 resume)
+
+### What happened
+- 上一任主 CLI 2026-05-08 fire NEW-MAIN-CLI-RESUMED commit `0c255ee` · 但**未获 PM GO** · session 闲置 1d
+- 本任主 CLI (Claude Opus 4.7 · 1M context · 2026-05-09 中文 session) 按 CLAUDE.md §14 流程**重新走一遍**接手 · 读完 KT 5 文件 + git log -20 + `git worktree list` + scoreboard + decisions-log Q-055/Q-056 + mesh.json + north-star §1
+- verify mesh 物理状态 (delta vs 上任 resume):
+  - `mesh/common` HEAD = `bdefb23` "RESUMED · common worker · Phase A 冻结 contract + 共性架构" (common worker self-onboarding 已 fire · 5 件交付物 0/5)
+  - `mesh/report` HEAD = `aefa690` (worktree list) · 但 `feat/allin-report` 分支 tip = `343fff8` "RESUMED · report worker · Phase B ALL IN 改造" (report worker self-onboarding 已 fire · 但同一分支 worktree HEAD 显示 lag · 不影响 worker 进度)
+  - `mesh/{credit,alert,riskctrl,compliance}` HEAD 全 `aefa690` (4 worker 自启 RESUMED 待触发)
+- 当前 main HEAD `0c255ee` · branch `main` · ahead origin/main by 1 · working tree dirty: `docs/poc_2026-05-06.xlsx` modified + `.tmp/` + 13 个 untracked draft (`docs/KT-anthropic-finance-mirror.md` + `docs/product-matrix-ui-concept-{,v2,v3}.html` + 6 png + `docs/working/{round1,round2,round3}-prompt.md` + `claude-proposal.md` + `codex-prompt.md` + `codex-proposal.md` + `debate-log.md` + `p0-converged-v1.md`)
+- working draft 全是 Q-055/Q-056 真双辩论过程产物 · 不属本 resume scope · 留 PM 处置 (已和上任 resume 一致)
+- 本 session 不动代码 · 不 push · 不 deploy · 仅 NEW-MAIN-CLI-RESUMED commit + state-snapshot 同步 · 等 PM verify GO
+
+### Triggered by
+- PM 2026-05-09 给本主 CLI 第一句指令 "读 docs/working/allin-final-exec-2026-05-08.md + phase-r3-worker-runbook + 3 核心 contract + §3.7 + §13 + §15 + git log + scoreboard · 写 NEW-MAIN-CLI-RESUMED commit · 等 PM verify GO"
+
+### State change (delta)
+- 主 CLI orchestrator: 上一任 (Claude Opus 4.7 · 2026-05-08 session) → 本任 (Claude Opus 4.7 · 1M context · 2026-05-09 session)
+- ALL IN mesh: 上任 resume 闲置 → 本任 resume 完成等 PM GO
+- 2 mesh worktree (`common` + `report`) 已自启 RESUMED · 4 worker (`credit/alert/riskctrl/compliance`) 物理状态未变 · 仍等启
+- 上任 resume commit `0c255ee` 未 push origin · 本 commit 也不 push (per §13.1 等 PM 显式)
+
+### Next
+- (本 commit 含 §14 NEW-MAIN-CLI-RESUMED 模板 · 等 PM verify)
+- PM verify GO 后:
+  - cmd 1: 给 common worker (`mesh/common`) 派活 "Phase A 5 件交付物 · 完善 3 contract spec + 抽 3 共性架构 (LiveShell/EvidenceDrawer/SourceHealth) + 6 resume 脚本 + lark-base dashboard + 5 agent AGENT_IDENTITY 模板"
+  - cmd 2: 等 common worker fire `signal common worker ready · ALLIN Phase A complete` (~0.5d) · 主 CLI gate verify (5 agent worker read-through 通过)
+  - cmd 3: gate 过 → 启 4 个 idle agent worker (credit/alert/riskctrl/compliance) 进 Phase B 并行 + report worker (已 RESUMED) 一起跑 (~1-1.5d wall-clock)
+  - cmd 4: 收 5 worker `Signal: READY` (per signal-commit-contract) → cherry-pick 整合 (DIFF guard 验没改 shared/) → 跑 pytest + Playwright 6 agent → ECS deploy (~0.5d)
+- 红线全程: 假 live / 假分 / 无证据 claim / v16 stub 冒充真源 / 无决策账本版本 / 无源健康检查 / 评分无回测 / 监管条款无原文 hash / 审批/贷后反馈丢链路 / SSE 展示与落库不一致 (任一触发即 stop-the-line)
+
 ---
 
 ## 2026-04-29 (本批次 3) · Neat-freak 跨 3 层知识洁癖整理
@@ -1835,3 +2002,45 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 3. **Worker B plan-first 自定协议价值**: B RESUMED body 主动声明 "GO 后出 plan 提 PM verify 再开干" · 比 A/C 直接干风险更低 (5 维度评分含 LLM prompt + 3 层算法 · 复杂度高) · 主 CLI 3 处 minor 修正后 GO-2 · 落地干净 · 该协议未来 worker 可借鉴
 4. **24h 回写并行干**: PM 决议 (a) 专注监督先 + (b) idle slot 干 24h 回写 · 实际边监督边写 §3.1.1+§3.7.6/7 · 节奏好 · 不阻 worker · 不漂 deadline
 5. **主 CLI 监督被动 vs 主动**: PM 实战反馈 "B 在等你 · 你也没发现" · 暴露主 CLI 仅看 git log fetch + scoreboard 不够 · 必须主动 poll worker chat (PM 中转) · 改用 ScheduleWakeup 25 min 节奏后 grounded · 不再被动等 PM 提醒
+---
+
+## 2026-05-08 EOD · 6 Agent ALL IN ratify + 100% KT + Mesh 7 cmd 启动 (commit `aefa690` + Q-056)
+
+### What happened
+- channel ALL IN 单 agent 改造完 (本 session 6 step + 真根因 fix · commits `de79725` `1c6aa34` `ef5ba13` `707a8ad` `4d5ab20` `1161028` `c074d43`)
+- 6 agent Playwright audit (5 mock agent 真实状态地图)
+- 真双辩论 6 fire (产品方案 R1+R2+R3 + 执行方式 R1+R2+R3 · Codex gpt-5.5 xhigh + Claude Opus 4.7)
+- nginx cache 修 (HTML no-cache + chunk 长 cache · 客户经理无需 F12)
+- 100% KT 文档 + 3 contract + runbook + AGENT_IDENTITY 模板 (commit `aefa690`)
+- 桌面脚本 R3v2 → ALLIN (`launch-all-LIUYE.bat` + `launch-allin.ps1` 自动建 worktree)
+- 6 mesh worktree + AGENT_IDENTITY 已就位
+- decisions-log Q-056 ratify
+
+### Triggered by
+- PM 2026-05-08 verbatim "方案通过支持 a" + "落实为 100%KT + 桌面脚本 + 新 CLI 执行"
+
+### State change (delta)
+- production: channel ALL IN live · 5 agent 仍 mock (待 Phase B 改造)
+- mesh: 6 个新 worktree (`mesh/{common,report,credit,alert,riskctrl,compliance}`) · R3v2 旧 worktree (`mesh/{a,b,c}`) standby · mesh.json 待新主 CLI 注册新 6 worker
+- 桌面脚本: launch-all-LIUYE.bat 旧版 backup `.r3v2.bak.20260508`
+- 3 contract outline (entity-resolution / candidate-identity / signal-commit) 待 Phase A common worker 完善
+- ROI 真锚点: channel 单 agent ~3-4d · 5 agent mesh 并行估 2-2.5d (vs 串行 4-5d · ~2x 加速)
+
+### Next
+- PM 重启电脑 → 双击 launch-all-LIUYE.bat → 启 7 cmd
+- MAIN-CLI 自动读 KT 文档 + 写 NEW-MAIN-CLI-RESUMED commit
+- 6 worker 自动读 AGENT_IDENTITY + 写 RESUMED commit
+- PM verify GO common worker 进 Phase A (~0.5d 冻结 contract + 抽 3 共性架构)
+- Phase A done → 5 worker 并行 Phase B (~1-1.5d) → Phase C 主 CLI 整合 (~0.5d)
+- 24h 回写 task: CLAUDE.md §3.7 加 ALL IN 10 红线 (per CLAUDE.md §15 active decision 硬规)
+- 飞书 PRD 同步: lark-doc 主 PRD + lark-base 12 字段 dashboard (新主 CLI Phase A 启时干)
+
+### 学到了什么 (本 session 收尾)
+
+1. **Playwright 自跑真 grounded 比让 PM 截图快**: 我之前几小时让 PM 截图 / Ctrl+F5 / 隐身模式排查 cache · 实际我自己 Playwright 跑一遍 60 秒就找到候选 id 字段缺失真根因 (commit `c074d43`). 教训: 任何"看不到效果"问题先自己 Playwright 真测.
+2. **后端 `data-cand-id="未获取"` 是元 bug**: 前端 `find(c.id === selected)` 在所有 id 相同的数组里永远命中第一项 · 这是 PM 反复痛点真根因. 类似 bug 5 agent 也大概率有 (Q-056 ALL IN 必 fix).
+3. **真双辩论 ROI 极高**: 6 fire codex (产品 3 + 执行 3) · 总 ~10 min · 收敛 100% KT 方案. Codex gpt-5.5 xhigh 不是每次都 stuck (handoff §11 历史) · 设计良好的 prompt + 600s timeout + fallback chain 可稳定调用.
+4. **桌面脚本 NonInteractive 陷阱**: ps1 用 Read-Host 在 bat 调 powershell 时 NonInteractive 立即 throw → 闪退. 修法: 用 Start-Sleep + Write-Host 替代 · 或 ps1 graceful 处理.
+5. **AGENT_IDENTITY 模板抽到 docs/working/ 然后 sed 派生**: 1 个 agent 模板 + sed 替换 `{AGENT}` 占位 → 5 个 worker 各自 AGENT_IDENTITY · 比 5 文件各写更可维护.
+6. **mesh 自动建 worktree**: ps1 加 `git worktree add` graceful 逻辑 · PM 双击 bat 不需手动跑 git command. 好 UX.
+

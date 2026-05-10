@@ -24,8 +24,12 @@ def test_build_alert_provider_force_mock():
 
 
 def test_build_alert_provider_tavily_disabled(monkeypatch):
-    """ALERT_USE_TAVILY 未开 → 默认 demo · 标 tavily_disabled."""
-    monkeypatch.delenv("ALERT_USE_TAVILY", raising=False)
+    """ALERT_USE_TAVILY=0 显式关 → demo · 标 tavily_disabled.
+
+    ALL IN Phase B step 3 (2026-05-09): 默认 ALERT_USE_TAVILY=1 (真接 web) ·
+    显式 0 才 disable. 旧 default=0 不再适用.
+    """
+    monkeypatch.setenv("ALERT_USE_TAVILY", "0")
     provider, mode = scan_engine.build_alert_provider()
     assert mode == "tavily_disabled"
     assert provider.provider_name == "mock"

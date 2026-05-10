@@ -15,11 +15,20 @@ from __future__ import annotations
 from typing import Literal
 
 # Action enum · row-level/action gate
-Action = Literal["invoke", "read", "export", "handoff", "approve"]
+# Phase A.6 (2026-05-09) · 加 "demo" action (跨 agent · admin/demo_user 才允)
+Action = Literal["invoke", "read", "export", "handoff", "approve", "demo"]
 
-VALID_ACTIONS: tuple[Action, ...] = ("invoke", "read", "export", "handoff", "approve")
-VALID_ROLES = ("rm", "credit_officer", "compliance_officer", "risk_manager", "admin")
+VALID_ACTIONS: tuple[Action, ...] = ("invoke", "read", "export", "handoff", "approve", "demo")
+
+# Phase A.6 · 加 "demo_user" role (production demo / 客户走访演示账号)
+VALID_ROLES = (
+    "rm", "credit_officer", "compliance_officer", "risk_manager", "admin",
+    "demo_user",
+)
 VALID_AGENTS = ("channel", "report", "credit", "alert", "compliance", "riskctrl")
+
+# Phase A.6 · 哪些 role 视作 "demo-eligible" (admin 隐含 OR · demo_user 显式)
+DEMO_ELIGIBLE_ROLES: frozenset[str] = frozenset({"admin", "demo_user"})
 
 
 # 镜像 web/src/lib/store/auth-store.ts:ACCESS_V2 (row-level/action gate)
@@ -53,7 +62,12 @@ ACCESS_V2: dict[str, dict[str, frozenset[Action]]] = {
         "credit":   frozenset({"read"}),
     },
     "admin": {
-        agent: frozenset({"invoke", "read", "export", "handoff", "approve"})
+        agent: frozenset({"invoke", "read", "export", "handoff", "approve", "demo"})
+        for agent in VALID_AGENTS
+    },
+    # Phase A.6 · demo_user 只能 invoke "demo" action (不读不写 agent 数据 · 仅触发 demo 模式)
+    "demo_user": {
+        agent: frozenset({"demo"})
         for agent in VALID_AGENTS
     },
 }
@@ -99,6 +113,10 @@ def can_access(role: str, agent_id: str) -> bool:
 def can_action(role: str, agent_id: str, action: str) -> bool:
     """Row-level/action gate · per Q-052 #8 contract.
 
+    Phase A.6 (2026-05-09) · "demo" action 特殊语义 (跨 agent · 仅 role 校验):
+    - role in DEMO_ELIGIBLE_ROLES (admin / demo_user) → True 无关 agent_id
+    - 其他 role 即使 ACCESS_V2 误填 demo 也拒绝 (双保险)
+
     Args:
         role: 用户角色 (e.g. "rm" / "credit_officer")
         agent_id: agent 标识 (e.g. "channel" / "compliance")
@@ -107,9 +125,37 @@ def can_action(role: str, agent_id: str, action: str) -> bool:
     Returns:
         True if role 对 agent 有该 action 权限.
     """
+    # Phase B.1.6 (PM 2026-05-10) · revert demo action 特例
+    # PM 真意 演示=上传 sample 跑真后端 · 不需 RBAC demo 双控
     role_map = ACCESS_V2.get(role, {})
     actions = role_map.get(agent_id, frozenset())
     return action in actions
+
+
+def demo_mode_visible(user: dict | None, env: dict | None = None) -> bool:
+    """Phase A.6 · demo_mode 双控 helper · per PM 2026-05-09.
+
+    控件:
+    1. env DEMO_MODE_VISIBLE=1 (production 默认 0 安全)
+    2. user.role in DEMO_ELIGIBLE_ROLES (admin / demo_user)
+
+    两条都满足才返 True · 任一不满足 False.
+
+    Args:
+        user: JWT payload (含 role) · None 时视作未登录 (返 False)
+        env: env dict (默认读 os.environ · 测试可注入 dict)
+
+    Returns: True iff env=1 AND role in {admin, demo_user}
+    """
+    import os
+    if user is None or not isinstance(user, dict):
+        return False
+    role = user.get("role", "")
+    if role not in DEMO_ELIGIBLE_ROLES:
+        return False
+    env_map = env if env is not None else os.environ
+    raw = str(env_map.get("DEMO_MODE_VISIBLE", "0")).strip()
+    return raw == "1"
 
 
 def actions_for(role: str, agent_id: str) -> frozenset[Action]:

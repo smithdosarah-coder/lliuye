@@ -30,6 +30,7 @@ import type {
   CreditMode,
   CreditRadarDim,
   CreditSession,
+  DataSourcesPanel,
   LimitSuggestion,
   RedLine,
 } from "@/lib/mock/agent-credit-session";
@@ -84,6 +85,18 @@ export type BackendCreditDoneEnvelope = {
     conditions?: string[];
     decision_reason?: string;
     stage_tab?: string;
+  } | null;
+  /* ALL IN Phase B step 4 (2026-05-09) · 后端 _build_data_sources_panel 字段
+     · 4 evidence 类源 trust display (scoring_model / rule_engine_v2 / case_retriever / advisor_llm) */
+  data_sources?: {
+    summary?: string;
+    updated?: string;
+    sources?: Array<{
+      id?: string;
+      name?: string;
+      desc?: string;
+      status?: "online" | "warn" | "offline";
+    }>;
   } | null;
 };
 
@@ -202,6 +215,26 @@ function normalizeCases(
   }));
 }
 
+function normalizeDataSources(
+  backend: BackendCreditDoneEnvelope["data_sources"],
+  fallback: DataSourcesPanel,
+): DataSourcesPanel {
+  /* ALL IN Phase B step 4 · backend data_sources 接入 frontend DataSourcesPanel
+     · backend null/undefined → fallback (Step 2 EMPTY_SESSION 空数组)
+     · backend 有值 → 4 evidence 类源 trust display (反 KT §3.6 红线 #3 无证据 claim) */
+  if (!backend) return fallback;
+  return {
+    summary: backend.summary ?? fallback.summary,
+    updated: backend.updated ?? fallback.updated,
+    sources: (backend.sources ?? []).map((s, i) => ({
+      id: s.id ?? `src-${i}`,
+      name: s.name ?? "(unknown)",
+      desc: s.desc ?? "",
+      status: s.status ?? "offline",
+    })),
+  };
+}
+
 function normalizeLimit(
   advice: BackendCreditDoneEnvelope["advice"],
   fallback: LimitSuggestion,
@@ -269,5 +302,7 @@ export function normalizeCreditDone(
     redLines: normalizeRedLines(env.rule_hits, fallback.redLines),
     cases: normalizeCases(env.case_matches, fallback.cases),
     limit: normalizeLimit(advice, fallback.limit),
+    /* ALL IN Phase B step 4 · 后端 data_sources panel 接入 (4 evidence 类源 trust display) */
+    dataSources: normalizeDataSources(env.data_sources, fallback.dataSources),
   };
 }

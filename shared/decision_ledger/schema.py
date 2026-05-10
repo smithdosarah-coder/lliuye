@@ -55,7 +55,14 @@ DEFAULT_RETENTION_BY_AGENT: dict[str, str] = {
 
 @dataclass
 class LedgerEntry:
-    """Single decision audit record (per docs/contracts/decision-ledger.md §1.2)."""
+    """Single decision audit record (per docs/contracts/decision-ledger.md §1.2).
+
+    Phase A.5 (2026-05-09 · per RFC cross-agent-feedback-channel ratify):
+    - is_feedback: True 时此 entry 是 cross-agent feedback event (per cross-agent-feedback-protocol)
+    - feedback_meta: feedback event 业务数据 (FeedbackType / consumer_agents / payload)
+    - 现有 entry (is_feedback=False) ABI 不破
+    - watcher 用 `WHERE is_feedback = 1` 过滤
+    """
 
     decision_id: str
     agent_id: str
@@ -72,6 +79,8 @@ class LedgerEntry:
     reviewer_action: str | None = None
     reviewer_ts: str | None = None
     created_at: str | None = None  # set by sqlite default
+    is_feedback: bool = False  # Phase A.5 · True iff cross-agent feedback event
+    feedback_meta: dict | None = None  # Phase A.5 · per cross-agent-feedback-protocol §2
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

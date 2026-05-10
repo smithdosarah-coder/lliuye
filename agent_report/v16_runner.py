@@ -542,6 +542,39 @@ def _run_v16_in_thread(
         except Exception:
             pass
 
+        # Phase B.1 fix #3 (codex re-review 抓) · real 路径同样写 handoff (与 mock 路径对称)
+        # codex 抓 mock_v16_stream 写了 · real path 漏 · credit 切真路径就拿不到 ReportJSON
+        try:
+            from pathlib import Path as _Path
+            _project_root = _Path(__file__).resolve().parent.parent
+            _ek = profile.get("entity_key", {}) if isinstance(profile, dict) else {}
+            handoff_id = (
+                _ek.get("uscc")
+                or (_ek.get("name_normalized") or "")[:12]
+                or session_id
+            )
+            if handoff_id:
+                handoff_dir = _project_root / "data" / "handoff" / "report_to_credit"
+                handoff_dir.mkdir(parents=True, exist_ok=True)
+                import re as _re
+                safe_id = _re.sub(r"[^a-zA-Z0-9_-]", "_", str(handoff_id))[:64]
+                handoff_path = handoff_dir / f"{safe_id}.json"
+                handoff_payload = {
+                    **done_payload,
+                    "handoff_id": safe_id,
+                    "wrote_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "agent_from": "report",
+                    "agent_to": "credit",
+                }
+                handoff_path.write_text(
+                    json.dumps(handoff_payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                done_payload["handoff_path"] = str(handoff_path.relative_to(_project_root))
+        except Exception as exc:
+            # silent-fail · 不破 SSE 流 (per BE7 ledger 模式 · handoff 是观察层不是阻塞层)
+            logger.warning("real path handoff write failed (silent): %s", exc)
+
         emit.put(_sse("done", done_payload))
     except Exception as e:  # noqa: BLE001 — last-resort crash guard
         traceback.print_exc()
