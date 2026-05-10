@@ -70,8 +70,10 @@ def test_refine_section_404_when_session_missing(client):
     assert resp.status_code == 404
 
 
-def test_refine_section_no_llm_key_falls_back_to_concat(client, seeded_session, monkeypatch):
-    """无 DEEPSEEK_API_KEY · 走 fallback 拼接 + demo 标记."""
+def test_refine_section_no_llm_key_returns_503_in_all_in(client, seeded_session, monkeypatch):
+    """ALL IN Phase B (per AGENT_IDENTITY-report.md §6 step 3 红线 1):
+    无 DEEPSEEK_API_KEY · 直接 503 拒 fallback (per Codex Decision 6 + 我们 ALL IN 进一步收紧).
+    旧 fallback 拼接行为已删 · 假数据出门 = 红线 1 (假 live)."""
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     resp = client.post("/api/report/refine_section", json={
         "session_id": seeded_session,
@@ -79,26 +81,28 @@ def test_refine_section_no_llm_key_falls_back_to_concat(client, seeded_session, 
         "user_edit": "强调成立年份与注册资本规模",
         "target_word_count": 1500,
     })
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    assert data["status"] == "ok"
-    assert data["llm_used"] is False
-    assert data["section"]["id"] == "chapter_1_background"
-    new_content = data["section"]["content"]
-    # fallback 拼接含原文 + 用户指引
-    assert "测试样本有限公司成立于 2015" in new_content
-    assert "强调成立年份" in new_content
-    # demo 标记
-    assert "demo" in new_content.lower() or "占位" in new_content
+    assert resp.status_code == 503, resp.text
+    detail = resp.json()["detail"]
+    assert "DEEPSEEK_API_KEY" in detail
 
 
-def test_refine_section_writes_back_to_session(client, seeded_session, monkeypatch):
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
-    client.post("/api/report/refine_section", json={
+def test_refine_section_writes_back_with_real_key(client, seeded_session, monkeypatch):
+    """ALL IN: 真路径需 LLM key · 模拟 fake key + monkeypatch _build_llm_caller 回固定文本.
+    验 section 写回 store + last_refined_section 标记 + refined_at 字段."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-key-for-test")
+    # mock LLM caller · 返带 user_edit 的固定文本
+    from agent_report import api as api_mod
+
+    def _fake_caller(system: str, user: str) -> str:
+        return f"[mocked] 改写 · 增加产品 SKU 明细 · 基于原文重写"
+
+    monkeypatch.setattr(api_mod, "_build_llm_caller", lambda: _fake_caller)
+    resp = client.post("/api/report/refine_section", json={
         "session_id": seeded_session,
         "section_id": "chapter_2_operation",
         "user_edit": "增加产品 SKU 明细",
     })
+    assert resp.status_code == 200, resp.text
     sess = store.get(seeded_session)
     sections = sess.get("done_payload", {}).get("sections") or []
     chapter_2 = next((s for s in sections if s["id"] == "chapter_2_operation"), None)
@@ -109,11 +113,13 @@ def test_refine_section_writes_back_to_session(client, seeded_session, monkeypat
 
 
 def test_refine_section_appends_new_section_id(client, seeded_session, monkeypatch):
-    """section_id 不在 sections 中 · 新增 append 而非报错."""
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    """section_id 不在 sections 中 · 新增 append 而非报错 · ALL IN 需真 key (不 fallback)."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-key-for-test")
+    from agent_report import api as api_mod
+    monkeypatch.setattr(api_mod, "_build_llm_caller", lambda: lambda s, u: "[mocked] 审批意见 - 通过")
     resp = client.post("/api/report/refine_section", json={
         "session_id": seeded_session,
-        "section_id": "chapter_4_conclusion",  # 原 seed 没有 ch4
+        "section_id": "chapter_4_conclusion",
         "user_edit": "审批意见 - 通过",
     })
     assert resp.status_code == 200
@@ -121,16 +127,22 @@ def test_refine_section_appends_new_section_id(client, seeded_session, monkeypat
     sections = sess.get("done_payload", {}).get("sections") or []
     chapter_4 = next((s for s in sections if s["id"] == "chapter_4_conclusion"), None)
     assert chapter_4 is not None
-    assert "审批意见 - 通过" in chapter_4["content"]
+    # ALL IN: chapter_4 旧 seed 没有 · 新 append · LLM mock 返固定文本
+    # old_content == "" · LLM 返固定 · new_content == LLM output (per api.py refine_section logic)
+    assert "审批意见" in chapter_4["content"] or "[mocked]" in chapter_4["content"]
 
 
 def test_refine_section_response_shape(client, seeded_session, monkeypatch):
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    """ALL IN: response shape 验 · 需真 key (mock LLM caller)."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-key-for-test")
+    from agent_report import api as api_mod
+    monkeypatch.setattr(api_mod, "_build_llm_caller", lambda: lambda s, u: "[mocked] 改写")
     resp = client.post("/api/report/refine_section", json={
         "session_id": seeded_session,
         "section_id": "chapter_1_background",
         "user_edit": "测试响应 shape",
     })
+    assert resp.status_code == 200
     data = resp.json()
     expected_keys = {"session_id", "report_id", "section", "status", "llm_used"}
     assert set(data.keys()) >= expected_keys

@@ -118,25 +118,30 @@ def test_should_use_mock_explicit_mock():
     assert "explicit" in reason.lower()
 
 
-def test_should_use_mock_no_key():
-    use, reason = should_use_mock_v16(
-        classified_json=Path("/tmp/exists.json"),
-        has_dee_pseek_key=False,
-        explicit_mock=False,
-    )
-    assert use is True
-    assert "deepseek" in reason.lower() or "DEEPSEEK" in reason
+def test_should_use_mock_no_key_raises_in_all_in():
+    """ALL IN Phase B (per AGENT_IDENTITY-report.md §6 step 3 红线 1):
+    has_dee_pseek_key=False + explicit_mock=False → raise (拒 silent fallback mock)."""
+    with pytest.raises(RuntimeError) as excinfo:
+        should_use_mock_v16(
+            classified_json=Path("/tmp/exists.json"),
+            has_dee_pseek_key=False,
+            explicit_mock=False,
+        )
+    assert "DEEPSEEK_API_KEY" in str(excinfo.value)
+    assert "silent" in str(excinfo.value).lower() or "拒" in str(excinfo.value)
 
 
-def test_should_use_mock_no_classified_json(tmp_path):
+def test_should_use_mock_no_classified_json_raises_in_all_in(tmp_path):
+    """ALL IN Phase B: classified_json 不存在 + explicit_mock=False → raise (拒 silent fallback mock)."""
     nonexist = tmp_path / "absent.json"
-    use, reason = should_use_mock_v16(
-        classified_json=nonexist,
-        has_dee_pseek_key=True,
-        explicit_mock=False,
-    )
-    assert use is True
-    assert "classified" in reason.lower()
+    with pytest.raises(RuntimeError) as excinfo:
+        should_use_mock_v16(
+            classified_json=nonexist,
+            has_dee_pseek_key=True,
+            explicit_mock=False,
+        )
+    assert "classified" in str(excinfo.value).lower()
+    assert "v16_classifier" in str(excinfo.value).lower() or "silent" in str(excinfo.value).lower()
 
 
 def test_should_use_real_when_all_present(tmp_path):
@@ -152,8 +157,8 @@ def test_should_use_real_when_all_present(tmp_path):
 
 
 def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path, monkeypatch):
-    """真路径触发条件 · 但 classifier 缺 → mock 路径自动接管(see should_use_mock)."""
-    # 模拟有 key 但走 explicit_mock=false · v16_runner 内部应识别 classifier 缺失 → 走 mock
+    """ALL IN Phase B (per AGENT_IDENTITY-report.md §6 step 3 红线 1):
+    真路径触发 · classifier 缺 → emit error event (拒 silent fallback mock 接管)."""
     monkeypatch.setenv("DEEPSEEK_API_KEY", "fake-key-for-test")
     resp = client.post(
         "/api/report/v16/fill",
@@ -165,9 +170,11 @@ def test_v16_fill_real_path_without_classified_json_emits_error(client, tmp_path
     )
     assert resp.status_code == 200
     events = _parse_sse_events(resp.text)
-    # mock 接管 · 仍然有 5 stage + 1 done
-    stages = [e for e in events if e["event"] == "stage"]
+    # ALL IN: error event 替代 mock 接管 · v16_runner.should_use_mock_v16 raise → api.py emit error
+    errors = [e for e in events if e["event"] == "error"]
+    assert len(errors) >= 1, f"期望 error event · 实际 events: {[e['event'] for e in events]}"
+    err_data = errors[0]["data"]
+    assert err_data.get("code") == "V16_REAL_PATH_FAILED"
+    # 不应有 done · classifier 缺 → silent fallback 拒 → 流终止
     dones = [e for e in events if e["event"] == "done"]
-    assert len(stages) == 5
-    assert len(dones) == 1
-    assert dones[0]["data"]["mock_pipeline"] is True
+    assert len(dones) == 0, "ALL IN 拒 silent fallback · 不应 emit done"

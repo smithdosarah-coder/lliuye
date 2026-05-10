@@ -161,85 +161,10 @@ def map_log_to_stage(msg: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Mock 模式
+# PM 2026-05-09 ALL IN: 删 _mock_stream 死代码 (~80 LOC) · 无路由调用 + 含 fallback_docx
+# 未定义 reference (NameError if invoked) · 历史 stub · v16/fill 主路径已 fail-fast 503 +
+# v16_runner.should_use_mock_v16 现已 raise 不 silent 切 mock (per 红线 1).
 # ---------------------------------------------------------------------------
-async def _mock_stream(preset: str, business_line: Optional[str] = None) -> AsyncIterator[str]:
-    """Mock 模式 SSE 事件流.
-
-    串行推 5 个 stage 事件(每个 500ms),最后发 done。
-    business_line 会写入 enterprise_profile.business_line(供下游 Agent 消费)。
-    """
-    messages = {
-        STAGE_INGEST: "材料上传解析中...",
-        STAGE_EXTRACT: "结构化数据抽取中...",
-        STAGE_INFER: "企业画像与财务指标推断中...",
-        STAGE_WRITE: "报告章节生成中...",
-        STAGE_AUDIT: "数值校验与合规复核中...",
-    }
-    total = len(STAGE_ORDER)
-    for idx, stage in enumerate(STAGE_ORDER):
-        progress = round((idx + 1) / total, 2)
-        yield _sse("stage", {
-            "stage": stage,
-            "progress": progress,
-            "message": messages[stage],
-        })
-        await asyncio.sleep(0.5)
-
-    # 组装 done payload
-    profile_dict = mock_fixtures.load_preset_profile(preset)
-    if business_line and not profile_dict.get("business_line"):
-        profile_dict["business_line"] = business_line
-    enterprise = EnterpriseProfile(**_coerce_profile(profile_dict))
-    pending = mock_fixtures.sample_pending_questions(preset)
-
-    # Mock 模式 docx_url 不再可用 (legacy 下载端点已下架 · batch 4 cleanup)
-    report_docx_url = None
-
-    # mock 场景也推几节 section,让前端看到内容
-    chapters = profile_dict.get("chapters") or {}
-    mock_sections = []
-    for i, (k, v) in enumerate(chapters.items()):
-        if not v:
-            continue
-        sec = {
-            "id": k,
-            "title": _chapter_title(k),
-            "content": str(v),
-        }
-        mock_sections.append(sec)
-        yield _sse("section", {"section": sec})
-        await asyncio.sleep(0.2)
-
-    session_id = store.create({
-        "mode": "mock",
-        "preset": preset,
-        "enterprise_profile": enterprise.model_dump(),
-        "pending_questions": pending,
-        "report_docx_path": str(fallback_docx) if fallback_docx else None,
-    })
-
-    done_payload = {
-        "profile": enterprise.model_dump(),
-        "sections": mock_sections,
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(preset),
-        "stats": {
-            "total_fields": 492,
-            "auto_filled": 460,
-            "unfilled": 32,
-        },
-        "docx_url": report_docx_url,
-    }
-    yield _sse("done", {
-        "session_id": session_id,
-        "report_docx_url": report_docx_url,
-        "enterprise_profile": enterprise.model_dump(),
-        "pending_questions": pending,
-        "downstream_handoff": mock_fixtures.downstream_handoff(preset),
-        # v16 payload:前端 applyEvent 读 evt.payload.* (audit cat 4 align · Phase A worker-A4)
-        "payload": done_payload,
-    })
 
 
 _CHAPTER_TITLES = {
@@ -646,7 +571,14 @@ async def report_v16_fill(
         except Exception as e:
             status = "error"
             err = f"{type(e).__name__}: {e}"
-            raise
+            # PM 2026-05-09 ALL IN: silent fallback mock 删 (red line 1) · v16_runner 现在 raise 不 silent 切 mock
+            # 不 raise 让 stream 自然结束 · emit error event 给前端 banner 显示
+            yield _sse("error", {
+                "stage": "ingest",
+                "message": f"v16 真模式失败 · {err} · 拒 silent fallback mock",
+                "code": "V16_REAL_PATH_FAILED",
+            })
+            return
         finally:
             _emit_audit(status)
             # W-FIX2 修 bug #11: SSE-aware audit (latency 含全流) · 替代 decorator
