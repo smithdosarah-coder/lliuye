@@ -1,0 +1,12 @@
+{
+  "agent": "common",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/common",
+  "scope": "shared/ + docs/contracts/ + .mesh-launcher/",
+  "redline": "禁改 agent_*/ + web/src/app/archive/*/ (5 worker 写域)",
+  "input_contract": "(无 · 自己定 contract)",
+  "output_contract": "3 contract + 3 共性架构 (live_shell/evidence_drawer/source_health) + 6 resume 脚本 + dashboard + 5 agent AGENT_IDENTITY 模板",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}

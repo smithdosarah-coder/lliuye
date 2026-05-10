@@ -1,0 +1,12 @@
+{
+  "agent": "credit",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/credit",
+  "scope": "agent_credit/ + web/src/app/archive/credit/ + web/src/lib/api/credit.ts + tests/agent_credit/",
+  "redline": "决策必上链 (shared/decision_ledger/ per §3.7.5) · 红线判定不让 LLM 现场算 · 评分必带证据链",
+  "input_contract": "entity-resolution-contract / candidate-identity-contract / signal-commit-contract",
+  "output_contract": "四维评分 + 额度/期限建议 + 红线命中清单 (Cowork 实时)",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}

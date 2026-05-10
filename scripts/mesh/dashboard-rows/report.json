@@ -1,0 +1,12 @@
+{
+  "agent": "report",
+  "worktree": "D:/claude code/credit_report_agent_work_mesh/report",
+  "scope": "agent_report/ + web/src/app/archive/report/ + web/src/lib/api/report.ts + tests/agent_report/",
+  "redline": "v16 stub 不冒充真源 · 字段填不了标'未能自动填写'不编 · 报告每段必有 evidence drawer",
+  "input_contract": "entity-resolution-contract / candidate-identity-contract / signal-commit-contract",
+  "output_contract": "ReportJSON + Word 报告 (Evidence-First 三阶段)",
+  "latest_signal": "",
+  "evidence_url": "",
+  "blocked_by": "",
+  "status": "doing"
+}
