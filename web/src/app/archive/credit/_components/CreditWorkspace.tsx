@@ -137,6 +137,15 @@ const MODE_TO_STAGE_TAB: Record<CreditMode, "corporate" | "small_business" | "re
   retail: "retail",
 };
 
+/* Phase B.2 (PM 2026-05-10 真意 reframe) · 内置 sample 映射
+   · /api/credit/demo/run 真后端跑 · 输入来自 demo_data/agent_credit/<sample_id>.json (v4 ReportJSON shape)
+   · small_business 共用对公 sample (ALL IN Phase B 无小微专属 sample · 后端 _STAGE_TO_SEGMENT 对公评分模型兼容) */
+const MODE_TO_SAMPLE_ID: Record<CreditMode, string> = {
+  corp: "corp_dingsheng_trade",
+  small: "corp_dingsheng_trade",
+  retail: "retail_lisi_education",
+};
+
 const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
   corp: "对公授信 · 50-5000 万 · 4 维评分 + 30 红线",
   small: "普惠 / 小微 · 10-500 万 · 抵押权重高 · 阈值放宽 5 分",
@@ -369,7 +378,11 @@ export default function CreditWorkspace() {
     }
   }
 
-  // Phase B.1.5 (PM 2026-05-10) · 一键运行示例 · 调 /api/credit/demo/run sample 跑 · 让 PM 点了能看到东西
+  /* Phase B.2 (PM 2026-05-10 真意 reframe) · 一键运行示例 · 调 /api/credit/demo/run 真后端跑
+     · 旧 (B.1.5 hotfix): body { stage_tab } · 后端 yield fixture · setCurrentDataSource("mock_forced")
+     · 新 (B.2): body { sample_id } · 后端真调 LLM/scoring/rule/case/ledger · setCurrentDataSource("live")
+     · 演示 = 上传 sample 跑真后端 · 不是切假数据 (per docs/onboarding/B2-phase-b2-dispatch.md)
+     · LLM fail / API key 缺 → LiveFailError → trust model 一级降级标 mock_fallback (banner 显 · 不 silent) */
   async function runDemoSample() {
     if (decisionRunning) return;
     setDecisionError(null);
@@ -386,7 +399,7 @@ export default function CreditWorkspace() {
     try {
       await streamSse(
         `${apiBase}/api/credit/demo/run`,
-        { stage_tab: MODE_TO_STAGE_TAB[mode] },
+        { sample_id: MODE_TO_SAMPLE_ID[mode] },
         (sseEvt) => {
           if (ac.signal.aborted) return;
           const data = sseEvt.data as Record<string, unknown>;
@@ -394,7 +407,8 @@ export default function CreditWorkspace() {
             setLiveData(normalizeCreditDone(data, fallbackSession));
             setSelectedCandidate(null);
             setScanned(true);
-            setCurrentDataSource("mock_forced");
+            /* Phase B.2 · 真后端跑 = live (LLM/scoring/rule/case/ledger 全真) · 输入是内置 sample 但结果真 */
+            setCurrentDataSource("live");
           }
         },
         { signal: ac.signal },
