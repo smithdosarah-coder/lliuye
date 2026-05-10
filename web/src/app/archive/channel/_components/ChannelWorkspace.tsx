@@ -11,7 +11,7 @@
  * 业务：look-alike 获客 —— 标杆画像 → 8 信号扫描 → 相似度打分 → Top N 推荐
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent, DragEvent } from "react";
 import { useAuthStore } from "@/lib/store";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
@@ -418,9 +418,29 @@ export default function ChannelWorkspace() {
       });
   }, []);
 
+  /* Phase B.2 §9 (PM 2026-05-10) · evidence drawer 真 wire ·
+     live 数据触发 · 从 sessionData.signals (SSE done envelope `signals` panel) 派生 EvidenceItem
+     · 不再用 CHANNEL_EVIDENCE fixture · 不引入硬编"福鼎明辉" 等假证据
+     · 派生规则: 每条 SignalSource → ref_id=`signal-${source.id}` · snippet=`${label} · ${hits} 命中 · 覆盖率 ${coverage}%` */
+  const liveEvidenceItems = useMemo(() => {
+    if (!isLive) return [];
+    return sessionData.signals.map((src) => ({
+      source: src.note ? `signal://${src.key} · ${src.note}` : `signal://${src.key}`,
+      snippet: `${src.label} · ${src.hits} 命中 · 覆盖率 ${src.coverage}% · 频次 ${src.freq}`,
+      ref_id: `signal-${src.id}`,
+      confidence: Math.min(1, Math.max(0, src.coverage / 100)),
+      meta: {
+        entity: src.label,
+        signal_key: src.key,
+        signal_status: src.status,
+        signal_hits: src.hits,
+      },
+    }));
+  }, [isLive, sessionData.signals]);
+
   return (
     <EvidenceProvider
-      items={[]}
+      items={liveEvidenceItems}
       unfilledFields={[]}
     >
     <div
