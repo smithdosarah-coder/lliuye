@@ -19,6 +19,8 @@ DP4 PM 拍板 freshness SLA:
 - 招聘 (recruit): 60 天 (高时效信号)
 - 司法案件 (legal): 365 天
 - 投融资 (funding): 365 天
+- 历史贷款样本 (loan_sample): 365 天 (Phase A.1 · per RFC freshness-claim-loan-sample · 信贷周期 12 月 · 银保监年度审计周期)
+- 回测固定基线 (backtest_fixture): 730 天 (Phase A.1 · 信贷周期完整覆盖 · 固定基线允许更长)
 
 硬线 (per CLAUDE.md §3.1):
 - evidence 缺 evidence_date · 不能作核心 claim
@@ -70,6 +72,8 @@ class ClaimType(str, Enum):
     RECRUIT = "recruit"  # 招聘
     LEGAL = "legal"  # 司法案件
     FUNDING = "funding"  # 投融资
+    LOAN_SAMPLE = "loan_sample"  # 历史贷款样本 (riskctrl backtest 用 · Phase A.1)
+    BACKTEST_FIXTURE = "backtest_fixture"  # 回测固定基线 fixture (champion vs challenger · Phase A.1)
     GENERIC = "generic"  # 通用 (默认 180 天)
 
 
@@ -85,6 +89,8 @@ FRESHNESS_SLA_DAYS: dict[ClaimType, int] = {
     ClaimType.RECRUIT: 60,
     ClaimType.LEGAL: 365,
     ClaimType.FUNDING: 365,
+    ClaimType.LOAN_SAMPLE: 365,        # Phase A.1 RFC ratify · 信贷周期 12 月
+    ClaimType.BACKTEST_FIXTURE: 730,   # Phase A.1 RFC ratify · 完整信贷周期 2y
     ClaimType.GENERIC: 180,
 }
 
