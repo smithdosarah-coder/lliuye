@@ -451,11 +451,19 @@ async def compliance_policy_diff_post(
 
 
 @app.post("/api/compliance/policy_scan")
-async def compliance_policy_scan_post(req: CompliancePolicyScanRequest):
+async def compliance_policy_scan_post(
+    req: CompliancePolicyScanRequest,
+    _user: dict = Depends(require_action("compliance", "invoke")),
+):
     """政策事件触发巡检 SSE — 4 阶段 (抽规则 → 抽事件 → N×M 矩阵 → 改/补/强 修订).
 
     完成后写 data/compliance/sessions/{scan_id}.json + latest pointer ·
     后续 GET /api/compliance/scan + POST /api/compliance/export_docx 消费同份产物。
+
+    Auth (ALL IN Phase B.1 fix · per Q-052 #8 row-level/action gate · 与 policy_diff 一致):
+      - compliance_officer/admin → 200 (有 invoke action)
+      - rm/credit_officer/risk_manager → 403 ACCESS_DENIED
+      - 无 cookie → 401 AUTH_MISSING
     """
     if not (req.policy_doc or "").strip():
         raise HTTPException(
@@ -584,8 +592,15 @@ class MatrixCheckRequest(BaseModel):
 
 
 @app.post("/api/compliance/matrix_check")
-async def compliance_matrix_check(req: MatrixCheckRequest):
-    """sync N×M 矩阵比对 · 不持久化 · 不流式 · 单次返结果."""
+async def compliance_matrix_check(
+    req: MatrixCheckRequest,
+    _user: dict = Depends(require_action("compliance", "invoke")),
+):
+    """sync N×M 矩阵比对 · 不持久化 · 不流式 · 单次返结果.
+
+    Auth (ALL IN Phase B.1 fix · per Q-052 #8 与 policy_scan/policy_diff 一致):
+      - compliance_officer/admin → 200 · rm/credit_officer/risk_manager → 403 · 无 cookie → 401
+    """
     if not req.policies:
         raise HTTPException(
             status_code=400,
