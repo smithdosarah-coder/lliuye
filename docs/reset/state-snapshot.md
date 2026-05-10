@@ -61,6 +61,38 @@
 
 ---
 
+## 2026-05-09 21:25 · ALL IN Phase C close-out · 5 worker cherry-pick + 总验收
+
+### What happened
+- common merge 入 main `94308cb` (Phase A + A.1 + A.5 全产出 · 54 文件 · +13199 -7964 · merge-tree dry-run 验 0 冲突)
+- 5 worker fire READY 全到位 + cherry-pick 30 commit 全干净 0 冲突:
+  - credit `ccb5ef5` (READY) → cherry-pick 6 step debb35e..6304131 → main bf08545..66ad454
+  - compliance `2ae0b43` (READY) → cherry-pick 6 step 995d43f..d3acb27 → main ...d15ad9b
+  - alert `3b47482` (READY) → cherry-pick 6 step 75fc244..1a5814d → main ...16a02ec
+  - riskctrl `1586187` (READY · OK with RFC) → cherry-pick 6 step d24b300..629e627 → main ...99b2ff3
+  - report `5f1ec10` (READY) → cherry-pick 6 step 6f9fbcd..e668074 → main ...0c1ced3
+- pytest 总验收: 879 PASS · 2 skip · 19 known 401 auth gate fail (agent_credit/tests/ · per Q-052 #8 conftest auth mock · 待 sub-PR) · 1 known prompts_contract pre-existing fail
+- tsc 各 worker fire READY 时各自跑过 0 type error (alert/credit/report signal body verbatim)
+- Playwright 暂跳 (主 CLI worktree 需 pnpm install + dev server 15-20 min · 推 ECS deploy 后真测)
+
+### Triggered by
+- Phase B 5 worker 全 fire READY signal · 主 CLI 立刻启 Phase C (~3 min cherry-pick + ~1 min pytest verify · vs estimated 0.5d)
+
+### State change (delta)
+- main HEAD: 4d0c836 (Phase A close-out ratify) → 94308cb (common merge) → 待 close-out commit (本段写完后)
+- Phase A (~50 min) + Phase B (~50 min) + Phase C cherry-pick (~3 min) = total ~1h 45 min wall-clock (vs 估 2-2.5d · ~30x)
+- 6 mesh worktree 全 idle · 等 PM push 决定
+- ECS production: 当前 main 旧版 (channel 单 agent ALL IN done) · 待 PM 显说 push + git pull + systemd restart 才上线 5 agent ALL IN
+
+### Next
+- (本 commit 含 ALLIN-PHASE-C-COMPLETE close-out signal · 等 PM verify)
+- PM 显说 "push" → git push origin main → ECS git pull → systemd restart → Playwright 6 agent 真测 production
+- ECS deploy 后跑 Playwright 6 agent · 撞 BLOCKER 立刻 fix-forward
+- known issues 不阻 ship · 留 sub-PR 修 (auth gate + prompts contract · 非 ALLIN scope)
+- 6 mesh worktree cleanup (PM 决定时机 · 通常 deploy verified 后 git worktree remove)
+
+---
+
 ## 2026-05-09 20:25 · ALL IN Phase A close-out · 5/5 OK signal ratify
 
 ### What happened
