@@ -528,6 +528,50 @@ async def riskctrl_backtest(req: BacktestRequest):
         except (ImportError, KeyError, ValueError, TypeError):
             collision_panel = {}
 
+        # ALL IN Phase B step 4 · EvidenceDrawer wire (per RFC freshness-claim-loan-sample)
+        # 用 evidence_pipeline 收集证据 · 用 shared.evidence_drawer 挂到 claim · 加 done panel
+        # 失败隔离: drawer 写入失败不破 SSE stream (silent-fail)
+        evidence_panel: dict[str, Any] = {}
+        try:
+            from agent_riskctrl.evidence_pipeline import (
+                RiskctrlCommentaryContext,
+                RiskctrlCommentaryPipeline,
+            )
+            from shared.evidence_drawer import default_drawer
+
+            commentary_ctx = RiskctrlCommentaryContext(
+                ruleset_name=getattr(ruleset, "name", "") or req.csv_path,
+                metrics={
+                    "ks": ks_peak,
+                    "pass_rate": result.approval_rate,
+                    "bad_rate": bad_rate,
+                    "psi": None,  # PSI v2 后续接入
+                },
+                per_rule_fp=rule_stats,
+            )
+            pipeline = RiskctrlCommentaryPipeline()
+            bundle = pipeline.collect(commentary_ctx)
+
+            # Phase A.1 RFC ratify · 回测样本走 LOAN_SAMPLE ClaimType · 365d SLA
+            drawer = default_drawer()
+            session_id_for_claim = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
+            claim_id = f"riskctrl_backtest_{session_id_for_claim}"
+            for ev_item in bundle.items:
+                # source tier 按 source 区分: input/metrics_analyze=Tier 1 (内部权威) · backtest=Tier 1
+                drawer.attach(
+                    claim_id=claim_id,
+                    source=f"riskctrl:{ev_item.source}:{ev_item.ref_id}",
+                    anchor=ev_item.ref_id,
+                    snippet=ev_item.snippet,
+                    source_tier=1,  # 内部回测引擎 = Tier 1 内部权威
+                    claim_type="loan_sample",  # Phase A.1 RFC ratify · 365d SLA
+                    confidence=ev_item.confidence,
+                    meta=ev_item.meta or {},
+                )
+            evidence_panel = drawer.to_drawer_payload(claim_id)
+        except (ImportError, RuntimeError, ValueError, TypeError, KeyError, AttributeError):
+            pass  # silent-fail · 不破 stream · 前端 fallback fixture
+
         session_id = f"bt_{abs(hash(req.csv_path)) % 10_000_000:07d}"
 
         # V2 fix (codex review major 1): 单次 backtest 决策上链 (retention=short
@@ -560,6 +604,7 @@ async def riskctrl_backtest(req: BacktestRequest):
                 "rule_stats": rule_stats,
                 "business_metrics": business_panel,  # BE6.4 业务口径
                 "collision": collision_panel,        # BE6.3 互斥/遮蔽
+                "evidence": evidence_panel,          # ALL IN step 4 · EvidenceDrawer payload
             },
             metrics={
                 "total_records": result.total_records,
