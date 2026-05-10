@@ -41,9 +41,6 @@ import {
 } from "@/lib/api/riskctrl";
 import {
   RISKCTRL_GLOBAL_STATS,
-  RISKCTRL_MOCK_SESSIONS_MAP,
-  RISKCTRL_MOCK_SESSIONS_LIST,
-  RISKCTRL_DEFAULT_SESSION_ID,
   type ConversationMessage,
   type DslNode,
   type RiskctrlRecentSession,
@@ -51,6 +48,37 @@ import {
   type RuleRef,
   type SampleBar,
 } from "@/lib/mock/agent-riskctrl-sessions";
+
+/* ── ALL IN Phase B step 2 · EMPTY_SESSION 替代 mock fallback (per channel 模板 de79725) ──
+ * 之前 sessionData = liveData ?? mock[selectedSession] ?? mock[default] · 三层 fallback
+ * 违反红线 #1 (假 live · 用户不知数据是 mock)
+ * 改 sessionData = liveData ?? EMPTY_SESSION · 真 live 没回来时显空骨架 · 不显假数据 */
+const EMPTY_SESSION: RiskctrlSession = {
+  id: "empty",
+  objective: "",
+  stage: "等待真路径触发 · LLM 生成 DSL → 真回测",
+  updated: "",
+  query: {
+    id: "empty-query",
+    objective: "",
+    sampleLabel: "",
+    sampleSize: 0,
+    windowLabel: "",
+    targetKS: 0,
+    targetPassRange: [0, 0],
+    targetBadRate: 0,
+    updated: "",
+  },
+  rules: [],
+  currentRule: { id: "", name: "", version: "" },
+  dsl: { id: "root", op: "IF", children: [] },
+  ks: { ksPeak: 0, auc: 0, passRate: 0, badRate: 0, points: [] },
+  samples: [],
+  ruleStats: [],
+  conversation: [],
+  qcCounts: { block: 0, warn: 0, info: 0 },
+  recentSessions: [],
+};
 
 const AGENT_KEY = "riskctrl";
 const AGENT_HREF = "/archive/riskctrl";
@@ -129,22 +157,17 @@ type RecentLabel = { value: string; label: string; demo?: boolean };
  * (history + preset dropdown 入口删除 · 仅保留 primary DSL gen 真路径) */
 
 export default function RiskctrlWorkspace() {
-  /* workspace-state-protocol v1.1 §2 强制 4 gate ·
-     (1) started · (2) selectedSession · (3) liveData · (4) selectedRuleOrSegment
-     sessionData = liveData ?? mock[selectedSession] · 5 panel 单点派生 · 切下拉全跟切。
-     started = "是否进入功能态" · empty-state-design-protocol v1.0 用户触发后才 setStarted(true)。 */
+  /* ALL IN Phase B step 2 · workspace state 简化 · 删 selectedSession (无 mock 库可切) ·
+   * sessionData = liveData ?? EMPTY_SESSION · 真 live 没回来时显空骨架 · 不显假数据
+   * started = "是否进入功能态" · empty-state-design-protocol v1.0 用户触发后才 setStarted(true) */
   const [started, setStarted] = useState<boolean>(false);
-  const [selectedSession, setSelectedSession] = useState<string>(RISKCTRL_DEFAULT_SESSION_ID);
   const [liveData, setLiveData] = useState<RiskctrlSession | null>(null);
   const [selectedRuleOrSegment, setSelectedRuleOrSegment] = useState<
     { kind: "rule"; id: string } | { kind: "segment"; key: SampleBar["key"] } | null
   >(null);
 
-  /* sessionData 单点派生 · live 优先 · 否则 mock by selectedSession · 兜底 default */
-  const sessionData: RiskctrlSession =
-    liveData ??
-    RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
-    RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
+  /* ALL IN Phase B step 2 · sessionData 单点派生 · live 优先 · 否则 EMPTY_SESSION (不 fallback mock) */
+  const sessionData: RiskctrlSession = liveData ?? EMPTY_SESSION;
 
   const isLive = liveData !== null;
   /* 件 #2 · data_source SSOT 真消费 (per Q-054 risk #1) · 默认 mock (no run yet). */
@@ -273,11 +296,9 @@ export default function RiskctrlWorkspace() {
       if (ac.signal.aborted) return;
       setScanned(true);
       if (result) {
-        // Step 8 · backtest done → liveData · panel 整套切真数据
-        const base =
-          RISKCTRL_MOCK_SESSIONS_MAP[selectedSession] ??
-          RISKCTRL_MOCK_SESSIONS_MAP[RISKCTRL_DEFAULT_SESSION_ID];
-        const merged = mergeBacktestIntoSession(base, result);
+        // ALL IN Phase B step 2 · backtest done → liveData · base 改 EMPTY_SESSION
+        // 真 live 数据 merge 到空骨架上 · 不再 fallback mock session
+        const merged = mergeBacktestIntoSession(EMPTY_SESSION, result);
         setLiveData(merged);
         /* 件 #2 · data_source SSOT 真消费 · backtest done envelope 5 enum (per riskctrl.ts T2) */
         setCurrentDataSource(normalizeDataSource(result.data_source));
@@ -291,7 +312,7 @@ export default function RiskctrlWorkspace() {
     } finally {
       if (!ac.signal.aborted) setScanRunning(false);
     }
-  }, [lastRuleset, lastSampleCsvPath, selectedSession]);
+  }, [lastRuleset, lastSampleCsvPath]);
 
   /* 三件套导出 · POST /api/riskctrl/export_{docx,xlsx,pdf} · backend Step 7 已实装
      (agent_riskctrl/exports.py · python-docx / openpyxl / reportlab 本地渲染 · 不走境外 API) */
@@ -431,17 +452,9 @@ export default function RiskctrlWorkspace() {
                   }
                   onSelectRule={(id) => setSelectedRuleOrSegment({ kind: "rule", id })}
                 />
-                <RecentPanel
-                  sessionData={sessionData}
-                  selectedSession={selectedSession}
-                  onSelectSession={(id) => {
-                    /* ALL IN Phase B step 1 · 删 setRecent(id) (recent state 已移除) ·
-                     * 仅 sidebar RecentPanel 切换 mock session · Step 2 改成 EMPTY_SESSION 后此逻辑会再清 */
-                    setSelectedSession(id);
-                    setLiveData(null);
-                    setSelectedRuleOrSegment(null);
-                  }}
-                />
+                {/* ALL IN Phase B step 2 · RecentPanel 改空状态 · 不再切 mock session ·
+                 * TODO Phase A.5 ship 后接 ledger 显真历史 backtest list (RFC 2 watcher 出 event) */}
+                <RecentPanel sessionData={sessionData} />
               </aside>
               <main className="rpt-main">
                 <div data-testid="riskctrl-backtest-cta">
@@ -857,18 +870,13 @@ function RulesPanel({
 
 /* ── 左栏 · Recent ────────────────────────────────── */
 
-function RecentPanel({
-  sessionData,
-  selectedSession,
-  onSelectSession,
-}: {
-  sessionData: RiskctrlSession;
-  selectedSession: string;
-  onSelectSession: (id: string) => void;
-}) {
+function RecentPanel({ sessionData }: { sessionData: RiskctrlSession }) {
+  /* ALL IN Phase B step 2 · 删 mock session dropdown · 显真历史 list (来自 sessionData.recentSessions) ·
+   * EMPTY_SESSION 时 list = [] 自动显空状态 ·
+   * TODO Phase A.5 ship RFC 2 watcher 后 · backtest decision_ledger 出真历史 list */
   const recent = sessionData.recentSessions;
   return (
-    <section className="rpt-panel rpt-panel--tl">
+    <section className="rpt-panel rpt-panel--tl" data-testid="riskctrl-recent-panel">
       <PanelPinHandle
         id="riskctrl:recent"
         title={`近期策略 · ${recent.length} 条`}
@@ -883,26 +891,19 @@ function RecentPanel({
           <div className="rpt-panel-eyebrow">RECENT · 近期策略</div>
           <h3 className="rpt-panel-title">{recent.length} 条</h3>
         </div>
-        <select
-          className="rpt-tl-switch"
-          aria-label="切换 session"
-          value={selectedSession}
-          onChange={(e) => onSelectSession(e.target.value)}
-          data-testid="riskctrl-session-switch"
-        >
-          {RISKCTRL_MOCK_SESSIONS_LIST.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.objective}
-            </option>
-          ))}
-        </select>
       </div>
       <div className="rpt-panel-body rpt-tl-body">
-        <ol className="rc-rc-list">
-          {recent.map((r) => (
-            <RecentRow key={r.id} row={r} />
-          ))}
-        </ol>
+        {recent.length === 0 ? (
+          <div className="rc-rc-empty" data-testid="riskctrl-recent-empty">
+            尚无历史回测 · 待 Phase A.5 ship 后接 decision_ledger 出真历史
+          </div>
+        ) : (
+          <ol className="rc-rc-list">
+            {recent.map((r) => (
+              <RecentRow key={r.id} row={r} />
+            ))}
+          </ol>
+        )}
       </div>
     </section>
   );
