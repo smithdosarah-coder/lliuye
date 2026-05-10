@@ -980,28 +980,37 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
   - V1 spec sse-envelope §2.1 描述嵌套 envelope 但 V2 helper `make_done` 实装为扁平 (panels expand 顶层) · A3 跟 V2 实装走 (drift 详情 `docs/onboarding/A3-design-draft.md` §3)
   - `warnings` 走 `**extras` 通道塞 done envelope 顶层 (A2 helper 不 first-class warnings param · A2 V2.1 升级时再 promote)
 
-## F-066 · /api/channel/demo/run + 3 scenario JSON (Phase A worker-A3)
+## F-066 · /api/channel/demo/run + 形态切换 toggle (Phase B.2 真意 reframe · PM 2026-05-10)
 
-- **location**: `agent_channel/api.py` (`channel_demo_run` endpoint + `_SCENARIO_DIR`) + `data/mock/workspace/channel/scenarios/{easy,medium,hard}.json`
+- **location**:
+  - `agent_channel/api.py` (`channel_demo_run` endpoint · 走 `seed_query_builder` + `run_channel_search_stream`)
+  - `agent_channel/seed_query_builder.py` (parse_marketing_preferences + build_queries · 不走 LLM)
+  - `web/src/app/archive/channel/_components/ChannelWorkspace.tsx` (`runDemoScenario` + 形态切换 toggle)
 - **interaction**:
-  - 前端 POST `/api/channel/demo/run` body `{scenario_id: "easy"|"medium"|"hard"}` (默认 medium)
-  - 后端读 `<scenarios>/<id>.json` · 6 stage running/done 流 (parse/signal_scan/aggregate/enrich/pitch/rank · 各 0.25s sleep) · 末尾 `make_done(panels=7, data_source="mock_forced")`
-  - scenario 文件不存在 / 加载失败 / id 非法 → `make_error(code=DEMO_SCENARIO_{INVALID,MISSING,LOAD})`
-- **introduce**: 2026-04-29 Phase A worker-A3
-- **lost_at**: N/A (新 endpoint · 与 live `/api/channel/run` 路径分开 · 客户走访稳定 demo 路径)
-- **contract**: `shared/sse_envelope.py make_done` + `workspace-state-protocol.md` §4 (frontend 同消费路径)
-- **scenario data 反 5 原则** (CLAUDE.md §3.5):
-  - easy (信号密度高 · 3 候选 · radar 全亮 · metrics signalTotal=42 final=8)
-  - medium (中等 · 3 候选 · radar 半亮 · 1 路降级 1 路 off · metrics signalTotal=21 final=5)
-  - hard (稀疏 · 3 候选 · 多家风险标签 · 2 路 off 1 路降级 · metrics signalTotal=11 final=3)
-  - 锚定 A 股年报 + 工信部 + 银保监公告形态 · 改名改数字保量级 · 不含答案字段
+  - 前端 POST `/api/channel/demo/run` body `{scenario_id: "easy"|"medium"|"hard", rm_region?}` (默认 medium)
+  - 后端 1) 真读 `data/mock/channel-kb/marketing-preferences/*.docx` (= "上传的 sample") · 2) 派生 seed query · 3) 调 `run_channel_search_stream` (真 Tavily + 真 LLM + 8 源 + evidence_scorer) · 4) 真返结果
+  - 第一个 SSE event: `demo_context` (透出 sample_source / sample_files / derived_seed_query)
+  - 后续 SSE: 6 stage running/done + done envelope (data_source=live / mock_fallback)
+  - 错误: `error` event with code TAVILY_KEY_MISSING_FOR_DEMO / DEMO_SCENARIO_INVALID / DEMO_KB_EMPTY / DEMO_KB_MISSING (typed banner · 不 silent fallback)
+- **introduce**: 2026-04-29 Phase A worker-A3 (旧 fixture 路径) · 2026-05-10 Phase B.2 真意 reframe (改真后端)
+- **lost_at**: N/A (旧 fixture 路径 deprecated · 文件 `data/mock/workspace/channel/scenarios/<id>.json` 物理保留作 archive 但 endpoint 不再读)
+- **contract**:
+  - `shared/sse_envelope.py make_done` + `workspace-state-protocol.md` §4 (frontend 同消费路径)
+  - `live-fallback-banner-spec.md` §1.5 (TAVILY 缺 typed banner)
+  - CLAUDE.md §3.5 反 5 原则 (mock 只 mock 输入 channel-kb · 不 mock 结果)
+  - dispatch `docs/onboarding/B2-phase-b2-dispatch.md` §不可 GO 硬线
+- **形态切换 toggle (PM 2026-05-10 主活 B)**:
+  - 默认 `inputMode="free"` (RM 自由查询 → /api/channel/run)
+  - 切到 `inputMode="sample"` (channel-kb 派生 seed → /api/channel/demo/run)
+  - 两形态都跑真后端 · 区别仅 input 来源 · 不是数据真假
 - **smoke_test**:
-  - `python -c "..."` in-process: easy/medium/hard 各 12 stage + 1 done + 8/8 panels (V3 加 conversation) · INVALID 1 error code=DEMO_SCENARIO_INVALID
-  - Playwright T5 (`channel-pilot-4gate.spec.ts`) · 验 `[data-testid="channel-demo-medium"]` click → /api/channel/demo/run hit · scenario_id="medium" · done.data_source="mock_forced" · 5 panel hydrate
-- **NB**:
-  - V2 fix (2026-04-30): UI demo 按钮 wire 完成 · `[data-testid="channel-demo-{easy,medium,hard}"]` 3 档按钮 in QueryBar (走 `runDemoScenario` → streamSse → `/api/channel/demo/run` → setLiveData/setMessages/setSelectedCandidate)
-  - V3 fix (2026-04-30): scenario JSON 可填 `conversation: [...]` (默认 [] · backend `data.get("conversation", [])` 透传) · 前端 normalizeBackendDone 派生 ConversationPanel
-  - scenario JSON 是 SSOT · 视觉调整 / 文案改 / 难度档调 → 改 JSON 即可 · 不需重启后端
+  - `tests/agent_channel/test_demo_run_real_backend.py` (5 case · invalid_scenario / demo_context / no_tavily / no_old_fixture / kb_empty · all PASS)
+  - Playwright T5 (`channel-pilot-4gate.spec.ts`) · 验 `[data-testid="input-mode-sample"]` click → 切 sample 形态 · `[data-testid="scout-sample-medium"]` click → /api/channel/demo/run hit · scenario_id="medium" · done.data_source="live" (真后端 default) · demo_context 透出 sample_files
+- **NB (Phase B.2 真意 reframe)**:
+  - 旧 fixture event yield 路径**已废** · 不再读 `data/mock/workspace/channel/scenarios/<id>.json` · 反 §3.5 5 原则 (答案给嘴边)
+  - `_SCENARIO_DIR` 旧常量已删除 · `seed_query_builder` 是 SSOT · 改 channel-kb docx 即可调 demo 输入
+  - data_source 默认 "live" (Tavily 真搜) · Tavily fallback → "mock_fallback" + warnings · 不再硬编 mock_forced
+  - PM 真意 verbatim: "演示不是一键切换 · 而是把本地的 mock 数据真实上传 · 通过真实后端代码跑一遍 · 最后给出结果"
 
 ## F-067 · Credit pilot 4-gate state model + Cat 0/3/4/13 fix (Phase A worker-A4-credit)
 
