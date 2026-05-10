@@ -55,11 +55,13 @@ def _read_message(args: argparse.Namespace) -> str:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
+            errors="replace",
         )
         if result.returncode != 0:
             print(f"[verify_signal] git log failed: {result.stderr}", file=sys.stderr)
             sys.exit(2)
-        return result.stdout
+        return result.stdout or ""
     raise SystemExit("must pass --message-file or commit sha")
 
 
