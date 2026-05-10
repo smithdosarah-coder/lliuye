@@ -61,6 +61,37 @@
 
 ---
 
+## 2026-05-09 · 新一任主 CLI 接手 · ALL IN Phase A 启动前 (二度 resume)
+
+### What happened
+- 上一任主 CLI 2026-05-08 fire NEW-MAIN-CLI-RESUMED commit `0c255ee` · 但**未获 PM GO** · session 闲置 1d
+- 本任主 CLI (Claude Opus 4.7 · 1M context · 2026-05-09 中文 session) 按 CLAUDE.md §14 流程**重新走一遍**接手 · 读完 KT 5 文件 + git log -20 + `git worktree list` + scoreboard + decisions-log Q-055/Q-056 + mesh.json + north-star §1
+- verify mesh 物理状态 (delta vs 上任 resume):
+  - `mesh/common` HEAD = `bdefb23` "RESUMED · common worker · Phase A 冻结 contract + 共性架构" (common worker self-onboarding 已 fire · 5 件交付物 0/5)
+  - `mesh/report` HEAD = `aefa690` (worktree list) · 但 `feat/allin-report` 分支 tip = `343fff8` "RESUMED · report worker · Phase B ALL IN 改造" (report worker self-onboarding 已 fire · 但同一分支 worktree HEAD 显示 lag · 不影响 worker 进度)
+  - `mesh/{credit,alert,riskctrl,compliance}` HEAD 全 `aefa690` (4 worker 自启 RESUMED 待触发)
+- 当前 main HEAD `0c255ee` · branch `main` · ahead origin/main by 1 · working tree dirty: `docs/poc_2026-05-06.xlsx` modified + `.tmp/` + 13 个 untracked draft (`docs/KT-anthropic-finance-mirror.md` + `docs/product-matrix-ui-concept-{,v2,v3}.html` + 6 png + `docs/working/{round1,round2,round3}-prompt.md` + `claude-proposal.md` + `codex-prompt.md` + `codex-proposal.md` + `debate-log.md` + `p0-converged-v1.md`)
+- working draft 全是 Q-055/Q-056 真双辩论过程产物 · 不属本 resume scope · 留 PM 处置 (已和上任 resume 一致)
+- 本 session 不动代码 · 不 push · 不 deploy · 仅 NEW-MAIN-CLI-RESUMED commit + state-snapshot 同步 · 等 PM verify GO
+
+### Triggered by
+- PM 2026-05-09 给本主 CLI 第一句指令 "读 docs/working/allin-final-exec-2026-05-08.md + phase-r3-worker-runbook + 3 核心 contract + §3.7 + §13 + §15 + git log + scoreboard · 写 NEW-MAIN-CLI-RESUMED commit · 等 PM verify GO"
+
+### State change (delta)
+- 主 CLI orchestrator: 上一任 (Claude Opus 4.7 · 2026-05-08 session) → 本任 (Claude Opus 4.7 · 1M context · 2026-05-09 session)
+- ALL IN mesh: 上任 resume 闲置 → 本任 resume 完成等 PM GO
+- 2 mesh worktree (`common` + `report`) 已自启 RESUMED · 4 worker (`credit/alert/riskctrl/compliance`) 物理状态未变 · 仍等启
+- 上任 resume commit `0c255ee` 未 push origin · 本 commit 也不 push (per §13.1 等 PM 显式)
+
+### Next
+- (本 commit 含 §14 NEW-MAIN-CLI-RESUMED 模板 · 等 PM verify)
+- PM verify GO 后:
+  - cmd 1: 给 common worker (`mesh/common`) 派活 "Phase A 5 件交付物 · 完善 3 contract spec + 抽 3 共性架构 (LiveShell/EvidenceDrawer/SourceHealth) + 6 resume 脚本 + lark-base dashboard + 5 agent AGENT_IDENTITY 模板"
+  - cmd 2: 等 common worker fire `signal common worker ready · ALLIN Phase A complete` (~0.5d) · 主 CLI gate verify (5 agent worker read-through 通过)
+  - cmd 3: gate 过 → 启 4 个 idle agent worker (credit/alert/riskctrl/compliance) 进 Phase B 并行 + report worker (已 RESUMED) 一起跑 (~1-1.5d wall-clock)
+  - cmd 4: 收 5 worker `Signal: READY` (per signal-commit-contract) → cherry-pick 整合 (DIFF guard 验没改 shared/) → 跑 pytest + Playwright 6 agent → ECS deploy (~0.5d)
+- 红线全程: 假 live / 假分 / 无证据 claim / v16 stub 冒充真源 / 无决策账本版本 / 无源健康检查 / 评分无回测 / 监管条款无原文 hash / 审批/贷后反馈丢链路 / SSE 展示与落库不一致 (任一触发即 stop-the-line)
+
 ---
 
 ## 2026-04-29 (本批次 3) · Neat-freak 跨 3 层知识洁癖整理
