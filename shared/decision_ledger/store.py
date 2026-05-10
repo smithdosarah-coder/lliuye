@@ -58,12 +58,22 @@ CREATE TABLE IF NOT EXISTS decisions (
   retention_class  TEXT NOT NULL,
   subject_name     TEXT,
   subject_id       TEXT,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  is_feedback      INTEGER NOT NULL DEFAULT 0,
+  feedback_meta    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_agent_ts        ON decisions(agent_id, ts);
 CREATE INDEX IF NOT EXISTS idx_jurisdiction_ts ON decisions(jurisdiction, ts);
 CREATE INDEX IF NOT EXISTS idx_subject         ON decisions(subject_id);
+CREATE INDEX IF NOT EXISTS idx_is_feedback     ON decisions(is_feedback, ts);
 """
+
+# Phase A.5 (2026-05-09) · feedback_meta + is_feedback 加到现有 schema · 旧 db 文件用
+# ALTER 升级 (silent-skip if column 已存在 · sqlite raise OperationalError when dup).
+_SCHEMA_MIGRATIONS = (
+    "ALTER TABLE decisions ADD COLUMN is_feedback INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE decisions ADD COLUMN feedback_meta TEXT",
+)
 
 
 def _truncate_json(payload: Any, max_bytes: int) -> str:
@@ -113,6 +123,12 @@ class DecisionLedger:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.executescript(_SCHEMA_SQL)
+                # Phase A.5 ALTER · silent-skip if column 已存在
+                for sql in _SCHEMA_MIGRATIONS:
+                    try:
+                        conn.execute(sql)
+                    except sqlite3.OperationalError:
+                        pass  # duplicate column name (already migrated)
                 conn.commit()
         except sqlite3.Error as e:  # pragma: no cover · disk failure
             logger.warning("[decision_ledger] schema init failed: %s", e)
@@ -199,6 +215,172 @@ class DecisionLedger:
                 decision_id=decision_id, persisted=False,
                 error=f"{type(exc).__name__}: {exc}",
             )
+
+    # ------------------------------------------------------------------
+    # Feedback (Phase A.5 · per cross-agent-feedback-protocol)
+    # ------------------------------------------------------------------
+
+    def record_feedback(
+        self,
+        *,
+        producer_agent: str,
+        consumer_agents: list[str],
+        feedback_type: str,
+        original_decision_id: str,
+        subject_entity_key: str,
+        payload: dict[str, Any],
+        decision_id: str | None = None,
+        ts: str | None = None,
+        jurisdiction: str | None = None,
+    ) -> LedgerWriteResult:
+        """Persist one cross-agent feedback event · per cross-agent-feedback-protocol.
+
+        Retention auto-derived from consumer_agents (per M1 · MAX(consumer retention)).
+        """
+        from .schema import (
+            DEFAULT_RETENTION_BY_AGENT, RETENTION_LONG, RETENTION_STANDARD,
+            RETENTION_SHORT,
+        )
+        if not consumer_agents:
+            return LedgerWriteResult(
+                decision_id=decision_id or "", persisted=False,
+                error="ValueError: consumer_agents required (≥ 1)",
+            )
+
+        # M1 · retention 取 MAX(consumer agent retention)
+        rank = {RETENTION_SHORT: 0, RETENTION_STANDARD: 1, RETENTION_LONG: 2}
+        consumer_classes = [
+            DEFAULT_RETENTION_BY_AGENT.get(a, RETENTION_STANDARD)
+            for a in consumer_agents
+        ]
+        feedback_retention = max(consumer_classes, key=lambda c: rank[c])
+
+        feedback_meta = {
+            "feedback_type": feedback_type,
+            "consumer_agents": list(consumer_agents),
+            "original_decision_id": original_decision_id,
+            "subject_entity_key": subject_entity_key,
+            "payload": dict(payload),
+        }
+
+        decision_id = decision_id or str(uuid.uuid4())
+        try:
+            entry = LedgerEntry(
+                decision_id=decision_id,
+                agent_id=producer_agent,
+                endpoint=f"feedback/{feedback_type}",
+                ts=ts or LedgerEntry.now_iso(),
+                input_hash=canonical_hash(payload),
+                output_hash=canonical_hash({"event_id": decision_id}),
+                evidence_chain={"original_decision_id": original_decision_id},
+                jurisdiction=resolve_jurisdiction(jurisdiction),
+                retention_class=feedback_retention,
+                subject_name=None,  # entity_key 已在 feedback_meta
+                subject_id=None,
+                is_feedback=True,
+                feedback_meta=feedback_meta,
+            )
+        except (TypeError, ValueError) as exc:
+            return LedgerWriteResult(
+                decision_id=decision_id, persisted=False,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
+        evidence_blob = _truncate_json(entry.evidence_chain, EVIDENCE_MAX_BYTES)
+        feedback_meta_blob = json.dumps(entry.feedback_meta, ensure_ascii=False)
+        try:
+            with self._lock, sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO decisions (
+                      decision_id, agent_id, endpoint, ts,
+                      input_hash, output_hash, evidence_chain,
+                      reviewer_id, reviewer_action, reviewer_ts,
+                      jurisdiction, retention_class,
+                      subject_name, subject_id,
+                      is_feedback, feedback_meta
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        entry.decision_id, entry.agent_id, entry.endpoint,
+                        entry.ts, entry.input_hash, entry.output_hash,
+                        evidence_blob,
+                        entry.reviewer_id, entry.reviewer_action,
+                        entry.reviewer_ts,
+                        entry.jurisdiction, entry.retention_class,
+                        entry.subject_name, entry.subject_id,
+                        1, feedback_meta_blob,
+                    ),
+                )
+                conn.commit()
+            return LedgerWriteResult(decision_id=decision_id, persisted=True)
+        except (sqlite3.Error, OSError) as exc:
+            logger.warning(
+                "[decision_ledger] feedback sqlite write failed for %s: %s",
+                decision_id, exc,
+            )
+            return LedgerWriteResult(
+                decision_id=decision_id, persisted=False,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
+    def query_feedback_after(
+        self,
+        *,
+        last_decision_id: str | None,
+        consumer_agent: str,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Watcher 用 · 拉 last_decision_id 之后未消费的 feedback event.
+
+        排序按 ROWID ASC (insertion order · sqlite 自动递增 · 不受 created_at 秒精度影响).
+        Filter: is_feedback=1 · consumer_agent in feedback_meta.consumer_agents.
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                if last_decision_id:
+                    rows = conn.execute(
+                        """
+                        SELECT * FROM decisions
+                        WHERE is_feedback = 1
+                          AND ROWID > (
+                            SELECT ROWID FROM decisions WHERE decision_id = ?
+                          )
+                        ORDER BY ROWID ASC
+                        LIMIT ?
+                        """,
+                        (last_decision_id, limit),
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        """
+                        SELECT * FROM decisions
+                        WHERE is_feedback = 1
+                        ORDER BY ROWID ASC
+                        LIMIT ?
+                        """,
+                        (limit,),
+                    ).fetchall()
+        except sqlite3.Error as exc:
+            logger.warning("[decision_ledger] feedback query failed: %s", exc)
+            return []
+
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            d = dict(row)
+            # 反序列化 feedback_meta
+            if d.get("feedback_meta"):
+                try:
+                    d["feedback_meta"] = json.loads(d["feedback_meta"])
+                except json.JSONDecodeError:
+                    continue  # skip 损坏 entry · 不阻塞 stream
+            # filter consumer
+            consumers = d["feedback_meta"].get("consumer_agents", []) if isinstance(d.get("feedback_meta"), dict) else []
+            if consumer_agent not in consumers:
+                continue
+            out.append(d)
+        return out
 
     # ------------------------------------------------------------------
     # Read
