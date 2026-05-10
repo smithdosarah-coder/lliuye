@@ -35,6 +35,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 (硬规)
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 # 5 阶段(同 api.py STAGE_*)
@@ -286,6 +289,11 @@ async def mock_v16_stream(
             },
         ],
     }
+    # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4.2 (硬规) ·
+    # sections / pending_questions / evidences 全经 helper · 防 regression placeholder
+    ensure_list_unique_ids(done["sections"], name_field="title", uscc_field="", id_field="id")
+    ensure_list_unique_ids(done["pending_questions"], name_field="label", uscc_field="", id_field="id")
+    ensure_list_unique_ids(done["evidences"], name_field="source", uscc_field="", id_field="evidence_id")
     yield _sse("done", done)
 
 
