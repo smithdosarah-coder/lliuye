@@ -35,13 +35,11 @@ import {
   type ChangeEvent,
 } from "react";
 import { useAuthStore } from "@/lib/store";
-import { ModePill } from "@/components/shared/ModePill";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
-  ALERT_MOCK_SESSIONS_LIST,
   ALERT_MOCK_SESSIONS_MAP,
   DEFAULT_SESSION_ID,
   type AlertPipelineStep,
@@ -786,14 +784,6 @@ export default function AlertWorkspace() {
               </div>
             ) : null}
 
-            <SessionPickerBar
-              sessions={ALERT_MOCK_SESSIONS_LIST}
-              selectedId={selectedSessionId}
-              onSelect={handleSelectSession}
-              liveMode={liveData != null}
-              currentLabel={sessionData.difficulty_label}
-            />
-
             <HeroSection
               weeklyProcessed={ALERT_GLOBAL_STATS.weeklyProcessed}
               redRate={ALERT_GLOBAL_STATS.redRate}
@@ -976,8 +966,6 @@ function HeroSection(p: {
           <span className="al-hero__kb-dot" aria-hidden />
           {p.kbState}
         </span>
-        {/* PM bug #4 P2 · MOCK/LIVE badge · 5 workspace 一致 */}
-        <ModePill isLive={p.isLive ?? false} testId="alert-mode-pill" size="sm" />
         {/* 件 #2 · data_source SSOT 真消费 · 5-enum trust model badge (Q-054 risk #1 fix) */}
         {p.dataSourceKind && (
           <DataSourceBadge kind={p.dataSourceKind} testId="alert-data-source-badge" size="sm" />
