@@ -183,6 +183,74 @@ export async function runBacktest(
 
 
 /* ──────────────────────────────────────────────────────
+   Demo seed registry · Phase B.2 ALL IN reframe (2026-05-10)
+   GET /api/riskctrl/demo/seeds → 枚举可用 input seed (仅输入 · 无答案)
+   POST /api/riskctrl/demo/run → 用 seed 跑真后端 dsl_gen + backtest pipeline
+   ────────────────────────────────────────────────────── */
+
+const ENDPOINT_DEMO_SEEDS = "/api/riskctrl/demo/seeds";
+const ENDPOINT_DEMO_RUN = "/api/riskctrl/demo/run";
+
+export type RiskctrlDemoSeed = {
+  seed_id: string;
+  label: string;
+  difficulty: string;
+  strategy_intent: string;
+  csv_path: string;
+};
+
+export type DemoSeedsResponse = {
+  seeds: RiskctrlDemoSeed[];
+};
+
+/** 枚举可用 demo input seed · 失败抛 LiveFailError */
+export async function fetchDemoSeeds(signal?: AbortSignal): Promise<RiskctrlDemoSeed[]> {
+  let resp: Response;
+  try {
+    resp = await fetch(ENDPOINT_DEMO_SEEDS, { signal });
+  } catch (e) {
+    throw new LiveFailError(
+      `network error: ${e instanceof Error ? e.message : String(e)}`,
+      0, ENDPOINT_DEMO_SEEDS, "",
+    );
+  }
+  if (!resp.ok) {
+    const excerpt = (await resp.text().catch(() => "")).slice(0, 200);
+    throw new LiveFailError(`HTTP ${resp.status}`, resp.status, ENDPOINT_DEMO_SEEDS, excerpt);
+  }
+  const data = await resp.json() as DemoSeedsResponse;
+  return data.seeds ?? [];
+}
+
+/** Demo run done payload · 与 backtest 同 shape + metrics 顶层加 demo_seed_* 标识 */
+export type DemoRunDonePayload = BacktestDonePayload & {
+  metrics: BacktestDonePayload["metrics"] & {
+    demo_seed_id?: string;
+    demo_seed_label?: string;
+    demo_strategy_intent?: string;
+  };
+};
+
+/** 用 demo seed 跑真后端 pipeline (dsl_gen LLM + backtest 确定性 KS/AUC) · 失败抛 LiveFailError */
+export async function runDemo(
+  seedId: string,
+  onEvent?: RiskctrlSseHandler,
+  signal?: AbortSignal,
+): Promise<DemoRunDonePayload | null> {
+  const body = { seed_id: seedId };
+  let donePayload: DemoRunDonePayload | null = null;
+  await streamSse(ENDPOINT_DEMO_RUN, body, (evt) => {
+    if (signal?.aborted) return;
+    onEvent?.(evt);
+    if (evt.type === "done") {
+      donePayload = evt.data as unknown as DemoRunDonePayload;
+    }
+  }, { signal });
+  return donePayload;
+}
+
+
+/* ──────────────────────────────────────────────────────
    Export trio · docx / xlsx / pdf
    后端 Step 7 实装 (agent_riskctrl/exports.py) · 不再 silent 404 fallback
    ────────────────────────────────────────────────────── */
