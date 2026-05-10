@@ -465,14 +465,16 @@ class HandoffFromReportRequest(BaseModel):
 @app.post("/api/credit/handoff/from_report")
 async def handoff_from_report(
     req: HandoffFromReportRequest,
-    _user: dict = Depends(require_action("credit", "handoff")),
+    user: dict = Depends(require_action("credit", "handoff")),
 ):
     """Agent6→Agent3 handoff · Cat 0 北极星核心: EmptyState onPrimary 真消费 ReportJSON。
 
     返 enterprise_profile + ready_for_decision flag · 前端注入 /api/credit/decision body。
 
-    Phase A 路径: session_id "demo_corp_dingsheng_trade" → 读 demo_data/agent_credit/corp_dingsheng_trade.json
-    Phase B 路径: 真接 data/handoff/report_to_credit/<report_id>.json (Agent6 v16 pipeline 输出)
+    Phase B.1 fix #3 · 改默认读 Agent6 真产物 archive (report worker 写本 worker 读):
+      - 默认路径: data/handoff/report_to_credit/<sid>.json
+      - Demo 路径: 仅 user.demoModeAvailable=true 时 sid 可用 "demo_" 前缀解锁 demo_data/agent_credit/<stem>.json
+      - 反 KT §3.6 红线 #1 假 live · 默认生产路径 only · demo 显式解锁
     """
     sid = req.session_id
     if not sid:
@@ -480,8 +482,22 @@ async def handoff_from_report(
             "error": {"code": "VALIDATION_FAILED", "message": "session_id required"}
         })
 
-    # Phase A demo · session_id "demo_<filename_stem>" → 找 demo_data/agent_credit/<stem>.json
-    if sid.startswith("demo_"):
+    demo_unlocked = bool(user.get("demoModeAvailable", False))
+    is_demo_sid = sid.startswith("demo_")
+
+    if is_demo_sid:
+        # Phase B.1 fix #3 · demo 路径仅 demoModeAvailable 解锁
+        if not demo_unlocked:
+            raise HTTPException(403, detail={
+                "error": {
+                    "code": "DEMO_LOCKED",
+                    "message": (
+                        "demo session_id 不允许 (per Phase B.1 fix #3) · "
+                        "需 demoModeAvailable=true 解锁 (从 /api/auth/me payload 读)"
+                    ),
+                    "details": {"sid": sid, "demoModeAvailable": False},
+                }
+            })
         stem = sid[len("demo_"):]
         path = _HANDOFF_DIR / f"{stem}.json"
         if not path.exists():
@@ -491,12 +507,18 @@ async def handoff_from_report(
                           "available": [p.stem for p in _HANDOFF_DIR.glob("*.json")]}
             })
     else:
-        # Phase B path · 真接 Agent6 archive (待 A6 v16 pipeline production-wire)
-        archive = PROJECT_ROOT / "data" / "handoff" / "report_to_credit" / f"{sid}.json"
+        # 默认路径 · Agent6 真产物 archive (data/handoff/report_to_credit/<sid>.json)
+        archive = _AGENT6_ARCHIVE_DIR / f"{sid}.json"
         if not archive.exists():
             raise HTTPException(404, detail={
                 "error": {"code": "REPORT_NOT_FOUND",
-                          "message": f"Agent6 archive not found: {sid} (Phase B path 待 A6 production wire)"}
+                          "message": (
+                              f"Agent6 archive not found: {sid}.json · "
+                              "report worker 应已写本路径 · 检查 /archive/report 是否完成尽调"
+                          ),
+                          "details": {
+                              "expected_path": str(archive.relative_to(PROJECT_ROOT)),
+                          }}
             })
         path = archive
 
