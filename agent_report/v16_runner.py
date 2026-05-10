@@ -493,13 +493,22 @@ def should_use_mock_v16(
     has_dee_pseek_key: bool,
     explicit_mock: bool,
 ) -> tuple[bool, str]:
-    """判断 v16 fill 应走 mock 还是 real · 返 (should_mock, reason)."""
+    """判断 v16 fill 应走 mock 还是 real · 返 (should_mock, reason).
+
+    PM 2026-05-09 ALL IN 真产品 (per AGENT_IDENTITY-report.md §6 step 3 + 红线 1 假 live):
+    silent mock fallback 全删 · 仅 explicit_mock=True 走 mock · 其他全 raise · 不假装真路径.
+    """
     if explicit_mock:
         return True, "explicit_mock=true"
     if not has_dee_pseek_key:
-        return True, "DEEPSEEK_API_KEY 未配置 · 切 mock"
+        # 此处通常不到 (api.py /v16/fill 在 fill_stream 前已 fail-fast 503 拒 silent fallback) · 防御性 raise
+        raise RuntimeError(
+            "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 拒 silent mock fallback (红线 1)"
+        )
     if classified_json is None or not classified_json.exists():
-        return True, "v16_llm_classified.json 不存在 · 切 mock(请先跑 v16_classifier)"
+        raise RuntimeError(
+            f"v16_llm_classified.json 不存在 ({classified_json}) · 请先跑 v16_classifier · 拒 silent mock fallback (红线 1)"
+        )
     return False, "real_v16"
 
 
