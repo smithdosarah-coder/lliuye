@@ -42,6 +42,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from auth_service.dependencies import require_action  # noqa: E402
 from shared.api_utils import sse_encode, to_jsonable  # noqa: E402
+from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
 from shared.qc import mark_unfilled, scan as scan_placeholders  # noqa: E402
 
 # Stage E.1 · audit log decorator (silent fail if audit_service unavailable)
@@ -589,27 +590,37 @@ def _mock_decision_events(stage_tab: str) -> list[dict[str, Any]]:
             for i, d in enumerate(seg_dim["scoring_dimensions"])
         },
     }
-    rule_done_payload = [
-        {
-            "rule_id": f"{stage_tab[:4]}_rl_001",
-            "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
-            "is_hard": False,
-            "can_waive": True,
-            "severity": "medium",
-            "actual_value": 0.32 if not is_retail else 1,
-            "threshold": 0.30 if not is_retail else 0,
-            "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
-        },
-    ]
-    case_done_payload = [
-        {
-            "case_id": f"case_{stage_tab[:4]}_022",
-            "company_name": "启明软件" if not is_retail else "李四",
-            "similarity": 0.92,
-            "decision": "批",
-            "approved_amount": 400 if not is_retail else 50,
-        },
-    ]
+    rule_done_payload = ensure_list_unique_ids(
+        [
+            {
+                "rule_id": f"{stage_tab[:4]}_rl_001",
+                "rule_name": "关联交易占比" if not is_retail else "近 12 月逾期次数",
+                "is_hard": False,
+                "can_waive": True,
+                "severity": "medium",
+                "actual_value": 0.32 if not is_retail else 1,
+                "threshold": 0.30 if not is_retail else 0,
+                "waiver_conditions": ["补充审计说明"] if not is_retail else ["逾期已结清证明"],
+            },
+        ],
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4 · 后端 emit 必经 helper
+        name_field="rule_name",
+        uscc_field="",
+    )
+    case_done_payload = ensure_list_unique_ids(
+        [
+            {
+                "case_id": f"case_{stage_tab[:4]}_022",
+                "company_name": "启明软件" if not is_retail else "李四",
+                "similarity": 0.92,
+                "decision": "批",
+                "approved_amount": 400 if not is_retail else 50,
+            },
+        ],
+        # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §4
+        name_field="company_name",
+        uscc_field="",
+    )
     advising_done_payload = {
         "decision": "有条件批准",
         "approved_amount": 300 if stage_tab == "corporate"
@@ -729,9 +740,15 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 if stage == "scoring_done" and isinstance(cleaned, dict):
                     last_scoring = cleaned
                 elif stage == "rule_done" and isinstance(cleaned, list):
-                    last_rules = cleaned
+                    # ALL IN Phase B step 5 (2026-05-09) · ensure unique id per candidate-identity-contract v1.1 §4
+                    last_rules = ensure_list_unique_ids(
+                        cleaned, name_field="rule_name", uscc_field="",
+                    )
                 elif stage == "case_done" and isinstance(cleaned, list):
-                    last_cases = cleaned
+                    # ALL IN Phase B step 5 · ensure unique id (case_id 已 unique · helper 在缺失时兜底)
+                    last_cases = ensure_list_unique_ids(
+                        cleaned, name_field="company_name", uscc_field="",
+                    )
                 elif stage == "advising_done" and isinstance(cleaned, dict):
                     last_advice = cleaned
                 elif stage == "graph_done" and isinstance(cleaned, dict):
