@@ -729,7 +729,13 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 from agent_credit.agent import CreditDecisionAgent
             except ImportError as e:
                 err = f"ImportError: {e}"
-                yield sse_encode({"event": "error", "message": f"agent import failed: {e}"})
+                # Phase B.2 step 5 · typed error banner (反 silent fallback fake)
+                yield sse_encode({
+                    "event": "error",
+                    "code": "IMPORT_ERROR",
+                    "message": f"CreditDecisionAgent 模块导入失败 · {e} · 联系运维",
+                    "raw": err[:200],
+                })
                 return
 
             agent = CreditDecisionAgent(
@@ -824,12 +830,44 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 ledger=last_ledger,
             ))
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
-            err = f"{type(e).__name__}: {e}"
-            traceback.print_exc()
+            err_str = f"{type(e).__name__}: {e}"
+            err = err_str
+            traceback.print_exc()  # stderr log only · 不给 client (security · 不 leak 文件路径)
+
+            # Phase B.2 step 5 · typed error banner 分类 (per onboarding "NotImplementedError / API key
+            # missing / Tavily down 显 typed banner · 不 silent · 不 fallback fake")
+            err_lower = err_str.lower()
+            if any(k in err_lower for k in ("401", "unauthorized", "authentication", "api key", "api_key")):
+                code = "LLM_KEY_MISSING"
+                friendly = (
+                    "LLM 密钥未配置或失效 (DEEPSEEK_API_KEY / DASHSCOPE_API_KEY) · "
+                    "联系运维补 key · 反假 live 不切 fallback fake"
+                )
+            elif any(k in err_lower for k in ("rate limit", "429", "quota")):
+                code = "LLM_RATE_LIMITED"
+                friendly = "LLM 调用配额已满 · 稍后重试 · 反假 live 不切 fallback fake"
+            elif any(k in err_lower for k in ("all providers failed", "fallback chain", "no provider")):
+                code = "LLM_FALLBACK_EXHAUSTED"
+                friendly = (
+                    "LLM 主+备 provider 全降级 (deepseek + dashscope · PIPL 境内 fallback) · "
+                    "检查 LLM 服务可用性 · 反假 live 不切 fallback fake"
+                )
+            elif isinstance(e, ImportError):
+                code = "IMPORT_ERROR"
+                friendly = f"模块导入失败 · {e} · 联系运维"
+            elif isinstance(e, NotImplementedError):
+                # NotImplementedError 不可在 demo/run 路径出现 (反不可 GO 条件 #5)
+                code = "NOT_IMPLEMENTED"
+                friendly = f"功能未实装 · {e} · 反不可 GO 条件 #5 · 主 CLI fix-forward"
+            else:
+                code = "INTERNAL_ERROR"
+                friendly = f"内部错误 · {type(e).__name__}: {str(e)[:200]}"
+
             yield sse_encode({
                 "event": "error",
-                "message": f"{type(e).__name__}: {e}",
-                "traceback": traceback.format_exc()[-2000:],
+                "code": code,
+                "message": friendly,
+                "raw": err_str[:200],  # dev debug 用 · 非 stack trace
             })
     finally:
         # bug #11 fix · audit 写在 generator 末尾 · latency 含全 stream 真实延迟
@@ -896,105 +934,93 @@ async def credit_decision_v4(
 
 
 # ============================================================================
-# POST /api/credit/demo/run · Phase A worker-A4-credit (2026-04-29)
-#   纯 mock SSE · 不调 LLM/agent · 从 data/mock/workspace/credit/scenarios/<id>.json 读
-#   用途: 演示模式 / Playwright smoke / 客户走访稳定 demo 路径
-#   反 5 原则 §3.5 难度分层: 6 scenarios 覆盖 (3 corp + 3 retail · simple/medium/hard/extreme)
+# POST /api/credit/demo/run · Phase B.2 真后端跑改造 (PM 2026-05-10 真意 reframe)
+#   旧: 读 data/mock/workspace/credit/scenarios/<id>.json yield fixture · 不调 LLM
+#   新: 接受 sample_id (内置 ReportJSON sample) · 真调 LLM/scoring/rule/case/ledger 全 pipeline
+#   Refs: docs/onboarding/B2-phase-b2-dispatch.md "演示=上传 sample 跑真后端"
+#   反不可 GO 条件 #1 (yield fixture_event) + 红线 #1 假 live + #2 假分
+#
+# Sample 来源:
+#   demo_data/agent_credit/<sample_id>.json (Agent6 → Agent3 handoff JSON · v4 ReportJSON shape)
+#   credit 是下游 agent · 不直接吃原始材料 (DP001_龙峰精工/ 是 Agent6 域) · 真"sample 输入"形态 = ReportJSON
 # ============================================================================
 
 
+# v4 ReportJSON shape sample (含 business_line + financial_anchors · 可喂 _decision_event_stream_v4)
+# manufacturing_eval / trade_eval 是 v1 scenario shape · 不在本 demo/run scope (走 /decision · 历史 path)
+_DEMO_SAMPLE_DIR = PROJECT_ROOT / "demo_data" / "agent_credit"
+_DEMO_SAMPLE_ALLOWLIST: tuple[str, ...] = (
+    "corp_dingsheng_trade",   # 对公 · 鼎盛商贸 (建材批发 · 关联交易高 · 现金流负)
+    "retail_lisi_education",  # 对私 · 李四 (教育行业 · FICO 式)
+)
+
+
 class CreditDemoRunRequest(BaseModel):
-    scenario_id: str = Field(
-        default="corp-dingsheng-001",
-        description="scenario JSON 文件名 (无 .json) · per spec §6.2 · 6 标杆 default",
+    sample_id: str = Field(
+        default="corp_dingsheng_trade",
+        description=(
+            "内置 ReportJSON sample 文件名 (无 .json) · "
+            "allowlist: corp_dingsheng_trade | retail_lisi_education · "
+            "demo_data/agent_credit/ 下 v4 ReportJSON shape sample · "
+            "PM 真意: 演示=上传 sample 跑真后端 · 不是 yield fixture (per docs/onboarding/B2-phase-b2-dispatch.md)"
+        ),
     )
 
 
-_CREDIT_SCENARIO_DIR = PROJECT_ROOT / "data" / "mock" / "workspace" / "credit" / "scenarios"
+def _load_demo_report_json(sample_id: str) -> dict:
+    """加载内置 ReportJSON sample · 喂 _decision_event_stream_v4 (真 LLM 路径).
 
-
-def _credit_demo_event_stream(scenario_id: str):
-    """纯 mock SSE 演示流 · 不依赖 LLM · 视觉与 live 一致 (stage 流 + done envelope).
-
-    scenario JSON shape (与 §6.3 spec 对齐):
-        {
-          "scenario_id": "...",
-          "stage_tab": "corporate" | "small_business" | "retail",
-          "stage_messages": {"feature_extracting": "...", ...},
-          "profile": {...},          // profile_loaded payload
-          "scoring": {...},          // scoring_done payload
-          "rule_hits": [...],        // rule_done payload
-          "case_matches": [...],     // case_done payload
-          "advice": {...},           // advising_done payload
-          "delay_ms": 250            // optional · stage 之间延迟
-        }
+    Raises:
+        HTTPException 400 · sample_id 不在 allowlist
+        HTTPException 404 · sample 文件缺失
+        HTTPException 500 · JSON 解析失败
     """
-    if not _CREDIT_SCENARIO_DIR.exists():
-        yield sse_encode({
-            "event": "error",
-            "code": "DEMO_SCENARIO_DIR_MISSING",
-            "message": f"scenario dir not found: {_CREDIT_SCENARIO_DIR}",
+    if sample_id not in _DEMO_SAMPLE_ALLOWLIST:
+        raise HTTPException(400, detail={
+            "error": {
+                "code": "SAMPLE_NOT_ALLOWED",
+                "message": (
+                    f"sample_id 不在 allowlist · 收到 {sample_id!r} · "
+                    "manufacturing_eval/trade_eval 是 v1 scenario shape (input_message+preset_data) · "
+                    "走 /api/credit/decision 历史 path · 不入 demo/run 真后端 pipeline"
+                ),
+                "details": {"allowlist": list(_DEMO_SAMPLE_ALLOWLIST)},
+            }
         })
-        return
 
-    path = _CREDIT_SCENARIO_DIR / f"{scenario_id}.json"
+    path = _DEMO_SAMPLE_DIR / f"{sample_id}.json"
     if not path.exists():
-        yield sse_encode({
-            "event": "error",
-            "code": "DEMO_SCENARIO_MISSING",
-            "message": f"scenario file not found: {scenario_id}.json",
-            "available": sorted(p.stem for p in _CREDIT_SCENARIO_DIR.glob("*.json")),
+        raise HTTPException(404, detail={
+            "error": {
+                "code": "SAMPLE_NOT_FOUND",
+                "message": f"sample file not found: {sample_id}.json",
+                "details": {
+                    "expected_path": str(path.relative_to(PROJECT_ROOT)),
+                    "available": sorted(p.stem for p in _DEMO_SAMPLE_DIR.glob("*.json")),
+                },
+            }
         })
-        return
 
     try:
-        data = json.loads(path.read_text("utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
-        yield sse_encode({
-            "event": "error",
-            "code": "DEMO_SCENARIO_LOAD",
-            "message": f"scenario load failed: {type(e).__name__}: {e}",
-        })
-        return
+        raise HTTPException(500, detail={
+            "error": {
+                "code": "SAMPLE_LOAD_FAILED",
+                "message": f"{type(e).__name__}: {e}",
+                "details": {"path": str(path.relative_to(PROJECT_ROOT))},
+            }
+        }) from e
 
-    stage_tab = data.get("stage_tab", "corporate")
-    stage_msgs = data.get("stage_messages", {})
-    delay_ms = int(data.get("delay_ms", 250))
 
-    # profile_loaded
-    yield sse_encode({"event": "profile_loaded", "profile": data.get("profile", {})})
-
-    # 7 stage events · 与 _mock_decision_events 同节奏
-    stages_with_payload: list[tuple[str, str, Any]] = [
-        ("feature_extracting", "feature_done", data.get("feature_done", {})),
-        ("scoring", "scoring_done", data.get("scoring", {})),
-        ("rule_checking", "rule_done", data.get("rule_hits", [])),
-        ("case_retrieving", "case_done", data.get("case_matches", [])),
-        ("advising", "advising_done", data.get("advice", {})),
-    ]
-    for active_stage, done_stage, payload in stages_with_payload:
-        yield sse_encode({
-            "event": "stage", "stage": active_stage,
-            "payload": None,
-            "_msg": stage_msgs.get(active_stage, ""),
-        })
-        time.sleep(delay_ms / 1000)
-        yield sse_encode({"event": "stage", "stage": done_stage, "payload": payload})
-
-    # done envelope (cat 4 共形 + BE2 decision_graph passthrough + BE7 ledger passthrough)
-    yield sse_encode(_build_done_envelope(
-        stage_tab=stage_tab,
-        source="mock",
-        preset_name=data.get("preset_name"),
-        profile=data.get("profile"),
-        scoring=data.get("scoring"),
-        rule_hits=data.get("rule_hits", []),
-        case_matches=data.get("case_matches", []),
-        advice=data.get("advice"),
-        decision_id=None,
-        decision_graph=data.get("decision_graph"),  # BE2 · per spec §6 · scenario JSON 可选字段
-        ledger=data.get("ledger"),                  # BE7 · scenario JSON 可选字段 · demo path skips real persist
-    ))
+def _infer_stage_tab_from_report(report: dict) -> StageTab:
+    """从 ReportJSON business_line 推 stage_tab (per agent-handoff-schemas §2.3)."""
+    bl = (report.get("business_line") or report.get("stage_tab") or "").lower()
+    if "retail" in bl or "personal" in bl:
+        return "retail"
+    if "small" in bl or "sme" in bl:
+        return "small_business"
+    return "corporate"
 
 
 @app.post("/api/credit/demo/run")
@@ -1002,20 +1028,43 @@ async def credit_demo_run(
     req: CreditDemoRunRequest,
     _user: dict = Depends(require_action("credit", "invoke")),
 ):
-    """纯 mock SSE 演示流 · 演示模式 CTA / Playwright / 客户走访 demo 路径 触发。
+    """演示入口 · 内置 sample → 真后端 pipeline (LLM/scoring/rule/case/ledger 全真).
 
-    与 /api/credit/decision (mock=true) 区别:
-      - decision: in-memory fixture · 各 stage_tab 略差异化 · 1 scenario per tab
-      - demo/run: file-backed scenario JSON · 6 标杆 (corp/retail × simple/medium/hard/extreme)
-                  · 内容固定 · 视觉一致 · 不会因 _STAGE_DIMENSIONS 改动而漂
+    PM 2026-05-10 真意 reframe: 演示 ≠ ModePill 切假 · 演示 = 上传 sample 跑真后端.
+    本 endpoint 复用 /api/credit/decision 真路径 (_decision_event_stream_v4 mock=False) ·
+    输入来自内置 ReportJSON sample (而非用户上传 + Agent6 handoff) · LLM / 评分 / 红线 /
+    案例召回 / decision_graph / ledger 全部真跑 · 与 /decision 行为一致。
+
+    错误降级 (Step 5 onboarding): LLM key 缺失 / Tavily down / NotImplementedError →
+    _decision_event_stream_v4 内部 yield typed error event · 前端 LiveFailError → fail-visible banner.
+    不 silent fallback fake 数据.
     """
+    report = _load_demo_report_json(req.sample_id)
+    stage_tab = _infer_stage_tab_from_report(report)
+
+    real_req = DecisionRequestV4(
+        stage_tab=stage_tab,
+        report_json=report,
+        materials=None,
+        preset_name=None,
+        appetite_config=None,
+        provider=None,
+        api_key=None,
+        mock=False,  # 真路径 · 不走 fixture
+    )
+
+    def gen():
+        yield from _decision_event_stream_v4(real_req)
+
     return StreamingResponse(
-        _credit_demo_event_stream(req.scenario_id),
+        gen(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
+            "X-Credit-Demo-Sample": req.sample_id,
+            "X-Credit-Demo-Path": "real_backend_pipeline",
         },
     )
 

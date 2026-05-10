@@ -14,19 +14,19 @@
  * 所有 .rpt-panel 挂 PanelPinHandle · 所有消息挂 MessagePinHandle（拖到白板/画布）
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 // Phase B.1.3 hotfix (PM 2026-05-10) · revert ModePill 双控 · PM 真意是上传 sample 跑真后端
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
-import { EvidenceProvider } from "@/components/evidence";
+import { EvidenceProvider, type EvidenceItem as EvidenceItemShared } from "@/components/evidence";
 
-/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array
+/* Phase B.1 fix #4 · 删 fixtures 假证据 · EvidenceProvider 用 EMPTY array fallback
    · 旧 CREDIT_EVIDENCE.items / unfilledFields = mock 演示数据 · 反 KT §3.6 红线 #3 无证据 claim
-   · 真 evidence 数据 backend done envelope.data_sources + dataSources panel 直接消费 · 不靠 fixtures 兜底 */
-const EMPTY_EVIDENCE_ITEMS: never[] = [];
-const EMPTY_UNFILLED_FIELDS: never[] = [];
+   · Phase B.2 step 9 · live wire (从 liveData 派生 evidence items · grep CREDIT_EVIDENCE 0 命中) */
+const EMPTY_EVIDENCE_ITEMS: EvidenceItemShared[] = [];
+const EMPTY_UNFILLED_FIELDS: string[] = [];
 import {
   Radar,
   RadarChart,
@@ -137,6 +137,29 @@ const MODE_TO_STAGE_TAB: Record<CreditMode, "corporate" | "small_business" | "re
   retail: "retail",
 };
 
+/* Phase B.2 (PM 2026-05-10 真意 reframe) · 内置 sample 映射
+   · /api/credit/demo/run 真后端跑 · 输入来自 demo_data/agent_credit/<sample_id>.json (v4 ReportJSON shape)
+   · small_business 共用对公 sample (ALL IN Phase B 无小微专属 sample · 后端 _STAGE_TO_SEGMENT 对公评分模型兼容) */
+const MODE_TO_SAMPLE_ID: Record<CreditMode, string> = {
+  corp: "corp_dingsheng_trade",
+  small: "corp_dingsheng_trade",
+  retail: "retail_lisi_education",
+};
+
+/* Phase B.2 主活 B · sample 显示名 (CTA 副标题用 · 让用户明确点了会跑哪个 sample) */
+const SAMPLE_DISPLAY_NAME: Record<CreditMode, string> = {
+  corp: "鼎盛商贸 (对公 · 建材批发 · 关联交易高)",
+  small: "鼎盛商贸 (小微复用对公 · 抵押权重提升)",
+  retail: "李四 (对私 · 教育行业 · FICO 式)",
+};
+
+/* Phase B.2 主活 B (PM 2026-05-10 真意 reframe) · 输入形态切换
+   · "real": 真实数据 · 从 Agent6 报告起决策 (handoff archive · LLM 真跑)
+   · "demo": 演示数据 · 一键加载内置 sample (corp/retail · LLM 真跑 · 输入是 sample)
+   · 两形态共点: 后端 LLM/scoring/rule/case/ledger 全真 · 区别仅"输入来源"
+   · 不是 ModePill (那是切假数据 · 已 revert) · 是显式输入来源 toggle */
+type CreditInputMode = "real" | "demo";
+
 const STAGE_TAB_DESCRIPTION: Record<CreditMode, string> = {
   corp: "对公授信 · 50-5000 万 · 4 维评分 + 30 红线",
   small: "普惠 / 小微 · 10-500 万 · 抵押权重高 · 阈值放宽 5 分",
@@ -154,6 +177,54 @@ export default function CreditWorkspace() {
      · LiveFailError → "mock_fallback" 降级标 (trust model 一级 · 非 silent fallback 假数据) */
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+
+  /* Phase B.2 主活 B · 输入形态 toggle · 真实 default (per onboarding B2) · demo 选了显内置 sample CTA */
+  const [inputMode, setInputMode] = useState<CreditInputMode>("real");
+
+  /* Phase B.2 step 9 · evidence drawer 真 wire · 从 liveData 派生 EvidenceItem[]
+     · 不再 import fixtures.ts 跨 agent shared 假证据 (Phase B.1 fix #4 已删 import · 仍存 fixture 文件)
+     · 真 evidence 来源: backend done envelope.data_sources + redLines + cases (合并三源)
+     · 每条 evidence 都带 source / snippet / ref_id / confidence (per shared/evidence/types EvidenceItem)
+     · liveData=null → 空 (per onboarding "live 数据触发" · 无 live 不假装) */
+  const liveEvidenceItems = useMemo<EvidenceItemShared[]>(() => {
+    if (!liveData) return EMPTY_EVIDENCE_ITEMS;
+    const items: EvidenceItemShared[] = [];
+    /* dataSources panel · 4 evidence 类源 trust display (Step 4 backend _build_data_sources_panel) */
+    liveData.dataSources?.sources?.forEach((s, i) => {
+      items.push({
+        source: s.id,
+        snippet: `${s.name} · ${s.desc}`,
+        ref_id: `live_ds_${i}`,
+        confidence: s.status === "online" ? 1 : 0,
+      });
+    });
+    /* redLines · 红线命中 (rule_id + name + threshold + actual_value · backend rule_engine_v2) */
+    liveData.redLines?.forEach((r, i) => {
+      const refId = (r as { id?: string }).id || `live_rl_${i}`;
+      const nameField = (r as { name?: string }).name || "(unnamed rule)";
+      items.push({
+        source: "rule_engine_v2",
+        snippet: `${nameField}`,
+        ref_id: refId,
+        confidence: 1,
+      });
+    });
+    /* cases · 相似案例 (case_id + company_name + similarity · backend case_retriever) */
+    liveData.cases?.forEach((c, i) => {
+      const refId = (c as { id?: string }).id || `live_case_${i}`;
+      const nameField = (c as { customer?: string; companyName?: string }).customer
+        || (c as { customer?: string; companyName?: string }).companyName
+        || "(unnamed case)";
+      const similarity = (c as { similarity?: number }).similarity ?? 0;
+      items.push({
+        source: "case_retriever",
+        snippet: `${nameField}`,
+        ref_id: refId,
+        confidence: similarity,
+      });
+    });
+    return items;
+  }, [liveData]);
 
   /* Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · 错设计 · 演示=上传sample真后端 */
 
@@ -369,7 +440,11 @@ export default function CreditWorkspace() {
     }
   }
 
-  // Phase B.1.5 (PM 2026-05-10) · 一键运行示例 · 调 /api/credit/demo/run sample 跑 · 让 PM 点了能看到东西
+  /* Phase B.2 (PM 2026-05-10 真意 reframe) · 一键运行示例 · 调 /api/credit/demo/run 真后端跑
+     · 旧 (B.1.5 hotfix): body { stage_tab } · 后端 yield fixture · setCurrentDataSource("mock_forced")
+     · 新 (B.2): body { sample_id } · 后端真调 LLM/scoring/rule/case/ledger · setCurrentDataSource("live")
+     · 演示 = 上传 sample 跑真后端 · 不是切假数据 (per docs/onboarding/B2-phase-b2-dispatch.md)
+     · LLM fail / API key 缺 → LiveFailError → trust model 一级降级标 mock_fallback (banner 显 · 不 silent) */
   async function runDemoSample() {
     if (decisionRunning) return;
     setDecisionError(null);
@@ -386,7 +461,7 @@ export default function CreditWorkspace() {
     try {
       await streamSse(
         `${apiBase}/api/credit/demo/run`,
-        { stage_tab: MODE_TO_STAGE_TAB[mode] },
+        { sample_id: MODE_TO_SAMPLE_ID[mode] },
         (sseEvt) => {
           if (ac.signal.aborted) return;
           const data = sseEvt.data as Record<string, unknown>;
@@ -394,7 +469,8 @@ export default function CreditWorkspace() {
             setLiveData(normalizeCreditDone(data, fallbackSession));
             setSelectedCandidate(null);
             setScanned(true);
-            setCurrentDataSource("mock_forced");
+            /* Phase B.2 · 真后端跑 = live (LLM/scoring/rule/case/ledger 全真) · 输入是内置 sample 但结果真 */
+            setCurrentDataSource("live");
           }
         },
         { signal: ac.signal },
@@ -464,7 +540,9 @@ export default function CreditWorkspace() {
     </div>
   ) : null;
 
-  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用 */
+  /* B-banner · workspace 顶部统一错误条 · started 与 !started 两分支共用
+     · Phase B.2 step 4 主活 C: retry 按 inputMode 路由 (real → handoff · demo → demoSample)
+     · 避免 demo 模式失败后 retry 跳真 handoff 路径 (input 形态错位) */
   const creditTopBanner = decisionError ? (
     <div
       role="alert"
@@ -473,15 +551,23 @@ export default function CreditWorkspace() {
     >
       <span className="credit-error-banner__icon" aria-hidden>⚠</span>
       <span className="credit-error-banner__text">
-        <b>决策操作失败</b>
+        <b>{inputMode === "demo" ? "演示运行失败" : "决策操作失败"}</b>
         <span className="credit-error-banner__detail">{decisionError}</span>
       </span>
       <button
         type="button"
         className="credit-error-banner__retry"
-        onClick={() => runDecisionWithAgent6Handoff()}
+        data-testid="credit-error-retry"
+        onClick={() => {
+          setDecisionError(null);
+          if (inputMode === "demo") {
+            runDemoSample();
+          } else {
+            runDecisionWithAgent6Handoff();
+          }
+        }}
       >
-        重试
+        重试 {inputMode === "demo" ? "(演示)" : "(真实)"}
       </button>
       <button
         type="button"
@@ -511,6 +597,8 @@ export default function CreditWorkspace() {
           <CreditEmptyState
             mode={mode}
             onModeChange={setMode}
+            inputMode={inputMode}
+            onInputModeChange={setInputMode}
             onPrimary={() => runDecisionWithAgent6Handoff()}
             onRunDemo={() => runDemoSample()}
             decisionRunning={decisionRunning}
@@ -523,7 +611,7 @@ export default function CreditWorkspace() {
 
   return (
     <EvidenceProvider
-      items={EMPTY_EVIDENCE_ITEMS}
+      items={liveEvidenceItems}
       unfilledFields={EMPTY_UNFILLED_FIELDS}
     >
     <div
@@ -534,15 +622,51 @@ export default function CreditWorkspace() {
     >
       {handoffBanner}
       {creditTopBanner}
+      {/* Phase B.2 step 4 主活 C · weeklyProcessed mock "63" 假 stat → placeholder
+         · 反不可 GO 条件 #7 (评分都一样 假分残留) + 红线 #2 假分
+         · 真路径 = 接 backend metrics endpoint (跨 agent stats SSOT · 不在本 worker 域)
+         · ALL IN Phase B 暂留 "—" placeholder · 不显假"63" 误导客户经理 */}
       <TopBar
         mode={mode}
         onModeChange={setMode}
-        sessionsCount={CREDIT_GLOBAL_STATS.weeklyProcessed}
+        sessionsCount="—"
       />
-      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "0 0 8px 0", flexWrap: "wrap" }}>
+      {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删
+         · Phase B.2 step 4 主活 C · inline style → CSS class (per CLAUDE.md "203 inline_style 重灾区") */}
+      <div className="credit-data-source-wrap">
         <DataSourceBadge kind={currentDataSource} testId="credit-data-source-badge" size="sm" />
       </div>
+
+      {/* Phase B.2 step 7 · 信息密度 · started=true && !liveData && !running && !error 时
+         显示 idle hint (空白引导提示) · 大空白填示例 · 反 PM 截图痛点 #2 "大面积空白"
+         · 不重叠 creditTopBanner (decisionError 显另一 banner) · 不阻 5 panel 渲染骨架 */}
+      {!liveData && !decisionRunning && !decisionError ? (
+        <div
+          className="credit-idle-hint"
+          role="status"
+          data-testid="credit-idle-hint"
+          aria-label="等待决策结果"
+        >
+          <span className="credit-idle-hint__icon" aria-hidden>📋</span>
+          <span className="credit-idle-hint__text">
+            <b>等待决策结果</b>
+            <span className="credit-idle-hint__detail">
+              决策完成后此处显示 4 维评分 · 红线明细 · 相似案例 · 决策建议书 (live LLM)
+            </span>
+          </span>
+          <button
+            type="button"
+            className="credit-idle-hint__back"
+            data-testid="credit-idle-hint-back"
+            onClick={() => {
+              setStarted(false);
+              abortRef.current?.abort();
+            }}
+          >
+            重选形态
+          </button>
+        </div>
+      ) : null}
 
       <PrimaryProfileHero
         profile={session.profile}
@@ -1827,13 +1951,16 @@ function PipelineLane({
 function CreditEmptyState(p: {
   mode: CreditMode;
   onModeChange: (m: CreditMode) => void;
+  inputMode: CreditInputMode;       // Phase B.2 · "real" | "demo"
+  onInputModeChange: (im: CreditInputMode) => void;
   onPrimary: () => void;       // 起决策 (真接 backend SSE · cat 0 北极星 · Agent6 handoff)
-  onRunDemo?: () => void;      // Phase B.1.5 · 一键运行示例 · sample 跑 (PM 演示路径)
+  onRunDemo?: () => void;      // Phase B.2 · 一键运行示例 · sample 跑 (真后端 LLM)
   decisionRunning: boolean;
   decisionError: string | null;
 }) {
   const stageTab = MODE_TO_STAGE_TAB[p.mode];
   const stageDesc = STAGE_TAB_DESCRIPTION[p.mode];
+  const sampleName = SAMPLE_DISPLAY_NAME[p.mode];
   return (
     <div className="credit-empty" data-testid="credit-empty-skeleton">
       {/* Stage tabs · 与 backend stage_tab 命名对齐 */}
@@ -1870,43 +1997,82 @@ function CreditEmptyState(p: {
         </p>
       </header>
 
-      {/* Phase B.1.5 (PM 2026-05-10) · 双 CTA · 主 = Agent6 handoff · 副 = 一键运行示例 (sample) */}
-      <section className="credit-empty__cta-row" aria-label="主 CTA" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      {/* Phase B.2 主活 B (PM 2026-05-10 真意 reframe) · 输入形态切换 toggle
+         · 真实 default (从 Agent6 真产物起决策) / 演示 (内置 sample · 真后端跑)
+         · 共点: 后端 LLM/scoring/rule/case/ledger 全真 · 区别仅"输入来源"
+         · 不是 ModePill (切假数据 · 已 revert) · 是显式输入形态 toggle */}
+      <div
+        className="credit-empty__input-mode"
+        role="tablist"
+        aria-label="输入形态切换"
+        data-testid="credit-input-mode-toggle"
+      >
+        <span className="credit-empty__input-mode-lbl">形态</span>
         <button
           type="button"
-          className="credit-empty__cta credit-empty__cta--primary"
-          data-testid="credit-decision-cta"
-          data-cta="primary"
-          onClick={p.onPrimary}
+          role="tab"
+          aria-selected={p.inputMode === "real"}
+          className="credit-empty__input-mode-tab"
+          data-active={p.inputMode === "real" ? "yes" : "no"}
+          data-testid="credit-input-mode-real"
+          onClick={() => p.onInputModeChange("real")}
           disabled={p.decisionRunning}
         >
-          <span className="credit-empty__cta-rank">主操作</span>
-          <span className="credit-empty__cta-title">
-            {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
-          </span>
-          <span className="credit-empty__cta-sub">
-            选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
-          </span>
+          真实数据
+          <span className="credit-empty__input-mode-sub">从 Agent6 报告起决策</span>
         </button>
-        {p.onRunDemo ? (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={p.inputMode === "demo"}
+          className="credit-empty__input-mode-tab"
+          data-active={p.inputMode === "demo" ? "yes" : "no"}
+          data-testid="credit-input-mode-demo"
+          onClick={() => p.onInputModeChange("demo")}
+          disabled={p.decisionRunning || !p.onRunDemo}
+        >
+          演示数据
+          <span className="credit-empty__input-mode-sub">内置 sample · 真后端跑</span>
+        </button>
+      </div>
+
+      {/* Phase B.2 · CTA 按 inputMode 条件渲染 (单 CTA · 不再并列双按钮 · 减少认知负担) */}
+      <section className="credit-empty__cta-row" aria-label="主 CTA">
+        {p.inputMode === "real" ? (
+          <button
+            type="button"
+            className="credit-empty__cta credit-empty__cta--primary"
+            data-testid="credit-decision-cta"
+            data-cta="primary"
+            onClick={p.onPrimary}
+            disabled={p.decisionRunning}
+          >
+            <span className="credit-empty__cta-rank">真实数据 · 主操作</span>
+            <span className="credit-empty__cta-title">
+              {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
+            </span>
+            <span className="credit-empty__cta-sub">
+              选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
+            </span>
+          </button>
+        ) : (
           <button
             type="button"
             className="credit-empty__cta credit-empty__cta--primary"
             data-testid="credit-demo-cta"
             data-cta="demo"
             onClick={p.onRunDemo}
-            disabled={p.decisionRunning}
-            style={{ background: "var(--chalk)", color: "var(--ink)", border: "1px solid var(--ink-14)" }}
+            disabled={p.decisionRunning || !p.onRunDemo}
           >
-            <span className="credit-empty__cta-rank">演示</span>
+            <span className="credit-empty__cta-rank">演示数据 · 内置 sample</span>
             <span className="credit-empty__cta-title">
-              {p.decisionRunning ? "运行中…" : "一键运行示例"}
+              {p.decisionRunning ? "运行中…" : `一键运行 · ${sampleName}`}
             </span>
             <span className="credit-empty__cta-sub">
-              加载预制 sample · 真后端跑通完整链路 · 点了立刻看结果
+              加载内置 ReportJSON · 真后端 LLM/评分/红线/案例/ledger 全真跑 · 演示 ≠ 假数据
             </span>
           </button>
-        ) : null}
+        )}
       </section>
 
       {/* §2.3 Panel 空骨架 · 不显示模拟数字 · 仅说明文字 */}
