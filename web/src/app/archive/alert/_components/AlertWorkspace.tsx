@@ -2098,6 +2098,59 @@ function AlertEmptyState(p: {
         </span>
       </section>
 
+      {/* ALL IN Phase B.2 step 7 信息密度 (2026-05-10) · mode-aware 输入预览卡片 ·
+          填补 toggle 和 CTA 之间的大空白 · 让用户清楚"演示会扫什么 / 真实需要什么". */}
+      <section
+        className="alert-empty__preview"
+        data-testid="alert-input-preview"
+        data-mode={p.inputMode}
+        aria-label="输入来源预览"
+      >
+        {isDemo ? (
+          <>
+            <div className="alert-empty__preview-card">
+              <div className="alert-empty__preview-h">data/mock/alert-pool/ batch</div>
+              <ul className="alert-empty__preview-stats">
+                <li><b>180 户</b> 在贷客户池 · clients.csv (含行业 / 区域 / 规模 / 在贷余额)</li>
+                <li><b>180 份</b> 外部信号时间线 · external-signals/AP*.md (近 12 月舆情/司法/工商/监管)</li>
+                <li><b>180 份</b> 内部交易流水 · transactions/AP*.csv (近 24 月)</li>
+                <li>backend 真跑 · Tavily 真接 · LLM 真处置 · ledger 真上链</li>
+              </ul>
+            </div>
+            <div className="alert-empty__preview-card">
+              <div className="alert-empty__preview-h">演示路径透明性</div>
+              <ul className="alert-empty__preview-stats">
+                <li>POST /api/alert/demo/run → run_scan_and_persist (同 /api/alert/scan)</li>
+                <li>red 客户上链 retention=standard (5y · 银保监 archive)</li>
+                <li>yellow 客户上链 retention=short (90d · routine 预警)</li>
+                <li>结果不能 mock · 仅 alert-pool 输入是 mock</li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="alert-empty__preview-card">
+              <div className="alert-empty__preview-h">真实模式输入清单</div>
+              <ul className="alert-empty__preview-stats">
+                <li>客户名录 · Excel/CSV (含 company_name / unified_credit_code)</li>
+                <li>预警规则 · JSON (e.g. POL-001 逾期超阈 · POL-003 关联方重整)</li>
+                <li>内部制度 · Word/PDF (LLM 抽 POL- 前缀规则)</li>
+                <li>· 上传或选预置场景 demo_data/agent_alert/</li>
+              </ul>
+            </div>
+            <div className="alert-empty__preview-card">
+              <div className="alert-empty__preview-h">backend 路径</div>
+              <ul className="alert-empty__preview-stats">
+                <li>POST /api/alert/scan → run_scan_and_persist</li>
+                <li>双路扫: 外部 Tavily (舆情/司法) × 内部规则 (POL-)</li>
+                <li>LLM 处置 · 红/黄客户生成 disposition · 模板兜底</li>
+                <li>持久化 data/alert/sessions/ + ledger 上链</li>
+              </ul>
+            </div>
+          </>
+        )}
+      </section>
+
       <section className="alert-empty__cta-row" aria-label="2 CTA 分级">
         <button
           type="button"

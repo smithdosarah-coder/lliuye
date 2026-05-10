@@ -1871,6 +1871,47 @@
   font-style: italic;
 }
 
+/* ALL IN Phase B.2 step 7 信息密度 (2026-05-10) · mode-aware 输入预览卡片. */
+.alert-empty__preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 0 0 18px;
+}
+.alert-empty__preview-card {
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--chalk) 50%, transparent);
+  border: 1px solid var(--ink-14);
+  border-radius: var(--r-md);
+}
+.alert-empty__preview-h {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t-alert);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.alert-empty__preview-stats {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 12.5px;
+  color: var(--ink-65);
+  line-height: 1.65;
+}
+.alert-empty__preview-stats li {
+  margin-bottom: 4px;
+}
+.alert-empty__preview-stats b {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+@media (max-width: 800px) {
+  .alert-empty__preview {
+    grid-template-columns: 1fr;
+  }
+}
+
 .alert-empty__cta-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
