@@ -640,8 +640,14 @@ def _alert_demo_event_stream(req: AlertDemoRunRequest):
 
 
 @app.post("/api/alert/demo/run")
-async def alert_demo_run(req: AlertDemoRunRequest):
+async def alert_demo_run(
+    req: AlertDemoRunRequest,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """Demo fixture mode (worker-A4-alert · 2026-04-29).
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan + /api/alert/batch_scan 一致 · 防未授权用户触发 demo SSE.
 
     与 /api/alert/scan 共形 done envelope shape · mode=mock_forced ·
     不读 KB / 不调 LLM / 不持久化 · 适合 Playwright smoke + 客户走访演示。
@@ -908,8 +914,14 @@ def _alert_batch_event_stream(req: AlertBatchScanRequest):
 
 
 @app.post("/api/alert/batch_scan")
-async def alert_batch_scan(req: AlertBatchScanRequest):
+async def alert_batch_scan(
+    req: AlertBatchScanRequest,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """BE9.1 (2026-05-04): 跨 scenario 批量扫描端点.
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan 一致 · 防未授权用户触发跨 scenario 批量扫.
 
     输入 1+ scenario_key + 可选 client_ids filter · 顺序跑每个 scenario ·
     SSE 流 per-client tick + per-scenario aggregate · 最终 done event 含跨
@@ -1074,8 +1086,14 @@ def _alert_replay_event_stream(scan_id: str):
 
 
 @app.post("/api/alert/scan/replay/{scan_id}")
-async def alert_scan_replay(scan_id: str):
+async def alert_scan_replay(
+    scan_id: str,
+    _user: dict = Depends(require_action("alert", "invoke")),
+):
     """BE5.5 (2026-05-04): 历史 scan 重放端点 · audit 复核 / 培训 / 演示场景.
+
+    Auth (Phase B.1 fix · 2026-05-09): require_action("alert", "invoke") ·
+    与 /api/alert/scan 一致 · 防未授权用户重放历史 scan SSE.
 
     与 /api/alert/scan 共形 SSE 流形态 · 但:
     - mode=replay · data_source=cached

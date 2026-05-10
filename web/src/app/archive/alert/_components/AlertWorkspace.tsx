@@ -59,7 +59,19 @@ import { ActionGate } from "@/components/shell/AuthGate";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
-import { ALERT_EVIDENCE } from "@/components/evidence/fixtures";
+import type { EvidenceItem } from "@/components/evidence/types";
+// ALL IN Phase B.1 fix (2026-05-09): 删假证据 fixture (旧 ALERT_EVIDENCE) · 那是
+// hard-coded 静态数据 · 与真实 SSE done envelope / signal_timeline 无关 · 误导用户.
+// 真证据走 AlertDrillDrawer signal_timeline (per step 4 · scan_engine.build_drill_payload).
+const EMPTY_EVIDENCE: {
+  items: EvidenceItem[];
+  unfilledFields: string[];
+  summary: string;
+} = {
+  items: [],
+  unfilledFields: [],
+  summary: "",
+};
 import {
   fetchDrill,
   LiveFailError,
@@ -589,7 +601,7 @@ export default function AlertWorkspace() {
   /* ───────── render: 4 gate root branch ───────── */
 
   return (
-    <EvidenceProvider items={ALERT_EVIDENCE.items} unfilledFields={ALERT_EVIDENCE.unfilledFields}>
+    <EvidenceProvider items={EMPTY_EVIDENCE.items} unfilledFields={EMPTY_EVIDENCE.unfilledFields}>
       <div
         className="rpt-workspace"
         data-view="archive-alert"
@@ -884,7 +896,7 @@ export default function AlertWorkspace() {
 
             <section className="ev-claim-summary" aria-label="Evidence-grounded 分析结论">
               <span className="ev-claim-summary-label">分析结论 · Evidence-grounded</span>
-              <ClaimText text={ALERT_EVIDENCE.summary} />
+              <ClaimText text={EMPTY_EVIDENCE.summary} />
             </section>
           </>
         )}
