@@ -193,6 +193,94 @@ def _build_compliance_done_envelope(
     )
 
 
+def _record_compliance_to_ledger(
+    *,
+    scan_id: str,
+    full_payload: dict,
+    endpoint: str,
+    input_summary: dict,
+) -> dict:
+    """Phase B.2 step 10 · ledger 上链 (per CLAUDE.md §3.7.5 + decision-ledger.md v1.0).
+
+    compliance retention default = standard (5y · 银保监 archive)
+    jurisdiction = HQ (env LIUYE_LEDGER_JURISDICTION 可覆盖)
+    subject_id = policy doc_no (e.g. 金监总规〔2026〕第 9 号) · ledger.record() 内部 hash 自动
+
+    silent-fail · ledger 是观察层不是阻塞层 · 写失败不破 SSE done envelope.
+    """
+    try:
+        from shared.decision_ledger import default_ledger
+    except ImportError as e:
+        return {"persisted": False, "decision_id": "", "error": f"import: {e}"}
+
+    policy_meta = full_payload.get("policy_meta") or {}
+    violations = full_payload.get("violations") or []
+    stats = full_payload.get("stats") or {}
+
+    # subject_id: 政策文号 (有则用 doc_no · 否则用 title) · ledger 内部 hash
+    subject_id = (
+        str(policy_meta.get("doc_no") or "").strip()
+        or str(policy_meta.get("policy_id") or "").strip()
+        or str(policy_meta.get("title") or "").strip()
+        or scan_id
+    )
+    subject_name = str(policy_meta.get("title") or "policy_scan").strip() or "policy_scan"
+
+    # evidence_chain: 每条 violation 的 rule_id + event_id + clause_text_hash + reason 全 8 字段
+    evidence_chain: list[dict] = []
+    for v in violations:
+        reason = v.get("reason") or {}
+        evidence_chain.append({
+            "violation_id": str(v.get("id") or v.get("violation_id") or ""),
+            "rule_id": str(v.get("rule_id") or ""),
+            "rule_article": str(v.get("rule_article") or ""),
+            "event_id": str(v.get("event_id") or ""),
+            "severity": str(v.get("severity") or ""),
+            "evidence": str(v.get("evidence") or ""),
+            "match_reason": str(v.get("match_reason") or ""),
+            # ViolationReason 8 字段 (red line #8 · 监管原文 hash 必带)
+            "clause_id": str(reason.get("clause_id") or ""),
+            "clause_text_hash": str(reason.get("clause_text_hash") or ""),
+            "policy_id": str(reason.get("policy_id") or ""),
+            "policy_version": str(reason.get("policy_version") or ""),
+            "evidence_date": str(reason.get("evidence_date") or ""),
+            "freshness_days": reason.get("freshness_days"),
+            "staleness_passed": reason.get("staleness_passed"),
+        })
+
+    output_payload = {
+        "scan_id": scan_id,
+        "mode": full_payload.get("mode"),
+        "stats": stats,
+        "violation_count": len(violations),
+        "rule_count": full_payload.get("rule_count"),
+        "event_count": full_payload.get("event_count"),
+    }
+
+    try:
+        ledger_result = default_ledger().record(
+            agent_id="compliance",
+            endpoint=endpoint,
+            input_payload=input_summary,
+            output_payload=output_payload,
+            evidence_chain=evidence_chain,
+            subject_name=subject_name,
+            subject_id=subject_id,
+        )
+        return {
+            "decision_id": ledger_result.decision_id,
+            "persisted": ledger_result.persisted,
+            "error": ledger_result.error,
+        }
+    except (RuntimeError, ValueError, TypeError, OSError,
+            AttributeError, KeyError, ImportError) as exc:
+        return {
+            "persisted": False,
+            "decision_id": "",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def _run_scan_engine_stream(
     *,
     policy_doc: str,
@@ -200,10 +288,12 @@ def _run_scan_engine_stream(
     policy_meta: dict | None,
     force_mock: bool,
     extras: dict | None = None,
+    endpoint: str = "/api/compliance/policy_scan",
 ):
     """共享的 engine SSE driver · /policy_scan + /demo/run 都走这里 (Phase B.2 真意 reframe).
 
     extras: 顶层 done envelope 加附加字段 (e.g. scenario_id / input_source / business_doc_sources).
+    endpoint: ledger 上链时写入 endpoint 字段 (per §3.7.5 audit · 区分 demo vs 真上传).
     """
     try:
         from agent_compliance.scan_engine import (
@@ -247,6 +337,30 @@ def _run_scan_engine_stream(
                     code="SCAN_PERSIST_LOST",
                 ))
                 return
+
+            # Phase B.2 step 10 · ledger 上链 (silent-fail · 观察层不阻塞)
+            input_summary = {
+                "policy_meta": policy_meta or {},
+                "business_doc_count": len(business_docs or []),
+                "force_mock": bool(force_mock),
+                **(extras or {}),
+            }
+            ledger_outcome = _record_compliance_to_ledger(
+                scan_id=last_scan_id,
+                full_payload=full_payload,
+                endpoint=endpoint,
+                input_summary=input_summary,
+            )
+            yield encode_event(make_stage(
+                "ledger_persist",
+                "done" if ledger_outcome.get("persisted") else "warn",
+                message=(
+                    f"decision_id={ledger_outcome.get('decision_id')}"
+                    if ledger_outcome.get("persisted")
+                    else f"ledger 写入跳过: {ledger_outcome.get('error') or 'unknown'}"
+                ),
+            ))
+
             done_evt = _build_compliance_done_envelope(
                 scan_id=last_scan_id,
                 payload=full_payload,
@@ -257,6 +371,12 @@ def _run_scan_engine_stream(
                 for k, v in extras.items():
                     if k not in done_evt:
                         done_evt[k] = v
+            # ledger meta 顶层 (审计可追溯 · 前端可显徽章)
+            done_evt["ledger"] = {
+                "decision_id": ledger_outcome.get("decision_id", ""),
+                "persisted": bool(ledger_outcome.get("persisted")),
+                "error": ledger_outcome.get("error") or None,
+            }
             yield encode_event(done_evt)
         else:
             yield encode_event(make_error(
@@ -276,6 +396,7 @@ def _policy_scan_event_stream(req: CompliancePolicyScanRequest):
         policy_meta=req.policy_meta,
         force_mock=bool(req.force_mock),
         extras={"input_source": "user_upload"},
+        endpoint="/api/compliance/policy_scan",
     )
 
 
@@ -601,6 +722,7 @@ async def compliance_demo_run(
             policy_meta=batch.policy_meta,
             force_mock=bool(req.force_mock),
             extras=extras,
+            endpoint="/api/compliance/demo/run",
         )
 
     return StreamingResponse(
