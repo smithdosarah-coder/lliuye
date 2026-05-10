@@ -17,6 +17,11 @@ PM 2026-05-07 ALL IN step 2.2 · codex R1 第 1 关键洞察:
 Phase 2 (step 2.4-2.5) 接到 channel agent · 多源 candidate 合并时去重.
 Phase A common (2026-05-09) 加 GB 32100 校验 + make_unique_id helper.
 """
+from .candidate_helpers import (
+    ensure_candidate_id,
+    ensure_list_unique_ids,
+    verify_candidate_ids,
+)
 from .resolver import (
     EntityKey,
     make_unique_id,
@@ -29,10 +34,13 @@ from .resolver import (
 
 __all__ = [
     "EntityKey",
+    "ensure_candidate_id",
+    "ensure_list_unique_ids",
     "make_unique_id",
     "normalize_company_name",
     "resolve_entity",
     "validate_uscc",
     "validate_uscc_checksum",
     "validate_uscc_format",
+    "verify_candidate_ids",
 ]
