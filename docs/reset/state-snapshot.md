@@ -2082,3 +2082,53 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 5. **AGENT_IDENTITY 模板抽到 docs/working/ 然后 sed 派生**: 1 个 agent 模板 + sed 替换 `{AGENT}` 占位 → 5 个 worker 各自 AGENT_IDENTITY · 比 5 文件各写更可维护.
 6. **mesh 自动建 worktree**: ps1 加 `git worktree add` graceful 逻辑 · PM 双击 bat 不需手动跑 git command. 好 UX.
 
+
+---
+
+## 2026-05-11 13:00 · B.4 SLO 4 fix-bugs worker · 6 agent prompt tune · 产出业务可用
+
+### What happened
+
+- B.4 派活 4 worker × 4 SLO (commit `59d32fd` PM 12:55 GO) · fix-bugs 接 SLO 4 "产出业务可用"
+- 跑完 4 主活 A → C → B(×6) → D · 9 commit + 1 ship signal commit (本段同步)
+- Task A: 6 parallel Explore agent 真跑 file:line evidence audit · consolidate 到 `docs/working/slo4-schema-audit-2026-05-11.md` (5 共性走歪 pattern · per-agent 真痛清单)
+- Task C: 写 `docs/contracts/agent-output-rubric-2026-05-11.md` Tier 1 contract (1-5 Likert · 7 共形 pass-fail · 6 agent 字段级 pass-fail)
+- Task B1-B6: 6 agent 各 prompt tune commit · ~285 LOC 总 · 修复 5 共性走歪 (P1 fallback generic / P2 few-shot 缺 / P3 freshness 没透传 / P4 dim-specific 缺 / P5 report 段路由)
+- Task D (template path only): 6/6 agent PASS rubric anchor 真 verify (script `scripts/slo4_verify_template_path.py` · 可 CI 接入)
+- 6 fail case 加 `data/eval/real_scenario_cases.jsonl` (RS-011 → RS-016 · PB#2 守则 #6 配套)
+
+### Triggered by
+
+- PM 2026-05-11 12:55 GO B.4 SLO 4 派活 (commit `59d32fd` · `.mesh-launcher/mesh-prompt-b4-output-quality.txt` verbatim)
+- B.3.4 4 bug (channel/report/alert/compliance) 已修 · fix-bugs worktree 复用接 SLO 4
+
+### State change (delta)
+
+- agent_channel: `_template_pitch` 加业务锚 (industry/scale/资质/数字/时限) + PITCH_FEWSHOT_EXAMPLES 3 真案例 (制造业中标/新能源专精特新/化工排污) + `_PRODUCT_DB` fallback 加 RM-actionable
+- agent_credit: `_template_reason_corporate/_retail` 加 4 维 dim 档位 + reasoning 锚 + 红线 actual/threshold 引用 + `_summarize_cases` 加 similarity dim breakdown + red_line_explanations 加 policy_quote
+- agent_alert: 3 处 "需关注" → "客户经理 Nd 内 + 动作 + 触发条件" · `_llm_disposition` user_prompt 加 freshness_score / source_confidence / evidence_date 透传 (BE5 incomplete handoff fix)
+- agent_compliance: `_FIELD_LABEL_MAP` 16 字段加 regulatory bucket 后缀 (准入/KYC/AML/风偏/审查/监管报送) · `_template_revisions` 加 severity→disposition map · `REVISION_SYSTEM` 加 inline 真案例
+- v16_op_handlers: `_build_material_summary_for_rewrite` 加 industry_cards + policy_cards 注入 (防 LLM 编"行业前景广阔") · quality_scorer `score()` 加维度级 fatal_fail (财务深度 ≥ 7 / 格式规范 ≥ 6 / 申报方案硬字段 ≥ 5)
+- agent_riskctrl: `format_metrics_report` KS 4 档 benchmark + actionable 优化路径 · `LLMJudge.judge()` return 加 label (优秀/可用/需改进/不可用)
+- docs/contracts: 新增 `agent-output-rubric-2026-05-11.md` (Tier 1)
+- docs/working: 新增 `slo4-schema-audit-2026-05-11.md` + `slo4-template-path-samples-2026-05-11.md`
+- data/eval: real_scenario_cases.jsonl 加 6 fail case (RS-011 → RS-016)
+- data/feedback: 加 `channel-seed-2026-05-11.jsonl` (3 真业务 case · git -f tracked)
+- scripts: 新增 `slo4_verify_template_path.py` (LLM-free deterministic verifier · 6/6 pass)
+- tests: 0 regression · channel 241 / credit 32 / alert 241 / compliance 57 / report 118 / riskctrl judge+metrics 17 = **706 tests pass** · 5 pre-existing failures 无关 (alert test_scan_live + riskctrl test_backtest_real / test_dsl_deploy_endpoint auth-related)
+
+### Next
+
+- Task D 完整 verify (live LLM + admin 真号 sample) 等 SLO 1 (DEEPSEEK key) + SLO 2 (admin auth + ECS deploy) ship · fix-bugs 配合补 6 真号 sample 1-5 评分 + LLM 调用 log
+- Ship signal `WORKER-SLO-4-OUTPUT-QUALITY-READY-FOR-MERGE` (本段同 commit · CONDITIONAL · live E2E 待 SLO 1/2 ship)
+- 主 CLI cherry-pick / merge 后 PM 1-5 评分 验业务可用平均 ≥ 4
+- 主 CLI 同步本 SLO 4 改动到 mesh main · 配合 SLO 1+2 配齐 live verify · final ship pass/fail
+
+### 学到了什么
+
+1. **6 并行 Explore agent 真跑 file:line evidence audit 比串行读快 10x**: 单串行读 6 agent prompts.py + LLM call sites + output schema 估 2 hr · 6 并行 ~3 min · 关键是 brief 写得 self-contained (含 agent business context + 工具 + 输出格式 + 字数上限).
+2. **PB#2 governance 7 守则是真护栏**: 6 agent prompt tune 全程不动 prompt 规则数 · 只动 schema (vocab + few-shot + fallback) · prompt 行数稳定 · 不违 220 行硬线.
+3. **template / fallback path 也要 rubric verify**: LLM 不可用时 fallback 路径才是 production safety net · template 路径同样要满足银行风格 actionable rubric · LLM-free verifier 可 CI 接入.
+4. **共性走歪 5 pattern (P1-P5) 适配多 agent**: 6 agent 各自痛点不同但根因共 5 pattern · 抽 pattern 后逐 agent 改 ~285 LOC · 比 6 agent 各自分析 build pipeline 高 ROI.
+5. **fail case 配套硬规 (PB#2 #6) 强制 evaluation 收敛**: 每 prompt tune commit 必加 1 fail case 到 `real_scenario_cases.jsonl` · 等 CI 跑 regression 时 catch 复发.
+6. **审计 / Verify 阶段写 deterministic script 比 ad-hoc 测好**: `scripts/slo4_verify_template_path.py` 可重跑 · 后续 (e.g. 加新 agent 或新 rubric anchor) 直接扩 RUBRIC_ANCHORS dict · 不必重新搭测试 setup.
