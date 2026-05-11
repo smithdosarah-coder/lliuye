@@ -115,3 +115,65 @@
   align-items: start !important;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 36 bug 修复 (PM 2026-05-11 12:45 拍 A)
+ * 4 通病修 (C1-C4 · 1 处影响 6 助手)
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* ── C1 · 通病: viewport 下半页 ~750px ground gradient 大空白 ──
+ * 真因: archive 主体 page 短 (1000-1300px) · 但 viewport 1080+ ·
+ *       body bg 是 ground gradient · 显在 page 下方 = 看着像"大空白"
+ * 修: archive 容器拉满 viewport min-height (减去顶部 shell-bar 64px)
+ *     body bg 不变 (整 shell v2 视觉) · 但 archive page 占满 viewport
+ */
+.v-archive--canon {
+  min-height: calc(100vh - 64px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.v-archive--canon > * {
+  flex-shrink: 0 !important;
+}
+
+/* ── C2 · 通病: 整页内容靠左 60-70% · 右 30-40% 空 ──
+ * 真因: 单 panel 自己 max-width 太窄 (e.g. 1200px) · 加 mx-auto = 整页中间
+ *       但 archive container 已经 max-w-[1720px] mx-auto · 内部不需再设
+ * 修: workspace 内部 panel/grid 撑满父 (width 100%)
+ */
+.v-archive--canon .rpt-workspace {
+  width: 100% !important;
+}
+
+/* ── C3 · 通病: stats 飘右上 · 跟 hero 间巨大空白 (~1000px) ──
+ * 真因: hero row = [左 AGENT eyebrow + 标题] + [右 stats] · justify space-between ·
+ *       但左侧内容短 (1 行 eyebrow + 1 标题 + 1 描述) · 右侧 3 数字 · 中间空白
+ * 修: hero left grow + right shrink · 不留中间巨大空
+ */
+.v-archive--canon .rpt-hero,
+.v-archive--canon [class*="al-hero"],
+.v-archive--canon [class*="ch-hero"],
+.v-archive--canon [class*="cr-hero"],
+.v-archive--canon [class*="rc-hero"],
+.v-archive--canon [class*="cp-hero"],
+.v-archive--canon [class*="rp-hero"] {
+  gap: 16px !important;
+}
+
+/* ── C4 · 通病: 占位卡 grid 不平衡 + padding 浪费 ──
+ * 真因: 4 卡 grid 默认 auto-fit · 实际渲染 3 列 + 第 4 独占 1 行
+ *       每卡 padding 24-32px · 内容只 1-2 行
+ * 修: 强 2x2 grid + padding 减半
+ */
+.v-archive--canon [class*="-placeholders"],
+.v-archive--canon [data-testid$="-skeleton-panels"],
+.v-archive--canon [data-testid$="-empty-skeleton-panels"] {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+}
+.v-archive--canon [class*="placeholder-card"],
+.v-archive--canon [data-testid$="-placeholder-card"],
+.v-archive--canon [class*="-empty-skel"] > article {
+  padding: 12px 16px !important;
+}
+
