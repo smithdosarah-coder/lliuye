@@ -1995,7 +1995,11 @@ function QueryBar({
                   fontFamily: "inherit",
                   fontSize: 12,
                   cursor: streaming ? "not-allowed" : "pointer",
-                  fontWeight: active ? 600 : 400,
+                  /* B.4 SLO-3 · channel-bug-3 · active/inactive 字号不一致
+                   * 真因: weight 600 vs 400 = 视觉字号差异 (粗体看着更大)
+                   * 修: 统一 weight 500 · 区分靠 bg + color 不靠粗细
+                   */
+                  fontWeight: 500,
                   transition: "background 120ms",
                 }}
               >
