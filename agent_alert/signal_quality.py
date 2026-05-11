@@ -36,7 +36,21 @@ import re
 from datetime import datetime, date, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
+
+# B.3.4 P0-R1 (2026-05-11): freshness + confidence 数学层抽到 shared.
+# Re-export 保持原有 import path 不破 · 行为完全等价 (alert 自测 100% 数值一致).
+from shared.evidence.confidence_policy import (
+    CONFIDENCE_BASE as _CONFIDENCE_BASE,
+    DEFAULT_CONFIDENCE_LEVEL as _DEFAULT_CONFIDENCE,
+    DEFAULT_FLOOR,
+    FRESHNESS_DECAY_PER_DAY as _FRESHNESS_DECAY_PER_DAY,
+    FRESHNESS_MAX as _FRESHNESS_MAX,
+    FRESHNESS_MIN as _FRESHNESS_MIN,
+    SourceConfidence,
+    compute_evidence_confidence,
+    freshness_score,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,91 +61,10 @@ SOURCE_CONFIDENCE_PATH = (
 
 
 # ---------------------------------------------------------------------------
-# 1. Freshness score
+# 1+2. freshness_score / compute_evidence_confidence / SourceConfidence
+#      已从 shared.evidence.confidence_policy 引入 (上方 import).
+#      仅保留 source 表加载 / 查表 (alert-specific data 路径).
 # ---------------------------------------------------------------------------
-
-
-_FRESHNESS_DECAY_PER_DAY: int = 10  # -10/day
-_FRESHNESS_MAX: int = 100
-_FRESHNESS_MIN: int = 0
-
-
-def _coerce_to_date(value: Any) -> date | None:
-    """容忍多种入参形态 → date · 失败返 None."""
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    if isinstance(value, (int, float)):
-        try:
-            return datetime.fromtimestamp(float(value)).date()
-        except (OverflowError, OSError, ValueError):
-            return None
-    if isinstance(value, str):
-        s = value.strip()
-        if not s:
-            return None
-        # ISO 8601 first
-        try:
-            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
-        except ValueError:
-            pass
-        # 常见中文 / 简化格式 2024-01-31, 2024/01/31, 20240131
-        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y%m%d", "%Y-%m", "%Y"):
-            try:
-                return datetime.strptime(s[: len(fmt) + 4 if fmt == "%Y" else len(s)], fmt).date()
-            except ValueError:
-                continue
-    return None
-
-
-def freshness_score(observed_at: Any, ref: Any = None) -> int:
-    """日衰减 freshness · 0-100 · 当天=100 · -10/day · clamp [0, 100].
-
-    Args:
-        observed_at: 信号产生时间 (date / datetime / ISO str / epoch / None)
-        ref:         参考"今天" · 默认 datetime.now().date()
-
-    Returns:
-        int [0, 100] · 0 = ≥ 10 天前 · 100 = 当天 · 不可解析 = 0
-
-    Examples:
-        >>> from datetime import date
-        >>> freshness_score(date(2026, 5, 4), ref=date(2026, 5, 4))
-        100
-        >>> freshness_score(date(2026, 5, 1), ref=date(2026, 5, 4))
-        70
-        >>> freshness_score("2026-04-20", ref=date(2026, 5, 4))
-        0
-        >>> freshness_score(None)
-        0
-        >>> freshness_score("2026-05-10", ref=date(2026, 5, 4))  # future date
-        100
-    """
-    obs = _coerce_to_date(observed_at)
-    if obs is None:
-        return _FRESHNESS_MIN
-
-    ref_date = _coerce_to_date(ref) or datetime.now().date()
-    delta_days = (ref_date - obs).days
-
-    if delta_days <= 0:
-        # 未来 (clock skew / future-dated event) · clamp 当天
-        return _FRESHNESS_MAX
-
-    raw = _FRESHNESS_MAX - _FRESHNESS_DECAY_PER_DAY * delta_days
-    return max(_FRESHNESS_MIN, min(_FRESHNESS_MAX, raw))
-
-
-# ---------------------------------------------------------------------------
-# 2. Source confidence lookup
-# ---------------------------------------------------------------------------
-
-
-SourceConfidence = Literal["high", "med", "low"]
-_DEFAULT_CONFIDENCE: SourceConfidence = "med"
 
 
 def _load_source_confidence_table() -> dict[str, dict[str, Any]]:
@@ -459,48 +392,9 @@ def infer_full_kinds(
 
 
 # ---------------------------------------------------------------------------
-# 4. Combined evidence confidence
+# 4. compute_evidence_confidence 已 import from shared.evidence.confidence_policy
+#    (上方 import · 行为完全等价 · alert 自测 100% 数值一致)
 # ---------------------------------------------------------------------------
-
-
-_CONFIDENCE_BASE: dict[str, float] = {
-    "high": 0.95,
-    "med": 0.70,
-    "low": 0.45,
-}
-
-
-def compute_evidence_confidence(
-    freshness: int,
-    source_confidence: SourceConfidence | str,
-    *,
-    floor: float = 0.10,
-) -> float:
-    """合并 freshness × source_confidence → 0-1 evidence.confidence.
-
-    Args:
-        freshness:         freshness_score 输出 · 0-100
-        source_confidence: high / med / low · 不识别按 med 处理
-        floor:             最低 confidence (避免 0 · 维持下游 evidence 必有)
-
-    Returns:
-        float [floor, 1.0] · = base[level] × (0.5 + freshness/200)
-        - source high + freshness 100  → 0.95
-        - source high + freshness 0    → 0.475
-        - source low  + freshness 100  → 0.45
-        - source low  + freshness 0    → 0.225 → max(floor, 0.225)
-
-    设计:
-        - freshness 占 50% 权 · 旧信号自动降权 (per BE5 spec)
-        - source 占 50% 权 · gov 永远高于社媒 (per BE5 spec)
-        - floor 兜底 · 避免完全 0 信号被吃掉 → 还有理由进入 trigger_reasons
-    """
-    level_str = str(source_confidence or _DEFAULT_CONFIDENCE).strip().lower()
-    base = _CONFIDENCE_BASE.get(level_str, _CONFIDENCE_BASE[_DEFAULT_CONFIDENCE])
-    f = max(_FRESHNESS_MIN, min(_FRESHNESS_MAX, int(freshness)))
-    multiplier = 0.5 + (f / 200.0)  # 0.5 ~ 1.0
-    raw = base * multiplier
-    return max(floor, min(1.0, round(raw, 4)))
 
 
 # ---------------------------------------------------------------------------
