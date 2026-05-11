@@ -1922,9 +1922,21 @@ function ReportSampleStrip({
           <span style={{ fontSize: 10, color: "var(--ink-65)" }}>{opt.hint}</span>
         </button>
       ))}
-      <span style={{ marginLeft: "auto", color: "var(--ink-65)", fontSize: 11, fontStyle: "italic" }}>
+      {/* B.4 SLO-3 · report-bug-3 · "真 LLM..." 飘右 · 跟 sample btn 不对齐
+       * 真因: 原 marginLeft auto 推到 row 右端 · 跟 sample btn 视觉错位
+       * 修: 移出 flex row · 改 div block flex-basis 100% · 撑满下一行 · 不再 floating */}
+      <div
+        style={{
+          flexBasis: "100%",
+          marginTop: 4,
+          color: "var(--ink-50)",
+          fontSize: 11,
+          fontStyle: "italic",
+          fontFamily: "var(--cjk)",
+        }}
+      >
         真 LLM (DeepSeek) + 真 9 维 QC · PM 2026-05-10 真意 reframe
-      </span>
+      </div>
     </section>
   );
 }
