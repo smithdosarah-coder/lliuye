@@ -725,7 +725,12 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-trigger-bar {
   display: flex;
-  align-items: flex-end;
+  /* B.4 SLO-3 · riskctrl-bug-4 · mode toggle + 主 CTA 同行视觉
+   * 真因: align-items flex-end · mode toggle 双行 btn (~50px) vs CTA pill 单行 (~42px)
+   *      高度差 ~8px · CTA 视觉沉底 · mode toggle 视觉浮顶 · "不同行视觉"
+   * 修: align-items center · 两元素垂直居中 · 高度差自然左右居中对齐
+   */
+  align-items: center;
   gap: 16px;
   padding: 14px 18px;
   margin: 14px 0 0;
