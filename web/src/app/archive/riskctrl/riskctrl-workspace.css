@@ -914,8 +914,14 @@
 /* Empty-state skeleton */
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty {
+  /* B.4 SLO-3 · riskctrl-bug-3 · 等待触发策略 panel 占 1 整行但只显短文字 · 仍有空白
+   * 真因: padding 32/28 + head margin-bottom 24 + panel padding 28/18 + min-height 88
+   *      = head + 4 卡 总高 ~280px · 但 padding 大 → 视觉上 panel 大 + 内容松
+   * 修: panel padding 32/28 → 20/24 · head margin-bottom 24 → 16
+   *     panel padding 28/18 → 14/16 + min-height 88 → 72 (跟 compliance bug-5 同模式)
+   */
   margin: 18px 0 32px;
-  padding: 32px 28px;
+  padding: 20px 24px;
   background: color-mix(in srgb, var(--chalk) 50%, transparent);
   border: 1px dashed var(--ink-14);
   border-radius: var(--r-md);
@@ -923,7 +929,8 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__head {
   text-align: center;
-  margin-bottom: 24px;
+  /* B.4 SLO-3 · riskctrl-bug-3 · head margin-bottom 24 → 16 (跟 panel padding 20 配合 · 减空白) */
+  margin-bottom: 16px;
 }
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__title {
@@ -969,7 +976,10 @@
 }
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__panel {
-  padding: 28px 18px;
+  /* B.4 SLO-3 · riskctrl-bug-3 · 卡 padding 28/18 → 14/16 + min-height 88 → 72
+   * 跟 compliance bug-5 同模式 · 减卡内 padding 浪费
+   */
+  padding: 14px 16px;
   background: color-mix(in srgb, var(--g0b) 50%, transparent);
   border: 1px dashed var(--ink-08);
   border-radius: 12px;
@@ -977,7 +987,7 @@
   font-size: 12.5px;
   color: var(--ink-50);
   text-align: center;
-  min-height: 88px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
