@@ -1946,6 +1946,41 @@
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO-3 · compliance-bug-1 · hero 跟 stats 间 ~1000px 巨大空白
+ * 真因: .rpt-hero flex space-between · 4 child (eyebrow/title/sub/stats)
+ *      idle 时 title + sub 内容空 · 只剩 eyebrow 左 + stats 右 · 中间巨大空
+ * 修: 改 grid 2-col (1fr auto) · eyebrow/title/sub 左列 · stats 右列 align end
+ *     注意: 仅 scope 到 [data-agent="compliance"] · 不影响其他 agent
+ * ════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero {
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 24px;
+  row-gap: 4px;
+  align-items: end;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__eyebrow {
+  grid-column: 1;
+  grid-row: 1;
+  margin-bottom: 4px;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__title {
+  grid-column: 1;
+  grid-row: 2;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__sub {
+  grid-column: 1;
+  grid-row: 3;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stats {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: end;
+  margin: 0 !important;
+}
+
 /* ────────────────────── Stage CF · empty-state + 3 CTA · 2026-04-28 ────────────────────── */
 
 .v-archive--canon[data-agent="compliance"] .compliance-trigger-bar {
