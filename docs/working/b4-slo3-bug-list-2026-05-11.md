@@ -19,15 +19,15 @@
 
 ## 36 bug 清单 · 状态
 
-### channel (5 bug)
+### channel (5 bug · ✅ 全 ship)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | KB 知识库上传 3 panel 排版乱 | channel-workspace.css · `.ch-kb-*` panel | pending | — |
-| 2 | QUERY panel 跟 KB panel 间距不一致 | channel-workspace.css · panel gap | pending | — |
-| 3 | 自由查询 / 一键示例 toggle 字号不一致 | channel-workspace.css · `.ch-mode-toggle` | pending | — |
-| 4 | "搜索完成后此处显示候选企业卡..." 单行浮 panel 下方 · 没上下边界 | channel-workspace.css · `[data-testid=channel-completion-hint]` | pending | — |
-| 5 | 形态 A / 形态 B 2 panel 跟上下不对齐 | channel-workspace.css · `.ch-shape-*` | pending | — |
+| 1 | KB 知识库上传 3 panel 排版乱 | channel-workspace.css · `.ch-kb-zone` 等高 | ✅ done | `722a904` |
+| 2 | QUERY panel 跟 KB panel 间距不一致 | channel-workspace.css · `.ch-querybar` padding 18/22 + margin 18/0 | ✅ done | `f610bab` |
+| 3 | 自由查询 / 一键示例 toggle 字号不一致 | ChannelWorkspace.tsx inline · fontWeight 500 统一 | ✅ done | `7409e55` |
+| 4 | "搜索完成后此处显示候选企业卡..." 单行浮 | ChannelWorkspace.tsx · `<p>` → `<div>` 完整卡片 | ✅ done | `afa04e0` |
+| 5 | 形态 A / 形态 B 2 panel 跟上下不对齐 | ChannelWorkspace.tsx inline · padding 18/22 + margin 18/0 | ✅ done | `58072f5` |
 
 ### credit (6 bug · 1 verify)
 
