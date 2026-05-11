@@ -696,6 +696,27 @@ export default function ChannelWorkspace() {
               ↑ 上方切到 <strong style={{ color: "var(--accent)" }}>"一键示例"</strong> tab 即可点 3 档难度运行
             </div>
           </div>
+          {/* B.3.4 fix-indep 主活B-2 GAP fix · audit 6 workspace 唯一缺显式完成后 hint 的 ·
+              加 channel-completion-hint 明示 result UI shape · 防 PM 截图痛 #4 同病再现 */}
+          <p
+            data-testid="channel-completion-hint"
+            style={{
+              gridColumn: "1 / -1",
+              fontFamily: "var(--cjk)",
+              fontSize: 12.5,
+              color: "var(--ink-50)",
+              fontStyle: "italic",
+              padding: "8px 12px",
+              background: "color-mix(in srgb, var(--ink) 3%, transparent)",
+              borderRadius: 8,
+              borderLeft: "2px solid var(--accent)",
+              margin: "12px 0 0 0",
+              lineHeight: 1.55,
+            }}
+          >
+            搜索完成后此处显示候选企业卡 · 9 维评分 + 字段级溯源 evidence drawer +
+            多源信号 timeline (工商 / 司法 / 招投标 / 资质 / 行情) · 单候选可右抽屉 drill 详情.
+          </p>
         </section>
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
