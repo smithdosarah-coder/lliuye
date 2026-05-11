@@ -283,6 +283,19 @@ interface DispatchState {
   sendFailError: { message: string; code?: number; ts: number } | null;
   setSendFailError: (err: { message: string; code?: number } | null) => void;
 
+  /** B.4 SLO-1 · /api/im/send LLM 失败显式 banner (替 silent fallback)
+     code: HTTP 状态 (503 / 500 / 0 网络 / 0 timeout)
+     hint: 区分场景的引导文案 (503 联系管理员 · timeout 重发 · 500 重试) */
+  imLlmError: {
+    message: string;
+    code?: number;
+    hint?: string;
+    ts: number;
+  } | null;
+  setImLlmError: (
+    err: { message: string; code?: number; hint?: string } | null,
+  ) => void;
+
   /** W-FIX · ws state !== "open" 持续起始时间 · UI 30s threshold check */
   wsFailSince: number | null;
 }
@@ -303,6 +316,7 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
   wsState: "idle",
   typingByThread: {},
   sendFailError: null,
+  imLlmError: null,
   wsFailSince: null,
   selectThread: (id) => {
     set((s) => ({
@@ -469,6 +483,21 @@ export const useDispatchStore = create<DispatchState>((set, get) => ({
       sendFailError: {
         message: err.message,
         code: err.code,
+        ts: Date.now(),
+      },
+    });
+  },
+
+  setImLlmError: (err) => {
+    if (err === null) {
+      set({ imLlmError: null });
+      return;
+    }
+    set({
+      imLlmError: {
+        message: err.message,
+        code: err.code,
+        hint: err.hint,
         ts: Date.now(),
       },
     });

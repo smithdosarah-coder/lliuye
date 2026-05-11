@@ -32,6 +32,8 @@ export function MessageStream() {
   const wsFailSince = useDispatchStore((s) => s.wsFailSince);
   const sendFailError = useDispatchStore((s) => s.sendFailError);
   const setSendFailError = useDispatchStore((s) => s.setSendFailError);
+  const imLlmError = useDispatchStore((s) => s.imLlmError);
+  const setImLlmError = useDispatchStore((s) => s.setImLlmError);
   const typingPresence = useDispatchStore((s) =>
     s.currentThreadId ? s.typingByThread[s.currentThreadId] ?? EMPTY_TYPING : EMPTY_TYPING,
   );
@@ -89,6 +91,8 @@ export function MessageStream() {
       <ImBanners
         sendFailError={sendFailError}
         clearSendFail={() => setSendFailError(null)}
+        imLlmError={imLlmError}
+        clearImLlm={() => setImLlmError(null)}
         wsState={wsState}
         wsFailSince={wsFailSince}
       />
@@ -178,6 +182,10 @@ const WS_FAIL_THRESHOLD_MS = 30_000;
 function ImBanners(p: {
   sendFailError: { message: string; code?: number; ts: number } | null;
   clearSendFail: () => void;
+  imLlmError:
+    | { message: string; code?: number; hint?: string; ts: number }
+    | null;
+  clearImLlm: () => void;
   wsState: string;
   wsFailSince: number | null;
 }) {
@@ -194,7 +202,7 @@ function ImBanners(p: {
     p.wsFailSince !== null &&
     now - p.wsFailSince >= WS_FAIL_THRESHOLD_MS;
 
-  if (!p.sendFailError && !wsFailing) return null;
+  if (!p.sendFailError && !p.imLlmError && !wsFailing) return null;
 
   return (
     <div className="dpx-stream-banners" aria-live="polite">
@@ -215,6 +223,28 @@ function ImBanners(p: {
             className="dpx-banner__dismiss"
             data-testid="im-send-fail-dismiss"
             onClick={p.clearSendFail}
+          >
+            知道了
+          </button>
+        </div>
+      ) : null}
+      {p.imLlmError ? (
+        <div
+          className="dpx-banner dpx-banner--err"
+          role="alert"
+          data-testid="im-llm-fail-banner"
+        >
+          <span className="dpx-banner__icon" aria-hidden>⚠️</span>
+          <span className="dpx-banner__text">
+            AI 回复失败
+            {p.imLlmError.code ? ` (${p.imLlmError.code})` : ""} ·{" "}
+            {p.imLlmError.hint ?? p.imLlmError.message}
+          </span>
+          <button
+            type="button"
+            className="dpx-banner__dismiss"
+            data-testid="im-llm-fail-dismiss"
+            onClick={p.clearImLlm}
           >
             知道了
           </button>
