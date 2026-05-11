@@ -2264,13 +2264,18 @@ function ReportEmptySkeleton() {
       data-testid="report-empty-skeleton"
       aria-label="等待触发 · 报告生成"
       style={{
-        padding: "48px 24px",
+        /* B.4 SLO-3 · report-bug-2 · 等待触发 panel 中间 500-600px 巨大空白
+         * 真因: padding 48/24 + minHeight calc(100vh-360px) 强 ~720px @ 1080 viewport
+         *      内容 (title + 1 段 + 4 li) 只 ~200px · flex column justify-content center
+         *      = panel 上下大量空白
+         * 修: padding 28/24 + 删 minHeight (跟内容走) · 仍 flex column 居中
+         */
+        padding: "28px 24px",
         textAlign: "center",
         background: "color-mix(in srgb, var(--chalk) 50%, transparent)",
         borderRadius: "var(--r-md)",
         border: "1px dashed var(--ink-14)",
         margin: "24px 0 64px 0",
-        minHeight: "calc(100vh - 360px)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
