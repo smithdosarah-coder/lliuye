@@ -87,6 +87,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* B.4 SLO-3 · report-bug-1 · stats 3 破折号孤独飘右上 · 字突兀
+ * 真因: rpt-stat-label 9.5px 过小 · rpt-stat-value 22px 而 EMPTY 状态都 "—"
+ *      = 3 个大破折号占视觉 · label 看不清 · "破折号突兀"
+ * 修: report scope · label 字号 9.5→11 + tracking 减半 · value 22→14 + 色弱
+ *     idle 时 stats 看着轻 · 不夺主要内容注意力 (报告主入口才是重点)
+ */
+.v-archive--canon[data-agent="report"] .rpt-stat-label {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  color: var(--ink-55) !important;
+}
+.v-archive--canon[data-agent="report"] .rpt-stat-value {
+  font-size: 14px !important;
+  color: var(--ink-50) !important;
+  font-weight: 500 !important;
+}
+
 /* 2026-04-23 · BEM 别名补丁 · alert / compliance 的 HeroSection 使用 .rpt-hero__*
    双下划线 BEM · canon 原 CSS 只定 dash 版 · 导致字堆叠裸奔。
    镜像 dash 规则到 BEM · 两体系并存 · 不影响 dash 用户（report）。 */
