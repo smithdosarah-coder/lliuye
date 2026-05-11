@@ -1966,6 +1966,18 @@
 .credit-empty__skel-card--wide {
   grid-column: 1 / -1;
 }
+
+/* B.4 SLO-3 · credit-bug-3 · 4 占位卡 grid 3+1 → 2x2 (C4 通病在 credit 真生效)
+ * 真因: C4 idle-tight.css 把 [data-testid$="-skeleton-panels"] 设 grid 2 cols ·
+ *      但 credit 内部用 2 个 .credit-empty__skel-row 包 4 cards · skel-row 接走 grid item
+ *      → parent grid 2-col 但 children 只 2 个 row 包装 · 不是 4 cards 直接子
+ * 修: skel-row 用 display:contents flatten · 让 4 cards 成 parent grid 直接子
+ *     advice 卡的 --wide grid-column 1/-1 在 2-col grid 仍占满 1 行
+ *     bug-4 处理 advice 内容拉伸
+ */
+.v-archive--canon .credit-empty__skel-row {
+  display: contents;
+}
 .credit-empty__skel-lbl {
   font-family: var(--cjk);
   font-size: 13px;
