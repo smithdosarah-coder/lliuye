@@ -29,16 +29,16 @@
 | 4 | "搜索完成后此处显示候选企业卡..." 单行浮 | ChannelWorkspace.tsx · `<p>` → `<div>` 完整卡片 | ✅ done | `afa04e0` |
 | 5 | 形态 A / 形态 B 2 panel 跟上下不对齐 | ChannelWorkspace.tsx inline · padding 18/22 + margin 18/0 | ✅ done | `58072f5` |
 
-### credit (6 bug · 1 verify)
+### credit (6 bug · ✅ 全 ship · bug-3 真修 · 非 verify-only)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | 板块 toggle (对公/普惠/对私) + AGENT eyebrow 上下错位 | credit-workspace.css · `.cr-segment-toggle` align | pending | — |
-| 2 | 演示数据 panel 横向只占 60% · 右 40% 空 | credit-workspace.css · `.cr-demo-panel` width 100% | pending | — |
-| 3 | 4 占位卡 grid 3+1 (C4 已修 · verify) | _shared/idle-tight.css C4 | verify-only | — |
-| 4 | 决策建议书 panel 占整行 · 内容只 1 行 | credit-workspace.css · `.cr-suggest-panel` min-height/content | pending | — |
-| 5 | 状态条飘左 · 右大块空 | credit-workspace.css · `.cr-status-bar` width/justify | pending | — |
-| 6 | "导出 .docx (待决策完成启用)" 飘右 · 字突兀 | credit-workspace.css · 嵌入 CTA cluster | pending | — |
+| 1 | 板块 toggle (对公/普惠/对私) + AGENT eyebrow 上下错位 | credit-workspace.css · tabs absolute top-right + hero padding-right 240 | ✅ done | `f3d3901` |
+| 2 | 演示数据 panel 横向只占 60% · 右 40% 空 | credit-workspace.css · cta-row + cta width 100% | ✅ done | `3ef8b57` |
+| 3 | 4 占位卡 grid 3+1 → 2x2 | credit-workspace.css · skel-row display:contents (C4 真生效) | ✅ done | `baf45f6` |
+| 4 | 决策建议书 panel 占整行 · 内容只 1 行 | credit-workspace.css · --wide grid-column auto · 单 cell | ✅ done | `2ccff44` |
+| 5 | 状态条飘左 · 右大块空 | credit-workspace.css · status-item--demo margin-left auto | ✅ done | `4ba8bab` |
+| 6 | "导出 .docx (待决策完成启用)" 飘右 · 字突兀 | CreditWorkspace.tsx + credit-workspace.css · 独立 .skel-cta-row | ✅ done | `8dcab76` |
 
 ### alert (7 bug)
 
