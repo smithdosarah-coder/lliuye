@@ -1914,7 +1914,10 @@
 
 .alert-empty__cta-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* B.4 SLO-3 · alert-bug-1 · 原 3 cols 但只 2 CTA (主操作 + 次操作) · cell 3 空 = 右 30% 空真因
+   * 修: repeat(2, 1fr) · 2 CTA 填满 · 不再右 30% 空
+   */
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 .alert-empty__cta {
