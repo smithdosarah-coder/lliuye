@@ -232,7 +232,7 @@ class TestI10NonAlertFlagOffPreservesStatic:
     def test_flag_default_off(self, monkeypatch):
         # 移除可能存在的 env var
         monkeypatch.delenv("LIUYE_AGENT_CHANNEL_SHARED_CONFIDENCE", raising=False)
-        from agent_channel.evidence_pipeline import ChannelLeadFinderPipeline  # noqa: F401
+        from agent_channel.evidence_pipeline import ChannelPitchPipeline  # noqa: F401
         # 不直接 import flag · 验通过 evidence_pipeline 行为
         # 静态 confidence · 5 Agent 行为不变 (此 test 主要确保 import 不破)
 
