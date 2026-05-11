@@ -1017,6 +1017,38 @@
   }
 }
 
+/* B.4 SLO-3 · riskctrl-bug-6 · 补 status pill (跟其他 5 助手一致)
+ * 复用 compliance/alert/credit status pill 视觉 · 但 mono 11px ink-65
+ * --demo item margin-left auto · 跟前 5 agent bug-5 模式一致 · 左右平衡
+ */
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: color-mix(in srgb, var(--chalk) 65%, transparent);
+  border: 1px solid var(--ink-08);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item[data-tone="ok"] {
+  color: #2e7d57;
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item--demo {
+  color: var(--ink-40);
+  margin-left: auto;
+}
+
 /* Demo banner */
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-demo-banner {

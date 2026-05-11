@@ -789,6 +789,20 @@ function RiskEmptySkeleton() {
           回测报告导出 · 完成后可一键导出 Word / Excel / PDF
         </div>
       </div>
+      {/* B.4 SLO-3 · riskctrl-bug-6 · 补 status pill (跟其他 5 助手一致 · PM "应补") */}
+      <footer
+        className="riskctrl-empty__status"
+        data-testid="riskctrl-empty-status-pill"
+        aria-label="状态透明"
+      >
+        <span className="riskctrl-empty__status-item" data-tone="ok">◉ 服务正常</span>
+        <span className="riskctrl-empty__status-item">
+          MAX_ROWS 50000 · numpy backtest · LLM dsl_gen
+        </span>
+        <span className="riskctrl-empty__status-item riskctrl-empty__status-item--demo">
+          等待主操作
+        </span>
+      </footer>
     </section>
   );
 }
