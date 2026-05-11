@@ -95,3 +95,13 @@
   align-self: start !important;
 }
 
+/* ── 11. 超长 panel 内容 max-height + scroll (避免单 panel 拉爆 main height) ──
+ * alert al-out (TOP 27 客户榜单 1756px) + al-queue (27 客户卡 999px) 是真痛
+ * 限 panel body 高 500px · 内部 scroll 看其余
+ */
+.v-archive--canon .rpt-panel .rpt-panel__body,
+.v-archive--canon .rpt-panel .rpt-panel-body {
+  max-height: 560px !important;
+  overflow-y: auto !important;
+}
+
