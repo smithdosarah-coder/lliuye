@@ -1,21 +1,29 @@
-name: Daily Visual Regression (B.3.4 · P0-R5 · e2e-daily)
+name: Daily Visual + Admin E2E (B.3.4 · P0-R5 · e2e-daily)
 
-# B.3.4 修正版 commit 5f3d2ec (2026-05-11 06:30 GO · KT R5).
+# B.3.4 修正版 commit 5f3d2ec (2026-05-11 06:30 GO · KT R5) + 2026-05-11 reframe.
 #
-# 触发 (3 条):
+# 2 jobs · 独立 gate · 独立 Issue:
+#   1. daily-visual: 主活 C+D · 6 助手 idle 视觉基线 (本地 dev server pixel diff)
+#      - flag: vars.DAILY_VISUAL_ENABLED (= 'true' 才跑 schedule)
+#      - 等 fix-indep 主活 B 完 + baseline ship 后 PM enable
+#   2. admin-e2e: 主活 A+B · 6 agent demo/run 真后端 E2E (prod baseURL)
+#      - flag: vars.ADMIN_E2E_ENABLED (= 'true' 才跑 schedule)
+#      - 等 secrets.ADMIN_COOKIE 配上后 PM enable
+#
+# 触发 (3 条 · 2 job 共用):
 #   1. cron 22:00 UTC = 06:00 Asia/Shanghai · PM 起床前自检
 #   2. workflow_dispatch · 手动触发 (调试 / baseline 重建)
 #   3. push 到 feat/b34-e2e-daily · 让 worker 自己也能验
 #
 # 行为:
 #   - 跑 daily-visual.spec.ts (6 助手 idle 视觉基线 + alert idle TDD red 锚点)
-#   - fail 时: 自动开 GitHub Issue + 上传 screenshot diff artifact
-#   - PASS 时: 不开 Issue · 但仍上传 baseline (可选 retention 7d)
+#   - 跑 6 admin-*.spec.ts (真 prod backend · admin 真号 cookie)
+#   - 跑 scripts/e2e/run_admin_daily.sh (bash 探针 SSE done ≤ 60s)
+#   - fail 时: 自动开 GitHub Issue + 上传 artifact (per job 独立 Issue 文案)
 #
-# Baseline 管理:
-#   - 首次跑时 baseline 不存在 · Playwright 自动创建并 fail (snapshot does not exist)
-#   - 然后通过 workflow_dispatch 手动 commit baseline 到分支 (artifact 下载后人工 commit)
-#   - 后续跑做 pixel diff (maxDiffPixelRatio 0.02 · 见 web/playwright.config.ts)
+# Baseline 管理 (仅 daily-visual job):
+#   - 首次跑时 baseline 不存在 · Playwright 自动创建并 fail
+#   - workflow_dispatch update_baseline=true 重建
 #
 # 不要把这跟 web-audit.yml (4-gate spec · 阻 PR merge) 混 · 本 workflow 是
 # **每日运行型监控** · 不阻 PR · 失败开 Issue 通知人.
@@ -199,4 +207,173 @@ jobs:
               --title "$TITLE" \
               --body "$BODY" \
               --label daily-visual,regression
+          fi
+
+  # ============================================================================
+  # admin-e2e job (B.3.4 主活 A + B · 2026-05-11 PM reframe · 真号 production E2E)
+  #
+  # 跑 6 agent demo/run endpoint 真后端 SSE + 6 admin-*.spec.ts UI E2E.
+  # 与 daily-visual job 独立 · 自己 gate flag · 自己开 Issue.
+  #
+  # 核心区别 (vs daily-visual):
+  #   - daily-visual    本地 dev server (npm run dev :3101) · pixel diff
+  #   - admin-e2e       真 prod backend (https://liuye.me) · 真 LLM/Tavily 调用 · 真 cookie
+  # ============================================================================
+  admin-e2e:
+    name: Admin 真号 E2E (6 agent demo/run · prod backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      vars.ADMIN_E2E_ENABLED == 'true'
+    permissions:
+      contents: read
+      issues: write
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://liuye.me' }}
+      ADMIN_COOKIE: ${{ secrets.ADMIN_COOKIE }}
+      # 显式 PLAYWRIGHT_BASE_URL → playwright.config.ts useWebServer=false ·
+      # 不起本地 dev server · 跑真 prod
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://liuye.me' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate ADMIN_COOKIE present
+        run: |
+          if [ -z "${ADMIN_COOKIE:-}" ]; then
+            echo "::warning::secrets.ADMIN_COOKIE 未配 · spec 自动 skip · bash 探针走 BLOCKED 路径 (exit 2)"
+            echo "ADMIN_COOKIE_PRESENT=no" >> "$GITHUB_ENV"
+          else
+            echo "ADMIN_COOKIE_PRESENT=yes" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install jq (bash 探针依赖)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Bash 探针 · 6 agent demo/run SSE
+        id: bash_probe
+        # 即便 cookie missing 也跑 · 验 BLOCKED 路径 (exit 2 ≠ 0 ≠ 1) 文案稳定
+        # cookie missing 时 exit 2 · job conclude failed · 走相同 Issue 路径
+        run: bash scripts/e2e/run_admin_daily.sh
+        continue-on-error: false
+
+      - name: Setup Node.js (Playwright)
+        if: env.ADMIN_COOKIE_PRESENT == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        if: env.ADMIN_COOKIE_PRESENT == 'yes'
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: env.ADMIN_COOKIE_PRESENT == 'yes'
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run 6 admin-*.spec.ts (UI E2E · prod baseURL)
+        if: env.ADMIN_COOKIE_PRESENT == 'yes'
+        working-directory: web
+        env:
+          NO_PROXY: '127.0.0.1,localhost,::1,liuye.me'
+          HTTP_PROXY: ''
+          HTTPS_PROXY: ''
+          ALL_PROXY: ''
+        run: |
+          npx playwright test tests/e2e/admin-*.spec.ts \
+            --project=chromium
+
+      - name: Upload Playwright report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-e2e-report-${{ github.run_id }}
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Ensure labels exist (fault-tolerant)
+        if: failure() && github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create admin-e2e \
+            --repo "${REPO}" \
+            --color B60205 \
+            --description "Admin 真号 E2E fail (prod backend)" \
+            --force || true
+          gh label create regression \
+            --repo "${REPO}" \
+            --color D93F0B \
+            --description "Regression" \
+            --force || true
+
+      - name: Open GitHub Issue on failure (only on schedule)
+        if: failure() && github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          DATE=$(date -u +'%Y-%m-%d')
+          TITLE="[admin-e2e] 真号 E2E fail · ${DATE} 06:00 CST"
+
+          BODY=$(cat <<EOF
+          ## Admin 真号 E2E 失败 (prod backend · https://liuye.me)
+
+          - **触发**: cron schedule (06:00 Asia/Shanghai · ${DATE})
+          - **commit**: ${COMMIT_SHA}
+          - **branch**: ${REF_NAME}
+          - **run URL**: ${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}
+
+          ## 可能原因
+
+          1. \`secrets.ADMIN_COOKIE\` 过期 → bash 探针返回 exit 2 (BLOCKED) · PM 重新 paste cookie
+          2. prod 后端 5xx / 超时 → 找 ECS uvicorn log + 责任 worker fix-forward
+          3. UI selector 漂移 → 6 admin-*.spec.ts 内 selector 与 prod DOM 不匹配 · 调 selector
+          4. SSE done 60s 内未到 → 真 LLM 慢 / Tavily 慢 · 调 \`E2E_TIMEOUT_MS\` 或拆任务
+
+          ## 下一步
+
+          1. 下载 artifact \`admin-e2e-report-${RUN_ID}\` · 解压看 \`playwright-report/index.html\`
+          2. 看 GHA log 确认 bash 探针哪步 fail (channel/credit/alert/compliance/report/riskctrl)
+          3. 责任 worker fix-forward · 改 spec 必带 \`PRESERVES / NEW-DOM / SMOKE-PASS\` trailer
+          4. 修绿后此 Issue 自动 close · 或 worker 手 close
+
+          ---
+          *Auto-opened by .github/workflows/daily-visual.yml admin-e2e job*
+          EOF
+          )
+
+          EXISTING=$(gh issue list \
+            --repo "${REPO}" \
+            --label admin-e2e \
+            --state open \
+            --search "${TITLE}" \
+            --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "Issue #${EXISTING} 已存在 · 追加 comment"
+            gh issue comment "$EXISTING" \
+              --repo "${REPO}" \
+              --body "重复 fail · run #${RUN_ID} · ${DATE}"
+          else
+            gh issue create \
+              --repo "${REPO}" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label admin-e2e,regression
           fi
