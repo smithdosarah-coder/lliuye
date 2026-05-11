@@ -551,7 +551,10 @@ def build_product_recommendations(
     seen: set[str] = set()
 
     for i, name in enumerate(raw_products[:3]):
-        meta = _PRODUCT_DB.get(name) or {"category": "通用", "intro": "见银行产品手册"}
+        meta = _PRODUCT_DB.get(name) or {
+            "category": "对公融资",
+            "intro": f"『{name}』产品详情待补全 · RM 可联系产品经理确认额度 / 期限 / 利率",
+        }
         base = [90, 75, 60][i]
         adjusted = int(round(base * (0.7 + 0.3 * similarity)))
         out.append({
