@@ -2004,7 +2004,12 @@ function ReportLaunchBar(p: {
         <span style={_LAUNCH_HINT_STYLE}>
           {p.uploadedFiles.length > 0
             ? `已上传 ${p.uploadedFiles.length} 份`
-            : "PDF / Word / Excel / 图片 · 多文件"}
+            /* B.4 SLO-3 · report-bug-4 · 5 标签分隔符统一
+             * 真因: "PDF / Word / Excel / 图片 · 多文件" 混用 " / " 和 " · "
+             *      → 标签间距视觉不一致 (· 中圆点 vs / 斜杠 视觉重量不同)
+             * 修: 统一用 " / " 分隔 · 5 标签间距视觉一致
+             */
+            : "PDF / Word / Excel / 图片 / 多文件"}
         </span>
       </div>
 
