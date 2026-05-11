@@ -63,16 +63,16 @@
 | 5 | 4 占位卡 padding 浪费 | compliance-workspace.css · padding 28/18 → 14/16 + min-height 88 → 72 | ✅ done | `4522bb0` |
 | 6 | "等待触发巡检" panel 引导文字飘左 | compliance-workspace.css · hint text-align center | ✅ done | `e2a768c` |
 
-### report (6 bug)
+### report (6 bug · ✅ 全 ship)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | stats 3 破折号孤飘右上 · 字突兀 | report-workspace.css · stats label 显式 | pending | — |
-| 2 | "等待触发" panel 中间 500-600px 巨大空白 | report-workspace.css · panel padding/min-height | pending | — |
-| 3 | "真 LLM (DeepSeek) + 真 9 维 QC..." 飘右 · 不对齐 sample button | report-workspace.css · 同行 align | pending | — |
-| 4 | "PDF / Word / Excel / 图片 / 多文件" 5 标签间距不一致 | report-workspace.css · `.rp-tag-*` gap uniform | pending | — |
-| 5 | "上传自定义模板 或 选预制" 飘左 · 跟"开始生成" button 不同行 | report-workspace.css · same row | pending | — |
-| 6 | 5 个 sample button 横向占 70% · 右 30% 空 | report-workspace.css · button row width 100% | pending | — |
+| 1 | stats 3 破折号孤飘右上 · 字突兀 | report-workspace.css · scope report · label 9.5→11 · value 22→14 弱化 | ✅ done | `4335a31` |
+| 2 | "等待触发" panel 中间 500-600px 巨大空白 | ReportWorkspace.tsx · 删 minHeight calc + padding 48→28 | ✅ done | `99362a8` |
+| 3 | "真 LLM..." 飘右 · 不对齐 sample button | ReportWorkspace.tsx · span → div flexBasis 100% 下方 footnote | ✅ done | `f660c42` |
+| 4 | 5 标签间距不一致 ("·" vs "/") | ReportWorkspace.tsx · 1 字符替换 "·" → "/" 统一 | ✅ done | `ed7778b` |
+| 5 | "上传自定义模板 或 选预制" 飘左 · 不同行视觉 | ReportWorkspace.tsx · 开始生成 column 加 "执行" label | ✅ done | `58eb3e5` |
+| 6 | 5 个 sample button 横向占 70% · 右 30% 空 | ReportWorkspace.tsx · btn flex "1 1 0" 撑满 row | ✅ done | `c291ad8` |
 
 ### riskctrl (6 bug · 2 verify)
 
