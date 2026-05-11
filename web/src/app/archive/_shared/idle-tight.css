@@ -22,13 +22,13 @@
   min-height: 0 !important;
 }
 
-/* ── 3. empty state / placeholder 不超 280px (PM 截图大空白上限) ────────── */
-.v-archive--canon [data-testid$="-empty"]:not([data-testid*="banner"]):not([data-testid*="status-pill"]),
-.v-archive--canon [data-testid$="-empty-skeleton"],
+/* ── 3. [REMOVED] max-height 280px 过激切了 credit 4 占位卡内容
+ * 主 CLI 实测后删 · 占位卡是 PM 想看的内容 · 不能切
+ * 改: 只缩 padding · 不强限高
+ */
 .v-archive--canon [data-testid$="-empty-skeleton-panels"],
 .v-archive--canon [class*="-empty-skel"] {
-  max-height: 280px !important;
-  overflow: hidden !important;
+  padding: 12px !important;
 }
 
 /* ── 4. panel 之间 gap 缩 (从 18-24px → 12-14px) ──────────────────────────── */
