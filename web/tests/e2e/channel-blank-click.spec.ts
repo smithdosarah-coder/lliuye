@@ -28,7 +28,7 @@ const MOCK_ME_RESPONSE = {
     avatar: "哲",
   },
   roles: ["rm"],
-  accessibleAgents: ["channel", "report", "credit", "alert", "compli", "riskctrl"],
+  accessibleAgents: ["channel", "report", "credit", "alert", "compliance", "riskctrl"],
 };
 
 /** Track every SSE-bearing endpoint call · 任何一次命中 = 误触发搜索 */
@@ -169,5 +169,74 @@ test.describe("B.3.4 Bug A · channel 空白点击不触发搜索 (TDD red-to-gr
     await page.waitForTimeout(500);
 
     expect(sentinel.hits()).toBeGreaterThanOrEqual(1);
+  });
+
+  /* 真因排查向 (per prompt "input/textarea autofocus + 全局 keydown 全局") */
+
+  test("T6 · 焦点在 body (非 input) · 按 Enter · NOT 触发 search (全局 keydown 排查)", async ({
+    page,
+  }) => {
+    const sentinel = attachSseSentinel(page);
+    await page.goto("/archive/channel", { waitUntil: "networkidle" });
+
+    // 等 hero 渲完 · 确保 React 已 mount
+    await expect(page.locator(".rpt-hero-badge").first()).toBeVisible();
+
+    sentinel.reset();
+    // 显式 click body 让焦点离开任何 input (Playwright 默认 page.keyboard.press 走 active element)
+    await page.locator("body").click({ position: { x: 1, y: 1 } });
+    // 全局按 Enter · 若有全局 keydown 监听器触发 search 就抓住
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(200);
+    // 再按多次 · 防单次 squash
+    await page.keyboard.press("Enter");
+    await page.keyboard.press(" ");
+    await page.waitForTimeout(200);
+
+    expect(sentinel.hits()).toBe(0);
+  });
+
+  test("T7 · QueryBar input · NOT autoFocus on mount (autofocus + keydown 排查)", async ({
+    page,
+  }) => {
+    await page.goto("/archive/channel", { waitUntil: "networkidle" });
+
+    const input = page.locator(".ch-querybar-input");
+    await expect(input).toBeVisible();
+
+    // mount 后 input 不可处于 :focus 状态 · 否则全局 Enter 等同 input 内 Enter
+    // 评估当前 activeElement 是不是该 input
+    const isFocused = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      return el !== null && el === document.activeElement;
+    }, ".ch-querybar-input");
+    expect(isFocused).toBe(false);
+  });
+
+  test("T8 · empty-state outer container · NOT 触发 search 跨多 hit point", async ({ page }) => {
+    const sentinel = attachSseSentinel(page);
+    await page.goto("/archive/channel", { waitUntil: "networkidle" });
+
+    const empty = page.locator('[data-testid="channel-empty-state"]');
+    await expect(empty).toBeVisible();
+
+    const box = await empty.boundingBox();
+    if (!box) throw new Error("empty bbox 不可读");
+
+    sentinel.reset();
+    // 4 个非按钮采样点 (4 角内边距)
+    const points = [
+      { x: box.x + 4, y: box.y + 4 },                              // 左上
+      { x: box.x + box.width - 4, y: box.y + 4 },                  // 右上
+      { x: box.x + 4, y: box.y + box.height - 4 },                 // 左下
+      { x: box.x + box.width - 4, y: box.y + box.height - 4 },     // 右下
+    ];
+    for (const p of points) {
+      await page.mouse.click(p.x, p.y);
+      await page.waitForTimeout(80);
+    }
+    await page.waitForTimeout(200);
+
+    expect(sentinel.hits()).toBe(0);
   });
 });
