@@ -2082,3 +2082,52 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 5. **AGENT_IDENTITY 模板抽到 docs/working/ 然后 sed 派生**: 1 个 agent 模板 + sed 替换 `{AGENT}` 占位 → 5 个 worker 各自 AGENT_IDENTITY · 比 5 文件各写更可维护.
 6. **mesh 自动建 worktree**: ps1 加 `git worktree add` graceful 逻辑 · PM 双击 bat 不需手动跑 git command. 好 UX.
 
+
+---
+
+## 2026-05-11 · B.3.4 fix-indep worker · 4 主活全 ship (alert idle 填实 + 6 助手 idle audit + 主按钮 audit + 6 助手独立可用)
+
+### What happened
+- fix-indep worker (P0-PM · feat/b34-fix-indep) 接 B.3.4 派活 (PM 06:30 GO · 加 alert idle 空白填实)
+- RESUMED commit `ca7d3b9` · 复述 PM 真意 + 5 句 reframe + 4 主活 plan + KT R1-R6 self-check
+- 主活 A · alert idle 空白填实 (PM 截图直接痛 #4 · TDD red-to-green):
+  - A-1 RED commit `c356e87` · web/tests/regression/alert-idle-fill.spec.ts (4 spec · 3 RED 1 sanity PASS)
+  - A-2 GREEN commit `2e18eb0` · AlertIdleMidOverview (3 卡 · totals/top/next) + AlertIdleRBHint · CSS ~180 LOC
+  - A-3 evidence stub commit `0ee53c5` · PNG 待主 CLI cherry-pick 后跑
+- 主活 B · 6 助手 idle 同改 (共享原则):
+  - B-1 commit `f49d122` · IdleScaffold layout primitive (3-slot contract · ~150 LOC · 不强迁老 workspace)
+  - B-2 commit `69fb498` · 6 workspace audit (4 COMPLIANT / 1 PARTIAL report / 1 GAP channel) · channel +1 testid `channel-completion-hint`
+- 主活 C · 主按钮简化 audit · commit `52df7cf` · 6/6 已合规 · 0 改动 (历史 ModePill 残留早被 B.1.x revert)
+- 主活 D · 6 助手独立可用 · commit `41ad088` · credit default `inputMode` 翻 real → demo + generateSteps "等待 Agent6 报告 handoff" 软化 + 1 audit doc
+- 5 audit doc 落 `docs/working/` 留 trail
+
+### Triggered by
+- PM 2026-05-11 06:30 GO `B.3.4 派活 · fix-indep worker (加 alert idle 空白填实)`
+- onboarding `docs/onboarding/B.3.4-mesh-onboarding.md` 修正版 (commit `5f3d2ec` · KT+codex R7 brutal 排序 5→4 worker)
+
+### State change (delta)
+- web/src/app/archive/_shared/IdleScaffold.tsx (新文件 · layout primitive · 防 future idle 大空白)
+- web/src/app/archive/_shared/idle-scaffold.css (新文件 · theme-neutral)
+- web/src/app/archive/alert/_components/AlertWorkspace.tsx (idle filled · started=yes && !selectedClientId · 加 mid 3 卡 + rb hint)
+- web/src/app/archive/alert/alert-workspace.css (~180 LOC append · idle 卡片样式)
+- web/src/app/archive/channel/_components/ChannelWorkspace.tsx (+21 LOC · channel-completion-hint inline)
+- web/src/app/archive/credit/_components/CreditWorkspace.tsx (default inputMode 翻 demo + generateSteps 软化 · ~10 LOC)
+- web/tests/regression/alert-idle-fill.spec.ts (新 spec · 4 spec · TDD red-to-green)
+- 5 audit doc · `docs/working/b34-fix-indep-{idle,button,independence}-audit-2026-05-11.md` + `docs/evidence/b34-fix-indep-2026-05-11/README.md`
+
+### Next
+- 主 CLI cherry-pick fix-indep 7 commit (RESUMED + A1/A2/A3 + B1/B2 + C + D)
+- 主 CLI 跑 `cd web && npm run test:snap -- alert-idle-fill.spec.ts` 验 4 PASS
+- 主 CLI 跑 5 既有 *-empty-state.spec.ts 验 0 regression
+- 主 CLI 部署 ECS · 演示模式 verify alert started=yes idle 不空白 + credit default 进 demo CTA
+- e2e-daily worker (P0-R5) 收 baseline · 把 alert idle 空白 + credit default 入 cron 6am 视觉回归
+- fix-indep worker 等主 CLI signal verify 后 fire READY-FOR-MERGE (本批最后 commit)
+
+### 学到了什么 (本 worker 收尾)
+
+1. **TDD red-to-green 真带 audit trail · A-1 RED commit 当证据**: 主活 A 先 commit 4 spec (3 RED 1 sanity PASS) · 然后 A-2 commit 实现 + 解释 RED → GREEN 转换. 后续 reviewer 看 git log 即知"先写 test 后写 impl" · 不是事后补 test 凑数. 这是 KT R2 + R6 反模式 #1 真意.
+2. **IdleScaffold 不强迁老 workspace 是对的**: 老 5 workspace 各有自洽 idle (审过 spec · 含 testid) · 强迁会破 testid + 增 regression 风险 · 浪费 R3 fix-forward budget. IdleScaffold 作 future code primitive · 老代码 audit + targeted gap fix 即可. codex R7 "shared contract + shared invariants + local adapters" verbatim 实战.
+3. **6/6 button 已合规反而是 audit 价值**: 主活 C 跑下来 0 改动 · 但 audit doc 留下 future code 工程红线 (任何新 idle CTA 必 ≤ 1 主 + 1 次 / toggle 必显式区分输入来源 vs mock/live 切换). 防 Phase A.6 ModePill 类残留再生长. 0 改动 ≠ 0 价值.
+4. **credit default 翻 demo 高 ROI**: 1 行代码 (useState 默认值) + 1 行 generateSteps 文字软化 → credit 立刻独立可用. 不动 contract dependency · 不删 real 路径. PM 真意"default 演示模式"的最小成本落地.
+5. **worker 无 node_modules 是 isolated 设计**: worker worktree 不装 deps · 跑测/验证由主 CLI 跑. evidence 就近写 stub · 真 PNG 待主 CLI 跑 spec 后填. 不是 blocker · 是协作分工.
+6. **PM 截图痛 vs 工程师预设**: PM 凌晨 06:00 截图直接揭示 "alert started=yes idle mid 大空白" · 我看代码也立刻 ground (alert-mid-placeholder 1 行文字占满 col). 这种"用户截图 vs 工程师预设"的 ground truth 转换非常高效 · 比 5 轮辩论"要不要做这件事"快.
