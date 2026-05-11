@@ -78,6 +78,12 @@ export type Conflict = {
   /* ALL IN Phase B step 5 (per candidate-identity-contract v1.1) */
   client?: string;            // 客户企业名 · 派生 hit.id 用
   clientUscc?: string;        // 客户 USCC
+
+  /* B.3.4 Bug D fix (2026-05-11): backend done envelope 顶层平铺的政策/业务摘录
+     ViolationDetailPanel evidence chain "政策摘录" / "业务原始记录" 两 dt 真消费 ·
+     现 normalizeComplianceBackendDone 显式 carry · 不再被 unsafe-cast 兜底成 "—" */
+  policyExcerpt?: string;     // backend v.policy_excerpt · 政策原文摘录
+  businessExcerpt?: string;   // backend v.business_excerpt · 业务原始记录摘录
 };
 
 /**

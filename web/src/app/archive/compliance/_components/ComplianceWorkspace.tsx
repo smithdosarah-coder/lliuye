@@ -189,6 +189,15 @@ function normalizeComplianceBackendDone(
       // ALL IN step 5 client fields (顶层 v.client / v.client_uscc · backend 已平铺)
       client: typeof v.client === "string" ? v.client : undefined,
       clientUscc: typeof v.client_uscc === "string" ? v.client_uscc : undefined,
+      // B.3.4 Bug D fix: backend done envelope 顶层 v.policy_excerpt / v.business_excerpt
+      // ViolationDetailPanel evidence chain "政策摘录" / "业务原始记录" 真消费 ·
+      // 此前 normalize 丢字段 · 详情面板永远显 "—" · PM 看作 "没任何功能展示"
+      policyExcerpt: typeof (v as { policy_excerpt?: unknown }).policy_excerpt === "string"
+        ? (v as { policy_excerpt: string }).policy_excerpt
+        : undefined,
+      businessExcerpt: typeof (v as { business_excerpt?: unknown }).business_excerpt === "string"
+        ? (v as { business_excerpt: string }).business_excerpt
+        : undefined,
     };
   });
 
@@ -405,12 +414,17 @@ export default function ComplianceWorkspace() {
         },
         undefined,
         (env) => {
-          /* gate 3 · done envelope → liveData · panel 整 overlay 渲染 · auto-pick violations[0] */
+          /* gate 3 · done envelope → liveData · panel 整 overlay 渲染 · auto-pick violations[0]
+             B.3.4 Bug D fix: 同步翻 hasAutoSelectedViolationRef · 防 close 后 auto-select 再触发
+             (per ref guard 意图: 一次性 auto-select · 用户 close 后留 placeholder) */
           setLiveData(env);
           const firstVio = Array.isArray(env.violations) && env.violations.length > 0
             ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
             : "";
-          if (firstVio) setSelectedViolationId(firstVio);
+          if (firstVio) {
+            setSelectedViolationId(firstVio);
+            hasAutoSelectedViolationRef.current = true;
+          }
         },
         ac.signal,
       );
@@ -444,11 +458,15 @@ export default function ComplianceWorkspace() {
         sid as "online_loan" | "aml" | "data_protect",
         undefined,
         (env) => {
+          /* B.3.4 Bug D fix: 同步翻 hasAutoSelectedViolationRef · 防 close 后 auto-select 再触发 */
           setLiveData(env);
           const firstVio = Array.isArray(env.violations) && env.violations.length > 0
             ? String((env.violations[0] as Record<string, unknown>).violation_id ?? "")
             : "";
-          if (firstVio) setSelectedViolationId(firstVio);
+          if (firstVio) {
+            setSelectedViolationId(firstVio);
+            hasAutoSelectedViolationRef.current = true;
+          }
         },
         ac.signal,
       );
@@ -2528,13 +2546,14 @@ function ViolationDetailPanel(p: {
 
           <dt>政策摘录</dt>
           <dd data-testid="compli-evi-policy">
-            {(p.violation as unknown as { policy_excerpt?: string }).policy_excerpt
+            {/* B.3.4 Bug D fix: 直读 normalize 后的 policyExcerpt · 不再 unsafe-cast 兜底 */}
+            {p.violation.policyExcerpt
               || `${p.violation.clauseLabel} · ${p.violation.finding}`}
           </dd>
 
           <dt>业务原始记录</dt>
           <dd data-testid="compli-evi-business">
-            {(p.violation as unknown as { business_excerpt?: string }).business_excerpt || "—"}
+            {p.violation.businessExcerpt || "—"}
           </dd>
 
           <dt>AI 判定理由</dt>
