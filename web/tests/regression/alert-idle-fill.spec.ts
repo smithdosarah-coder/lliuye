@@ -59,26 +59,29 @@ function buildSseDone(): string {
     data_source: "live",
     panels: {
       hit_list: { red: [], yellow: [], green: [] },
-      top_cases: [
-        {
-          client_id: "AP001",
-          name: "示例客户 001 · 红档",
-          tier: "red",
-          score: 0.91,
-          industry: "制造",
-          rationale: "司法 + 舆情双源命中",
-        },
-        {
-          client_id: "AP002",
-          name: "示例客户 002 · 黄档",
-          tier: "yellow",
-          score: 0.62,
-          industry: "批零",
-          rationale: "工商变更 + 内部限额预警",
-        },
-      ],
       dispositions: {},
     },
+    /* normalizeAlertSession 读 payload.top_cases (top-level · 不是 panels.top_cases) */
+    top_cases: [
+      {
+        client_id: "AP001",
+        company_name: "示例客户 001 · 红档",
+        risk_level: "red",
+        score: 0.91,
+        industry: "制造",
+        reasons: ["司法 + 舆情双源命中"],
+        matched_rules: ["POL-001", "POL-007"],
+      },
+      {
+        client_id: "AP002",
+        company_name: "示例客户 002 · 黄档",
+        risk_level: "yellow",
+        score: 0.62,
+        industry: "批零",
+        reasons: ["工商变更 + 内部限额预警"],
+        matched_rules: ["POL-003"],
+      },
+    ],
     metrics: { red: 6, yellow: 14, green: 160, total_scanned: 180 },
     summary: "演示运行 · 6 红 / 14 黄 / 160 绿",
     scenario_key: "alert-pool",

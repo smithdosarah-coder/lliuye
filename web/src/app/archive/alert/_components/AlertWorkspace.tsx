@@ -952,7 +952,12 @@ export default function AlertWorkspace() {
 
               <section className="rpt-col rpt-col--mid">
                 {/* D4 Agent4 minimal · 删 IM (用户路径非聊天 · 是 scan → drill → 处置)
-                    保留扫描进度+预览 · 完整 drill 由下方 AlertDrillDrawer 触发 */}
+                    保留扫描进度+预览 · 完整 drill 由下方 AlertDrillDrawer 触发.
+
+                    B.3.4 fix-indep 主活A (PM 2026-05-11 06:30 GO · 截图痛 #4):
+                    started=yes 后 mid 列只一行文字 = 大空白. 现:
+                    - selectedClientId 存在 → 走 drill drawer · mid 列保留单行扫描进度状态
+                    - 否则 (idle in started=yes) → 富 alert-idle-mid-overview · 3 卡引导用户选客户 */}
                 <div
                   className="alert-mid-summary"
                   role="status"
@@ -965,6 +970,17 @@ export default function AlertWorkspace() {
                       : "等待扫描启动 · 启动后从下方红/黄/绿榜单选中客户查看处置建议"}
                   </span>
                 </div>
+
+                {!selectedClientId ? (
+                  <AlertIdleMidOverview
+                    totals={sessionData.totals}
+                    topCases={sessionData.topCases}
+                    kbState={kbState}
+                    objective={sessionData.objective}
+                    stage={sessionData.stage}
+                    onPickClient={setSelectedClientId}
+                  />
+                ) : null}
               </section>
 
               <section className="rpt-col rpt-col--right">
@@ -978,6 +994,13 @@ export default function AlertWorkspace() {
                   totals={sessionData.totals}
                   onSelectClient={setSelectedClientId}
                 />
+                {!selectedClientId ? (
+                  <AlertIdleRBHint
+                    totals={sessionData.totals}
+                    topCases={sessionData.topCases}
+                    onPickClient={setSelectedClientId}
+                  />
+                ) : null}
               </section>
             </div>
 
@@ -2246,6 +2269,154 @@ function AlertEmptyState(p: {
         ) : null}
       </footer>
     </div>
+  );
+}
+
+/* ─────────── AlertIdleMidOverview · B.3.4 fix-indep 主活A ───────────
+ * started=yes && !selectedClientId · mid 列填实 · 防 PM 截图大空白.
+ * 3 卡 (全池 totals · Top cases preview · 下一步建议) · 文本 > 120 chars.
+ * 不动后端 · 仅消费 sessionData.totals + topCases (两 mode 同 pipeline 真出).
+ */
+
+function AlertIdleMidOverview(p: {
+  totals: { red: number; yellow: number; green: number };
+  topCases: TopCase[];
+  kbState: string;
+  objective: string;
+  stage: string;
+  onPickClient: (id: string) => void;
+}) {
+  const tot = p.totals.red + p.totals.yellow + p.totals.green;
+  const top3 = p.topCases.slice(0, 3);
+  return (
+    <section
+      className="alert-idle-mid-overview"
+      role="region"
+      aria-label="预警概览 · 选客户引导"
+      data-testid="alert-idle-mid-overview"
+    >
+      <div className="alert-idle-mid-overview__head">
+        <span className="alert-idle-mid-overview__eyebrow">扫描已完成 · 选客户查看 drill</span>
+        <span className="alert-idle-mid-overview__sub">
+          {p.stage} · 全池 {tot.toLocaleString()} 户 · {p.kbState}
+        </span>
+      </div>
+      <div className="alert-idle-mid-overview__cards">
+        <article
+          className="alert-idle-mid-card alert-idle-mid-card--totals"
+          data-testid="alert-idle-mid-card"
+          data-card="totals"
+        >
+          <div className="alert-idle-mid-card__h">本轮分档命中</div>
+          <div className="alert-idle-mid-card__totals">
+            <span className="alert-idle-mid-card__num alert-idle-mid-card__num--red">
+              {p.totals.red}
+            </span>
+            <span className="alert-idle-mid-card__lbl">红档 · 立即处置</span>
+            <span className="alert-idle-mid-card__num alert-idle-mid-card__num--yellow">
+              {p.totals.yellow}
+            </span>
+            <span className="alert-idle-mid-card__lbl">黄档 · 重点观察</span>
+            <span className="alert-idle-mid-card__num alert-idle-mid-card__num--green">
+              {p.totals.green}
+            </span>
+            <span className="alert-idle-mid-card__lbl">绿档 · 常规跟踪</span>
+          </div>
+          <div className="alert-idle-mid-card__hint">
+            数字来自后端 done envelope · 双路扫 (外部 Tavily × 内部规则) · LLM 处置 · ledger 上链
+          </div>
+        </article>
+
+        <article
+          className="alert-idle-mid-card alert-idle-mid-card--top"
+          data-testid="alert-idle-mid-card"
+          data-card="top"
+        >
+          <div className="alert-idle-mid-card__h">Top 红/黄客户 · 优先 drill</div>
+          {top3.length > 0 ? (
+            <ul className="alert-idle-mid-card__top-list">
+              {top3.map((c) => (
+                <li key={c.client_id} className="alert-idle-mid-card__top-row">
+                  <button
+                    type="button"
+                    className="alert-idle-mid-card__top-btn"
+                    data-testid="alert-idle-top-pick"
+                    data-client-id={c.client_id}
+                    onClick={() => p.onPickClient(c.client_id)}
+                    title={`drill ${c.client_id}`}
+                  >
+                    <span className="alert-idle-mid-card__top-name">{c.customer ?? c.client_id}</span>
+                    <span
+                      className="alert-idle-mid-card__top-tier"
+                      data-tier={c.tier}
+                    >
+                      {c.tier === "red" ? "红" : c.tier === "yellow" ? "黄" : "绿"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="alert-idle-mid-card__empty">
+              本轮 0 命中 · 可调阈值 / 切换规则集再扫一轮
+            </div>
+          )}
+        </article>
+
+        <article
+          className="alert-idle-mid-card alert-idle-mid-card--next"
+          data-testid="alert-idle-mid-card"
+          data-card="next"
+        >
+          <div className="alert-idle-mid-card__h">下一步建议</div>
+          <ol className="alert-idle-mid-card__steps">
+            <li>从下方红/黄/绿榜单点击客户 → drill drawer 显信号 timeline + 处置建议</li>
+            <li>核对 evidence chain 后 · 一键生成处置工单 / 触达短信</li>
+            <li>导出榜单 .docx 给审贷会 · ledger 自动上链 retention=standard</li>
+          </ol>
+          <div className="alert-idle-mid-card__obj">业务目标 · {p.objective}</div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────── AlertIdleRBHint · B.3.4 fix-indep 主活A ───────────
+ * 右列底部 · 引导用户点榜单 · 防 OutputPanel 之外大空白.
+ * 简洁 hint + 1 个 quick action (优先 drill 第一个 red) · 不与 OutputPanel 重复.
+ */
+
+function AlertIdleRBHint(p: {
+  totals: { red: number; yellow: number; green: number };
+  topCases: TopCase[];
+  onPickClient: (id: string) => void;
+}) {
+  const firstRed = p.topCases.find((c) => c.tier === "red") ?? p.topCases[0];
+  return (
+    <aside
+      className="alert-idle-rb-hint"
+      role="note"
+      aria-label="选客户提示 · 右下"
+      data-testid="alert-idle-rb-hint"
+    >
+      <div className="alert-idle-rb-hint__h">尚未选中客户</div>
+      <p className="alert-idle-rb-hint__body">
+        点击上方榜单或 Top 卡内客户 → 此处显示信号 timeline + 处置建议 + 证据 drawer.
+        全池 {p.totals.red} 红 / {p.totals.yellow} 黄 / {p.totals.green} 绿 ·
+        红档优先 drill (≤ 24h SLA).
+      </p>
+      {firstRed ? (
+        <button
+          type="button"
+          className="alert-idle-rb-hint__quick"
+          data-testid="alert-idle-rb-quick"
+          data-client-id={firstRed.client_id}
+          onClick={() => p.onPickClient(firstRed.client_id)}
+        >
+          drill 优先客户 · {firstRed.customer ?? firstRed.client_id}
+        </button>
+      ) : null}
+    </aside>
   );
 }
 

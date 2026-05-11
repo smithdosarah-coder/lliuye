@@ -2393,3 +2393,201 @@
 .v-archive--canon[data-agent="alert"] .alert-backend-fallback-banner__dismiss:hover {
   background: var(--ink-12);
 }
+
+/* ==========================================================================
+   B.3.4 fix-indep · 主活A · alert idle 空白填实
+   started=yes && !selectedClientId · mid + right-bottom 富 placeholder
+   ========================================================================== */
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-overview {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--t-alert) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--t-alert) 22%, transparent);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-overview__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-overview__eyebrow {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--t-alert);
+  text-transform: uppercase;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-overview__sub {
+  font-size: 13px;
+  color: var(--ink-65);
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-overview__cards {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card {
+  padding: 12px 14px;
+  background: var(--paper, #fff);
+  border: 1px solid var(--ink-12, rgba(0,0,0,0.12));
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__h {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__hint,
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__obj {
+  font-size: 12px;
+  color: var(--ink-50);
+  line-height: 1.5;
+  margin-top: auto;
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__totals {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  align-items: center;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__num {
+  font-family: var(--mono, "JetBrains Mono", monospace);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__num--red { color: var(--al-red); }
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__num--yellow { color: var(--al-yel); }
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__num--green { color: var(--al-grn); }
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__lbl {
+  font-size: 12.5px;
+  color: var(--ink-65);
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-row {
+  display: block;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-btn {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--ink-12, rgba(0,0,0,0.12));
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink-strong);
+  transition: background 0.18s ease;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-btn:hover {
+  background: color-mix(in srgb, var(--t-alert) 8%, transparent);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-tier {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-tier[data-tier="red"] {
+  background: color-mix(in srgb, var(--al-red) 18%, transparent);
+  color: var(--al-red);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-tier[data-tier="yellow"] {
+  background: color-mix(in srgb, var(--al-yel) 18%, transparent);
+  color: var(--al-yel);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__top-tier[data-tier="green"] {
+  background: color-mix(in srgb, var(--al-grn) 18%, transparent);
+  color: var(--al-grn);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__empty {
+  font-size: 12.5px;
+  color: var(--ink-50);
+  font-style: italic;
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-mid-card__steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v-archive--canon[data-agent="alert"] .alert-idle-rb-hint {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-rb-hint__h {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-65);
+  letter-spacing: 0.03em;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-rb-hint__body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-strong);
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-rb-hint__quick {
+  align-self: flex-start;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--t-alert);
+  color: var(--paper, #fff);
+  border: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.18s ease;
+}
+.v-archive--canon[data-agent="alert"] .alert-idle-rb-hint__quick:hover {
+  filter: brightness(1.08);
+}
