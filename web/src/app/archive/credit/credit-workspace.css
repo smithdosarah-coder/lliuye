@@ -2001,7 +2001,6 @@
 .credit-empty__skel-export {
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
   padding: 4px 10px;
   font-family: var(--mono);
   font-size: 11px;
@@ -2010,6 +2009,17 @@
   border: 1px solid var(--ink-14);
   border-radius: 6px;
   cursor: not-allowed;
+}
+
+/* B.4 SLO-3 · credit-bug-6 · 导出 docx btn 独立行 · 不再 inline 飘
+ * 真因: 原 <button> inline-flex 在 hint 文末 + "+" 字符引导 · 视觉上 btn 飘右 · 字突兀
+ * 修: btn 移出 hint · 加 .credit-empty__skel-cta-row 容器 · flex 左对齐 + margin-top 8
+ *     btn 自己 inline-flex 不变 · 但容器把它定位左
+ */
+.credit-empty__skel-cta-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
 }
 
 .credit-empty__status {
