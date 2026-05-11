@@ -1981,6 +1981,27 @@
   margin: 0 !important;
 }
 
+/* B.4 SLO-3 · compliance-bug-3 · 4 数字飘右上 · 用户不知啥意思
+ * 真因: stat dt label 9.5px 过小 · tracking 0.2em 难读 · 视觉上 4 个大数字飘右
+ *      用户读不到 label · 不知啥意思
+ * 修: 提升 dt label 字号 (9.5 → 11) + 减 tracking · 加底部下划线 visual cue
+ *     dd 数字稍缩 (22 → 18) · 平衡视觉重量
+ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat {
+  border-left: 2px solid color-mix(in srgb, var(--t-compli) 22%, transparent);
+  padding-left: 10px;
+  min-width: 96px;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat dt {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  color: var(--ink-55) !important;
+  margin-bottom: 4px !important;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat dd {
+  font-size: 18px !important;
+}
+
 /* B.4 SLO-3 · compliance-bug-2 · QC stats "000" 像孤字 (3 零意义不清)
  * 真因: .rpt-hero__qc-chip CSS 完全没定义 · 3 个 0 spans 裸渲 = "0 0 0" = 视觉孤字
  * 修: 定义 .rpt-hero__qc + .rpt-hero__qc-chip 样式 ·
