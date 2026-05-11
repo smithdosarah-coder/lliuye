@@ -808,9 +808,15 @@
   min-height: calc(100vh - 120px);
 }
 
-/* --- 区域 1 · Query 输入条 ---------------------------- */
+/* --- 区域 1 · Query 输入条 ----------------------------
+ * B.4 SLO-3 · channel-bug-2 · padding/margin 跟 ch-kb-strip 对齐
+ * 真因: querybar padding 14/18/12 vs kb-strip 18/22 + margin 18/0 · 不一致
+ *      = 视觉上 QUERY 跟 KB 间距错位
+ * 修: padding + margin 统一 (18px 22px + 18px 0) · gap 保持 10
+ */
 .v-archive--canon[data-agent="channel"] .ch-querybar {
-  padding: 14px 18px 12px;
+  padding: 18px 22px;
+  margin: 18px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
