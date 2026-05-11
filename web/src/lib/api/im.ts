@@ -228,6 +228,66 @@ export async function sendMessage(req: {
   return backendMsgToIm(msg);
 }
 
+/* ── LLM single-turn (legacy /api/im/send) ───────────────── */
+
+export type LlmTurnRequest = {
+  message: string;
+  threadId?: string;
+  customerId?: string;
+  targetAgent?: string;
+  /** AbortSignal 让 caller 取消; helper 自身已加 30s timeout 兜底 */
+  signal?: AbortSignal;
+};
+
+export type LlmTurnResponse = {
+  reply: string;
+  agent: string;
+  target_agent?: string;
+  thread_id?: string;
+};
+
+const LLM_TURN_TIMEOUT_MS = 30_000;
+
+/**
+ * /api/im/send 单 turn LLM 调用 · 显式错误 throw ImApiError (非 silent fallback)。
+ * 内置 30s timeout (DeepSeek 慢响应保护) · caller 可额外传 AbortSignal。
+ */
+export async function sendLlmTurn(req: LlmTurnRequest): Promise<LlmTurnResponse> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), LLM_TURN_TIMEOUT_MS);
+  if (req.signal) {
+    req.signal.addEventListener("abort", () => ctl.abort(), { once: true });
+  }
+  try {
+    const resp = await fetch(url("/api/im/send"), {
+      method: "POST",
+      headers: authHeaders(),
+      credentials: "include",
+      signal: ctl.signal,
+      body: JSON.stringify({
+        message: req.message,
+        thread_id: req.threadId ?? "",
+        customer_id: req.customerId ?? "",
+        target_agent: req.targetAgent ?? "",
+      }),
+    });
+    if (!resp.ok) throw await parseError(resp);
+    return (await resp.json()) as LlmTurnResponse;
+  } catch (e) {
+    if (e instanceof ImApiError) throw e;
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ImApiError("AI 响应超时 (>30s) · 请重发或稍后再试", 0, "timeout");
+    }
+    throw new ImApiError(
+      e instanceof Error ? e.message : "AI 网络异常",
+      0,
+      "network",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ── Helpers exported for consumers ──────────────────────── */
 
 export const __for_tests = {

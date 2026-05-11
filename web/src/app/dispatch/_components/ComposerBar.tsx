@@ -11,7 +11,11 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { sendMessage as sendMessageRest } from "@/lib/api/im";
+import {
+  sendMessage as sendMessageRest,
+  sendLlmTurn,
+  ImApiError,
+} from "@/lib/api/im";
 import { getImWsClient } from "@/lib/im/websocket";
 import {
   byUserId,
@@ -68,6 +72,7 @@ export function ComposerBar() {
   const clearThread = useDispatchStore((s) => s.clearThread);
   const liveMode = useDispatchStore((s) => s.liveMode);
   const setSendFailError = useDispatchStore((s) => s.setSendFailError);
+  const setImLlmError = useDispatchStore((s) => s.setImLlmError);
   const currentUser = useAuthStore((s) => s.currentUser);
 
   /* Stage D.2F · typing debounce · 1s 内同 thread 只 emit 一次 typing */
@@ -210,24 +215,16 @@ export function ComposerBar() {
       ? AGENT_NAME_TO_ID[atMatch[1].toLowerCase()] ?? ""
       : "";
 
-    const apiBase =
-      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) ||
-      "";
-    fetch(`${apiBase}/api/im/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include", // W-FIX2-A2 · 让 browser 带 zhongan_auth cookie
-      body: JSON.stringify({
-        message: value,
-        thread_id: thread.id,
-        customer_id: thread.customerId ?? "",
-        target_agent: targetAgent,
-      }),
+    /* B.4 SLO-1 · /api/im/send 真接 DeepSeek + 显式错误处理 (替 silent fallback)
+       · 通过 sendLlmTurn helper · 含 30s timeout + ImApiError typed 错误
+       · 失败 setImLlmError → MessageStream ImBanners 显引导文案 (503/timeout/网络) */
+    void sendLlmTurn({
+      message: value,
+      threadId: thread.id,
+      customerId: thread.customerId ?? "",
+      targetAgent,
     })
-      .then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)),
-      )
-      .then((data: { reply: string; agent: string; thread_id: string }) => {
+      .then((data) => {
         const reply = (data.reply || "").trim();
         if (!reply) return;
         addMessage(thread.id, {
@@ -235,9 +232,31 @@ export function ComposerBar() {
           kind: "text",
           content: reply,
         });
+        setImLlmError(null);
       })
-      .catch((err) => {
-        console.warn("[ComposerBar] IM send failed · silent fallback:", err);
+      .catch((err: unknown) => {
+        const apiErr = err instanceof ImApiError ? err : null;
+        const code = apiErr?.status ?? 0;
+        const reason = apiErr?.code;
+        let hint: string;
+        if (reason === "timeout") {
+          hint = "AI 响应超时 (>30s) · 请重发原消息";
+        } else if (code === 503) {
+          hint = "AI 后端不可用 · 请联系管理员检查 DEEPSEEK_API_KEY";
+        } else if (code === 401 || code === 403) {
+          hint = "登录态已过期 · 请重新登录后再试";
+        } else if (code === 400) {
+          hint = "请求格式不合法 · 检查消息内容";
+        } else if (code >= 500) {
+          hint = "AI 内部错误 · 稍后重试";
+        } else {
+          hint = "AI 网络异常 · 检查后端连接";
+        }
+        setImLlmError({
+          message: apiErr?.message ?? (err instanceof Error ? err.message : "AI 调用失败"),
+          code: code || undefined,
+          hint,
+        });
       });
   }
 
