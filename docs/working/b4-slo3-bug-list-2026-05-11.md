@@ -74,16 +74,16 @@
 | 5 | "上传自定义模板 或 选预制" 飘左 · 不同行视觉 | ReportWorkspace.tsx · 开始生成 column 加 "执行" label | ✅ done | `58eb3e5` |
 | 6 | 5 个 sample button 横向占 70% · 右 30% 空 | ReportWorkspace.tsx · btn flex "1 1 0" 撑满 row | ✅ done | `c291ad8` |
 
-### riskctrl (6 bug · 2 verify)
+### riskctrl (6 bug · ✅ 全 ship · 2 verify + 4 真修)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | stats 飘右上 · 跟 hero 间空白 | riskctrl-workspace.css · stats layout | pending | — |
-| 2 | 4 占位卡 2x2 (C4 已修 · verify) | _shared/idle-tight.css C4 | verify-only | — |
-| 3 | "等待触发策略" panel 占 1 整行但短文 | riskctrl-workspace.css · panel min-height/content stretch | pending | — |
-| 4 | 真实/演示 toggle 在左 · 主 CTA 在中 · 不同行 | riskctrl-workspace.css · `.rc-mode-toggle` 同行 | pending | — |
-| 5 | 整页只占左 70% · 右 30% 空 (C2 已修 · verify) | _shared/idle-tight.css C2 | verify-only | — |
-| 6 | 状态条没显 (跟其他 5 助手不一致 · 应补) | RiskctrlWorkspace.tsx · 加状态条 | pending | — |
+| 1 | stats 飘右上 · 跟 hero 间空白 | riskctrl-workspace.css · rpt-hero-left flex 1 (推 stats 紧贴右) | ✅ done | `f1e7a35` |
+| 2 | 4 占位卡 2x2 (C4 verify) | riskctrl-workspace.css · 注释 verify (.riskctrl-empty__panels 自身已 grid 2x2) | ✅ verify | `0693e64` |
+| 3 | "等待触发策略" panel 占整行但短文 | riskctrl-workspace.css · panel padding 32/28 → 20/24 + head margin 24 → 16 + 卡 padding 减半 | ✅ done | `3ac6fc3` |
+| 4 | 真实/演示 toggle + 主 CTA 不同行 | riskctrl-workspace.css · trigger-bar align-items flex-end → center | ✅ done | `4251641` |
+| 5 | 整页 70% · 右 30% 空 (C2 verify) | riskctrl-workspace.css · 注释 verify (C2 universal rpt-workspace width 100% 真生效) | ✅ verify | `3afa207` |
+| 6 | 状态条没显 (应补) | RiskctrlWorkspace.tsx + css · 加 .riskctrl-empty__status pill (3 item) | ✅ done | `0d039f8` |
 
 ## 完成 SLA
 - 每 bug → 1 commit (PM 硬要求)
