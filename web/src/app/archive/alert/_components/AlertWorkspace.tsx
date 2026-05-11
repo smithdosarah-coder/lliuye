@@ -2240,6 +2240,20 @@ function AlertEmptyState(p: {
                 导出榜单 .docx (待扫描完成启用)
               </button>
             </div>
+            {/* B.4 SLO-3 · alert-bug-6 · 内容很短 真因修
+                加 slot 占位行 · 让 wide 卡有视觉重量 · 告诉用户扫描完会显啥 */}
+            <ul className="alert-empty__skel-slots" aria-hidden>
+              <li className="alert-empty__skel-slot" data-tier="red">
+                <span className="alert-empty__skel-slot-dot" data-tier="red" />
+                <span className="alert-empty__skel-slot-lbl">TOP 1 红档客户</span>
+                <span className="alert-empty__skel-slot-placeholder">扫描后显示企业名 · 关键信号 · 处置建议</span>
+              </li>
+              <li className="alert-empty__skel-slot" data-tier="yellow">
+                <span className="alert-empty__skel-slot-dot" data-tier="yellow" />
+                <span className="alert-empty__skel-slot-lbl">TOP 1 黄档客户</span>
+                <span className="alert-empty__skel-slot-placeholder">扫描后显示企业名 · 触达率 · 重点观察项</span>
+              </li>
+            </ul>
           </div>
         </div>
         <div className="alert-empty__skel-row">

@@ -2060,6 +2060,51 @@
   color: var(--ink-40);
   line-height: 1.6;
 }
+/* B.4 SLO-3 · alert-bug-6 · HitList slot 占位行 · 给 wide 卡视觉重量
+ * 2 slot (TOP 1 红 + TOP 1 黄) · 告诉用户扫描完会显啥
+ */
+.alert-empty__skel-slots {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alert-empty__skel-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ink-08) 38%, transparent);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ink-65);
+}
+.alert-empty__skel-slot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.alert-empty__skel-slot-dot[data-tier="red"] {
+  background: color-mix(in srgb, var(--t-alert) 75%, var(--chalk));
+}
+.alert-empty__skel-slot-dot[data-tier="yellow"] {
+  background: #d6a73d;
+}
+.alert-empty__skel-slot-lbl {
+  font-family: var(--cjk);
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.alert-empty__skel-slot-placeholder {
+  font-family: var(--cjk);
+  color: var(--ink-40);
+  font-style: italic;
+}
+
 .alert-empty__skel-export {
   display: inline-flex;
   align-items: center;
