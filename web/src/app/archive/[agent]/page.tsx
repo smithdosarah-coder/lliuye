@@ -4,6 +4,7 @@ import "../riskctrl/riskctrl-workspace.css";
 import "../credit/credit-workspace.css";
 import "../alert/alert-workspace.css";
 import "../compliance/compliance-workspace.css";
+import "../_shared/idle-tight.css";
 import { notFound } from "next/navigation";
 import type { ComponentType } from "react";
 import type { AgentKey } from "@/lib/agents";

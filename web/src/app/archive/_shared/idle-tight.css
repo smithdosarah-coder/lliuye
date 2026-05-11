@@ -1,0 +1,86 @@
+/* B.3.4 hotfix · idle 大空白收紧 (主 CLI 2026-05-11 10:30 直接干)
+ *
+ * PM 7 张截图揭示 5 workspace (channel/credit/compliance/report/riskctrl) idle 大空白真因:
+ *   - panel grid 固定大行高 · 但内容只 100-200px → 中间大量留白
+ *   - 0 数据 panel 仍占大空间 (alert 6 左 / compliance 4 / report 3)
+ *   - 装饰 (eyebrow + pin handle + title + count) 占多 padding
+ *
+ * worker fix-indep audit 标 "已 COMPLIANT" 错在: 看的是文字 hint · 没看物理空间。
+ * 修法: 一次性 universal override · 收紧所有 archive workspace · 不动单 agent CSS。
+ *
+ * 6 助手共用 .v-archive--canon · per archive/[agent]/page.tsx
+ */
+
+/* ── 1. panel padding 缩 (从 20-24px → 12-14px) ───────────────────────────── */
+.v-archive--canon .rpt-panel,
+.v-archive--canon section[class*="rpt-panel"] {
+  padding-block: 14px !important;
+}
+
+/* ── 2. panel body min-height cap · 0 数据 panel 不撑大 ─────────────────── */
+.v-archive--canon .rpt-panel-body {
+  min-height: 0 !important;
+}
+
+/* ── 3. empty state / placeholder 不超 280px (PM 截图大空白上限) ────────── */
+.v-archive--canon [data-testid$="-empty"]:not([data-testid*="banner"]):not([data-testid*="status-pill"]),
+.v-archive--canon [data-testid$="-empty-skeleton"],
+.v-archive--canon [data-testid$="-empty-skeleton-panels"],
+.v-archive--canon [class*="-empty-skel"] {
+  max-height: 280px !important;
+  overflow: hidden !important;
+}
+
+/* ── 4. panel 之间 gap 缩 (从 18-24px → 12-14px) ──────────────────────────── */
+.v-archive--canon main > section + section,
+.v-archive--canon main > section + div,
+.v-archive--canon main > div + section,
+.v-archive--canon main > div + div {
+  margin-top: 12px !important;
+}
+
+/* ── 5. pin handle 默认 0 透明 · hover 父 panel 才显 (per PM 直觉 #2) ────── */
+.v-archive--canon .pp-grip {
+  opacity: 0 !important;
+  transition: opacity 0.15s !important;
+}
+.v-archive--canon .rpt-panel:hover > .pp-grip,
+.v-archive--canon .rpt-panel:focus-within > .pp-grip {
+  opacity: 0.5 !important;
+}
+.v-archive--canon .pp-grip:hover {
+  opacity: 1 !important;
+}
+
+/* ── 6. workspace 整体 bottom padding 缩 (从 120-160px → 60px) ──────────── */
+.v-archive--canon .rpt-workspace,
+.v-archive--canon main {
+  padding-bottom: 60px !important;
+}
+
+/* ── 7. eyebrow + meta 一行装下 (idle 时不浪费高度) ─────────────────────── */
+.v-archive--canon .rpt-panel-head {
+  padding-block: 8px !important;
+  align-items: center !important;
+}
+.v-archive--canon .rpt-panel-eyebrow {
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+.v-archive--canon .rpt-panel-title {
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  margin: 2px 0 !important;
+}
+
+/* ── 8. 0 数据空 panel · 隐藏 (alert/compliance/report idle 时空 panel) ──
+ * 只针对真"无内容" panel · 不影响有 placeholder skeleton 的 idle panel
+ * 用 :has() 选择: panel-body 子节点是单一 ".rpt-empty-text" 或 0 数据卡
+ */
+.v-archive--canon section[class*="rpt-panel"]:has(.rpt-panel-body:empty) {
+  display: none !important;
+}
+.v-archive--canon section[class*="rpt-panel"]:has(.rpt-panel-body > .rpt-empty-text:only-child) {
+  /* 单个文字 empty · 还是显示但更紧凑 */
+  padding-block: 8px !important;
+}
