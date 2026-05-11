@@ -40,17 +40,17 @@
 | 5 | 状态条飘左 · 右大块空 | credit-workspace.css · status-item--demo margin-left auto | ✅ done | `4ba8bab` |
 | 6 | "导出 .docx (待决策完成启用)" 飘右 · 字突兀 | CreditWorkspace.tsx + credit-workspace.css · 独立 .skel-cta-row | ✅ done | `8dcab76` |
 
-### alert (7 bug)
+### alert (7 bug · ✅ 全 ship)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | 2 行 2 列 panel 占 60% · 右 30% 空 | alert-workspace.css · `.al-grid-*` width | pending | — |
-| 2 | 3 档预览 (红/黄/绿) 横向均分但没填满整宽 | alert-workspace.css · `.al-traffic-*` grid stretch | pending | — |
-| 3 | HitList panel 100% · 跟上方 60% panel 不一致 | alert-workspace.css · unify panel widths | pending | — |
-| 4 | SignalMap panel 100% · 同样不一致 | alert-workspace.css · same | pending | — |
-| 5 | 状态条横向占满但内容飘左 | alert-workspace.css · status bar justify space-between | pending | — |
-| 6 | HitList "点击客户 → drill drawer..." 短文飘 | alert-workspace.css · hint 嵌 panel | pending | — |
-| 7 | "导出榜单 .docx (待扫描完成启用)" 字突兀 | alert-workspace.css · 嵌入 CTA cluster | pending | — |
+| 1 | 2 行 2 列 panel 占 60% · 右 30% 空 | alert-workspace.css · cta-row 3 cols → 2 cols | ✅ done | `49c4c3d` |
+| 2 | 3 档预览 (红/黄/绿) 横向均分但没填满整宽 | alert-workspace.css · skel-traffic width 100% | ✅ done | `16cc6be` |
+| 3 | HitList panel 跟上方 60% panel 不一致 | alert-workspace.css · skel-row width 100% (HitList + SignalMap 共用) | ✅ done | `7a17892` |
+| 4 | SignalMap panel 同样不一致 | alert-workspace.css · signalmap+hitlist min-height 120 | ✅ done | `9af1d9f` |
+| 5 | 状态条横向占满但内容飘左 | alert-workspace.css · status-item--demo margin-left auto | ✅ done | `260612e` |
+| 6 | HitList 内容很短 · 中间右边都空 | AlertWorkspace.tsx + css · 加 2 slot 占位行 (TOP 1 红/黄) | ✅ done | `d020388` |
+| 7 | "导出榜单 .docx (待扫描完成启用)" 字突兀 | AlertWorkspace.tsx + css · btn 移出 hint · 独立 .skel-cta-row | ✅ done | `33425c1` |
 
 ### compliance (6 bug)
 
