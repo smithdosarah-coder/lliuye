@@ -11,11 +11,36 @@ PM 2026-05-11 03:45 admin 真号 verify production 给出 6 件痛 · 总结 "**
 
 ## 2. 触发时机
 
-| 触发 | 跑啥 | fail 时行为 |
-|---|---|---|
-| `cron 22:00 UTC` (= 06:00 CST) | 6 helper × 1 idle snapshot diff | **开 GitHub Issue** (label `daily-visual,regression`) |
-| `workflow_dispatch` 手动 | 同上 · 可选 `update_baseline=true` | 不开 Issue · 上传 artifact |
-| `push` 到 `feat/b34-e2e-daily` / `main` (改 spec / snapshots / workflow 时) | 同上 | 不开 Issue (Issue 仅 schedule 触发开) |
+| 触发 | 受 feature flag 限 | 跑啥 | fail 时行为 |
+|---|---|---|---|
+| `cron 22:00 UTC` (= 06:00 CST) | **是** (`vars.DAILY_VISUAL_ENABLED=true` 才跑) | 6 helper × 1 idle snapshot diff | **开 GitHub Issue** (label `daily-visual,regression` · 自动建) |
+| `workflow_dispatch` 手动 | **否** (永远允许) | 同上 · 可选 `update_baseline=true` | 不开 Issue · 上传 artifact |
+| `push` 到 `feat/b34-e2e-daily` / `main` (改 spec / snapshots / workflow 时) | **是** | 同上 | 不开 Issue (Issue 仅 schedule 触发开) |
+
+### 2.1 Feature flag enable 流程 (PM 操作)
+
+**当前默认**: `DAILY_VISUAL_ENABLED` 未设 = disabled · cron 每天 fire 但 job 被 `if` 短路 · 不消耗 CI quota · 不开 Issue。
+
+**enable 前置条件** (全满足才 enable · 防误报):
+
+1. ✅ fix-indep worker 主活 B 完成 + cherry-pick 进 main (alert idle 加密度后 TDD red 转 green)
+2. ✅ 手动 `workflow_dispatch` 设 `update_baseline=true` 跑一次 · 下载 artifact `daily-visual-snapshots-${run_id}` · 解压 commit baseline 到 `web/tests/regression/daily-visual.spec.ts-snapshots/` · push main
+3. ✅ 再手动 `workflow_dispatch` (不设 update) 验证 baseline 跑通 · 6 个 idle 截图全 PASS
+
+满足后 PM enable:
+```bash
+# GitHub repo Settings → Secrets and variables → Actions → Variables tab → New repository variable
+# Name: DAILY_VISUAL_ENABLED
+# Value: true
+```
+
+或用 gh CLI:
+```bash
+gh variable set DAILY_VISUAL_ENABLED --body "true" \
+  --repo <owner>/<repo>
+```
+
+**disable** (维护期 / 误报暴雷): 同处 set value=`false` 或删 variable。
 
 ## 3. baseline 管理 (chicken-and-egg 问题)
 
@@ -101,6 +126,10 @@ fix-indep worker ship 后 alert empty 加密度 (≥ 24 节点) → test 实际 
 GitHub Issue auto-create · default subscribers:
 - repo `Watch`/`All Activity` 的人 (邮件)
 - mention 的人 (TBD: 主 CLI / PM 配上)
+
+**Fault-tolerance** (2026-05-11 PM 反馈加 · daily-visual.yml v1.1):
+- **labels 自动建** — `gh label create daily-visual / regression --force` 在 issue 步前置 · 不依赖 PM 手动 · `|| true` 兜底权限失败
+- **issue 步 continue-on-error** — gh API 500 / repo 权限不足 / network drop 都不再拖垮整个 job · workflow conclusion 跟 spec 跑结果一致
 
 **未来扩展** (本 sprint 不做): 加飞书 webhook · GHA Issue 开后调 lark-cli 发群消息 (per CLAUDE.md skill 触发映射 lark-im)。当前用 GitHub Issue 邮件兜底。
 

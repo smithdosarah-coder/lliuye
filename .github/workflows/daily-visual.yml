@@ -52,6 +52,14 @@ jobs:
     name: Daily Visual Regression (chromium hermetic)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Feature flag (per baseline-gate.yml 同款模式 · 2026-05-11 PM 反馈加):
+    #   - workflow_dispatch: 永远允许 (留手动通道做 baseline 创建 / 调试)
+    #   - schedule + push: 等 vars.DAILY_VISUAL_ENABLED=true 才跑
+    # PM enable 流程: fix-indep 主活 B 完 + baseline snapshots 已 commit 后 ·
+    # 显式 set repo variable DAILY_VISUAL_ENABLED=true · 见 docs/runbook/daily-visual.md §2.1
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      vars.DAILY_VISUAL_ENABLED == 'true'
     defaults:
       run:
         working-directory: web
@@ -113,8 +121,30 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      - name: Ensure labels exist (idempotent · fault-tolerant)
+        if: failure() && github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          # gh label create --force = create or update · 重复跑无害
+          # || true 防 permission denied / API 500 拖垮 issue 步
+          gh label create daily-visual \
+            --repo "${REPO}" \
+            --color FBCA04 \
+            --description "Daily visual regression alert" \
+            --force || true
+          gh label create regression \
+            --repo "${REPO}" \
+            --color D93F0B \
+            --description "Regression" \
+            --force || true
+
       - name: Open GitHub Issue on failure (only on schedule)
         if: failure() && github.event_name == 'schedule'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
