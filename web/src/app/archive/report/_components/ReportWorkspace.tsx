@@ -1884,6 +1884,11 @@ function ReportSampleStrip({
     flexDirection: "column",
     alignItems: "flex-start",
     gap: 2,
+    /* B.4 SLO-3 · report-bug-6 · 5 sample btn 横向占 70% · 右 30% 空
+     * 真因: minWidth 132 · 5 btn × 132 + gap = ~700px · 父若宽 1200 则右 ~500px 空
+     * 修: flex 1 1 0 + minWidth 132 (兜底 wrap) · 5 btn 平均分宽 · 撑满 row
+     */
+    flex: "1 1 0",
     minWidth: 132,
   };
   return (
