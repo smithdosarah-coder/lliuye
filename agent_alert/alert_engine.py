@@ -160,7 +160,12 @@ def _check_revenue_decline(data: dict, search_text: str = "") -> Optional[AlertS
         if level != "green":
             return AlertSignal(
                 signal_id="FIN-001", category="财务恶化", level=level,
-                description=f"营业收入同比下降{decline:.1f}%，{'经营状况严重恶化' if level == 'red' else '需关注经营趋势'}",
+                description=(
+                    f"营业收入同比下降{decline:.1f}%，"
+                    + ("经营状况严重恶化 · 客户经理 24h 内现场核查 + 7d 内要求企业出最新月报"
+                       if level == "red"
+                       else "客户经理 7d 内核查下降原因 + 要求企业补充最新季报")
+                ),
                 evidence=f"营收降幅{decline:.1f}%，{'超过30%红线' if level == 'red' else '超过10%关注线'}",
             )
     return None
@@ -205,7 +210,10 @@ def _check_debt_ratio(data: dict, search_text: str = "") -> Optional[AlertSignal
         elif ratio > 70:
             return AlertSignal(
                 signal_id="FIN-003", category="财务恶化", level="yellow",
-                description=f"资产负债率{ratio:.1f}%，接近80%警戒线，需关注偿债能力",
+                description=(
+                    f"资产负债率{ratio:.1f}%，接近 80% 警戒线 · "
+                    f"客户经理 7d 内电话确认偿债来源 + 评估追加担保 / 压缩额度必要性"
+                ),
                 evidence=f"资产负债率={ratio:.1f}%，阈值：黄灯>70%",
             )
     return None
@@ -273,7 +281,10 @@ def _check_business_change(data: dict, search_text: str = "") -> Optional[AlertS
     if re.search(r"工商变更|经营范围变更|注册地址变更|法人变更", text):
         return AlertSignal(
             signal_id="BIZ-001", category="经营异常", level="yellow",
-            description="企业近期存在工商变更记录，需关注变更原因及影响",
+            description=(
+                "企业近期存在工商变更记录 · "
+                "客户经理 3d 内电话确认变更详情 + 工商局原文核档 + 评估对授信影响"
+            ),
             evidence="材料中发现工商变更相关信息",
         )
     return None
