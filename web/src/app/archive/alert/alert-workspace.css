@@ -1994,6 +1994,16 @@
 }
 .alert-empty__skel-traffic {
   grid-template-columns: repeat(3, 1fr);
+  /* B.4 SLO-3 · alert-bug-2 · 3 档预览 (红/黄/绿) 横向均分但没填满整宽
+   * 真因: grid 1fr × 3 应填满 · 但 flex 列父 .alert-empty__skeleton align-items 默认 stretch
+   *      实际 grid track auto-size 时不一定填满 · skel-traffic 跟其他 skel-row 同 1fr 单 col 不一致
+   * 修: width 100% 显式 + 子 card width 100% box-sizing border-box
+   */
+  width: 100%;
+}
+.alert-empty__skel-traffic > .alert-empty__skel-card {
+  width: 100%;
+  box-sizing: border-box;
 }
 .alert-empty__skel-card {
   display: flex;
