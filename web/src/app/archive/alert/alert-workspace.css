@@ -2021,6 +2021,15 @@
   border-radius: var(--r-md);
   min-height: 96px;
 }
+/* B.4 SLO-3 · alert-bug-4 · SignalMap card 跟 HitList 视觉重量一致
+ * 真因: SignalMap card 内容只 1 lbl + 1 hint = 短 panel · 显得"100% 但浮"
+ * 修: data-skel="signalmap" + data-skel="hitlist" 加 min-height + 内边距
+ *     让 wide 卡跟上方 traffic 3 卡视觉重量更对等
+ */
+.alert-empty__skel-card[data-skel="signalmap"],
+.alert-empty__skel-card[data-skel="hitlist"] {
+  min-height: 120px;
+}
 .alert-empty__skel-card--wide {
   grid-column: 1 / -1;
 }
