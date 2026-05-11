@@ -1972,11 +1972,19 @@
  *      但 credit 内部用 2 个 .credit-empty__skel-row 包 4 cards · skel-row 接走 grid item
  *      → parent grid 2-col 但 children 只 2 个 row 包装 · 不是 4 cards 直接子
  * 修: skel-row 用 display:contents flatten · 让 4 cards 成 parent grid 直接子
- *     advice 卡的 --wide grid-column 1/-1 在 2-col grid 仍占满 1 行
- *     bug-4 处理 advice 内容拉伸
  */
 .v-archive--canon .credit-empty__skel-row {
   display: contents;
+}
+
+/* B.4 SLO-3 · credit-bug-4 · 决策建议书卡 (--wide) 占整行 · 内容只 1 行
+ * 真因: .credit-empty__skel-card--wide 设 grid-column 1/-1 跨满 row
+ *      在 2x2 grid 里仍占满 row 2 · 但内部只 1 行 lbl + 1 行 hint = 视觉空
+ * 修: 在 2-col 上下文里 override 为 auto · advice 卡跟其他 3 卡同尺寸 (2x2 真平衡)
+ *     min-height 96 跟其他 skel-card 一致
+ */
+.v-archive--canon .credit-empty__skel-card--wide {
+  grid-column: auto;
 }
 .credit-empty__skel-lbl {
   font-family: var(--cjk);
