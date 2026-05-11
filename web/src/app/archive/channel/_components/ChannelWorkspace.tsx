@@ -553,12 +553,17 @@ export default function ChannelWorkspace() {
           aria-label="等待触发"
           data-testid="channel-empty-state"
           style={{
-            padding: "44px 32px 38px 32px",
+            /* B.4 SLO-3 · channel-bug-5 · 形态 A/B 上下不对齐
+             * 真因: padding 44/32/38/32 + margin 20/0 跟上方 ch-kb-strip
+             *       (padding 18/22 + margin 18/0) 错位 · 左右边距不齐 · 视觉看着不在同一垂直线
+             * 修: padding 18/22 + margin 18/0 跟 KB/querybar 完全对齐
+             */
+            padding: "18px 22px",
             background:
               "color-mix(in srgb, var(--chalk) 55%, transparent)",
             borderRadius: "var(--r-md)",
             border: "1px dashed var(--ink-14)",
-            margin: "20px 0",
+            margin: "18px 0",
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 28,
