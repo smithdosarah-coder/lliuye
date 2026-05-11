@@ -52,13 +52,31 @@ fi
 # 兼容用户 paste 完整 'name=value' 或仅 'value'
 COOKIE_VALUE="${ADMIN_COOKIE#zhongan_auth=}"
 
-# 依赖检查 (jq + curl)
-for bin in curl jq; do
-  if ! command -v "$bin" >/dev/null 2>&1; then
-    echo "[FATAL] missing binary: $bin · apt install $bin" >&2
-    exit 3
-  fi
-done
+# 依赖检查: curl 必需 · JSON parser 二选一 (jq 优先 · python3 fallback)
+if ! command -v curl >/dev/null 2>&1; then
+  echo "[FATAL] missing binary: curl" >&2
+  exit 3
+fi
+
+JSON_PARSER=""
+# 防 Windows Store python stub (exit 49 on -c · 看着像 python 但不工作)
+# functional probe · 不光看 command -v
+probe_py() {
+  "$1" -c 'print("ok")' 2>/dev/null | grep -q '^ok$'
+}
+if command -v jq >/dev/null 2>&1; then
+  JSON_PARSER="jq"
+elif command -v py >/dev/null 2>&1 && probe_py py; then
+  JSON_PARSER="py"             # Windows Python launcher (优先 · 真 python)
+elif command -v python3 >/dev/null 2>&1 && probe_py python3; then
+  JSON_PARSER="python3"        # Linux/macOS
+elif command -v python >/dev/null 2>&1 && probe_py python; then
+  JSON_PARSER="python"
+else
+  echo "[FATAL] need jq OR functional python · apt install jq · 或装 python (Win Store stub 不算)" >&2
+  exit 3
+fi
+echo "[INFO] JSON parser: $JSON_PARSER"
 
 # ---------- 6 agent 矩阵 ----------
 # 3 parallel array (Bash 不支持嵌套 array · 用 index 关联)
@@ -83,16 +101,55 @@ BODIES=(
 # ---------- helper ----------
 
 # 从 SSE 流提 done event 的 data JSON
-# stdin: SSE 全文 / stdout: done event data JSON (单行 · 或空)
+# 支持 2 种 SSE 格式:
+#   1. data: {"event":"done", ...}     ← 真 prod (FastAPI StreamingResponse · JSON 自带 event 字段)
+#   2. event: done\ndata: {"...":"..."} ← mock 风格 (per channel-phase-b2-real-backend.spec.ts)
+# stdin: SSE 全文 / stdout: done event payload (单行 JSON · 或空)
 extract_done_event() {
-  awk '
-    /^event: done$/ { found=1; next }
-    found && /^data: / { sub(/^data: /, ""); print; found=0 }
-  '
+  if [ "$JSON_PARSER" = "jq" ]; then
+    # awk: 收集所有 data: JSON · 加上 named event: done 后跟 data: 的 payload
+    awk '
+      /^event: done$/ { mode=1; next }
+      mode==1 && /^data: / { sub(/^data: /, ""); print; mode=0; next }
+      /^data: / { sub(/^data: /, ""); print }
+    ' | while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        # 用 jq 解 · event=="done" 才输出
+        if echo "$line" | jq -e '.event == "done"' >/dev/null 2>&1; then
+          echo "$line"
+        fi
+      done | tail -1
+  else
+    "$JSON_PARSER" -c '
+import sys, json
+last_done = None
+expect_data = False
+for raw in sys.stdin:
+    line = raw.strip()
+    if not line: continue
+    # 格式 2: event: done 后下行 data:
+    if line == "event: done":
+        expect_data = True
+        continue
+    if line.startswith("data: "):
+        payload = line[6:]
+        if expect_data:
+            last_done = payload
+            expect_data = False
+            continue
+        # 格式 1: data 内嵌 event 字段
+        try:
+            d = json.loads(payload)
+            if isinstance(d, dict) and d.get("event") == "done":
+                last_done = payload
+        except Exception:
+            pass
+if last_done: print(last_done)
+'
+  fi
 }
 
 # done event JSON shape 因 agent 各异 · 通用 "selectable item" 探测
-# 用 jq 找任意可枚举字段 length · 至少 1 个 ≥ 1 即视作 result 非空
 # Agent-specific 字段 (per survey):
 #   channel  → .candidates[]  (≥ 8 见 spec)
 #   credit   → .scoring.sub_scores · .decision_graph.nodes
@@ -102,26 +159,55 @@ extract_done_event() {
 #   riskctrl → .ks · .dsl_rules
 count_selectable() {
   local payload="$1"
-  echo "$payload" | jq -c '
-    [
-      .candidates,
-      .clients,
-      .traffic_light,
-      .violations,
-      .conflicts,
-      .sections,
-      .pipeline,
-      .pipeline_stages,
-      .dsl_rules,
-      .rules,
-      .scoring.sub_scores,
-      .decision_graph.nodes,
-      .nodes,
-      .items
+  if [ "$JSON_PARSER" = "jq" ]; then
+    echo "$payload" | jq -c '
+      [
+        .candidates, .clients, .traffic_light, .violations, .conflicts,
+        .sections, .pipeline, .pipeline_stages, .dsl_rules, .rules,
+        .scoring.sub_scores, .decision_graph.nodes, .nodes, .items,
+        .hit_list.red, .hit_list.yellow, .hit_list.green,
+        .ruleset.rules, .ks.points, .samples, .business_metrics,
+        .metrics
+      ]
+      | map(select(. != null) | (if type == "array" then length else (keys | length) end))
+      | if length == 0 then 0 else max end
+    ' 2>/dev/null || echo "0"
+  else
+    # python fallback
+    echo "$payload" | "$JSON_PARSER" -c '
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    counts = []
+    # top-level array/dict 字段
+    top_fields = ["candidates", "clients", "traffic_light", "violations",
+                  "conflicts", "sections", "pipeline", "pipeline_stages",
+                  "dsl_rules", "rules", "nodes", "items", "samples", "metrics",
+                  "business_metrics"]
+    for k in top_fields:
+        v = d.get(k)
+        if v is None: continue
+        if isinstance(v, (list, dict)): counts.append(len(v))
+    # nested 路径
+    nested = [
+        ("scoring", "sub_scores"),
+        ("decision_graph", "nodes"),
+        ("hit_list", "red"),
+        ("hit_list", "yellow"),
+        ("hit_list", "green"),
+        ("ruleset", "rules"),
+        ("ks", "points"),
     ]
-    | map(select(. != null) | (if type == "array" then length else (keys | length) end))
-    | if length == 0 then 0 else max end
-  ' 2>/dev/null || echo "0"
+    for parent, child in nested:
+        p = d.get(parent)
+        if isinstance(p, dict):
+            v = p.get(child)
+            if isinstance(v, (list, dict)) and v: counts.append(len(v))
+    print(max(counts) if counts else 0)
+except Exception:
+    print(0)
+' 2>/dev/null || echo "0"
+  fi
 }
 
 # 单 agent 探: curl POST · stream · time it · validate done + items
