@@ -73,14 +73,6 @@
   margin: 2px 0 !important;
 }
 
-/* ── 8. 0 数据空 panel · 隐藏 (alert/compliance/report idle 时空 panel) ──
- * 只针对真"无内容" panel · 不影响有 placeholder skeleton 的 idle panel
- * 用 :has() 选择: panel-body 子节点是单一 ".rpt-empty-text" 或 0 数据卡
+/* ── 8. [REMOVED] :has() 隐藏空 panel 太激进 · 主 CLI 实测 riskctrl 整页缺
+ * 改稳: 不强删 panel · 只缩小空 panel 高度 (用第 2 条 min-height: 0 已生效)
  */
-.v-archive--canon section[class*="rpt-panel"]:has(.rpt-panel-body:empty) {
-  display: none !important;
-}
-.v-archive--canon section[class*="rpt-panel"]:has(.rpt-panel-body > .rpt-empty-text:only-child) {
-  /* 单个文字 empty · 还是显示但更紧凑 */
-  padding-block: 8px !important;
-}
