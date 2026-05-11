@@ -41,13 +41,16 @@ test.describe("B.3.4 · admin 真号 · alert 预警 demo 180 户", () => {
     const rowCount = await hitRows.count();
     expect(rowCount, "hitlist row 数量").toBeGreaterThanOrEqual(2);
 
-    // 点第一行 → drill drawer 弹出 + 可见 (per PM "drill drawer 可点")
-    await hitRows.first().click();
+    // 点 "查看 TOP 客户详情" CTA → drill drawer 弹出 (per AlertWorkspace.tsx:2283
+    // onSelectClient(topCases[0].client_id) · 不是 row 点 · row 现是只读 <li>)
+    const drillCta = page.locator('[data-testid="alert-drill-cta"]');
+    await expect(drillCta).toBeVisible({ timeout: 10_000 });
+    await drillCta.click();
     await expect(
       page.locator('[data-testid="alert-drill-drawer"]'),
     ).toBeVisible({ timeout: 10_000 });
 
-    // drawer 加载完 (drill-loading 消失 或 drill-fail 不出)
+    // drawer 加载完 (drill-fail 不出 = 后端 drill API 真返结果 · 没 5xx)
     await expect(
       page.locator('[data-testid="alert-drill-fail"]'),
     ).toHaveCount(0);

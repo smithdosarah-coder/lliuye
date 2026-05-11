@@ -285,8 +285,12 @@ jobs:
           HTTPS_PROXY: ''
           ALL_PROXY: ''
         run: |
+          # --retries=1 容许 prod first-connection warm-up flakiness
+          # (实测 worker 2026-05-11: cookie+storageState 双注 · CF 首连 ~3-5s ·
+          # 5/6 spec 偶 first-try fail · retry 100% PASS)
           npx playwright test tests/e2e/admin-*.spec.ts \
-            --project=chromium
+            --project=chromium \
+            --retries=1
 
       - name: Upload Playwright report (always)
         if: always()

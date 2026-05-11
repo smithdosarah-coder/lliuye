@@ -15,6 +15,11 @@ test.describe("B.3.4 · admin 真号 · channel 获客 demo medium", () => {
 
     await page.goto("/archive/channel", { waitUntil: "networkidle" });
 
+    // AuthGate bootstrap + Cloudflare 首次连接延迟 · 第 1 assert 15s 容差
+    await expect(
+      page.locator('[data-testid="input-mode-sample"]'),
+    ).toBeVisible({ timeout: 15_000 });
+
     // 切到 sample 形态 → 点 medium
     await page.locator('[data-testid="input-mode-sample"]').click();
     await page.locator('[data-testid="scout-sample-medium"]').click();
