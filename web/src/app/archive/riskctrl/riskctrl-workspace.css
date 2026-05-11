@@ -900,6 +900,17 @@
   font-style: italic;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO-3 · riskctrl-bug-1 · stats 飘右上 · 跟 hero 间空白
+ * 真因: .rpt-hero flex justify-content space-between · 左 .rpt-hero-left
+ *      cluster + 右 stats div · idle 时 left 短 + right 短 · 中间 1000px+ 空白
+ * 修: .rpt-hero-left flex 1 (grow 撑满左 → 右 stats div 紧贴右) · 不影响 gap
+ *     仅 scope riskctrl · 不动 report 的 .rpt-hero (report 没 hero-left wrapper · 用不同 hero)
+ * ════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="riskctrl"] .rpt-hero-left {
+  flex: 1;
+}
+
 /* Empty-state skeleton */
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty {
