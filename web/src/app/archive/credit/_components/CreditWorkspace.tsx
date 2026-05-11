@@ -105,9 +105,13 @@ const EMPTY_SESSION: CreditSession = {
   materials: { completeness: 0, missing: "", files: [] },
   dataSources: { summary: "", updated: "", sources: [] },
   evidences: { positive: [], warnings: [], missing: [] },
-  /* generateSteps · UI 动画 5 步 · 与数据无关 · ALL IN 后改为"等待 / 处理中"措辞反映真实路径 */
+  /* generateSteps · UI 动画 5 步 · 与数据无关.
+     B.3.4 fix-indep 主活D (PM 2026-05-11 06:30 GO · "6 助手独立可用"):
+     首步 label 从"等待 Agent6 报告 handoff"软化为"装载 ReportJSON · Agent6 / 内置 sample 二选一" ·
+     反映 inputMode toggle 现实 (real → Agent6 / demo → 内置 sample · backend 都真跑) ·
+     不显"等别人 agent 推过来"的卡死暗示 · credit 可独立跑 demo 模式. */
   generateSteps: [
-    { label: "等待 Agent6 报告 handoff", pct: 22 },
+    { label: "装载 ReportJSON · Agent6 / 内置 sample 二选一", pct: 22 },
     { label: "拉取 ReportJSON · 注入企业画像", pct: 48 },
     { label: "LLM 评分 · 红线检查 · 案例召回", pct: 76 },
     { label: "决策建议生成中", pct: 96 },
@@ -178,8 +182,11 @@ export default function CreditWorkspace() {
   const [currentDataSource, setCurrentDataSource] = useState<DataSourceKind>("live");
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
 
-  /* Phase B.2 主活 B · 输入形态 toggle · 真实 default (per onboarding B2) · demo 选了显内置 sample CTA */
-  const [inputMode, setInputMode] = useState<CreditInputMode>("real");
+  /* Phase B.2 主活 B · 输入形态 toggle · default 起初为 "real".
+     B.3.4 fix-indep 主活D (PM 2026-05-11 06:30 GO · "6 助手独立可用 · default 演示模式"):
+     翻为 "demo" · 让 credit 单 agent 演示无需 Agent6 handoff 前置 · 真后端跑内置 sample.
+     用户切 "real" tab 后仍可走 Agent6 handoff 路径 · 不破坏功能 · 仅默认入口换. */
+  const [inputMode, setInputMode] = useState<CreditInputMode>("demo");
 
   /* Phase B.2 step 9 · evidence drawer 真 wire · 从 liveData 派生 EvidenceItem[]
      · 不再 import fixtures.ts 跨 agent shared 假证据 (Phase B.1 fix #4 已删 import · 仍存 fixture 文件)
