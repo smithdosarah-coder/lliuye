@@ -1,0 +1,172 @@
+name: Daily Visual Regression (B.3.4 · P0-R5 · e2e-daily)
+
+# B.3.4 修正版 commit 5f3d2ec (2026-05-11 06:30 GO · KT R5).
+#
+# 触发 (3 条):
+#   1. cron 22:00 UTC = 06:00 Asia/Shanghai · PM 起床前自检
+#   2. workflow_dispatch · 手动触发 (调试 / baseline 重建)
+#   3. push 到 feat/b34-e2e-daily · 让 worker 自己也能验
+#
+# 行为:
+#   - 跑 daily-visual.spec.ts (6 助手 idle 视觉基线 + alert idle TDD red 锚点)
+#   - fail 时: 自动开 GitHub Issue + 上传 screenshot diff artifact
+#   - PASS 时: 不开 Issue · 但仍上传 baseline (可选 retention 7d)
+#
+# Baseline 管理:
+#   - 首次跑时 baseline 不存在 · Playwright 自动创建并 fail (snapshot does not exist)
+#   - 然后通过 workflow_dispatch 手动 commit baseline 到分支 (artifact 下载后人工 commit)
+#   - 后续跑做 pixel diff (maxDiffPixelRatio 0.02 · 见 web/playwright.config.ts)
+#
+# 不要把这跟 web-audit.yml (4-gate spec · 阻 PR merge) 混 · 本 workflow 是
+# **每日运行型监控** · 不阻 PR · 失败开 Issue 通知人.
+
+on:
+  schedule:
+    # 22:00 UTC = 06:00 Asia/Shanghai (UTC+8)
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: '更新 baseline (传 true 让 Playwright --update-snapshots)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+  push:
+    branches:
+      - feat/b34-e2e-daily
+      - main
+    paths:
+      - 'web/tests/regression/daily-visual.spec.ts'
+      - 'web/tests/regression/daily-visual.spec.ts-snapshots/**'
+      - '.github/workflows/daily-visual.yml'
+
+concurrency:
+  group: daily-visual-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  daily-visual:
+    name: Daily Visual Regression (chromium hermetic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    permissions:
+      contents: read
+      issues: write   # 失败时开 Issue
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run daily-visual spec
+        id: run_spec
+        env:
+          # 防系统代理劫持 127.0.0.1:3101 health-check (per web-audit.yml)
+          NO_PROXY: '127.0.0.1,localhost,::1'
+          HTTP_PROXY: ''
+          HTTPS_PROXY: ''
+          ALL_PROXY: ''
+          UPDATE_BASELINE: ${{ github.event.inputs.update_baseline }}
+        run: |
+          if [ "$UPDATE_BASELINE" = "true" ]; then
+            echo "::notice::baseline 更新模式 · 用 --update-snapshots"
+            npx playwright test tests/regression/daily-visual.spec.ts \
+              --project=chromium --update-snapshots
+          else
+            npx playwright test tests/regression/daily-visual.spec.ts \
+              --project=chromium
+          fi
+
+      - name: Upload Playwright report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-visual-report-${{ github.run_id }}
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 14
+
+      - name: Upload baseline snapshots (always · 方便人工 commit baseline)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-visual-snapshots-${{ github.run_id }}
+          path: web/tests/regression/daily-visual.spec.ts-snapshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Open GitHub Issue on failure (only on schedule)
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          DATE=$(date -u +'%Y-%m-%d')
+          TITLE="[daily-visual] 视觉回归 fail · ${DATE} 06:00 CST"
+
+          # heredoc with column-0 EOF · expansion ON · Markdown indented at column 0
+          BODY=$(cat <<EOF
+          ## Daily visual regression 失败
+
+          - **触发**: cron schedule (06:00 Asia/Shanghai · ${DATE})
+          - **commit**: ${COMMIT_SHA}
+          - **branch**: ${REF_NAME}
+          - **run URL**: ${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}
+
+          ## 下一步
+
+          1. 下载 artifact \`daily-visual-report-${RUN_ID}\` 看 diff 截图
+          2. 判断: 真 regression (有 worker 改坏前端) vs 预期变化 (新功能 ship)
+          3. 真 regression → 找责任 worker fix-forward
+          4. 预期变化 → 触发 \`workflow_dispatch\` 设 \`update_baseline=true\` 重建 baseline · 然后下载 artifact \`daily-visual-snapshots-${RUN_ID}\` 人工 commit 到 \`web/tests/regression/daily-visual.spec.ts-snapshots/\`
+
+          详见 \`docs/runbook/daily-visual.md\`.
+
+          ---
+          *Auto-opened by .github/workflows/daily-visual.yml*
+          EOF
+          )
+
+          # dedupe: 同标题 24h 内已有开放 Issue 就 comment · 不重复开
+          EXISTING=$(gh issue list \
+            --repo "${REPO}" \
+            --label daily-visual \
+            --state open \
+            --search "${TITLE}" \
+            --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "Issue #${EXISTING} 已存在 · 追加 comment"
+            gh issue comment "$EXISTING" \
+              --repo "${REPO}" \
+              --body "重复 fail · run #${RUN_ID} · ${DATE}"
+          else
+            gh issue create \
+              --repo "${REPO}" \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label daily-visual,regression
+          fi
