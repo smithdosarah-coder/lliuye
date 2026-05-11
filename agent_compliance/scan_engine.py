@@ -193,7 +193,13 @@ REVISION_SYSTEM = (
     "- 改 (modify): 业务条款明确违反新政策 · 修改原条款\n"
     "- 补 (supplement): 业务条款未覆盖新政策要求 · 补充新条款\n"
     "- 强 (strengthen): 业务条款部分覆盖但松散 · 强化要求\n"
-    "**严格基于命中信息** · 不编造条款编号 · 每类只给最贴切的一条 · 单条 60-120 字。"
+    "**严格基于命中信息** · 不编造条款编号 · 每类只给最贴切的一条 · 单条 60-120 字。\n"
+    "**合规官 actionable**: 每条建议必含 (责任部门 + 时限 + 触发条件) · "
+    "按 severity 推荐 disposition (critical=暂停 法律部 review · major=强制整改 14d 内 · "
+    "minor=监测 风险提示)。\n"
+    "**示例 (改类 · 政策刚性约束优先 per PB#2 不可照搬 #1)**: "
+    "「针对银保监〔2025〕12 号第 3 条单笔上限要求 · 业务部门 14d 内将《对私贷款管理办法》"
+    "第 X 条单笔最高额度由 50 万下调至 30 万 · 同步系统硬控配置 · 合规终审签字后生效」。"
 )
 
 
@@ -570,16 +576,29 @@ def _normalize_revisions(raw: Any) -> list[dict]:
 
 
 def _template_revisions(violation: dict) -> list[dict]:
-    """LLM 不可用时的模板兜底 · 按 severity 给一条 改 类建议."""
+    """LLM 不可用时的模板兜底 · severity 映射 disposition + 合规官 actionable
+    (per docs/contracts/agent-output-rubric-2026-05-11.md §3.4 compliance · audit P1)."""
     severity = violation.get("severity", "major")
     rule_article = violation.get("rule_article", "新政策条款")
+    rule_id = violation.get("rule_id", "")
+    event_id = violation.get("event_id", "")
+    event_type = violation.get("event_type", "")
+    conflict = violation.get("reason", {}).get("conflict_field") or violation.get("rule_category", "")
+    # severity → disposition 动作映射 (合规 desk 视角 · 不引入 schema enum)
+    disposition_map = {
+        "critical": ("暂停 / 法律部 review", "立即暂停本笔业务 · 法律部 7d 内 review 该政策条款"),
+        "major": ("强制整改", "合规官下发整改单 · 业务部门 14d 内完成条款修订"),
+        "minor": ("监测 + 风险提示", "纳入下月合规通报 · 风险经理监测同类事件"),
+    }
+    disp_label, disp_action = disposition_map.get(severity, disposition_map["major"])
     return [{
         "category": "改",
-        "title": f"修改业务条款以匹配 {rule_article}",
+        "title": f"修订条款以匹配 {rule_article} · disposition: {disp_label}",
         "text": (
-            f"业务事件 {violation.get('event_id', '')} 触发 {rule_article} · "
-            f"严重程度 {severity} · 模板兜底建议：修改相关业务条款 ·"
-            "确保字段满足新规要求 (具体修改细节需合规专家复核)"
+            f"业务事件 {event_id}（{event_type}）冲突字段「{conflict}」"
+            f"触发 {rule_id} {rule_article} · 严重程度 {severity} · "
+            f"建议: {disp_action} · 业务条款责任部门同步修订对应字段定义、阈值与触发规则 · "
+            "修订稿提交合规专家终审."
         ),
     }]
 
