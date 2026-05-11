@@ -1812,6 +1812,16 @@
   display: grid;
   grid-template-columns: 1fr;  /* Phase B.2 · 单 CTA 占满 (input-mode toggle 后渲染对应单按钮) */
   gap: 14px;
+  /* B.4 SLO-3 · credit-bug-2 · 演示数据 CTA panel 横向只占 60% · 右 40% 空
+   * 真因: grid 1fr 应填满 · 但 flex 列父 (credit-empty) align-items 默认 stretch
+   *      实际渲染 grid track auto-size · 单 CTA 内容不够宽时缩成 content width
+   * 修: 显式 width 100% (覆盖 grid auto-track) + CTA 也 100% (覆盖 flex content-size)
+   */
+  width: 100%;
+}
+.credit-empty__cta-row > .credit-empty__cta {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Phase B.2 step 4 主活 C · DataSource badge wrap (inline style → CSS class) */
