@@ -76,3 +76,22 @@
 /* ── 8. [REMOVED] :has() 隐藏空 panel 太激进 · 主 CLI 实测 riskctrl 整页缺
  * 改稳: 不强删 panel · 只缩小空 panel 高度 (用第 2 条 min-height: 0 已生效)
  */
+
+/* ── 9. PM 真痛: grid 列强制等高 · 短列拉伸大空白 ──
+ * 主 CLI 实测 alert 触发 demo 后 main height = 4143px:
+ *   - rpt-col--mid (1913px) + rpt-col--right (1913px) 强制等高
+ *   - 中间列实际内容只 ~700px → 1200px 空白
+ *   - 右列 al-out panel 1756px (TOP 客户榜单 27 户) 拉伸了整 grid
+ *
+ * 修法: 列改 align-self: start · 只占内容高度
+ */
+.v-archive--canon .rpt-col,
+.v-archive--canon [class*="rpt-col--"] {
+  align-self: start !important;
+}
+
+/* ── 10. panel 在 grid 内不强制 stretch · 短 panel 不拉伸 ── */
+.v-archive--canon .rpt-panel {
+  align-self: start !important;
+}
+
