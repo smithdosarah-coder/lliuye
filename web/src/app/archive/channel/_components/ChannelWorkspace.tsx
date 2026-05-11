@@ -697,26 +697,44 @@ export default function ChannelWorkspace() {
             </div>
           </div>
           {/* B.3.4 fix-indep 主活B-2 GAP fix · audit 6 workspace 唯一缺显式完成后 hint 的 ·
-              加 channel-completion-hint 明示 result UI shape · 防 PM 截图痛 #4 同病再现 */}
-          <p
+              加 channel-completion-hint 明示 result UI shape · 防 PM 截图痛 #4 同病再现
+              B.4 SLO-3 · channel-bug-4 · 浮单行无上下边界 → 改完整卡片 (header + border 全 + padding 加厚) */}
+          <div
             data-testid="channel-completion-hint"
             style={{
               gridColumn: "1 / -1",
               fontFamily: "var(--cjk)",
-              fontSize: 12.5,
-              color: "var(--ink-50)",
-              fontStyle: "italic",
-              padding: "8px 12px",
-              background: "color-mix(in srgb, var(--ink) 3%, transparent)",
-              borderRadius: 8,
-              borderLeft: "2px solid var(--accent)",
-              margin: "12px 0 0 0",
-              lineHeight: 1.55,
+              padding: "14px 18px",
+              background: "color-mix(in srgb, var(--ink) 4%, transparent)",
+              border: "1px solid var(--ink-14)",
+              borderRadius: 12,
+              margin: "20px 0 0 0",
             }}
           >
-            搜索完成后此处显示候选企业卡 · 9 维评分 + 字段级溯源 evidence drawer +
-            多源信号 timeline (工商 / 司法 / 招投标 / 资质 / 行情) · 单候选可右抽屉 drill 详情.
-          </p>
+            <div
+              style={{
+                fontSize: 10.5,
+                color: "var(--ink-50)",
+                letterSpacing: ".12em",
+                textTransform: "uppercase",
+                marginBottom: 6,
+                fontWeight: 500,
+              }}
+            >
+              搜索完成后将显示
+            </div>
+            <p
+              style={{
+                fontSize: 12.5,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: 0,
+              }}
+            >
+              候选企业卡 · 9 维评分 + 字段级溯源 evidence drawer +
+              多源信号 timeline (工商 / 司法 / 招投标 / 资质 / 行情) · 单候选可右抽屉 drill 详情.
+            </p>
+          </div>
         </section>
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
