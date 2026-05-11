@@ -29,7 +29,10 @@ if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
     sys.exit("[run_v16_classifier] DEEPSEEK_API_KEY 缺失: cp .env.example .env 并填值后重试")
 
 os.environ.setdefault("CLASSIFIER_PROVIDER", "deepseek")
-os.chdir(r"D:\claude code\credit_report_agent_work")
-sys.path.insert(0, ".")
+# B.3.4 Bug B fix · 用 __file__ 派生 PROJECT_ROOT · 兼容 ECS / 任何 worktree
+# (原硬编 D:\claude code\credit_report_agent_work · 在 ECS / 其他 worktree 启动失败)
+_project_root = Path(__file__).resolve().parent.parent
+os.chdir(_project_root)
+sys.path.insert(0, str(_project_root))
 import runpy
-runpy.run_path("v16_classifier.py", run_name="__main__")
+runpy.run_path(str(_project_root / "v16_classifier.py"), run_name="__main__")
