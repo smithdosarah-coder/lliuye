@@ -5,10 +5,18 @@
   Phase 1: 从信号搜索结果 + 企业画像锚点收证据
   Phase 2: 走 LLM（或 fallback）生成话术，只用证据里的事实
   Phase 3: 反查话术里引用的企业名/信号/产品是否在证据中
+
+B.3.4 P0-R1 (2026-05-11) · 信号 confidence flag-gate canary:
+  默认 OFF · 行为完全等价旧 0.8 if url else 0.5
+  ON  · 走 shared.evidence.confidence_policy.quality_bundle (freshness × source)
+  开法: LIUYE_AGENT_CHANNEL_SHARED_CONFIDENCE=true
+  设计依据: per docs/contracts/shared-evidence-confidence-policy-v1.0.md §3
+           per CLAUDE.md §3.7.7 禁 SSOT big-bang 切换
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -19,6 +27,11 @@ from shared.evidence import (
     EvidenceItem,
     GroundedDraft,
     UNFILLED_MARKER,
+)
+from shared.evidence.confidence_policy import quality_bundle as _shared_qb
+
+_USE_SHARED_CONFIDENCE = (
+    os.getenv("LIUYE_AGENT_CHANNEL_SHARED_CONFIDENCE", "false").strip().lower() == "true"
 )
 
 
@@ -73,12 +86,23 @@ class ChannelPitchPipeline(EvidenceFirstPipeline[ChannelPitchContext]):
             stype = sig.get("signal_type") or sig.get("type") or "unknown"
             title = sig.get("title") or ""
             url = sig.get("url") or ""
+            # B.3.4 P0-R1 canary: flag-gated shared quality_bundle. OFF=旧静态. ON=freshness×source.
+            if _USE_SHARED_CONFIDENCE:
+                qb = _shared_qb(
+                    observed_at=sig.get("date") or None,
+                    source_confidence_level="high" if url else "med",
+                )
+                confidence = qb["confidence"]
+                meta_extra = qb
+            else:
+                confidence = 0.8 if url else 0.5
+                meta_extra = {}
             bundle.add(EvidenceItem(
                 source=f"signal:{stype}",
                 snippet=title or "(无摘要)",
                 ref_id=f"sig_{i}",
-                confidence=0.8 if url else 0.5,
-                meta={"signal_type": stype, "url": url, "date": sig.get("date", "")},
+                confidence=confidence,
+                meta={"signal_type": stype, "url": url, "date": sig.get("date", ""), **meta_extra},
             ))
 
         if not context.signals:
