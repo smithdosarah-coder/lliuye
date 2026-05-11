@@ -1,0 +1,80 @@
+/* ==========================================================================
+   IdleScaffold — B.3.4 fix-indep 主活B layout primitive CSS
+   theme-neutral · 跨 6 agent 共享 · agent-specific tint 由 --agent token 注入
+   ========================================================================== */
+
+.idle-scaffold {
+  --idle-tint: var(--agent, var(--ink));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--idle-tint) 22%, transparent);
+  background: color-mix(in srgb, var(--idle-tint) 4%, transparent);
+  border-radius: 14px;
+}
+
+.idle-scaffold__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.idle-scaffold__eyebrow {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--idle-tint);
+  text-transform: uppercase;
+}
+.idle-scaffold__title {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  line-height: 1.3;
+}
+.idle-scaffold__sub {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-65);
+}
+
+.idle-scaffold__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.idle-scaffold__placeholders {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.idle-scaffold__placeholder-card {
+  padding: 12px 14px;
+  background: var(--paper, #fff);
+  border: 1px solid var(--ink-12, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+}
+
+.idle-scaffold__completion-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-50);
+  font-style: italic;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  border-radius: 8px;
+  border-left: 2px solid var(--idle-tint);
+}
