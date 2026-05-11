@@ -278,15 +278,31 @@ def format_metrics_report(metrics: dict) -> str:
             lines.append("> PSI >= 0.25，群体显著偏移，建议重新校准策略")
         lines.append("")
 
-    # KS解读
+    # KS 解读 · 同业 benchmark + actionable 建议
+    # (per docs/contracts/agent-output-rubric-2026-05-11.md §3.6 riskctrl · audit P4 fix)
+    # 银行对公 / 普惠场景 KS 健康区间 0.35-0.50 (per 业务实证 · 同业实践)
     if "ks" in metrics:
         ks_val = metrics["ks"]
-        if ks_val >= 0.3:
-            lines.append("> KS >= 0.3，策略区分能力较强")
+        if ks_val >= 0.5:
+            lines.append(
+                f"> KS = {ks_val:.3f} 处于同业基准 0.35-0.50 的优秀档 · "
+                "策略区分能力强 · 风险经理可上线 + 定期回测监控漂移"
+            )
+        elif ks_val >= 0.35:
+            lines.append(
+                f"> KS = {ks_val:.3f} 处于同业基准 0.35-0.50 健康区间 · "
+                "策略区分能力中等 · 可上线 · 建议双周复核低分样本"
+            )
         elif ks_val >= 0.2:
-            lines.append("> 0.2 <= KS < 0.3，策略区分能力一般")
+            lines.append(
+                f"> KS = {ks_val:.3f} 低于同业基准 0.35 · "
+                "策略区分能力一般 · 不建议直接上线 · 优化路径: 检查阈值 / 加新特征 / 重抽样"
+            )
         else:
-            lines.append("> KS < 0.2，策略区分能力较弱，建议优化")
+            lines.append(
+                f"> KS = {ks_val:.3f} 远低于同业基准 0.35 · "
+                "策略区分能力弱 · 不可上线 · 必检: 样本量 / label 质量 / 字段定义"
+            )
         lines.append("")
 
     return "\n".join(lines)

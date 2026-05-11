@@ -241,8 +241,19 @@ class RuleInterpretabilityJudge(LLMJudge):
 
         rationale = str(data.get("rationale") or "").strip()
         score = sum(valid) / len(valid)
+        # 风险经理 interpretation label · 让 Likert 分数有 business 意义
+        # (per docs/contracts/agent-output-rubric-2026-05-11.md §3.6 riskctrl · audit P4 fix)
+        if score >= 4.5:
+            label = "优秀 (4.5-5) · 规则可执行 + 业务合理 + 阈值精准 · 可上线"
+        elif score >= 3.5:
+            label = "可用 (3.5-4.5) · 主体合理 · 个别维度可优化 · 建议上线后监控"
+        elif score >= 2.5:
+            label = "需改进 (2.5-3.5) · 字段 / 阈值 / 业务覆盖需调整 · 不建议上线"
+        else:
+            label = "不可用 (<2.5) · 规则不合理 · 必须重写 · 检查策略诉求映射"
         return {
             "score": round(score, 3),
+            "label": label,
             "rationale": rationale,
             "detail": {"dim_scores": dim_scores, "n_valid_dims": len(valid)},
         }
