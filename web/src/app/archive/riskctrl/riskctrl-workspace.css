@@ -956,6 +956,13 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__panels {
   display: grid;
+  /* B.4 SLO-3 · riskctrl-bug-2 verify · 4 占位卡 2x2 已生效
+   * PM 标 "C4 已修 · verify" · 实际 C4 universal 不匹配 .riskctrl-empty__panels
+   * (C4 选择器是 [data-testid$="-skeleton-panels"] + [class*="-placeholders"] ·
+   *  riskctrl 包装 div 无 testid + class 是 __panels 双下划线)
+   * 但本规则 grid-template-columns: repeat(2, 1fr) 自身已 2x2 · 跟 C4 等效
+   * verify: idle 时 4 占位卡 (DSL / KS / 样本 / 回测) 真 2x2 排布 · 不需改
+   */
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-top: 18px;
