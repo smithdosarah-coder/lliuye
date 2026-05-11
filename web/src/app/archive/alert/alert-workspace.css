@@ -2105,6 +2105,13 @@
   font-style: italic;
 }
 
+/* B.4 SLO-3 · alert-bug-7 · 导出 btn 独立行 (跟 credit-bug-6 同模式) */
+.alert-empty__skel-cta-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
 .alert-empty__skel-export {
   display: inline-flex;
   align-items: center;
