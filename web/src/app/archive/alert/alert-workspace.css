@@ -2099,6 +2099,12 @@
 }
 .alert-empty__status-item--demo {
   color: var(--ink-40);
+  /* B.4 SLO-3 · alert-bug-5 · 状态条横向占满但内容飘左 · 右大块空
+   * 真因: .alert-empty__status flex gap 12 · 全部 items 左对齐
+   * 修: --demo (第 3 item · "等待主操作"/"扫描流式中…") margin-left auto 推到右
+   *     效果: ok + KB 左 · 等待主操作 + err 右 · 左右平衡 (同 credit-bug-5 模式)
+   */
+  margin-left: auto;
 }
 .alert-empty__status-item--err {
   color: var(--t-alert);
