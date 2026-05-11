@@ -52,16 +52,16 @@
 | 6 | HitList 内容很短 · 中间右边都空 | AlertWorkspace.tsx + css · 加 2 slot 占位行 (TOP 1 红/黄) | ✅ done | `d020388` |
 | 7 | "导出榜单 .docx (待扫描完成启用)" 字突兀 | AlertWorkspace.tsx + css · btn 移出 hint · 独立 .skel-cta-row | ✅ done | `33425c1` |
 
-### compliance (6 bug)
+### compliance (6 bug · ✅ 全 ship)
 
 | # | bug | 文件/区域 | 状态 | commit |
 |---|---|---|---|---|
-| 1 | hero 跟 stats 间 ~1000px 巨大空白 | compliance-workspace.css · `.cp-hero` margin | pending | — |
-| 2 | stats "000" 像孤字 (3 零意义不清) | compliance-workspace.css · stats label/value pair | pending | — |
-| 3 | stats 4 数字飘右上 · 不知啥意思 | compliance-workspace.css · stats layout 左中对齐 | pending | — |
-| 4 | "用模板快速比对" 小 button 孤飘左 · 没 panel 边界 | compliance-workspace.css · button 嵌 panel | pending | — |
-| 5 | 4 占位卡 padding 浪费 | compliance-workspace.css · placeholder padding | pending | — |
-| 6 | "等待触发巡检" panel 引导文字飘左 | compliance-workspace.css · 居中 | pending | — |
+| 1 | hero 跟 stats 间 ~1000px 巨大空白 | compliance-workspace.css · rpt-hero grid 1fr auto · eyebrow/title/sub 左列 + stats 右列 | ✅ done | `3a0c4ae` |
+| 2 | stats "000" 像孤字 (3 零意义不清) | compliance-workspace.css · rpt-hero__qc-chip tone bg/border/color 定义 | ✅ done | `c59566e` |
+| 3 | stats 4 数字飘右上 · 不知啥意思 | compliance-workspace.css · dt 字号 11/0.08em + dd 18 + stat left border | ✅ done | `8fadde0` |
+| 4 | "用模板快速比对" 小 button 孤飘左 | compliance-workspace.css · bar width 100% + ::before 上下文 label | ✅ done | `936921d` |
+| 5 | 4 占位卡 padding 浪费 | compliance-workspace.css · padding 28/18 → 14/16 + min-height 88 → 72 | ✅ done | `4522bb0` |
+| 6 | "等待触发巡检" panel 引导文字飘左 | compliance-workspace.css · hint text-align center | ✅ done | `e2a768c` |
 
 ### report (6 bug)
 
