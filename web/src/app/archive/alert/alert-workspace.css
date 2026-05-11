@@ -1991,6 +1991,12 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+  /* B.4 SLO-3 · alert-bug-3 · HitList panel 跟上方 CTA row 宽一致
+   * 真因: HitList skel-row 单 col 1fr · 实际 grid track auto-size 不一定填满
+   *      = HitList 看着 100% 但有时缩窄 · 跟 CTA row (bug-1 修 100%) 不一致
+   * 修: skel-row width 100% · 与 CTA row + traffic row 全 100% 一致
+   */
+  width: 100%;
 }
 .alert-empty__skel-traffic {
   grid-template-columns: repeat(3, 1fr);
