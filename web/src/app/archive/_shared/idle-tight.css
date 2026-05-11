@@ -105,3 +105,13 @@
   overflow-y: auto !important;
 }
 
+/* ── 12. PM 真痛根因 · .rpt-grid min-height: calc(100vh - 220px) 强 860px ──
+ * 主 CLI 实测发现 report-workspace.css:193 定义 .rpt-grid min-height 强 viewport - 220
+ * 1080p 屏 = 860px · 但 panel 内容常只 400-600px · 留 200-460px 空白
+ * 修法: min-height auto · grid 跟内容走
+ */
+.v-archive--canon .rpt-grid {
+  min-height: auto !important;
+  align-items: start !important;
+}
+
