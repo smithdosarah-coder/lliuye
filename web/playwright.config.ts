@@ -18,7 +18,11 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // B.4 SLO-2 主活 D · prod E2E retries: 1 抗 CF cold start transient
+  // (本地 dev visual baseline 仍 0 retry · 用 PLAYWRIGHT_RETRIES=0 显式跳)
+  retries: process.env.PLAYWRIGHT_RETRIES !== undefined
+    ? parseInt(process.env.PLAYWRIGHT_RETRIES, 10)
+    : (process.env.PLAYWRIGHT_BASE_URL?.startsWith("https://") ? 1 : 0),
   reporter: [["list"]],
   expect: {
     // 截屏 baseline 容差 · 抗 anti-alias / 字体 hinting 跨机器漂
