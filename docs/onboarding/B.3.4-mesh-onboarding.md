@@ -1,97 +1,116 @@
-# B.3.4 mesh 起步说明 (2026-05-11 凌晨 05:30)
+# B.3.4 mesh 起步说明 · 修正版 (2026-05-11 06:30 GO)
 
-> **背景**: PM 在 5 月 11 日凌晨 03:45 admin 真号 verify production · 给出 6 件痛 + 总结 "**所有后端前端都混乱 · 没一个 agent 有独立业务逻辑 · 连最早期 demo 都不如**"。
-> **拍板**: 不再 patch · 从源头解决 · 5+ 轮 codex 辩论后 · PM 决定**用 mesh 5 worker 并行 · 分 2 组**。
+> **背景**: PM 凌晨 03:45 verify 给 6 件痛 + 总结 "所有后端前端混乱·没一个 agent 独立业务逻辑·连最早期 demo 都不如"
+> **5+ 轮辩论**: 主 CLI ultrathink + codex R5/R6/R7 + PM 直觉 + KT 2026-05-10 retro
+> **PM 06:30 GO**: 接受 KT+codex R7 brutal 修正 · 5 worker → 4 worker · 3D 降级 next sprint
 
 ## PM 凌晨 6 件痛 (verbatim)
 
-1. **获客**: 点击空白页也会跳转出查询 + 让我解释后端逻辑 / 信源 / 搜索逻辑
-2. **风控**: 点演示后大面积空白 · 数据非常少
-3. **风控**: 演示没成功 · 大面积空白 · 实际没有按钮
-4. **预警**: 队列出来了 · 但不能点客户详情 · 严重排版问题
-5. **合规**: 完全乱的排版 · 没任何功能展示
-6. **报告**: 后端调用失败
+1. **获客 (channel)**: 点击空白页也会跳转出查询 + 解释后端逻辑/信源
+2. **风控 (riskctrl)**: 演示后大面积空白 · 数据非常少
+3. **风控**: 演示没成功 · 实际没有按钮
+4. **预警 (alert)**: 队列出来 · 不能点客户详情 · **严重排版问题** (PM 06:00 截图揭示 idle 中间 + 右下大空白)
+5. **合规 (compliance)**: 完全乱的排版 · 没任何功能展示
+6. **报告 (report)**: 后端调用失败
 
-## codex R5 + R6 verdict (主 CLI 同意)
+PM 总结: "所有后端前端都混乱·没一个 agent 有独立业务逻辑·连最早期 demo 都不如"
 
-**真原因不是"缺详情抽屉"** (主 CLI 错判 · 抽屉都在):
-- channel: `CandidateDetailDrawer` (ChannelWorkspace.tsx:702)
-- alert: `AlertDrillDrawer` + selectedClientId (AlertWorkspace.tsx:377)
-- credit: `CaseDetailDrawer` + export_docx (CreditWorkspace.tsx:742, 2108)
-- compliance: 可选 violation detail + export (ComplianceWorkspace.tsx:679)
-- riskctrl: rule selection + per-rule stats + export (RiskctrlWorkspace.tsx:552)
+## 关键 verdict 演化 (5+ 轮辩论)
 
-**真原因**: **6 个助手没有统一的"会话语言"** · 每个助手自己手搓 live/demo/input/session/action state · ALL IN reframe 删 mock fallback 换 `EMPTY_SESSION` · 后端/前端 mismatch → 看起来"产品空白" → PM 看到的就是这个
+| 轮 | 提出方 | verdict |
+|---|---|---|
+| R1-R4 主 CLI | 主 CLI ultrathink | 假设: 6 助手缺 detail drawer |
+| R5 codex | gpt-5.5 xhigh | **打脸主 CLI**: drawer 都在 (引用 5 个 file:line) · 真因 = WorkSession 契约缺失 |
+| R6 codex | gpt-5.5 xhigh | v2 圆环不解决 6 件痛 · 8-12 天工期 · 推荐先 B.3 修底子 + 小驾驶舱 |
+| PM 直觉 | PM 05:25 | 每个 agent 必须独立可用 · 不强协同 |
+| PM 截图 | PM 06:00 | alert idle 中间 + 右下大空白 · idle 状态没引导 |
+| KT 2026-05-10 | 另一 CC 主 CLI 复盘 | **真根因更深**: 6 助手同构重复 · 1 bug 改 6 处 · E2E 拖到 Day 28 · 41 worktree 协调开销 |
+| R7 codex | gpt-5.5 xhigh | 同意 KT · 主 CLI 5 worker 计划反 R4+缺 R1 · 3D 是 scope inflation · brutal 排序 |
 
-**PM 2026-05-11 05:25 追加**: 每个助手必须**独立可用** · 不强协同 (e.g. credit 不强等 report)
+## 4 worker 修正版 · KT brutal 排序
 
-## 5 个 worker 分两组 · 并行
+### P0-R1 · shared-extract (2-3 天 · 1 worker)
 
-### 组 A · 主线修 BUG (3 worker · 5-6 天)
+- worktree: `credit_report_agent_work_mesh/shared-extract`
+- branch: `feat/b34-shared-extract`
+- 任务: inventory 6 助手重复模块 → 抽 shared/ (evidence_pipeline / output_validator / knowledge_base / RBAC) + contract test
+- 关键: 不是 "everything shared" · 是 "shared contract + shared invariants + local adapters where domain truly differs" (codex R7 挑战 KT)
+- **TDD red-to-green** · test commit 先 · 实现 commit 后
 
-| Worker | 任务 | worktree | branch | 工期 |
-|---|---|---|---|---|
-| **fix-contract** | 定 6 助手共用会话语言 + 适配层 + 持久化 | `credit_report_agent_work_mesh/fix-contract` | `feat/b34-fix-contract` | 3 天 (**前 2 天必须 ship 契约 spec 给组 B**) |
-| **fix-bugs** | 修 4 件具体 bug (channel 点空白 / report 503 / alert 排版 / compliance 详情) | `credit_report_agent_work_mesh/fix-bugs` | `feat/b34-fix-bugs` | 2 天 |
-| **fix-indep** | 6 助手独立可用 + 主按钮简化 + 删多余 toggle | `credit_report_agent_work_mesh/fix-indep` | `feat/b34-fix-indep` | 1-2 天 |
+### P0-R5 · e2e-daily (1 天 · 1 worker · 并行 P0-R1)
 
-### 组 B · 3D 方案 (2 worker · 8-12 天)
+- worktree: `credit_report_agent_work_mesh/e2e-daily`
+- branch: `feat/b34-e2e-daily`
+- 任务: cron 6am 跑 admin E2E + Playwright 视觉回归 (PM alert idle 空白入 spec)
+- 6 助手基础 E2E spec (admin 真号登录 + 跑 demo + 验 done)
+- 视觉回归 baseline (idle 状态不能纯白色)
 
-| Worker | 任务 | worktree | branch | 工期 |
-|---|---|---|---|---|
-| **3d-frame** | three.js / WebGL 3D 场景框架 + 圆环 6 助手布局 | `credit_report_agent_work_mesh/3d-frame` | `feat/b34-3d-frame` | 8-10 天 (前 2 天独立做视觉 · 不等契约) |
-| **3d-data** | 接现有后端 API + 渲染 WorkSession 数据 | `credit_report_agent_work_mesh/3d-data` | `feat/b34-3d-data` | 8-10 天 (前 2 天等 fix-contract 给契约 · 然后 6-8 天接) |
+### P0-R2 · fix-bugs (2 天 · 1 worker · 并行 P0-R1)
 
-## 通用规则 (5 worker 都遵守)
+- worktree: `credit_report_agent_work_mesh/fix-bugs`
+- branch: `feat/b34-fix-bugs`
+- 任务: 修 4 件具体 bug · 每件 TDD red-to-green
+  - channel 点空白触发搜索
+  - report 后端 503 真因排查 + 修
+  - alert 客户行可点 + 排版
+  - compliance 详情体验
 
-1. **每个 worker 一开窗** · 先复述 PM 真意 (避免跑偏) · 等主 CLI verify GO 才动手
-2. **commit 粒度 = TaskCreate 粒度** · 每步独立 commit · 不攒大 commit
-3. **fire signal commit** 走 commit trailer · 不在 chat 说"已完成":
-   ```
-   Signal: WORKER-<NAME>-READY-FOR-MERGE
-   Worker: <name>
-   Refs: B.3.4-2026-05-11
-   ```
-4. **撞 BLOCKER 立刻 fire Signal:BLOCKED** · 不死磕
-5. **改 web/ 必带 trailer**:
-   ```
-   PRESERVES: F-XXX (保留的 feature)
-   NEW-DOM: data-testid="..." (新增 selector)
-   SMOKE-PASS: <spec>.spec.ts (跑通的 smoke)
-   ```
+### P0-PM · fix-indep (2-3 天 · 1 worker · 并行 P0-R1)
 
-## 6 助手共用会话语言 (worker fix-contract 第 1-2 天 ship)
+- worktree: `credit_report_agent_work_mesh/fix-indep`
+- branch: `feat/b34-fix-indep`
+- 任务:
+  - **alert idle 空白填实** (PM 截图直接痛 · 最优先)
+  - 6 助手 idle 空白同改 (共享原则: 主 CTA + 占位 + 完成后显啥提示)
+  - 主按钮简化 (1 主 + 1 次 · 删多余 toggle)
+  - 6 助手独立可用 (default 演示模式 · 不显"等别人")
 
-```python
-@dataclass
-class WorkSession:
-    session_id: str             # 会话 ID
-    agent: str                  # channel/credit/report/alert/compliance/riskctrl
-    state: Literal["idle", "running", "done", "reviewing", "finalized", "error"]
-    input: dict                 # 输入
-    result_summary: str         # 结果摘要 (人类可读)
-    result_items: list[dict]    # 结果列表 (给详情抽屉用 · 每项有 id/title/detail)
-    selected_item_id: str | None  # 当前选中
-    available_actions: list[str]  # 可用动作 (export/approve/reject/...)
-    errors: list[dict]          # 错误列表 (typed · 含 code+message+details)
-    data_source: Literal["live", "cached", "fallback", "demo_fixture"]
-    created_at: str
-    updated_at: str
+### P1 · fix-contract (等 P0-R1 完成后启 · 不在本批)
+
+- worktree 已起: `credit_report_agent_work_mesh/fix-contract` (但 prompt 待 P0-R1 完成后更新)
+- 任务: WorkSession contract (跨 6 助手共用会话语言)
+- 工期: 2 天 · 在 P0-R1 抽完 shared 后才有 stable base
+
+### P2 · 3D 方案 (降级 next sprint · 不在本批)
+
+- codex R7: "scope inflation · 在 control plane 还没修好时上新视觉是反模式"
+- 等 P0+P1 全 ship 后再启
+
+## 通用规则 (4 worker 都遵守 · KT R1-R6)
+
+1. **R1 · 禁 Agent 内重复共享业务概念** · 必须先抽 shared/
+2. **R2 · TDD 测试先行** · test commit 先 · 实现 commit 后 · CI red-to-green
+3. **R3 · fix-forward budget** · ≤ 10 hotfix/sprint · 超出 stop-the-line
+4. **R4 · mesh ≤ 6 长期 + ≤ 2 临时 = ≤ 8** · 本批 4 worker · 加主 CLI = 5 · 合规
+5. **R5 · 真号 E2E 每日跑** · BLOCKED 48h 内升 PM
+6. **R6 · 反模式清单** (8 条 · 见 KT 文档)
+
+## commit trailer (4 worker 都必带)
+
 ```
-
-worker fix-contract 第 2 天 deadline: ship `shared/work_session.py` + `docs/contracts/work-session-v1.0.md` + fire signal `WORKER-FIX-CONTRACT-SPEC-V1` · 给 3d-data 接口。
+KT-2026-05-10-COMPLIANT: yes
+R1-R6-CHECKED: yes (or specify which R checked)
+TEST-COMMITTED-FIRST: yes
+REVERSE-RATIO: <X.X%>
+Signal: <RESUMED | STEP-X-DONE | READY | BLOCKED>
+Worker: <name>
+Refs: B.3.4-KT-<RN>
+```
 
 ## 主 CLI 角色 (PM 现有窗口)
 
 - **不动 main worktree** · 让 worker 各自跑
-- **每天 cherry-pick / merge** worker signal commit
-- **PM verify GO** worker 完成
-- **撞冲突 stop the line** · 不强 merge
+- **每天 9am cherry-pick / merge** worker signal commit + 看 e2e-daily 报告
+- **撞 BLOCKER 48h 内**升 PM 拍板
+- **每周日清** ≥ 7 天未活动的 worktree (KT R4)
 
 ## decisions-log
 
-任何方向变化 / PM 拍板 → 写 `docs/handoff/decisions-log.md` 新 Q-NNN entry · 同 commit 加 ACTIVE-DECISIONS-BACK-WRITTEN trailer。
+任何方向变化 / PM 拍板 → 写 `docs/handoff/decisions-log.md` 新 Q-NNN entry + ACTIVE-DECISIONS-BACK-WRITTEN trailer
 
-## 紧急联系
+## 历史镜像 (5+ 轮辩论存档)
 
-撞 BLOCKER · 写 `docs/handoff/BLOCKED-<worker>-<timestamp>.md` + fire signal commit · 主 CLI 看 git log 仲裁。
+- `D:/claude code/.tmp/codex-r6-stderr.log` · codex R6 v2 圆环 verdict
+- `D:/claude code/.tmp/codex-r7-stderr.log` · codex R7 KT verdict (本次 brutal 排序)
+- `docs/working/B.2.4-system-audit-2026-05-11.md` · 主 CLI 初版 audit (含错的部分 · DetailDrawer 假设错)
+- `docs/KT-2026-05-10-efficiency-collapse-retro.md` · KT 2026-05-10 retro (真根因来源)
