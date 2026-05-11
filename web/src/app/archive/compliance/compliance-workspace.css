@@ -1981,6 +1981,46 @@
   margin: 0 !important;
 }
 
+/* B.4 SLO-3 · compliance-bug-2 · QC stats "000" 像孤字 (3 零意义不清)
+ * 真因: .rpt-hero__qc-chip CSS 完全没定义 · 3 个 0 spans 裸渲 = "0 0 0" = 视觉孤字
+ * 修: 定义 .rpt-hero__qc + .rpt-hero__qc-chip 样式 ·
+ *     每 chip 自己 bg/border 颜色 + 圆角 + 间距 · tone 区分 block/warn/info
+ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid var(--ink-14);
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="block"] {
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 14%, transparent);
+  border-color: color-mix(in srgb, var(--t-alert, #b94a3a) 40%, transparent);
+  color: var(--t-alert, #b94a3a);
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="warn"] {
+  background: color-mix(in srgb, #d6a73d 14%, transparent);
+  border-color: color-mix(in srgb, #d6a73d 40%, transparent);
+  color: #a87b1f;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="info"] {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink-55);
+}
+
 /* ────────────────────── Stage CF · empty-state + 3 CTA · 2026-04-28 ────────────────────── */
 
 .v-archive--canon[data-agent="compliance"] .compliance-trigger-bar {
