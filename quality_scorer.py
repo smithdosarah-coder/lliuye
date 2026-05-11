@@ -235,12 +235,29 @@ class QualityScorer:
 
         before_penalty = sum(d.weighted_score for d in dims)
         penalty = min(20.0, 5.0 * len(hallucinations))
-        fatal_fail = len(hallucinations) >= 3
         fatal_reasons: list[str] = []
+        fatal_fail = len(hallucinations) >= 3
         if fatal_fail:
             fatal_reasons.append(
                 f"检测到 {len(hallucinations)} 处疑似幻觉（>=3 触发一票否决）"
             )
+        # 维度级 fatal_fail 闸 · 总分 75 过宽 · per-dim 不达即 fatal
+        # (per docs/contracts/agent-output-rubric-2026-05-11.md §3.5 report · audit P5 fix)
+        # 维度 raw_score 0-10 · 财务深度 ≥ 7 / 格式规范 ≥ 6 / 申报方案硬字段 ≥ 5
+        _DIM_GATES: dict[str, float] = {
+            "财务分析深度": 7.0,
+            "格式规范": 6.0,
+            "申报方案硬字段": 5.0,
+        }
+        for d in dims:
+            min_required = _DIM_GATES.get(d.name)
+            if min_required is None:
+                continue
+            if d.raw_score < min_required:
+                fatal_fail = True
+                fatal_reasons.append(
+                    f"维度「{d.name}」raw_score {d.raw_score:.2f} < 闸值 {min_required}"
+                )
         total = 0.0 if fatal_fail else max(0.0, before_penalty - penalty)
         passed = (not fatal_fail) and total >= 75.0
 
