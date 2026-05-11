@@ -2067,9 +2067,12 @@ function ReportLaunchBar(p: {
       </div>
 
       {/* B-2 click-to-fire · !started 时显式 "开始生成" 应用模板/历史选择
-          started 时切到 "重新生成 / 导出" 双 chip-style 按钮 */}
+          started 时切到 "重新生成 / 导出" 双 chip-style 按钮
+          B.4 SLO-3 · report-bug-5 · 加 "执行" label 跟其他 column (主入口/模板/业务线) 视觉对齐
+          原因: 其他 column 都有 label + content + (hint) · 开始生成 column 只有 btn → 视觉不对齐 */}
       {!p.started ? (
-        <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
+        <div style={_LAUNCH_GROUP_STYLE}>
+          <span style={_LAUNCH_LABEL_STYLE}>执行</span>
           <button
             type="button"
             data-testid="report-apply-launch-btn"
