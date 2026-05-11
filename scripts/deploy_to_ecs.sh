@@ -64,6 +64,13 @@ echo ""
 echo "=== 3.5 pip install -r requirements.txt (新依赖兜底 · PyJWT/bcrypt/sentry/etc) ==="
 ssh_run "cd $ECS_REPO && .venv/bin/pip install -r requirements.txt 2>&1 | tail -5"
 
+echo ""
+echo "=== 3.6 v16 demo prereq init (B.3.4 Bug B · idempotent · 若 classifier 输出已存在则 skip) ==="
+ssh_run "cd $ECS_REPO && .venv/bin/python --version && bash scripts/ecs_init_v16_demo.sh" || {
+  echo "[warn] ecs_init_v16_demo.sh 非 0 退出 · /api/report/demo/run 将仍返 typed 503 banner"
+  echo "[warn] 不阻断 deploy · 前端 banner UX 仍指向 admin runbook · 修后单独跑 init"
+}
+
 if [ "$SKIP_BUILD" -eq 0 ]; then
   echo ""
   echo "=== 4. stop frontend service ==="
