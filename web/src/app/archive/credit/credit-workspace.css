@@ -1670,12 +1670,26 @@
   gap: 22px;
   padding: 28px 28px 32px;
   min-height: 520px;
+  /* B.4 SLO-3 · credit-bug-1 · tabs 绝对定位 top-right · 防 tabs 跟 hero eyebrow 上下错位
+   * position relative · 让 .credit-empty__tabs absolute 锚到本容器
+   */
+  position: relative;
 }
 
 .credit-empty__tabs {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* B.4 SLO-3 · credit-bug-1 · 绝对定位 top-right · 跟 hero eyebrow 同视觉行 */
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  z-index: 2;
+}
+
+/* B.4 SLO-3 · credit-bug-1 · hero 留 padding-right 给 tabs 不重叠 */
+.credit-empty__hero {
+  padding-right: 240px;
 }
 .credit-empty__tabs-lbl {
   font-family: var(--mono);
