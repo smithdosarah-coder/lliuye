@@ -28,4 +28,4 @@
   - ProgressMessage.percent 口径: 老 v1 是 0-1 浮点 (sse-envelope.md §1.5) · liuye 是 0-100 整数 (v3 §2.3) · adapter `* 100` 转换 · SSE matrix §2 备注与 §4 mapping 表一致
   - LedgerEntry v1.1.0 (`shared/decision_ledger/schema.py:22` LEDGER_SCHEMA_VERSION = "1.1.0") 加 optional `parent_turn_id` (PM 2026-05-11 ratify perfect-check-6) · 与本棒接到的 PM 决议一致
 - **ELAPSED min**: ~25 (起手 7 件事 read · 无写代码)
-- **commit SHA**: <填写于 commit 后>
+- **commit SHA**: 715dd09baea416ac36928525ed3e4a19b387fc84
