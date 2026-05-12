@@ -131,4 +131,4 @@
 - **PYTEST-NO-REGRESSION**: 156 PASS (W1 59 + W2 第 3 棒 77 + W2 第 4 棒 +20 · 0 fail · 0 skip)
 - **BACKEND-W2-DELIVERED**: 16/16 DONE
 - **ELAPSED min**: ~55 (5 文件 + httpx ASGI hang 调试 + pytest 156 verify + sqlite pre-flight verify + progress 段 + commit)
-- **commit SHA**: (filled in next commit)
+- **commit SHA**: 08f0d89
