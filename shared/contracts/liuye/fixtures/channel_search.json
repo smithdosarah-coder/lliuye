@@ -1,0 +1,285 @@
+{
+  "id": "art_channel_search_demo_lookalike_001",
+  "schema_version": "1",
+  "type": "channel_search",
+  "status": "resolved",
+  "source_tool_call_id": "tc_channel_lookalike_demo_001",
+  "owner_agent": "channel",
+  "title": "Look-alike 候选搜索 · 通用设备制造业 C34 长三角 · 5 候选难度分层",
+  "version": 3,
+  "patches": [
+    {
+      "id": "patch_channel_001_v1",
+      "artifact_id": "art_channel_search_demo_lookalike_001",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/seed",
+      "value": {
+        "seed_customer_id_hash": "a3f1b2c0d4e5f678",
+        "seed_customer_segment": "corporate",
+        "seed_industry_code": "C34",
+        "seed_industry_label": "通用设备制造业",
+        "seed_geo": "浙江-宁波",
+        "seed_scale_label": "中型",
+        "search_intent": "对公流动资金贷款 · 客户经理王哲拓客 · 寻找已成交客户的相似画像"
+      },
+      "ts": "2026-05-11T10:02:00Z"
+    },
+    {
+      "id": "patch_channel_001_v2",
+      "artifact_id": "art_channel_search_demo_lookalike_001",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "append",
+      "path": "/candidates",
+      "value": {
+        "rank": 1,
+        "candidate_id": "cand_easy_xinghui_precision",
+        "candidate_name": "星辉精密制造有限公司",
+        "industry": "通用设备制造业(C34)",
+        "geo": "浙江-宁波",
+        "scale": "中型",
+        "similarity": 0.92,
+        "difficulty_tier": "简单"
+      },
+      "ts": "2026-05-11T10:02:14Z"
+    },
+    {
+      "id": "patch_channel_001_v3",
+      "artifact_id": "art_channel_search_demo_lookalike_001",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "replace",
+      "path": "/summary",
+      "value": {
+        "total_candidates": 5,
+        "by_difficulty": {"简单": 1, "中等": 2, "困难": 1, "极端": 1},
+        "search_provider": "tavily",
+        "elapsed_ms": 4820
+      },
+      "ts": "2026-05-11T10:02:48Z"
+    }
+  ],
+  "snapshot": {
+    "seed": {
+      "seed_customer_id_hash": "a3f1b2c0d4e5f678",
+      "seed_customer_segment": "corporate",
+      "seed_industry_code": "C34",
+      "seed_industry_label": "通用设备制造业",
+      "seed_geo": "浙江-宁波",
+      "seed_scale_label": "中型",
+      "search_intent": "对公流动资金贷款 · 客户经理王哲拓客 · 寻找已成交客户的相似画像"
+    },
+    "candidates": [
+      {
+        "rank": 1,
+        "candidate_id": "cand_easy_xinghui_precision",
+        "candidate_name": "星辉精密制造有限公司",
+        "industry": "通用设备制造业(C34)",
+        "geo": "浙江-宁波",
+        "scale": "中型",
+        "similarity": 0.92,
+        "difficulty_tier": "简单",
+        "match_dimensions": {
+          "industry_score": 1.0,
+          "geo_score": 1.0,
+          "scale_score": 0.95,
+          "operational_score": 0.88,
+          "overall_score": 0.92
+        },
+        "signals": [
+          {
+            "signal_type": "growth",
+            "signal_title": "星辉精密 2026Q1 扩产新建数控加工车间",
+            "signal_date": "2026-03-18",
+            "signal_summary": "总投资 1.05 亿元 · 新增智能数控加工产线 2 条 · 预计 2026 年底投产 · 自有资金占比 65%"
+          },
+          {
+            "signal_type": "bidding",
+            "signal_title": "中标某汽车零部件集团一级供应商资格",
+            "signal_date": "2026-02-12",
+            "signal_summary": "成功通过某主机厂一级供应商资质认证 · 预计年度订单规模 4,500 万元"
+          }
+        ],
+        "evidence_refs": ["ev_cand_xinghui_aic_2026q1", "ev_cand_xinghui_news_growth_2026q1"],
+        "rationale": "同业(C34) + 同区域(宁波) + 同规模(营收 2-4 亿) + 近期扩产信号清晰 · 已成交银行优势客户标准画像 · 推荐拓客"
+      },
+      {
+        "rank": 2,
+        "candidate_id": "cand_med_jingyi_machinery",
+        "candidate_name": "晶翼机械装备有限公司",
+        "industry": "通用设备制造业(C34) · 细分模具加工",
+        "geo": "江苏-苏州",
+        "scale": "中型",
+        "similarity": 0.78,
+        "difficulty_tier": "中等",
+        "match_dimensions": {
+          "industry_score": 0.85,
+          "geo_score": 0.75,
+          "scale_score": 0.92,
+          "operational_score": 0.78,
+          "overall_score": 0.78
+        },
+        "signals": [
+          {
+            "signal_type": "tech",
+            "signal_title": "晶翼机械获国家级高新技术企业认定",
+            "signal_date": "2026-01-25",
+            "signal_summary": "通过国家高新技术企业三年复审 · 研发投入占比 5.8% · 获得 6 项发明专利"
+          },
+          {
+            "signal_type": "recognition",
+            "signal_title": "入选江苏省专精特新中小企业培育库",
+            "signal_date": "2025-11-08",
+            "signal_summary": "入选 2025 年江苏省专精特新中小企业 · 享受省级财政补贴与税收优惠"
+          }
+        ],
+        "evidence_refs": ["ev_cand_jingyi_aic_2026q1", "ev_cand_jingyi_news_tech_2026q1"],
+        "rationale": "细分赛道(模具)略偏 · 区域跨省(苏州) · 但规模高度匹配且有技术资质溢价 · 建议优先级 P1"
+      },
+      {
+        "rank": 3,
+        "candidate_id": "cand_med_yujiang_industrial",
+        "candidate_name": "渝江工业装备股份有限公司",
+        "industry": "通用设备制造业(C34) · 重型机械",
+        "geo": "重庆-渝北",
+        "scale": "中大型",
+        "similarity": 0.71,
+        "difficulty_tier": "中等",
+        "match_dimensions": {
+          "industry_score": 0.80,
+          "geo_score": 0.45,
+          "scale_score": 0.78,
+          "operational_score": 0.82,
+          "overall_score": 0.71
+        },
+        "signals": [
+          {
+            "signal_type": "bidding",
+            "signal_title": "中标西部某大型矿山设备采购项目",
+            "signal_date": "2026-04-08",
+            "signal_summary": "中标金额 1.82 亿元 · 交付周期 18 个月 · 项目业主央企背景"
+          },
+          {
+            "signal_type": "award",
+            "signal_title": "获评 2025 年度重庆市制造业百强企业",
+            "signal_date": "2025-12-22",
+            "signal_summary": "重庆市经信委评定 · 2024 年营收 6.8 亿元 · 利润总额 5,200 万元"
+          }
+        ],
+        "evidence_refs": ["ev_cand_yujiang_tender_2026q2", "ev_cand_yujiang_news_award_2025q4"],
+        "rationale": "跨区域(西部) · 规模偏大于种子客户 · 但订单与资质画像优质 · 建议优先级 P2 · 需评估异地放款合规性"
+      },
+      {
+        "rank": 4,
+        "candidate_id": "cand_hard_beihang_metal",
+        "candidate_name": "北航金属科技股份公司",
+        "industry": "通用设备制造业(C34) · 航空航天细分",
+        "geo": "山东-济南",
+        "scale": "中型",
+        "similarity": 0.58,
+        "difficulty_tier": "困难",
+        "match_dimensions": {
+          "industry_score": 0.70,
+          "geo_score": 0.55,
+          "scale_score": 0.88,
+          "operational_score": 0.42,
+          "overall_score": 0.58
+        },
+        "signals": [
+          {
+            "signal_type": "tech",
+            "signal_title": "北航金属获航空工业某主机厂供应商资质",
+            "signal_date": "2026-02-26",
+            "signal_summary": "通过 AS9100D 航空航天质量管理体系认证 · 获得某主机厂二级供应商资质"
+          },
+          {
+            "signal_type": "growth",
+            "signal_title": "公司公告：拟实施定向增发募资 1.5 亿元扩产",
+            "signal_date": "2025-09-15",
+            "signal_summary": "拟非公开发行股票募资 1.5 亿元用于航空零部件产线扩产 · 增发尚未完成"
+          }
+        ],
+        "evidence_refs": ["ev_cand_beihang_news_tech_2026q1", "ev_cand_beihang_announcement_2025q3"],
+        "rationale": "细分赛道(航空航天)对资质门槛高 · 增发未完成存在资金压力 · 跨区域且行业风险偏离 · 建议优先级 P3 · 需追加尽调"
+      },
+      {
+        "rank": 5,
+        "candidate_id": "cand_extreme_haiyu_holdings",
+        "candidate_name": "海誉控股集团有限公司",
+        "industry": "通用设备制造业(C34) · 母公司含多板块",
+        "geo": "广东-深圳",
+        "scale": "大型(集团型)",
+        "similarity": 0.41,
+        "difficulty_tier": "极端",
+        "match_dimensions": {
+          "industry_score": 0.50,
+          "geo_score": 0.30,
+          "scale_score": 0.35,
+          "operational_score": 0.48,
+          "overall_score": 0.41
+        },
+        "signals": [
+          {
+            "signal_type": "growth",
+            "signal_title": "海誉控股完成 B 轮融资 5 亿元",
+            "signal_date": "2026-04-22",
+            "signal_summary": "由某产业基金领投 · 融资额 5 亿元 · 投后估值 38 亿元 · 资金用于设备智能化改造"
+          },
+          {
+            "signal_type": "recognition",
+            "signal_title": "海誉控股被纳入证监会 IPO 辅导备案",
+            "signal_date": "2026-03-30",
+            "signal_summary": "在深交所提交 IPO 辅导备案 · 拟登陆创业板 · 辅导机构华泰联合"
+          }
+        ],
+        "evidence_refs": ["ev_cand_haiyu_announcement_2026q2", "ev_cand_haiyu_news_ipo_2026q1"],
+        "rationale": "集团型客户 + 跨区域(华南) + 多板块业务 + IPO 阶段 · 与种子(单体中型制造)画像偏离极大 · 建议优先级 P4 · 仅作 KYC 参考 · 不建议主动拓客"
+      }
+    ],
+    "summary": {
+      "total_candidates": 5,
+      "by_difficulty": {"简单": 1, "中等": 2, "困难": 1, "极端": 1},
+      "signal_types_distribution": {"growth": 3, "bidding": 2, "tech": 2, "recognition": 2, "award": 1},
+      "search_provider": "tavily",
+      "elapsed_ms": 4820,
+      "qc_passed": true,
+      "candidates_meeting_q041_hardline": 5,
+      "candidates_meeting_q041_hardline_note": "全 5 候选均含 industry/geo/scale/similarity 4 字段 · 满足 Q-041 硬线"
+    },
+    "banner_state": {
+      "has_blocker": false,
+      "blocked_by_env": null,
+      "candidates_below_threshold": []
+    },
+    "ledger": {
+      "decision_id": "ledger_channel_demo_lookalike_001",
+      "jurisdiction": "HQ",
+      "retention_class": "short",
+      "idempotency_key": "channel:lookalike:a3f1b2c0d4e5f678:2026-05-11T10:02:00Z",
+      "input_hash": "7a6b5c4d3e2f1908172635485a6b7c8d9e0f1a2b3c4d5e6f7081928374a5b6c7",
+      "output_hash": "2b3c4d5e6f708192837465a6b7c8d9e0f1a2b3c4d5e6f7081928374a5b6c7d8e"
+    }
+  },
+  "verdict": "PASS",
+  "qc_score": {
+    "passed": 9,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_cand_xinghui_aic_2026q1",
+    "ev_cand_xinghui_news_growth_2026q1",
+    "ev_cand_jingyi_aic_2026q1",
+    "ev_cand_jingyi_news_tech_2026q1",
+    "ev_cand_yujiang_tender_2026q2",
+    "ev_cand_yujiang_news_award_2025q4",
+    "ev_cand_beihang_news_tech_2026q1",
+    "ev_cand_beihang_announcement_2025q3",
+    "ev_cand_haiyu_announcement_2026q2",
+    "ev_cand_haiyu_news_ipo_2026q1"
+  ],
+  "created_at": "2026-05-11T10:02:00Z",
+  "updated_at": "2026-05-11T10:02:48Z",
+  "resolved_at": "2026-05-11T10:02:48Z"
+}

@@ -1,0 +1,257 @@
+{
+  "id": "art_report_draft_demo_corp_001",
+  "schema_version": "1",
+  "type": "report_draft",
+  "status": "resolved",
+  "source_tool_call_id": "tc_report_v16_demo_corp_001",
+  "owner_agent": "report",
+  "title": "审贷报告草稿 · 沧澜精密机械(脱敏) · 困难难度",
+  "version": 7,
+  "patches": [
+    {
+      "id": "patch_report_001_v1",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/header",
+      "value": {
+        "subject_name": "沧澜精密机械有限公司",
+        "subject_id_hash": "a3f1b2c0d4e5f678",
+        "template_id": "tmpl_corp_credit_v16_2026q2",
+        "report_id": "report_v16_demo_corp_001",
+        "pipeline_version": "v16",
+        "generated_at": "2026-05-11T09:30:00Z"
+      },
+      "ts": "2026-05-11T09:30:02Z"
+    },
+    {
+      "id": "patch_report_001_v2",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "replace",
+      "path": "/pipeline_progress",
+      "value": {
+        "current_stage": "ingest",
+        "stage_index": 1,
+        "stage_total": 5,
+        "percent": 18
+      },
+      "ts": "2026-05-11T09:30:05Z"
+    },
+    {
+      "id": "patch_report_001_v3",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "append",
+      "path": "/sections",
+      "value": {
+        "id": "chapter_1_background",
+        "title": "一、企业背景",
+        "status": "streaming",
+        "word_count": 0,
+        "evidence_ids": [],
+        "body_chunks": []
+      },
+      "ts": "2026-05-11T09:30:42Z"
+    },
+    {
+      "id": "patch_report_001_v4_chunk0",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 3,
+      "next_version": 4,
+      "op": "append",
+      "path": "/sections/0/body_chunks",
+      "value": {
+        "chunk_seq": 0,
+        "text": "沧澜精密机械有限公司成立于 2013 年 6 月 · 注册资本人民币 6,800 万元 · 实缴 5,200 万元 · 法定代表人陈志远 · 注册地浙江省宁波市鄞州区 · 主营高精度数控机床零部件设计、加工、销售。截至 2024 年末 · 公司员工 287 人 · 其中研发人员 41 人 · 占比 14.3%。"
+      },
+      "ts": "2026-05-11T09:30:51Z",
+      "chunk_index": 0,
+      "chunk_total": 3,
+      "chunk_assembly": "streaming"
+    },
+    {
+      "id": "patch_report_001_v5_chunk1",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 4,
+      "next_version": 5,
+      "op": "append",
+      "path": "/sections/0/body_chunks",
+      "value": {
+        "chunk_seq": 1,
+        "text": "公司隶属通用设备制造业(C34) · 产品下游主要为汽车零部件加工厂与新能源装备厂商。2022-2024 年营业收入分别为 2.18 / 2.74 / 3.31 亿元 · 复合增长率 23.2% · 显著高于同业中位 8.5%。主要客户集中度 CR5 = 41.2% · 客户结构相对分散。"
+      },
+      "ts": "2026-05-11T09:30:58Z",
+      "chunk_index": 1,
+      "chunk_total": 3,
+      "chunk_assembly": "streaming"
+    },
+    {
+      "id": "patch_report_001_v6_chunk2",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 5,
+      "next_version": 6,
+      "op": "append",
+      "path": "/sections/0/body_chunks",
+      "value": {
+        "chunk_seq": 2,
+        "text": "实际控制人陈志远持股 62.4% · 一致行动人持股合计 78.1% · 股权清晰且控制权稳定。最近三年无重大股权变动 · 无涉诉记录(查询全国企业信用信息公示系统 2026-04-30 · 未能自动填写：股东个人涉诉历史明细 · 建议人工补充)。"
+      },
+      "ts": "2026-05-11T09:31:05Z",
+      "chunk_index": 2,
+      "chunk_total": 3,
+      "chunk_assembly": "final"
+    },
+    {
+      "id": "patch_report_001_v7",
+      "artifact_id": "art_report_draft_demo_corp_001",
+      "base_version": 6,
+      "next_version": 7,
+      "op": "replace",
+      "path": "/qc_gate",
+      "value": {
+        "verdict": "PARTIAL",
+        "dimensions_passed": 7,
+        "dimensions_total": 9,
+        "blocked_dimensions": ["financial_consistency", "external_anchor_coverage"]
+      },
+      "ts": "2026-05-11T09:31:42Z"
+    }
+  ],
+  "snapshot": {
+    "header": {
+      "subject_name": "沧澜精密机械有限公司",
+      "subject_id_hash": "a3f1b2c0d4e5f678",
+      "template_id": "tmpl_corp_credit_v16_2026q2",
+      "report_id": "report_v16_demo_corp_001",
+      "pipeline_version": "v16",
+      "generated_at": "2026-05-11T09:30:00Z"
+    },
+    "pipeline_progress": {
+      "current_stage": "audit",
+      "stage_index": 5,
+      "stage_total": 5,
+      "percent": 100,
+      "stage_log": [
+        {"stage_key": "ingest", "stage_label": "材料加载", "started_at": "2026-05-11T09:30:05Z", "ended_at": "2026-05-11T09:30:21Z", "status": "done"},
+        {"stage_key": "extract", "stage_label": "字段抽取", "started_at": "2026-05-11T09:30:21Z", "ended_at": "2026-05-11T09:30:38Z", "status": "done"},
+        {"stage_key": "infer", "stage_label": "结构推断", "started_at": "2026-05-11T09:30:38Z", "ended_at": "2026-05-11T09:30:42Z", "status": "done"},
+        {"stage_key": "write", "stage_label": "段落生成", "started_at": "2026-05-11T09:30:42Z", "ended_at": "2026-05-11T09:31:32Z", "status": "done"},
+        {"stage_key": "audit", "stage_label": "质量复核", "started_at": "2026-05-11T09:31:32Z", "ended_at": "2026-05-11T09:31:42Z", "status": "done"}
+      ]
+    },
+    "classification": {
+      "elements_total": 218,
+      "by_op": {"PRESERVE": 89, "FILL": 102, "REWRITE": 19, "CLEAR": 8},
+      "by_label": {"SCAFFOLD": 47, "PRESERVE": 42, "FILL": 78, "CLEAR": 8, "SLOT": 24, "CHECKBOX": 12, "REWRITE": 7}
+    },
+    "sections": [
+      {
+        "id": "chapter_1_background",
+        "title": "一、企业背景",
+        "status": "resolved",
+        "word_count": 326,
+        "evidence_ids": ["ev_report_001_aic_2026q1", "ev_report_001_audit_2024"],
+        "body": "沧澜精密机械有限公司成立于 2013 年 6 月 · 注册资本人民币 6,800 万元 · 实缴 5,200 万元 · 法定代表人陈志远 · 注册地浙江省宁波市鄞州区 · 主营高精度数控机床零部件设计、加工、销售。截至 2024 年末 · 公司员工 287 人 · 其中研发人员 41 人 · 占比 14.3%。公司隶属通用设备制造业(C34) · 产品下游主要为汽车零部件加工厂与新能源装备厂商。2022-2024 年营业收入分别为 2.18 / 2.74 / 3.31 亿元 · 复合增长率 23.2% · 显著高于同业中位 8.5%。主要客户集中度 CR5 = 41.2% · 客户结构相对分散。实际控制人陈志远持股 62.4% · 一致行动人持股合计 78.1% · 股权清晰且控制权稳定。最近三年无重大股权变动 · 无涉诉记录(查询全国企业信用信息公示系统 2026-04-30 · 未能自动填写：股东个人涉诉历史明细 · 建议人工补充)。"
+      },
+      {
+        "id": "chapter_2_operation",
+        "title": "二、经营情况",
+        "status": "resolved",
+        "word_count": 412,
+        "evidence_ids": ["ev_report_001_audit_2024", "ev_report_001_tender_2026q1"],
+        "body": "公司主营业务收入由 2022 年 2.05 亿元增至 2024 年 3.18 亿元 · 复合增长率 24.6% · 其中数控机床零部件业务占比 78.3% · 模具加工占比 14.1% · 维保服务占比 7.6%。产能利用率从 2022 年 71.2% 提升至 2024 年 88.5% · 显示订单饱和度持续提升。供应链方面 · 前五大供应商集中度 CR5 = 36.8% · 主要原材料(精铸钢/铝合金)采购账期 60-90 天 · 应付账款周转天数 76 天。客户端账期 90-120 天 · 应收账款周转天数 108 天 · 略高于同业中位 92 天。截至 2026 年 3 月 · 在手订单金额 1.42 亿元 · 覆盖未来 4-5 个月产能。未能自动填写：2025 年订单具体明细(建议提供 2025 年合同台账)。"
+      },
+      {
+        "id": "chapter_3_finance",
+        "title": "三、财务分析",
+        "status": "resolved",
+        "word_count": 558,
+        "evidence_ids": ["ev_report_001_audit_2024", "ev_report_001_tax_2024", "ev_report_001_pbc_industry_2026q1"],
+        "body": "**确定性财务指标**(由 financial_analyzer.py 计算 · 非 LLM 估算):\n- 资产负债率 58.3%(2024) · 较 2023 年 61.5% 下降 3.2pp · 低于同业中位 62.0%\n- 流动比率 1.73(2024) · 速动比率 1.21 · 短期偿债能力良好\n- 净利率 8.4%(2024) · 较 2023 年 7.2% 提升 1.2pp · 高于同业中位 7.2%\n- 应收账款周转天数 108 天 · 略高于同业中位 92 天\n- 经营性现金流净额 / 净利润 = 1.18(2024) · 现金流质量较好\n\n**风险点**: 2024 年研发投入资本化比例 28.6% · 较同业中位 18.2% 偏高 · 需关注研发项目实际转化情况。未能自动填写：2025Q1 财务数据(尚未获得审计版本) · 建议提供 2025Q1 管理层报表作为补充。\n\n注: 全部财务比率由 financial_analyzer.py 基于审计报告原始数字计算 · LLM 不参与计算 · 满足确定性 vs 概率性硬隔离(CLAUDE.md §3.1)。",
+        "financial_metrics": {
+          "debt_ratio_2024": 0.583,
+          "current_ratio_2024": 1.73,
+          "quick_ratio_2024": 1.21,
+          "net_margin_2024": 0.084,
+          "ar_turnover_days_2024": 108,
+          "ocf_to_net_income_2024": 1.18,
+          "rd_capitalization_ratio_2024": 0.286
+        }
+      },
+      {
+        "id": "chapter_4_conclusion",
+        "title": "四、审批意见",
+        "status": "resolved",
+        "word_count": 184,
+        "evidence_ids": ["ev_report_001_audit_2024", "ev_report_001_pbc_industry_2026q1"],
+        "body": "**初步意见(待审贷会审议)**: 建议**批准**对沧澜精密机械有限公司发放对公流动资金贷款 2,600 万元 · 期限 36 个月 · 利率 4.85% · 还款方式按月付息到期还本。担保方式建议房产抵押(估值 1.4 倍覆盖)。\n\n**关键依据**:\n1. 财务结构稳健 · 资产负债率低于同业 3.7pp · 现金流质量良好\n2. 行业景气度回暖(2026Q1 C34 PMI 65.3 · YoY +2.1pp) · 公司订单饱和度持续提升\n3. 无红线触发 · 股权清晰 · 实控人稳定\n\n**关注事项**:\n- 应收账款周转天数高于同业中位 16 天 · 建议贷后每季度提供应收账款账龄表\n- 研发投入资本化比例偏高 · 建议关注研发项目商业化进展\n- 未能自动填写：股东个人涉诉历史明细 + 2025Q1 财务数据 · 上会前由客户经理人工补充"
+      }
+    ],
+    "report_json": {
+      "schema_version": "v16",
+      "subject_name": "沧澜精密机械有限公司",
+      "subject_id_hash": "a3f1b2c0d4e5f678",
+      "template_id": "tmpl_corp_credit_v16_2026q2",
+      "section_count": 4,
+      "field_completeness": 0.91,
+      "fields_filled": 89,
+      "fields_total": 98,
+      "fields_pending": [
+        {"field_id": "shareholder_litigation_history", "section_id": "chapter_1_background", "reason": "AIC 公示系统无个人涉诉数据 · 需 RM 补充"},
+        {"field_id": "order_detail_2025", "section_id": "chapter_2_operation", "reason": "客户未提供 2025 合同台账"},
+        {"field_id": "financial_2025_q1", "section_id": "chapter_3_finance", "reason": "客户暂未提供 2025Q1 审计/管理层报表"}
+      ],
+      "evidence_rate": 0.94,
+      "hallucination_check": "passed",
+      "pending_tags": [
+        {"location": "chapter_1_background::shareholder_litigation_history", "label": "FILL", "marker": "未能自动填写", "guidance": "查询股东陈志远个人征信 + 中国裁判文书网"},
+        {"location": "chapter_2_operation::order_detail_2025", "label": "FILL", "marker": "未能自动填写", "guidance": "请客户提供 2025 年签约合同台账"},
+        {"location": "chapter_3_finance::financial_2025_q1", "label": "FILL", "marker": "未能自动填写", "guidance": "请客户提供 2025Q1 审计或管理层报表"}
+      ]
+    },
+    "qc_gate": {
+      "verdict": "PARTIAL",
+      "dimensions_passed": 7,
+      "dimensions_total": 9,
+      "blocked_dimensions": ["financial_consistency", "external_anchor_coverage"],
+      "details": {
+        "field_completeness": {"score": 0.91, "passed": true, "threshold": 0.85},
+        "evidence_rate": {"score": 0.94, "passed": true, "threshold": 0.90},
+        "hallucination_rate": {"score": 0.02, "passed": true, "threshold": 0.05},
+        "financial_consistency": {"score": 0.78, "passed": false, "threshold": 0.95, "note": "2024 净利率与原始审计报告口径误差 0.3pp · 需复核合并/母公司口径"},
+        "regulatory_terminology": {"score": 0.96, "passed": true, "threshold": 0.90},
+        "internal_score_vs_human": {"score": 0.88, "passed": true, "threshold": 0.85},
+        "evidence_freshness": {"score": 0.92, "passed": true, "threshold": 0.85},
+        "external_anchor_coverage": {"score": 0.71, "passed": false, "threshold": 0.80, "note": "缺少 2025Q1 外部新闻锚定 · 仅 2024Q4 审计报告 + 行业研报"},
+        "section_structure_integrity": {"score": 1.0, "passed": true, "threshold": 0.95}
+      }
+    },
+    "ledger": {
+      "decision_id": "ledger_report_demo_corp_001",
+      "jurisdiction": "HQ",
+      "retention_class": "long",
+      "idempotency_key": "report:CORP_CREDIT:a3f1b2c0d4e5f678:2026-05-11T09:30:00Z",
+      "input_hash": "8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1a09f",
+      "output_hash": "1f2e3d4c5b6a79880917a6b5c4d3e2f1908172635485a6b7c8d9e0f1a2b3c4d5"
+    }
+  },
+  "verdict": "PARTIAL",
+  "qc_score": {
+    "passed": 7,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_report_001_aic_2026q1",
+    "ev_report_001_audit_2024",
+    "ev_report_001_tender_2026q1",
+    "ev_report_001_tax_2024",
+    "ev_report_001_pbc_industry_2026q1"
+  ],
+  "created_at": "2026-05-11T09:30:00Z",
+  "updated_at": "2026-05-11T09:31:42Z",
+  "resolved_at": "2026-05-11T09:31:42Z"
+}
