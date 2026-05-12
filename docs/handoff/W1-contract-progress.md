@@ -212,3 +212,78 @@
 
 ### ELAPSED min: 38
 ### Commit SHA: f4f0349
+
+## 2026-05-12 06:50 · checkpoint 14/14 (第 6 棒 · W1-contract DONE) · claude-W1-contract
+
+### What I did (sub-agent · 最后大棒 · 45-60 min slot)
+- 删 `shared/contracts/liuye/schemas/_smoke.schema.json` (W0 T1 烟测残留 · 不进 5 协议 lock · 第 5 棒留单)
+- 扩 `scripts/sync-contracts.ts` (W0 T1 单 schema dry-run → 5 protocol codegen · 加 `_` 前缀文件过滤 · 加 PYTHONIOENCODING=utf-8 + PYTHONUTF8=1 Windows GBK fix)
+- 扩 `scripts/verify-contracts.ts` (W0 T1 单 schema metaschema → 7 check · metaschema validity · schema_hash drift (fixture NOT in hash) · mirror lock consistency · 5 fixture validate (ajv · evidence_ref array mode) · tsc --noEmit · py codegen presence · LIUYE_CONTRACT_VERSION env)
+- 跑双仓 codegen `npm run contracts:sync`:
+  - `credit_matrix_next/lib/protocols/generated.ts` · 5 schema 编译为 9 export interface/type (Artifact / ArtifactPatch / LiuyeChatEvent / TurnErrorPayload / PermissionRequestEventPayload / ToolCall / ProgressMessage / KBDoc / EvidenceRef) · snake_case 全保 (created_at / source_tool_call_id / kb_doc_id · 7 命中)
+  - `liuye_service/protocols/generated.py` · 37 BaseModel (含 $defs 拆解) · populate_by_name=True (16 命中) · UTF-8 编码强制 (CJK 箭头 ↔ 通过)
+- 写 `shared/contracts/liuye/contracts.lock.json` (老仓 mirror lock) + 更新 `credit_matrix_next/contracts.lock.json` (新仓 lock · 真 schema_hash + old_repo_commit pending)
+- 新仓加 ajv ^8.20 + ajv-formats ^3.0 devDep (verify fixture validate 用) · zod ^4.4.3 已是 4 棒 dependencies (本棒 commit)
+- 跑 verify exit 0 · 全 14 check PASS:
+  - 5 schema metaschema OK
+  - 5 fixture validate OK (4 artifact + 1 evidence_ref array 5/5)
+  - canonical sha256 = d79ddfdcf6d3b381d045044afb4146282362ceeca7dc9b85c85c979c16de6eec
+  - 双 lock schema_hash match (mirror drift = 0)
+  - tsc --noEmit PASS · 0 errors
+  - py codegen present
+- 跨仓 4 commit 协议执行 (W1-contract DONE)
+
+### 关键决策
+- **schema_hash NOT 含 fixture** (per 第 5 棒 hidden gotcha #1 · verbatim): canonical_json 只 merge 5 schema · fixture 微调 lock 不破 · `verify-contracts.ts:mergedSchemas()` 只读 schemas/*.schema.json
+- **`_` 前缀 schema 文件 sync/verify 都过滤**: 删 _smoke.schema.json 之外 · 加 listSchemas() 防御性过滤 · 未来任何 underscore-prefixed 文件视为 dev-only · 不入 codegen 不入 hash
+- **Windows GBK 编码灾难修复**: datamodel-code-generator 直接 `print(body, file=...)` 写 .py · 系统默认 GBK 不能编码 schema description 含的 CJK 箭头 `↔` (U+2194) · 加 PYTHONIOENCODING=utf-8 + PYTHONUTF8=1 解决 · 真因报告: 本棒第一次跑 sync 直接死在 evidence_ref.schema.json line 808
+- **tsc 通过 node 调用 typescript/bin/tsc 而非 .bin/tsc.cmd**: Windows shell+空格路径冲突 · 直接 `node tsc.js --noEmit -p NEW_REPO` 绕过 shell 引号层 · 不再 spawn EINVAL / `'D:\claude' 不是内部命令` 错误
+- **lock mirror consistency check 加进 verify**: 老仓 + 新仓 lock 都 load · primary.schema_hash != mirror.schema_hash 视为 drift error · 后续 contract worker 不能单边动 lock
+- **schema_version 0.1.0 (W1 初版)**: lock spec verbatim · 后续 PM ratify schema_version bump 走 verification.rule_2
+- **protected_fields 全表 verbatim**: 不只列 Artifact / LiuyeChatEvent / ToolCall · KBDoc 含 tier 1-4 + pipl_region + verification_method + content_hash regex · EvidenceRef 含 freshness + data_tier + source_tier · ProgressMessage 5 enum 单列 (与 ToolCall 8 enum 分开) · 6 字段大表
+- **_meta extension convention 落 lock**: 明确写 "KBDoc + EvidenceRef 协议层 v3 verbatim · 业务层走 _meta extension" · 接 backend worker KBDocConsumerView 实做 (per 第 5 棒 hidden gotcha #2)
+
+### Hidden gotcha 发现 (3 个 · 接 backend / frontend worker)
+1. **Windows shell quoting + space path 是连环坑**: tsc 调用首试 `npm.cmd run typecheck` → spawn EINVAL · 再试 `tsc.cmd --noEmit -p NEW_REPO` + shell:true → `'D:\claude' 不是内部命令` (空格被拆 + 中文乱码) · 解 = 直接 `node typescript/bin/tsc` (绕 shell + 绕 cmd wrapper). backend worker 写 CI 调 Python 同坑 · 用 PYTHONIOENCODING + PYTHONUTF8 + execFile 不走 shell
+2. **fixture array mode vs single mode 在 verify 必须显式分**: evidence_ref.json 是 5 entry array · 其他 4 fixture 是 single Artifact instance. `FIXTURE_SCHEMA_MAP[file].arrayMode` 区分 · verify 跑每 entry 单独 validate · 否则 ajv 把整 array 当 instance 直接 reject (因 evidence_ref schema 是 object type)
+3. **新仓没 git init · "新仓 commit" = `cd credit_matrix_next && git init && git commit`**: brief §6.0 第 1 条 "双仓各一 PR" 暗示双 repo · 但实际 credit_matrix_next 仍未 init · 本棒 finalize 时先 `git init` (留 main · per brief 硬线 "本棒 finalize 在 main 不切 feat 分支") · 后续 W1 main session 起 codex review + push 时再决定 push remote
+
+### Next 棒 / W1-contract DONE
+- W1-contract 14/14 全交付 · 等 main session fire codex bg review (per root §3.7.4 protocol v2 + brief §6.0 第 2 条)
+- W1 backend / frontend / mock-test worker 可以开始消费 5 schema + generated.ts/.py + 5 fixture
+- 下棒 (= main session) 责任: codex bg review · PM ack · W1 backend worker dispatch
+
+### Blocker
+- none
+
+### File checklist 状态 (14/14 全 DONE)
+- [x] shared/contracts/liuye/schemas/artifact.schema.json
+- [x] shared/contracts/liuye/schemas/liuye_chat_event.schema.json
+- [x] shared/contracts/liuye/schemas/tool_call.schema.json
+- [x] shared/contracts/liuye/schemas/kb_doc.schema.json
+- [x] shared/contracts/liuye/schemas/evidence_ref.schema.json
+- [x] shared/contracts/liuye/inputSchemas.ts
+- [x] shared/contracts/liuye/fixtures/credit_decision.json
+- [x] shared/contracts/liuye/fixtures/evidence_ref.json
+- [x] shared/contracts/liuye/fixtures/report.json
+- [x] shared/contracts/liuye/fixtures/channel_search.json
+- [x] shared/contracts/liuye/fixtures/kb_doc.json
+- [x] **shared/contracts/liuye/contracts.lock.json** (老仓 lock · 第 6 棒)
+- [x] **scripts/sync-contracts.ts** (扩 5 协议 codegen + GBK fix · 第 6 棒)
+- [x] **scripts/verify-contracts.ts** (扩 7 check CI gate · 第 6 棒)
+
+### Codegen 产物 (双仓)
+- [x] credit_matrix_next/lib/protocols/generated.ts (9 export interface/type · snake_case 全保)
+- [x] credit_report_agent_work/liuye_service/protocols/generated.py (37 BaseModel · populate_by_name=True · UTF-8 forced)
+- [x] credit_matrix_next/contracts.lock.json (新仓 lock · schema_hash mirror)
+- [x] credit_matrix_next/package.json (加 zod ^4.4.3 dependencies + ajv ^8.20 / ajv-formats ^3.0 devDependencies)
+
+### Cross-repo 4-commit chain
+- Old repo 14/14 SHA: <TBD step 1>
+- New repo 3/3 SHA: <TBD step 3>
+- Old repo backfill SHA: <TBD step 4>
+- New repo backfill (if needed): N/A (新仓 commit message 已含 OLD-REPO-COMMIT trailer)
+
+### ELAPSED min: <TBD>
+### Commit SHA: <TBD step 1>
+

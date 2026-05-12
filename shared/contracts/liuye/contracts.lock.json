@@ -1,0 +1,96 @@
+{
+  "__doc__": "Liuye contracts lock file · OLD REPO MIRROR (SSOT side · schema/fixture sources live here). New repo lock at credit_matrix_next/contracts.lock.json mirrors schema_hash + schema_version. W1 D1 contract worker (第 6 棒 · 2026-05-12) ratified · 5 schema sha256 + 11 SSE event + protected_fields locked per PM 2026-05-11 perfect-check-6.",
+
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-12T06:44:00Z",
+  "schema_hash": "d79ddfdcf6d3b381d045044afb4146282362ceeca7dc9b85c85c979c16de6eec",
+
+  "codegen_command": "npm run contracts:sync   (from credit_matrix_next/)",
+  "codegen_tools": {
+    "ts": "json-schema-to-typescript@^15.0",
+    "python": "datamodel-code-generator@^0.25"
+  },
+  "codegen_install": {
+    "ts": "npm install -D json-schema-to-typescript@^15.0",
+    "python": "pip install datamodel-code-generator==0.25.*",
+    "step": "Both already installed at W0 T1 · W1 D1 contract worker verified codegen with PYTHONIOENCODING=utf-8 (Windows GBK workaround for CJK arrows in schema descriptions)."
+  },
+  "codegen_options": {
+    "ts_naming": "preserve_snake_case",
+    "ts_strict": true,
+    "ts_additional_properties": false,
+    "py_alias_generator": "to_snake",
+    "py_populate_by_name": true,
+    "rationale": "Lock field snake_case across TS interface + Python BaseModel + SSE payload. Default camelCase would break frontend deserialize (perfect-check-4 critical fix). populate_by_name=True means Pydantic v2 accepts both alias + field name (16 occurrences in generated.py verified W1 D1)."
+  },
+  "package_manager": "npm only · 不允许 pnpm/yarn (per credit_matrix_next/CLAUDE.md §2 stack hardline)",
+
+  "schemas": [
+    "shared/contracts/liuye/schemas/artifact.schema.json",
+    "shared/contracts/liuye/schemas/liuye_chat_event.schema.json",
+    "shared/contracts/liuye/schemas/tool_call.schema.json",
+    "shared/contracts/liuye/schemas/kb_doc.schema.json",
+    "shared/contracts/liuye/schemas/evidence_ref.schema.json"
+  ],
+
+  "fixtures": [
+    "shared/contracts/liuye/fixtures/report.json",
+    "shared/contracts/liuye/fixtures/credit_decision.json",
+    "shared/contracts/liuye/fixtures/channel_search.json",
+    "shared/contracts/liuye/fixtures/kb_doc.json",
+    "shared/contracts/liuye/fixtures/evidence_ref.json"
+  ],
+
+  "__fixture_policy__": "Fixtures are consumer-side validation inputs · NOT part of schema_hash (per W1 5th-leg gotcha #1). Edit fixtures without bumping schema_version. Fixture micro-edit must not break schema_hash. Verified by verify-contracts.ts (canonical_json over 5 schemas only).",
+
+  "protected_fields": {
+    "Artifact": {
+      "type": "5-enum lock · credit_decision / report_draft / channel_search / ledger_decision / kb_upload_result (per v3 §2.2 + brief §4.2 hardline). Adding 6th value requires PM ratify + RFC + schema_version bump.",
+      "status": "4-enum lock · streaming / partial / resolved / failed",
+      "owner_agent": "3-enum lock · channel / credit / report (Cowork only · Managed agents write to decision_ledger per root §3.1.1)"
+    },
+    "LiuyeChatEvent": {
+      "event": "11-enum lock · turn.started / message.created / tool.started / tool.progress / tool.completed / artifact.patch / evidence.attached / turn.completed / turn.error / permission.request / heartbeat (per v3 §2.1 + PM 2026-05-11 perfect-check-6 ratify permission.request as 11th · NOT 10 NOT 12)"
+    },
+    "ToolCall": {
+      "status": "8-enum lock · queued / connecting / running / streaming / idle_timeout / completed / failed / aborted (per v3 §2.3 line 179-181 verbatim · brief §4.2 hardline)",
+      "agent": "6-enum lock · channel / credit / report / riskctrl / alert / compliance (per root §4 SSOT)",
+      "boundary": "2-enum lock · cowork / managed_readonly (per root §3.1.1)"
+    },
+    "ProgressMessage": {
+      "status": "5-enum lock · pending / running / done / warning / error (per v3 §2.3 line 207 verbatim · DIFFERENT from ToolCall.status 8-enum · stage-level lifecycle)"
+    },
+    "KBDoc": {
+      "tier": "int 1-4 lock · 1=internal_authoritative / 2=government / 3=industry / 4=public_web (per v3 §2.4 + root §3.5.1 DataTier mapping)",
+      "type": "3-enum lock · upload / pulled / mock (per v3 §2.4 line 227)",
+      "source_type": "5-enum lock · gov / enterprise / tavily / internal / user",
+      "verification_method": "4-enum lock · signature / cross_check / manual / unverified",
+      "pipl_region": "2-enum lock · cn / overseas (per root §3.6 PIPL fallback chain · audit log required for overseas)",
+      "content_hash": "regex pattern lock · ^[a-fA-F0-9]{64}$ (sha256 64-hex)"
+    },
+    "EvidenceRef": {
+      "freshness": "3-enum lock · fresh / critical / expired (per v3 §2.4 line 242 verbatim · DIFFERENT from shared/evidence_freshness.classify_freshness() 5-band UI labels · mapping at consumer adapter: fresh→fresh / recent→fresh / aging→critical / stale→critical / very_stale→expired)",
+      "data_tier": "int 1-4 lock · same as KBDoc.tier (cached for fast filter)",
+      "source_tier": "5-enum lock · internal_authoritative / government / industry / public_web / unknown (matches shared/data_tiers.DataTier str enum)"
+    }
+  },
+
+  "protocols_version": {
+    "event_count": 11,
+    "ratify": "PM 2026-05-11 perfect-check-6 · permission.request added as 11th SSE event · NOT 10 · control-layer explicit · NOT borrowed from tool.progress.payload"
+  },
+
+  "_meta_extension_convention": "KBDoc + EvidenceRef protocol layer = v3 verbatim fields only (KBDoc 10 / EvidenceRef 14). Business-layer extensions (file_type / page_count / OCR / source-specific markers) go under `_meta` extension key inside snapshot.kb_docs[i]._meta · KEEP protocol layer narrow. Backend KBDocConsumerView implementation layer reads both protocol verbatim + _meta extension per W1 5th-leg gotcha #2.",
+
+  "policy": "锁老仓 commit SHA · 不允许 floating main (per v3 spec §2.7 + R3 R-debate)",
+
+  "verification": {
+    "ci_check": "scripts/verify-contracts.ts · PR check blocks lock-drift",
+    "rule_1": "Frontend runtime LIUYE_CONTRACT_VERSION env != schema_version → fail-fast at startup",
+    "rule_2": "PR touching schemas/*.json must same-commit bump schema_version + regenerate schema_hash + regen codegen",
+    "rule_3": "old_repo_commit must be actual old-repo main SHA · NOT 'HEAD' / 'main' / floating ref",
+    "rule_4": "schema_hash = sha256(canonical_json(merged_schemas)) · cross-codegen deterministic · fixtures NOT included"
+  },
+
+  "owner": "W1 contract worker · sign-off PM 刘野 + main CLI + Codex (per v3 §6.1)"
+}
