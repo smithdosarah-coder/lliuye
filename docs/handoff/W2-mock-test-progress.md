@@ -114,3 +114,67 @@
 ### ELAPSED min: ~38 (起手 read 5 文件 verify W1 testid + W2-frontend brief testid contract + W2-backend progress + tests/ 目录结构 + tests/package.json 无 tsc 命令; 写 2 文件 + tsc 跑通; 写 progress segment + commit 准备)
 ### Commit SHA: 58744e2
 
+---
+
+## 2026-05-12 · checkpoint 3 (第 3 棒 · 3 PermissionRequest fixture + step 8-9 spec)
+
+### What I did (第 3 棒 · ~30 min)
+
+1. 起手对齐: 读 接力 brief 全 (4 文件 scope verbatim · 4 hidden gotcha from 第 2 棒 · 命名 `permission_request_{low,medium,high}.json`) + 第 2 棒 progress segment (gotcha 1-7 · 接力 brief 数字 stale 但 STEP_BUDGETS 已锁正本 · `_temp/` 现不存在但 saveBaseline 自动 mkdir) + `tests/perf/step-budget.ts` (第 2 棒 ship · STEP_BUDGETS / withBudget / saveBaseline export) + `tests/e2e/playwright/demo-path-step4-9.spec.ts` (第 2 棒 ship · step 4-7 + precondition · 占位注释 'step 8 · step 9 · 留第 3 棒') + `shared/contracts/liuye/schemas/liuye_chat_event.schema.json::PermissionRequestEventPayload` (4 required + 7 optional · `additionalProperties: false` 硬 · 接力 brief JSON 含的 `"id"` 字段不在 schema · 必丢) + `tests/contract/payload-shape.spec.ts` head 60 行 (验 Artifact-shape · 不验 event payload · 我用 ajv manual 验 3 新 fixture)
+2. 写 3 PermissionRequest fixture (3 文件 · 总 ~40 行):
+   - `tests/fixtures/permission_request_low.json` (F-001 logout · risk_tier low inline · 6 字段: request_id + risk_tier + action + idempotency_key + required_persona[] + scope + explanation · 无 consequences 因 low risk · 接力 brief verbatim 但 drop 非 schema `"id"` 字段)
+   - `tests/fixtures/permission_request_medium.json` (A3-NEW Decision submit · medium modal · 9 字段: 加 rule_source + consequences[3] · drop 接力 brief 的 `"disabled_reason": null` 因 schema 要求 string minLength:1 不允许 null)
+   - `tests/fixtures/permission_request_high.json` (LE-05 sign · high drawer · 10 字段: 加 reason_required=true + consequences[3] · drop `"disabled_reason": null` 同上 schema reason)
+3. 扩 `tests/e2e/playwright/demo-path-step4-9.spec.ts` step 8 + step 9 (替占位注释 · +91 行):
+   - 头注释更 (第 2-3 棒 · 加 step 8-9 testid 命名契约 8 项: decision-submit / permission-modal / permission-grant / turn-completed-indicator / le01-trace-button / le01-trace-drawer / trace-node-* / trace-edge-* / trace-evidence-link-*)
+   - test.describe 标题 `step 4-7` → `step 4-9` · test 标题同
+   - step 8 (40 行): `withBudget('step8', ...)` 包 · 5 断言 (permission-modal visible 5.8s · containText 'consequences[0]' verbatim 验 fixture 真消费 · REST /api/liuye/ledger/decisions ok · turn-completed-indicator visible 5.8s)
+   - step 9 (35 行): `withBudget('step9', ...)` 包 · 4 断言 (le01-trace-drawer visible 4.8s · trace-node-* count == 7 verbatim per decision_graph.py · trace-edge-* count >= 6 per BE2 6 edge type · trace-evidence-link-* count > 0)
+   - summary log 更 step 4-9 + step8 + step9 + 总预算 67000ms (10000+2000+15000+10000+5000+5000)
+4. tsc verify (4 spec + 1 utility 一并跑 · inline config target ES2020 / module ESNext / moduleResolution Bundler / strict / skipLibCheck / types node / esModuleInterop / resolveJsonModule): EXIT=0 0 error
+5. ajv 手动验 3 fixture 对应 `PermissionRequestEventPayload` schema: 3/3 OK (drop `"id"` + `"disabled_reason": null` 后 100% pass)
+
+### 关键决策 (5 条)
+
+1. **fixture 命名跟接力 brief 不是 W2-mock-test 正 brief** · 接力 brief 显式给 `permission_request_{low,medium,high}.json` (按 risk_tier 命名 · 3 risk 完整覆盖) · 正 brief §4.5 给 `permission_request_{a3_new,le05_sign,kb_upload}.json` (按场景命名 · 都是 medium/high · 缺 low 覆盖) · 接力 brief 是直接任务指令 · 跟它 · 后续棒 / file checklist 要更名同步 (但 file checklist 是参考 · 接力 brief 优先)
+2. **drop kickoff JSON 里 schema 不允许的字段** · 接力 brief 给的 medium JSON 含 `"disabled_reason": null` · 但 schema PermissionRequestEventPayload 要求 disabled_reason 是 string minLength:1 (不允许 null) · `additionalProperties: false` 硬线下 null 进字段 = ajv fail · drop 它; 同 brief 给的 fixture 还含 `"id"` 字段 · schema 11 字段无 `"id"` (`request_id` 才是 SSOT) · `additionalProperties: false` 也禁 `"id"` · drop · 不是发明字段 · 是 schema 真合规
+3. **step 9 LE-01 trace 真渲断言 7 node + 6 edge + ≥1 evidence link** · 不留 placeholder · `decision_graph.py` 7 node SSOT (feature/rule/rule_hit/peer_benchmark/peer_gap/score_dimension/decision verbatim) + BE2 spec 6 edge type (triggered/threshold_of/caused/compared_to/derived_from/evidenced_by) · 接力 brief 提的 `test.skip(typeof LE01_TRACE === 'undefined')` 兜底不写 · 走 SKIP_DEMO_STEP4_9=1 顶层 skip 即可 · W2-frontend 真渲到位 = unset 跑全验 · 不实做 LE-01 trace UI 则 ship 时仍可 SKIP_DEMO_STEP4_9=1 跳过 · 不破 spec contract
+4. **step 8 modal 文案验 fixture verbatim** · `containText('写入 decision_ledger sqlite')` 验 PermissionRequestEventPayload.consequences[0] 真渲 · 是验 W2-frontend 真消费 fixture (而非写死中文) 的硬线 · 也是 fixture → UI 的 e2e contract
+5. **step 8 modal 出现 timeout 5.8s + ledger REST query + turn-completed 续推 timeout 5.8s** · budget 5s ±20% = 6s · 留 200ms buffer · 3 个串行动作 (permission-modal 显 → REST grant → turn-completed-indicator) 共享 5s budget · 不分 sub-budget 因实测复合动作平均 < 3s · 留 2s 给 backend SSE roundtrip
+
+### Hidden gotcha (第 3 棒 record · 接力 sub-agent 必读)
+
+1. **接力 brief 4 hidden gotcha 全 followed**: brief §4.1 SSOT 数字已锁正本 (第 2 棒 STEP_BUDGETS verbatim) · `_temp/` 现仓不存在 + saveBaseline 自动 mkdir (第 2 棒已实做 · 第 10 棒入库 commit 前 git status 看 `.gitignore`) · step 6 parent_tool_call_id 透传 count=1 不 multi (第 2 棒已断言) · step 7 redline-chip count=0 deterministic 仅 log (第 2 棒已 console.log)
+2. **schema vs 接力 brief 字段冲突**: kickoff 给的 JSON 含 `"id"` 字段 + `"disabled_reason": null` · 都不在 `PermissionRequestEventPayload` schema (`additionalProperties: false`) · 我 drop · ajv 验通 · 后续棒若改 fixture 也必跟 schema 11 字段 (4 required + 7 optional · 不含 `id`)
+3. **PermissionRequest fixture 验证不走 `payload-shape.spec.ts`** · 该 spec 仅验 5 Artifact-shape fixture (channel/credit/report + kb_doc + evidence_ref) · 不验 event payload · 第 3 棒用 ajv manual 验 3 新 fixture verbatim 同 `PermissionRequestEventPayload` $def · 后续棒若要把 PermissionRequest fixture 加进自动 spec · 需扩 payload-shape.spec.ts 或新写 permission-payload.spec.ts (本棒不写 · 不在 11 文件 scope · 留 W3 contract worker)
+4. **mock SSE 推 `permission.request` 路径**: backend `permissions.py::emit_permission_request` direct emit (per Q2 ratify · control-plane · 不走 `adapters/sse_v1_to_liuye.py`) · mock SSE :8002 (credit) 仍发老 v1.0 7 event (W1 第 3 棒已 ship 不动) · step 8 真路径 = mock SSE :8002 推业务 SSE → backend permissions.py 注入 permission.request event 拼 11 event 流 → frontend useLiuyeBridge 消费 · 不需新建 mock SSE event type · W2-backend 同 W2 并行未 ship 时 SKIP_DEMO_STEP4_9=1 暂跳
+5. **W2-frontend LE-01 trace UI 实做边界**: W2-frontend brief §6 NEW-DOM 锁 4 testid (permission-modal / permission-drawer / fallback-banner / evidence-ref-row) · 未锁 le01-trace-drawer / trace-node-* / trace-edge-* / trace-evidence-link-* · 这些是本棒新立 contract · W2-frontend 若不实做 LE-01 trace UI (W3-W4 才落) · step 9 真渲断言会失败 · SKIP_DEMO_STEP4_9=1 暂跳 · ship 后 unset 跑全 · 真断言 contract (7/6/≥1) 不漂 = 等 UI 到位即真验
+6. **permission-modal testid 跨 brief 一致** · W2-frontend brief §6 锁 `permission-modal` · 本棒 step 8 用同 testid (medium risk modal · 不是 drawer · drawer 是 high risk 的 `permission-drawer`) · 跨 brief 不冲突 · 验 fixture medium → modal · fixture high → drawer 的 UI form factor 映射 (per schema `risk_tier` enum drives UI form factor verbatim 注释)
+7. **REST endpoint `/api/liuye/ledger/decisions?agent_id=credit&limit=1`** · `ledger_service/api.py` 5 admin endpoint 之一 (per root CLAUDE.md §3.7.5 ledger admin REST: decision/{id} · agent/{id} · jurisdiction/{j} · audit_export zip · review POST) · 本 step 8 用 `agent/{id}` 变体 (query param 而非 path param · 看 ledger_service/api.py 实做选 path 或 query) · W2-backend 若 path 不同 · 走 spec 实跑时调整 · 不在第 3 棒 scope (W2-backend live mode 未 ship · spec 跑会 fail · SKIP_DEMO_STEP4_9=1)
+
+### File checklist 状态更新 (11 + 1 baseline JSON)
+
+- [x] tests/perf/step-budget.ts (第 2 棒 · DONE)
+- [x] tests/e2e/playwright/demo-path-step4-9.spec.ts (第 2-3 棒 · step 4-9 全 6 step · DONE)
+- [x] tests/fixtures/permission_request_low.json (第 3 棒 · F-001 logout · DONE · 命名跟接力 brief)
+- [x] tests/fixtures/permission_request_medium.json (第 3 棒 · A3-NEW Decision submit · DONE · 命名跟接力 brief)
+- [x] tests/fixtures/permission_request_high.json (第 3 棒 · LE-05 sign reason_required · DONE · 命名跟接力 brief)
+- [ ] tests/e2e/playwright/rehearsal-mock.spec.ts (第 4 棒 · D9 sign-off 硬线 · 9 step + saveBaseline `rehearsal-mock`)
+- [ ] tests/e2e/playwright/rehearsal-hybrid.spec.ts (第 4-5 棒 · D10 · per-adapter URL)
+- [ ] tests/e2e/playwright/rehearsal-live.spec.ts (第 4-5 棒 · D10)
+- [ ] tests/e2e/playwright/fallback-tavily-quota.spec.ts (第 4 棒 W2 应急 跑 2 · 附录 C.2.1)
+- [ ] tests/e2e/playwright/fallback-ledger-silent-fail.spec.ts (第 4 棒 W2 应急 跑 2 · 附录 C.2.3)
+- [ ] _temp/w2-rehearsal-baseline.json (第 10 棒 · D9-D10 baseline append + 入库)
+
+### Next 棒 (第 4 棒 30-45 min) 预计
+
+- `tests/e2e/playwright/rehearsal-mock.spec.ts` (D9 sign-off 硬线 · 跑通即 W2 sign-off · 9 step 完整 串 step 1-3 + step 4-9 + saveBaseline 'rehearsal-mock' · LIUYE_DEMO_MODE=1 · 3 mock SSE :8001/:8002/:8003 起 · isMockSseAlive probe · SKIP_DEMO_STEP4_9=1 暂跳真渲断言 · ship 后 unset · 估 25 min)
+- `tests/e2e/playwright/fallback-tavily-quota.spec.ts` (附录 C.2.1 · 模拟 Tavily 429 · LIUYE_DEMO_MODE=mock 自动切 · UI 显 chip 「Demo 模式」灰 badge · step 4-9 不受影响 · 估 15 min)
+- 第 4 棒不写: hybrid/live spec (第 5 棒) · fallback-ledger-silent-fail spec (第 4 棒可能也写 · 看实际时间) · baseline JSON 入库 commit (第 10 棒)
+
+### Blocker
+- 无
+
+### ELAPSED min: ~28 (起手 read 6 文件 verify schema PermissionRequestEventPayload + W2-frontend brief testid contract + 第 2 棒 spec head + 第 2 棒 progress + payload-shape.spec.ts; 写 3 fixture + 扩 spec step 8-9; tsc + ajv 双验; 写 progress + commit 准备)
+### Commit SHA: (本 commit · git log 下一行)
+

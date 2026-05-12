@@ -1,0 +1,9 @@
+{
+  "request_id": "perm-low-f001-logout-uuid",
+  "risk_tier": "low",
+  "action": "logout",
+  "idempotency_key": "logout-{session_id}-{ts}",
+  "required_persona": [],
+  "scope": "once",
+  "explanation": "确认退出当前会话 · 未保存内容将丢失"
+}

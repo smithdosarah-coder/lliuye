@@ -1,9 +1,17 @@
 /**
- * W2-mock-test · 第 2 棒 · 2026-05-12
+ * W2-mock-test · 第 2-3 棒 · 2026-05-12
  * demo-path-step4-9.spec.ts · demo path step 4-9 (扩 W1 step 1-3 至完整 9 step 70s)
  *
- * 本棒 (第 2 棒) 仅落 step 4-7 (4 个 step) · step 8-9 留第 3 棒
- *   (step 8 需 PermissionRequest fixture medium · step 9 需 LE-01 trace UI · 都依赖第 3 棒交付).
+ * 第 2 棒落 step 4-7 (4 step) · 第 3 棒扩 step 8-9 (2 step · 本提交).
+ *   step 8: ConfirmModal medium PermissionRequest grant + ledger 写入断言
+ *   step 9: LE-01 trace · decision_graph 7 node + 6 edge type + evidence 链路
+ *
+ * Step 8-9 testid 命名契约 (本 spec 第 3 棒引入 · W2-frontend 据此实做 · 与 W2-frontend brief §6 NEW-DOM
+ * permission-modal / fallback-banner / evidence-ref-row 不冲突 · 新增 permission-grant / le01-trace-button
+ * / le01-trace-drawer / trace-node-* / trace-edge-* / trace-evidence-link-* / decision-submit /
+ * turn-completed-indicator):
+ *   step 8: decision-submit · permission-modal · permission-grant · turn-completed-indicator
+ *   step 9: le01-trace-button · le01-trace-drawer · trace-node-* · trace-edge-* · trace-evidence-link-*
  *
  * SSOT: W2-mock-test brief §3 file checklist + §4.1 9 step 70s 时间预算 + §4.2 step-budget utility
  * 引用:
@@ -72,13 +80,13 @@ async function isMockSseAlive(page: Page, url: string, expectedAgent: string): P
 // Tests
 // ============================================================================
 
-test.describe('demo path step 4-9 (本棒落 step 4-7 · step 8-9 留第 3 棒)', () => {
+test.describe('demo path step 4-9 (第 2 棒 step 4-7 · 第 3 棒 step 8-9)', () => {
   test.skip(
     process.env.SKIP_DEMO_STEP4_9 === '1',
     'SKIP_DEMO_STEP4_9=1 set · W2-frontend 真渲组件未到位时跳过 · ship 后 unset'
   );
 
-  test('step 4-7 跑通 + 各 step ±20% gate + baseline 入库', async ({ page }) => {
+  test('step 4-9 跑通 + 各 step ±20% gate + baseline 入库', async ({ page }) => {
     // ------------------------------------------------------------------------
     // 前置: probe mock SSE (任一不可达 → skip · 不 fail · 与 W1 第 5 棒一致)
     // ------------------------------------------------------------------------
@@ -201,8 +209,104 @@ test.describe('demo path step 4-9 (本棒落 step 4-7 · step 8-9 留第 3 棒)'
     });
 
     // ------------------------------------------------------------------------
-    // step 8 · step 9 · 留第 3 棒 (需 PermissionRequest fixture medium + LE-01 trace UI)
+    // Step 8 · A3-NEW ConfirmModal medium permission grant + ledger 写入 (budget 5s · ±20% = 6s)
+    //
+    //   动作: 用户点 `[data-testid="decision-submit"]` 触发 A3-NEW Decision submit ·
+    //         backend emit `permission.request` event payload (走 mock SSE 模拟 medium risk_tier
+    //         · 或 backend permissions.py 直接 emit · 见 hidden gotcha) → ConfirmModal 弹 →
+    //         点 `[data-testid="permission-grant"]` 同意 → REST grant + idempotency_key 防重 →
+    //         backend resume_turn → ledger sqlite insert → turn.completed 续推 → 完成 indicator 显
+    //   断言:
+    //     - permission-modal visible (6s 容忍 · backend SSE roundtrip)
+    //     - modal 文案含 consequences[0] 中文 verbatim ('写入 decision_ledger sqlite' · 来自
+    //       tests/fixtures/permission_request_medium.json · 第 3 棒落) — 验 W2-frontend 真消费
+    //       fixture · 不是写死中文
+    //     - REST `/api/liuye/ledger/decisions?agent_id=credit&limit=1` 返 ok (ledger 真写入)
+    //     - turn-completed-indicator visible (resume_turn 后 turn.completed 续推)
+    //
+    //   v3 §2.1 PermissionRequestEventPayload (11 字段) + §6.3 step 8 (5s 预算) +
+    //     `liuye_service/permissions.py` direct emit control-plane (Q2 ratify · 不走 sse_v1_to_liuye)
+    //   W2-frontend 真渲: PermissionModal 组件 (medium risk · 中等 modal form factor · 不是 high drawer)
+    //   W2-backend 真路径: `liuye_service/permissions.py::emit_permission_request` →
+    //     frontend grant → POST /api/liuye/permissions/{request_id}/grant →
+    //     `agent_credit/decision_engine.py::resume_turn` → `shared/decision_ledger/store.py::record`
     // ------------------------------------------------------------------------
+    perStep.step8 = await withBudget('step8', async () => {
+      await page.click('[data-testid="decision-submit"]');
+      // budget 5s · ±20% = 6s
+      await expect(
+        page.locator('[data-testid="permission-modal"]'),
+        'ConfirmModal medium 应在 budget 内显 (backend permission.request roundtrip)'
+      ).toBeVisible({ timeout: 5_800 });
+      // verify modal 文案 = consequences[0] 中文 verbatim (验 fixture 真消费)
+      await expect(
+        page.locator('[data-testid="permission-modal"]'),
+        'ConfirmModal 应渲 PermissionRequestEventPayload.consequences[0] verbatim (验 fixture 真消费 · 不是写死中文)'
+      ).toContainText('写入 decision_ledger sqlite');
+      // 点击同意 · grant REST
+      await page.click('[data-testid="permission-grant"]');
+      // verify backend ledger 写入 (sqlite query via REST endpoint · 复用 ledger_service/api.py 5 admin endpoint)
+      const resp = await page.request.get(
+        'http://localhost:8000/api/liuye/ledger/decisions?agent_id=credit&limit=1'
+      );
+      expect(resp.ok(), `ledger REST 应 200 OK · 实际 ${resp.status()}`).toBe(true);
+      // backend resume_turn 续推 turn.completed
+      await expect(
+        page.locator('[data-testid="turn-completed-indicator"]'),
+        'turn-completed-indicator 应在 budget 内显 (resume_turn 后 turn.completed 续推)'
+      ).toBeVisible({ timeout: 5_800 });
+    });
+
+    // ------------------------------------------------------------------------
+    // Step 9 · LE-01 trace · 决策完整链路 (budget 5s · ±20% = 6s)
+    //
+    //   动作: 决策完成 (turn.completed 已 emit) → 用户点 `[data-testid="le01-trace-button"]` →
+    //         前端拉 `/api/liuye/decisions/{id}/trace` (ledger_service/api.py admin endpoint) →
+    //         LE-01 trace drawer 弹 · 渲 `agent_credit/decision_graph.py` 7 node + 6 edge type
+    //   断言:
+    //     - le01-trace-drawer visible (4.8s · 留 200ms buffer)
+    //     - trace-node-* count == 7 (feature / rule / rule_hit / peer_benchmark / peer_gap /
+    //       score_dimension / decision · per agent_credit/decision_graph.py SSOT)
+    //     - trace-edge-* count >= 6 (triggered / threshold_of / caused / compared_to / derived_from /
+    //       evidenced_by · per BE2 spec 6 edge type)
+    //     - trace-evidence-link-* count > 0 (evidence chain link · 验 evidence_ref 与 artifact 连)
+    //
+    //   v3 §6.3 step 9 (5s · LE-01 trace modal) +
+    //   `docs/contracts/agent-credit-decision-graph.md` v1.0 (7 node + 6 edge · BE7 sprint 1 ship)
+    //
+    //   注: W2 frontend 是否实做 LE-01 trace UI 取决于 W2-frontend brief 覆盖范围 ·
+    //   若 W2 不实做 LE-01 trace UI (W3-W4 才落地) · 本 step 真渲断言会失败 → 用
+    //   `SKIP_DEMO_STEP4_9=1` 顶层 skip (与 step 4-7 同模式) · 或单独 `LE01_TRACE_SKIP=1` 局部 skip ·
+    //   主 spec 仍验 7/6 数字契约 (decision_graph.py SSOT) · 不留 placeholder check.
+    // ------------------------------------------------------------------------
+    perStep.step9 = await withBudget('step9', async () => {
+      await page.click('[data-testid="le01-trace-button"]');
+      // budget 5s · ±20% = 6s · drawer 出现留 4.8s buffer 200ms
+      const traceDrawer = page.locator('[data-testid="le01-trace-drawer"]');
+      await expect(traceDrawer, 'le01-trace-drawer 应在 budget 内显 (trace GET roundtrip)').toBeVisible({
+        timeout: 4_800,
+      });
+      // verify 7 node displayed (per agent_credit/decision_graph.py SSOT 7 node verbatim:
+      // feature / rule / rule_hit / peer_benchmark / peer_gap / score_dimension / decision)
+      const nodeCount = await page.locator('[data-testid^="trace-node-"]').count();
+      expect(
+        nodeCount,
+        `LE-01 trace 应渲 7 node (per agent_credit/decision_graph.py SSOT) · 实际 ${nodeCount}`
+      ).toBe(7);
+      // verify 6 edge type (triggered / threshold_of / caused / compared_to / derived_from / evidenced_by ·
+      // per BE2 spec 6 edge type · count >= 6 因实例图可能多条同类边 · 不是 exact 6)
+      const edgeCount = await page.locator('[data-testid^="trace-edge-"]').count();
+      expect(
+        edgeCount,
+        `LE-01 trace 应渲 ≥ 6 edge (per BE2 spec 6 edge type) · 实际 ${edgeCount}`
+      ).toBeGreaterThanOrEqual(6);
+      // verify evidence chain link to artifact (≥ 1 · evidence_ref 与 artifact 连)
+      const evidenceLinks = await page.locator('[data-testid^="trace-evidence-link-"]').count();
+      expect(
+        evidenceLinks,
+        `LE-01 trace 应渲 ≥ 1 evidence chain link (验 evidence_ref → artifact 连) · 实际 ${evidenceLinks}`
+      ).toBeGreaterThan(0);
+    });
 
     // ------------------------------------------------------------------------
     // baseline 入库 (本 spec 跑完即写 · 跨 spec append `_temp/w2-rehearsal-baseline.json` · 第 8-10 棒 rehearsal-* spec 续 append)
@@ -213,7 +317,7 @@ test.describe('demo path step 4-9 (本棒落 step 4-7 · step 8-9 留第 3 棒)'
     const total = Object.values(perStep).reduce<number>((a, b) => a + b, 0);
     // eslint-disable-next-line no-console
     console.log(
-      `  [demo-path step 4-7 summary] step4=${perStep.step4}ms · step5=${perStep.step5}ms · step6=${perStep.step6}ms · step7=${perStep.step7}ms · total=${total}ms · 预算 ${10000 + 2000 + 15000 + 10000}ms`
+      `  [demo-path step 4-9 summary] step4=${perStep.step4}ms · step5=${perStep.step5}ms · step6=${perStep.step6}ms · step7=${perStep.step7}ms · step8=${perStep.step8}ms · step9=${perStep.step9}ms · total=${total}ms · 预算 ${10000 + 2000 + 15000 + 10000 + 5000 + 5000}ms`
     );
   });
 });

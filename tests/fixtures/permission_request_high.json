@@ -1,0 +1,16 @@
+{
+  "request_id": "perm-high-le05-sign-uuid",
+  "risk_tier": "high",
+  "action": "ledger_sign_zip",
+  "idempotency_key": "ledger-sign-{decision_id}-{ts}",
+  "required_persona": ["compliance_officer", "合规官"],
+  "reason_required": true,
+  "rule_source": "policy.ledger_sign",
+  "scope": "once",
+  "explanation": "对决策账本数字签字 + 生成 ZIP 审计包 · 不可撤销",
+  "consequences": [
+    "决策账本写签字记录",
+    "生成 ZIP 含全 evidence + decision_trace",
+    "上链 hash"
+  ]
+}

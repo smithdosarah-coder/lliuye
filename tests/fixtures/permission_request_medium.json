@@ -1,0 +1,15 @@
+{
+  "request_id": "perm-med-a3new-decision-uuid",
+  "risk_tier": "medium",
+  "action": "credit_decision_submit",
+  "idempotency_key": "decision-{customer_no}-{ts}",
+  "required_persona": ["approver", "审贷员"],
+  "rule_source": "policy.decision_submit",
+  "scope": "once",
+  "explanation": "提交审贷决策 · 写入决策账本 · 不可逆",
+  "consequences": [
+    "写入 decision_ledger sqlite",
+    "触发 BE7 audit chain",
+    "客户经理通知"
+  ]
+}
