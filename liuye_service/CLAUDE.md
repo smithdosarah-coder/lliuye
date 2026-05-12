@@ -50,7 +50,7 @@
 
 **例外**: **无**. 6 agent 内部边界与 `liuye_service` 是 HTTP 隔离 · 任何 in-process import 都破坏 §3.1.1 Cowork/Managed 二分.
 
-## 3. SSE v1.0 → liuye 10 event adapter (唯一 wire 兼容层)
+## 3. SSE v1.0 → liuye 11 event adapter (唯一 wire 兼容层 · PM 2026-05-11 ratify 加 permission.request 11th)
 
 **位置**: `liuye_service/adapters/sse_v1_to_liuye.py` (v3 §2.1.5 + 附录 A 锁).
 
@@ -61,7 +61,7 @@
 4. **idempotency**: 老 event 二次推送 · BFF 用 `dedup_key = (event, data_hash)` 去重
 5. **降级**: BFF 转换失败 → 转 `turn.error code=SSE_ADAPTER_FAILED fallback_available=true` + 触发 full snapshot
 
-**10 event 映射** (v3 附录 A.1 verbatim):
+**11 event 映射** (v3 附录 A.1 verbatim · permission.request 11th 由 `permissions.py::emit_permission_request` 直接 emit · 不经 adapter 转换):
 
 | 老 v1.0 | liuye | adapter handler |
 |---|---|---|
@@ -204,7 +204,7 @@ liuye_service/adapters/sse_v1_to_liuye.py  # P0-2 唯一 wire 兼容层
 liuye_service/workers/outbox_retry.py   # 60s · 5 retry · backoff 60-960s
 liuye_service/ledger_review.py          # append-only LedgerReviewEvent
 liuye_service/tests/test_contracts.py   # 5 协议 schema validate
-liuye_service/tests/test_sse_adapter.py # 10 event mapping
+liuye_service/tests/test_sse_adapter.py # 11 event mapping (含 permission.request 不经 adapter)
 liuye_service/tests/test_outbox.py      # outbox worker retry + dead-letter
 ```
 
