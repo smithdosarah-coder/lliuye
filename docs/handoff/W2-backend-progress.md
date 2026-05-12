@@ -22,3 +22,38 @@
   - W2 brief §4.2 endpoint map line 96-100 `_ENDPOINT_MAP['report'] = '/api/report/v16/fill'` · v3 spec 附录 A.1 + matrix §2.3 Agent6 5-stage pipeline 走 `report_v16_pipeline` tool_id · `agent_report/api.py` 真路径需 verify (W1 第 3 棒 ReportAdapter docstring 写 `/api/report/v16/fill` matches W2 brief) · 第 2 棒落 live mode 前可 curl `/api/report/v16/fill` health probe 验.
 - **ELAPSED min**: ~30 (起手 7 件事 read · pre-create W2-backend-progress.md · scope verify commit · 无写代码)
 - **commit SHA**: 32c9288
+
+## 2026-05-12 · checkpoint 2 (4/16 · config + 3 adapter live mode · 第 2 棒)
+
+- **完成文件** (4/16):
+  - `liuye_service/config.py` (W1 130 行 + W2 加 ~45 行 → 175 行 · `Settings` frozen dataclass 加 4 字段 `backend_base_url` / `backend_channel_url` / `backend_credit_url` / `backend_report_url` + `from_env()` 读 4 env (`LIUYE_BACKEND_BASE_URL` + 3 per-adapter `LIUYE_BACKEND_{CHANNEL,CREDIT,REPORT}_URL`) + 新 helper `resolve_backend_url(agent_id) -> str` 走 per-adapter > base override 顺序 · D10 hybrid 彩排支持 perfect-check fix #2)
+  - `liuye_service/adapters/channel.py` (W1 472 行 + W2 加 ~65 行 → 537 行 · class-level `_ENDPOINT_MAP={'channel':'/api/channel/run','credit':'/api/credit/decision','report':'/api/report/v16/fill'}` 加在 line 67-73 · 新 method `_resolve_backend_url(agent_id)` 加在 `_run_live` 上 · `_run_live` 改: ① `base = self._resolve_backend_url(self.agent_id)` 走 config env-aware ② `url = f"{base}{_ENDPOINT_MAP[self.agent_id]}"` (真 endpoint 非 generic `/api/{agent_id}/run`) ③ `async with client.stream(POST, url, json=body, timeout=HTTP_TIMEOUT)` 显式 timeout 参数 ④ `response.status_code != 200 → emit turn.error code=ADAPTER_HTTP_ERROR · return` 不强转 body 为 SSE ⑤ DEMO_MODE block W1 已实做 fixture replay 完全不动 · live mode 是 `_run` 内 `if get_settings().demo_mode: _run_demo() else: _run_live()` else 分支)
+  - `liuye_service/adapters/credit.py` (W1 401 行 + W2 加 ~60 行 → 462 行 · 同 channel pattern · 改 `CREDIT_ENDPOINT = "/api/credit/decision"` (W1 写 `/api/credit/run` 错 · W2 brief §4.2 perfect-check fix #1 真 endpoint) · class-level `_ENDPOINT_MAP` 镜像 channel · `_resolve_backend_url(agent_id)` helper · `_run_live` 改: ① body 增 `parent_tool_call_id` 透传 defensive 检查 `payload.get("parent_tool_call_id")` 非空才写 wire body (Report→Credit handoff · W1 第 3 棒 gotcha #4) ② status_code != 200 emit ADAPTER_HTTP_ERROR ③ timeout=httpx.Timeout(5.0, read=30.0))
+  - `liuye_service/adapters/report.py` (W1 392 行 + W2 加 ~55 行 → 444 行 · 同 channel pattern · class-level `_ENDPOINT_MAP` · `_resolve_backend_url(agent_id)` helper · `_run_live` 改: ① `url = base + _ENDPOINT_MAP['report']` = `/api/report/v16/fill` ② parent_tool_call_id 透传 defensive ③ status_code != 200 emit ADAPTER_HTTP_ERROR ④ timeout=httpx.Timeout(5.0, read=60.0) v16 5-stage 长流 · 60s read · 不破 Cowork < 5s first-byte SLA per root §3.1.1)
+- **关键决策** (≤ 200 字):
+  - **constructor injection 优先于 env**: 3 adapter `_resolve_backend_url` 先看 `self.backend_url` 与各自 `*_BACKEND_URL_DEFAULT` (mock-test :8001/:8002/:8003) 不等才返回 self.backend_url · 等就 fallback to `get_settings().resolve_backend_url(agent_id)` 读 env · 目的: ① W1 fixture test 注入 `backend_url=http://localhost:8001` 路径不破 ② D10 hybrid 彩排走 env per-adapter URL override
+  - **per-adapter `_ENDPOINT_MAP` 重复 3 份**: 不共享一个 module 是为了避免 cross-module 耦合 (HTTP-only contract per liuye CLAUDE.md §2.3) · 同 W1 `_iter_sse_v1` 走 local import (channel.py 持 SSOT · credit/report 复用) 模式 · 3 份 `_ENDPOINT_MAP` 是 mirror 数据非 logic · drift 风险低
+  - **DEMO_MODE block 完全不动**: W1 `_run_demo` + `_synthesise_*_v1_frames` 一行未改 · live mode 是 `_run` 内 `if demo_mode: _run_demo() else: _run_live()` 二分 · 所以 `live mode block` 实际是 `_run_live` 内的扩展 + 新 helper `_resolve_backend_url` · 不是 `dispatch_message` 顶层改造 (W1 第 3 棒已立好 demo/live 分流骨架)
+- **verify 跑** (3 命令全 PASS):
+  - `py -c "from liuye_service.adapters.{channel,credit,report} import {Channel,Credit,Report}Adapter; print('OK')"` → `OK` (3 import 0 error)
+  - `py -c "from liuye_service.config import Settings; s = Settings(); print(s.resolve_backend_url('channel'))"` → `http://localhost:8000` (default base · PASS)
+  - `py -c "import os; os.environ['LIUYE_BACKEND_CHANNEL_URL']='http://localhost:8001'; from liuye_service.config import Settings; s = Settings.from_env(); print(s.resolve_backend_url('channel'))"` → `http://localhost:8001` (per-adapter URL 覆写 · PASS)
+  - `py -m pytest liuye_service/tests/ -v` → **59 PASS** (W1 不破 · channel/credit/report 各原有 test 全过 · DEMO_MODE block 物理保留)
+- **下一棒 file checklist** (第 3 棒 30-45 min · 4 文件加固):
+  - `liuye_service/adapters/sse_v1_to_liuye.py` (改 · W1 425 行 20/20 PASS · W2 加固真流端到端验 · dedup_key 真 collision (真 backend 多 worker hash 同 payload 重发) · percent 边界 0.42 真值 · `_current_tool_call_id` inheritance 真场景 · 11 event 含 `permission.request` 由 `permissions.py::emit_permission_request` 直接 emit 不经 adapter · 加测真 backend stream snapshot fixture replay)
+  - `liuye_service/audit.py` (改 · W1 第 4 棒 façade upgrade DONE `record_decision(parent_turn_id=...)` 真 kwarg · 本棒 verify Q3 真 case · 真 sqlite query `SELECT decision_id, agent_id, parent_turn_id FROM decisions` 真 row · 跨 mode 场景 Agent2 Cowork DSL → Agent2 Managed backtest 手测 parent_turn_id 真传)
+  - `liuye_service/permissions.py` (改 · W1 第 2 棒 349 行 14 action registry · W2 加 3 风险分级真触 (A3-NEW Decision submit medium / LE-05 签字 high reason_required / KB upload medium) · grant/deny REST 真测 · idempotency_key 防重复)
+  - `liuye_service/orchestrator.py` (改 · per-turn `asyncio.Queue(maxsize=256)` 真 wire · permission hold + resume_turn 真 path · seq+1 续推 · heartbeat 15s 续 · per matrix §3 Q2)
+- **blocker**: 无
+- **hidden gotcha 发现** (留下一棒接力):
+  - `_iter_sse_v1` 仍由 `channel.py` 持有 SSOT · credit/report 走 local import `from liuye_service.adapters.channel import _iter_sse_v1` (W1 第 3 棒决策 · `_run_live` 内 local import 不在 module top · 避免 module load order 循环) · W2 不动这个布局 · 但若未来 `_iter_sse_v1` 升 base.py 必须 3 adapter 同步改 import
+  - `sse_translator` 是 per-turn instance (W1 design · `self._translators[turn_id]` dict · `_translators.get(turn_id)` 拿 · `_translators.pop(turn_id)` on abort_turn) · 不是 module-level singleton · 这是为 Q2 dedup 跨 turn 隔离 · W2 第 3 棒 sse_v1_to_liuye 加固真流不要把它改成 singleton
+  - `parent_tool_call_id` 透传现走两层: (i) HTTP body wire 透传 (本棒在 credit/report `_run_live` 加 defensive 写入 · 老 agent_credit consumer 解析 SSE v1 `tool_call` event payload 时再拿) (ii) sse_v1_to_liuye 内 `_on_tool_call` 处理 v1 `parent_tool_call_id` 字段映射到 liuye `tool.started.payload.parent_tool_call_id` (W1 test_parent_tool_call_id_passthrough PASS) · 两层独立 · 一致性靠真 backend `agent_credit/api.py` SSE v1 tool_call event 必出 `parent_tool_call_id` 字段 (W1 第 3 棒 hidden gotcha #4 verified)
+  - W1 第 3 棒 `_run_live` 用 `client.stream("POST", url, json=body)` 没显式 timeout · 依赖 client init `timeout=HTTP_TIMEOUT` · W2 改为 `client.stream("POST", url, json=body, timeout=HTTP_TIMEOUT)` 显式参数 · 因为 test 注入 `http_client=httpx.AsyncClient()` 不带 timeout 时 W1 路径会 hang · W2 显式参数 belt-and-suspenders
+  - httpx `Timeout(5.0, read=30.0)` 写法实际是 `Timeout(connect=5.0, read=30.0, write=5.0, pool=5.0)` 因 httpx 单值 fall-through · 不是 `Timeout(default=5.0, read=30.0)` · W1 第 3 棒 already correct · W2 不动
+- **ENDPOINT-MAP-PER-ADAPTER**: ok (channel/run + credit/decision + report/v16/fill · 3 adapter 各持 `_ENDPOINT_MAP` class-level · 全一致)
+- **PER-ADAPTER-URL-OVERRIDE**: ok (verify LIUYE_BACKEND_CHANNEL_URL=:8001 → resolve :8001 · credit/report fallback to base :8000)
+- **PYTEST-NO-REGRESSION**: 59 PASS (W1 baseline 不破)
+- **ELAPSED min**: ~35 (4 文件改 + 4 verify · 含 progress 段 + commit)
+- **commit SHA**: <填 below>
+

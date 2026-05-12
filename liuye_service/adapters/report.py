@@ -54,8 +54,18 @@ REPORT_AGENT_ID = "report"
 REPORT_ENDPOINT = "/api/report/v16/fill"
 REPORT_BACKEND_URL_DEFAULT = "http://localhost:8003"  # mock-test worker port
 
+# W2 perfect-check fix #1 · shared endpoint map (mirrors channel/credit).
+_ENDPOINT_MAP: dict[str, str] = {
+    "channel": "/api/channel/run",
+    "credit": "/api/credit/decision",
+    "report": "/api/report/v16/fill",
+}
+
 # Report SLA per matrix §2.3 = 30s · we set read=60s so we have headroom
-# before httpx aborts (the BFF then surfaces ADAPTER_TIMEOUT).
+# before httpx aborts (the BFF then surfaces ADAPTER_TIMEOUT). The Cowork
+# < 5s SLA per root §3.1.1 is for **first byte** · the 60s read tolerates
+# the v16 5-stage pipeline (classifier / truth_fill / generator /
+# evidence_link / qc_gate) streaming progressively.
 HTTP_TIMEOUT = httpx.Timeout(5.0, read=60.0)
 
 DEMO_FIXTURE_STEM = "report_v16_PARTIAL"
@@ -199,6 +209,21 @@ class ReportAdapter:
             async for liuye_evt in translator.translate(frame, turn_id):
                 yield liuye_evt
 
+    def _resolve_backend_url(self, agent_id: str) -> str:
+        """Per-adapter URL 覆写 (W2 brief §4.1 + perfect-check fix #2).
+
+        Mirrors channel/credit · constructor injection (default
+        ``REPORT_BACKEND_URL_DEFAULT`` = mock :8003) wins for legacy
+        tests, else ``Settings.resolve_backend_url`` resolves env
+        (``LIUYE_BACKEND_REPORT_URL > LIUYE_BACKEND_BASE_URL``).
+        """
+        if (
+            self.backend_url
+            and self.backend_url != REPORT_BACKEND_URL_DEFAULT
+        ):
+            return self.backend_url
+        return get_settings().resolve_backend_url(agent_id)
+
     async def _run_live(
         self,
         *,
@@ -206,17 +231,45 @@ class ReportAdapter:
         translator: SseV1ToLiuyeAdapter,
         payload: Mapping[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
+        """Live HTTP SSE bridge · POST + iterate v1 frames.
+
+        W2 backend brief §4.2 live mode (v16 5-stage long-poll variant):
+
+        - ``base = self._resolve_backend_url("report")``
+        - ``url = base + _ENDPOINT_MAP['report']`` = ``/api/report/v16/fill``
+        - timeout: connect=5s (Cowork SLA first byte) / read=60s (v16
+          5-stage slow stream; matrix §2.3 SLA = 30s with 60s read headroom)
+        - parent_tool_call_id forwarded (report may itself be a child
+          turn when invoked as part of a multi-agent flow)
+        """
         client = self._http_client or httpx.AsyncClient(timeout=HTTP_TIMEOUT)
         owns_client = self._http_client is None
         try:
-            url = f"{self.backend_url.rstrip('/')}{REPORT_ENDPOINT}"
-            body = {
+            base = self._resolve_backend_url(self.agent_id).rstrip("/")
+            url = f"{base}{_ENDPOINT_MAP[self.agent_id]}"
+            body: dict[str, Any] = {
                 "turn_id": turn_id,
                 "trace_id": translator.trace_id,
                 **dict(payload),
             }
-            async with client.stream("POST", url, json=body) as response:
-                from liuye_service.adapters.channel import _iter_sse_v1
+            parent_tcid = payload.get("parent_tool_call_id")
+            if parent_tcid:
+                body["parent_tool_call_id"] = parent_tcid
+            from liuye_service.adapters.channel import _iter_sse_v1
+            async with client.stream(
+                "POST", url, json=body, timeout=HTTP_TIMEOUT,
+            ) as response:
+                if response.status_code != 200:
+                    yield self._adapter_error(
+                        turn_id,
+                        trace_id=translator.trace_id,
+                        code="ADAPTER_HTTP_ERROR",
+                        message=(
+                            f"report backend returned {response.status_code} "
+                            f"· url={url}"
+                        ),
+                    )
+                    return
                 async for v1_event in _iter_sse_v1(response):
                     async for liuye_evt in translator.translate(v1_event, turn_id):
                         yield liuye_evt

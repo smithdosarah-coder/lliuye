@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
-"""liuye_service.config — 4 env vars dataclass + resolver.
+"""liuye_service.config — env vars dataclass + resolver.
 
-Per W1-backend brief §3 file 2 + ``liuye_service/CLAUDE.md`` §1 + ``CLAUDE.md`` §3.7.5.
+Per W1-backend brief §3 file 2 + W2-backend brief §4.1 + perfect-check fix #2 +
+``liuye_service/CLAUDE.md`` §1 + ``CLAUDE.md`` §3.7.5.
 
-Four env vars:
+W1 env vars (4):
 
 - ``LIUYE_ENABLED``       : bool · default False · v3 必修 #37 LIUYE gate (False → router not mounted)
 - ``LIUYE_DEMO_MODE``     : bool · default False · True → adapters read fixtures from LIUYE_FIXTURES_PATH
 - ``LIUYE_LEDGER_JURISDICTION`` : str · default "HQ" · root §3.7.5 (allowed: 银 / 保 / 证 / HQ / BRANCH)
 - ``LIUYE_FIXTURES_PATH`` : str · default ``./tests/fixtures/`` · SSOT per W1-backend §4.10 + W1-mock-test §8
+
+W2 env vars (4 · live mode + per-adapter URL 覆写 D10 hybrid 彩排):
+
+- ``LIUYE_BACKEND_BASE_URL``    : str · default ``http://localhost:8000`` · live mode 走真 backend
+- ``LIUYE_BACKEND_CHANNEL_URL`` : str | None · default None · 优先于 BASE (D10 hybrid · channel→mock :8001)
+- ``LIUYE_BACKEND_CREDIT_URL``  : str | None · default None · 优先于 BASE (D10 hybrid · credit→live :8000)
+- ``LIUYE_BACKEND_REPORT_URL``  : str | None · default None · 优先于 BASE (D10 hybrid · report→live :8000)
 
 We deliberately use a plain dataclass instead of pydantic.BaseSettings here
 because:
@@ -17,7 +25,7 @@ because:
    env read for the ledger jurisdiction — we mirror that pattern here so
    downstream callers see one consistent env contract.
 2. The audit_service / auth_service do not depend on pydantic-settings,
-   and the BFF should not add a new env-loading framework for 4 flags.
+   and the BFF should not add a new env-loading framework for a handful of flags.
 3. A dataclass keeps the test surface trivial (``Settings.from_env()``).
 """
 from __future__ import annotations
@@ -55,6 +63,10 @@ def _parse_bool(raw: str | None, *, default: bool) -> bool:
     return val in {"1", "true", "yes", "on"}
 
 
+# W2 backend brief §4.1 default · live mode talks to real backend uvicorn :8000
+_DEFAULT_BACKEND_BASE_URL = "http://localhost:8000"
+
+
 @dataclass(frozen=True)
 class Settings:
     """Immutable BFF configuration snapshot · resolved from env at import or boot.
@@ -68,10 +80,16 @@ class Settings:
     demo_mode: bool = False
     ledger_jurisdiction: str = DEFAULT_JURISDICTION
     fixtures_path: str = _DEFAULT_FIXTURES_PATH
+    # W2 backend brief §4.1 + perfect-check fix #2 · live mode 走真 backend
+    # + D10 hybrid 彩排 per-adapter URL 覆写
+    backend_base_url: str = _DEFAULT_BACKEND_BASE_URL
+    backend_channel_url: str | None = None
+    backend_credit_url: str | None = None
+    backend_report_url: str | None = None
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "Settings":
-        """Read all 4 env vars and return a frozen snapshot.
+        """Read all env vars and return a frozen snapshot.
 
         Args:
             env: optional override map (test injection). Defaults to ``os.environ``.
@@ -93,12 +111,40 @@ class Settings:
             src.get("LIUYE_FIXTURES_PATH", "").strip()
             or _DEFAULT_FIXTURES_PATH
         )
+        # W2 4 backend URL · empty string → fall back to default (BASE) /
+        # None (per-adapter), not a literal empty URL.
+        base = (
+            src.get("LIUYE_BACKEND_BASE_URL", "").strip()
+            or _DEFAULT_BACKEND_BASE_URL
+        )
+        channel_url = src.get("LIUYE_BACKEND_CHANNEL_URL", "").strip() or None
+        credit_url = src.get("LIUYE_BACKEND_CREDIT_URL", "").strip() or None
+        report_url = src.get("LIUYE_BACKEND_REPORT_URL", "").strip() or None
         return cls(
             enabled=_parse_bool(src.get("LIUYE_ENABLED"), default=False),
             demo_mode=_parse_bool(src.get("LIUYE_DEMO_MODE"), default=False),
             ledger_jurisdiction=jurisdiction,
             fixtures_path=fixtures,
+            backend_base_url=base,
+            backend_channel_url=channel_url,
+            backend_credit_url=credit_url,
+            backend_report_url=report_url,
         )
+
+    def resolve_backend_url(self, agent_id: str) -> str:
+        """Per-adapter URL 覆写 (W2 brief §4.1 + perfect-check fix #2).
+
+        Resolution order (first non-empty wins):
+
+        1. ``LIUYE_BACKEND_{AGENT}_URL`` (e.g. ``LIUYE_BACKEND_CHANNEL_URL``)
+           — D10 hybrid 彩排支持 (channel→mock :8001 + credit/report→live :8000)
+        2. ``LIUYE_BACKEND_BASE_URL`` (default ``http://localhost:8000``)
+
+        Returns the base URL only · per-adapter ``_ENDPOINT_MAP`` adds the
+        path segment (e.g. ``/api/channel/run``).
+        """
+        per_adapter = getattr(self, f"backend_{agent_id}_url", None)
+        return per_adapter or self.backend_base_url
 
 
 # ---------------------------------------------------------------------------

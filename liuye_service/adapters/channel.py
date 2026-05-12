@@ -61,7 +61,20 @@ logger = logging.getLogger(__name__)
 
 CHANNEL_AGENT_ID = "channel"
 CHANNEL_ENDPOINT = "/api/channel/run"
+# W1 default kept for backwards-compatible direct instantiation (test
+# injection) · W2 live mode resolves the base URL via
+# ``Settings.resolve_backend_url("channel")`` so production reads env.
 CHANNEL_BACKEND_URL_DEFAULT = "http://localhost:8001"  # mock-test worker port
+
+# W2 backend brief §4.2 perfect-check fix #1: per-adapter endpoint map ·
+# 真 endpoint 不是 generic /api/{agent_id}/run (channel/run · credit/decision ·
+# report/v16/fill). Class-level constant — all 3 Cowork adapters reuse the
+# same shape (see ``CreditAdapter._ENDPOINT_MAP`` / ``ReportAdapter._ENDPOINT_MAP``).
+_ENDPOINT_MAP: dict[str, str] = {
+    "channel": "/api/channel/run",
+    "credit": "/api/credit/decision",
+    "report": "/api/report/v16/fill",
+}
 
 # Cowork SLA per root §3.1.1: p95 < 5s. We give a 5s connect deadline and
 # 30s read deadline (long-poll headroom for stage-by-stage SSE).
@@ -234,6 +247,29 @@ class ChannelAdapter:
             async for liuye_evt in translator.translate(frame, turn_id):
                 yield liuye_evt
 
+    def _resolve_backend_url(self, agent_id: str) -> str:
+        """Per-adapter URL 覆写 (W2 brief §4.1 + perfect-check fix #2).
+
+        Resolution order:
+
+        1. Constructor-supplied ``backend_url`` (test injection · highest
+           priority since tests need deterministic URLs)
+        2. ``Settings.resolve_backend_url(agent_id)`` (env-driven · D10
+           hybrid 彩排 ``LIUYE_BACKEND_{AGENT}_URL > LIUYE_BACKEND_BASE_URL``)
+
+        We expose this as an instance method (not the static config helper)
+        so credit + report adapters can reuse the same lookup while
+        respecting their own constructor-injected URLs.
+        """
+        # Constructor injection short-circuits the env path · keeps W1
+        # test fixtures pinned to mock-test :8001 even if env says :8000.
+        if (
+            self.backend_url
+            and self.backend_url != CHANNEL_BACKEND_URL_DEFAULT
+        ):
+            return self.backend_url
+        return get_settings().resolve_backend_url(agent_id)
+
     async def _run_live(
         self,
         *,
@@ -241,17 +277,47 @@ class ChannelAdapter:
         translator: SseV1ToLiuyeAdapter,
         payload: Mapping[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
-        """Live HTTP SSE bridge · POST + iterate v1 frames."""
+        """Live HTTP SSE bridge · POST + iterate v1 frames.
+
+        W2 backend brief §4.2 live mode block:
+
+        - ``base = self._resolve_backend_url("channel")`` (env-aware)
+        - ``url = f"{base}{self._ENDPOINT_MAP['channel']}"`` (real path)
+        - ``timeout = httpx.Timeout(connect=5.0, read=30.0)`` (Cowork SLA)
+        - 200 → ``_iter_sse_v1`` + ``sse_translator.translate``
+        - != 200 → emit ``turn.error code=ADAPTER_HTTP_ERROR
+          fallback_available=true`` (frontend banner switches to demo)
+        - timeout → upper ``_run`` catches ``asyncio.TimeoutError`` and
+          emits ``code=ADAPTER_TIMEOUT``
+        """
         client = self._http_client or httpx.AsyncClient(timeout=HTTP_TIMEOUT)
         owns_client = self._http_client is None
         try:
-            url = f"{self.backend_url.rstrip('/')}{CHANNEL_ENDPOINT}"
+            base = self._resolve_backend_url(self.agent_id).rstrip("/")
+            url = f"{base}{_ENDPOINT_MAP[self.agent_id]}"
             body = {
                 "turn_id": turn_id,
                 "trace_id": translator.trace_id,
                 **dict(payload),
             }
-            async with client.stream("POST", url, json=body) as response:
+            async with client.stream(
+                "POST", url, json=body, timeout=HTTP_TIMEOUT,
+            ) as response:
+                if response.status_code != 200:
+                    # Surface the upstream status so the orchestrator /
+                    # frontend can decide whether to retry or fall back
+                    # · per W2 brief §4.2 != 200 = emit turn.error then
+                    # bail (do NOT try to translate body as SSE).
+                    yield self._adapter_error(
+                        turn_id,
+                        trace_id=translator.trace_id,
+                        code="ADAPTER_HTTP_ERROR",
+                        message=(
+                            f"channel backend returned {response.status_code} "
+                            f"· url={url}"
+                        ),
+                    )
+                    return
                 async for v1_event in _iter_sse_v1(response):
                     async for liuye_evt in translator.translate(v1_event, turn_id):
                         yield liuye_evt

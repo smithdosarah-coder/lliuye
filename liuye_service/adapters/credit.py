@@ -51,8 +51,20 @@ logger = logging.getLogger(__name__)
 
 
 CREDIT_AGENT_ID = "credit"
-CREDIT_ENDPOINT = "/api/credit/run"
+# W2 backend brief §4.2 perfect-check fix #1: real endpoint is /api/credit/decision
+# (not /api/credit/run). Kept as module-level constant for legacy callers ·
+# the live path uses ``_ENDPOINT_MAP['credit']`` via the shared lookup.
+CREDIT_ENDPOINT = "/api/credit/decision"
 CREDIT_BACKEND_URL_DEFAULT = "http://localhost:8002"  # mock-test worker port
+
+# W2 perfect-check fix #1 · shared endpoint map (mirrors channel.py).
+# Defined here too so credit can stay a pure HTTP adapter without
+# importing channel internals (HTTP-only contract per liuye CLAUDE.md §2.3).
+_ENDPOINT_MAP: dict[str, str] = {
+    "channel": "/api/channel/run",
+    "credit": "/api/credit/decision",
+    "report": "/api/report/v16/fill",
+}
 
 HTTP_TIMEOUT = httpx.Timeout(5.0, read=30.0)
 DEMO_FIXTURE_STEM = "credit_decision_PASS"
@@ -198,6 +210,21 @@ class CreditAdapter:
             async for liuye_evt in translator.translate(frame, turn_id):
                 yield liuye_evt
 
+    def _resolve_backend_url(self, agent_id: str) -> str:
+        """Per-adapter URL 覆写 (W2 brief §4.1 + perfect-check fix #2).
+
+        Mirrors ``ChannelAdapter._resolve_backend_url`` · constructor
+        injection (default ``CREDIT_BACKEND_URL_DEFAULT`` = mock :8002)
+        wins for legacy tests, else ``Settings.resolve_backend_url``
+        resolves env (``LIUYE_BACKEND_CREDIT_URL > LIUYE_BACKEND_BASE_URL``).
+        """
+        if (
+            self.backend_url
+            and self.backend_url != CREDIT_BACKEND_URL_DEFAULT
+        ):
+            return self.backend_url
+        return get_settings().resolve_backend_url(agent_id)
+
     async def _run_live(
         self,
         *,
@@ -205,17 +232,52 @@ class CreditAdapter:
         translator: SseV1ToLiuyeAdapter,
         payload: Mapping[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
+        """Live HTTP SSE bridge · POST + iterate v1 frames.
+
+        W2 backend brief §4.2 live mode + parent_tool_call_id passthrough:
+
+        - ``base = self._resolve_backend_url("credit")``
+        - ``url = base + _ENDPOINT_MAP['credit']`` = ``/api/credit/decision``
+        - body forwards ``parent_tool_call_id`` (Report → Credit handoff ·
+          W1 第 3 棒 gotcha #4) so the v1 ``tool_call`` event carries the
+          lineage; the SSE translator emits ``tool.started`` with both
+          ``tool_call_id`` (new uuid) + ``parent_tool_call_id`` (handoff link).
+        - Cowork SLA: connect=5s / read=30s
+        """
         client = self._http_client or httpx.AsyncClient(timeout=HTTP_TIMEOUT)
         owns_client = self._http_client is None
         try:
-            url = f"{self.backend_url.rstrip('/')}{CREDIT_ENDPOINT}"
-            body = {
+            base = self._resolve_backend_url(self.agent_id).rstrip("/")
+            url = f"{base}{_ENDPOINT_MAP[self.agent_id]}"
+            body: dict[str, Any] = {
                 "turn_id": turn_id,
                 "trace_id": translator.trace_id,
                 **dict(payload),
             }
-            async with client.stream("POST", url, json=body) as response:
-                from liuye_service.adapters.channel import _iter_sse_v1
+            # Defensive: even if payload already carried it (orchestrator
+            # forwards from the SSE bridge), make sure the wire body has
+            # the handoff key spelled exactly · old agent_credit consumers
+            # expect ``parent_tool_call_id`` verbatim per v3 §2.1 + 必修 #51.
+            parent_tcid = payload.get("parent_tool_call_id")
+            if parent_tcid:
+                body["parent_tool_call_id"] = parent_tcid
+            # Local import keeps the cross-adapter coupling explicit while
+            # honouring the HTTP-only contract (no agent_* internals).
+            from liuye_service.adapters.channel import _iter_sse_v1
+            async with client.stream(
+                "POST", url, json=body, timeout=HTTP_TIMEOUT,
+            ) as response:
+                if response.status_code != 200:
+                    yield self._adapter_error(
+                        turn_id,
+                        trace_id=translator.trace_id,
+                        code="ADAPTER_HTTP_ERROR",
+                        message=(
+                            f"credit backend returned {response.status_code} "
+                            f"· url={url}"
+                        ),
+                    )
+                    return
                 async for v1_event in _iter_sse_v1(response):
                     async for liuye_evt in translator.translate(v1_event, turn_id):
                         yield liuye_evt
