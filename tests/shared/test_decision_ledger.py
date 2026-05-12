@@ -82,8 +82,8 @@ def tmp_ledger(monkeypatch, tmp_path):
 
 
 def test_schema_version_pinned():
-    """Bumping breaks the ledger contract — pin to 1.0.0."""
-    assert LEDGER_SCHEMA_VERSION == "1.0.0"
+    """Bumping breaks the ledger contract — pin to 1.1.0 (Q3 ratify 2026-05-11 加 parent_turn_id optional · v1.0 → v1.1 non-breaking minor bump)."""
+    assert LEDGER_SCHEMA_VERSION == "1.1.0"
 
 
 def test_jurisdiction_enum_complete():
