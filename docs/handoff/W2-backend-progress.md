@@ -21,4 +21,4 @@
   - W2 brief §4.5 systemd unit Environment line 165 写 `LIUYE_OUTBOX_DIR=/opt/liuye/data/liuye/outbox` · W1 第 4 棒 `OutboxWorker.from_env()` 读 `LIUYE_OUTBOX_DIR` (line 116 progress 提及) · **一致** · 第 4 棒 install 时统一 path.
   - W2 brief §4.2 endpoint map line 96-100 `_ENDPOINT_MAP['report'] = '/api/report/v16/fill'` · v3 spec 附录 A.1 + matrix §2.3 Agent6 5-stage pipeline 走 `report_v16_pipeline` tool_id · `agent_report/api.py` 真路径需 verify (W1 第 3 棒 ReportAdapter docstring 写 `/api/report/v16/fill` matches W2 brief) · 第 2 棒落 live mode 前可 curl `/api/report/v16/fill` health probe 验.
 - **ELAPSED min**: ~30 (起手 7 件事 read · pre-create W2-backend-progress.md · scope verify commit · 无写代码)
-- **commit SHA**: (本 commit 自身 · 见 git log 末条)
+- **commit SHA**: 32c9288
