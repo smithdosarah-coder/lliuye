@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liuye.x-nexus.local/schemas/kb_doc.schema.json",
+  "title": "KBDoc",
+  "description": "Liuye 5-protocol member · KBDoc (v3 spec §2.4). Knowledge-base document metadata · referenced by EvidenceRef.kb_doc_id. tier 1-4 per root §3.5.1 data tier hierarchy (Tier 1 internal authoritative → Tier 4 public web · core-claim ban on Tier 4 alone). pipl_region tracks PIPL cross-border data residency · cn = mainland · overseas = ex-mainland (audit log required per root §3.6).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "title",
+    "type",
+    "tier",
+    "source_type",
+    "collected_at",
+    "verification_method",
+    "content_hash"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable KBDoc identifier · referenced by EvidenceRef.kb_doc_id."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Liuye contract schema version · fixed '1' for the current spec lock."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable document title shown in KB browser and evidence panel."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["upload", "pulled", "mock"],
+      "description": "KBDoc provenance type. upload = RM/审贷员 manual upload · pulled = SearchProvider auto-fetch (Tavily/akshare/gov_cn/...) · mock = fixture/demo data (反 5 原则 §3.5 boundary)."
+    },
+    "tier": {
+      "type": "integer",
+      "enum": [1, 2, 3, 4],
+      "description": "Data tier 1-4 (v3 §2.4 line 228 verbatim · maps to root §3.5.1 DataTier enum). 1=internal_authoritative (bank internal · 100% trust) · 2=government (银保监/央行/税务/法院 · <30d freshness) · 3=industry (上市公告/评级/研报) · 4=public_web (新闻/Tavily · core-claim ban). NOTE: v3 uses int tier · shared/data_tiers.DataTier is a str enum (internal_authoritative/government/industry/public_web) · mapping done at consumer adapter (int 1↔internal_authoritative etc)."
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["gov", "enterprise", "tavily", "internal", "user"],
+      "description": "Source channel type (v3 §2.4 line 229 verbatim). gov = government portal · enterprise = enterprise registry (qichacha/tianyancha) · tavily = Tavily web search · internal = bank internal system (CRM/流水/征信) · user = RM/审贷员 uploaded doc."
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · when we fetched/received this doc. Maps to recommendation_schema.retrieved_at semantics."
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional · document validity expiry (e.g. signed PDF cert expiry · government notice retraction date)."
+    },
+    "verification_method": {
+      "type": "string",
+      "enum": ["signature", "cross_check", "manual", "unverified"],
+      "description": "Verification level (v3 §2.4 line 232 verbatim). signature = digital signature verified (PDF/PKCS#7) · cross_check = multi-source corroborated · manual = human-verified · unverified = raw fetch with no verification (typical for tavily/web)."
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$",
+      "description": "SHA-256 content hash · 64 lowercase hex chars (v3 §2.4 line 233 verbatim). Used for KB dedup and tamper detection. Recomputed on re-fetch · mismatch triggers freshness invalidation."
+    },
+    "pipl_region": {
+      "type": "string",
+      "enum": ["cn", "overseas"],
+      "description": "PIPL cross-border residency (v3 §2.4 line 234 verbatim · root §3.6 PIPL fallback chain). cn = mainland data residency · overseas = ex-mainland (US/SG/...). Required for audit log when LLM call routes overseas (moonshot/openai). Optional in KBDoc since most internal docs are cn by default · explicit overseas marker for compliance trace."
+    }
+  }
+}

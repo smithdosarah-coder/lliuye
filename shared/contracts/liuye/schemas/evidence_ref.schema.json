@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liuye.x-nexus.local/schemas/evidence_ref.schema.json",
+  "title": "EvidenceRef",
+  "description": "Liuye 5-protocol member · EvidenceRef (v3 spec §2.4 line 237-247). Evidence chain reference · points to a KBDoc.id + excerpt span. freshness 3-state (fresh/critical/expired) is the v3 contract enum · DIFFERENT from shared/evidence_freshness.classify_freshness() 5-band UI labels (fresh/recent/aging/stale/very_stale) · mapping done at consumer adapter (fresh→fresh · recent→fresh · aging→critical · stale→critical · very_stale→expired). decision_id added per P0-8 R9 · only set when EvidenceRef directly supports a cross-decision link (LE-05 sign-off lookup) · NOT for in-artifact backing (use Artifact.evidence_refs[] for that).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "kb_doc_id",
+    "excerpt",
+    "span",
+    "freshness",
+    "data_tier",
+    "related_artifact_ids",
+    "cite_in_message_ids"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable EvidenceRef identifier · referenced by Artifact.evidence_refs[] and message citations."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Liuye contract schema version · fixed '1' for the current spec lock."
+    },
+    "kb_doc_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Parent KBDoc.id this evidence excerpt comes from. Resolves to a kb_doc.schema.json instance."
+    },
+    "excerpt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Quoted excerpt text (v3 §2.4 line 240 verbatim · per appendix C: length cap and PII redaction policy applied). Shown in evidence drawer panel."
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Excerpt start offset (character index) within the parent KBDoc content."
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Excerpt end offset (character index) within the parent KBDoc content. end > start."
+        }
+      },
+      "description": "Character span within parent KBDoc · used for re-highlighting in source viewer."
+    },
+    "freshness": {
+      "type": "string",
+      "enum": ["fresh", "critical", "expired"],
+      "description": "Freshness 3-state (v3 §2.4 line 242 verbatim). fresh = within SLA per claim_type (root §3.5.1 FRESHNESS_SLA_DAYS · e.g. news 180d) · critical = near SLA boundary (warn but usable) · expired = past SLA (block as core_claim per recommendation_schema.staleness_policy_passed=false · background only). NOTE: this is contract-layer 3-enum · NOT the 5-band UI classification from shared/evidence_freshness.classify_freshness() (fresh/recent/aging/stale/very_stale) · adapter at consumer side."
+    },
+    "data_tier": {
+      "type": "integer",
+      "enum": [1, 2, 3, 4],
+      "description": "Data tier 1-4 (v3 §2.4 line 243 verbatim · same as KBDoc.tier). Cached here for fast filter without joining KBDoc. Must equal parent kb_doc.tier · consumer verifies at sanity check."
+    },
+    "related_artifact_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Artifact.id list · all artifacts whose snapshot is backed by this evidence (v3 §2.4 line 244)."
+    },
+    "cite_in_message_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Message.id list · chat messages that inline-cite this evidence (v3 §2.4 line 245). Footnote-style citation map in conversation view."
+    },
+    "decision_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · P0-8 R9. Cross-decision link · set ONLY when this evidence directly supports a decision_ledger entry (LE-05 sign-off lookup target). For normal in-artifact backing use related_artifact_ids[] instead · NOT decision_id. Mapping case matrix to be ratified separately."
+    },
+    "evidence_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · event occurrence date for this evidence (NOT fetched_at · NOT collected_at). Per root §3.5.1 第 6 原则 hardline: evidence missing evidence_date cannot serve as core claim. Maps to recommendation_schema.evidence_date semantics."
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · when we retrieved this evidence excerpt. Distinct from KBDoc.collected_at (whole-doc fetch) · this is excerpt-level retrieval timestamp."
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "Optional · source URL (e.g. https://www.cbirc.gov.cn/...) or internal source identifier (internal://crm/holdings). Mirrors recommendation_schema.source_url semantics. URI-reference allows both http(s) and internal:// pseudo-scheme."
+    },
+    "source_tier": {
+      "type": "string",
+      "enum": [
+        "internal_authoritative",
+        "government",
+        "industry",
+        "public_web",
+        "unknown"
+      ],
+      "description": "Optional · matches shared/data_tiers.DataTier str enum verbatim. When set must be consistent with data_tier int (1↔internal_authoritative · 2↔government · 3↔industry · 4↔public_web · unknown defaults to tier 4 handling)."
+    }
+  }
+}

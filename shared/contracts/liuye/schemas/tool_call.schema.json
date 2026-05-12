@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liuye.x-nexus.local/schemas/tool_call.schema.json",
+  "title": "ToolCall",
+  "description": "Liuye 5-protocol member · ToolCall + ProgressMessage (v3 spec §2.3). Self-describing tool invocation envelope (CC pattern). status fixed at 8 enum · invoker_id/reviewer_id added per P0-8 R9 (audit chain) · parent_tool_call_id links Cowork → Managed handoff. ProgressMessage nested via definitions · its own 5-state status enum (not the 8-state ToolCall.status). ToolDefinition (renderToolCall / inputSchema / outputSchema) is consumer-side TS · NOT modeled here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "turn_id",
+    "agent",
+    "tool_id",
+    "boundary",
+    "invoker_id",
+    "input",
+    "status",
+    "progress",
+    "started_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ToolCall identifier · unique within a turn. Referenced by Artifact.source_tool_call_id and LiuyeChatEvent.tool_call_id."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Liuye contract schema version · fixed '1' for the current spec lock."
+    },
+    "turn_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Parent conversation turn identifier · same across all events within one user turn."
+    },
+    "agent": {
+      "type": "string",
+      "enum": [
+        "channel",
+        "credit",
+        "report",
+        "riskctrl",
+        "alert",
+        "compliance"
+      ],
+      "description": "6-agent enum (v3 §2.3 verbatim · root §4 SSOT). Cowork: channel/credit/report. Managed: alert/compliance/riskctrl."
+    },
+    "tool_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable tool identifier · resolves to a ToolDefinition (consumer-side TS · Zod inputSchema/outputSchema)."
+    },
+    "boundary": {
+      "type": "string",
+      "enum": ["cowork", "managed_readonly"],
+      "description": "Tool boundary type per root §3.1.1. cowork = real-time SSE (< 5s p95) · managed_readonly = batch (job_id + status + retry)."
+    },
+    "parent_tool_call_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · Cowork → Managed handoff link. Set when this ToolCall was spawned by another ToolCall (e.g. Agent3 cowork credit decision triggers Agent5 managed compliance scan)."
+    },
+    "invoker_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "P0-8 R9 · the persona/user that triggered this tool_call. Required for audit chain (decision_ledger lookup · LE-05 sign-off). For system-triggered managed jobs (cron / event), set to 'system:<job_kind>'."
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "P0-8 R9 · the reviewer who signed off on this tool_call. Set for LE-05 sign-off / high-risk PermissionRequest approvals. NULL for normal flow."
+    },
+    "input": {
+      "description": "Tool input · validated by inputSchema.safeParse() consumer-side (Zod). Open schema here · per-tool narrowing happens at inputSchemas.ts."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "connecting",
+        "running",
+        "streaming",
+        "idle_timeout",
+        "completed",
+        "failed",
+        "aborted"
+      ],
+      "description": "ToolStatus 8-enum lock (v3 §2.3 line 179-181 verbatim · brief §4.2 hardline). Lifecycle: queued → connecting → running → streaming → (completed|failed|aborted|idle_timeout). idle_timeout = no progress emitted within SLA window (per agent SLA · root §3.1.1)."
+    },
+    "progress": {
+      "type": "array",
+      "description": "ProgressMessage list · monotonic seq · emitted via SSE tool.progress events.",
+      "items": { "$ref": "#/definitions/ProgressMessage" }
+    },
+    "result": {
+      "description": "Tool result · validated by outputSchema consumer-side (Zod). Set when status transitions to completed. Open schema here · per-tool narrowing at inputSchemas.ts."
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "trace_id"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Error code · machine-readable enum (e.g. TOOL_TIMEOUT, INPUT_VALIDATION, PROVIDER_UNAVAILABLE)."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable error message · displayed to operator (RM/审贷员/合规官)."
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Trace identifier · for audit_service correlation."
+        }
+      },
+      "description": "Set when status = failed. Mirrors TurnErrorPayload shape (subset) per liuye_chat_event.schema.json."
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · the Artifact.id produced by this tool_call (Cowork agents only · Managed agents write to decision_ledger instead per root §3.1.1)."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · ToolCall enqueue timestamp."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · set when status transitions to completed/failed/aborted/idle_timeout."
+    }
+  },
+  "definitions": {
+    "ProgressMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "turn_id",
+        "tool_call_id",
+        "trace_id",
+        "seq",
+        "ts",
+        "stage_key",
+        "stage_label",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ProgressMessage identifier · unique within tool_call.progress[]."
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Parent conversation turn identifier."
+        },
+        "tool_call_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Parent ToolCall.id this progress belongs to."
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Trace identifier · for audit_service correlation."
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Monotonic sequence · emitted in order from the same tool_call. Client uses seq to detect gaps and trigger reconnect (per liuye_chat_event.schema.json reconnect rules)."
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC · progress emit timestamp."
+        },
+        "stage_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Internal stage key · stable identifier (e.g. 'kb_scan', 'evidence_collect', 'llm_grounded_gen') · appears in tooltip/trace · NOT for end-user display."
+        },
+        "stage_label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Chinese-facing stage label (e.g. '知识库扫描', '证据汇集', 'LLM 接地生成') · displayed to operator in progress UI."
+        },
+        "stage_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional · stage index in pipeline (0-based)."
+        },
+        "stage_total": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional · total stage count in pipeline. stage_index < stage_total."
+        },
+        "percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Optional · progress percent 0-100 integer (per matrix §3 Q1 decision · NOT float). 100 = stage done."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "done", "warning", "error"],
+          "description": "ProgressMessage status 5-enum (v3 §2.3 line 207 verbatim). DIFFERENT from ToolCall.status 8-enum · ProgressMessage status is stage-level lifecycle (warning = stage degraded but pipeline continues · error = stage fatal · upgrades ToolCall.status to failed at next emit)."
+        },
+        "detail": {
+          "type": "string",
+          "description": "Optional · free-form detail string (e.g. '已扫 12/45 KB doc'). Shown in progress drawer expandable section."
+        }
+      },
+      "description": "ProgressMessage (v3 §2.3 line 195-209). Tool-call lifecycle stage progress · emitted via tool.progress SSE event."
+    }
+  }
+}
