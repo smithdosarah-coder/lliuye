@@ -232,5 +232,5 @@
 - 无
 
 ### ELAPSED min: ~35 (起手 read 接力 brief + 第 2-3 棒 progress + W2-frontend §4.5 FallbackBanner + permission_request_medium.json + .gitignore + tests/package.json; 写 3 spec 共 ~520 行; tsc verify EXIT=0; 写 progress segment + commit 准备)
-### Commit SHA: (本 commit · git log 下一行)
+### Commit SHA: b9c91b1
 
