@@ -179,9 +179,12 @@ web/tests/e2e/.auth/
 # ----------------------------------------------------------------------------
 # W1-mock-test · tests/ harness (npm install 产物 + 跑测 cache · 不入库)
 # Owner: W1-mock-test worker · Stage: W1 准备周 · 见 docs/handoff/W1-mock-test-progress.md
-# 注: tests/package.json + tests/package-lock.json 留 W1-contract worker 决定 CI 接入
-#     时是否入库 · 本 worker 不动 · 仅排除 build 产物
+# 第 5 棒决策: tests/package.json + tests/package-lock.json 入库 (Playwright 1.60 + ajv +
+# tsx + jsdom 全量 lock · 跨 CI / 跨 dev 可重现 npm ci) · 但 node_modules + 跑测产物不入库.
 # ----------------------------------------------------------------------------
 tests/node_modules/
 tests/coverage/
 tests/.vitest-cache/
+tests/test-results/
+tests/playwright-report/
+tests/.playwright/

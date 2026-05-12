@@ -298,3 +298,139 @@
 ### CHUNKED-PATCH-TRIPLE: 3 fixture 跑过 (report_v16_PARTIAL 3 hit · 其他 4 fixture 无 chunked · vacuous PASS)
 ### Commit SHA: 13597e7
 
+## 2026-05-12 · checkpoint 5 · 第 5 棒 · 2 Playwright + 1 migration spec + tests/package.json 入库 · W1-mock-test 11/11 DONE
+
+### 完成文件 (3 spec + 1 config + 2 package = 6 path · 累计 11/11)
+
+- `tests/e2e/playwright/home-silent.spec.ts` (320 行 · 10 test · 10/10 PASS in 13.0s)
+  - 7 data-testid 全在: hero-static / composer-textarea / composer-submit / agent-chip-{channel,credit,report,alert}
+  - composer 实测 840 × 72 (.composer-shell__inner getBoundingClientRect)
+  - token 锁: --c-composer-w=840 / --c-composer-h=72 / --c-radius=36 / --c-send=42 / --c-pill-h=32 / --c-icon=36
+  - send button 实测 42 × 42 (.composer-shell__submit)
+  - 4 Agent chip 高度 ∈ [28, 32]px (pill h 锁 v3 §4)
+  - 字体栈含 4 family (Funnel Display / Instrument Sans / Noto SC / JetBrains Mono · 走 body className + :root + body 上 --font-* CSS var 三路 substring match · next-font hashed module slug 形式 funnel_display / instrument_sans / noto_sans_sc / jetbrains_mono 也接受)
+  - IME guard 中文 composition 中 Enter 不发 (派 native CompositionEvent + KeyboardEvent isComposing:true · textarea 仍含 "zhongwen")
+  - IME 控制组对照: 非 composition Enter 触发 submit (Composer.handleSubmit setText('') · textarea 清空)
+  - selector EMPTY sentinel 回归守卫 (1s 内无 "Maximum update depth exceeded" / infinite loop warning · 间接验 store 初始 readonly · 直接验留 W2-W4 接 messages-shell 后)
+  - html lang=zh-CN + data-theme=light 默认主题锁
+
+- `tests/e2e/playwright/demo-path-step1-3.spec.ts` (180 行 · 1 test 含 3 step · 1/1 PASS in 5.7s)
+  - Step 1 静默首页 · 644ms (预算 3000ms · ratio 0.21)
+  - Step 2 点 channel chip · 1125ms (预算 2000ms · ratio 0.56) · 捕 console.log "[W1 skeleton] agent chip clicked: channel"
+  - Step 3 mock SSE + composer 输入诉求 "找新能源汽车零部件相似客户" · 1242ms (预算 15000ms · ratio 0.08) · 验 :8001/health 返 fixture name + /api/channel/run 流头部含 "event:"
+  - 总耗时 3011ms / 预算 20000ms (16% utilization · 大量预算余量留给 W2-W4 真接 SSE consumer)
+  - hard gate (v3 附录 C.3 ±20% threshold) 用 `test.step('Step N', ...)` API + Date.now() 差值 · 任一 step 超 budget × 1.2 走 expect().toBeLessThan() fail
+
+- `tests/e2e/playwright/playwright.config.ts` (62 行 · monorepo workspace 风格 · testDir='.')
+  - Chromium 唯一 project · headless 默认 · PLAYWRIGHT_HEADED=1 切 headed
+  - baseURL: http://localhost:3210 (per W1-frontend 第 2 棒 dev port 决策 · :3000 EADDRINUSE 退到 3210)
+  - viewport 1440×900 (ground truth 笔记本锚) · locale zh-CN · timezoneId Asia/Shanghai
+  - workers=1 (单 worker 避并发抢 :3210) · retries=0 · timeout 60s · expect timeout 10s
+  - webServer disabled (frontend dev + mock SSE 由调用方启 · 避免端口冲突 + 跨棒 dev 不重启)
+
+- `tests/migration/archive-storage.spec.ts` (290 行 · 8 case 26 assertion · 26/26 PASS in <1s)
+  - case-1 单 credit-workspace-storage 迁: pinned/scrollAnchor/drafts/favorites 全保
+  - case-2 3 OLD_KEYS 全合并: pinnedArtifactId first non-null wins · drafts Object.assign 累加 · favorites push 累加 (顺序 credit→report→channel per OLD_KEYS array)
+  - case-3 legacy state.pin.artifactId nested shape fallback (v3 §6.2 verbatim 双形态)
+  - case-4 idempotent · 第二次跑 doneKey 守卫 · ui 串完全不变 + 改 source data 不影响
+  - case-5 localStorage 缺时 sessionStorage 兜底 (v3 §6.2 localStorage.getItem ?? sessionStorage.getItem)
+  - case-6 空 OLD_KEYS 不抛 · 仍写 ui (空 next) + doneKey=1
+  - case-7 first non-null wins (??= · credit before report)
+  - case-8 sid namespace 隔离 (liuye_sess_A vs liuye_sess_B · 各自 ui/doneKey)
+  - 决策: W1 frontend 不实做 migrateArchiveStorage · 本 spec 用 inline mock implementation (v3 §6.2 verbatim 抄) · NOT `.skip` · 验逻辑本身 · W2 frontend 实做 `credit_matrix_next/src/migration/archiveStorage.ts` 后替换 import 路径即跑真实 helper · 测试 case 不动
+
+- `tests/package.json` (修 scripts · 加 dev deps)
+  - scripts: mock-sse:{channel,credit,report} (tsx 替 ts-node) · contract:{schema,payload,all} (tsx 跑 .spec.ts) · smoke:{home,demo,all} (playwright test) · migration:archive (tsx 跑) · install:browsers (playwright install chromium)
+  - devDeps: 加 @playwright/test ^1.60.0 (npm 装 ^1.55 自动 upgrade latest matching) + jsdom ^25.0.1 + @types/jsdom ^21.1.7
+  - 保留: ajv 8.20 + ajv-formats 3.0 + tsx 4.21 + ts-node 10.9 + express 4.22 + cors 2.8 + typescript 5.5 + @types/{cors,express,node}
+
+- `tests/package-lock.json` (npm 自动生成 · 164 packages · 入库锁住跨 CI / 跨 dev 可重现 `npm ci`)
+
+- `.gitignore` (修)
+  - 加 tests/{test-results,playwright-report,.playwright}/ (Playwright 跑测临时产物 · 不入库)
+  - 改注释段从 "留 contract worker 决策" → "第 5 棒决策 tests/package.json + tests/package-lock.json 入库"
+
+### 关键决策
+
+1. **Playwright Chromium binary 下载路径** (gotcha · 主 CLI 应知):
+   - 系统已装 chromium-1208 + chromium-1217 + chromium_headless_shell-1208 (Codex / mcp-chrome 用)
+   - 但 Playwright 1.60 lock 死 chromium_headless_shell-1223 (binary 版本 hash 锁 · 不接受 1217 替代)
+   - 必须跑 `node_modules/.bin/playwright install chromium-headless-shell` 下载 ~112MB (verified 100% PASS · 走 cdn.playwright.dev/builds/cft/148.0.7778.96 · 不入库 binary · 留 CI / 新 dev 跑 `npm run install:browsers` 拉)
+   - 估时下次 fresh dev 拿 binary 约 2-4 min (网速依赖)
+
+2. **monorepo workspace test config 风格**:
+   - playwright.config.ts sit tests/e2e/playwright/ 目录下 · testDir='.' 仅匹配同目录 spec.ts
+   - 跑 spec: `cd tests && playwright test --config=e2e/playwright/playwright.config.ts e2e/playwright/<spec>.ts --project=chromium`
+   - 老仓 root + credit_matrix_next 都没 root-level test runner · tests/ 是独立 sub-package · CI 时直接 `cd tests && npm ci && npm run smoke:all`
+
+3. **webServer 不自启 frontend / mock-SSE** (避端口冲突):
+   - frontend dev :3210 由跨棒 W1-frontend 持续运行 (sub-agent 第 2 棒起 · 第 5 棒沿用)
+   - mock SSE :8001 由 `npm run mock-sse:channel` 手动启 (跑 demo-path-step1-3 前置) · spec 内 isMockSseAlive() probe · 不可达走 `test.skip()` 优雅降级
+   - playwright config webServer block 完全不引 · 避免重复启 EADDRINUSE
+   - 后续 CI 启动顺序: (1) `cd credit_matrix_next && npm run dev &` (背景) → wait :3210 ready → (2) `cd tests && npm run mock-sse:channel &` → wait :8001 ready → (3) `cd tests && npm run smoke:all`
+
+4. **IME guard 验证策略** (浏览器侧难脚本化的真痛):
+   - Playwright page.keyboard.type() 不真触发 OS-level IME composition · 必须走 el.dispatchEvent(new CompositionEvent('compositionstart')) 模拟 React onCompositionStart
+   - 中文 IME composition 中按 Enter 兜底 = new KeyboardEvent('keydown', { key:'Enter', isComposing:true }) · ImeGuard.tsx 的 e.nativeEvent.isComposing 兜底 catch 住 · 不 submit
+   - 控制组对照 (非 composition Enter) 直接 .press('Enter') · Composer.handleSubmit setText('') 清空 textarea · 验 inputValue === ''
+
+5. **字体栈验证三路兜底**:
+   - next/font/google 注入 hashed CSS module class · body className 含 6 个 funnel_display_xxx-module__yyy__variable slug
+   - 真 CSS var name 是 --font-display / --font-body / --font-zh / --font-mono (layout.tsx 显式设)
+   - globals.css --c-font-* 引用 var(--font-*) + fallback chain · cascaded 后含 family literal
+   - 验证策略 = body className + :root computed --c-font-* + body computed --c-font-* + body computed fontFamily 全部 join 后做 case-insensitive substring match · 接受 "Funnel Display" 字面或 "funnel_display" module slug 两种形式
+   - 实测: body className 含 module slug · :root 上 --c-font-display 反求出 "var(--font-display), 'Funnel Display', 'Inter', ..." raw string · 全路径 PASS
+
+6. **selector EMPTY sentinel 回归守卫策略** (W1 frontend page.tsx 当前不消费 store):
+   - 直接验 store runtime state 不可行 (page.tsx 不暴露 window.__store__ probe)
+   - 退而求其次: 1s 等待期内 captured browser console error / warning · 过滤 next-router / preload / DevTools 等良性提示 · 真错 (Maximum update depth · infinite loop · React warn) 视作 selector inline `?? []` regression
+   - 当前 W1 skeleton 渲染稳定 0 error · PASS · 真正硬验证留 W2-W4 接 messages-shell 后
+
+### Verify 结果
+
+- `cd tests && npx tsx contract/schema-validate.spec.ts` exit 0 · 45/45 PASS
+- `cd tests && npx tsx contract/payload-shape.spec.ts` exit 0 · 16/16 PASS · chunked patch 3 hit (report_v16_PARTIAL)
+- `cd tests && npx tsx migration/archive-storage.spec.ts` exit 0 · 26/26 PASS · 8 case · jsdom 25 unit
+- `cd tests && playwright test --config=e2e/playwright/playwright.config.ts e2e/playwright/home-silent.spec.ts --project=chromium` · 10/10 PASS in 13.0s · frontend :3210 alive
+- `cd tests && playwright test --config=e2e/playwright/playwright.config.ts e2e/playwright/demo-path-step1-3.spec.ts --project=chromium` · 1/1 PASS in 5.7s · 3 step 全在预算内 (step1 644ms · step2 1125ms · step3 1242ms · 总 3011ms / 预算 20000ms)
+- Mock SSE :8001 启动 / 健康检查 / fixture 加载全跑通后已 kill
+
+### File checklist 状态 (11 文件 · 11/11 DONE)
+
+- [x] tests/fixtures/channel_5candidates.json
+- [x] tests/fixtures/credit_decision_PASS.json
+- [x] tests/fixtures/report_v16_PARTIAL.json
+- [x] tests/mock-sse/channel.ts
+- [x] tests/mock-sse/credit.ts
+- [x] tests/mock-sse/report.ts
+- [x] tests/contract/schema-validate.spec.ts (45/45 PASS)
+- [x] tests/contract/payload-shape.spec.ts (16/16 PASS)
+- [x] tests/e2e/playwright/home-silent.spec.ts (10/10 PASS) ← 第 5 棒
+- [x] tests/e2e/playwright/demo-path-step1-3.spec.ts (1/1 PASS · 3 step 内置) ← 第 5 棒
+- [x] tests/migration/archive-storage.spec.ts (26/26 assertion · 8 case PASS) ← 第 5 棒
+
+附带 (本棒入库 · 非 file checklist 内):
+- tests/e2e/playwright/playwright.config.ts (Playwright config)
+- tests/package.json + tests/package-lock.json (修 + 入库 · per 第 4 棒 gotcha #6 / 第 5 棒决策)
+- .gitignore (加 tests/{test-results,playwright-report,.playwright}/)
+
+### Hidden gotcha 下一棒 (codex review · main session)
+
+1. **Chromium binary 跨 dev 重新拉**: ~112MB 下载 · CI / 新 dev 跑 `cd tests && npm run install:browsers` · 不入库 binary
+2. **Playwright dev server 启动顺序协调**: CI 必须确保 (a) frontend :3210 先 ready (b) mock SSE :8001 后启 (c) smoke 跑完 kill 全部 · 老仓 currently 没 root-level orchestrator · 第 6+ 棒接 CI 时考虑加 scripts/test-orchestrator.sh 或走 GitHub Actions service container
+3. **monorepo workspace 真空**: tests/ 是独立 npm package (name=@liuye/tests-mock-sse) · 没 root-level npm workspaces hoisting · npm install 必 cd tests 跑 · CI matrix 需双 npm install (跨 frontend + tests)
+4. **Playwright headed mode 跨平台**: PLAYWRIGHT_HEADED=1 默认走 Chrome installed · macOS / Linux 需 xvfb-run 或 headed display server · CI 默认 headless · 本地调试 headed 时 console.log [step-budget] 直接打印 stdout
+5. **demo-path-step1-3 Step 3 预算余量**: 当前 W1 skeleton 仅占 8% step3 预算 (1242ms / 15000ms) · 因 frontend 未真接 SSE consumer · 预算余量留 W2-W4 接 messages-shell + EventSource + ranked rows 流式渲染 · 真接后预算 utilization 预计升至 50-70%
+6. **selector EMPTY sentinel 间接验证**: 当前 page.tsx 不消费 useLiuyeStore · 故只能验 console error free · 真断言 store 初始 messages/artifacts/tool_calls 是 Object.frozen sentinel 需要 W2-W4 messages-shell 接入 useLiuyeStore 后 · 升级 spec 加 window.__lib_empty__ probe + page.evaluate 拿 Object.isFrozen 断言
+
+### Blocker
+
+- 无
+
+### ELAPSED min: ~62 (npm install Playwright/jsdom ~3min · Playwright Chromium 1223 binary 下载 ~3min · 3 spec 写 ~22min · playwright.config ~3min · debug font-stack fail + fix ~6min · 跑 5 spec verify + clean up ~12min · progress append + commit 准备 ~13min)
+### Commit SHA: 见 git log 下一行
+### PLAYWRIGHT-PASS: home-silent 10/10 + demo-path-step1-3 1/1 (3 step 内置) · all PASS · Chromium 1.60.0 headless
+### MIGRATION-SPEC: 8 case 26 assertion all PASS · jsdom 25 unit · inline mock impl (W2 frontend 实做后替 import)
+### MOCK-TEST-W1-DELIVERED: 11/11
+### 5原则-PASS: ok (第 2-3 棒已验 · fixture 难度分层 + 脱敏 + 4 字段 + evidence_date · 本棒不动 fixture)
+### 第6原则-PASS: ok (fixture evidence_date + data_tier + freshness SLA 第 2-3 棒已 verify · 本棒覆盖范围 = spec/migration · 不影响)
