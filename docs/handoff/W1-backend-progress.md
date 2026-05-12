@@ -67,4 +67,4 @@
   - orchestrator permission hold state 多 worker 部署 per-worker · Phase 1 单 worker per host 满足 demo · scale-out 时换 Redis backend (interface 已是 dict-shaped · 不破坏调用方)
   - SSE stream skeleton 用 `id: {turn_id}:{seq}` format · 一行带俩 id · EventSource Last-Event-ID 自动 carry · 下一棒 adapter 实现真重连时直接读 last_event_id parse 出 turn_id + seq · 不需 frontend 额外送
 - **ELAPSED min**: ~40 (含 7 件 read + 8 文件 write + 2 smoke test + progress append)
-- **commit SHA**: <fill after commit>
+- **commit SHA**: 6da4fe74c34aa9699eb8085da8c191e9b56228da
