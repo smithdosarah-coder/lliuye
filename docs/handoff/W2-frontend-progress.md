@@ -47,3 +47,51 @@
   - `components/error/FallbackBanner.tsx` (turn.error + 5 fallback 类型 UI · TurnErrorPayload 9 字段全 surface)
   - `components/composer/Composer.tsx` (transition 真做 · center → bottom 360ms · 静默 hero → 工作 hero 420ms · motion-reduce 兼容 · 依 turn_id 状态切 CSS class)
 - **blocker**: 无 (硬 blocker) · 但有 1 个 next-棒 必跟决策点: chunked patch buffer 的 fallback 路径 (chunk_total 不一致 vs gap 触 snapshot 重拉 vs 30s timeout drop · 三种走不同 store action / SSE 端 onSnapshotNeeded · 需第 3 棒做 useChunkedPatch 时统一)
+
+## 2026-05-12 · checkpoint 3 · PermissionRequest minimal 3 + EvidenceRefRow + FallbackBanner + Composer transition + chunked patch wire
+
+- **完成文件** (11/18 累计 · 本棒新建 7 + 改 4 = 12 file mod 中 1 复用 lib/sse/useChunkedPatch.ts replace stub):
+  - `credit_matrix_next/components/permission-request/InlineNotice.tsx` (新 · low risk · 黄底 inline · `role=status` + `aria-live=polite` · 同意/拒绝 CTA · 不阻塞 UI · 122 行)
+  - `credit_matrix_next/components/permission-request/ConfirmModal.tsx` (新 · medium · blocking modal · focus trap grant↔cancel · ESC ≡ deny · backdrop click ≡ deny · auto-focus grant · restore prev focus on unmount · idempotency_key data attr · 220 行)
+  - `credit_matrix_next/components/permission-request/DrawerWithReason.tsx` (新 · high · right drawer 520 · reason textarea 必填 ≥ 5 chars · grant disabled until reason OK · ESC/backdrop ≡ deny w/ empty reason · focus trap textarea→cancel→grant · consequences 列举框 · 305 行)
+  - `credit_matrix_next/components/permission-request/PermissionHost.tsx` (新 · risk_tier 3-way 路由 · 用 usePermissionHold · 未知 tier fallback 走 modal · 41 行 · brief 原 inline 设计拆 hook + host 两文件 · 单一职责)
+  - `credit_matrix_next/components/evidence-attached/EvidenceRefRow.tsx` (新 · freshness 3 chip 绿/黄/红 · data_tier 1-4 badge 中文 T1-T4 · source_url 外链 · evidence_date / retrieved_at YYYY-MM-DD 截取 · excerpt 引用斜体框 · `role=listitem` · 187 行)
+  - `credit_matrix_next/components/error/FallbackBanner.tsx` (新 · 5 fallback kind 中文外显 · `role=status` + `aria-live=polite` · SVG 5 icon inline · optional retry CTA · borderInlineStart 3px 提示条 · 167 行)
+  - `credit_matrix_next/lib/permission/usePermissionHold.ts` (新 · 监听 liuyeStore.permission_request · grant/deny callback 清 store · W2 minimal 仅 console.log · 64 行 · W3 接 POST /api/liuye/permissions/{id}/grant|deny)
+  - `credit_matrix_next/components/composer/Composer.tsx` (改 · transition 真做 · useShallow 多字段 selector · class composer-silent|composer-working + composer-centered|composer-fixed-bottom 复合切换 · data-state / data-position attr 供 Playwright 选择)
+  - `credit_matrix_next/app/globals.css` (扩 · .composer-shell 加 transition 双轴 · 420ms hero · 360ms position · 4 modifier class · motion-reduce 复用末尾 @media wildcard 全局 disable · 不破现有 base style)
+  - `credit_matrix_next/app/page.tsx` (改 · mount PermissionHost · 4 chip + Composer + hero-static 不破)
+  - `credit_matrix_next/lib/sse/useLiuyeBridge.ts` (改 · artifact.patch case 走 useChunkedPatch.onChunk · 不直 store.applyArtifactPatch · hook 顶层调用防 rules-of-hooks 违反 · useEffect dep 加 eslint-disable comment 注 onChunk identity 稳定)
+  - `credit_matrix_next/lib/sse/useChunkedPatch.ts` (替 stub · 175 行真做 · sparse array buffer + chunk_total 收齐 batch apply + chunk_assembly=final force-flush + 30s ARTIFACT_PATCH_CHUNK_TIMEOUT 重置 last-chunk-restart timer + chunk_total inconsistency drop + 非 chunked 直 dispatch 兼容 W1)
+- **commit SHA**: `acaab2d`
+- **关键决策**:
+  - **brief gotcha #1 漂移修正**: 严格不加 case 'tool.error' (第 2 棒已注明 · 本棒确认 generated.ts envelope union 11 event canonical · 写 useChunkedPatch + useLiuyeBridge 改时 tsc 验 0 error)
+  - **PermissionHost 拆出**: brief 原文 "usePermissionHold hook 监听 + 渲染对应 risk_tier 子组件" 是单一职责混淆 (hook 既管 state 又 render JSX 反 react 范式) · 本棒拆 (1) usePermissionHold hook 仅返 {request, onGrant, onDeny} (2) PermissionHost 路由组件按 risk_tier 派发 3 子组件 · 测试更友好
+  - **chunked patch hook 设计**: useRef Map<artifact_id, ChunkBuffer> + last-chunk-restart 30s timer · 每收新 chunk 重置 deadline · 比 first-chunk-fixed 更宽容 (防长 chunk 流被中断) · chunk_total inconsistency 立即 drop buffer + 触 console.warn (W2 minimal · W3 加 onSnapshotNeeded 触发 snapshot 重拉)
+  - **非 chunked 兼容**: useChunkedPatch.onChunk 检 payload.chunk_index + chunk_total 是否 number · 任一缺即非 chunked · 直 dispatch useLiuyeStore.applyArtifactPatch · 不入 buffer · W1 store.applyArtifactPatch 行为不破
+  - **chunk_assembly=final 强 flush**: 即使 chunk_total > received 也 apply (defensive · 防 backend 漏发某 chunk 但 emit final 信号)
+  - **Composer transition 双轴**: 轴 1 hero (silent vs working) 依 turn_id · 420ms · 轴 2 position (centered vs fixed-bottom) 依 inProgress.size · 360ms · 复合 class join · CSS 内部 transition 属性各自独立 · 不互相覆盖 (transform 给 position · opacity / width 给 hero)
+  - **motion-reduce 兼容**: globals.css 末尾原 @media (prefers-reduced-motion: reduce) wildcard 全局 disable · 本棒新加的 transition 自动被抹掉 · 不需重复加 @media block
+  - **inline style 选择 (CSS Modules 互斥)**: CLAUDE.md §3 单组件单 CSS 方案 · 本 6 新组件全走 inline style + var() · 不引 .module.css · 不引 Tailwind utility · 用 CSSProperties type 注静态 style 对象 · 复用 globals.css token (--c-state-warn / --c-radius-md 等)
+  - **PermissionHost 兜底 unknown tier**: switch 默认 case 走 ConfirmModal · 不走 InlineNotice (modal 阻塞 · 防 backend 漂 risk_tier 时用户漏看 PR)
+  - **DrawerWithReason MIN_REASON_CHARS=5**: brief verbatim "需 reason input min 5 chars" · 走 reason.trim().length >= 5 · UI 实时显字数 + grant aria-disabled + disabled · 双层 (UI + JS) 防绕过
+- **gotcha (第 4 棒必跟)**:
+  - **usePermissionHold cleanup**: hook 内仅 useShallow + useCallback · 无 useEffect · 不需 cleanup · 但 ConfirmModal/DrawerWithReason useEffect 内的 document.addEventListener('keydown') 必 return removeEventListener · 否则 modal 关闭后仍捕 ESC 触 deny (已实做 · 第 4 棒 Playwright 验)
+  - **Composer transition focus trap**: composer-fixed-bottom 时 composer 走 position fixed · 若同期开 modal (medium PR) · modal z-index=300 > composer z-index=10 · focus trap 不冲突 · 若 Composer textarea 有 focus + modal 打开 · modal auto-focus grant · modal close 时 restore 到 textarea OK · 测试时第 4 棒手动验 ESC 关 modal 后 focus 回 textarea
+  - **@media motion-reduce wildcard 覆盖**: globals.css 末尾 *,*::before,*::after transition-duration 0.01ms !important 强覆盖所有 transition · OS 设置 reduced motion 时验 (Windows 设置→辅助功能→视觉效果→动画 关闭)
+  - **chunked patch timer 重置语义**: scheduleTimeout 每收新 chunk clearTimeout + setTimeout · 30s "从最近一次 chunk 起算" 而非 "从首 chunk 起算" · brief §3 "首 chunk 到来后 30s 内未收齐 drop" 是 conservative spec · 本实现更宽容 · 第 4 棒做 Playwright 验若需 first-chunk-fixed 改 scheduleTimeout 只在 !buffer.timeoutHandle 时调
+  - **PermissionHost 当无 PR 时返 null**: page.tsx mount PermissionHost 但 store.permission_request undefined 时返 null · DOM 不留任何 host wrapper · 不破 page-shell flex layout (curl 拉 HTML 验 OK · 仅 hero-static + agent-chips + composer-shell 三 section)
+  - **W3 接力 PermissionRequest REST**: 当前 grant/deny 仅 setPermissionRequest(undefined) · backend 续推业务 event 是单方面信任 · W3 接 REST 时要点 (1) idempotency_key 走 request body 防双触 (2) deny 走 reason 字段 (3) 网络 fail 显 FallbackBanner kind=network_offline (4) 不在 hook 内做 RBAC 检 · 走 backend disabled_reason
+- **tsc --noEmit**: 0 error (2 次跑 · baseline + final · 含 12 文件 modified/new)
+- **npm run dev**: ok · localhost:3210 HTTP 200 · turbopack hot-reload pick up 全部新文件 · curl 拉 HTML 验 composer-shell class 链 `composer-shell composer-silent composer-centered` (turn_id undefined + inProgress.size === 0 初始态 OK) · data-state=silent / data-position=centered attr 验 · PermissionHost mount 但无 PR · 返 null · 不破 page layout · backend 8000 未起 · onChipClick 调 startSession 仍 console.error NETWORK_ERROR (acceptable · backend worker 第 4 棒接通)
+- **manual smoke**: 4 chip data-testid 全在 · composer-textarea / composer-submit 全在 · hero-static + sphere 在 · PermissionRequest 子组件需 backend mock event 推 permission.request 才显 (本棒只 mount host · 第 4 棒 Playwright 拼 mock SSE 推 medium PR 验 modal 出现 + ESC 关 + grant 触 store clear)
+- **PRESERVES**: LY-007 / LY-018 / LY-053 / LY-066
+- **NEW-DOM**: data-testid="permission-inline-notice" / permission-confirm-modal / permission-drawer / permission-grant / permission-deny / permission-reason-input / permission-modal-backdrop / permission-drawer-backdrop / fallback-banner / fallback-retry / evidence-ref-row · composer-shell class 复合 + data-state + data-position attr
+- **ELAPSED-MIN**: 38
+- **下一棒 file checklist 预计** (第 4 棒 · 30-45 min):
+  - end-to-end Playwright integration: `e2e/home-silent.spec.ts` (chip 点击 → SSE 接通 → 11 event 真渲)
+  - live SSE 接通: backend worker 第 4 棒接通后 verify · 跑 manual 4 chip → SSE → 11 event 真渲
+  - grant/deny REST endpoint (lib/api/liuye.ts grantPermission / denyPermission · 2 endpoint 加)
+  - PermissionRequest 15 完整子组件留 W3 (本 PR 仅 minimal 3 risk_tier)
+  - VirtualMessageList + messages 38 子类留 W3 (本 PR 不动 messages-shell/)
+- **blocker**: 无 (硬 blocker) · backend BFF 8000 未起是预期 (worker handoff §1 backend 第 4 棒接) · 不阻第 3 棒 frontend skeleton ship
