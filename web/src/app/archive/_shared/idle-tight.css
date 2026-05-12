@@ -229,3 +229,53 @@
   justify-content: flex-start !important;
 }
 
+/* ── C8 · 真痛 #3 真因 · details 类 free-floating drawer 没 .rpt-panel 样式 ──
+ * V2 re-audit 发现: report-truth-first-drawer 是 <details> · 默认浏览器样式
+ *   → 标题下 dt/dd 列表 (Python 计算/资产负债率 等) 视觉裸文字 · 浮在 aside 列内
+ *   = PM 说的"标题外文字气泡框外面"真因
+ * 修: details[class*="-drawer"] 加 panel-like 样式 (border + padding + bg)
+ */
+.v-archive--canon details[class*="-drawer"] {
+  border: 1px solid var(--ink-14) !important;
+  border-radius: var(--r-md) !important;
+  padding: 12px 16px !important;
+  background: color-mix(in srgb, var(--chalk) 88%, transparent) !important;
+  margin-top: 12px !important;
+}
+.v-archive--canon details[class*="-drawer"] > summary {
+  cursor: pointer !important;
+  font-family: var(--cjk) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--ink) !important;
+  list-style: none !important;
+}
+.v-archive--canon details[class*="-drawer"][open] > summary {
+  margin-bottom: 10px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid var(--ink-08) !important;
+}
+.v-archive--canon details[class*="-drawer"] dl {
+  display: grid !important;
+  grid-template-columns: minmax(120px, max-content) 1fr !important;
+  gap: 6px 14px !important;
+  font-size: 12px !important;
+  line-height: 1.55 !important;
+  margin: 0 !important;
+}
+.v-archive--canon details[class*="-drawer"] dt {
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+  margin: 0 !important;
+}
+.v-archive--canon details[class*="-drawer"] dd {
+  margin: 0 !important;
+  color: var(--ink-65) !important;
+}
+.v-archive--canon details[class*="-drawer"] p {
+  margin: 8px 0 0 !important;
+  font-size: 11.5px !important;
+  color: var(--ink-48) !important;
+  font-style: italic !important;
+}
+
