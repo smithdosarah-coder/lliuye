@@ -46,7 +46,7 @@ export default async function AgentWorkspace({
 
   return (
     <div
-      className="v-archive v-archive--canon px-6 py-6 max-w-[1720px] mx-auto"
+      className="v-archive v-archive--canon px-6 py-6 max-w-[1880px] mx-auto"
       data-agent={key}
     >
       <RbacGuard agent={key}>

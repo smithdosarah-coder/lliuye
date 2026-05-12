@@ -177,3 +177,55 @@
   padding: 12px 16px !important;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO 3 二次修 (PM 2026-05-12 03:00 audit · prod 真号 12 张截图)
+ * 4 真因 (其中 #1 误判 wb 实隐藏 · 实修 3 项)
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* ── C5 · 真痛 #2 · ground gradient 下半露出大空白 ──
+ * shell.css max-width: 1480 → 1920 (已改 · 修右 30% 空)
+ * 但短 page workspace 下方 ground gradient (米黄→橙红→墨绿) 仍露出
+ * 修: archive 容器自带 bg · 盖 body gradient · 跟 panel chalk 同色
+ */
+.v-archive--canon {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--chalk) 92%, transparent) 240px,
+    color-mix(in srgb, var(--chalk) 96%, transparent) 100%) !important;
+  border-radius: var(--r-lg) !important;
+}
+
+/* ── C6 · 真痛 #3 · panel 内长 LLM 输出溢出 panel 边界 ──
+ * report-running.png 看到 "DeepSeek 真接·真就推..." 灰段浮在 panel 框外
+ * 真因: panel-body 无 word-break · 长字符串 (e.g. URL · 引用) 撑破
+ * 修: 全 panel-body word-break · 防溢出
+ */
+.v-archive--canon .rpt-panel-body,
+.v-archive--canon .rpt-panel__body,
+.v-archive--canon [class*="-panel-body"],
+.v-archive--canon [class*="panel__body"],
+.v-archive--canon section[class*="rpt-panel"] > *:not(.rpt-panel-head):not(.rpt-panel__head) {
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  hyphens: auto !important;
+}
+
+/* ── C7 · 真痛 #4 · 4 占位卡 grid 2x2 高度参差 (credit 最明显) ──
+ * C4 强 2x2 grid · 但 auto-rows 跟内容走 · 部分卡有数据撑高 · 部分空
+ * 修: grid-auto-rows: 1fr · 行等高
+ */
+.v-archive--canon [class*="-placeholders"],
+.v-archive--canon [data-testid$="-skeleton-panels"],
+.v-archive--canon [data-testid$="-empty-skeleton-panels"] {
+  grid-auto-rows: 1fr !important;
+}
+.v-archive--canon [class*="-placeholders"] > *,
+.v-archive--canon [data-testid$="-skeleton-panels"] > *,
+.v-archive--canon [data-testid$="-empty-skeleton-panels"] > * {
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
