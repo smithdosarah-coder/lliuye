@@ -1,0 +1,41 @@
+[Unit]
+Description=Liuye Outbox Retry Worker (ledger silent-fail 60s 重试 · v3 §5.x + 附录 C.fallback)
+Documentation=https://github.com/za-tech/credit_report_agent_work/blob/main/docs/contracts/liuye-architecture.md
+After=network.target liuye-service.service
+Wants=liuye-service.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/admin/lliuye
+ExecStart=/usr/bin/python3 -m liuye_service.workers.outbox_retry
+# W2-backend 第 4 棒 verify (PM 2026-05-12): align to brief §4 file 1 +
+# W1 backend brief §4.7 — outbox 失败重启 60s 节流配合自身 60s scan 间隔,
+# 不需要 always·10s 的紧迫重启。Restart=on-failure 仅在异常退出时拉起。
+Restart=on-failure
+RestartSec=60s
+User=admin
+Group=admin
+
+# Outbox 存储路径 (默认 /home/admin/lliuye/data/liuye/outbox/*.json)
+# 任何 ledger / audit / artifact write 失败的 event drop 到此 · 60s 轮询重试
+Environment=LIUYE_OUTBOX_DIR=/home/admin/lliuye/data/liuye/outbox
+# 重试 5 次失败转 dead-letter · 人工 review (per v3 §5.x + W1-backend §4.7)
+Environment=LIUYE_DEADLETTER_DIR=/home/admin/lliuye/data/liuye/dead-letter
+# 重试间隔 (秒, exponential backoff 60/120/240/480/960 · per v3 §5.x + liuye_service/CLAUDE.md §7)
+Environment=LIUYE_OUTBOX_BACKOFF_SEC=60,120,240,480,960
+# 单次最大重试次数 (超后进 dead-letter, per v3 §5.x: 5 次)
+Environment=LIUYE_OUTBOX_MAX_RETRY=5
+# 日志路径
+Environment=LIUYE_LOG_DIR=/home/admin/lliuye/var/log
+
+# 资源限制 (防止 outbox 暴涨拖垮 ECS)
+MemoryMax=512M
+CPUQuota=20%
+
+# 日志 → journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=liuye-outbox
+
+[Install]
+WantedBy=multi-user.target

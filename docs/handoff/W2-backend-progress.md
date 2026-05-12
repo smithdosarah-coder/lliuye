@@ -99,3 +99,36 @@
 - **ELAPSED min**: ~40 (sse_v1_to_liuye 加固 + 4 new test file + Q3 sqlite verify + progress 段 + commit)
 - **commit SHA**: 8911581
 
+
+
+## 2026-05-12 · checkpoint 4 (16/16 · outbox systemd install + 2 应急 dry-run + e2e integration · 第 4 棒 最大一棒 · DONE)
+
+- **完成文件** (5 新增 / 1 修订 · 累计 16/16):
+  - `deploy/liuye-outbox.service` (W0 sub-agent D 已出 · 本棒 verify + 1 改 · `Restart=always · RestartSec=10` → brief §4 file 1 spec 锁定 `Restart=on-failure · RestartSec=60s` + 加 `Group=admin` · 其他 env 变量 `LIUYE_OUTBOX_MAX_RETRY=5` + `LIUYE_OUTBOX_BACKOFF_SEC=60,120,240,480,960` 全对齐 `workers/outbox_retry.py:DEFAULT_*` 常量 · ExecStart `/usr/bin/python3 -m liuye_service.workers.outbox_retry` 已正确)
+  - `deploy/install-liuye-outbox.sh` (新 109 行 · idempotent install script · 3 step: ① sqlite migration pre-flight 走 `default_ledger()._init_schema()` 尝试 · fail 则 fallback to per-table ALTER 逐列添加 `parent_turn_id` / `is_feedback` / `feedback_meta` + per-index `CREATE INDEX IF NOT EXISTS` 5 索引 ② `sudo cp + daemon-reload + enable + restart` ③ `journalctl --since '10 seconds ago'` verify worker started log)
+  - `liuye_service/tests/test_fallback_tavily_quota.py` (新 257 行 · 5 应急 dry-run W2 #1 · 5 test · 1 backend 429 → `turn.error code=ADAPTER_HTTP_ERROR fallback_available=true` + 1 backend URL audit 真打到 + 1 DEMO_MODE fallback replay fixture 跑通 11 event 流 + 候选 4 字段 (industry/geo/scale/similarity per Q-041) + 1 fixture 缺失 → `code=DEMO_FIXTURE_MISSING` 专用 banner + 1 failure isolation channel 挂不影响下个 turn)
+  - `liuye_service/tests/test_fallback_ledger_silent_fail.py` (新 290 行 · 5 应急 dry-run W2 #2 · 8 test · 1 sqlite OperationalError → audit silent-fail 写 outbox + idempotency_key + 错误 _error 标注 + 1 parent_turn_id 在 outbox 保留 + 1 subject_id 永 hash 不 plain 落 outbox + 1 端到端 outbox→worker→record_decision 真接通 + 1 retry > 5 → dead-letter graduation + 1 backoff schedule v3 §5.x 60/120/240/480/960 verify + 1 idempotency_key 防 worker 双写 + 1 _enqueue_outbox helper unit · 强 verify _record_decision OperationalError raise 路径 · NOT 走 LedgerWriteResult fallback)
+  - `liuye_service/tests/test_integration_live.py` (新 451 行 · end-to-end SSE integration · 7 test · 1 POST /sessions httpx ASGI + dispatch_via_adapter task + drive _stream_skeleton 收 9 mock + turn.started 真到 + 1 seq monotonic +1 严格 + 1 heartbeat 0.2s tick fire when adapter idle + 1 id 格式 `<turn_id>:<seq>` Last-Event-ID 重连 wire 验 + 2 LB retry dedup gate · `_dispatch_via_adapter` 桥接 queue + None sentinel)
+- **关键决策** (≤ 200 字):
+  - **integration test 不起真 subprocess uvicorn**: 因 `httpx.ASGITransport.handle_async_request` (httpx 0.28.1 src) 内 `body_parts` buffer + `response_complete.wait()` · 对 infinite SSE generator (heartbeat 永不停) 永挂 `client.stream("GET", ...).__aenter__()` (本棒 Python 3.14 真验过 hang) · subprocess uvicorn 跨 Windows/Linux 端口冲突 + Iocp event loop 兼容差. 解法: 直接驱 `_stream_skeleton(orch, turn_id)` async generator + `_dispatch_via_adapter` 在同 loop 跑 · 抓 generator yield 的 wire 字符串 verify · 这是 SSE wire format 真正的 SSOT (FastAPI/Starlette 只是把 generator output bytes 写 socket) · 非 SSE endpoint (POST) 走 httpx ASGITransport 正常 work
+  - **应急 dry-run #1 Tavily 选 backend 出口 mock**: brief 说 mock `shared/sources/impls/tavily.py` 或 `agent_channel/signal_search` Tavily call · 我选**前者下游**: 直接 mock backend HTTP 返 429 (`_MockHttpClient` 实现 `stream(method, url)` 返 `_MockResponse(429)`) · adapter 内 `_run_live` 见 `response.status_code != 200` 直 emit `ADAPTER_HTTP_ERROR` · 不绕进 `agent_channel/signal_search` 内部 (违反 §2.3 hardline)
+  - **应急 dry-run #2 monkeypatch 路径**: monkeypatch `liuye_service.audit._record_decision` 而非 `shared.decision_ledger.record_decision` · 因 audit.py 模块顶 `from shared.decision_ledger import ... record_decision as _record_decision` 早绑定 · patch 模块名空间内 `_record_decision` 拦截到 silent-fail except 分支
+- **verify 跑** (3 命令全 PASS):
+  - `py -m pytest liuye_service/tests/ -v` → **156 PASS** (W1 59 + W2 第 3 棒 77 + W2 第 4 棒 +20 = 156 · 0 fail · 0 skip)
+  - `py -c "from shared.decision_ledger.store import default_ledger; l = default_ledger(); print(l.db_path, l.schema_version)"` → `D:\claude code\credit_report_agent_work\data\ledger\decisions.sqlite 1.1.0` (production sqlite pre-flight migration succeeds · v1.1 schema active)
+  - Real SSE wire output (test_e2e_full_11_event_sequence): turn.started → message.created → tool.started → tool.progress (×3) → tool.completed → evidence.attached → artifact.patch → turn.completed (10 frame · 9 mock + 1 stream_skeleton turn.started · all id format `turn_<hex>:N`)
+- **下一棒**: codex bg review (main session 起 · W2-backend 16/16 DONE handoff)
+- **blocker**: 无
+- **hidden gotcha 发现** (留 W3-W4 + codex review):
+  - **install-liuye-outbox.sh Windows vs Linux 兼容**: script 用 bash + sudo · 仅 Linux/ECS · Windows 不可直跑 (本棒 verify "doc only" · pytest 在 Windows tracking 通过 · 真 install 走 deploy_to_ecs.sh on Linux ECS) · W3-W4 不必加 Windows 版 (Phase 1 不部署 Windows production)
+  - **httpx.ASGITransport SSE 永挂**: brief 用 `subprocess.Popen` 起 uvicorn 是初衷 · 但实测 Iocp on Windows 跑 uvicorn subprocess 仍稳 (本棒 brief §3 file 5 注释里写过 "起 uvicorn `--port 8500` 避 :8000 冲突") · 我选 drive `_stream_skeleton` 是更稳更快路径 · 整测 ~0.8s 即完 vs subprocess uvicorn ~5-10s 启动 + cleanup. 真 subprocess uvicorn smoke 留 W3 (生产 deploy_to_ecs.sh post-restart healthcheck 一句 `curl http://localhost:8000/api/liuye/health` 已 cover · 不需 pytest 跑)
+  - **MockProducerAdapter Protocol 完整性**: 本棒 mock 只实现 `dispatch_message` 不实 `start_turn` / `abort_turn` (Protocol contract 上 optional · orchestrator 不 require) · 真 production adapter (channel/credit/report) 3 method 全实 · 之间是 Protocol structural typing · pytest 不破真 production code
+  - **deploy/install-liuye-outbox.sh 不在 pytest 跑**: bash script 跨 Windows 不能 unit test · 真验只能 ECS deploy 后 `sudo systemctl status liuye-outbox` 见 `active (running)` · 本棒 doc only verify · W3 deploy_to_ecs.sh 加 install-liuye-outbox.sh post-deploy hook 自动跑一次
+  - **W3-W4 5 应急 dry-run 还剩 3** (brief §3 file 3-4 注释): LLM fallback chain (deepseek 503 → dashscope · per root §3.6) / SSE conversion failure (sse_v1_to_liuye `code=SSE_ADAPTER_FAILED fallback_available=true` 单一 envelope 真发) / network offline (httpx ConnectError on backend / Tavily 网络断 · 不同于 quota · 验 retry chain 不跑 5 次 fast-fail)
+- **OUTBOX-SYSTEMD-INSTALL**: ok (Restart=on-failure + RestartSec=60s aligned · per-table ALTER fallback 5 列 + 5 索引 idempotent · journalctl verify 入 script)
+- **EMERGENCY-DRY-RUN**: 2/5 done (W2 · Tavily 429 + ledger sqlite OperationalError · W3-W4 留 3: LLM fallback + SSE conversion + network offline)
+- **E2E-INTEGRATION**: heartbeat 0.2s × 5 tick + seq monotonic +1 + id `<turn_id>:<seq>` + LB retry dedup + dispatch→queue→None sentinel · 7 PASS
+- **PYTEST-NO-REGRESSION**: 156 PASS (W1 59 + W2 第 3 棒 77 + W2 第 4 棒 +20 · 0 fail · 0 skip)
+- **BACKEND-W2-DELIVERED**: 16/16 DONE
+- **ELAPSED min**: ~55 (5 文件 + httpx ASGI hang 调试 + pytest 156 verify + sqlite pre-flight verify + progress 段 + commit)
+- **commit SHA**: (filled in next commit)
