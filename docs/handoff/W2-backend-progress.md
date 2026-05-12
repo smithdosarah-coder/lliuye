@@ -96,6 +96,6 @@
 - **PERMISSIONS-3-TIER-LIVE**: ok (12 risk_tier registry / 4 idem gate / 2 emit wire / 4 grant / 2 deny / 3 真触 LE-04a + A3-NEW + LE-05)
 - **ORCHESTRATOR-QUEUE-WIRED**: ok (maxsize 256 default + 256 idempotent get_or_create + None sentinel close + 1 backpressure test producer blocks)
 - **PYTEST-NO-REGRESSION**: 136 PASS (W1 59 baseline 不破 + 77 W2 新加)
-- **ELAPSED min**: ~40 (sse_v1_to_liuye 加固 + 3 new test file + Q3 sqlite verify + progress 段 + commit)
-- **commit SHA**: <填充 commit 后回写>
+- **ELAPSED min**: ~40 (sse_v1_to_liuye 加固 + 4 new test file + Q3 sqlite verify + progress 段 + commit)
+- **commit SHA**: 8911581
 
