@@ -176,5 +176,5 @@
 - 无
 
 ### ELAPSED min: ~28 (起手 read 6 文件 verify schema PermissionRequestEventPayload + W2-frontend brief testid contract + 第 2 棒 spec head + 第 2 棒 progress + payload-shape.spec.ts; 写 3 fixture + 扩 spec step 8-9; tsc + ajv 双验; 写 progress + commit 准备)
-### Commit SHA: (本 commit · git log 下一行)
+### Commit SHA: d461719
 
