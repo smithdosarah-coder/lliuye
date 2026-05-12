@@ -1,0 +1,515 @@
+{
+  "id": "art_report_v16_PARTIAL_w1_mock",
+  "schema_version": "1",
+  "type": "report_draft",
+  "status": "resolved",
+  "source_tool_call_id": "tc_report_w1_mock_chenfeng_v16",
+  "owner_agent": "report",
+  "title": "W1 mock · v16 报告草稿 PARTIAL · 晨锋新能源汽车零部件(脱敏) · 引用 credit_decision_PASS · ≥1 未能自动填写",
+  "version": 9,
+  "patches": [
+    {
+      "id": "patch_w1rp_v1",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/snapshot/header",
+      "value": {
+        "subject_name": "晨锋新能源汽车零部件有限公司",
+        "subject_id_hash": "5f8a3c1d2e9b6047",
+        "template_id": "tmpl_corp_credit_v16_2026q2",
+        "report_id": "report_v16_w1m_chenfeng_001",
+        "pipeline_version": "v16",
+        "generated_at": "2026-05-12T01:38:00Z",
+        "linked_credit_artifact_id": "art_credit_decision_PASS_w1_mock",
+        "linked_channel_candidate_id": "cand_easy_chenfeng_evparts"
+      },
+      "ts": "2026-05-12T01:38:02Z"
+    },
+    {
+      "id": "patch_w1rp_v2",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "replace",
+      "path": "/snapshot/pipeline_progress",
+      "value": {
+        "current_stage": "ingest",
+        "stage_index": 1,
+        "stage_total": 5,
+        "percent": 12,
+        "stage_label": "材料解析"
+      },
+      "ts": "2026-05-12T01:38:05Z"
+    },
+    {
+      "id": "patch_w1rp_v3",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "replace",
+      "path": "/snapshot/classification",
+      "value": {
+        "elements_total": 246,
+        "by_op": {"PRESERVE": 96, "FILL": 118, "REWRITE": 24, "CLEAR": 8},
+        "by_label": {"SCAFFOLD": 52, "PRESERVE": 44, "FILL": 92, "CLEAR": 8, "SLOT": 26, "CHECKBOX": 15, "REWRITE": 9}
+      },
+      "ts": "2026-05-12T01:38:22Z"
+    },
+    {
+      "id": "patch_w1rp_v4_chunk0",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 3,
+      "next_version": 4,
+      "op": "append",
+      "path": "/snapshot/sections",
+      "value": {
+        "id": "chapter_1_background",
+        "title": "一、企业背景",
+        "status": "streaming",
+        "word_count": 0,
+        "evidence_ids": ["ev_w1m_chenfeng_aic_2026q1", "ev_w1m_chenfeng_audit_2024"],
+        "body_chunks": []
+      },
+      "ts": "2026-05-12T01:38:38Z",
+      "chunk_index": 0,
+      "chunk_total": 3,
+      "chunk_assembly": "streaming"
+    },
+    {
+      "id": "patch_w1rp_v5_chunk1",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 4,
+      "next_version": 5,
+      "op": "append",
+      "path": "/snapshot/sections/0/body_chunks",
+      "value": {
+        "chunk_seq": 0,
+        "text": "晨锋新能源汽车零部件有限公司成立于 2014 年 9 月 · 注册资本人民币 8,500 万元 · 实缴 7,200 万元 · 法定代表人黄启明 · 注册地江苏省常州市新北区 · 主营新能源汽车电驱壳体、电池托盘结构件设计加工销售。截至 2024 年末公司员工 412 人 · 其中研发人员 67 人 · 占比 16.3%。"
+      },
+      "ts": "2026-05-12T01:38:46Z",
+      "chunk_index": 1,
+      "chunk_total": 3,
+      "chunk_assembly": "streaming"
+    },
+    {
+      "id": "patch_w1rp_v6_chunk2",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 5,
+      "next_version": 6,
+      "op": "append",
+      "path": "/snapshot/sections/0/body_chunks",
+      "value": {
+        "chunk_seq": 1,
+        "text": "公司隶属汽车制造业(C36) · 下游主要为新能源整车厂(比亚迪/广汽埃安等已公开披露的脱敏案例形态) 。2022-2024 年营业收入分别为 2.84 / 3.62 / 4.41 亿元 · 复合增长率 24.6% · 显著高于同业中位 7.8%。主要客户集中度 CR5 = 47.2% · 客户结构相对集中(汽车零部件赛道行业特征)。"
+      },
+      "ts": "2026-05-12T01:38:53Z",
+      "chunk_index": 2,
+      "chunk_total": 3,
+      "chunk_assembly": "final"
+    },
+    {
+      "id": "patch_w1rp_v7",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 6,
+      "next_version": 7,
+      "op": "replace",
+      "path": "/snapshot/sections/0/status",
+      "value": "resolved",
+      "ts": "2026-05-12T01:39:02Z"
+    },
+    {
+      "id": "patch_w1rp_v8",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 7,
+      "next_version": 8,
+      "op": "merge",
+      "path": "/snapshot/pipeline_progress",
+      "value": {
+        "current_stage": "audit",
+        "stage_index": 5,
+        "stage_total": 5,
+        "percent": 100,
+        "stage_label": "质量复核"
+      },
+      "ts": "2026-05-12T01:39:48Z"
+    },
+    {
+      "id": "patch_w1rp_v9",
+      "artifact_id": "art_report_v16_PARTIAL_w1_mock",
+      "base_version": 8,
+      "next_version": 9,
+      "op": "replace",
+      "path": "/snapshot/qc_gate",
+      "value": {
+        "verdict": "PARTIAL",
+        "dimensions_passed": 7,
+        "dimensions_total": 9,
+        "blocked_dimensions": ["financial_consistency", "external_anchor_coverage"]
+      },
+      "ts": "2026-05-12T01:39:55Z"
+    }
+  ],
+  "snapshot": {
+    "header": {
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "subject_id_hash": "5f8a3c1d2e9b6047",
+      "template_id": "tmpl_corp_credit_v16_2026q2",
+      "report_id": "report_v16_w1m_chenfeng_001",
+      "pipeline_version": "v16",
+      "generated_at": "2026-05-12T01:38:00Z",
+      "linked_credit_artifact_id": "art_credit_decision_PASS_w1_mock",
+      "linked_channel_candidate_id": "cand_easy_chenfeng_evparts"
+    },
+    "pipeline_progress": {
+      "current_stage": "audit",
+      "stage_index": 5,
+      "stage_total": 5,
+      "percent": 100,
+      "stage_label": "质量复核",
+      "stage_log": [
+        {
+          "stage_key": "ingest",
+          "stage_label": "材料解析",
+          "started_at": "2026-05-12T01:38:05Z",
+          "ended_at": "2026-05-12T01:38:22Z",
+          "status": "done",
+          "input_summary": "6 文件: 2 份审计报告 docx · 1 份税务申报 xlsx · 1 份银行流水 pdf · 1 份政策文件 docx · 1 份招投标说明 pdf"
+        },
+        {
+          "stage_key": "extract",
+          "stage_label": "字段抽取",
+          "started_at": "2026-05-12T01:38:22Z",
+          "ended_at": "2026-05-12T01:38:35Z",
+          "status": "done",
+          "fields_extracted": 92,
+          "fields_total": 118
+        },
+        {
+          "stage_key": "infer",
+          "stage_label": "结构推断",
+          "started_at": "2026-05-12T01:38:35Z",
+          "ended_at": "2026-05-12T01:38:38Z",
+          "status": "done",
+          "rewrite_groups": 9,
+          "body_gaps_detected": 4
+        },
+        {
+          "stage_key": "write",
+          "stage_label": "段落生成",
+          "started_at": "2026-05-12T01:38:38Z",
+          "ended_at": "2026-05-12T01:39:32Z",
+          "status": "done",
+          "sections_generated": 4,
+          "evidence_grounded": 5,
+          "phase": "Evidence-First 三阶段 (汇集→Grounded 生成→自审)"
+        },
+        {
+          "stage_key": "audit",
+          "stage_label": "质量复核",
+          "started_at": "2026-05-12T01:39:32Z",
+          "ended_at": "2026-05-12T01:39:55Z",
+          "status": "done",
+          "qc_dimensions_total": 9,
+          "qc_dimensions_passed": 7,
+          "qc_verdict": "PARTIAL"
+        }
+      ]
+    },
+    "classification": {
+      "elements_total": 246,
+      "by_op": {"PRESERVE": 96, "FILL": 118, "REWRITE": 24, "CLEAR": 8},
+      "by_label": {"SCAFFOLD": 52, "PRESERVE": 44, "FILL": 92, "CLEAR": 8, "SLOT": 26, "CHECKBOX": 15, "REWRITE": 9}
+    },
+    "sections": [
+      {
+        "id": "chapter_1_background",
+        "title": "一、企业背景",
+        "status": "resolved",
+        "word_count": 318,
+        "evidence_ids": ["ev_w1m_chenfeng_aic_2026q1", "ev_w1m_chenfeng_audit_2024"],
+        "body": "晨锋新能源汽车零部件有限公司成立于 2014 年 9 月 · 注册资本人民币 8,500 万元 · 实缴 7,200 万元 · 法定代表人黄启明 · 注册地江苏省常州市新北区 · 主营新能源汽车电驱壳体、电池托盘结构件设计加工销售。截至 2024 年末公司员工 412 人 · 其中研发人员 67 人 · 占比 16.3%。公司隶属汽车制造业(C36) · 下游主要为新能源整车厂(脱敏案例形态)。2022-2024 年营业收入分别为 2.84 / 3.62 / 4.41 亿元 · 复合增长率 24.6% · 显著高于同业中位 7.8%。主要客户集中度 CR5 = 47.2% · 客户结构相对集中(汽车零部件赛道行业特征)。实际控制人黄启明持股 58.9% · 一致行动人持股合计 73.4% · 股权清晰且控制权稳定。最近三年无重大股权变动(查询全国企业信用信息公示系统 2026-04-30)。**未能自动填写**：股东个人涉诉历史明细 · 建议客户经理上会前补查中国裁判文书网。"
+      },
+      {
+        "id": "chapter_2_operation",
+        "title": "二、经营情况",
+        "status": "resolved",
+        "word_count": 396,
+        "evidence_ids": ["ev_w1m_chenfeng_audit_2024", "ev_w1m_chenfeng_tender_2026q1"],
+        "body": "公司主营业务收入由 2022 年 2.84 亿元增至 2024 年 4.41 亿元 · 复合增长率 24.6%。其中电驱壳体业务占比 64.8% · 电池托盘结构件占比 29.3% · 维保服务占比 5.9%。产能利用率从 2022 年 68.4% 提升至 2024 年 87.2% · 显示订单饱和度持续提升。供应链方面前五大供应商集中度 CR5 = 38.4% · 主要原材料(高强度钢/铝合金)采购账期 60-90 天 · 应付账款周转天数 78 天。客户端账期 90-150 天 · 应收账款周转天数 124 天 · 高于同业中位 92 天约 32 天。截至 2026 年 3 月 · 在手订单金额 1.86 亿元 · 覆盖未来 5-6 个月产能(参考 2026Q1 招投标公告 evidence_date 2026-04-22)。**未能自动填写**：2025 年订单具体明细(建议客户提供 2025 年合同台账以便复核应收账款结构)。"
+      },
+      {
+        "id": "chapter_3_finance",
+        "title": "三、财务分析",
+        "status": "resolved",
+        "word_count": 542,
+        "evidence_ids": ["ev_w1m_chenfeng_audit_2024", "ev_w1m_chenfeng_tax_2024", "ev_w1m_chenfeng_pbc_industry_2026q1"],
+        "body": "**确定性财务指标**(由 financial_analyzer.py 计算 · 非 LLM 估算):\n- 资产负债率 52.0%(2024) · 较 2023 年 54.7% 下降 2.7pp · 低于同业中位 56.0%\n- 流动比率 1.68(2024) · 速动比率 1.18 · 短期偿债能力良好\n- 净利率 9.2%(2024) · 较 2023 年 8.1% 提升 1.1pp · 高于同业中位 7.8%(C36 央行行业景气数据 2026-03-29)\n- 应收账款周转天数 124 天 · 高于同业中位 92 天 32 天 · 关注客户账期长 + 集中度风险\n- 经营性现金流净额 / 净利润 = 1.12(2024) · 现金流质量较好\n\n**风险点**: 2024 年研发投入资本化比例 22.4% · 较同业中位 18.2% 略高 · 需关注研发项目实际转化。应收账款周转高于同业 · 客户账期长 + 集中度高(CR5 47.2%) · 需贷后季度跟踪。\n\n**未能自动填写**：2025Q1 财务数据(客户暂未提供 2025Q1 审计/管理层报表) · 建议上会前由客户经理补充提供。\n\n注: 全部财务比率由 financial_analyzer.py 基于审计报告原始数字计算 · LLM 不参与计算 · 满足确定性 vs 概率性硬隔离(CLAUDE.md §3.1)。",
+        "financial_metrics": {
+          "debt_ratio_2024": {
+            "value": 0.520,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "current_ratio_2024": {
+            "value": 1.68,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "quick_ratio_2024": {
+            "value": 1.18,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "net_margin_2024": {
+            "value": 0.092,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "ar_turnover_days_2024": {
+            "value": 124,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "ocf_to_net_income_2024": {
+            "value": 1.12,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_audit_2024",
+            "data_tier": 1,
+            "source_tier": "internal",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "rd_capitalization_ratio_2024": {
+            "value": 0.224,
+            "evidence_date": "2024-12-31",
+            "evidence_id": "ev_w1m_chenfeng_tax_2024",
+            "data_tier": 2,
+            "source_tier": "regulator",
+            "freshness": "fresh",
+            "freshness_days": 132
+          },
+          "industry_net_margin_median_2026q1": {
+            "value": 0.078,
+            "evidence_date": "2026-03-29",
+            "evidence_id": "ev_w1m_chenfeng_pbc_industry_2026q1",
+            "data_tier": 2,
+            "source_tier": "regulator",
+            "freshness": "fresh",
+            "freshness_days": 44
+          }
+        },
+        "tier_cross_check": {
+          "internal_tier_1_count": 6,
+          "regulator_tier_2_count": 2,
+          "industry_tier_3_count": 0,
+          "web_tier_4_count": 0,
+          "cross_tier_2_3_used": true,
+          "tier_4_single_source_violation": false,
+          "policy": "推荐核心理由禁用 Tier 4 单一来源 · 必交叉 Tier 2-3 (CLAUDE.md §3.5.1)"
+        }
+      },
+      {
+        "id": "chapter_4_conclusion",
+        "title": "四、审批意见",
+        "status": "resolved",
+        "word_count": 196,
+        "evidence_ids": ["ev_w1m_chenfeng_audit_2024", "ev_w1m_chenfeng_pbc_industry_2026q1"],
+        "body": "**初步意见(待审贷会审议)**: 建议**批准**对晨锋新能源汽车零部件有限公司发放对公流动资金贷款 3,200 万元 · 期限 36 个月 · 利率 4.70% · 还款方式按月付息到期还本。担保方式建议房产抵押(估值 1.4 倍覆盖)。\n\n**关键依据**(引用 Agent3 授信决策 art_credit_decision_PASS_w1_mock 评分 B 级 75 分):\n1. 财务结构稳健 · 资产负债率低于同业 4.0pp · 现金流质量良好\n2. 行业景气度回暖(2026Q1 C36 央行行业景气数据 2026-03-29 fresh evidence)\n3. 无红线触发 · 股权清晰 · 实控人稳定 · 净利率高于同业中位 1.4pp\n\n**关注事项**:\n- 应收账款周转天数高于同业中位 32 天 · 建议贷后每季度提供应收账款账龄表\n- 客户集中度 CR5 47.2% 偏高 · 关注大客户回款风险\n- **未能自动填写**：股东个人涉诉历史明细 + 2025Q1 财务数据 · 上会前由客户经理人工补充"
+      }
+    ],
+    "report_json": {
+      "schema_version": "v16",
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "subject_id_hash": "5f8a3c1d2e9b6047",
+      "template_id": "tmpl_corp_credit_v16_2026q2",
+      "section_count": 4,
+      "field_completeness": 0.78,
+      "fields_filled": 92,
+      "fields_total": 118,
+      "fields_pending": [
+        {
+          "field_id": "shareholder_litigation_history",
+          "section_id": "chapter_1_background",
+          "reason": "AIC 公示系统无个人涉诉数据 · 需 RM 上会前补查裁判文书网",
+          "marker": "未能自动填写"
+        },
+        {
+          "field_id": "order_detail_2025",
+          "section_id": "chapter_2_operation",
+          "reason": "客户未提供 2025 合同台账 · 影响应收账款结构复核",
+          "marker": "未能自动填写"
+        },
+        {
+          "field_id": "financial_2025_q1",
+          "section_id": "chapter_3_finance",
+          "reason": "客户暂未提供 2025Q1 审计/管理层报表 · 用 2024 年报口径作基准",
+          "marker": "未能自动填写"
+        }
+      ],
+      "evidence_rate": 0.91,
+      "hallucination_check": "passed",
+      "pending_tags": [
+        {
+          "location": "chapter_1_background::shareholder_litigation_history",
+          "label": "FILL",
+          "marker": "未能自动填写",
+          "guidance": "查询股东黄启明个人征信 + 中国裁判文书网"
+        },
+        {
+          "location": "chapter_2_operation::order_detail_2025",
+          "label": "FILL",
+          "marker": "未能自动填写",
+          "guidance": "请客户提供 2025 年签约合同台账"
+        },
+        {
+          "location": "chapter_3_finance::financial_2025_q1",
+          "label": "FILL",
+          "marker": "未能自动填写",
+          "guidance": "请客户提供 2025Q1 审计或管理层报表"
+        }
+      ]
+    },
+    "qc_gate": {
+      "verdict": "PARTIAL",
+      "dimensions_passed": 7,
+      "dimensions_total": 9,
+      "blocked_dimensions": ["financial_consistency", "external_anchor_coverage"],
+      "details": {
+        "field_completeness": {"score": 0.78, "passed": false, "threshold": 0.85, "note": "3 字段 pending · 含 2025Q1 财务数据"},
+        "evidence_rate": {"score": 0.91, "passed": true, "threshold": 0.90},
+        "hallucination_rate": {"score": 0.02, "passed": true, "threshold": 0.05},
+        "financial_consistency": {"score": 0.82, "passed": false, "threshold": 0.95, "note": "2024 净利率与原始审计报告口径误差 0.2pp · 需复核合并/母公司口径"},
+        "regulatory_terminology": {"score": 0.94, "passed": true, "threshold": 0.90},
+        "internal_score_vs_human": {"score": 0.87, "passed": true, "threshold": 0.85},
+        "evidence_freshness": {"score": 0.88, "passed": true, "threshold": 0.85, "note": "全部 evidence_date ≤ 132d · 满足财报 120d SLA · 行业 fresh"},
+        "external_anchor_coverage": {"score": 0.74, "passed": true, "threshold": 0.70, "note": "2026Q1 央行行业景气 + 招投标公告 + 税务申报 3 Tier 2 锚定"},
+        "section_structure_integrity": {"score": 1.0, "passed": true, "threshold": 0.95}
+      },
+      "qc_9_dim_axis_note": "本 axis 是报告文本质量审计 9 维 (per quality_scorer.py · CLAUDE.md §5.1 通用评估) · 与 agent_credit 4 维评分 (financial/industry/operational/guarantee) 不交叉 · 后者见 art_credit_decision_PASS_w1_mock"
+    },
+    "evidence_summary": {
+      "ev_w1m_chenfeng_aic_2026q1": {
+        "evidence_id": "ev_w1m_chenfeng_aic_2026q1",
+        "evidence_date": "2026-04-30",
+        "data_tier": 2,
+        "source_tier": "regulator",
+        "freshness": "fresh",
+        "freshness_days": 12,
+        "source_url_redacted": "https://www.gsxt.gov.cn/...(脱敏)",
+        "claim_type": "registration_record"
+      },
+      "ev_w1m_chenfeng_audit_2024": {
+        "evidence_id": "ev_w1m_chenfeng_audit_2024",
+        "evidence_date": "2024-12-31",
+        "data_tier": 1,
+        "source_tier": "internal",
+        "freshness": "fresh",
+        "freshness_days": 132,
+        "source_doc": "审计报告_2024_脱敏.docx",
+        "claim_type": "financial"
+      },
+      "ev_w1m_chenfeng_tender_2026q1": {
+        "evidence_id": "ev_w1m_chenfeng_tender_2026q1",
+        "evidence_date": "2026-04-22",
+        "data_tier": 2,
+        "source_tier": "regulator",
+        "freshness": "fresh",
+        "freshness_days": 20,
+        "source_doc": "招投标公告_2026q1_脱敏.pdf",
+        "claim_type": "bidding"
+      },
+      "ev_w1m_chenfeng_tax_2024": {
+        "evidence_id": "ev_w1m_chenfeng_tax_2024",
+        "evidence_date": "2024-12-31",
+        "data_tier": 2,
+        "source_tier": "regulator",
+        "freshness": "fresh",
+        "freshness_days": 132,
+        "source_doc": "税务申报表_2024_脱敏.xlsx",
+        "claim_type": "tax"
+      },
+      "ev_w1m_chenfeng_pbc_industry_2026q1": {
+        "evidence_id": "ev_w1m_chenfeng_pbc_industry_2026q1",
+        "evidence_date": "2026-03-29",
+        "data_tier": 2,
+        "source_tier": "regulator",
+        "freshness": "fresh",
+        "freshness_days": 44,
+        "source_url_redacted": "央行行业景气季度数据 C36(脱敏)",
+        "claim_type": "industry"
+      }
+    },
+    "ledger": {
+      "decision_id": "ledger_report_w1m_chenfeng_001",
+      "agent_id": "report",
+      "endpoint": "/api/report/v16/fill",
+      "ts": "2026-05-12T01:39:55Z",
+      "jurisdiction": "HQ",
+      "retention_class": "long",
+      "idempotency_key": "report:CORP_CREDIT:5f8a3c1d2e9b6047:2026-05-12T01:38:00Z",
+      "input_hash": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+      "output_hash": "99887766554433221100ffeeddccbbaa99887766554433221100ffeeddccbbaa",
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "subject_id": "5f8a3c1d2e9b6047",
+      "evidence_chain": {
+        "credit_artifact_id": "art_credit_decision_PASS_w1_mock",
+        "channel_artifact_id": "art_channel_5candidates_w1_mock",
+        "channel_candidate_id": "cand_easy_chenfeng_evparts",
+        "report_evidence_refs": [
+          "ev_w1m_chenfeng_aic_2026q1",
+          "ev_w1m_chenfeng_audit_2024",
+          "ev_w1m_chenfeng_tender_2026q1",
+          "ev_w1m_chenfeng_tax_2024",
+          "ev_w1m_chenfeng_pbc_industry_2026q1"
+        ]
+      },
+      "parent_turn_id": null
+    },
+    "principles_compliance": {
+      "principle_1_blind_test": "PM 设计 4 unfilled 字段埋坑 · worker 未预知 marker 文案 · 满足盲测",
+      "principle_2_difficulty_tier": "本 fixture 困难分层 (5 stage 跑通 + QC PARTIAL + 3 unfilled · 复合状态)",
+      "principle_3_real_anchor": "参考 A 股年报 + 央行 C36 季度行业景气 + 公示系统 + 招投标公告真实形态",
+      "principle_4_desensitization": "企业名/法人/身份证 hash · 不用真实存续企业",
+      "principle_5_env_boundary": "材料层 mock (审计报告/税务/银行流水/政策/招投标 5 类) · 外部 ev (央行行业景气) 来源 url redacted",
+      "principle_6_evidence_date": "全部 evidence 含 evidence_date + data_tier 1-2 + freshness fresh · 满足 120d 财报 SLA + 跨 Tier 2-3 cross-check",
+      "qc_axis_dual_track": "报告 QC 9 维 (本 fixture qc_gate) vs 授信 4 维 (引用 credit fixture · 互不交叉)"
+    }
+  },
+  "verdict": "PARTIAL",
+  "qc_score": {
+    "passed": 7,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_w1m_chenfeng_aic_2026q1",
+    "ev_w1m_chenfeng_audit_2024",
+    "ev_w1m_chenfeng_tender_2026q1",
+    "ev_w1m_chenfeng_tax_2024",
+    "ev_w1m_chenfeng_pbc_industry_2026q1"
+  ],
+  "created_at": "2026-05-12T01:38:00Z",
+  "updated_at": "2026-05-12T01:39:55Z",
+  "resolved_at": "2026-05-12T01:39:55Z"
+}

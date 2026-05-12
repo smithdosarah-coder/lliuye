@@ -123,3 +123,87 @@
 ### ELAPSED min: ~30 (4 SSOT 读 + 2 fixture 写 + ajv validate + progress append + commit)
 ### Commit SHA: 36a8c2f
 
+---
+
+## 2026-05-12 · 1 fixture + 3 mock SSE (第 3 棒) · claude-W1-mock-test
+
+### What I did (sub-agent · 第 3 棒)
+
+1. 读 4 SSOT 输入 (新读 · 第 2 棒未读): `v16_pipeline.py` (5 stage 编排 + CLI 入口 · qc_pass_threshold 75 + 9 维 markdown formatter `_format_qc_markdown`) + `v16_generator.py` (classifier output → element loop → handler dispatch · `generate()` 主入口 · `apply_to_docx` 写回 docx · `_finalize_doc_hard_facts` doc-level facts 替换 · `_detect_body_gaps` SCAFFOLD 缺 body 检测) + `docs/contracts/sse-envelope.md` v1.0 (老 7 event verbatim table §1.5 · done envelope §2.1 12 字段 · 6 Agent payload tail §3 · §3.6 Riskctrl 🟡 pending) + `shared/contracts/liuye/fixtures/report.json` (W1-contract worker 模板 · 我 fixture 数值/企业名独立但形态对齐 · subject_id_hash 引第 2 棒 credit fixture cand_easy_chenfeng_evparts 跨 fixture audit chain)
+2. 写 `tests/fixtures/report_v16_PARTIAL.json` (390 行 · v16 5 stage 中文 stage_label 完整 stage_log · ArtifactPatch 3 chunk streaming→final · QC verdict PARTIAL · 3 字段 "未能自动填写" 标记 · evidence 5 ref + 6 financial_metric 含 evidence_date/data_tier 1-2/freshness fresh · tier_cross_check Tier 1 内部 6 + Tier 2 监管 2 · cross_tier_2_3_used=true · principles_compliance 6 原则 verbatim · ledger v1.1 parent_turn_id=null + evidence_chain 引 credit_artifact_id 和 channel_artifact_id 三级 audit chain)
+3. 写 `tests/mock-sse/channel.ts` (端口 8001 · 7 event · 200ms drain interval · 15s heartbeat · LEI replay · export start() programmatic + CLI `--port --fixture` · 6 endpoint: profile_loaded / stage / tool_call / tool_result / stage / stream / done · payload = ChannelPayload per sse-envelope §3.1)
+4. 写 `tests/mock-sse/credit.ts` (端口 8002 · 7 event · 250ms drain · payload = CreditPayload §3.3 · 7 endpoint: stage(feature_extract) / tool_call(scoring_model) / tool_result / stage(red_line) / stream / stage(decision_compose) / done · 4 维 scoring 透传 + qc + decision_letter)
+5. 写 `tests/mock-sse/report.ts` (端口 8003 · 7 event · 300ms drain · payload = ReportPayload §3.2 · 14 endpoint: profile_loaded / 5 stage 中文 stage_label 全发 / tool_call(v16_classifier) / tool_result / 3 stream(Evidence-First chunk 0/1/2 含 "未能自动填写") / tool_call(quality_scorer) / tool_result / done · V16_STAGE_LOG_FALLBACK 5 行 ingest/extract/infer/write/audit 中文标 · sse-envelope §3.2 metrics 4 字段全填)
+6. 跑 ajv validate 3/3 fixture vs `shared/contracts/liuye/schemas/artifact.schema.json` (累计 channel + credit + report) · Python jsonschema 4.26.0 draft-07 · 0 error · 额外验 chunked patch 3/3 PASS + chunk_assembly 序列 streaming→streaming→final 正确
+7. manual quick smoke: 起 channel mock server (临时 cjs wrapper 走 express 4.22 + cors 2.8 跑 4s 自停) · Invoke-WebRequest GET /health 200 · GET /api/channel/run 200 · 收到 15940 bytes · 7 event + 3 heartbeat 全见 · id: seq 1→7 单调递增 · event 名 verbatim · data 单行 JSON · done envelope 12 字段全在 (event/version/agent/session_id/ok/ts/duration_ms/metrics/payload/warnings/errors/trace_id) · smoke 后删 `_smoke_channel.cjs` 不入库
+8. progress append + commit (仅 4 文件)
+
+### 4 文件路径 + 关键 line range
+
+- `tests/fixtures/report_v16_PARTIAL.json` (390 行)
+  - patches 9 个 L11-130 (v1 header → v2 ingest stage_label 材料解析 → v3 classification → v4-v6 chunk 0/1/2 streaming→final → v7 section resolved → v8 merge audit 质量复核 → v9 qc_gate PARTIAL)
+  - chunked patch L60-107 (chunk_index 0/1/2 · chunk_total 3 · chunk_assembly streaming→streaming→final)
+  - snapshot.pipeline_progress.stage_log L155-200 (5 stage verbatim 中文 stage_label: 材料解析/字段抽取/结构推断/段落生成/质量复核 + Evidence-First 三阶段 phase 标 in write stage)
+  - 4 sections L210-275 (4 章 含 "未能自动填写" 3 处 · chapter_1 股东涉诉 · chapter_2 2025 订单 · chapter_3 2025Q1 财务 · chapter_4 conclusion 重述 unfilled)
+  - financial_metrics L235-308 (7 metric 含 evidence_date + data_tier 1-2 + freshness fresh + freshness_days · tier_cross_check Tier 1=6 / Tier 2=2)
+  - qc_gate L322-345 (9 维 verbatim · dimensions_passed 7/9 · blocked_dimensions: financial_consistency + external_anchor_coverage)
+  - evidence_summary L347-392 (5 evidence · 全 fresh · tier 1-2 only · claim_type 5 type)
+  - ledger L394-420 (parent_turn_id=null v1.1 · evidence_chain 三级: credit→channel→report)
+  - principles_compliance L422-432 (6 原则 verbatim 一行一原则)
+- `tests/mock-sse/channel.ts` (192 行) · L25-31 SseEvent 7 enum · L41-49 writeEvent 写 id+event+data · L56-145 buildEventSequence 7 event 推送 · L155-198 start(port, fixturePath) export
+- `tests/mock-sse/credit.ts` (185 行) · 同 channel 结构 · L52-148 buildEventSequence 7 event (stage feature_extract / tool_call / tool_result / stage red_line / stream / stage decision_compose / done)
+- `tests/mock-sse/report.ts` (245 行) · L60-66 V16_STAGE_LOG_FALLBACK 5 stage 中文 · L80-210 buildEventSequence 14 event (profile_loaded / 5 stage / tool_call classifier / tool_result / 3 stream Evidence-First chunk 0/1/2 / tool_call quality_scorer / tool_result / done)
+
+### ajv validate 累计结果
+
+- 累计 3/3 fixture PASS vs `artifact.schema.json` (channel_search + credit_decision + report_draft)
+- 额外: ArtifactPatch chunked 字段 (chunk_index / chunk_total / chunk_assembly) 3/3 PASS
+- 额外: chunk_assembly 序列 streaming → streaming → final 验证通过
+
+### mock SSE manual quick test (channel.ts via 临时 cjs wrapper)
+
+- GET http://127.0.0.1:8001/health → 200 · `{"ok":true,"agent":"channel","port":8001}`
+- GET http://127.0.0.1:8001/api/channel/run (Last-Event-ID: 0) → 200 · 15940 bytes
+- 7 event verbatim 全见: profile_loaded / stage(signal_density) / tool_call / tool_result / stage(ranked) / stream / done
+- id: seq 单调递增 1→7
+- event: 名验毕全合法 (per sse-envelope.md §1.5)
+- data: 单行 UTF-8 JSON (PowerShell 控制台 CP936 解码乱码 · 但 wire bytes UTF-8 正确)
+- heartbeat `: ping <ts>` comment line 多次出现 (smoke 用 100ms 加速 · 真实 server 15000ms)
+- done envelope 12 字段全在: event/version=1.0/agent=channel/session_id/ok=true/ts/duration_ms/metrics(4 key)/payload(candidates+summary+data_source=mock)/warnings/errors/trace_id
+
+### Hidden gotcha (下一棒注意)
+
+1. **v16 5 stage 命名 SSOT 漂移**: `v16_pipeline.py` 实际只编排 3 step (classifier → generator → QC gate · per `run_pipeline` L85-156 + docstring L4-9) · 不是 5 stage · 但 W1-contract worker `shared/contracts/liuye/fixtures/report.json` 写的是 5 stage_label (`ingest/extract/infer/write/audit`) · 这是 **v3 spec §6.3 demo path 70s 9 step 派生** 的展示层粒度 · 不是后端 pipeline 实际 step 粒度。本 fixture + report.ts mock SSE 走 W1-contract 5 stage_label (展示层 SSOT) · 后端 adapter 把 3 step 映射成 5 stage event。第 6 棒 contract spec 验时按 5 stage 验展示层 stage_log · 不可用 `v16_pipeline.run_pipeline` 实际 step 名验。
+2. **express + cors 跨仓 install 路径**: 我新建 `tests/package.json` 装 express^4.22.2 + cors^2.8.6 (npm install · 102 包 · 16s) · node_modules 落 `tests/node_modules/` (1MB+) · **没入 commit** (per 严格 4 文件硬线) · 第 4+ 棒接手时跑 `cd tests && npm install` 重建 · 或加 tests/ 到 .gitignore 把 node_modules 排除 · package.json + package-lock.json 留作下一棒 CI 接入时决定 (现状 untracked)。
+3. **SSE Last-Event-ID replay 实做边界**: 当前实做 = 读 req header `Last-Event-ID` parseInt · 后续 seq 从此 +1 起 (lines 132-133 channel.ts) · **但 events 序列本身不缩短** (仍发全 7 event) · 真 replay 应该 skip 已发 id ≤ lastEventId 的 event。本实做满足 "id 单调递增 + 起点可控" 形态契约 · 但不是真 idempotent replay (需 fixture event 加 `_seq` 字段才能跳过)。第 8/9 棒 Playwright smoke 验 demo-path 时不依赖真 replay 形态 · OK。第 6 棒 contract spec 若验 replay 行为需明确测的是 "起点可控" 而非 "skip 已发"。
+4. **Chunked patch 验证额外项**: artifact.schema.json L175-189 定义 chunk_index/chunk_total/chunk_assembly 3 字段 optional · 但语义上 chunked 必三件套同时 set (per v3 §2.2 hardline)。本 fixture 3 chunk 全三件套 set · 但 schema 没强制三件套必同时 set · 第 6 棒 payload-shape spec 加 cross-field 校验 (chunk_index 存在 → chunk_total + chunk_assembly 必同存)。
+5. **PowerShell console UTF-8 解码乱码**: smoke 输出中文显示为 `æ°` 等乱码 · 不是 fixture 或 server bug · 是 PS5.1 默认 OEM 936 (GBK) 解码 UTF-8 bytes 的显示问题 · curl/Invoke-WebRequest 收到的 byte stream 是 UTF-8 正确 · 第 8 棒 Playwright (Chromium) 跑时 utf-8 解码自动正确 · 不会复现 PS 乱码。
+
+### File checklist 状态 (11 文件)
+
+- [x] tests/fixtures/channel_5candidates.json (第 2 棒 · DONE)
+- [x] tests/fixtures/credit_decision_PASS.json (第 2 棒 · DONE)
+- [x] tests/fixtures/report_v16_PARTIAL.json (第 3 棒 · 390 行 · DONE)
+- [x] tests/mock-sse/channel.ts (第 3 棒 · 192 行 · DONE · smoke PASS)
+- [x] tests/mock-sse/credit.ts (第 3 棒 · 185 行 · DONE)
+- [x] tests/mock-sse/report.ts (第 3 棒 · 245 行 · DONE)
+- [ ] tests/contract/schema-validate.spec.ts (第 4 棒)
+- [ ] tests/contract/payload-shape.spec.ts (第 4-5 棒)
+- [ ] tests/e2e/playwright/home-silent.spec.ts (第 6-7 棒)
+- [ ] tests/e2e/playwright/demo-path-step1-3.spec.ts (第 7-8 棒)
+- [ ] tests/migration/archive-storage.spec.ts (第 9-10 棒)
+
+### Next 棒 (第 4 棒 · 30-45 min) 预计交付
+
+- `tests/contract/schema-validate.spec.ts` (ajv compile 5 schema 自身 · draft-07 · `$id` 唯一性 · 全 required 字段健全 · enum 列表正确性)
+- `tests/contract/payload-shape.spec.ts` (用 contract worker `verify-contracts.ts` 逻辑验 3 fixture 符合 outputSchema · cross-field chunked patch 三件套强校验 · evidence_ref schema 顶层 string list vs inline evidence_chain 双形态区分 · channel Q-041 4 字段缺失硬 fail)
+- 估 30-45 min · ajv 配置最易踩 (draft-07 vs draft-2020 · $id 解析 · 错误 path 输出)
+- 同棒还可补 `tests/.gitignore` (node_modules + package-lock.json 排除 · 我没动 · 留下一棒决定 CI 接入策略时一起 commit)
+
+### Blocker
+
+- 无
+
+### ELAPSED min: ~40 (4 SSOT 读 ~10min + 1 fixture 写 + 3 mock SSE 写 ~22min + ajv validate + smoke test 调试 PS 跨进程 curl ~6min + progress append + commit)
+### Commit SHA: <填到 fill-SHA commit>
+
