@@ -53,6 +53,7 @@ import hashlib
 import json
 import logging
 import uuid
+from dataclasses import dataclass
 from typing import Any, AsyncIterator, Mapping, Optional
 
 from liuye_service.adapters.base import (
@@ -70,6 +71,90 @@ logger = logging.getLogger(__name__)
 _VALID_PROGRESS_STATUS = frozenset(
     {"pending", "running", "done", "warning", "error"}
 )
+
+
+# ---------------------------------------------------------------------------
+# W2 hardening · v1 event shape validation result + observability metrics
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ValidationResult:
+    """Outcome of ``_validate_v1_event_shape`` · used by ``translate`` to drive
+    the degraded ``SSE_ADAPTER_FAILED`` fallback (matrix §4.2 rule 5).
+
+    ``ok=True``  → the event is well-formed enough to dispatch.
+    ``ok=False`` → ``reason`` is set with a human-readable cause that surfaces
+                   verbatim in the ``turn.error`` envelope message.
+    """
+
+    ok: bool
+    reason: Optional[str] = None
+
+
+def _validate_v1_event_shape(evt: Any) -> ValidationResult:
+    """Verify the minimal v1 event shape · the adapter contract per
+    ``docs/contracts/sse-envelope.md`` §1.5.
+
+    Required:
+    - ``evt`` is a Mapping
+    - ``evt['event']`` is a non-empty string
+
+    Optional (still well-formed):
+    - any other key/value pairs (handler-specific)
+
+    Returns ``ValidationResult(ok=False, reason=...)`` when the shape is
+    broken. Callers convert that into a single ``SSE_ADAPTER_FAILED``
+    envelope. Forward-compat: unknown ``evt['event']`` values are NOT a
+    validation failure here · the dispatcher silently skips unrecognised
+    events (per sse-envelope §1.5).
+    """
+    if not isinstance(evt, Mapping):
+        return ValidationResult(
+            ok=False, reason=f"v1 event is not a mapping: type={type(evt).__name__}",
+        )
+    if "event" not in evt:
+        return ValidationResult(
+            ok=False, reason="v1 event missing required 'event' field",
+        )
+    event_name = evt.get("event")
+    if not isinstance(event_name, str) or not event_name.strip():
+        return ValidationResult(
+            ok=False,
+            reason=f"v1 event field must be a non-empty string · got {event_name!r}",
+        )
+    return ValidationResult(ok=True)
+
+
+@dataclass
+class TranslatorMetrics:
+    """Per-translator observability counters · drained by adapter / metrics
+    middleware (e.g. ``shared.sse_envelope`` exporters or Prometheus).
+
+    Fields:
+
+    - ``events_translated``: count of v1 events that produced ≥ 1 liuye event
+    - ``dedup_skipped``:     count of v1 events dropped due to the dedup gate
+    - ``failed``:            count of v1 events that hit the degraded fallback
+    - ``unknown_event``:     count of v1 events with a recognised shape but
+                              unknown ``event`` name (forward-compat skip)
+
+    These are bounded counters · no PII leaks because we never store the
+    raw event payload here.
+    """
+
+    events_translated: int = 0
+    dedup_skipped: int = 0
+    failed: int = 0
+    unknown_event: int = 0
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "events_translated": self.events_translated,
+            "dedup_skipped": self.dedup_skipped,
+            "failed": self.failed,
+            "unknown_event": self.unknown_event,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +206,9 @@ class SseV1ToLiuyeAdapter:
         # ``tool_call`` v1 event so liuye ``tool.progress`` always has
         # a parent (per matrix §1 + v3 §2.3 hardline).
         self._current_tool_call_id: Optional[str] = None
+        # W2 hardening · observability metrics drained by metrics middleware
+        # or sse_envelope exporters. NEVER stores raw payloads.
+        self.translator_metrics: TranslatorMetrics = TranslatorMetrics()
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -140,20 +228,26 @@ class SseV1ToLiuyeAdapter:
         single ``turn.error code=SSE_ADAPTER_FAILED`` with
         ``fallback_available=true`` per matrix §4.2 hard rule 5.
         """
-        evt = v1_event.get("event") if isinstance(v1_event, Mapping) else None
-        if not isinstance(evt, str) or not evt:
+        # W2 hardening · use validation helper so degraded fallback reason
+        # surfaces verbatim in the envelope message (was raw repr before).
+        validation = _validate_v1_event_shape(v1_event)
+        if not validation.ok:
+            self.translator_metrics.failed += 1
             yield self._error_envelope(
                 turn_id,
                 code="SSE_ADAPTER_FAILED",
-                message=f"v1 event missing 'event' field: {v1_event!r}",
+                message=validation.reason or "v1 event shape invalid",
             )
             return
+
+        evt = v1_event["event"]
 
         dedup = _dedup_key(evt, v1_event)
         if dedup in self._dedup:
             logger.debug(
                 "[sse_v1_to_liuye] dropping duplicate v1 event · key=%s", dedup,
             )
+            self.translator_metrics.dedup_skipped += 1
             return
         self._dedup.add(dedup)
 
@@ -165,17 +259,23 @@ class SseV1ToLiuyeAdapter:
                 "[sse_v1_to_liuye] unknown v1 event %r · skipping (forward-compat)",
                 evt,
             )
+            self.translator_metrics.unknown_event += 1
             return
 
         try:
+            emitted_any = False
             async for liuye_evt in getattr(self, handler_name)(v1_event, turn_id):
+                emitted_any = True
                 yield liuye_evt
+            if emitted_any:
+                self.translator_metrics.events_translated += 1
         except Exception as exc:  # noqa: BLE001 · adapter degraded fallback
             logger.warning(
                 "[sse_v1_to_liuye] handler %s failed on v1 event %r: %s",
                 handler_name, evt, exc,
                 exc_info=True,
             )
+            self.translator_metrics.failed += 1
             yield self._error_envelope(
                 turn_id,
                 code="SSE_ADAPTER_FAILED",
@@ -523,4 +623,7 @@ _V1_HANDLERS: dict[str, str] = {
 
 __all__ = [
     "SseV1ToLiuyeAdapter",
+    "TranslatorMetrics",
+    "ValidationResult",
+    "_validate_v1_event_shape",
 ]

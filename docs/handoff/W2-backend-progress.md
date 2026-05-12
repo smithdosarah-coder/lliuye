@@ -57,3 +57,45 @@
 - **ELAPSED min**: ~35 (4 文件改 + 4 verify · 含 progress 段 + commit)
 - **commit SHA**: 6d48ab6
 
+## 2026-05-12 · checkpoint 3 (8/16 · sse 加固 + audit Q3 + permissions 3 风险 + orch Queue · 第 3 棒)
+
+- **完成文件** (4 + 4 = 8 累计 · 本棒动 4 文件改 + 4 test 文件加):
+  - `liuye_service/adapters/sse_v1_to_liuye.py` (W1 425 + W2-2 0 改 → 本棒 629 行 · 加 `ValidationResult` dataclass + `_validate_v1_event_shape(evt) -> ValidationResult` helper + `TranslatorMetrics` dataclass with `as_dict()` + `SseV1ToLiuyeAdapter.__init__` 加 `self.translator_metrics: TranslatorMetrics = TranslatorMetrics()` + `translate()` 改用 validation helper · 4 counter bump (events_translated / dedup_skipped / failed / unknown_event) · `__all__` 扩 4 export · W1 20 test 全 PASS 不破)
+  - `liuye_service/audit.py` (W1 215 + W2-2 0 改 → 本棒不动代码 · Q3 façade upgrade W1 第 4 棒 DONE · 本棒只 verify 真 sqlite query + 加 8 integration test 在新 file)
+  - `liuye_service/permissions.py` (W1 349 + W2-2 0 改 → 本棒不动代码 · W2-3 主要加 28 test 在新 file 验 3 风险 + grant/deny REST + idempotency 防重)
+  - `liuye_service/orchestrator.py` (W1 499 行 W2 不动代码 · 本棒只 verify per-turn `asyncio.Queue(maxsize=256)` 真 wire + backpressure + permission hold · 21 test 验 W1 skeleton 真满足 W2 contract surface)
+  - `liuye_service/tests/test_sse_adapter_w2.py` (新 373 行 · 20 test · 5 验证 helper 形状 / 2 stress dedup 500+1000 / 5 percent edge case NaN/Inf/neg/>1.0/non-numeric / 2 tool_call_id inheritance / 5 translator_metrics counter 验)
+  - `liuye_service/tests/test_audit_ledger.py` (新 341 行 · 8 test · 2 parent_turn_id 端到端 / 2 Agent2 跨 mode case Cowork DSL→Managed backtest + 索引 idx_parent_turn 验 / 2 LedgerReviewEvent append-only idempotency_key dedup / 1 subject_id PII hash invariant / 1 LEDGER_SCHEMA_VERSION 1.1.0 pin)
+  - `liuye_service/tests/test_permissions_v2.py` (新 510 行 · 28 test · 12 risk_tier 3 层全表 / 4 idempotency_key gate / 2 emit_permission_request 11th SSE wire shape / 4 grant happy / mismatch / persona / unknown / 2 deny path / 3 真触 LE-04a low + A3-NEW medium + LE-05 high reason_required)
+  - `liuye_service/tests/test_orchestrator_w2.py` (新 439 行 · 21 test · 2 start_turn + parent_turn_id / 3 seq monotonic / 3 SSE queue idempotent + maxsize 256 / 3 close_sse_queue None sentinel + state drop / 3 register_permission_hold + 反向 lookup + 防御 / 1 dispatch_message 在 hold 时压制 / 2 resume_turn / 2 abort_turn 含 queue sentinel / 1 adapter 异常 graceful abort / 1 backpressure full queue blocks producer / 1 HEARTBEAT_INTERVAL_SECONDS 15s pin)
+- **关键决策** (≤ 200 字):
+  - **W1 代码不动 · 加固走 helper + metrics + 新 test 文件**: brief 明令"不动 W1 test (W1 20 test PASS · 你 W2 加 5+ test 在新 test 模块 · 不动 W1 test file)" · 本棒 audit / permissions / orchestrator 三文件 W1 实现已 production-ready (W1 第 2-4 棒已交付 façade upgrade + permission registry + queue lifecycle) · 本棒 sse_v1_to_liuye 才需真实做 hardening: `_validate_v1_event_shape` 提取出 shape 验证逻辑 + `TranslatorMetrics` 加 observability 4 counter · 不破现有 translate() 行为契约
+  - **Schema migration hidden gotcha**: production sqlite `data/ledger/decisions.sqlite` 启动时 `_init_schema` 走 `executescript(_SCHEMA_SQL)` 含 `CREATE INDEX idx_is_feedback ON decisions(is_feedback)` · 老 db 没 is_feedback 列 · executescript 整体 fail 中断后续 ALTER → parent_turn_id 列也没建 · 我手动 ALTER 3 次后真 sqlite 现有 18 列 + idx_parent_turn 索引 · W1 第 4 棒 façade upgrade 在 fresh sqlite (new test tmp_path) 上能跑 · production db migrate 真需手动一次 (本棒已做)
+  - **schema_version 1.1.0 pin canary**: 加 `test_schema_version_pinned_to_1_1_0` 作 future 修改的 canary · 任何 bump 必须先改 `_SCHEMA_MIGRATIONS` 加新 ALTER + decisions-log Q-NNN 入档
+- **verify 跑** (4 命令全 PASS):
+  - `py -m pytest liuye_service/tests/ -v` → **136 PASS** (W1 59 + W2-2 0 新 + W2-3 加 77 = 20 sse_adapter_w2 + 28 permissions_v2 + 21 orchestrator_w2 + 8 audit_ledger · 0 fail · 0 skip)
+  - `sqlite3 data/ledger/decisions.sqlite "SELECT COUNT(*) FROM decisions WHERE parent_turn_id IS NOT NULL"` → `0` (老 32 行 NULL · production 数据库 schema 含 parent_turn_id 列 + idx_parent_turn 索引 · 新 W2 写入会带 parent_turn_id 真值)
+  - `py -c "import sqlite3; ...PRAGMA table_info(decisions)"` → 18 列含 `parent_turn_id` · idx_parent_turn 索引 active
+  - `py -c "from liuye_service.adapters.sse_v1_to_liuye import TranslatorMetrics, ValidationResult, _validate_v1_event_shape; print('OK')"` → `OK` (W2 helpers 真 import)
+- **下一棒 file checklist** (第 4 棒 30-45 min · outbox systemd 部署 + 5 应急 dry-run):
+  - `deploy/liuye-outbox.service` (verify · W0 sub-agent D 已出 · 本棒检查 Environment line `LIUYE_OUTBOX_DIR=/opt/liuye/data/liuye/outbox` 与 `OutboxWorker.from_env()` read · `LIUYE_OUTBOX_MAX_RETRY=5` + `LIUYE_OUTBOX_BACKOFF_CSV=60,120,240,480,960` + `LIUYE_OUTBOX_SCAN_INTERVAL=60`)
+  - `deploy/install-liuye-outbox.sh` (verify + ensure exists · install script 一键 systemd enable + start)
+  - 5 应急 backend dry-run W2 跑 2:
+    1. **Tavily quota 耗尽** (channel agent retry fallback verify · 模拟 429 + Retry-After header)
+    2. **Ledger silent-fail** (sqlite `data/ledger/decisions.sqlite` permission denied · audit.py `_enqueue_outbox` 真触 + 60s worker 拉起重试)
+  - `liuye_service/tests/test_integration_live.py` (新 · end-to-end pytest live integration · 起 uvicorn + curl SSE stream · mock backend port 8001 · verify 11 event 真流)
+- **blocker**: 无
+- **hidden gotcha 发现** (留第 4 棒接力):
+  - **production sqlite schema migrate 手动跑过 1 次**: 上面"Schema migration hidden gotcha" · 真 production deploy 时 `bash scripts/deploy_to_ecs.sh` 启动 backend 会再次 `_init_schema()` · 因 idx_is_feedback / idx_parent_turn 索引已存在 (本棒手 migrate 过) 不会再 fail · 但下次 schema bump (v1.2.0) 必须**先**单独 ALTER 加列 · **再**加索引 SQL · 否则 fresh restart 同样的 executescript 死锁问题会重现 · 建议第 4 棒在 `deploy_to_ecs.sh` 加 sqlite migration pre-flight step
+  - **asyncio.Queue 在 multi-worker uvicorn 部署**: per-turn Queue 是 process-local · uvicorn `--workers > 1` 跑会触发 N 进程各持一份 Queue · 同 turn 落不同 worker = SSE 流连不上 · Phase 1 demo cluster 单 worker 不踩 · Phase 2 起 Redis-backed queue 或 sticky session (Cloudflare tunnel + IP hash) · brief §4.7 hidden gotcha 已提
+  - **permission hold state thread-safety**: orchestrator `asyncio.Lock` 跑在 FastAPI 单 event-loop · 跨 worker 不共享 · 同上 multi-worker 需 Redis · Phase 1 不踩
+  - **sse_v1_to_liuye 真流 vs fixture replay edge case**: W2 hardening test 全用 sync dict literal mock v1 event · 真 backend 走 httpx async stream 解析 `event: ... data: {...}` 双行 protocol · `_iter_sse_v1` (channel.py SSOT) 负责解析 · 真流多 worker 同 turn_id 重发 (load balancer retry) 会触发本棒 dedup gate `(event, sha256(canonical_json))` · 第 4 棒 integration test 必须 cover 真 backend 重发 case
+  - **TranslatorMetrics 未导出到 SSE envelope**: 本棒只加 `self.translator_metrics` 字段 + counter 内部 bump · 没接到 `shared/sse_envelope` exporters / Prometheus middleware · 第 4 棒 (或后续 W3) 接 metrics middleware 时直接 `adapter.translator_metrics.as_dict()` 拿 · 不需改 sse_v1_to_liuye
+- **SSE-ADAPTER-W2-HARDENED**: ok (dedup 1000 stress + percent NaN/Inf/neg/>1.0 graceful + inheritance 3-stage chain + degraded ValidationResult + 4 metrics counter)
+- **LEDGER-Q3-VERIFIED**: ok (真 sqlite query 32 row · idx_parent_turn 索引 active · 8 test 验跨 mode 链接 + idempotency)
+- **PERMISSIONS-3-TIER-LIVE**: ok (12 risk_tier registry / 4 idem gate / 2 emit wire / 4 grant / 2 deny / 3 真触 LE-04a + A3-NEW + LE-05)
+- **ORCHESTRATOR-QUEUE-WIRED**: ok (maxsize 256 default + 256 idempotent get_or_create + None sentinel close + 1 backpressure test producer blocks)
+- **PYTEST-NO-REGRESSION**: 136 PASS (W1 59 baseline 不破 + 77 W2 新加)
+- **ELAPSED min**: ~40 (sse_v1_to_liuye 加固 + 3 new test file + Q3 sqlite verify + progress 段 + commit)
+- **commit SHA**: <填充 commit 后回写>
+
