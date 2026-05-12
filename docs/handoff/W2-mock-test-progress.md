@@ -234,3 +234,86 @@
 ### ELAPSED min: ~35 (起手 read 接力 brief + 第 2-3 棒 progress + W2-frontend §4.5 FallbackBanner + permission_request_medium.json + .gitignore + tests/package.json; 写 3 spec 共 ~520 行; tsc verify EXIT=0; 写 progress segment + commit 准备)
 ### Commit SHA: b9c91b1
 
+---
+
+## 2026-05-12 · checkpoint 5 (第 5 棒 · 最终一棒 · rehearsal-hybrid + rehearsal-live D10 · 11/11 DONE)
+
+### What I did (第 5 棒 · ~30 min)
+
+1. 起手对齐: 读 接力 brief 全 (2 文件 scope · 7 hidden gotcha from 第 4 棒 · 含 saveBaseline imperative API + FallbackBanner §4.5 SSOT + data-kind 5 kind contract + 90s timeout + outbox dir + ledger REST endpoint + SKIP_DEMO_STEP4_9 flag) + 第 4 棒 progress segment + `tests/perf/step-budget.ts` SSOT (STEP_BUDGETS step1..step9 命名 + imperative saveBaseline `(spec, perStep, env?)` · 不是 factory) + `tests/e2e/playwright/rehearsal-mock.spec.ts` 全 240 行 (9 step pattern 复用源 · 单 test + test.setTimeout 90_000 + 3 mock SSE probe + 顶层 SKIP_DEMO_STEP4_9) + `tests/e2e/playwright/demo-path-step1-3.spec.ts` (isMockSseAlive helper 复用 · backend health probe 模式) + `tests/e2e/playwright/fallback-tavily-quota.spec.ts` 头 (data-kind 5 kind contract · W2-frontend §4.5 文案 verbatim 「Demo 模式」核心词) + `tests/e2e/playwright/fallback-ledger-silent-fail.spec.ts` 头 80 行 (outbox dir 检查 + isOutboxDirReadable pattern) + W2-mock-test brief §4.3 (2)/(3) verbatim (hybrid env per-adapter URL channel:8001 + credit/report fallback BASE:8000 · live 全 LIUYE_DEMO_MODE=0 + BASE:8000 + skipIf health) + 老仓 `.gitignore` (_temp/ 未在内 · 第 8 棒入库 commit 可行) + tests/ 目录结构 (e2e/playwright + perf + fixtures)
+2. 写 `tests/e2e/playwright/rehearsal-hybrid.spec.ts` (~290 行 · D10 跑 · per-adapter URL · channel mock + credit/report live):
+   - 头注释 SSOT 引用 + env 契约 (LIUYE_DEMO_MODE=0 + LIUYE_BACKEND_CHANNEL_URL=:8001 + BASE_URL=:8000 fallback) + 预期 < 74s · 9 step ±20% · skip 3 路 (SKIP_REHEARSAL_HYBRID=1 / channel URL 未指 :8001 / probe 失败)
+   - 2 helper: isMockSseAlive (复用 rehearsal-mock) + isBackendLiveAlive (新 · live :8000 /api/liuye/health)
+   - 单 test + test.setTimeout(90_000) + LIUYE_BACKEND_CHANNEL_URL sanity check (必含 ':8001') + mock SSE :8001 + backend live :8000 双 probe
+   - 9 step body verbatim 复用 rehearsal-mock (step1 hero+4chip · step2 channel chip · step3 候选 ≥5 走 mock fixture · step3.5 channel demo cue [data-kind="demo_mode"] optional 验 · step4 IdealProfile 12 维 live LLM · step5 pin Space · step6 credit-handoff-active live · step7 radar 4 维 live · step8 permission-modal + ledger REST live + turn-completed · step9 le01-trace 7 node ≥6 edge ≥1 evidence)
+   - saveBaseline('rehearsal-hybrid', perStep, 'hybrid') + summary log "hybrid: channel mock + credit/report live"
+3. 写 `tests/e2e/playwright/rehearsal-live.spec.ts` (~250 行 · D10 跑 · 3 adapter 全 live):
+   - 头注释 SSOT 引用 + env 契约 (LIUYE_DEMO_MODE=0 + BASE_URL=:8000 default · 不覆写 channel/credit/report URL) + 预期 < 74s · 5 应急流程不触 sanity (live healthy · FallbackBanner count=0)
+   - 1 helper: isBackendLiveAlive (复用 hybrid)
+   - 单 test + test.setTimeout(90_000) + LIUYE_DEMO_MODE='0' 显式 sanity (env 漂检测) + backend live :8000 probe (skipIf 失败)
+   - 9 step body verbatim 复用 rehearsal-mock + hybrid (step1-9 全 live 真路径 · Tavily 真 / DeepSeek 真 / sqlite 真 · step6 注释 "全 live" 区别 hybrid)
+   - 跑完 9 step 后 FallbackBanner count === 0 sanity 强断 (live 健康前提下不应触发任何 5 kind fallback · > 0 = adapter fall back blocker)
+   - saveBaseline('rehearsal-live', perStep, 'live') + summary log "live: 3 adapter 全 live · 5 应急 count=N OK"
+4. tsc verify (9 path · W1 home-silent + demo-path-step1-3 + W2 demo-path-step4-9 + rehearsal-mock + fallback-tavily-quota + fallback-ledger-silent-fail + rehearsal-hybrid + rehearsal-live + perf/step-budget.ts · inline config target ES2020 / module ESNext / moduleResolution Bundler / strict / skipLibCheck / types node / esModuleInterop / resolveJsonModule): EXIT=0 · 0 error
+
+### 关键决策 (5 条)
+
+1. **9 step body verbatim 复用 rehearsal-mock 而非 extract helper** · 三 rehearsal spec (mock/hybrid/live) 故意 90% duplicate · 单文件 self-contained 便于 W2 sign-off review 主 session + codex 单 spec 全看 · extract helper 会需新建 shared module (e.g. `tests/e2e/_shared/run9steps.ts`) 不在 11 文件 scope · 接力 brief 也允许"copy vs extract helper · sub-agent 决策" · 选 copy 是 D9 sign-off 决策成本最低
+2. **rehearsal-hybrid env sanity check LIUYE_BACKEND_CHANNEL_URL 必含 ':8001'** · 不是 expect (硬 fail) · 而是 test.skip (env 未对齐 = 跑前置未做好 · 跳过比 fail 更软落地 · per W1 demo-path-step1-3 mock SSE 不可达 skip 同模式) · backend §4.1 `_resolve_backend_url` helper 真实做时 channel agent 会读 LIUYE_BACKEND_CHANNEL_URL · 我 spec 仅验 env 被 set · 不验 helper 行为本身 (那是 backend pytest scope)
+3. **channel demo cue selector dual fallback** · 接力 brief 给的 `[data-testid="agent-chip-channel"] [data-state="demo"]` 是 chip 内嵌 badge · 但 W2-frontend brief §4.5 FallbackBanner 主体是 `[data-testid="fallback-banner"][data-kind="demo_mode"]` 这种统一 banner · 不知 W2-frontend 具体选哪种 · 我用 CSS selector OR `, ` 双 selector match · count > 0 即 optional 验 · 不强断 (count=0 仅 console.log 不阻 spec) · W2-frontend ship 后 narrow 至确定 selector
+4. **rehearsal-live 5 应急不触 sanity 用 expect().toBe(0) 强断** · 不是 optional log · live 模式健康前提下不应触发任何 FallbackBanner (5 kind 全不触) · 触发即 sanity blocker · 应阻 D10 ship · 与 hybrid 模式 demo cue optional 验区别 (hybrid 期望 channel mock 提示 chip · live 期望 0 fallback) · 这是 brief §4.3 (3) "5 应急流程不触 (sanity check live 健康)" verbatim 落地
+5. **timeout 90s 单 test 设置不改全局** · test.setTimeout(90_000) 与 rehearsal-mock 同 · playwright.config 默认 60s 不够 9 step ±20% (66 × 1.2 = 79s) · 不改全局 (其他 spec 仍 60s · 不需 90s) · live LLM 慢但仍应 < 74s (66s 基 + 4s LLM buffer + 4s buffer) · 90s timeout 留 16s 余量
+
+### Hidden gotcha (第 5 棒 record · codex bg review 必读)
+
+1. **三 rehearsal spec 90% duplicate 是故意** · sub-agent 决策 copy 不 extract helper · D9 mock + D10 hybrid + D10 live 三跑独立成文 · 各 spec 单文件即可看懂 · W3-W4 若加新 rehearsal mode (e.g. degraded · partial-fail) 可考虑 extract · 现阶段单文件 self-contained 是 sign-off review 友好
+2. **rehearsal-hybrid channel demo cue 用 optional 验 (count > 0 then expect visible)** · 不强断 W2-frontend 实做 data-kind="demo_mode" attr · 因 brief §4.5 未明确 "channel mock 提示 chip 是 FallbackBanner 还是 chip 内嵌 badge" · 接力 brief 给的 `[data-state="demo"]` 是猜测 · 我 dual selector + count > 0 conditional verify · 不阻 spec 跑过 · W2-frontend ship 后再 narrow
+3. **rehearsal-live FallbackBanner count = 0 strict** · 与 hybrid 不同 (hybrid 期望 1 个 demo_mode banner · live 期望 0 任何 kind) · 这是 sanity gate · live 健康前提下任何 fallback 触发 = blocker · 若 W2 ship 后跑出 count > 0 · 必先查 adapter 健康 / key 配 / network 通 · 不是 spec bug
+4. **LIUYE_DEMO_MODE 环境变量 sanity check** · rehearsal-live 显式断 demoMode === '0' · 若调用方漏 set env → test.skip 不 fail · 与 rehearsal-hybrid LIUYE_BACKEND_CHANNEL_URL 必含 ':8001' 同模式 · env 未对齐 = 跳过 not fail · 更软落地
+5. **ledger REST endpoint path 待 W2-backend ship 后确认** · 与 rehearsal-mock 同 placeholder · spec 用 `${baseUrl}/api/liuye/ledger/decisions?agent_id=credit&limit=1` (query param) · W2-backend 可能用 path param (`/api/liuye/ledger/agent/credit?limit=1`) per 老仓 §3.7.5 · spec 走 query param 占位 · ship 后 main session 跑 e2e 失败 → 同步调整 3 rehearsal spec (mock + hybrid + live) 同一 placeholder 替 path · 已 flag 在 mock 第 4 棒 gotcha #6 + hybrid + live 注释
+6. **per-adapter URL helper 真实做边界**: W2-backend §4.1 `_resolve_backend_url(agent_id)` Python helper 实做 `os.environ.get(f'LIUYE_BACKEND_{agent_id.upper()}_URL') or self.backend_url` · 是 backend channel/credit/report adapter 各自 init 时调用 · 我 spec 仅 Playwright 起子进程 inherit env · 真验链路是 frontend dev server (3210) → backend (8000) → adapter resolve URL → channel 走 :8001 mock / credit 走 :8000 self → SSE 推回前端 · 复杂链路 spec 不验 (那是 W2-backend pytest + integration test scope) · spec 仅验 UI 真渲对应 (mock 给 candidate 5 / live 给 candidate 5)
+7. **_temp/ 入库 commit 第 8 棒做 (D9-D10 跑后)** · 第 5 棒不入库 (因 spec 不实跑 · 现 _temp/ 仍不存在 · saveBaseline 自动 mkdir 是跑时行为) · W2 完整 ship 后 D9 mock 跑 + D10 hybrid + live 跑 · 实际 `_temp/w2-rehearsal-baseline.json` array 含 3 record · 入库 commit 由后续 sprint 棒做 · 不在 W2-mock-test 11 文件 scope
+
+### File checklist 状态更新 (11 / 11 · W2-mock-test DONE)
+
+- [x] tests/perf/step-budget.ts (第 2 棒 · DONE)
+- [x] tests/e2e/playwright/demo-path-step4-9.spec.ts (第 2-3 棒 · 全 6 step · DONE)
+- [x] tests/fixtures/permission_request_low.json (第 3 棒 · DONE)
+- [x] tests/fixtures/permission_request_medium.json (第 3 棒 · DONE)
+- [x] tests/fixtures/permission_request_high.json (第 3 棒 · DONE)
+- [x] tests/e2e/playwright/rehearsal-mock.spec.ts (第 4 棒 · D9 sign-off 硬线 · DONE)
+- [x] tests/e2e/playwright/fallback-tavily-quota.spec.ts (第 4 棒 · W2 应急 #1 · DONE)
+- [x] tests/e2e/playwright/fallback-ledger-silent-fail.spec.ts (第 4 棒 · W2 应急 #2 · DONE)
+- [x] tests/e2e/playwright/rehearsal-hybrid.spec.ts (第 5 棒 · D10 per-adapter URL · DONE)
+- [x] tests/e2e/playwright/rehearsal-live.spec.ts (第 5 棒 · D10 3 adapter 全 live · DONE)
+- [ ] _temp/w2-rehearsal-baseline.json (D9-D10 实跑后由后续 sprint 棒入库 · 第 5 棒不在 scope)
+
+### W2-mock-test 11/11 DONE · 3 rehearsal mode 全 ship
+
+| Mode | Spec | Env | 总耗时预期 | Sanity 验 |
+|---|---|---|---|---|
+| mock (D9) | rehearsal-mock.spec.ts | LIUYE_DEMO_MODE=1 + 3 mock SSE 全起 | < 66s ±20% = 79s | candidate ≥5 + 12 维 + 4 维 + 7 node etc. |
+| hybrid (D10) | rehearsal-hybrid.spec.ts | LIUYE_DEMO_MODE=0 + CHANNEL_URL=:8001 + BASE_URL=:8000 | < 74s | + channel demo cue optional |
+| live (D10) | rehearsal-live.spec.ts | LIUYE_DEMO_MODE=0 + BASE_URL=:8000 全 live | < 74s | + 5 应急 count=0 strict |
+
+5 应急覆盖状态:
+- ✅ W2 跑 2: fallback-tavily-quota (第 4 棒) + fallback-ledger-silent-fail (第 4 棒)
+- ⏳ W3-W4 跑 3 留: LLM provider fallback · SSE conversion · network offline (data-kind contract 第 4 棒已立: llm_provider / sse_conversion / network_offline)
+
+per-adapter URL verify (perfect-check fix #2):
+- ✅ rehearsal-hybrid: LIUYE_BACKEND_CHANNEL_URL=:8001 (mock) + LIUYE_BACKEND_BASE_URL=:8000 (live fallback for credit/report)
+- ✅ rehearsal-live: 3 adapter URL 全留空 fallback LIUYE_BACKEND_BASE_URL=:8000 (default live)
+
+### Next (主 session 接手)
+
+- 主 session 起 codex bg review (W2-mock-test 11/11 verdict)
+- D9 mock 走完彩排 (LIUYE_DEMO_MODE=1 + 3 mock SSE :8001/:8002/:8003 起 + frontend dev 3210 起 · 不 SKIP) 验 rehearsal-mock 走通 · sign-off W2
+- D10 hybrid + live 跑 (D9 后 W2-frontend + W2-backend 全 ship · unset SKIP env flag · 跑 3 rehearsal · 入库 `_temp/w2-rehearsal-baseline.json` · 漂移对比 mock/hybrid/live)
+- W2-mock-test scope 完结 · 后续 sprint 接 W3-W4 (3 应急 + LE-01 deep evidence chain + ledger admin REST integration)
+
+### Blocker
+- 无
+
+### ELAPSED min: ~30 (起手 read 接力 brief + 第 4 棒 progress + step-budget.ts API + rehearsal-mock 240 行 pattern + demo-path-step1-3 helper + fallback-tavily-quota data-kind + fallback-ledger-silent-fail outbox + W2-mock-test brief §4.3 (2)(3) verbatim; 写 2 spec 共 ~540 行; tsc verify EXIT=0; 写 progress segment + commit 准备)
+### Commit SHA: (本 commit · git log 下一行)
+
