@@ -49,4 +49,4 @@
 - [ ] tests/migration/archive-storage.spec.ts (第 10-11 棒)
 
 ### ELAPSED min: ~35 (起手 7 件事 · scope verify commit · 不算 git commit 时间)
-### Commit SHA: <pending · 本段 append 完 main session 看 git log>
+### Commit SHA: 0ca131f
