@@ -11,10 +11,13 @@
  * 6 助手共用 .v-archive--canon · per archive/[agent]/page.tsx
  */
 
-/* ── 1. panel padding 缩 (从 20-24px → 12-14px) ───────────────────────────── */
+/* ── 1. panel padding · idle 紧 + result 宽 平衡 (v2 reverse 部分缩压)
+ *   PM 2026-05-12 06:00 audit: 14px 太紧 · result 6 助手挤压
+ *   修: 14 → 18px (idle 也接受 · result 不再挤)
+ */
 .v-archive--canon .rpt-panel,
 .v-archive--canon section[class*="rpt-panel"] {
-  padding-block: 14px !important;
+  padding-block: 18px !important;
 }
 
 /* ── 2. panel body min-height cap · 0 数据 panel 不撑大 ─────────────────── */
@@ -31,12 +34,14 @@
   padding: 12px !important;
 }
 
-/* ── 4. panel 之间 gap 缩 (从 18-24px → 12-14px) ──────────────────────────── */
+/* ── 4. panel 之间 gap · idle/result 平衡 (v2 reverse 缩压 · PM 真痛 #2 挤压)
+ *   12 → 20px (panel 之间真有透气感 · 不挤)
+ */
 .v-archive--canon main > section + section,
 .v-archive--canon main > section + div,
 .v-archive--canon main > div + section,
 .v-archive--canon main > div + div {
-  margin-top: 12px !important;
+  margin-top: 20px !important;
 }
 
 /* ── 5. pin handle 默认 0 透明 · hover 父 panel 才显 (per PM 直觉 #2) ────── */
@@ -95,13 +100,12 @@
   align-self: start !important;
 }
 
-/* ── 11. 超长 panel 内容 max-height + scroll (避免单 panel 拉爆 main height) ──
- * alert al-out (TOP 27 客户榜单 1756px) + al-queue (27 客户卡 999px) 是真痛
- * 限 panel body 高 500px · 内部 scroll 看其余
+/* ── 11. 超长 panel max-height (v2 放宽 · PM 真痛 #2 挤压)
+ *   560 → 800px · 客户榜单 / 长 list 更多空间 · scroll 更少触发
  */
 .v-archive--canon .rpt-panel .rpt-panel__body,
 .v-archive--canon .rpt-panel .rpt-panel-body {
-  max-height: 560px !important;
+  max-height: 800px !important;
   overflow-y: auto !important;
 }
 
@@ -182,16 +186,26 @@
  * 4 真因 (其中 #1 误判 wb 实隐藏 · 实修 3 项)
  * ════════════════════════════════════════════════════════════════════ */
 
-/* ── C5 · 真痛 #2 · ground gradient 下半露出大空白 ──
- * shell.css max-width: 1480 → 1920 (已改 · 修右 30% 空)
- * 但短 page workspace 下方 ground gradient (米黄→橙红→墨绿) 仍露出
- * 修: archive 容器自带 bg · 盖 body gradient · 跟 panel chalk 同色
+/* ── C5 · lollipop mesh bg (PM 2026-05-12 06:30 audit · 不要纯色 · 加主题配色)
+ *   多层 radial-gradient 叠 chalk base · 顶部 accent (主题) + g2/g5 (主题 ramp)
+ *   data-agent="X" 指定 archive-tint · 每个助手页有自己 accent tint
  */
+.v-archive--canon[data-agent="channel"] { --archive-tint: var(--t-channel); }
+.v-archive--canon[data-agent="credit"] { --archive-tint: var(--t-credit); }
+.v-archive--canon[data-agent="alert"] { --archive-tint: var(--t-alert); }
+.v-archive--canon[data-agent="compliance"] { --archive-tint: var(--t-compliance, var(--t-compli)); }
+.v-archive--canon[data-agent="report"] { --archive-tint: var(--t-report); }
+.v-archive--canon[data-agent="riskctrl"] { --archive-tint: var(--t-riskctrl); }
+
 .v-archive--canon {
-  background: linear-gradient(180deg,
-    transparent 0%,
-    color-mix(in srgb, var(--chalk) 92%, transparent) 240px,
-    color-mix(in srgb, var(--chalk) 96%, transparent) 100%) !important;
+  background:
+    radial-gradient(ellipse 55% 38% at 8% -6%, color-mix(in srgb, var(--archive-tint, var(--accent)) 14%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse 45% 32% at 94% 2%, color-mix(in srgb, var(--g2) 16%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 85%, color-mix(in srgb, var(--g5) 8%, transparent) 0%, transparent 75%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--chalk) 70%, transparent) 0%,
+      color-mix(in srgb, var(--chalk) 90%, transparent) 300px,
+      color-mix(in srgb, var(--chalk) 95%, transparent) 100%) !important;
   border-radius: var(--r-lg) !important;
 }
 
@@ -277,5 +291,35 @@
   font-size: 11.5px !important;
   color: var(--ink-48) !important;
   font-style: italic !important;
+}
+
+/* ── C10 · panel 内 list/row spacing 充分 (PM 真痛 · result 挤压)
+ *   alert 客户榜单 27 行 / credit 决策建议 4 条 / report 5 sample row 等
+ *   universal 给 ul/li/dl/table row 加 line-height + gap · 透气
+ */
+.v-archive--canon .rpt-panel ul,
+.v-archive--canon .rpt-panel ol,
+.v-archive--canon .rpt-panel dl {
+  line-height: 1.6 !important;
+}
+.v-archive--canon .rpt-panel li + li,
+.v-archive--canon .rpt-panel ul > li,
+.v-archive--canon .rpt-panel ol > li {
+  margin-top: 4px !important;
+}
+.v-archive--canon .rpt-panel table {
+  border-collapse: separate !important;
+  border-spacing: 0 2px !important;
+}
+.v-archive--canon .rpt-panel table td,
+.v-archive--canon .rpt-panel table th {
+  padding: 7px 10px !important;
+  line-height: 1.5 !important;
+}
+/* 客户/规则/事件等 row 容器加 row gap */
+.v-archive--canon .rpt-panel [class*="-row"]:not(table) + [class*="-row"]:not(table),
+.v-archive--canon .rpt-panel [class*="-item"]:not(li) + [class*="-item"]:not(li),
+.v-archive--canon .rpt-panel [class*="-card"]:not(article) + [class*="-card"]:not(article) {
+  margin-top: 6px !important;
 }
 
