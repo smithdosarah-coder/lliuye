@@ -207,3 +207,94 @@
 ### ELAPSED min: ~40 (4 SSOT 读 ~10min + 1 fixture 写 + 3 mock SSE 写 ~22min + ajv validate + smoke test 调试 PS 跨进程 curl ~6min + progress append + commit)
 ### Commit SHA: cee80ab
 
+## 2026-05-12 04:55 · checkpoint 8/11 (第 4 棒) · claude-W1-mock-test
+
+### What I did (sub-agent · 第 4 棒 · 30-45 min slot)
+
+1. 读 SSOT (新读 · 前 3 棒未读): `shared/contracts/liuye/schemas/*.json` 5 schema (ajv loader 加载 · 验 metaschema + meta-field + additionalProperties + compile) + `shared/contracts/liuye/fixtures/{kb_doc,evidence_ref}.json` 2 contract worker fixture (跨 fixture audit chain · evidence_ref.json 是 array · kb_doc.json 是 artifact 全栈 type=kb_upload_result) + 3 tests/fixtures (第 2-3 棒写 · 复读为 fixture binding 表)
+2. **npm install dev tools 老仓 tests/**: 装 `ajv@^8` (8.20.0) + `ajv-formats@^3` (3.0.1) + `tsx@^4` (4.21.0) 跨 monorepo 与新仓 credit_matrix_next 对齐版本 · package.json/package-lock.json 自动更新但**留 untracked**(per 第 3 棒注 + 本棒硬线) · 选 tsx 而非 vitest 因为 monorepo 暂无 vitest config + 单文件 spec + 直接 exit code 0/1 更适 W1 D2 阶段 hand-on smoke
+3. 写 `tests/contract/schema-validate.spec.ts` (138 行): 5 schema × 9 check = 45 assertion · (a) ajv.validateSchema(schema) 过 draft-07 metaschema (b) `$id`/`$schema`/`title`/`description` 4 必填非空 (c) `$schema` 必须 = `http://json-schema.org/draft-07/schema#` (d) root `additionalProperties: false` (e) ajv.compile (no throws)
+4. 写 `tests/contract/payload-shape.spec.ts` (213 行): 5 fixture binding (3 tests/fixtures + 2 contract worker fixtures) · ajv compile 5 schema · `validateChunkedPatchTriple` post-check (chunk_index/chunk_total/chunk_assembly 三件套 cross-field + chunk_index < chunk_total 边界) · `validateChunkedPatchSequence` (同 chunk_total 下 index 序列覆盖 [0..total-1] · 末 chunk_assembly=final · 之前=streaming) · evidence_ref array mode 逐元素验
+5. 编辑 `.gitignore` 加 3 entry: `tests/node_modules/` (npm install 产物 ~1MB+) + `tests/coverage/` (vitest 跑出 coverage · 防误入库) + `tests/.vitest-cache/` (vitest 缓存) · 顺手 verify (未动) `data/liuye/outbox/` + `data/liuye/dead-letter/` 现 .gitignore **不存在** (留 backend 棒 verify · 当前 `data/liuye/` 目录本身也不存在)
+6. 跑 verify: 两 spec exit 0 · schema-validate 45/45 PASS · payload-shape 16/16 PASS · chunked patch 3 hit 全 OK (report_v16_PARTIAL.json patch_w1rp_v4/v5/v6_chunk0/1/2 index=0/1/2 total=3 assembly=streaming/streaming/final) · `git check-ignore tests/node_modules/` echo path 验 ignored
+7. progress append + commit (仅 3 文件: 2 spec + .gitignore)
+
+### 3 文件路径 + 关键 line range
+
+- `tests/contract/schema-validate.spec.ts` (138 行)
+  - L25-29 SCHEMA_FILES 5 schema 文件名 const
+  - L31-32 REQUIRED_META_FIELDS 4 + DRAFT_07_METASCHEMA URL const
+  - L52-105 main() · ajv 8 strict=false + addFormats · 5 schema × 5 check loop (read+parse / metaschema / 4 meta-field / $schema URL / additionalProperties / ajv.compile)
+  - L107-122 report 输出 + exit code
+- `tests/contract/payload-shape.spec.ts` (213 行)
+  - L34 REPO_ROOT 路径解析 (../.. from tests/contract/ → repo root)
+  - L43-79 BINDINGS 5 fixture binding table (label / fixturePath / schemaName / arrayMode / expectedType)
+  - L106-145 `validateChunkedPatchTriple()` (return ChunkedCheckResult[]) · 三件套 cross-field + chunk_index < chunk_total
+  - L149-180 `validateChunkedPatchSequence()` 同 chunk_total 下 index 0..N-1 + assembly streaming×N-1 + final×1
+  - L182-237 main() · 5 schema pre-compile · 5 binding loop · arrayMode 分支 · expectedType 跨字段 · chunked 后处理
+  - L239-272 report 输出 (含 chunked hit 详情 + binding-level OK/FAIL 列表)
+- `.gitignore` (新增 L180-189): 在末尾"Playwright admin auth"段后追加 W1-mock-test harness 段 · 3 entry: `tests/node_modules/` + `tests/coverage/` + `tests/.vitest-cache/` · 注释说明留 contract worker 决定 package.json 入库时机
+
+### ajv validate 双 spec 结果
+
+- **schema-validate.spec.ts**: total=45 pass=45 fail=0 · exit 0
+  - 5 schema × {read+parse · draft-07 metaschema · 4 meta-field × 1 · `$schema` URL · root additionalProperties:false · ajv.compile no-throw} = 45 check
+  - 全 5 schema (artifact / evidence_ref / kb_doc / liuye_chat_event / tool_call) 通过
+- **payload-shape.spec.ts**: total=16 pass=16 fail=0 · exit 0
+  - 5 binding × {read+parse · ajv.validate · type-cross-check (4 binding) · chunked-triple-sequence (1 binding 命中)} = 16 check
+  - 全 5 fixture 验 schema OK · chunked patch 3 实例 triple + sequence 双校验 OK
+
+### Chunked patch triple check 命中实例 (per hidden gotcha #4)
+
+- `tests/fixtures/report_v16_PARTIAL.json` 3 chunked patch 全 OK:
+  - `patch_w1rp_v4_chunk0`: chunk_index=0 chunk_total=3 chunk_assembly=streaming · 三件套同存 · OK
+  - `patch_w1rp_v5_chunk1`: chunk_index=1 chunk_total=3 chunk_assembly=streaming · 三件套同存 · OK
+  - `patch_w1rp_v6_chunk2`: chunk_index=2 chunk_total=3 chunk_assembly=final · 三件套同存 · OK
+  - 序列覆盖 [0,1,2] 完整 · assembly 序列 streaming→streaming→final 正确
+- 另外验过反例 (sanity 不入 commit · inline node 验证):
+  - chunk_index 存在但 chunk_total/chunk_assembly 缺 → CAUGHT (triple incomplete)
+  - chunk_index ≥ chunk_total → CAUGHT (idx>=total)
+  - chunk_assembly ∈ enum 外 → CAUGHT
+- 其他 4 fixture (channel_5candidates / credit_decision_PASS / kb_doc / evidence_ref) 无 chunked patch · cross-field check vacuous · 符合预期 (channel 单 patch · credit 5 patch 无切片需 · kb_doc 5 patch 单 append · evidence_ref 是 KBDoc evidence flat array)
+
+### Hidden gotcha (下一棒注意)
+
+1. **ajv 自定义 keyword vs post-check trade-off**: 第一次方案考虑用 ajv `addKeyword('chunkedTriple', ...)` · 但这要改 schema 文件 (加 chunkedTriple: true 标记) · 违反 "不动 5 schema (W1-contract SSOT)" 硬线 · 改走 post-check function 加在 spec 层 · 优势 = schema 文件保持纯 draft-07 · 劣势 = 别处 (e.g. backend artifact patch 校验) 要重写一遍 cross-field 逻辑 · 建议 Phase D shared/contracts/liuye/runtime/chunked-patch-check.ts 单独抽出来跨 spec + backend + frontend 共用
+2. **vitest vs npx tsx 选择**: tests/package.json 现在装的是 tsx + ajv + express + cors 全栈 · 但**没装 vitest** · 第 5 棒 Playwright 需要 `@playwright/test` (含 test runner) 必装新 dep · 若同时想用 vitest 跑 contract spec 需统一 dep 树 · 建议第 5 棒一并加 vitest@^2 + tsconfig.json + vitest.config.ts (现 tests/ 无 tsconfig · 我用 tsx 直跑 .ts 不要 tsconfig 也能跑 · vitest 必须有 tsconfig.json)
+3. **monorepo test runner 配置真空**: 老仓根 `package.json` 不存在 (Python 单仓为主) · 新仓 `credit_matrix_next/package.json` 是 Next.js · 都没 root-level test runner 配置 · 当前 tests/ 是独立 sub-package · 第 6+ 棒接 CI 时建议在 GitHub Actions 加 `cd tests && npm ci && node_modules/.bin/tsx contract/*.spec.ts` 跑 contract gate · 不需要 root-level npm
+4. **kb_doc.json 跨 fixture 引用边界**: kb_doc.json 是 W1-contract worker 的 fixture · 验 schema 用的是 `artifact.schema.json` (type=kb_upload_result) · NOT `kb_doc.schema.json` · 因为 fixture 是 Artifact 全栈 + snapshot.kb_docs[]·`kb_doc.schema.json` 验的是单条 KBDoc record (在 snapshot.kb_docs[i] 内部) · 这层 schema-internal narrowing 在 inputSchemas.ts (Zod) 那一棒做 · 第 6 棒做 Zod narrowing 时记得 kb_docs[]·patches[i].value (`type=='kb_upload_result'` 时) 也是 KBDoc shape · 双向校验 (artifact level + nested KBDoc level)
+5. **evidence_ref.json array vs object 双形态**: 当前 fixture 是 array (per W1-contract 第 4 棒决策) · 但 v3 spec EvidenceRef 单体也合法 · payload-shape.spec.ts 走 arrayMode=true 逐元素验 · 第 6 棒做 inputSchemas.ts Zod 时建议提供 `EvidenceRefSchema` 单体 + `EvidenceRefArraySchema` 数组双形态 · 不要锁死 array
+6. **tests/package.json 入库决策延期**: 第 3 棒注 "留 contract worker 决策" · 第 4 棒 npm install 后 package.json 又 modified 一次 (加 ajv/ajv-formats/tsx 3 dev dep) · 仍 untracked · package-lock.json 同 · 建议第 5 棒 (起 Playwright) 一并 commit 进 W1-contract repo · 加 trailer `Authorized-By: contract-worker` (跨 worker 边界) · 或第 6 棒契约整合时统一处理
+
+### File checklist 状态 (11 文件)
+
+- [x] tests/fixtures/channel_5candidates.json (第 2 棒 · DONE)
+- [x] tests/fixtures/credit_decision_PASS.json (第 2 棒 · DONE)
+- [x] tests/fixtures/report_v16_PARTIAL.json (第 3 棒 · DONE)
+- [x] tests/mock-sse/channel.ts (第 3 棒 · DONE · smoke PASS)
+- [x] tests/mock-sse/credit.ts (第 3 棒 · DONE)
+- [x] tests/mock-sse/report.ts (第 3 棒 · DONE)
+- [x] tests/contract/schema-validate.spec.ts (第 4 棒 · 138 行 · 45/45 PASS · DONE)
+- [x] tests/contract/payload-shape.spec.ts (第 4 棒 · 213 行 · 16/16 PASS · chunked 3 hit · DONE)
+- [x] .gitignore (第 4 棒 · 加 tests/{node_modules,coverage,.vitest-cache}/ · DONE)
+- [ ] tests/e2e/playwright/home-silent.spec.ts (第 5 棒)
+- [ ] tests/e2e/playwright/demo-path-step1-3.spec.ts (第 5 棒)
+- [ ] tests/migration/archive-storage.spec.ts (第 6 棒)
+
+### Next 棒 (第 5 棒 · 30-45 min) 预计交付
+
+- `tests/e2e/playwright/home-silent.spec.ts` (Playwright spec · 主页静默时 7 event 不发 · LEI replay 起点可控)
+- `tests/e2e/playwright/demo-path-step1-3.spec.ts` (Playwright spec · demo path step 1-3 跑过 3 mock SSE 端口 8001/8002/8003)
+- `tests/migration/archive-storage.spec.ts` (第 6 棒留 · 第 5 棒先聚焦 Playwright)
+- 估 30-45 min · `@playwright/test` 装包 + `playwright install chromium` (~120MB) + tsconfig.json 起 + spec 写 + 跑 3 mock server 并发起 + chromium 截图断言
+- 注: tests/package.json 已含 tsx + ajv + express + cors · 第 5 棒加 `@playwright/test` 顺便决策 tests/package.json 入库时机
+
+### Blocker
+
+- 无
+
+### ELAPSED min: ~36 (4 SSOT 读 ~6min · npm install + 验装 ~4min · 2 spec 写 ~16min · ajv negative-path sanity + 反例验证 ~3min · .gitignore + verify ~2min · progress append + commit ~5min)
+### AJV-VALIDATE: 5 schema metaschema PASS + 5 fixture vs outputSchema PASS (45+16 = 61 assertion total)
+### CHUNKED-PATCH-TRIPLE: 3 fixture 跑过 (report_v16_PARTIAL 3 hit · 其他 4 fixture 无 chunked · vacuous PASS)
+### Commit SHA: (filled in next checkpoint after commit)
+

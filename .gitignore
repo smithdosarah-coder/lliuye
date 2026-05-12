@@ -175,3 +175,13 @@ design_mockups/stage5/original/uploads/
 # Playwright admin auth storage state (NEVER commit · contains admin localStorage)
 # ----------------------------------------------------------------------------
 web/tests/e2e/.auth/
+
+# ----------------------------------------------------------------------------
+# W1-mock-test · tests/ harness (npm install 产物 + 跑测 cache · 不入库)
+# Owner: W1-mock-test worker · Stage: W1 准备周 · 见 docs/handoff/W1-mock-test-progress.md
+# 注: tests/package.json + tests/package-lock.json 留 W1-contract worker 决定 CI 接入
+#     时是否入库 · 本 worker 不动 · 仅排除 build 产物
+# ----------------------------------------------------------------------------
+tests/node_modules/
+tests/coverage/
+tests/.vitest-cache/
