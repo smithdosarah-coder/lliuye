@@ -127,4 +127,4 @@
   - heartbeat v1→liuye 透传 (matrix §4 表行) ✅
   - 3 新 liuye event 明确不在 adapter scope: `artifact.patch` / `evidence.attached` 由 BFF 监听 mutate 直接 emit · `permission.request` 由 `permissions.py::emit_permission_request` 直接 emit (PM 2026-05-11 Q2 ratify · matrix §3 Q3 verbatim · 与 §4.1 表 11th event 行一致)
 - **ELAPSED min**: ~38 (含 7 件 read + 9 文件 write + 4 smoke test 类型 + progress append)
-- **commit SHA**: <fill-after-commit>
+- **commit SHA**: 041d645
