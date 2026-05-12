@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liuye.x-nexus.local/schemas/artifact.schema.json",
+  "title": "Artifact",
+  "description": "Liuye 5-protocol member · Artifact + ArtifactPatch (v3 spec §2.2). ordered JSON Patch with monotonic version · NOT default-CRDT · supports chunked patches (P1-10 R10).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "type",
+    "status",
+    "source_tool_call_id",
+    "owner_agent",
+    "title",
+    "version",
+    "patches",
+    "snapshot",
+    "evidence_refs",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable artifact identifier · stable across versions."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Liuye contract schema version · fixed '1' for the current spec lock."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "credit_decision",
+        "report_draft",
+        "channel_search",
+        "ledger_decision",
+        "kb_upload_result"
+      ],
+      "description": "5-enum lock (v3 §2.2 + brief §4.2 hardline). Adding a sixth value requires PM ratify + RFC."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["streaming", "partial", "resolved", "failed"],
+      "description": "Lifecycle status. streaming = patches still arriving · partial = some chunks missing · resolved = final snapshot ready · failed = aborted."
+    },
+    "source_tool_call_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The ToolCall.id that produced this Artifact (root cause · Cowork→Managed handoff still references the original cowork tool_call_id via parent_tool_call_id chain)."
+    },
+    "owner_agent": {
+      "type": "string",
+      "enum": ["channel", "credit", "report"],
+      "description": "Which Cowork agent owns this artifact's snapshot schema (Managed agents alert/compliance/riskctrl do not emit Artifacts directly · they write to decision_ledger instead per §3.1.1)."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title shown in artifact panel header."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic integer · increments by 1 per applied patch. version=0 = initial empty artifact."
+    },
+    "patches": {
+      "type": "array",
+      "description": "Ordered JSON Patch history · most recent at end. Replay-able to reconstruct snapshot from base.",
+      "items": { "$ref": "#/definitions/ArtifactPatch" }
+    },
+    "snapshot": {
+      "description": "Current materialized snapshot · validated against per-type outputSchema (e.g. CreditDecisionV1 / ReportDraftV1 / ChannelSearchV1). Schema is open here · type-specific narrowing happens at consumer side via inputSchemas.ts."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "PARTIAL", "FAIL"],
+      "description": "Optional QC verdict (e.g. quality_scorer 9-dim gate result). PARTIAL = some dimensions failed but artifact still usable."
+    },
+    "qc_score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "total"],
+      "properties": {
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of QC dimensions passed."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total QC dimensions evaluated (typically 9 per §8 quality_scorer)."
+        }
+      },
+      "description": "QC pass/total counter · presented alongside verdict."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "EvidenceRef.id list · all evidence backing this artifact's snapshot. evidence_refs MAY be empty during streaming but MUST be populated by resolved."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · matches Python datetime.isoformat() and JS toISOString()."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · updated on every patch application."
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC · set when status transitions to resolved or failed."
+    }
+  },
+  "definitions": {
+    "ArtifactPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "artifact_id",
+        "base_version",
+        "next_version",
+        "op",
+        "path",
+        "value",
+        "ts"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Patch identifier · unique within an artifact's patches[]."
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Parent Artifact.id this patch belongs to."
+        },
+        "base_version": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Artifact.version this patch is applied against · client rejects patch if Artifact.version != base_version (version mismatch → full snapshot pull · v3 §2.2 hardline)."
+        },
+        "next_version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Artifact.version after this patch applies · must equal base_version + 1."
+        },
+        "op": {
+          "type": "string",
+          "enum": ["replace", "append", "merge"],
+          "description": "Patch operation type. replace = overwrite at path · append = push to array at path · merge = deep-merge object at path."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "JSON Pointer (RFC 6901) into Artifact.snapshot · e.g. '/sections/0/body' or '/candidates'."
+        },
+        "value": {
+          "description": "Value to apply at path · type depends on op (replace=any · append=item · merge=object). Open schema · per-type narrowing at consumer side."
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC patch emit timestamp."
+        },
+        "chunk_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "P1-10 R10 chunked patch · chunk index starts at 0 and increments monotonically. Missing chunk_index/chunk_total = non-chunked patch (legacy compat)."
+        },
+        "chunk_total": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "P1-10 R10 chunked patch · total chunk count. Missing chunk_total = non-chunked patch. Client triggers full snapshot pull on chunk gap / version mismatch / chunk_total inconsistency."
+        },
+        "chunk_assembly": {
+          "type": "string",
+          "enum": ["streaming", "final"],
+          "description": "P1-10 R10 chunked patch · streaming = partial render allowed · final = merge into complete snapshot. Single chunk size ≤ 64KB per v3 §2.2 hardline."
+        }
+      }
+    }
+  }
+}

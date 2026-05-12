@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://liuye.x-nexus.local/schemas/liuye_chat_event.schema.json",
+  "title": "LiuyeChatEvent",
+  "description": "Liuye 5-protocol member · SSE envelope for Liuye BFF → frontend (v3 spec §2.1). 11 event types · permission.request added per PM 2026-05-11 ratify (control-layer explicit · NOT borrowed from tool.progress.payload). heartbeat 15s/30s · reconnect rules: seq gap < 10 and disconnect < 30s → Last-Event-ID resume · else full snapshot pull.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event",
+    "turn_id",
+    "trace_id",
+    "seq",
+    "ts",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1",
+      "description": "Liuye contract schema version · fixed '1' for the current spec lock."
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "turn.started",
+        "message.created",
+        "tool.started",
+        "tool.progress",
+        "tool.completed",
+        "artifact.patch",
+        "evidence.attached",
+        "turn.completed",
+        "turn.error",
+        "permission.request",
+        "heartbeat"
+      ],
+      "description": "11 SSE event types (v3 §2.1 verbatim · PM 2026-05-11 ratify permission.request as 11th · control-layer explicit). heartbeat = 15s tick · client treats dead after 30s silence."
+    },
+    "turn_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Conversation turn identifier · same across all events within one user turn. Managed handoff = new turn_id with parent_turn_id link (P0-8 R9)."
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · set on message.created / turn.completed where a chat message is associated."
+    },
+    "tool_call_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · set on tool.* / artifact.patch / evidence.attached / permission.request events when bound to a ToolCall."
+    },
+    "artifact_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional · set on artifact.patch / evidence.attached / tool.completed events when bound to an Artifact."
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Distributed trace identifier · spans across BFF + 6 backend agents + LLM caller audit log. Required on every event for cross-system correlation."
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic sequence number within a turn_id · client uses for gap detection (seq gap < 10 + disconnect < 30s → Last-Event-ID resume · else full snapshot pull). v3 §2.1 SSE hardline."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC event emit timestamp · matches Python datetime.isoformat() and JS toISOString()."
+    },
+    "payload": {
+      "description": "Event-specific payload. oneOf narrowing per event below · open for event types whose payload schema is still under iteration (P0/P1 followup). Critical payloads (TurnErrorPayload + PermissionRequestEventPayload) are fully specified in $defs."
+    }
+  },
+  "oneOf": [
+    {
+      "description": "turn.error event · payload must conform to TurnErrorPayload (v3 §2.1 line 56-67 verbatim).",
+      "properties": {
+        "event": { "const": "turn.error" },
+        "payload": { "$ref": "#/definitions/TurnErrorPayload" }
+      },
+      "required": ["event", "payload"]
+    },
+    {
+      "description": "permission.request event · payload must conform to PermissionRequestEventPayload (v3 §2.1 line 69-82 verbatim · PM 2026-05-11 ratify · control-layer explicit · NOT via SSE v1 adapter).",
+      "properties": {
+        "event": { "const": "permission.request" },
+        "payload": { "$ref": "#/definitions/PermissionRequestEventPayload" }
+      },
+      "required": ["event", "payload"]
+    },
+    {
+      "description": "All other 9 event types · payload narrowing left for follow-up schema iteration (artifact.patch payload = ArtifactPatch · evidence.attached payload = EvidenceRef · tool.progress payload = ProgressMessage). Schema kept open here to avoid premature lock before W1 D2+ fixture work.",
+      "properties": {
+        "event": {
+          "type": "string",
+          "enum": [
+            "turn.started",
+            "message.created",
+            "tool.started",
+            "tool.progress",
+            "tool.completed",
+            "artifact.patch",
+            "evidence.attached",
+            "turn.completed",
+            "heartbeat"
+          ]
+        }
+      },
+      "required": ["event"]
+    }
+  ],
+  "definitions": {
+    "TurnErrorPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "human_hint",
+        "trace_id",
+        "turn_id",
+        "seq"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Machine-readable error code (e.g. 'LLM_RATE_LIMIT' · 'TOOL_TIMEOUT' · 'PIPL_BLOCKED'). Stable across versions for telemetry grouping."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Internal/log message · English · for ops + trace correlation. NOT shown to RM directly."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether the same turn can be safely retried (idempotent). false = user must change input or wait for ops fix."
+        },
+        "human_hint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "中文 RM-facing hint (e.g. '系统繁忙 · 30 秒后自动重试'). What the customer-manager sees in error banner. PII redaction MUST be applied before write."
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Echoed from envelope · enables RM to share trace_id with support for diagnosis."
+        },
+        "turn_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Echoed from envelope."
+        },
+        "tool_call_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional · set when error originates from a specific ToolCall (not turn-level)."
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Echoed from envelope · the seq at which error occurred."
+        },
+        "retry_after_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional · suggested client retry delay in milliseconds (e.g. rate-limit backoff)."
+        },
+        "fallback_available": {
+          "type": "boolean",
+          "description": "Optional · whether a degraded fallback path is available (e.g. PIPL block → use cn provider chain)."
+        }
+      }
+    },
+    "PermissionRequestEventPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "risk_tier", "action", "idempotency_key"],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Same as PermissionRequest.id · stable identifier for this permission decision (idempotent across resends)."
+        },
+        "risk_tier": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "3-tier risk classification · drives UI form factor: low=inline confirm · medium=modal · high=drawer with reason input. PM 2026-05-11 ratify."
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Action identifier (e.g. 'credit_decision_submit' / 'ledger_write' / 'pipl_overseas_call'). Backend canonical id · not display label."
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required on all irreversible actions · prevents double-execution if user double-clicks grant. Backend MUST dedupe on this key."
+        },
+        "required_persona": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Optional · RBAC required persona list (e.g. ['credit_officer', 'compliance_officer']). Backend-driven · frontend MUST NOT hardcode role names."
+        },
+        "disabled_reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional · when current persona lacks required role · UI shows greyed-out button with explicit reason text. Example: '需要合规官签字 · 当前角色无权限'."
+        },
+        "reason_required": {
+          "type": "boolean",
+          "description": "Optional · high-risk drawer requires user to type a reason before grant button enables. Default false for low/medium · typically true for high."
+        },
+        "rule_source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional · audit trace · which policy emitted this request (e.g. 'policy.rbac' / 'policy.ledger_write' / 'policy.pipl'). Surfaces in decision_ledger for compliance review."
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["once", "session", "always"],
+          "description": "Optional · grant scope. once = single action · session = current session · always = persistent until revoked. UI MUST default to 'once' for high-risk."
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional · human-readable 中文 explanation shown in confirmation UI (e.g. '此操作将向决策账本写入授信决定 · 5 年留档 · 受银保监审计')."
+        },
+        "consequences": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Optional · enumerated consequences (e.g. ['不可逆 · 写入 decision_ledger', '触发 PermissionRequest 全链路审计', '5 年留档']). UI bullet-list in high-risk drawer."
+        }
+      }
+    }
+  }
+}
