@@ -1,0 +1,500 @@
+{
+  "id": "art_channel_5candidates_w1_mock",
+  "schema_version": "1",
+  "type": "channel_search",
+  "status": "resolved",
+  "source_tool_call_id": "tc_channel_w1_mock_5candidates",
+  "owner_agent": "channel",
+  "title": "W1 mock · Look-alike 5 候选 · C36 汽车制造业 · 难度分层 简单1/中等2/困难1/极端1",
+  "version": 5,
+  "patches": [
+    {
+      "id": "patch_w1ch_v1",
+      "artifact_id": "art_channel_5candidates_w1_mock",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/snapshot/seed",
+      "value": {
+        "seed_customer_id_hash": "c7d9e1f3a5b80246",
+        "seed_customer_segment": "corporate",
+        "seed_industry_code": "C36",
+        "seed_industry_label": "新能源汽车零部件 · C36 汽车制造业",
+        "seed_geo": "江苏-常州",
+        "seed_scale_label": "规上中型 · 营收 3-5 亿",
+        "search_intent": "对公拓客 · 新能源汽车零部件赛道 · look-alike 5 候选 · 测试难度分层"
+      },
+      "ts": "2026-05-12T01:30:00Z"
+    },
+    {
+      "id": "patch_w1ch_v2",
+      "artifact_id": "art_channel_5candidates_w1_mock",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "append",
+      "path": "/snapshot/candidates",
+      "value": {
+        "rank": 1,
+        "candidate_id": "cand_easy_chenfeng_evparts",
+        "difficulty_tier": "简单"
+      },
+      "ts": "2026-05-12T01:30:14Z"
+    },
+    {
+      "id": "patch_w1ch_v3",
+      "artifact_id": "art_channel_5candidates_w1_mock",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "append",
+      "path": "/snapshot/candidates",
+      "value": {
+        "rank": 2,
+        "candidate_id": "cand_med_qichuang_powertrain",
+        "difficulty_tier": "中等"
+      },
+      "ts": "2026-05-12T01:30:28Z"
+    },
+    {
+      "id": "patch_w1ch_v4",
+      "artifact_id": "art_channel_5candidates_w1_mock",
+      "base_version": 3,
+      "next_version": 4,
+      "op": "append",
+      "path": "/snapshot/candidates",
+      "value": {
+        "rank": 5,
+        "candidate_id": "cand_extreme_longyu_holdings",
+        "difficulty_tier": "极端"
+      },
+      "ts": "2026-05-12T01:30:51Z"
+    },
+    {
+      "id": "patch_w1ch_v5",
+      "artifact_id": "art_channel_5candidates_w1_mock",
+      "base_version": 4,
+      "next_version": 5,
+      "op": "replace",
+      "path": "/snapshot/summary",
+      "value": {
+        "total_candidates": 5,
+        "by_difficulty": {"简单": 1, "中等": 2, "困难": 1, "极端": 1},
+        "signal_types_distribution": {"growth": 3, "bidding": 2, "tech": 2, "recognition": 2, "award": 1},
+        "search_provider": "tavily",
+        "elapsed_ms": 5180,
+        "qc_passed": true,
+        "candidates_meeting_q041_hardline": 5
+      },
+      "ts": "2026-05-12T01:31:05Z"
+    }
+  ],
+  "snapshot": {
+    "seed": {
+      "seed_customer_id_hash": "c7d9e1f3a5b80246",
+      "seed_customer_segment": "corporate",
+      "seed_industry_code": "C36",
+      "seed_industry_label": "新能源汽车零部件 · C36 汽车制造业",
+      "seed_geo": "江苏-常州",
+      "seed_scale_label": "规上中型 · 营收 3-5 亿",
+      "search_intent": "对公拓客 · 新能源汽车零部件赛道 · look-alike 5 候选 · 测试难度分层"
+    },
+    "candidates": [
+      {
+        "rank": 1,
+        "candidate_id": "cand_easy_chenfeng_evparts",
+        "candidate_name": "晨锋新能源汽车零部件有限公司",
+        "industry": "新能源汽车零部件 · C36 汽车制造业",
+        "geo": "江苏-常州",
+        "scale": "规上中型 · 营收 3.8 亿",
+        "similarity": 0.88,
+        "difficulty_tier": "简单",
+        "match_dimensions": {
+          "industry_score": 1.0,
+          "geo_score": 1.0,
+          "scale_score": 0.92,
+          "operational_score": 0.85,
+          "overall_score": 0.88
+        },
+        "signals": [
+          {
+            "signal_type": "growth",
+            "signal_title": "晨锋零部件 2026Q1 营收同比增长 28% · 净利率提升至 9.2%",
+            "signal_date": "2026-04-15",
+            "signal_summary": "2026 年一季报披露 · 营收 1.06 亿元 · 同比 +28% · 净利率 9.2% · 主因新势力客户订单放量"
+          },
+          {
+            "signal_type": "bidding",
+            "signal_title": "中标某新势力车企 2026 年度二级供应商资格",
+            "signal_date": "2026-02-20",
+            "signal_summary": "通过某新势力车企电池托盘供应商认证 · 预计年订单 6,200 万元 · 履约期 24 个月"
+          },
+          {
+            "signal_type": "tech",
+            "signal_title": "晨锋零部件获国家级专精特新 小巨人 第五批",
+            "signal_date": "2026-01-08",
+            "signal_summary": "工信部第五批专精特新小巨人公示 · 研发投入占比 7.1% · 拥有发明专利 11 项"
+          }
+        ],
+        "evidence_refs": [
+          "ev_w1m_chenfeng_q1_2026_growth",
+          "ev_w1m_chenfeng_bidding_2026q1",
+          "ev_w1m_chenfeng_recognition_2026q1"
+        ],
+        "evidence_chain": [
+          {
+            "id": "ev_w1m_chenfeng_q1_2026_growth",
+            "kb_doc_id": "kbd_w1m_chenfeng_q1report_2026",
+            "excerpt": "经审计的 2026 年一季度财务报表显示 · 营业收入 10,612 万元 · 较 2025 年一季度 8,290 万元同比增长 28.0% · 归母净利润 977 万元 · 净利率 9.21%。",
+            "span": {"start": 1842, "end": 1956},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-04-15T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:10Z",
+            "source_url": "https://annual-report.example.cn/2026q1/chenfeng-evparts-quarterly.pdf",
+            "source_tier": "government"
+          },
+          {
+            "id": "ev_w1m_chenfeng_bidding_2026q1",
+            "kb_doc_id": "kbd_w1m_chenfeng_bidding_announcement",
+            "excerpt": "某新势力车企 2026 年度供应链管理公告 · 晨锋新能源汽车零部件公司通过电池托盘二级供应商认证 · 预计年订单规模 6,200 万元 · 履约期 24 个月。",
+            "span": {"start": 235, "end": 348},
+            "freshness": "fresh",
+            "data_tier": 3,
+            "evidence_date": "2026-02-20T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:11Z",
+            "source_url": "https://industry-research.example.cn/auto/2026/chenfeng-tier2-supplier.pdf",
+            "source_tier": "industry"
+          },
+          {
+            "id": "ev_w1m_chenfeng_recognition_2026q1",
+            "kb_doc_id": "kbd_w1m_chenfeng_specialized_notice",
+            "excerpt": "工业和信息化部第五批专精特新小巨人企业公示名单 · 江苏省常州市 · 晨锋新能源汽车零部件有限公司 · 研发投入占比 7.1% · 发明专利 11 项。",
+            "span": {"start": 4521, "end": 4612},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-01-08T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:12Z",
+            "source_url": "https://www.miit.gov.cn/notice/2026/specialized-batch5.pdf",
+            "source_tier": "government"
+          }
+        ],
+        "rationale": "同业(C36 新能源汽车零部件) + 同区域(常州) + 同规模(营收 3-5 亿) + 近期增长 + 资质叠加 · 已成交银行优势画像标准卡 · Tier 2-3 交叉支撑 · 推荐优先级 P1"
+      },
+      {
+        "rank": 2,
+        "candidate_id": "cand_med_qichuang_powertrain",
+        "candidate_name": "启创动力总成有限公司",
+        "industry": "新能源汽车动力总成 · C36 汽车制造业",
+        "geo": "浙江-嘉兴",
+        "scale": "规上中型 · 营收 4.5 亿",
+        "similarity": 0.74,
+        "difficulty_tier": "中等",
+        "match_dimensions": {
+          "industry_score": 0.82,
+          "geo_score": 0.78,
+          "scale_score": 0.88,
+          "operational_score": 0.72,
+          "overall_score": 0.74
+        },
+        "signals": [
+          {
+            "signal_type": "tech",
+            "signal_title": "启创动力获 8 项新能源电驱动总成发明专利",
+            "signal_date": "2025-12-18",
+            "signal_summary": "国家知识产权局公告 · 启创动力获授权发明专利 8 项 · 涉及永磁同步电机控制器 / 集成电驱总成等核心技术"
+          },
+          {
+            "signal_type": "growth",
+            "signal_title": "启创动力 2025 年报营收增长 22% · 经营性现金流转正",
+            "signal_date": "2026-03-28",
+            "signal_summary": "2025 年报披露 · 营收 4.52 亿元 · 同比 +22% · 经营性现金流 3,420 万元 · 首次年度转正"
+          }
+        ],
+        "evidence_refs": [
+          "ev_w1m_qichuang_patent_2025q4",
+          "ev_w1m_qichuang_annual_2025"
+        ],
+        "evidence_chain": [
+          {
+            "id": "ev_w1m_qichuang_patent_2025q4",
+            "kb_doc_id": "kbd_w1m_qichuang_patent_gazette",
+            "excerpt": "国家知识产权局 2025 年第 51 期专利公告 · 浙江启创动力总成有限公司 · 获授权发明专利 8 项 · 含集成电驱总成控制方法 / 永磁同步电机磁场弱化策略等。",
+            "span": {"start": 1023, "end": 1138},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2025-12-18T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:24Z",
+            "source_url": "https://www.cnipa.gov.cn/gazette/2025/issue51.pdf",
+            "source_tier": "government"
+          },
+          {
+            "id": "ev_w1m_qichuang_annual_2025",
+            "kb_doc_id": "kbd_w1m_qichuang_annual_report_2025",
+            "excerpt": "经会计师事务所审计的 2025 年度财务报表 · 营业收入 45,231 万元 · 较 2024 年 37,068 万元同比增长 22.0% · 经营性活动现金净流量 3,420 万元 · 较 2024 年 -812 万元首次转正。",
+            "span": {"start": 2480, "end": 2618},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-03-28T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:25Z",
+            "source_url": "https://annual-report.example.cn/2025/qichuang-powertrain-audited.pdf",
+            "source_tier": "government"
+          }
+        ],
+        "rationale": "中等难度 · 同业(C36 细分动力总成) + 邻近区域(嘉兴) + 同规模 · 技术专利 + 现金流改善信号 · Tier 2 双源交叉 · 建议优先级 P2 · 信号驱动型客户"
+      },
+      {
+        "rank": 3,
+        "candidate_id": "cand_med_runfang_battery",
+        "candidate_name": "润方电池系统股份有限公司",
+        "industry": "新能源汽车动力电池 PACK · C36 汽车制造业",
+        "geo": "安徽-合肥",
+        "scale": "规上中型 · 营收 5.2 亿",
+        "similarity": 0.68,
+        "difficulty_tier": "中等",
+        "match_dimensions": {
+          "industry_score": 0.78,
+          "geo_score": 0.62,
+          "scale_score": 0.82,
+          "operational_score": 0.70,
+          "overall_score": 0.68
+        },
+        "signals": [
+          {
+            "signal_type": "bidding",
+            "signal_title": "润方电池中标某商用车集团动力电池 PACK 集采项目",
+            "signal_date": "2026-01-30",
+            "signal_summary": "中标金额 1.45 亿元 · 供应电动重卡用磷酸铁锂电池 PACK · 履约期 18 个月 · 业主央企背景"
+          },
+          {
+            "signal_type": "tech",
+            "signal_title": "润方电池入选安徽省制造业创新中心培育名单",
+            "signal_date": "2025-11-22",
+            "signal_summary": "安徽省工信厅公示 · 润方电池入选 2025 年省级制造业创新中心培育对象 · 研发投入 4,800 万元 / 年"
+          },
+          {
+            "signal_type": "growth",
+            "signal_title": "润方电池 2026Q1 营收同比增长 35% · 但应收账款周转放缓",
+            "signal_date": "2026-04-22",
+            "signal_summary": "一季报披露 · 营收 1.38 亿元 · 同比 +35% · 但应收账款周转天数从 86 天延长至 112 天 · 现金流压力凸显"
+          }
+        ],
+        "evidence_refs": [
+          "ev_w1m_runfang_tender_2026q1",
+          "ev_w1m_runfang_recognition_2025q4",
+          "ev_w1m_runfang_q1_2026"
+        ],
+        "evidence_chain": [
+          {
+            "id": "ev_w1m_runfang_tender_2026q1",
+            "kb_doc_id": "kbd_w1m_runfang_tender_bulletin",
+            "excerpt": "某商用车集团 2026 年度采购公告 · 润方电池系统股份有限公司中标动力电池 PACK 集采项目 · 中标金额 1.45 亿元 · 履约期 18 个月。",
+            "span": {"start": 612, "end": 715},
+            "freshness": "fresh",
+            "data_tier": 3,
+            "evidence_date": "2026-01-30T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:38Z",
+            "source_url": "https://industry-research.example.cn/auto/2026/runfang-tender.pdf",
+            "source_tier": "industry"
+          },
+          {
+            "id": "ev_w1m_runfang_recognition_2025q4",
+            "kb_doc_id": "kbd_w1m_runfang_provincial_notice",
+            "excerpt": "安徽省工业和信息化厅 2025 年第 18 号公示 · 润方电池系统股份有限公司 入选省级制造业创新中心培育名单 · 年度研发投入 4,800 万元。",
+            "span": {"start": 880, "end": 988},
+            "freshness": "critical",
+            "data_tier": 2,
+            "evidence_date": "2025-11-22T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:40Z",
+            "source_url": "https://www.ah.gov.cn/notice/2025/manufacturing-innovation.pdf",
+            "source_tier": "government"
+          },
+          {
+            "id": "ev_w1m_runfang_q1_2026",
+            "kb_doc_id": "kbd_w1m_runfang_q1report_2026",
+            "excerpt": "2026 年一季度财务简报 · 营收 13,820 万元 · 同比 +35% · 但应收账款周转天数从 2025Q1 的 86 天延长至 112 天 · 经营性现金净流量 -480 万元。",
+            "span": {"start": 305, "end": 425},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-04-22T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:42Z",
+            "source_url": "https://annual-report.example.cn/2026q1/runfang-battery.pdf",
+            "source_tier": "government"
+          }
+        ],
+        "rationale": "中等难度 · 同业(C36 PACK 细分)+ 跨区域(合肥)+ 规模匹配 · 招投标 + 资质双正向但现金流警告 · 需 KYC 评估应收账款放缓风险 · Tier 2-3 交叉 · 建议优先级 P2"
+      },
+      {
+        "rank": 4,
+        "candidate_id": "cand_hard_haoyu_chassis",
+        "candidate_name": "皓宇底盘科技股份公司",
+        "industry": "传统汽车底盘 · C36 汽车制造业(电动化转型中)",
+        "geo": "山东-烟台",
+        "scale": "规上中型 · 营收 2.8 亿",
+        "similarity": 0.52,
+        "difficulty_tier": "困难",
+        "match_dimensions": {
+          "industry_score": 0.62,
+          "geo_score": 0.48,
+          "scale_score": 0.72,
+          "operational_score": 0.45,
+          "overall_score": 0.52
+        },
+        "signals": [
+          {
+            "signal_type": "award",
+            "signal_title": "皓宇底盘获评 2024 年度山东省汽车零部件百强",
+            "signal_date": "2024-12-15",
+            "signal_summary": "山东省汽车工业协会评定 · 2024 年度汽车零部件百强企业第 78 位 · 当年营收 2.65 亿元"
+          },
+          {
+            "signal_type": "growth",
+            "signal_title": "皓宇底盘披露电动化转型规划 · 拟定增 1.2 亿元",
+            "signal_date": "2025-09-10",
+            "signal_summary": "公司公告：拟非公开发行股票募资 1.2 亿元 · 用于新能源汽车电动化底盘产线改造 · 增发尚未完成"
+          }
+        ],
+        "evidence_refs": [
+          "ev_w1m_haoyu_award_2024",
+          "ev_w1m_haoyu_announcement_2025q3"
+        ],
+        "evidence_chain": [
+          {
+            "id": "ev_w1m_haoyu_award_2024",
+            "kb_doc_id": "kbd_w1m_haoyu_provincial_top100",
+            "excerpt": "山东省汽车工业协会发布 2024 年度山东省汽车零部件百强企业榜单 · 皓宇底盘科技股份公司列第 78 位 · 当年营业收入 2.65 亿元 · 主营底盘传动系统。",
+            "span": {"start": 156, "end": 268},
+            "freshness": "critical",
+            "data_tier": 3,
+            "evidence_date": "2024-12-15T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:46Z",
+            "source_url": "https://industry-research.example.cn/auto/2024/shandong-top100.pdf",
+            "source_tier": "industry"
+          },
+          {
+            "id": "ev_w1m_haoyu_announcement_2025q3",
+            "kb_doc_id": "kbd_w1m_haoyu_corporate_announcement",
+            "excerpt": "公司公告 [2025-临-038] · 皓宇底盘科技股份公司拟非公开发行 A 股募集资金不超过 1.2 亿元 · 用于新能源汽车电动化底盘产线改造项目 · 截至公告日增发尚未完成。",
+            "span": {"start": 0, "end": 132},
+            "freshness": "expired",
+            "data_tier": 3,
+            "evidence_date": "2025-09-10T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:48Z",
+            "source_url": "https://announcements.example.cn/2025/haoyu-chassis-private-placement.pdf",
+            "source_tier": "industry"
+          }
+        ],
+        "rationale": "困难难度 · 行业相邻(传统底盘 vs 新能源)+ 跨区域(华东 vs 华北)+ 规模略小 + 转型中信号不全 · 上一份核心 evidence 已过期 · 需追加现场尽调 · 建议优先级 P3 · 暂不主动拓客"
+      },
+      {
+        "rank": 5,
+        "candidate_id": "cand_extreme_longyu_holdings",
+        "candidate_name": "陇宇控股集团股份有限公司",
+        "industry": "汽车零部件 + 房地产 + 金融科技 三板块 · C36 汽车制造业 (集团母公司挂牌)",
+        "geo": "广东-深圳",
+        "scale": "大型集团 · 合并营收 38 亿 · 单 C36 板块 9 亿",
+        "similarity": 0.32,
+        "difficulty_tier": "极端",
+        "match_dimensions": {
+          "industry_score": 0.45,
+          "geo_score": 0.25,
+          "scale_score": 0.18,
+          "operational_score": 0.42,
+          "overall_score": 0.32
+        },
+        "signals": [
+          {
+            "signal_type": "growth",
+            "signal_title": "陇宇控股 2026Q1 合并营收同比增长 18% · 单板块数据未披露",
+            "signal_date": "2026-04-26",
+            "signal_summary": "合并报表披露营收 11.2 亿元 · 同比 +18% · 但汽车零部件单板块营收 / 利润数据未单独披露 · 三板块存在交叉补贴"
+          },
+          {
+            "signal_type": "recognition",
+            "signal_title": "陇宇控股因关联交易披露不规范收到证监局警示函",
+            "signal_date": "2026-03-05",
+            "signal_summary": "广东证监局 [2026]15 号警示函 · 陇宇控股 2025 年度关联交易披露不充分 · 涉及汽车零部件板块与地产板块互保 · 责令整改"
+          }
+        ],
+        "evidence_refs": [
+          "ev_w1m_longyu_q1_2026",
+          "ev_w1m_longyu_csrc_warning_2026q1"
+        ],
+        "evidence_chain": [
+          {
+            "id": "ev_w1m_longyu_q1_2026",
+            "kb_doc_id": "kbd_w1m_longyu_q1report_2026",
+            "excerpt": "陇宇控股集团 2026 年一季度合并报表 · 营业收入 112,000 万元 · 同比增长 18.0% · 汽车零部件板块独立数据未在分部报告中单独披露 · 仅 注 12 提及板块间互保余额 2.4 亿元。",
+            "span": {"start": 1320, "end": 1470},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-04-26T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:54Z",
+            "source_url": "https://annual-report.example.cn/2026q1/longyu-holdings-consolidated.pdf",
+            "source_tier": "government"
+          },
+          {
+            "id": "ev_w1m_longyu_csrc_warning_2026q1",
+            "kb_doc_id": "kbd_w1m_longyu_csrc_letter",
+            "excerpt": "广东证监局 [2026]15 号 关于对陇宇控股集团股份有限公司采取出具警示函措施的决定 · 你公司 2025 年度关联交易披露不充分 · 涉及汽车零部件板块与地产板块互保 · 现要求 30 日内整改并报告。",
+            "span": {"start": 0, "end": 152},
+            "freshness": "fresh",
+            "data_tier": 2,
+            "evidence_date": "2026-03-05T00:00:00Z",
+            "retrieved_at": "2026-05-12T01:30:56Z",
+            "source_url": "https://www.csrc.gov.cn/csrc/c100135/c7484930/content.shtml",
+            "source_tier": "government"
+          }
+        ],
+        "rationale": "极端难度 · 集团型客户 + 跨区域(华南)+ 多板块业务 + 板块独立数据缺失 + 监管警示函未结案 · 与种子(单体规上中型)画像偏离极大 · 信号有矛盾(增长 vs 警示)· 仅作 KYC 参考 · 不建议主动拓客 · 优先级 P4"
+      }
+    ],
+    "summary": {
+      "total_candidates": 5,
+      "by_difficulty": {"简单": 1, "中等": 2, "困难": 1, "极端": 1},
+      "signal_types_distribution": {"growth": 4, "bidding": 2, "tech": 2, "recognition": 2, "award": 1},
+      "search_provider": "tavily",
+      "elapsed_ms": 5180,
+      "qc_passed": true,
+      "candidates_meeting_q041_hardline": 5,
+      "candidates_meeting_q041_hardline_note": "全 5 候选含 industry/geo/scale/similarity 4 字段 · 满足 Q-041 硬线",
+      "freshness_distribution": {"fresh": 9, "critical": 2, "expired": 1},
+      "data_tier_distribution": {"tier_2": 7, "tier_3": 5},
+      "tier_cross_validation_note": "所有推荐核心理由均含 Tier 2-3 交叉来源 · 未使用 Tier 4 公开 web 单一来源 · 满足 root §3.5.1 SLA 硬线"
+    },
+    "banner_state": {
+      "has_blocker": false,
+      "blocked_by_env": null,
+      "candidates_below_threshold": []
+    },
+    "ledger": {
+      "decision_id": "ledger_channel_w1m_5cand_001",
+      "jurisdiction": "HQ",
+      "retention_class": "short",
+      "idempotency_key": "channel:lookalike:c7d9e1f3a5b80246:2026-05-12T01:30:00Z",
+      "input_hash": "ab12cd34ef567890fedcba9876543210112233445566778899aabbccddeeff00",
+      "output_hash": "00ffeeddccbbaa998877665544332211abcdef0123456789ab12cd34ef567890",
+      "parent_turn_id": null
+    }
+  },
+  "verdict": "PASS",
+  "qc_score": {
+    "passed": 9,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_w1m_chenfeng_q1_2026_growth",
+    "ev_w1m_chenfeng_bidding_2026q1",
+    "ev_w1m_chenfeng_recognition_2026q1",
+    "ev_w1m_qichuang_patent_2025q4",
+    "ev_w1m_qichuang_annual_2025",
+    "ev_w1m_runfang_tender_2026q1",
+    "ev_w1m_runfang_recognition_2025q4",
+    "ev_w1m_runfang_q1_2026",
+    "ev_w1m_haoyu_award_2024",
+    "ev_w1m_haoyu_announcement_2025q3",
+    "ev_w1m_longyu_q1_2026",
+    "ev_w1m_longyu_csrc_warning_2026q1"
+  ],
+  "created_at": "2026-05-12T01:30:00Z",
+  "updated_at": "2026-05-12T01:31:05Z",
+  "resolved_at": "2026-05-12T01:31:05Z"
+}

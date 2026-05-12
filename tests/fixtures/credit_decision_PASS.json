@@ -1,0 +1,345 @@
+{
+  "id": "art_credit_decision_PASS_w1_mock",
+  "schema_version": "1",
+  "type": "credit_decision",
+  "status": "resolved",
+  "source_tool_call_id": "tc_credit_decide_w1_mock_chenfeng",
+  "owner_agent": "credit",
+  "title": "W1 mock · 对公授信决策 PASS · 晨锋新能源汽车零部件(脱敏) · 引用 channel cand_easy_chenfeng_evparts",
+  "version": 5,
+  "patches": [
+    {
+      "id": "patch_w1cr_v1",
+      "artifact_id": "art_credit_decision_PASS_w1_mock",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/snapshot/header",
+      "value": {
+        "subject_name": "晨锋新能源汽车零部件有限公司",
+        "subject_id_hash": "5f8a3c1d2e9b6047",
+        "segment": "corporate",
+        "industry_code": "C36",
+        "industry_label": "新能源汽车零部件 · C36 汽车制造业",
+        "applied_product": "CORP_CREDIT",
+        "applied_amount_wan": 3500,
+        "applied_term_months": 36,
+        "linked_channel_candidate_id": "cand_easy_chenfeng_evparts",
+        "linked_channel_artifact_id": "art_channel_5candidates_w1_mock"
+      },
+      "ts": "2026-05-12T01:35:00Z"
+    },
+    {
+      "id": "patch_w1cr_v2",
+      "artifact_id": "art_credit_decision_PASS_w1_mock",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "replace",
+      "path": "/snapshot/scoring",
+      "value": {
+        "dimensions": {
+          "financial": {"score": 76, "weight": 0.35, "weighted": 26.6},
+          "industry": {"score": 70, "weight": 0.15, "weighted": 10.5},
+          "operational": {"score": 80, "weight": 0.25, "weighted": 20.0},
+          "guarantee": {"score": 72, "weight": 0.25, "weighted": 18.0}
+        },
+        "composite_score": 75,
+        "risk_grade": "B"
+      },
+      "ts": "2026-05-12T01:35:18Z"
+    },
+    {
+      "id": "patch_w1cr_v3",
+      "artifact_id": "art_credit_decision_PASS_w1_mock",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "append",
+      "path": "/snapshot/decision_trace/nodes",
+      "value": {
+        "id": "peer_gap::net_margin",
+        "type": "peer_gap",
+        "metric": "net_margin",
+        "label": "净利率",
+        "feature_value": 0.092,
+        "peer_value": 0.078,
+        "gap": 0.014,
+        "unit": "ratio",
+        "direction": "above_peer",
+        "interpretation": "净利率高于（利好）同业中位 1.4pp"
+      },
+      "ts": "2026-05-12T01:35:28Z"
+    },
+    {
+      "id": "patch_w1cr_v4",
+      "artifact_id": "art_credit_decision_PASS_w1_mock",
+      "base_version": 3,
+      "next_version": 4,
+      "op": "replace",
+      "path": "/snapshot/qc",
+      "value": {
+        "verdict": "PASS",
+        "total_score": 84.5,
+        "fatal_fail": false,
+        "passed_dimensions": 9,
+        "total_dimensions": 9
+      },
+      "ts": "2026-05-12T01:35:40Z"
+    },
+    {
+      "id": "patch_w1cr_v5",
+      "artifact_id": "art_credit_decision_PASS_w1_mock",
+      "base_version": 4,
+      "next_version": 5,
+      "op": "replace",
+      "path": "/snapshot/decision",
+      "value": {
+        "decision": "通过",
+        "approved_amount_wan": 3200,
+        "approved_term_months": 36,
+        "rate_bps": 470,
+        "anchor": "评分定档 B + 无红线 → 通过"
+      },
+      "ts": "2026-05-12T01:35:52Z"
+    }
+  ],
+  "snapshot": {
+    "header": {
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "subject_id_hash": "5f8a3c1d2e9b6047",
+      "segment": "corporate",
+      "industry_code": "C36",
+      "industry_label": "新能源汽车零部件 · C36 汽车制造业",
+      "applied_product": "CORP_CREDIT",
+      "applied_amount_wan": 3500,
+      "applied_term_months": 36,
+      "linked_channel_candidate_id": "cand_easy_chenfeng_evparts",
+      "linked_channel_artifact_id": "art_channel_5candidates_w1_mock"
+    },
+    "scoring": {
+      "dimensions": {
+        "financial": {
+          "score": 76,
+          "weight": 0.35,
+          "weighted": 26.6,
+          "sub_scores": {
+            "debt_ratio": 80,
+            "revenue_growth": 85,
+            "net_margin": 72,
+            "current_ratio": 78,
+            "ar_turnover_days": 70,
+            "cashflow_quality": 75
+          }
+        },
+        "industry": {
+          "score": 70,
+          "weight": 0.15,
+          "weighted": 10.5,
+          "sub_scores": {
+            "prosperity_index": 78,
+            "policy_sensitivity": 65,
+            "cyclicality": 65,
+            "blacklist": 90
+          }
+        },
+        "operational": {
+          "score": 80,
+          "weight": 0.25,
+          "weighted": 20.0,
+          "sub_scores": {
+            "established_years": 82,
+            "revenue_scale": 78,
+            "cashflow_coverage": 82,
+            "customer_concentration": 75,
+            "employee_count": 80
+          }
+        },
+        "guarantee": {
+          "score": 72,
+          "weight": 0.25,
+          "weighted": 18.0,
+          "sub_scores": {
+            "coverage_ratio": 78,
+            "collateral_type": 80,
+            "guarantor_strength_score": 60,
+            "combination_completeness": 70
+          }
+        }
+      },
+      "composite_score": 75,
+      "risk_grade": "B",
+      "industry_peer_gap": {
+        "debt_ratio_gap": -0.03,
+        "net_margin_gap": 0.014,
+        "revenue_growth_gap": 0.072,
+        "ar_turnover_gap": -6
+      }
+    },
+    "decision_trace": {
+      "schema_version": "1.0.0",
+      "engine": "agent3.decision_engine",
+      "engine_version": "v3.1",
+      "appetite": {"segment": "corporate", "version": "default-2026-04", "client_id": ""},
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "segment": "corporate",
+      "built_at": "2026-05-12T01:35:30Z",
+      "nodes": [
+        {
+          "id": "feature::financial.debt_ratio",
+          "type": "feature",
+          "key": "financial.debt_ratio",
+          "value": 0.52,
+          "source": "feature_extractor.py::_extract_corporate",
+          "feature_path": "financial.debt_ratio"
+        },
+        {
+          "id": "rule::corp_debt_ratio_warn",
+          "type": "rule",
+          "rule_id": "corp_debt_ratio_warn",
+          "rule_name": "资产负债率告警",
+          "threshold": 0.7,
+          "operator": ">",
+          "severity": "yellow",
+          "version": "v3.1+default",
+          "source": "red_line_rules_corporate.json#corp_debt_ratio_warn"
+        },
+        {
+          "id": "rule_hit::corp_debt_ratio_warn",
+          "type": "rule_hit",
+          "rule_id": "corp_debt_ratio_warn",
+          "actual": 0.52,
+          "threshold": 0.7,
+          "severity": "green",
+          "can_waive": true,
+          "description": "资产负债率 0.52 < 阈值 0.7 · 未触发"
+        },
+        {
+          "id": "peer_benchmark::C36::net_margin",
+          "type": "peer_benchmark",
+          "industry_code": "C36",
+          "metric": "net_margin",
+          "value": 0.078,
+          "source": "industry_baselines_v2.json#C36#net_margin_median"
+        },
+        {
+          "id": "peer_gap::net_margin",
+          "type": "peer_gap",
+          "metric": "net_margin",
+          "label": "净利率",
+          "feature_value": 0.092,
+          "peer_value": 0.078,
+          "gap": 0.014,
+          "unit": "ratio",
+          "direction": "above_peer",
+          "interpretation": "净利率高于（利好）同业中位 1.4pp"
+        },
+        {
+          "id": "score::financial",
+          "type": "score_dimension",
+          "dimension": "financial",
+          "score": 76,
+          "weight": 0.35,
+          "weighted": 26.6,
+          "source": "scoring_model_corporate.py::_score_financial",
+          "sub_scores": {
+            "debt_ratio": 80,
+            "revenue_growth": 85,
+            "net_margin": 72,
+            "current_ratio": 78,
+            "ar_turnover_days": 70,
+            "cashflow_quality": 75
+          }
+        },
+        {
+          "id": "decision::final",
+          "type": "decision",
+          "decision": "通过",
+          "anchor": "评分定档 B + 无红线 → 通过",
+          "approved_amount_wan": 3200,
+          "approved_term_months": 36,
+          "rate_bps": 470,
+          "rule_hit_count": 0,
+          "blocking_rules": []
+        }
+      ],
+      "edges": [
+        {"from": "feature::financial.debt_ratio", "to": "rule_hit::corp_debt_ratio_warn", "type": "triggered"},
+        {"from": "rule::corp_debt_ratio_warn", "to": "rule_hit::corp_debt_ratio_warn", "type": "threshold_of"},
+        {"from": "rule_hit::corp_debt_ratio_warn", "to": "decision::final", "type": "caused"},
+        {"from": "feature::financial.debt_ratio", "to": "peer_benchmark::C36::net_margin", "type": "compared_to"},
+        {"from": "peer_benchmark::C36::net_margin", "to": "peer_gap::net_margin", "type": "compared_to"},
+        {"from": "feature::financial.debt_ratio", "to": "score::financial", "type": "derived_from"},
+        {"from": "score::financial", "to": "decision::final", "type": "evidenced_by"}
+      ],
+      "peer_gap_summary": {
+        "debt_ratio_gap": -0.03,
+        "net_margin_gap": 0.014,
+        "revenue_growth_gap": 0.072,
+        "ar_turnover_gap": -6
+      },
+      "missing_evidence": []
+    },
+    "qc": {
+      "verdict": "PASS",
+      "total_score": 84.5,
+      "total_score_before_penalty": 84.5,
+      "fatal_fail": false,
+      "fatal_reasons": [],
+      "passed_dimensions": 9,
+      "total_dimensions": 9,
+      "dimensions": [
+        {"name": "申报方案硬字段", "weight": 2.0, "raw_score": 8.5, "weighted_score": 1.7},
+        {"name": "企业基本情况", "weight": 4.0, "raw_score": 9.0, "weighted_score": 3.6},
+        {"name": "经营情况分析", "weight": 4.0, "raw_score": 8.5, "weighted_score": 3.4},
+        {"name": "财务分析深度", "weight": 6.0, "raw_score": 9.0, "weighted_score": 5.4},
+        {"name": "征信分析", "weight": 3.0, "raw_score": 8.0, "weighted_score": 2.4},
+        {"name": "担保评估", "weight": 3.0, "raw_score": 7.5, "weighted_score": 2.25},
+        {"name": "还款能力论证", "weight": 4.0, "raw_score": 8.5, "weighted_score": 3.4},
+        {"name": "授信建议与风险判断", "weight": 4.0, "raw_score": 8.8, "weighted_score": 3.52},
+        {"name": "格式规范", "weight": 2.0, "raw_score": 8.0, "weighted_score": 1.6}
+      ]
+    },
+    "decision": {
+      "decision": "通过",
+      "approved_amount_wan": 3200,
+      "approved_term_months": 36,
+      "rate_bps": 470,
+      "anchor": "评分定档 B + 无红线 → 通过"
+    },
+    "ledger": {
+      "decision_id": "ledger_credit_w1m_chenfeng_001",
+      "agent_id": "credit",
+      "endpoint": "/api/credit/decide",
+      "ts": "2026-05-12T01:35:52Z",
+      "jurisdiction": "HQ",
+      "retention_class": "standard",
+      "idempotency_key": "credit:CORP_CREDIT:5f8a3c1d2e9b6047:2026-05-12T01:35:00Z",
+      "input_hash": "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff",
+      "output_hash": "ffeeddccbbaa9988776655443322110011223344556677889900aabbccddeeff",
+      "subject_name": "晨锋新能源汽车零部件有限公司",
+      "subject_id": "5f8a3c1d2e9b6047",
+      "evidence_chain": {
+        "channel_artifact_id": "art_channel_5candidates_w1_mock",
+        "channel_candidate_id": "cand_easy_chenfeng_evparts",
+        "channel_evidence_refs": [
+          "ev_w1m_chenfeng_q1_2026_growth",
+          "ev_w1m_chenfeng_bidding_2026q1",
+          "ev_w1m_chenfeng_recognition_2026q1"
+        ]
+      },
+      "parent_turn_id": null
+    }
+  },
+  "verdict": "PASS",
+  "qc_score": {
+    "passed": 9,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_w1m_chenfeng_q1_2026_growth",
+    "ev_w1m_chenfeng_bidding_2026q1",
+    "ev_w1m_chenfeng_recognition_2026q1"
+  ],
+  "created_at": "2026-05-12T01:35:00Z",
+  "updated_at": "2026-05-12T01:35:52Z",
+  "resolved_at": "2026-05-12T01:35:52Z"
+}
