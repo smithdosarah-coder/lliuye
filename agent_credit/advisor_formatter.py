@@ -286,8 +286,16 @@ class AdvisorFormatter:
         if not red_line_explanations:
             red_line_explanations = [{
                 "rule_id": h.rule_id,
-                "explanation": h.description
-                    + f"（当前值 {h.actual_value}，阈值 {h.threshold}）",
+                "rule_name": h.rule_name,
+                "category": h.category or "未分类",
+                "explanation": h.description or h.rule_name,
+                "policy_quote": (
+                    f"规则 {h.rule_id} · {h.rule_name}"
+                    f" · 触发条件: 当前值 {h.actual_value} vs 阈值 {h.threshold}"
+                    + (f" · 类别: {h.category}" if h.category else "")
+                ),
+                "actual_value": h.actual_value,
+                "threshold": h.threshold,
                 "severity": h.severity,
                 "waiver_advice": "；".join(h.waiver_conditions) if h.waiver_conditions else "不可豁免",
             } for h in rule_hits]
@@ -327,20 +335,54 @@ class AdvisorFormatter:
         return advice
 
     def _template_reason_corporate(self, name, scoring, rule_hits, decision, amount, term) -> str:
+        """LLM 不可用时的 fallback 决策理由 · 四维评分必带 dimension reasoning 锚点
+        (per docs/contracts/agent-output-rubric-2026-05-11.md §3.2 credit)."""
+        # 四维评分档位标签 (审贷员视角)
+        def _grade(s: int) -> str:
+            if s >= 80:
+                return "优秀"
+            if s >= 70:
+                return "良好"
+            if s >= 60:
+                return "合格"
+            if s >= 50:
+                return "薄弱"
+            return "不达标"
         lines = [
             f"企业 {name} 综合评分 {scoring.composite_score} 分（{scoring.risk_grade} 级）。",
-            f"四维评分：财务 {scoring.financial_score} / 行业 {scoring.industry_score} / "
-            f"经营 {scoring.operational_score} / 担保 {scoring.guarantee_score}。",
+            f"四维评分: ",
+            f"  - 财务 {scoring.financial_score} 分 ({_grade(scoring.financial_score)}) · "
+            f"参考确定性指标 (流动比 / 资产负债率 / 净利率 / 现金流) 见 features_snapshot",
+            f"  - 行业 {scoring.industry_score} 分 ({_grade(scoring.industry_score)}) · "
+            f"参考行业增长 / 地位 / 政策导向 见 industry_card",
+            f"  - 经营 {scoring.operational_score} 分 ({_grade(scoring.operational_score)}) · "
+            f"参考成立年限 / 员工 / 主营稳定性 / 客户集中度 见 features_snapshot",
+            f"  - 担保 {scoring.guarantee_score} 分 ({_grade(scoring.guarantee_score)}) · "
+            f"参考押品类型 / 覆盖率 / 担保人资信 见 profile.guarantee_info",
         ]
         if rule_hits:
-            lines.append(
-                f"触发 {len(rule_hits)} 条红线："
-                + "、".join(h.rule_name for h in rule_hits[:3]) + "。"
-            )
+            # 按 severity 分组 · 红/黄/绿分别列
+            red = [h for h in rule_hits if h.severity == "red"]
+            yellow = [h for h in rule_hits if h.severity == "yellow"]
+            if red:
+                lines.append(
+                    f"触发 {len(red)} 条红灯硬红线 (阻断决策): "
+                    + "、".join(f"{h.rule_name} (实际 {h.actual_value} vs 阈值 {h.threshold})"
+                                for h in red[:3]) + "。"
+                )
+            if yellow:
+                lines.append(
+                    f"触发 {len(yellow)} 条黄灯软告警 (需审贷会讨论): "
+                    + "、".join(f"{h.rule_name} (实际 {h.actual_value} vs 阈值 {h.threshold})"
+                                for h in yellow[:3]) + "。"
+                )
         if decision == "拒绝":
-            lines.append("结论：建议拒绝本次授信申请。")
+            lines.append("结论: 建议拒绝本次授信申请 · 主要因红灯硬红线触发 · 待红线豁免条件成熟后可复议。")
         else:
-            lines.append(f"结论：{decision}，建议额度 {amount} 万元，期限 {term} 个月。")
+            lines.append(
+                f"结论: {decision} · 建议额度 {amount} 万元 · 期限 {term} 个月 · "
+                f"放款条件见 conditions[] · 三法测算见 amount_methods · 完整证据链见 decision_graph。"
+            )
         return "\n".join(lines)
 
     # ---- 对私 ----
@@ -429,21 +471,49 @@ class AdvisorFormatter:
         return advice
 
     def _template_reason_retail(self, name, scoring, rule_hits, decision, amount, term) -> str:
+        """LLM 不可用时的 fallback 决策理由 (对私) · 四大类得分带 dimension reasoning."""
+        def _grade(s: int) -> str:
+            if s >= 80:
+                return "优秀"
+            if s >= 70:
+                return "良好"
+            if s >= 60:
+                return "合格"
+            if s >= 50:
+                return "薄弱"
+            return "不达标"
+        rc = scoring.category_scores.get("repayment_capacity", 0)
+        rw = scoring.category_scores.get("repayment_willingness", 0)
+        st = scoring.category_scores.get("stability", 0)
+        co = scoring.category_scores.get("collateral", 0)
         lines = [
-            f"{name} 个人信用评分 {scoring.fico_score}，档位 {scoring.grade}。",
-            f"大类得分：偿债 {scoring.category_scores.get('repayment_capacity', 0)} / "
-            f"意愿 {scoring.category_scores.get('repayment_willingness', 0)} / "
-            f"稳定性 {scoring.category_scores.get('stability', 0)} / "
-            f"抵押 {scoring.category_scores.get('collateral', 0)}。",
+            f"{name} 个人信用评分 {scoring.fico_score} · 档位 {scoring.grade}。",
+            f"四大类得分: ",
+            f"  - 偿债能力 {rc} 分 ({_grade(rc)}) · 参考收入 / DTI / 资产负债",
+            f"  - 偿债意愿 {rw} 分 ({_grade(rw)}) · 参考征信历史 / 逾期记录 / 多头借贷",
+            f"  - 稳定性 {st} 分 ({_grade(st)}) · 参考职业 / 工作年限 / 居住稳定",
+            f"  - 抵押增信 {co} 分 ({_grade(co)}) · 参考押品类型 / 覆盖率 / 评估价值",
         ]
         if rule_hits:
-            lines.append(
-                "触发红线：" + "、".join(h.rule_name for h in rule_hits[:3]) + "。"
-            )
+            red = [h for h in rule_hits if h.severity == "red"]
+            yellow = [h for h in rule_hits if h.severity == "yellow"]
+            if red:
+                lines.append(
+                    f"触发 {len(red)} 条红灯硬红线 (阻断决策): "
+                    + "、".join(f"{h.rule_name} (实际 {h.actual_value} vs 阈值 {h.threshold})"
+                                for h in red[:3]) + "。"
+                )
+            if yellow:
+                lines.append(
+                    f"触发 {len(yellow)} 条黄灯软告警 (需信贷员复核): "
+                    + "、".join(h.rule_name for h in yellow[:3]) + "。"
+                )
         if decision == "拒绝":
-            lines.append("结论：建议拒绝本次申请。")
+            lines.append("结论: 建议拒绝本次申请 · 主要因红灯硬红线触发。")
         else:
-            lines.append(f"结论：{decision}，额度 {amount} 万元，期限 {term} 个月。")
+            lines.append(
+                f"结论: {decision} · 额度 {amount} 万元 · 期限 {term} 个月 · 放款条件见 conditions[]。"
+            )
         return "\n".join(lines)
 
 
@@ -485,12 +555,35 @@ def _retail_summary(profile: dict, features: dict) -> str:
 
 
 def _summarize_cases(cases) -> str:
+    """案例对照摘要 · 展示 similarity dimensions (行业/营收/评分) · 审贷员视角
+    (per docs/contracts/agent-output-rubric-2026-05-11.md §3.2 credit · audit P4 fix)."""
     if not cases:
         return "无相似案例"
     parts = []
     for c in cases[:3]:
+        fs = c.features_summary or {}
+        # 展示 case 关键维度 · 让审贷员能 trace 为何这个 case relevant
+        dim_parts = []
+        ind = fs.get("industry")
+        if ind:
+            dim_parts.append(f"行业:{ind}")
+        rev = fs.get("revenue_or_grade")
+        if rev not in (None, "", 0):
+            # corporate 是 revenue 数字 · retail 是 grade 字符串
+            if isinstance(rev, (int, float)):
+                dim_parts.append(f"营收:{rev}万")
+            else:
+                dim_parts.append(f"档位:{rev}")
+        sco = fs.get("composite_score")
+        if sco not in (None, "", 0):
+            dim_parts.append(f"评分:{sco}")
+        dim_str = "|".join(dim_parts) if dim_parts else "维度缺"
+        # 含 decision 真因 (如有) + 批准金额 / 期限锚点
+        approved = ""
+        if c.approved_amount:
+            approved = f" · 批 {c.approved_amount:.0f} 万 / {c.approved_term_months} 月"
         parts.append(
-            f"{c.company_name}(相似度 {c.similarity*100:.0f}% / {c.decision})"
+            f"{c.company_name}({dim_str} · 相似度 {c.similarity*100:.0f}% · {c.decision}{approved})"
         )
     return "；".join(parts)
 

@@ -141,8 +141,12 @@ def analyze_financial_trends(data: dict) -> list[TrendItem]:
                 r"([\d,.]+)\s*万.*?营[业收]收入",
             ],
             "risk_check": lambda vals, rate: (
-                "营收持续下降，经营状况恶化" if rate < -10
-                else ("营收大幅增长，需关注增长质量" if rate > 50 else "")
+                "营收持续下降，经营状况恶化 · 客户经理 7d 内核查并出最新月报"
+                if rate < -10
+                else (
+                    "营收大幅增长 (>50%) · 客户经理 7d 内核查增长真实性 (订单/合同/客户集中度)"
+                    if rate > 50 else ""
+                )
             ),
         },
         {

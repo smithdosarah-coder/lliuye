@@ -284,15 +284,34 @@ def _llm_disposition(hit: dict, llm_caller) -> str:
             "禁编造数字 · 必引用输入的命中规则与证据"
         ),
     )
+    # 证据透传 含 freshness + source_confidence + evidence_date
+    # (per docs/contracts/agent-output-rubric-2026-05-11.md §3.3 alert · audit P3 fix ·
+    #  signal_quality.py 算了但 LLM 没看到 metadata · BE5 incomplete handoff fix)
+    def _ev_line(ev: dict) -> str:
+        src = ev.get("source", "")
+        snippet = ev.get("snippet", "")[:120]
+        ed = ev.get("evidence_date") or ev.get("observed_at") or ""
+        fr = ev.get("freshness_score")
+        sc = ev.get("source_confidence") or ev.get("source_tier") or ""
+        meta_parts = []
+        if ed:
+            meta_parts.append(f"日期 {ed}")
+        if fr is not None:
+            meta_parts.append(f"新鲜度 {fr}")
+        if sc:
+            meta_parts.append(f"信源等级 {sc}")
+        meta = f" ({' · '.join(meta_parts)})" if meta_parts else ""
+        return f"- {src}{meta}: {snippet}"
+
     user = (
         f"【客户】{company_name}\n"
         f"【风险等级】{level}\n"
         f"【命中规则与原因】\n"
         + "\n".join(f"- {r}" for r in reasons[:6])
-        + "\n【证据摘录】\n"
-        + "\n".join(f"- {ev.get('source','')}: {ev.get('snippet','')[:120]}"
-                    for ev in evidences[:4])
-        + "\n\n请给出处置建议（80-150 字 · 含具体行动 + 责任方 + 时限）："
+        + "\n【证据摘录 · 含时效与信源等级】\n"
+        + "\n".join(_ev_line(ev) for ev in evidences[:4])
+        + "\n\n请给出处置建议（80-150 字 · 含具体行动 + 责任方 + 时限 · "
+        + "优先引用新鲜 + 高信源等级证据 · 不引用日期缺失或低信源单源证据）："
     )
     return llm_caller(system, user) or ""
 

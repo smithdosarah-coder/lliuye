@@ -509,7 +509,12 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
 
 
 def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
-    """给 REWRITE 用的材料摘要块 — 财务确定性指标 + facts + 原文片段."""
+    """给 REWRITE 用的材料摘要块 — 财务确定性指标 + facts + 行业政策卡片 + 原文片段.
+
+    (per docs/contracts/agent-output-rubric-2026-05-11.md §3.5 report · audit P5 fix:
+     industry_cards / policy_cards 来源 material_anchor.py · 防 LLM 行业章
+     编"行业前景广阔"无数据)
+    """
     parts: list[str] = []
 
     # P2: 优先放 financial_analyzer 的确定性指标(同比/趋势/三大活动现金流),
@@ -527,6 +532,32 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
             s = str(v).strip() if v is not None else ""
             if s and len(s) < 300:
                 parts.append(f"  - {k}: {s}")
+
+    # P5: 行业 / 政策参考卡片注入 · 让 LLM 行业 / 政策章节有锚而非现编 ·
+    # 卡片来自 material_anchor.py industry_cards/policy_cards · 若 anchors 字典
+    # 为空 (上游 v16_pipeline 未加载) · 跳过 · 不阻塞主路径.
+    anchors = getattr(mats, "anchors", None) or {}
+    industry_cards = anchors.get("industry_cards") if isinstance(anchors, dict) else None
+    if industry_cards:
+        parts.append("")
+        parts.append("【行业参考卡片 · LLM 行业章节引用 · 禁编造】")
+        for card in (industry_cards or [])[:5]:
+            title = str(card.get("title") or card.get("industry") or "").strip()
+            summary = str(card.get("summary") or card.get("brief") or "").strip()
+            if title and summary:
+                parts.append(f"  - {title}: {summary[:200]}")
+    policy_cards = anchors.get("policy_cards") if isinstance(anchors, dict) else None
+    if policy_cards:
+        parts.append("")
+        parts.append("【政策参考卡片 · LLM 政策章节引用 · 必带 evidence_date / 出处】")
+        for card in (policy_cards or [])[:5]:
+            title = str(card.get("title") or card.get("policy_name") or "").strip()
+            summary = str(card.get("summary") or card.get("text") or "").strip()
+            edate = str(card.get("evidence_date") or "").strip()
+            source = str(card.get("source") or "").strip()
+            meta = " · ".join(filter(None, [edate, source]))
+            if title and summary:
+                parts.append(f"  - {title}{(' (' + meta + ')') if meta else ''}: {summary[:200]}")
 
     raw = mats.kb.get("raw_statements", []) if mats.kb else []
     if raw:

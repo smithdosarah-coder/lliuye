@@ -63,22 +63,24 @@ POLICY_FRESHNESS_SLA_DAYS = 365
 # 中文 column. Used only by `derive_conflict_field` as a friendly label;
 # the lookup is *not* a blacklist (per CLAUDE.md §12) — unknown fields
 # fall through unchanged.
+# Regulatory bucket 后缀 · 让 conflict_field 直接路由到合规 desk
+# (准入 / KYC / AML / 风偏 / 审查) per docs/contracts/agent-output-rubric-2026-05-11.md §3.4
 _FIELD_LABEL_MAP = {
-    "amount": "金额",
-    "amount_wan": "金额(万元)",
-    "revenue": "营业收入",
-    "revenue_wan": "营业收入(万元)",
-    "registered_capital": "注册资本",
-    "registered_capital_ratio": "注册资本实缴比例",
-    "min_bank_share_ratio": "银行股份占比",
-    "duration_months": "期限(月)",
-    "max_months": "最长期限(月)",
-    "min_years": "最少年限",
-    "max_hours": "时限(小时)",
-    "operating_years": "经营年限",
-    "kyc_completed": "KYC 完成状态",
-    "beneficial_owner_traced": "受益所有人追溯",
-    "report_hours": "上报时限(小时)",
+    "amount": "金额（信贷审查）",
+    "amount_wan": "金额(万元)（信贷审查）",
+    "revenue": "营业收入（准入）",
+    "revenue_wan": "营业收入(万元)（准入）",
+    "registered_capital": "注册资本（准入）",
+    "registered_capital_ratio": "注册资本实缴比例（准入）",
+    "min_bank_share_ratio": "银行股份占比（风偏）",
+    "duration_months": "期限(月)（信贷审查）",
+    "max_months": "最长期限(月)（信贷审查）",
+    "min_years": "最少年限（准入）",
+    "max_hours": "时限(小时)（KYC/AML）",
+    "operating_years": "经营年限（准入）",
+    "kyc_completed": "KYC 完成状态（准入）",
+    "beneficial_owner_traced": "受益所有人追溯（反洗钱）",
+    "report_hours": "上报时限(小时)（监管报送）",
 }
 
 

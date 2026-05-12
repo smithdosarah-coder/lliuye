@@ -278,18 +278,39 @@ class ProductRecommender:
 
     @staticmethod
     def _template_pitch(hit: HitItem, ideal: IdealProfile) -> str:
+        """LLM 不可用时的 fallback 话术 · 仍要含银行风格 actionable 锚点
+        (per docs/contracts/agent-output-rubric-2026-05-11.md §3.1 channel)."""
         p = hit.target.payload or {}
         products = hit.extras.get("recommended_products") or []
         main_product = products[0] if products else {
-            "channel_name": "专精特新企业贷", "max_amount": "2000万"
+            "channel_name": "专精特新企业贷",
+            "category": "对公贷款",
+            "max_amount": "2000万",
         }
-        tag_hint = ""
+        company = p.get("company_name", "贵司")
+        industry = p.get("sub_industry") or p.get("industry") or ""
+        scale = p.get("scale") or ""
+        revenue = p.get("revenue_latest") or ""
         tags = p.get("tags") or []
-        if tags:
-            tag_hint = f"您企业目前具备{tags[0]}资质，"
+        # 资质锚: 取 1 个最具识别度的 tag (优先含"专精特新/高新/小巨人")
+        tag_priority = ("专精特新", "小巨人", "高新", "瞪羚", "上市", "国家级", "省级")
+        tag_anchor = next(
+            (t for t in tags for kw in tag_priority if kw in t),
+            tags[0] if tags else "",
+        )
+        # 行业 + 规模锚 (银行 RM 视角具体化)
+        biz_anchor = "、".join(filter(None, [industry, scale]))
+        biz_phrase = f"贵司{biz_anchor}" if biz_anchor else company
+        revenue_phrase = f"营收 {revenue} 万" if revenue else ""
+        tag_phrase = f"配 {tag_anchor} 资质" if tag_anchor else ""
+        context_phrase = "，".join(filter(None, [biz_phrase, revenue_phrase, tag_phrase]))
+        product_name = main_product.get("channel_name", "对公贷款")
+        product_amount = main_product.get("max_amount", "")
+        amount_phrase = f"最高 {product_amount}" if product_amount else ""
+        # 银行风格 actionable 钩子 · 含具体下一步动作 + 时限
         return (
-            f"{p.get('company_name','贵司')}的{p.get('main_business') or p.get('industry','业务')}我们关注已久，"
-            f"结合当前政策导向，{tag_hint}"
-            f"我们行主推的『{main_product.get('channel_name')}』最高额度{main_product.get('max_amount')}，"
-            f"与您匹配度较高。方便安排 10 分钟通话聊聊具体需求吗？"
+            f"{company}您好，{context_phrase}，"
+            f"匹配我们行『{product_name}』{amount_phrase}，"
+            f"按同类客户经验放款周期 5-10 个工作日。"
+            f"方便本周内安排 10 分钟通话沟通融资节奏吗？"
         )
