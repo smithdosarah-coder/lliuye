@@ -1946,6 +1946,102 @@
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO-3 · compliance-bug-1 · hero 跟 stats 间 ~1000px 巨大空白
+ * 真因: .rpt-hero flex space-between · 4 child (eyebrow/title/sub/stats)
+ *      idle 时 title + sub 内容空 · 只剩 eyebrow 左 + stats 右 · 中间巨大空
+ * 修: 改 grid 2-col (1fr auto) · eyebrow/title/sub 左列 · stats 右列 align end
+ *     注意: 仅 scope 到 [data-agent="compliance"] · 不影响其他 agent
+ * ════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero {
+  display: grid !important;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  column-gap: 24px;
+  row-gap: 4px;
+  align-items: end;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__eyebrow {
+  grid-column: 1;
+  grid-row: 1;
+  margin-bottom: 4px;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__title {
+  grid-column: 1;
+  grid-row: 2;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__sub {
+  grid-column: 1;
+  grid-row: 3;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stats {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: end;
+  margin: 0 !important;
+}
+
+/* B.4 SLO-3 · compliance-bug-3 · 4 数字飘右上 · 用户不知啥意思
+ * 真因: stat dt label 9.5px 过小 · tracking 0.2em 难读 · 视觉上 4 个大数字飘右
+ *      用户读不到 label · 不知啥意思
+ * 修: 提升 dt label 字号 (9.5 → 11) + 减 tracking · 加底部下划线 visual cue
+ *     dd 数字稍缩 (22 → 18) · 平衡视觉重量
+ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat {
+  border-left: 2px solid color-mix(in srgb, var(--t-compli) 22%, transparent);
+  padding-left: 10px;
+  min-width: 96px;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat dt {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  color: var(--ink-55) !important;
+  margin-bottom: 4px !important;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__stat dd {
+  font-size: 18px !important;
+}
+
+/* B.4 SLO-3 · compliance-bug-2 · QC stats "000" 像孤字 (3 零意义不清)
+ * 真因: .rpt-hero__qc-chip CSS 完全没定义 · 3 个 0 spans 裸渲 = "0 0 0" = 视觉孤字
+ * 修: 定义 .rpt-hero__qc + .rpt-hero__qc-chip 样式 ·
+ *     每 chip 自己 bg/border 颜色 + 圆角 + 间距 · tone 区分 block/warn/info
+ */
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid var(--ink-14);
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="block"] {
+  background: color-mix(in srgb, var(--t-alert, #b94a3a) 14%, transparent);
+  border-color: color-mix(in srgb, var(--t-alert, #b94a3a) 40%, transparent);
+  color: var(--t-alert, #b94a3a);
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="warn"] {
+  background: color-mix(in srgb, #d6a73d 14%, transparent);
+  border-color: color-mix(in srgb, #d6a73d 40%, transparent);
+  color: #a87b1f;
+}
+.v-archive--canon[data-agent="compliance"] .rpt-hero__qc-chip[data-tone="info"] {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink-55);
+}
+
 /* ────────────────────── Stage CF · empty-state + 3 CTA · 2026-04-28 ────────────────────── */
 
 .v-archive--canon[data-agent="compliance"] .compliance-trigger-bar {
@@ -1959,6 +2055,22 @@
   border: 1px solid var(--ink-08);
   font-family: var(--cjk);
   font-size: 13px;
+  /* B.4 SLO-3 · compliance-bug-4 · 用模板比对 btn 孤飘左 · 没 panel 边界
+   * 真因: bar 默认宽度为 content (单 btn) · 没填满父 · 视觉上 btn 孤飘
+   * 修: width 100% + ::before pseudo "次要触发" 上下文 label
+   *     bar 撑满父 · btn 在左 cluster 内有 panel 边界 + label 提示
+   */
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+.v-archive--canon[data-agent="compliance"] .compliance-trigger-bar::before {
+  content: "次要触发 · 用模板对比业务流程";
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-50);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .v-archive--canon[data-agent="compliance"] .compliance-trigger-bar__field {
@@ -2044,6 +2156,12 @@
   line-height: 1.7;
   max-width: 560px;
   margin: 0 auto;
+  /* B.4 SLO-3 · compliance-bug-6 · 等待触发巡检 panel 引导文字飘左
+   * 真因: hint <p> max-width 560 margin auto 居中 · 但 text-align 默认 left
+   *      文字在居中容器内仍左对齐 · 视觉上飘左
+   * 修: text-align center · 文字真正居中 · 跟上方 title 一致
+   */
+  text-align: center;
 }
 
 .v-archive--canon[data-agent="compliance"] .compliance-empty__hint strong {
@@ -2078,7 +2196,11 @@
 }
 
 .v-archive--canon[data-agent="compliance"] .compliance-empty__panel {
-  padding: 28px 18px;
+  /* B.4 SLO-3 · compliance-bug-5 · 4 占位卡 padding 浪费
+   * 真因: 4 个 panel padding 28/18 · 内容只 1-2 行 · 浪费空间
+   * 修: padding 减半 (14/16) · min-height 88 → 72 · 视觉更紧凑
+   */
+  padding: 14px 16px;
   background: color-mix(in srgb, var(--g0b) 50%, transparent);
   border: 1px dashed var(--ink-08);
   border-radius: 12px;
@@ -2086,7 +2208,7 @@
   font-size: 12.5px;
   color: var(--ink-50);
   text-align: center;
-  min-height: 88px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;

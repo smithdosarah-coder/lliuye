@@ -1670,12 +1670,26 @@
   gap: 22px;
   padding: 28px 28px 32px;
   min-height: 520px;
+  /* B.4 SLO-3 · credit-bug-1 · tabs 绝对定位 top-right · 防 tabs 跟 hero eyebrow 上下错位
+   * position relative · 让 .credit-empty__tabs absolute 锚到本容器
+   */
+  position: relative;
 }
 
 .credit-empty__tabs {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* B.4 SLO-3 · credit-bug-1 · 绝对定位 top-right · 跟 hero eyebrow 同视觉行 */
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  z-index: 2;
+}
+
+/* B.4 SLO-3 · credit-bug-1 · hero 留 padding-right 给 tabs 不重叠 */
+.credit-empty__hero {
+  padding-right: 240px;
 }
 .credit-empty__tabs-lbl {
   font-family: var(--mono);
@@ -1798,6 +1812,16 @@
   display: grid;
   grid-template-columns: 1fr;  /* Phase B.2 · 单 CTA 占满 (input-mode toggle 后渲染对应单按钮) */
   gap: 14px;
+  /* B.4 SLO-3 · credit-bug-2 · 演示数据 CTA panel 横向只占 60% · 右 40% 空
+   * 真因: grid 1fr 应填满 · 但 flex 列父 (credit-empty) align-items 默认 stretch
+   *      实际渲染 grid track auto-size · 单 CTA 内容不够宽时缩成 content width
+   * 修: 显式 width 100% (覆盖 grid auto-track) + CTA 也 100% (覆盖 flex content-size)
+   */
+  width: 100%;
+}
+.credit-empty__cta-row > .credit-empty__cta {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Phase B.2 step 4 主活 C · DataSource badge wrap (inline style → CSS class) */
@@ -1942,6 +1966,26 @@
 .credit-empty__skel-card--wide {
   grid-column: 1 / -1;
 }
+
+/* B.4 SLO-3 · credit-bug-3 · 4 占位卡 grid 3+1 → 2x2 (C4 通病在 credit 真生效)
+ * 真因: C4 idle-tight.css 把 [data-testid$="-skeleton-panels"] 设 grid 2 cols ·
+ *      但 credit 内部用 2 个 .credit-empty__skel-row 包 4 cards · skel-row 接走 grid item
+ *      → parent grid 2-col 但 children 只 2 个 row 包装 · 不是 4 cards 直接子
+ * 修: skel-row 用 display:contents flatten · 让 4 cards 成 parent grid 直接子
+ */
+.v-archive--canon .credit-empty__skel-row {
+  display: contents;
+}
+
+/* B.4 SLO-3 · credit-bug-4 · 决策建议书卡 (--wide) 占整行 · 内容只 1 行
+ * 真因: .credit-empty__skel-card--wide 设 grid-column 1/-1 跨满 row
+ *      在 2x2 grid 里仍占满 row 2 · 但内部只 1 行 lbl + 1 行 hint = 视觉空
+ * 修: 在 2-col 上下文里 override 为 auto · advice 卡跟其他 3 卡同尺寸 (2x2 真平衡)
+ *     min-height 96 跟其他 skel-card 一致
+ */
+.v-archive--canon .credit-empty__skel-card--wide {
+  grid-column: auto;
+}
 .credit-empty__skel-lbl {
   font-family: var(--cjk);
   font-size: 13px;
@@ -1957,7 +2001,6 @@
 .credit-empty__skel-export {
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
   padding: 4px 10px;
   font-family: var(--mono);
   font-size: 11px;
@@ -1966,6 +2009,17 @@
   border: 1px solid var(--ink-14);
   border-radius: 6px;
   cursor: not-allowed;
+}
+
+/* B.4 SLO-3 · credit-bug-6 · 导出 docx btn 独立行 · 不再 inline 飘
+ * 真因: 原 <button> inline-flex 在 hint 文末 + "+" 字符引导 · 视觉上 btn 飘右 · 字突兀
+ * 修: btn 移出 hint · 加 .credit-empty__skel-cta-row 容器 · flex 左对齐 + margin-top 8
+ *     btn 自己 inline-flex 不变 · 但容器把它定位左
+ */
+.credit-empty__skel-cta-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
 }
 
 .credit-empty__status {
@@ -1993,6 +2047,12 @@
 }
 .credit-empty__status-item--demo {
   color: var(--ink-40);
+  /* B.4 SLO-3 · credit-bug-5 · 状态条横向占满但内容飘左 · 右大块空
+   * 真因: .credit-empty__status flex gap 12 · 全部 items 左对齐 · 末尾右大块空
+   * 修: --demo (第 3 item · "等待主操作"/"流式中…") margin-left auto 推到右
+   *     效果: ok + 板块 左 · 等待主操作 + err 右 · 状态条左右平衡
+   */
+  margin-left: auto;
 }
 .credit-empty__status-item--err {
   color: var(--t-alert);

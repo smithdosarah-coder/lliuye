@@ -2229,7 +2229,26 @@ function AlertEmptyState(p: {
           <div className="alert-empty__skel-card alert-empty__skel-card--wide" data-skel="hitlist">
             <div className="alert-empty__skel-lbl">命中榜单 (HitList)</div>
             <div className="alert-empty__skel-hint">
-              点击客户 → 右侧 drill drawer 显信号 timeline + 处置建议 ·{" "}
+              点击客户 → 右侧 drill drawer 显信号 timeline + 处置建议
+            </div>
+            {/* B.4 SLO-3 · alert-bug-6 · 内容很短 真因修
+                加 slot 占位行 · 让 wide 卡有视觉重量 · 告诉用户扫描完会显啥 */}
+            <ul className="alert-empty__skel-slots" aria-hidden>
+              <li className="alert-empty__skel-slot" data-tier="red">
+                <span className="alert-empty__skel-slot-dot" data-tier="red" />
+                <span className="alert-empty__skel-slot-lbl">TOP 1 红档客户</span>
+                <span className="alert-empty__skel-slot-placeholder">扫描后显示企业名 · 关键信号 · 处置建议</span>
+              </li>
+              <li className="alert-empty__skel-slot" data-tier="yellow">
+                <span className="alert-empty__skel-slot-dot" data-tier="yellow" />
+                <span className="alert-empty__skel-slot-lbl">TOP 1 黄档客户</span>
+                <span className="alert-empty__skel-slot-placeholder">扫描后显示企业名 · 触达率 · 重点观察项</span>
+              </li>
+            </ul>
+            {/* B.4 SLO-3 · alert-bug-7 · 导出 btn 移出 hint · 独立 cta-row (跟 credit-bug-6 同模式)
+                真因: 原 btn inline 在 hint 文末 + "·" 引导 · 视觉飘 · "字突兀"
+                修: 移到 .alert-empty__skel-cta-row 独立 div · 不再 inline */}
+            <div className="alert-empty__skel-cta-row">
               <button
                 type="button"
                 className="alert-empty__skel-export"

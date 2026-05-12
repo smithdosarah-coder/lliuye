@@ -1914,7 +1914,10 @@
 
 .alert-empty__cta-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* B.4 SLO-3 · alert-bug-1 · 原 3 cols 但只 2 CTA (主操作 + 次操作) · cell 3 空 = 右 30% 空真因
+   * 修: repeat(2, 1fr) · 2 CTA 填满 · 不再右 30% 空
+   */
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 .alert-empty__cta {
@@ -1988,9 +1991,25 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+  /* B.4 SLO-3 · alert-bug-3 · HitList panel 跟上方 CTA row 宽一致
+   * 真因: HitList skel-row 单 col 1fr · 实际 grid track auto-size 不一定填满
+   *      = HitList 看着 100% 但有时缩窄 · 跟 CTA row (bug-1 修 100%) 不一致
+   * 修: skel-row width 100% · 与 CTA row + traffic row 全 100% 一致
+   */
+  width: 100%;
 }
 .alert-empty__skel-traffic {
   grid-template-columns: repeat(3, 1fr);
+  /* B.4 SLO-3 · alert-bug-2 · 3 档预览 (红/黄/绿) 横向均分但没填满整宽
+   * 真因: grid 1fr × 3 应填满 · 但 flex 列父 .alert-empty__skeleton align-items 默认 stretch
+   *      实际 grid track auto-size 时不一定填满 · skel-traffic 跟其他 skel-row 同 1fr 单 col 不一致
+   * 修: width 100% 显式 + 子 card width 100% box-sizing border-box
+   */
+  width: 100%;
+}
+.alert-empty__skel-traffic > .alert-empty__skel-card {
+  width: 100%;
+  box-sizing: border-box;
 }
 .alert-empty__skel-card {
   display: flex;
@@ -2001,6 +2020,15 @@
   border: 1px dashed var(--ink-14);
   border-radius: var(--r-md);
   min-height: 96px;
+}
+/* B.4 SLO-3 · alert-bug-4 · SignalMap card 跟 HitList 视觉重量一致
+ * 真因: SignalMap card 内容只 1 lbl + 1 hint = 短 panel · 显得"100% 但浮"
+ * 修: data-skel="signalmap" + data-skel="hitlist" 加 min-height + 内边距
+ *     让 wide 卡跟上方 traffic 3 卡视觉重量更对等
+ */
+.alert-empty__skel-card[data-skel="signalmap"],
+.alert-empty__skel-card[data-skel="hitlist"] {
+  min-height: 120px;
 }
 .alert-empty__skel-card--wide {
   grid-column: 1 / -1;
@@ -2032,6 +2060,58 @@
   color: var(--ink-40);
   line-height: 1.6;
 }
+/* B.4 SLO-3 · alert-bug-6 · HitList slot 占位行 · 给 wide 卡视觉重量
+ * 2 slot (TOP 1 红 + TOP 1 黄) · 告诉用户扫描完会显啥
+ */
+.alert-empty__skel-slots {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alert-empty__skel-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ink-08) 38%, transparent);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ink-65);
+}
+.alert-empty__skel-slot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.alert-empty__skel-slot-dot[data-tier="red"] {
+  background: color-mix(in srgb, var(--t-alert) 75%, var(--chalk));
+}
+.alert-empty__skel-slot-dot[data-tier="yellow"] {
+  background: #d6a73d;
+}
+.alert-empty__skel-slot-lbl {
+  font-family: var(--cjk);
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.alert-empty__skel-slot-placeholder {
+  font-family: var(--cjk);
+  color: var(--ink-40);
+  font-style: italic;
+}
+
+/* B.4 SLO-3 · alert-bug-7 · 导出 btn 独立行 (跟 credit-bug-6 同模式) */
+.alert-empty__skel-cta-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
 .alert-empty__skel-export {
   display: inline-flex;
   align-items: center;
@@ -2071,6 +2151,12 @@
 }
 .alert-empty__status-item--demo {
   color: var(--ink-40);
+  /* B.4 SLO-3 · alert-bug-5 · 状态条横向占满但内容飘左 · 右大块空
+   * 真因: .alert-empty__status flex gap 12 · 全部 items 左对齐
+   * 修: --demo (第 3 item · "等待主操作"/"扫描流式中…") margin-left auto 推到右
+   *     效果: ok + KB 左 · 等待主操作 + err 右 · 左右平衡 (同 credit-bug-5 模式)
+   */
+  margin-left: auto;
 }
 .alert-empty__status-item--err {
   color: var(--t-alert);

@@ -2108,7 +2108,10 @@ function CreditEmptyState(p: {
           <div className="credit-empty__skel-card credit-empty__skel-card--wide" data-skel="advice">
             <div className="credit-empty__skel-lbl">决策建议书 · LLM 自然语言</div>
             <div className="credit-empty__skel-hint">
-              起决策完成后显示决策结论 / 额度 / 期限 / 利率 / 红线解释 +{" "}
+              起决策完成后显示决策结论 / 额度 / 期限 / 利率 / 红线解释
+            </div>
+            {/* B.4 SLO-3 · credit-bug-6 · 导出 docx btn 移出 hint · 独立 row · 不再 inline 飘 */}
+            <div className="credit-empty__skel-cta-row">
               <button
                 type="button"
                 className="credit-empty__skel-export"

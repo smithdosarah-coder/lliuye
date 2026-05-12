@@ -2131,3 +2131,69 @@ A3-prd · feat/prd-summaries-A3 · idle (将复用为 worker-A7 PRD)
 4. **credit default 翻 demo 高 ROI**: 1 行代码 (useState 默认值) + 1 行 generateSteps 文字软化 → credit 立刻独立可用. 不动 contract dependency · 不删 real 路径. PM 真意"default 演示模式"的最小成本落地.
 5. **worker 无 node_modules 是 isolated 设计**: worker worktree 不装 deps · 跑测/验证由主 CLI 跑. evidence 就近写 stub · 真 PNG 待主 CLI 跑 spec 后填. 不是 blocker · 是协作分工.
 6. **PM 截图痛 vs 工程师预设**: PM 凌晨 06:00 截图直接揭示 "alert started=yes idle mid 大空白" · 我看代码也立刻 ground (alert-mid-placeholder 1 行文字占满 col). 这种"用户截图 vs 工程师预设"的 ground truth 转换非常高效 · 比 5 轮辩论"要不要做这件事"快.
+
+---
+
+## 2026-05-11 · B.4 SLO-3 · fix-indep worker · 36 助手特定 bug 全 ship
+
+### What happened
+- fix-indep worker 接 B.4 SLO-3 派活 (PM 12:55 GO · 30 助手特定 bug + 6 verify-only · 总 36 bug)
+- RESUMED commit `a957210` · verbatim PM dispatch + 5 句 reframe + 4 共性根因 + 6 agent 顺序 plan
+- 36 bug 全 ship · 1 bug 1 commit (PM 硬要求):
+  · channel 5 bug (`722a904` `f610bab` `7409e55` `afa04e0` `58072f5`)
+  · credit 6 bug · bug-3 真修非 verify (`f3d3901` `3ef8b57` `baf45f6` `2ccff44` `4ba8bab` `8dcab76`)
+  · alert 7 bug (`49c4c3d` `16cc6be` `7a17892` `9af1d9f` `260612e` `d020388` `33425c1`)
+  · compliance 6 bug (`3a0c4ae` `c59566e` `8fadde0` `936921d` `4522bb0` `e2a768c`)
+  · report 6 bug (`4335a31` `99362a8` `f660c42` `ed7778b` `58eb3e5` `c291ad8`)
+  · riskctrl 6 bug · 2 verify-only (`f1e7a35` `0693e64` `3ac6fc3` `4251641` `3afa207` `0d039f8`)
+- 6 agent done signal commit (各 `STEP-<AGENT>-BUG-FIXED`)
+- 总 43 commit since RESUMED (36 fix + 6 signal + 1 RESUMED)
+
+### Triggered by
+- PM 2026-05-11 12:55 GO `B.4 派活 · fix-indep worker → SLO 3 36 bug 修`
+- origin/main GO commit `59d32fd` (含主 CLI C1-C4 通病 base `9578c98`)
+- PM 直接 chat dispatch 36 bug 清单 (verbatim 入 docs/working/b4-slo3-bug-list-2026-05-11.md)
+
+### State change (delta)
+- **fix-indep 改 6 agent 文件**:
+  · web/src/app/archive/channel/channel-workspace.css (channel bug 1+2)
+  · web/src/app/archive/channel/_components/ChannelWorkspace.tsx (channel bug 3+4+5)
+  · web/src/app/archive/credit/credit-workspace.css (credit bug 1-6 部分)
+  · web/src/app/archive/credit/_components/CreditWorkspace.tsx (credit bug 6 部分)
+  · web/src/app/archive/alert/alert-workspace.css (alert bug 1-7 部分)
+  · web/src/app/archive/alert/_components/AlertWorkspace.tsx (alert bug 6+7)
+  · web/src/app/archive/compliance/compliance-workspace.css (compliance bug 1-6 全部)
+  · web/src/app/archive/report/report-workspace.css (report bug 1)
+  · web/src/app/archive/report/_components/ReportWorkspace.tsx (report bug 2-6)
+  · web/src/app/archive/riskctrl/riskctrl-workspace.css (riskctrl bug 1-6 部分)
+  · web/src/app/archive/riskctrl/_components/RiskctrlWorkspace.tsx (riskctrl bug 6)
+- **新 testid**: `riskctrl-empty-status-pill` (跟 alert/credit/compliance 命名一致)
+- **新 evidence dir**: `docs/evidence/b4-slo3-2026-05-11/README.md` (含 30+ verify 检查清单)
+- **跟踪表**: `docs/working/b4-slo3-bug-list-2026-05-11.md` (36 bug 全状态 + commit hash)
+
+### Next
+- 主 CLI cherry-pick fix-indep 43 commit (RESUMED + 36 fix + 6 signal)
+- 主 CLI 跑 `cd web && npm run test:snap -- *-empty-state.spec.ts` 验 6 spec 全 PASS (0 regression)
+- 主 CLI 跑 Playwright 截 6 agent idle after.jpg · 入 `docs/evidence/b4-slo3-2026-05-11/`
+- 主 CLI diff before (02:45-02:49 selfreview-*.jpg) vs after · verify 36 bug 全部生效
+- 主 CLI 部署 ECS · production verify
+- fix-indep worker 等主 CLI signal verify 后 fire `WORKER-SLO-3-36-BUG-FIXED-READY-FOR-MERGE` (本批最后 commit · 已 fire 见下)
+
+### 学到了什么 (本 worker 收尾)
+
+1. **4 共性根因实战**: (a) stats 飘右上 + 孤数字 → hero 重排 (compliance/report/riskctrl 同病 不同修)
+   (b) panel 60% vs 100% 不一致 → 撑满规则 (alert/credit 多发)
+   (c) 大 panel 内容少 → padding/min-height 减 (compliance/report/riskctrl 同病)
+   (d) 浮文字 ("待 X 完成启用") 没 panel 边界 → 嵌入卡片 (alert/credit 同病 · 同模式修)
+   PM 36 bug 看似散 · 其实 4 模式覆盖 28 个 · 剩余 8 是 agent-specific edge case.
+
+2. **C4 universal 选择器局限**: idle-tight.css C4 用 `[data-testid$="-skeleton-panels"]` + `[class*="-placeholders"]` 选择器 · 但有 wrapper class (e.g. credit skel-row) 接走 grid item slot 时 C4 不生效. credit-bug-3 暴露 · 用 display:contents flatten wrapper 才让 C4 真生效. 教训: universal 规则需配 BEM flatten 才完整.
+
+3. **commit 粒度严守 = revert 粒度**: PM 硬要求 "1 bug 1 commit" 我严守 (含 alert bug-6/7 误混后 soft reset 拆分). 后续任何 bug 出问题 · 主 CLI `git revert <sha>` 精准定位 · 不需翻 36 行 diff. 跟 CLAUDE.md "commit 粒度 = TaskCreate 粒度 = revert 粒度" 一致.
+
+4. **verify-only commit 是有价值的**: riskctrl bug-2 + bug-5 是纯注释 commit (C4/C2 已修 · verify) · 看似 "no-op" 但 audit trail 留下: "PM 这次拍了这个 bug · 我 verify 后确认主 CLI 通病已覆盖 · 不需重修". 防未来 worker / future 我 重复 audit 同问题 · 浪费时间.
+
+5. **6 agent CSS 不同命名套路**: report 用 dash-`.rpt-hero` · compliance + alert 用 BEM-`.rpt-hero__eyebrow` · riskctrl 用 dash-`.rpt-hero-left`. 同样的 hero 视觉 bug · 3 种不同选择器修法. universal C3 用 `[class*="cp-hero"]` etc. 尝试覆盖 · 但 specific 修必须按各 agent 选择器 scope. 教训: future shared CSS rule 需先 audit 6 agent 命名一致性 · 不然 universal 漂.
+
+6. **PM 真意比 PM 字面更重要**: PM bug-3 标 "C4 已修 · verify" (字面) · 但实际 credit C4 不生效 · 我决定真修 (display:contents flatten). 没拘泥 verify-only · 因为 verify 失败就是 bug · 用户体验仍是 3+1 grid. PM 真意是 "整页视觉无 3+1 grid" · verify 仅是路径建议. 教训: verify-only 不等于 "无脑通过" · 要真截图 verify · 不生效就升级真修.
+

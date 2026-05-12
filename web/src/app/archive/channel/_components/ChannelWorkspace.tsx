@@ -553,12 +553,17 @@ export default function ChannelWorkspace() {
           aria-label="等待触发"
           data-testid="channel-empty-state"
           style={{
-            padding: "44px 32px 38px 32px",
+            /* B.4 SLO-3 · channel-bug-5 · 形态 A/B 上下不对齐
+             * 真因: padding 44/32/38/32 + margin 20/0 跟上方 ch-kb-strip
+             *       (padding 18/22 + margin 18/0) 错位 · 左右边距不齐 · 视觉看着不在同一垂直线
+             * 修: padding 18/22 + margin 18/0 跟 KB/querybar 完全对齐
+             */
+            padding: "18px 22px",
             background:
               "color-mix(in srgb, var(--chalk) 55%, transparent)",
             borderRadius: "var(--r-md)",
             border: "1px dashed var(--ink-14)",
-            margin: "20px 0",
+            margin: "18px 0",
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 28,
@@ -697,26 +702,44 @@ export default function ChannelWorkspace() {
             </div>
           </div>
           {/* B.3.4 fix-indep 主活B-2 GAP fix · audit 6 workspace 唯一缺显式完成后 hint 的 ·
-              加 channel-completion-hint 明示 result UI shape · 防 PM 截图痛 #4 同病再现 */}
-          <p
+              加 channel-completion-hint 明示 result UI shape · 防 PM 截图痛 #4 同病再现
+              B.4 SLO-3 · channel-bug-4 · 浮单行无上下边界 → 改完整卡片 (header + border 全 + padding 加厚) */}
+          <div
             data-testid="channel-completion-hint"
             style={{
               gridColumn: "1 / -1",
               fontFamily: "var(--cjk)",
-              fontSize: 12.5,
-              color: "var(--ink-50)",
-              fontStyle: "italic",
-              padding: "8px 12px",
-              background: "color-mix(in srgb, var(--ink) 3%, transparent)",
-              borderRadius: 8,
-              borderLeft: "2px solid var(--accent)",
-              margin: "12px 0 0 0",
-              lineHeight: 1.55,
+              padding: "14px 18px",
+              background: "color-mix(in srgb, var(--ink) 4%, transparent)",
+              border: "1px solid var(--ink-14)",
+              borderRadius: 12,
+              margin: "20px 0 0 0",
             }}
           >
-            搜索完成后此处显示候选企业卡 · 9 维评分 + 字段级溯源 evidence drawer +
-            多源信号 timeline (工商 / 司法 / 招投标 / 资质 / 行情) · 单候选可右抽屉 drill 详情.
-          </p>
+            <div
+              style={{
+                fontSize: 10.5,
+                color: "var(--ink-50)",
+                letterSpacing: ".12em",
+                textTransform: "uppercase",
+                marginBottom: 6,
+                fontWeight: 500,
+              }}
+            >
+              搜索完成后将显示
+            </div>
+            <p
+              style={{
+                fontSize: 12.5,
+                color: "var(--ink-65)",
+                lineHeight: 1.65,
+                margin: 0,
+              }}
+            >
+              候选企业卡 · 9 维评分 + 字段级溯源 evidence drawer +
+              多源信号 timeline (工商 / 司法 / 招投标 / 资质 / 行情) · 单候选可右抽屉 drill 详情.
+            </p>
+          </div>
         </section>
       )}
       {/* F-042 · master plan §B.4 + §B.4b + §B.4c · candidate detail drawer */}
@@ -1995,7 +2018,11 @@ function QueryBar({
                   fontFamily: "inherit",
                   fontSize: 12,
                   cursor: streaming ? "not-allowed" : "pointer",
-                  fontWeight: active ? 600 : 400,
+                  /* B.4 SLO-3 · channel-bug-3 · active/inactive 字号不一致
+                   * 真因: weight 600 vs 400 = 视觉字号差异 (粗体看着更大)
+                   * 修: 统一 weight 500 · 区分靠 bg + color 不靠粗细
+                   */
+                  fontWeight: 500,
                   transition: "background 120ms",
                 }}
               >

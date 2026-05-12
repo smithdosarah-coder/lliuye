@@ -808,9 +808,15 @@
   min-height: calc(100vh - 120px);
 }
 
-/* --- 区域 1 · Query 输入条 ---------------------------- */
+/* --- 区域 1 · Query 输入条 ----------------------------
+ * B.4 SLO-3 · channel-bug-2 · padding/margin 跟 ch-kb-strip 对齐
+ * 真因: querybar padding 14/18/12 vs kb-strip 18/22 + margin 18/0 · 不一致
+ *      = 视觉上 QUERY 跟 KB 间距错位
+ * 修: padding + margin 统一 (18px 22px + 18px 0) · gap 保持 10
+ */
 .v-archive--canon[data-agent="channel"] .ch-querybar {
-  padding: 14px 18px 12px;
+  padding: 18px 22px;
+  margin: 18px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2228,4 +2234,27 @@
   line-height: 1.7;
   color: var(--ink);
   font-family: var(--cjk);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO-3 · channel-bug-1
+ * KB 知识库上传 3 panel 排版乱
+ * 真因: 3 zone min-height 120px 但 head/action 没固定锚点 ·
+ *        zone 内容高度差 (title 1-2 行 · desc 长短不一) → 选择文件 btn
+ *        不在同一水平线 · 视觉上"排版乱"
+ * 修: 等高 + flex justify-content: space-between · btn 永远在底
+ * ════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="channel"] .ch-kb-zone {
+  min-height: 144px;
+  justify-content: space-between;
+}
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-head {
+  align-items: flex-start;
+  min-height: 48px;
+}
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-title-wrap {
+  flex: 1;
+}
+.v-archive--canon[data-agent="channel"] .ch-kb-zone-action {
+  margin-top: auto;
 }

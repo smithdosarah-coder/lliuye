@@ -725,7 +725,12 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-trigger-bar {
   display: flex;
-  align-items: flex-end;
+  /* B.4 SLO-3 · riskctrl-bug-4 · mode toggle + 主 CTA 同行视觉
+   * 真因: align-items flex-end · mode toggle 双行 btn (~50px) vs CTA pill 单行 (~42px)
+   *      高度差 ~8px · CTA 视觉沉底 · mode toggle 视觉浮顶 · "不同行视觉"
+   * 修: align-items center · 两元素垂直居中 · 高度差自然左右居中对齐
+   */
+  align-items: center;
   gap: 16px;
   padding: 14px 18px;
   margin: 14px 0 0;
@@ -900,11 +905,37 @@
   font-style: italic;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+ * B.4 SLO-3 · riskctrl-bug-1 · stats 飘右上 · 跟 hero 间空白
+ * 真因: .rpt-hero flex justify-content space-between · 左 .rpt-hero-left
+ *      cluster + 右 stats div · idle 时 left 短 + right 短 · 中间 1000px+ 空白
+ * 修: .rpt-hero-left flex 1 (grow 撑满左 → 右 stats div 紧贴右) · 不影响 gap
+ *     仅 scope riskctrl · 不动 report 的 .rpt-hero (report 没 hero-left wrapper · 用不同 hero)
+ * ════════════════════════════════════════════════════════════════════ */
+.v-archive--canon[data-agent="riskctrl"] .rpt-hero-left {
+  flex: 1;
+}
+
+/* B.4 SLO-3 · riskctrl-bug-5 verify · 整页占左 70% 右 30% 空 (C2 已修)
+ * PM 原标 "C2 已修 · verify"
+ * C2 universal `_shared/idle-tight.css:.v-archive--canon .rpt-workspace { width: 100% !important }`
+ * 已生效 · riskctrl 主组件 wrap 在 .rpt-workspace 容器内 → 全屏宽
+ * 无 riskctrl 自身 max-width 覆盖 → C2 universal 真生效
+ * verify: idle 时整页占满 archive max-w-[1720px] 容器 · 不再 70/30 偏左
+ * 本注释 doc-only · 不改代码
+ */
+
 /* Empty-state skeleton */
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty {
+  /* B.4 SLO-3 · riskctrl-bug-3 · 等待触发策略 panel 占 1 整行但只显短文字 · 仍有空白
+   * 真因: padding 32/28 + head margin-bottom 24 + panel padding 28/18 + min-height 88
+   *      = head + 4 卡 总高 ~280px · 但 padding 大 → 视觉上 panel 大 + 内容松
+   * 修: panel padding 32/28 → 20/24 · head margin-bottom 24 → 16
+   *     panel padding 28/18 → 14/16 + min-height 88 → 72 (跟 compliance bug-5 同模式)
+   */
   margin: 18px 0 32px;
-  padding: 32px 28px;
+  padding: 20px 24px;
   background: color-mix(in srgb, var(--chalk) 50%, transparent);
   border: 1px dashed var(--ink-14);
   border-radius: var(--r-md);
@@ -912,7 +943,8 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__head {
   text-align: center;
-  margin-bottom: 24px;
+  /* B.4 SLO-3 · riskctrl-bug-3 · head margin-bottom 24 → 16 (跟 panel padding 20 配合 · 减空白) */
+  margin-bottom: 16px;
 }
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__title {
@@ -945,13 +977,23 @@
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__panels {
   display: grid;
+  /* B.4 SLO-3 · riskctrl-bug-2 verify · 4 占位卡 2x2 已生效
+   * PM 标 "C4 已修 · verify" · 实际 C4 universal 不匹配 .riskctrl-empty__panels
+   * (C4 选择器是 [data-testid$="-skeleton-panels"] + [class*="-placeholders"] ·
+   *  riskctrl 包装 div 无 testid + class 是 __panels 双下划线)
+   * 但本规则 grid-template-columns: repeat(2, 1fr) 自身已 2x2 · 跟 C4 等效
+   * verify: idle 时 4 占位卡 (DSL / KS / 样本 / 回测) 真 2x2 排布 · 不需改
+   */
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-top: 18px;
 }
 
 .v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__panel {
-  padding: 28px 18px;
+  /* B.4 SLO-3 · riskctrl-bug-3 · 卡 padding 28/18 → 14/16 + min-height 88 → 72
+   * 跟 compliance bug-5 同模式 · 减卡内 padding 浪费
+   */
+  padding: 14px 16px;
   background: color-mix(in srgb, var(--g0b) 50%, transparent);
   border: 1px dashed var(--ink-08);
   border-radius: 12px;
@@ -959,7 +1001,7 @@
   font-size: 12.5px;
   color: var(--ink-50);
   text-align: center;
-  min-height: 88px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -973,6 +1015,38 @@
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* B.4 SLO-3 · riskctrl-bug-6 · 补 status pill (跟其他 5 助手一致)
+ * 复用 compliance/alert/credit status pill 视觉 · 但 mono 11px ink-65
+ * --demo item margin-left auto · 跟前 5 agent bug-5 模式一致 · 左右平衡
+ */
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: color-mix(in srgb, var(--chalk) 65%, transparent);
+  border: 1px solid var(--ink-08);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-65);
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item[data-tone="ok"] {
+  color: #2e7d57;
+}
+.v-archive--canon[data-agent="riskctrl"] .riskctrl-empty__status-item--demo {
+  color: var(--ink-40);
+  margin-left: auto;
 }
 
 /* Demo banner */

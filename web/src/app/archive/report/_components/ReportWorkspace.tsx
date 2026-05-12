@@ -1884,6 +1884,11 @@ function ReportSampleStrip({
     flexDirection: "column",
     alignItems: "flex-start",
     gap: 2,
+    /* B.4 SLO-3 · report-bug-6 · 5 sample btn 横向占 70% · 右 30% 空
+     * 真因: minWidth 132 · 5 btn × 132 + gap = ~700px · 父若宽 1200 则右 ~500px 空
+     * 修: flex 1 1 0 + minWidth 132 (兜底 wrap) · 5 btn 平均分宽 · 撑满 row
+     */
+    flex: "1 1 0",
     minWidth: 132,
   };
   return (
@@ -1922,9 +1927,21 @@ function ReportSampleStrip({
           <span style={{ fontSize: 10, color: "var(--ink-65)" }}>{opt.hint}</span>
         </button>
       ))}
-      <span style={{ marginLeft: "auto", color: "var(--ink-65)", fontSize: 11, fontStyle: "italic" }}>
+      {/* B.4 SLO-3 · report-bug-3 · "真 LLM..." 飘右 · 跟 sample btn 不对齐
+       * 真因: 原 marginLeft auto 推到 row 右端 · 跟 sample btn 视觉错位
+       * 修: 移出 flex row · 改 div block flex-basis 100% · 撑满下一行 · 不再 floating */}
+      <div
+        style={{
+          flexBasis: "100%",
+          marginTop: 4,
+          color: "var(--ink-50)",
+          fontSize: 11,
+          fontStyle: "italic",
+          fontFamily: "var(--cjk)",
+        }}
+      >
         真 LLM (DeepSeek) + 真 9 维 QC · PM 2026-05-10 真意 reframe
-      </span>
+      </div>
     </section>
   );
 }
@@ -1992,7 +2009,12 @@ function ReportLaunchBar(p: {
         <span style={_LAUNCH_HINT_STYLE}>
           {p.uploadedFiles.length > 0
             ? `已上传 ${p.uploadedFiles.length} 份`
-            : "PDF / Word / Excel / 图片 · 多文件"}
+            /* B.4 SLO-3 · report-bug-4 · 5 标签分隔符统一
+             * 真因: "PDF / Word / Excel / 图片 · 多文件" 混用 " / " 和 " · "
+             *      → 标签间距视觉不一致 (· 中圆点 vs / 斜杠 视觉重量不同)
+             * 修: 统一用 " / " 分隔 · 5 标签间距视觉一致
+             */
+            : "PDF / Word / Excel / 图片 / 多文件"}
         </span>
       </div>
 
@@ -2050,9 +2072,12 @@ function ReportLaunchBar(p: {
       </div>
 
       {/* B-2 click-to-fire · !started 时显式 "开始生成" 应用模板/历史选择
-          started 时切到 "重新生成 / 导出" 双 chip-style 按钮 */}
+          started 时切到 "重新生成 / 导出" 双 chip-style 按钮
+          B.4 SLO-3 · report-bug-5 · 加 "执行" label 跟其他 column (主入口/模板/业务线) 视觉对齐
+          原因: 其他 column 都有 label + content + (hint) · 开始生成 column 只有 btn → 视觉不对齐 */}
       {!p.started ? (
-        <div style={{ ..._LAUNCH_GROUP_STYLE, flexDirection: "row", gap: 8 }}>
+        <div style={_LAUNCH_GROUP_STYLE}>
+          <span style={_LAUNCH_LABEL_STYLE}>执行</span>
           <button
             type="button"
             data-testid="report-apply-launch-btn"
@@ -2264,13 +2289,18 @@ function ReportEmptySkeleton() {
       data-testid="report-empty-skeleton"
       aria-label="等待触发 · 报告生成"
       style={{
-        padding: "48px 24px",
+        /* B.4 SLO-3 · report-bug-2 · 等待触发 panel 中间 500-600px 巨大空白
+         * 真因: padding 48/24 + minHeight calc(100vh-360px) 强 ~720px @ 1080 viewport
+         *      内容 (title + 1 段 + 4 li) 只 ~200px · flex column justify-content center
+         *      = panel 上下大量空白
+         * 修: padding 28/24 + 删 minHeight (跟内容走) · 仍 flex column 居中
+         */
+        padding: "28px 24px",
         textAlign: "center",
         background: "color-mix(in srgb, var(--chalk) 50%, transparent)",
         borderRadius: "var(--r-md)",
         border: "1px dashed var(--ink-14)",
         margin: "24px 0 64px 0",
-        minHeight: "calc(100vh - 360px)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
