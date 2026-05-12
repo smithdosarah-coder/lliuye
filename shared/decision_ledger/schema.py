@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
-LEDGER_SCHEMA_VERSION = "1.0.0"
+LEDGER_SCHEMA_VERSION = "1.1.0"  # v1.1 (PM 2026-05-11 ratify perfect-check-6 · 加 optional parent_turn_id · non-breaking minor bump from 1.0.0)
 
 # Allowed jurisdiction values · enum-ish (kept as plain strings to avoid
 # needing an extra Enum dep across worker boundaries).
@@ -62,6 +62,11 @@ class LedgerEntry:
     - feedback_meta: feedback event 业务数据 (FeedbackType / consumer_agents / payload)
     - 现有 entry (is_feedback=False) ABI 不破
     - watcher 用 `WHERE is_feedback = 1` 过滤
+
+    v1.1 (2026-05-11 · PM 刘野 ratify perfect-check-6):
+    - parent_turn_id: 跨 mode 父子 turn link · 仅 Cowork → Managed 场景必填 · 单 mode entry 留 None
+    - 现有 v1.0 entry 全部 parent_turn_id=None (NULL · sqlite ALTER TABLE 加列默认 NULL · 兼容)
+    - 具体 case: Agent2 DSL 生成 turn (Cowork) → backtest 新 turn (Managed) · backtest LedgerEntry 必填 parent_turn_id 指向 DSL turn 的 turn_id
     """
 
     decision_id: str
@@ -81,6 +86,10 @@ class LedgerEntry:
     created_at: str | None = None  # set by sqlite default
     is_feedback: bool = False  # Phase A.5 · True iff cross-agent feedback event
     feedback_meta: dict | None = None  # Phase A.5 · per cross-agent-feedback-protocol §2
+    # v1.1 (2026-05-11 PM ratify perfect-check-6) · 跨 mode 父子 turn link
+    # 仅 Cowork → Managed 场景填 · 单 mode entry 留 None (NULL · 兼容现有 v1.0 entry)
+    # sqlite migration: ALTER TABLE decisions ADD COLUMN parent_turn_id TEXT (默认 NULL · 不需 backfill)
+    parent_turn_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

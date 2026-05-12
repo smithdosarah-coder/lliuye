@@ -42,6 +42,11 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 
 from liuye_service.schemas import PermissionRequest
 
+# Type-only alias for the real adapter Protocol · imported lazily to avoid a
+# circular dep (adapters/__init__.py is empty so we point at the module).
+if False:  # TYPE_CHECKING shim · keeps runtime quiet
+    from liuye_service.adapters.base import AgentAdapter as _AgentAdapter  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 # Heartbeat cadence (per v3 §2.1 + SSE matrix §3 Q3). Client declares dead
@@ -55,7 +60,22 @@ HEARTBEAT_INTERVAL_SECONDS = 15.0
 
 
 class CoworkAdapter(Protocol):
-    """Adapter contract · ``adapters/{channel,credit,report}.py`` implement this."""
+    """Adapter contract · ``adapters/{channel,credit,report}.py`` implement this.
+
+    Two surface flavours coexist:
+
+    - **AsyncIterator surface** (preferred · post-checkpoint-3): the
+      concrete adapter classes in ``adapters/`` implement
+      ``start_turn`` / ``dispatch_message`` returning ``AsyncIterator``
+      of pre-enveloped liuye event dicts.
+    - **emit-callback surface** (legacy skeleton): the original
+      ``dispatch`` method that takes an ``emit`` callable.
+
+    The orchestrator's ``dispatch_message`` below prefers the AsyncIterator
+    surface (``hasattr(adapter, 'dispatch_message')``) and falls back to
+    the legacy ``dispatch`` callable when the adapter only implements
+    the older Protocol.
+    """
 
     agent_id: str  # 'channel' / 'credit' / 'report'
 
@@ -124,6 +144,12 @@ class CoworkOrchestrator:
         # request_id -> turn_id  (reverse index · used by permissions module)
         self._holds_by_request: dict[str, str] = {}
         self._adapters: dict[str, CoworkAdapter] = {}
+        # Per-turn SSE queue · adapter pushes translated events, the SSE
+        # endpoint (`api._stream_skeleton`) pops + writes to the wire.
+        # Bounded queues prevent runaway memory growth when the client
+        # disconnects mid-stream (the queue caps at 256 frames · adapter
+        # awaits ``put`` so backpressure flows back).
+        self._sse_queues: dict[str, asyncio.Queue[dict[str, Any] | None]] = {}
         self._lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -136,6 +162,42 @@ class CoworkOrchestrator:
 
     def get_adapter(self, agent_id: str) -> Optional[CoworkAdapter]:
         return self._adapters.get(agent_id)
+
+    # ------------------------------------------------------------------
+    # SSE queue lifecycle · per-turn asyncio.Queue
+    # ------------------------------------------------------------------
+
+    def get_or_create_sse_queue(
+        self, turn_id: str, *, maxsize: int = 256,
+    ) -> "asyncio.Queue[dict[str, Any] | None]":
+        """Lazy-create a bounded queue for ``turn_id`` · idempotent.
+
+        Adapter producers ``put()`` event dicts. The SSE endpoint
+        consumes via ``get()`` and writes to the wire. A ``None``
+        sentinel signals end-of-stream so the SSE consumer can return
+        cleanly without timing out on the next heartbeat tick.
+        """
+        q = self._sse_queues.get(turn_id)
+        if q is None:
+            q = asyncio.Queue(maxsize=maxsize)
+            self._sse_queues[turn_id] = q
+        return q
+
+    def close_sse_queue(self, turn_id: str) -> None:
+        """Drop the per-turn queue · drops any pending frames.
+
+        Called from ``abort_turn`` and when the SSE endpoint observes
+        the turn closed. ``None`` sentinel is pushed if the consumer is
+        still iterating (best-effort · we ignore QueueFull · means the
+        consumer already saw the end).
+        """
+        q = self._sse_queues.pop(turn_id, None)
+        if q is None:
+            return
+        try:
+            q.put_nowait(None)
+        except asyncio.QueueFull:  # pragma: no cover · consumer will time out
+            pass
 
     # ------------------------------------------------------------------
     # Turn lifecycle
@@ -218,6 +280,36 @@ class CoworkOrchestrator:
             )
             return
 
+        # Two adapter surfaces (per CoworkAdapter Protocol docstring above):
+        #   1. AsyncIterator surface (concrete `adapters/*.py` classes ·
+        #      preferred): iterate adapter.dispatch_message(turn_id, message)
+        #      and forward each yielded event via emit().
+        #   2. Legacy callback surface (kwarg-based ``dispatch``): pass
+        #      emit through.
+        if hasattr(adapter, "dispatch_message") and not hasattr(adapter, "dispatch"):
+            # New-style AsyncIterator adapter · iterate + emit.
+            try:
+                async for liuye_evt in adapter.dispatch_message(
+                    turn_id, message,
+                ):
+                    await emit(
+                        event=liuye_evt.get("event", "unknown"),
+                        payload=liuye_evt.get("payload", {}),
+                        turn_id=turn_id,
+                        trace_id=state.trace_id,
+                    )
+            except Exception as exc:  # noqa: BLE001 · adapter degraded fallback
+                logger.exception(
+                    "[orchestrator] adapter %s raised on dispatch_message: %s",
+                    state.agent_id, exc,
+                )
+                await self.abort_turn(
+                    turn_id,
+                    reason=f"adapter dispatch_message failed: {exc}",
+                    code="ADAPTER_DISPATCH_FAILED",
+                )
+            return
+
         await adapter.dispatch(
             turn_id=turn_id,
             trace_id=state.trace_id,
@@ -271,6 +363,10 @@ class CoworkOrchestrator:
         async with self._lock:
             state.closed = True
             state.held_by_permission = None
+        # Push end-of-stream sentinel so the SSE consumer exits cleanly
+        # instead of timing out on the next heartbeat. Best-effort: if
+        # the queue is gone (consumer disconnected) nothing happens.
+        self.close_sse_queue(turn_id)
         logger.info(
             "[orchestrator] abort_turn turn_id=%s code=%s reason=%s",
             turn_id, code, reason,
@@ -358,3 +454,46 @@ __all__ = [
     "default_orchestrator",
     "set_default_orchestrator",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Default adapter registration · single hook used at FastAPI startup
+# ---------------------------------------------------------------------------
+
+
+def register_default_adapters(
+    orchestrator: Optional[CoworkOrchestrator] = None,
+) -> CoworkOrchestrator:
+    """Bind the 3 Cowork adapters + 3 Managed stubs to ``orchestrator``.
+
+    Imports the concrete adapter classes lazily so unit tests that
+    don't need the full registry (e.g. ``test_contracts``) avoid the
+    httpx + sqlite dep at module load time.
+
+    Returns the orchestrator handle so the caller can chain on it.
+    """
+    orch = orchestrator or default_orchestrator()
+    # Lazy imports keep the orchestrator module import-free of httpx /
+    # sqlite when tests stub the adapter set.
+    from liuye_service.adapters.channel import ChannelAdapter
+    from liuye_service.adapters.credit import CreditAdapter
+    from liuye_service.adapters.report import ReportAdapter
+    from liuye_service.adapters.riskctrl import RiskctrlAdapter
+    from liuye_service.adapters.alert import AlertAdapter
+    from liuye_service.adapters.compliance import ComplianceAdapter
+
+    for cls in (
+        ChannelAdapter, CreditAdapter, ReportAdapter,
+        RiskctrlAdapter, AlertAdapter, ComplianceAdapter,
+    ):
+        try:
+            orch.register_adapter(cls())  # type: ignore[arg-type]
+        except Exception as exc:  # noqa: BLE001 · best-effort startup
+            logger.warning(
+                "[orchestrator] failed to register adapter %s: %s",
+                cls.__name__, exc,
+            )
+    return orch
+
+
+__all__.append("register_default_adapters")

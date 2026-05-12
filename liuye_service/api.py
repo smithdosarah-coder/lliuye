@@ -59,10 +59,15 @@ from pydantic import BaseModel, Field
 from liuye_service import __version__
 from liuye_service.audit import record_liuye_decision
 from liuye_service.config import get_settings
+from liuye_service.ledger_review import (
+    list_review_events,
+    record_review_event,
+)
 from liuye_service.orchestrator import (
     HEARTBEAT_INTERVAL_SECONDS,
     CoworkOrchestrator,
     default_orchestrator,
+    register_default_adapters,
 )
 from liuye_service.permissions import (
     deny as deny_permission,
@@ -174,6 +179,37 @@ def register_liuye_routes(
 
     require_user = _resolve_require_user()
     orch = orchestrator or default_orchestrator()
+    # Bind the 6 adapter implementations (3 Cowork + 3 Managed stubs)
+    # so adapter.dispatch_message can fire when sessions/{turn_id}/messages
+    # is called. Idempotent · re-registration overwrites. Caller (test
+    # fixture) MAY pre-register custom stubs and pass an orchestrator
+    # with adapters already bound; we skip the default registration
+    # only if the orchestrator already knows the canonical agent_ids.
+    if not all(orch.get_adapter(a) for a in ("channel", "credit", "report")):
+        register_default_adapters(orch)
+
+    # ReviewWriter that backs grant/deny → append-only ledger_review_events.
+    # Defined inside register_liuye_routes so each FastAPI app gets its own
+    # closure (test isolation · the global state lives in ``ledger_review``).
+    async def _default_review_writer(event: LedgerReviewEvent) -> bool:
+        try:
+            record_review_event(
+                decision_id=event.decision_id,
+                reviewer_id=event.reviewer_id,
+                action=event.action,
+                comment=event.comment,
+                idempotency_key=event.idempotency_key,
+                signature=event.signature,
+                event_id=event.event_id,
+                appended_at=event.appended_at,
+            )
+            return True
+        except (ValueError, RuntimeError) as exc:
+            logger.warning(
+                "[liuye_service] review writer failed for decision=%s: %s",
+                event.decision_id, exc,
+            )
+            return False
 
     # ------------------------------------------------------------------
     # 1. GET /api/liuye/health · anonymous · probe traffic
@@ -271,8 +307,7 @@ def register_liuye_routes(
             reviewer_role=user.get("role", ""),
             orchestrator=orch,
             comment=body.comment,
-            # review_writer wired in by ``ledger_review.py`` (next relay)
-            review_writer=None,
+            review_writer=_default_review_writer,
         )
         if not ok:
             raise HTTPException(
@@ -301,7 +336,7 @@ def register_liuye_routes(
             persona_id=body.persona_id,
             reason=body.reason,
             orchestrator=orch,
-            review_writer=None,
+            review_writer=_default_review_writer,
         )
         if not ok:
             raise HTTPException(
@@ -328,9 +363,8 @@ def register_liuye_routes(
         body: LedgerReviewEvent,
         user: dict[str, Any] = Depends(require_user),
     ) -> dict[str, Any]:
-        # Phase 1 stub · ``ledger_review.py`` (next relay) owns the
-        # append-only write + idempotency_key dedup. We do basic shape
-        # validation here so callers fail fast.
+        # Append-only LedgerReviewEvent · sqlite-backed · idempotent on
+        # (decision_id, idempotency_key) per ``ledger_review.py``.
         if body.decision_id != decision_id:
             raise HTTPException(
                 400,
@@ -341,13 +375,40 @@ def register_liuye_routes(
                     },
                 },
             )
-        # Echo back the event with the server-stamped appended_at — the
-        # actual sqlite write lands in ledger_review.py · this skeleton
-        # returns 201 so frontend pipelines can be smoke-tested.
+        try:
+            persisted = record_review_event(
+                decision_id=body.decision_id,
+                reviewer_id=body.reviewer_id,
+                action=body.action,
+                comment=body.comment,
+                idempotency_key=body.idempotency_key,
+                signature=body.signature,
+                event_id=body.event_id,
+                appended_at=body.appended_at,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                400,
+                detail={
+                    "error": {
+                        "code": "VALIDATION_FAILED",
+                        "message": str(exc),
+                    },
+                },
+            ) from exc
+        except RuntimeError as exc:
+            raise HTTPException(
+                500,
+                detail={
+                    "error": {
+                        "code": "LEDGER_WRITE_FAILED",
+                        "message": str(exc),
+                    },
+                },
+            ) from exc
         return {
-            "event": body.model_dump(mode="json"),
-            "persisted": False,  # flipped by ledger_review.py in next relay
-            "note": "skeleton · sqlite write wires in ledger_review.py (file 15 / next relay)",
+            "event": persisted.model_dump(mode="json"),
+            "persisted": True,
         }
 
     # ------------------------------------------------------------------
@@ -374,9 +435,13 @@ def register_liuye_routes(
                     },
                 },
             )
-        # Review chain wiring lands in ledger_review.py · skeleton returns
-        # the bare record with an empty chain.
-        return {"decision": record, "review_chain": []}
+        # Review chain · append-only events on
+        # ``ledger_review_events`` table · ordered by appended_at ASC.
+        chain = [
+            evt.model_dump(mode="json")
+            for evt in list_review_events(decision_id=decision_id)
+        ]
+        return {"decision": record, "review_chain": chain}
 
     # ------------------------------------------------------------------
     # 9. POST /api/liuye/kb/upload (Phase 2 stub)
@@ -458,32 +523,71 @@ async def _dispatch_via_adapter(
     turn_id: str,
     message: dict[str, Any],
 ) -> None:
-    """Skeleton dispatch hook · next relay wires real adapters + SSE bridge."""
+    """Fire the adapter dispatch + bridge each event onto the per-turn SSE queue.
 
-    async def _emit(**_kwargs: Any) -> None:
-        # The SSE bridge / queue between dispatch and stream lands in
-        # the next relay (file 13: ``adapters/sse_v1_to_liuye.py``).
-        return None
+    The orchestrator hands every emit() call to this closure, which
+    enqueues onto the bounded ``asyncio.Queue`` owned by ``turn_id``.
+    The SSE endpoint (``_stream_skeleton``) consumes the queue. On
+    adapter completion we push a ``None`` sentinel so the stream can
+    close cleanly without waiting on heartbeat timeout.
+    """
+    queue = orchestrator.get_or_create_sse_queue(turn_id)
 
-    await orchestrator.dispatch_message(
-        turn_id=turn_id, message=message, emit=_emit,
-    )
+    async def _emit(
+        *,
+        event: str,
+        payload: dict[str, Any],
+        turn_id: str = turn_id,
+        trace_id: str = "trace_unknown",
+        tool_call_id: Optional[str] = None,
+        **_extras: Any,
+    ) -> None:
+        # Compose the liuye SSE event envelope so the consumer can write
+        # the wire format directly. seq is minted by the queue consumer
+        # via ``orchestrator.next_seq`` to keep monotonic order across
+        # both adapter-sourced events and heartbeats.
+        evt: dict[str, Any] = {
+            "event": event,
+            "payload": payload,
+            "trace_id": trace_id,
+        }
+        if tool_call_id is not None:
+            evt["tool_call_id"] = tool_call_id
+        await queue.put(evt)
+
+    try:
+        await orchestrator.dispatch_message(
+            turn_id=turn_id, message=message, emit=_emit,
+        )
+    finally:
+        # Push end-of-stream sentinel · SSE consumer exits its loop.
+        try:
+            queue.put_nowait(None)
+        except asyncio.QueueFull:  # pragma: no cover · consumer keep up
+            pass
 
 
 async def _stream_skeleton(
     orchestrator: CoworkOrchestrator,
     turn_id: str,
 ):
-    """Minimal SSE stream · emits turn.started + heartbeat 15s.
+    """SSE stream · pulls adapter events off the per-turn queue + heartbeats.
 
-    Real translation pipeline (10 SSE v1 events → 11 liuye events via
-    ``adapters/sse_v1_to_liuye.py``) plus ``permission.request`` direct
-    emit (``permissions.emit_permission_request``) lands in the next
-    relay. This skeleton keeps the SSE contract loadable so frontend
-    integration can begin without blocking on the adapter relay.
+    Lifecycle (post-checkpoint-4 wire-up):
+
+    1. Emit ``turn.started`` envelope once (orchestrator state was already
+       built when ``POST /api/liuye/sessions`` ran).
+    2. Race the adapter queue (``queue.get()``) against a heartbeat
+       timeout: whichever wins emits an event. Heartbeat tick is the
+       smaller of ``HEARTBEAT_INTERVAL_SECONDS`` so the client never
+       declares the connection dead mid-permission-hold.
+    3. A ``None`` sentinel on the queue (set by ``_dispatch_via_adapter``
+       on adapter completion or ``orchestrator.close_sse_queue``) ends
+       the stream cleanly.
     """
     state = orchestrator.get_turn(turn_id)
     trace_id = state.trace_id if state else "trace_unknown"
+    queue = orchestrator.get_or_create_sse_queue(turn_id)
 
     # SSE id format: "<turn_id>:<seq>" so EventSource Last-Event-ID
     # carries both ids in one round-trip.
@@ -503,19 +607,34 @@ async def _stream_skeleton(
     # 1. turn.started
     yield _envelope("turn.started", {"persona": state.persona if state else None})
 
-    # 2. periodic heartbeat · adapter relay replaces this loop with the
-    #    real event bridge. heartbeat continues even during permission
-    #    holds so the client does not declare the connection dead.
     try:
         while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
             current = orchestrator.get_turn(turn_id)
             if current is None or current.closed:
                 break
-            yield _envelope("heartbeat", {"alive": True})
+            try:
+                # Race the queue against a heartbeat-cadence sleep · adapter
+                # events arrive in real time, heartbeats fill the gap.
+                evt = await asyncio.wait_for(
+                    queue.get(), timeout=HEARTBEAT_INTERVAL_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                yield _envelope("heartbeat", {"alive": True})
+                continue
+            # End-of-stream sentinel · close cleanly.
+            if evt is None:
+                break
+            yield _envelope(
+                evt.get("event", "unknown"),
+                evt.get("payload", {}),
+            )
     except asyncio.CancelledError:  # pragma: no cover · client disconnect
         logger.info("[liuye_service] SSE stream cancelled · turn_id=%s", turn_id)
         raise
+    finally:
+        # Best-effort cleanup · drops the queue so the next stream on
+        # the same turn_id (reconnect) starts fresh.
+        orchestrator.close_sse_queue(turn_id)
 
 
 __all__ = ["register_liuye_routes"]

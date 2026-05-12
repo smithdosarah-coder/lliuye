@@ -31,6 +31,13 @@ Q3 ratify note: ``parent_turn_id`` (LedgerEntry v1.1.0 · optional) is
 passed through when caller provides it. Required for cross-mode
 handoff (e.g. Agent2 Cowork DSL turn → Managed backtest turn). Leave
 None for single-mode flows.
+
+2026-05-12 façade upgrade (Liuye W1-backend checkpoint 4/4 · PM ratify):
+``shared.decision_ledger.record_decision`` now exposes ``parent_turn_id``
+as a real kwarg (no longer via ``evidence_chain._meta.parent_turn_id``
+hack). This wrapper forwards it cleanly so the v1.1 schema field is
+populated end-to-end (sqlite column + LedgerEntry dataclass + queryable
+via ``idx_parent_turn`` index).
 """
 from __future__ import annotations
 
@@ -127,17 +134,13 @@ def record_liuye_decision(
         hash_subject_id(subject_id) if subject_id else None
     )
 
-    # The shared façade ``record_decision`` does NOT yet expose
-    # ``parent_turn_id`` (v1.1.0 schema field). Until shared._record_decision
-    # gains the kwarg, we mark it in the evidence_chain payload so the
-    # downstream sqlite row + outbox retry path both preserve the linkage.
-    enriched_evidence: dict[str, Any] = (
+    # parent_turn_id goes through the real façade kwarg (W1-backend 4/4 ·
+    # façade upgrade landed in ``shared/decision_ledger/store.py:record`` +
+    # ``__init__.record_decision``). No more evidence_chain._meta hack.
+    evidence_payload: dict[str, Any] = (
         dict(evidence_chain) if isinstance(evidence_chain, dict)
         else {"_raw": evidence_chain}
     )
-    if parent_turn_id is not None:
-        enriched_evidence.setdefault("_meta", {})
-        enriched_evidence["_meta"]["parent_turn_id"] = parent_turn_id
 
     try:
         resolved_id = _record_decision(
@@ -145,12 +148,13 @@ def record_liuye_decision(
             endpoint=endpoint,
             input_payload=input_payload,
             output_payload=output_payload,
-            evidence_chain=enriched_evidence,
+            evidence_chain=evidence_payload,
             decision_id=decision_id,
             jurisdiction=jurisdiction,
             retention_class=retention_class,
             subject_name=subject_name,
             subject_id=safe_subject_id,
+            parent_turn_id=parent_turn_id,
         )
         return resolved_id
     except Exception as exc:  # noqa: BLE001 — last-resort silent-fail
@@ -169,7 +173,7 @@ def record_liuye_decision(
                 "endpoint": endpoint,
                 "input_payload": input_payload,
                 "output_payload": output_payload,
-                "evidence_chain": enriched_evidence,
+                "evidence_chain": evidence_payload,
                 "decision_id": fallback_id,
                 "jurisdiction": jurisdiction,
                 "retention_class": retention_class,
@@ -177,6 +181,10 @@ def record_liuye_decision(
                 "subject_id": safe_subject_id,
                 "parent_turn_id": parent_turn_id,
                 "_error": f"{type(exc).__name__}: {exc}",
+                # idempotency_key on outbox payload so retry worker can
+                # dedup repeated retries · same decision_id never persists
+                # twice.
+                "idempotency_key": fallback_id,
             },
             outbox_dir=outbox_dir,
         )

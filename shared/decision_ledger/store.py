@@ -60,19 +60,23 @@ CREATE TABLE IF NOT EXISTS decisions (
   subject_id       TEXT,
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),
   is_feedback      INTEGER NOT NULL DEFAULT 0,
-  feedback_meta    TEXT
+  feedback_meta    TEXT,
+  parent_turn_id   TEXT  -- v1.1 (PM 2026-05-11 ratify · 跨 mode 父子 turn link · 仅 Cowork → Managed 必填)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_ts        ON decisions(agent_id, ts);
 CREATE INDEX IF NOT EXISTS idx_jurisdiction_ts ON decisions(jurisdiction, ts);
 CREATE INDEX IF NOT EXISTS idx_subject         ON decisions(subject_id);
 CREATE INDEX IF NOT EXISTS idx_is_feedback     ON decisions(is_feedback, ts);
+CREATE INDEX IF NOT EXISTS idx_parent_turn     ON decisions(parent_turn_id);
 """
 
 # Phase A.5 (2026-05-09) · feedback_meta + is_feedback 加到现有 schema · 旧 db 文件用
 # ALTER 升级 (silent-skip if column 已存在 · sqlite raise OperationalError when dup).
+# v1.1 (2026-05-11 PM ratify perfect-check-6) · parent_turn_id 同上 · sqlite ADD COLUMN 默认 NULL · 兼容现有 v1.0 entry.
 _SCHEMA_MIGRATIONS = (
     "ALTER TABLE decisions ADD COLUMN is_feedback INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE decisions ADD COLUMN feedback_meta TEXT",
+    "ALTER TABLE decisions ADD COLUMN parent_turn_id TEXT",  # v1.1
 )
 
 
@@ -151,8 +155,17 @@ class DecisionLedger:
         subject_name: str | None = None,
         subject_id: str | None = None,
         ts: str | None = None,
+        parent_turn_id: str | None = None,
     ) -> LedgerWriteResult:
-        """Persist one decision; never raises sqlite errors upward."""
+        """Persist one decision; never raises sqlite errors upward.
+
+        v1.1.0 (Liuye W1-backend 2026-05-12 PM ratify perfect-check-6):
+        ``parent_turn_id`` kwarg forwards to ``LedgerEntry.parent_turn_id``
+        and writes the optional ``parent_turn_id`` sqlite column. Default
+        None for single-mode flows. Required only for Cowork→Managed
+        cross-mode handoff (e.g. Agent2 DSL turn → backtest turn) per
+        ``docs/contracts/decision-ledger.md`` v1.1 + schema.py docstring.
+        """
         decision_id = decision_id or str(uuid.uuid4())
         try:
             entry = LedgerEntry(
@@ -170,6 +183,7 @@ class DecisionLedger:
                 subject_name=subject_name,
                 # Subjects are PII — always hash before storage.
                 subject_id=hash_subject_id(subject_id) if subject_id else None,
+                parent_turn_id=parent_turn_id,
             )
         except (TypeError, ValueError) as exc:
             # Validation errors (bad jurisdiction / retention_class) are
@@ -191,8 +205,9 @@ class DecisionLedger:
                       input_hash, output_hash, evidence_chain,
                       reviewer_id, reviewer_action, reviewer_ts,
                       jurisdiction, retention_class,
-                      subject_name, subject_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      subject_name, subject_id,
+                      parent_turn_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         entry.decision_id, entry.agent_id, entry.endpoint,
@@ -202,6 +217,7 @@ class DecisionLedger:
                         entry.reviewer_ts,
                         entry.jurisdiction, entry.retention_class,
                         entry.subject_name, entry.subject_id,
+                        entry.parent_turn_id,
                     ),
                 )
                 conn.commit()
@@ -618,12 +634,19 @@ def record_decision(
     subject_name: str | None = None,
     subject_id: str | None = None,
     ts: str | None = None,
+    parent_turn_id: str | None = None,
     ledger: DecisionLedger | None = None,
 ) -> str:
     """Public façade — see docs/contracts/decision-ledger.md §2.1.
 
     Returns the decision_id even when the underlying write fails so the
     caller can still echo to clients. Failure isolated.
+
+    v1.1.0 (Liuye W1-backend 2026-05-12 PM ratify perfect-check-6):
+    ``parent_turn_id`` kwarg forwards to ``DecisionLedger.record``. Default
+    None for backward compatibility (existing callers do NOT need to pass
+    it). Required only for Cowork→Managed cross-mode handoff (e.g.
+    Agent2 DSL turn → backtest turn) per LedgerEntry v1.1 schema field.
     """
     target = ledger or default_ledger()
     result = target.record(
@@ -638,6 +661,7 @@ def record_decision(
         subject_name=subject_name,
         subject_id=subject_id,
         ts=ts,
+        parent_turn_id=parent_turn_id,
     )
     return result.decision_id
 
