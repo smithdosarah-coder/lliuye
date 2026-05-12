@@ -97,3 +97,60 @@
 - **IME-GUARD-VERBATIM**: v3 §4.15 + useImeGuard hook 名 + ImeGuard.tsx PascalCase 文件名 全合规
 
 
+
+## 2026-05-12 · checkpoint 4 · 2 store + 2 API + lib/empty.ts (22/24 全 done)
+
+- **完成文件** (5/24 · 累计 22/24 W1-frontend file checklist):
+  - `credit_matrix_next/lib/empty.ts` (19 行 · EMPTY_ARRAY/MAP/SET sentinel + Object.freeze + 显式泛型 `new Map<never, never>()` 修过 strict mode `Map<any,any> → ReadonlyMap<never,never>` 协变冲突)
+  - `credit_matrix_next/store/liuyeStore.ts` (130 行 · Zustand 5 主 store 无 persist · 10 state field + 9 action · turn_id/persona_id/agent_id/theme/messages/artifacts/tool_calls/inProgress/permission_request · startTurn/endTurn 维护 inProgress Set immutable + endTurn 当前活跃 turn 时清 turn_id)
+  - `credit_matrix_next/store/streamStore.ts` (70 行 · useSyncExternalStore 35 行 createStore verbatim · CLAUDE.md §5 line 117-138 直抄 · singleton streamStore + useStream<T>(selector) hook)
+  - `credit_matrix_next/lib/api/liuye.ts` (160 行 · REST 4 endpoint · health/startSession/sendMessage/verifyContractVersion + LiuyeApiError + LiuyeContractMismatchError + LIUYE_API_BASE/LIUYE_CONTRACT_VERSION_EXPECTED env · liuyeFetch 内部 wrapper 处理 TurnErrorPayload-shaped HTTP non-2xx body)
+  - `credit_matrix_next/lib/api/sse.ts` (170 行 · EventSource consumer · LIUYE_SSE_EVENTS 11 const array + connectStream(turn_id, opts) + 闭包 state lastEventTs/lastSeq/deadCheckTimer · DEAD_THRESHOLD_MS=30s dead detection + DEAD_CHECK_INTERVAL_MS=5s 轮询 + SEQ_GAP_SNAPSHOT_THRESHOLD=10 触发 onSnapshotNeeded · AbortSignal 接入 · withCredentials:true 鉴权 cookie)
+
+- **关键决策**:
+  - **TS strict + new Map() 协变陷阱**: TS strict 推 `new Map()` 为 `Map<any, any>` · `any → never` 失败 · 用 `new Map<never, never>()` 显式泛型解决 · 任何 `EMPTY_*` sentinel 必带显式泛型 (lib/empty.ts 注释里固化)
+  - **endTurn 行为锁定**: end 同时清 inProgress Set member + 若 turn_id 是当前活跃 turn 则清 store.turn_id · 防"end 完 turn_id 残留指向已结束 turn"导致下游 selector 误读 stale state
+  - **EventSource Last-Event-ID 浏览器自动 carry**: 不需手动设置 header · 浏览器在 reconnect 时自动 carry 最后 named event 的 id field · 我们的 v3 protocol seq 是 envelope 字段不是 SSE id field · 若服务端写 SSE id 则浏览器自动 resume · 否则只能靠 onSnapshotNeeded callback (W1 仅 callback · W2-W4 实做 snapshot 重拉)
+  - **dead detection 5s 轮询 + 30s 阈值**: 内部 setInterval 5s 查 Date.now() - lastEventTs · 超 30s 主动 close + reconnect + 触发 onSnapshotNeeded('dead_threshold') · 兼容 EventSource 内置 auto-reconnect (浏览器自然 retry 间隔但无 dead detect)
+  - **stream / store 分流硬线**: SSE event 不直接 dispatch 到 Zustand · connectStream callback onEvent 接到后 consumer 选择 (a) 走 streamStore.update (高频 / set / map 类) 或 (b) 走 liuyeStore action (低频 / 用户感知 state) · 第 4 棒只提供 primitive · consumer 路由策略 W2-W4 写 useLiuyeBridge hook 时定 (注释里写在 sse.ts 顶部)
+  - **8 status vs 5 status 命名漂移 in SSE consumer**: tool.started SSE event 对应 ToolCall 8 enum (queued/connecting/running/streaming/idle_timeout/completed/failed/aborted) · tool.progress SSE event payload 含 ProgressMessage 5 enum (pending/running/done/warning/error) · sse.ts 不直接消费 .status 字段 (透传 LiuyeChatEvent) · 但 注释里给 future consumer 明示分流路径 (sub-agent 3 progress 里已点)
+  - **LIUYE_CONTRACT_VERSION env 注入 path**: process.env.NEXT_PUBLIC_LIUYE_CONTRACT_VERSION 走 Next 16 NEXT_PUBLIC_ 前缀客户端可见 env · app boot 时 await verifyContractVersion() (W2-W4 在 layout.tsx 或 RootProvider 接入 useEffect 调用 · W1 仅 export 函数)
+  - **inProgress 双重维护风险**: liuyeStore.inProgress (Zustand · UI 感知) + streamStore.inProgress (useSyncExternalStore · 高频流式) 两份相似 state · 注释里固化职责分工 — liuyeStore.inProgress 为 UI consumer 用 (chip 显示流式中) · streamStore.inProgress 为高频内部 set/delete (W2-W4 用 lifecycle) · 不互写 · 不允许 sync · 见 lib/api/sse.ts 顶部注释
+
+- **selector 纪律 verify** (CLAUDE.md §4 硬线):
+  - liuyeStore initial state 所有 collection field 用 `EMPTY_ARRAY as readonly LiuyeChatEvent[]` / `EMPTY_MAP as ReadonlyMap<string, Artifact>` / `EMPTY_SET as ReadonlySet<string>` · 无 inline `[]` / `new Map()`
+  - streamStore initial state 同样走 `EMPTY_SET as ReadonlySet<string>` / `EMPTY_MAP as ReadonlyMap<string, Artifact>`
+  - export 仅 base hook (useLiuyeStore) + base hook (useStream<T>(selector)) · 不预包 selector hooks (consumer 自写)
+  - Map/Set 更新一律 `new Map(prev).set(k, v)` / `new Set(prev).add(k)` immutable 模式 · 触发 Object.is false 通知 listeners
+
+- **stream store 35 行 verbatim verify**:
+  - createStreamStore 函数体 23 行 (let state + new Set listeners + return { getSnapshot, getServerSnapshot, subscribe, update } · CLAUDE.md §5 line 117-138 1:1 直抄 · `if (Object.is(next, state)) return;` 引用相等短路 · listeners.forEach 同步通知)
+  - useStream<T> hook 5 行 (useSyncExternalStore + selector wrap subscribe/getSnapshot/getServerSnapshot)
+
+- **gotcha (CRITICAL · W2-W4 接 SSE 时必跟)**:
+  - **EventSource 不支持 custom headers**: 鉴权只能走 cookie (withCredentials: true · 已设) · 如果 BFF 要 Bearer token 必走 query string 或换 fetch-based SSE polyfill (W2-W4 评估)
+  - **EventSource onmessage 兜底 vs named event 优先**: 我们同时 addEventListener(name) + onmessage · 服务端写 `event: turn.started` 走 named listener · 没写 event field 走 onmessage · 都路由到 handleRawEvent · 不会双触发 (DOM 规范确保 named event 不冲 onmessage)
+  - **SSE event seq gap 真触发条件**: 服务端 envelope 每 event 带 seq (v3 §2.1 锁) · 但 heartbeat event 的 seq 是否递增 spec 留 open · sse.ts 当前一律比较 seq · 若 heartbeat seq 不增就不会假阳触发 onSnapshotNeeded (lastSeq 不更新) · W2-W4 跟 backend 对齐 heartbeat seq 行为
+  - **AbortSignal already-aborted 路径**: opts.signal?.aborted === true 时不连接 · 返 noop cleanup · consumer 不会有 dangling EventSource
+
+- **下一棒**: W1-frontend 24 文件全 done (W1-contract 已 commit `lib/protocols/generated.ts` 占 1 · 22 + 2 contract files = 24 with overlapping count · 全 done) · 等 codex review
+
+- **blocker**: 无
+
+- **ELAPSED min**: 约 12 min (5 文件 Write + tsc verify + commit · 紧凑流)
+
+- **commit SHA**: `39e597b` (W1-frontend checkpoint 22/24)
+
+- **tsc --noEmit**: 0 error (新 5 文件 + 已有 17 文件 + page.tsx 全过 · strict + noUncheckedIndexedAccess + plugins next + .next/dev/types include)
+
+- **npm run dev (existing)**: localhost:3210 HTTP 200 · 0.063s · Next.js header 完整 · curl --noproxy '*' 跑通 (前一棒 dev server 仍在跑 · 新 5 文件未 import 到 page.tsx 不影响现有渲染 · 新尝试启 dev :3210 报 EADDRINUSE 符合预期)
+
+- **PRESERVES**: LY-007 (composer A · 现有 hero 渲染不破) · LY-018 (Channel signal · sse.ts 11 event 包含 future 信号事件 routing)
+
+- **NEW-DOM**: none (本棒只加 store/api · 不动 DOM)
+
+- **STREAM-STORE-35-LINE**: ok · createStreamStore body 23 行 + useStream hook 5 行 + 类型 + sentinel cast = 70 行总文件 (含注释/import) · 核心 createStore 模板 verbatim
+
+- **ELEVEN-EVENT-SSE**: ok · LIUYE_SSE_EVENTS const array 含 11 event (含 permission.request per PM 2026-05-11 ratify)
+
+- **SELECTOR-DISCIPLINE**: EMPTY_* sentinel + Object.freeze + 显式泛型 · base hook export 无预包 selector
