@@ -315,5 +315,5 @@ per-adapter URL verify (perfect-check fix #2):
 - 无
 
 ### ELAPSED min: ~30 (起手 read 接力 brief + 第 4 棒 progress + step-budget.ts API + rehearsal-mock 240 行 pattern + demo-path-step1-3 helper + fallback-tavily-quota data-kind + fallback-ledger-silent-fail outbox + W2-mock-test brief §4.3 (2)(3) verbatim; 写 2 spec 共 ~540 行; tsc verify EXIT=0; 写 progress segment + commit 准备)
-### Commit SHA: (本 commit · git log 下一行)
+### Commit SHA: bab409d
 
