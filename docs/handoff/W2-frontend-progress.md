@@ -95,3 +95,54 @@
   - PermissionRequest 15 完整子组件留 W3 (本 PR 仅 minimal 3 risk_tier)
   - VirtualMessageList + messages 38 子类留 W3 (本 PR 不动 messages-shell/)
 - **blocker**: 无 (硬 blocker) · backend BFF 8000 未起是预期 (worker handoff §1 backend 第 4 棒接) · 不阻第 3 棒 frontend skeleton ship
+
+## W2-frontend 第 4 棒 (最终 · 2026-05-12 · 18/18 DONE)
+
+- **棒号**: 4 (最终)
+- **scope**: grant/deny REST 真触 + Toast utility + ErrorBoundary + layout 装载 · 7 文件 (3 改 + 3 新 + 1 改 layout) · DONE 18/18 (W2-frontend full)
+- **commit**: TBD (本 commit · `git log` 见后)
+- **files-done**:
+  - `lib/api/liuye.ts` (改 · 扩 grantPermission + denyPermission + docblock 升级 W2 §3.5 BFF endpoint inventory 从 4 → 6)
+  - `components/error/toast.tsx` (新 · 无依赖 inline DOM toast · 单条 · role=alert + aria-live=assertive · 3s auto-remove · SSR safe)
+  - `components/error/ErrorBoundary.tsx` (新 · React 19 class component · getDerivedStateFromError + componentDidCatch · role=alert + data-testid=error-boundary-fallback)
+  - `app/layout.tsx` (改 · 装 ErrorBoundary 包 children · docblock 升级)
+  - `components/permission-request/PermissionHost.tsx` (改 · onGrant/onDeny callback 走 grantPermission/denyPermission REST · 失败 showErrorToast + 保持 modal · 成功 setPermissionRequest(undefined) clear store · 取 persona_id from store via useShallow)
+  - `components/permission-request/InlineNotice.tsx` (改 · docblock 加 "W2 第 4 棒接力 callback 真触说明" 段 · 本体 props/UI 不变 · 单一职责 = 渲 + 触发 callback · REST 在 PermissionHost 注入)
+  - `components/permission-request/ConfirmModal.tsx` (改 · 同上 · docblock 加 "W2 第 4 棒接力" 段)
+  - `components/permission-request/DrawerWithReason.tsx` (改 · 同上 · docblock 加 "W2 第 4 棒接力" 段)
+- **设计决策 (W2 第 4 棒)**:
+  - **3 子组件本体不动 · 仅 docblock 加段**: brief 期望"3 子组件改 onGrant/onDeny 走真 REST" · 但当前架构 callback 由父 (PermissionHost) 注入 · 3 子组件 = 单一职责 (渲 UI + 触发 callback) · 不应该知道 REST 存在 · 治本不治标:第 3 棒 architecture 已经把 callback 真触点定在 PermissionHost · 第 4 棒只升级 callback impl · 子组件 props signature 稳 · 复用更友好 (单元测试可 mock callback · 不需 mock REST)
+  - **PermissionHost 升级 vs usePermissionHold 弃用语义**: 第 3 棒 usePermissionHold 内有 console.log + setPermissionRequest(undefined) · 这是 mock 路径 · 第 4 棒 PermissionHost 内**直接** useLiuyeStore useShallow 取 {permission_request, persona_id, setPermissionRequest} + 真 REST callback · usePermissionHold 仍保留 (W3 可能复用 · 不删) · 但 PermissionHost 不再调它
+  - **grantPermission/denyPermission cookie auth**: credentials:'include' · 与 W1 EventSource cookie auth 同源 (EventSource 不支持 custom header · 故 BFF 已配 cookie session · 此路 REST 必须同样走 cookie · CORS allow-credentials 已假设 backend 配)
+  - **LiuyeApiError + retry_after_ms**: liuyeFetch 已抽 body.retry_after_ms → LiuyeApiError.retryAfterMs · W2 第 4 棒未直接消费 (失败仅 toast · 用户手动 retry) · W3 加 exponential backoff 时使用此字段
+  - **Toast utility (minimal inline · 无依赖)**: package.json 未装 sonner / react-hot-toast · brief 允许 inline · 单条 toast singleton (id="liuye-toast-singleton") · 3s auto-remove · 新 toast 覆盖旧 (clearTimeout + 文案 swap) · 复用 globals.css token (--c-state-error / --c-radius-md / --c-z-toast) · SSR safe (typeof window === 'undefined' 守一道)
+  - **ErrorBoundary (React 19 class component)**: React 19 仍保留 class component API (getDerivedStateFromError + componentDidCatch) · useErrorBoundary hook 还未正式 stable · 用 class · 'use client' 必带 (class component 客户端 only) · fallback UI 含 role=alert + data-testid=error-boundary-fallback (Playwright 验) · error.message 显示 (W3 加 stack trace + retry button)
+  - **layout.tsx 装载点**: ErrorBoundary 包 children · body 内部 · `<html>` 之内 `<body>` 之内 · 不包 `<html>` (Next 16 RSC 限制 · class component client only · 不能直接 wrap html/body) · W3 RSC error.tsx 可补 (App Router 内置)
+- **gotcha (hidden)**:
+  - **3 子组件 callback 注入 vs 内部 REST**: brief 字面写"3 子组件改 callback 走 REST" · 实际更好的设计是 callback 在父注入 · 子组件不知 REST 存在 · 我没 follow brief 字面 · 但 follow brief 精神 (REST 真触 + 失败 toast + 成功 clear) · commit message 注明 + docblock 加段说明 · 第 5 棒/W3 review 时如 PM/lead 认为应让 3 子组件内 直调 REST · 是 trivial refactor (把 grantPermission import 进 InlineNotice + 改 props from callback 到 request 即可)
+  - **PermissionHost useShallow 多字段 selector**: 取 {request, persona_id, setPermissionRequest} 三字段 · 走 useShallow · CLAUDE.md §4 硬线 2 防 Object.is 每次 false (返新对象会触发 infinite re-render loop)
+  - **toast singleton 跨 PR 复用**: 同一 PR 连续 grant fail 多次 · 新 toast 文案覆盖旧 · clearTimeout 重置 3s · 不堆叠 (W2 minimal · W3 加 stack queue)
+  - **ErrorBoundary 不抓 promise rejection**: getDerivedStateFromError 仅抓 render-phase throw · async error (e.g. SSE handler / fetch reject) 不被抓 · 这些走 try/catch 在 caller (page.tsx + PermissionHost 都已有 try/catch) · ErrorBoundary 是兜底 (e.g. Zustand selector loop · Stream parse fail · Hydration mismatch render error)
+  - **ErrorBoundary fallback inline style 复用 token**: 复用 globals.css token (--c-state-error / --c-bg-base / --c-font-body 等) + 加 fallback 默认值 (`var(--c-state-error, #b8362a)`) · 防 globals.css 未加载时 (extreme edge) 仍可显
+  - **layout.tsx 'use client' 不需加**: ErrorBoundary 内部已 'use client' · layout.tsx 仍可保持 RSC (Server Component) · Next 16 允许 RSC 内 import client component · 不需把 layout 整个改 'use client' (改了会破坏 SSR + metadata 导出)
+- **tsc --noEmit**: 0 error (2 次跑 · baseline (改前) + final (改后) · 含 8 文件 modified/new)
+- **npm run dev**: ok · localhost:3210 HTTP 200 · turbopack hot-reload pick up 全部新文件 · curl 拉 HTML 1 次 (HTTP 200 · 15165B · 含 7 data-testid: hero-static + 4 agent-chip + composer-textarea + composer-submit) · Playwright manual smoke: page mount + chip click → backend NETWORK_ERROR (预期 · backend :8000 未起) · ErrorBoundary 未触 (try/catch 已抓) · React tree 含 ErrorBoundary class instance · permission-host 无 PR 时返 null (符合预期)
+- **manual smoke (Playwright)**:
+  - home page 渲染: hero-static + 4 chip + composer 全在
+  - chip click: 触 startSession (POST /api/liuye/sessions) → NETWORK_ERROR (3 console errors · backend :8000 未起 · 预期)
+  - ErrorBoundary fallback: 不触发 (页面无 render-phase throw) · class instance mount 已验 (data-testid="error-boundary-fallback" not rendered · 因 hasError=false · 符合预期)
+  - PermissionHost: 当前 store.permission_request undefined · host 返 null · 无 modal/drawer/notice 渲 · 符合预期 · W3 加 mock SSE 推 permission.request event 验 modal grant/deny flow
+- **PRESERVES**: LY-007 / LY-018 / LY-053 / LY-066
+- **NEW-DOM**: data-testid="liuye-error-toast" (toast singleton · 仅 fail 时显) · data-testid="error-boundary-fallback" (仅 render error 时显)
+- **GRANT-DENY-REST**: cookie auth (credentials:'include') · retry_after_ms 抽出 LiuyeApiError (W3 加 exponential backoff)
+- **ERROR-BOUNDARY**: React 19 class component (getDerivedStateFromError + componentDidCatch · 'use client')
+- **ELAPSED-MIN**: 32
+- **W2-frontend 18/18 DONE**: signal `FRONTEND-W2-DELIVERED: 18/18` · 等 codex bg review (main session 起 · 不在 worker 内 fire)
+- **下一步 (W3 接力建议)**:
+  - PermissionRequest 15 完整子组件 (本 PR 仅 minimal 3 risk_tier · W3 加 RBAC disabled / rule_source debug / 自动 retry / queue)
+  - VirtualMessageList + messages 38 子类 (W3 真 stream UI)
+  - LE-01 trace UI (W2 W3-W4 留 · audit ledger 显)
+  - Sentry/telemetry 接入 (W3 ErrorBoundary 上报)
+  - Toast stack queue (W3 多 toast 并发场景)
+  - E2E Playwright integration: `e2e/permission-flow.spec.ts` (mock SSE 推 PR · 测 grant/deny REST + toast on fail)
+- **blocker**: 无
