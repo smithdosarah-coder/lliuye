@@ -144,7 +144,7 @@
   - **httpx async streaming + queue 异步桥**: `_dispatch_via_adapter` `async for evt in adapter.dispatch_message(...)` 是 `AsyncIterator` · 内部 `await queue.put(evt)` 不会触发 backpressure 死锁 (queue maxsize=256 大于通常单 turn event 数 < 50)
   - **review_writer 失败 silent-fail 不阻 grant/deny**: `_default_review_writer` 返 bool · `grant`/`deny` 内 `await review_writer(...)` 不检查返值 · ledger 写失败时 silent log + 继续 · audit chain 不破 (per BE7 hard line)
 - **ELAPSED min**: ~42 (含 8 件 read + 10 文件 write/edit + façade upgrade + pytest 跑 + progress append)
-- **commit SHA**: (本 commit 落地后填)
+- **commit SHA**: 3d46455
 - **SSE v1→liuye mapping smoke 结果** (verify 7+1 v1 → 7+1 liuye 直接映射):
   - `v1.profile_loaded` → `liuye.turn.started` seq=1 ✅
   - `v1.tool_call`      → `liuye.tool.started` seq=2 ✅
