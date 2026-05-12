@@ -55,5 +55,5 @@
 - **PER-ADAPTER-URL-OVERRIDE**: ok (verify LIUYE_BACKEND_CHANNEL_URL=:8001 → resolve :8001 · credit/report fallback to base :8000)
 - **PYTEST-NO-REGRESSION**: 59 PASS (W1 baseline 不破)
 - **ELAPSED min**: ~35 (4 文件改 + 4 verify · 含 progress 段 + commit)
-- **commit SHA**: <填 below>
+- **commit SHA**: 6d48ab6
 
