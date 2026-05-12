@@ -1,0 +1,283 @@
+{
+  "id": "art_credit_decision_demo_corp_001",
+  "schema_version": "1",
+  "type": "credit_decision",
+  "status": "resolved",
+  "source_tool_call_id": "tc_credit_decide_demo_corp_001",
+  "owner_agent": "credit",
+  "title": "对公授信决策 · 沧澜精密机械(脱敏) · 中等难度",
+  "version": 4,
+  "patches": [
+    {
+      "id": "patch_credit_001_v1",
+      "artifact_id": "art_credit_decision_demo_corp_001",
+      "base_version": 0,
+      "next_version": 1,
+      "op": "replace",
+      "path": "/header",
+      "value": {
+        "subject_name": "沧澜精密机械有限公司",
+        "subject_id_hash": "a3f1b2c0d4e5f678",
+        "segment": "corporate",
+        "industry_code": "C34",
+        "industry_label": "通用设备制造业",
+        "applied_product": "CORP_CREDIT",
+        "applied_amount_wan": 2800,
+        "applied_term_months": 36
+      },
+      "ts": "2026-05-11T09:21:04Z"
+    },
+    {
+      "id": "patch_credit_001_v2",
+      "artifact_id": "art_credit_decision_demo_corp_001",
+      "base_version": 1,
+      "next_version": 2,
+      "op": "replace",
+      "path": "/scoring",
+      "value": {
+        "dimensions": {
+          "financial": {"score": 72, "weight": 0.35, "weighted": 25.2},
+          "industry": {"score": 65, "weight": 0.15, "weighted": 9.75},
+          "operational": {"score": 78, "weight": 0.25, "weighted": 19.5},
+          "guarantee": {"score": 70, "weight": 0.25, "weighted": 17.5}
+        },
+        "composite_score": 72,
+        "risk_grade": "B"
+      },
+      "ts": "2026-05-11T09:21:18Z"
+    },
+    {
+      "id": "patch_credit_001_v3",
+      "artifact_id": "art_credit_decision_demo_corp_001",
+      "base_version": 2,
+      "next_version": 3,
+      "op": "append",
+      "path": "/decision_trace/nodes",
+      "value": {
+        "id": "peer_gap::debt_ratio",
+        "type": "peer_gap",
+        "metric": "debt_ratio",
+        "label": "资产负债率",
+        "feature_value": 0.58,
+        "peer_value": 0.62,
+        "gap": -0.04,
+        "unit": "ratio",
+        "direction": "below_peer",
+        "interpretation": "资产负债率低于（利好）同业中位 4.0pp"
+      },
+      "ts": "2026-05-11T09:21:25Z"
+    },
+    {
+      "id": "patch_credit_001_v4",
+      "artifact_id": "art_credit_decision_demo_corp_001",
+      "base_version": 3,
+      "next_version": 4,
+      "op": "replace",
+      "path": "/decision",
+      "value": {
+        "decision": "通过",
+        "approved_amount_wan": 2600,
+        "approved_term_months": 36,
+        "rate_bps": 485,
+        "anchor": "评分定档 B + 无红线 → 通过"
+      },
+      "ts": "2026-05-11T09:21:42Z"
+    }
+  ],
+  "snapshot": {
+    "header": {
+      "subject_name": "沧澜精密机械有限公司",
+      "subject_id_hash": "a3f1b2c0d4e5f678",
+      "segment": "corporate",
+      "industry_code": "C34",
+      "industry_label": "通用设备制造业",
+      "applied_product": "CORP_CREDIT",
+      "applied_amount_wan": 2800,
+      "applied_term_months": 36
+    },
+    "scoring": {
+      "dimensions": {
+        "financial": {
+          "score": 72,
+          "weight": 0.35,
+          "weighted": 25.2,
+          "sub_scores": {
+            "debt_ratio": 78,
+            "revenue_growth": 70,
+            "net_margin": 65,
+            "current_ratio": 75,
+            "ar_turnover_days": 72,
+            "cashflow_quality": 68
+          }
+        },
+        "industry": {
+          "score": 65,
+          "weight": 0.15,
+          "weighted": 9.75,
+          "sub_scores": {
+            "prosperity_index": 65,
+            "policy_sensitivity": 70,
+            "cyclicality": 60
+          }
+        },
+        "operational": {
+          "score": 78,
+          "weight": 0.25,
+          "weighted": 19.5,
+          "sub_scores": {
+            "established_years": 82,
+            "revenue_scale": 76,
+            "cashflow_coverage": 78,
+            "customer_concentration": 75
+          }
+        },
+        "guarantee": {
+          "score": 70,
+          "weight": 0.25,
+          "weighted": 17.5,
+          "sub_scores": {
+            "coverage_ratio": 75,
+            "guarantor_strength_score": 65
+          }
+        }
+      },
+      "composite_score": 72,
+      "risk_grade": "B",
+      "industry_peer_gap": {
+        "debt_ratio_gap": -0.04,
+        "net_margin_gap": 0.012,
+        "revenue_growth_gap": 0.018,
+        "ar_turnover_gap": -8
+      }
+    },
+    "decision_trace": {
+      "schema_version": "1.0.0",
+      "engine": "agent3.decision_engine",
+      "engine_version": "v3.1",
+      "appetite": {"segment": "corporate", "version": "default-2026-04", "client_id": ""},
+      "nodes": [
+        {
+          "id": "feature::financial.debt_ratio",
+          "type": "feature",
+          "key": "financial.debt_ratio",
+          "value": 0.58,
+          "source": "feature_extractor.py::_extract_corporate",
+          "feature_path": "financial.debt_ratio"
+        },
+        {
+          "id": "rule::corp_debt_ratio_warn",
+          "type": "rule",
+          "rule_id": "corp_debt_ratio_warn",
+          "rule_name": "资产负债率告警",
+          "threshold": 0.7,
+          "operator": ">",
+          "severity": "yellow",
+          "version": "v3.1+default",
+          "source": "red_line_rules_corporate.json#corp_debt_ratio_warn"
+        },
+        {
+          "id": "rule_hit::corp_debt_ratio_warn",
+          "type": "rule_hit",
+          "rule_id": "corp_debt_ratio_warn",
+          "actual": 0.58,
+          "threshold": 0.7,
+          "severity": "green",
+          "can_waive": true,
+          "description": "资产负债率 0.58 < 阈值 0.7 · 未触发"
+        },
+        {
+          "id": "peer_benchmark::C34::debt_ratio",
+          "type": "peer_benchmark",
+          "industry_code": "C34",
+          "metric": "debt_ratio",
+          "value": 0.62,
+          "source": "industry_baselines_v2.json#C34#debt_ratio_median"
+        },
+        {
+          "id": "peer_gap::debt_ratio",
+          "type": "peer_gap",
+          "metric": "debt_ratio",
+          "label": "资产负债率",
+          "feature_value": 0.58,
+          "peer_value": 0.62,
+          "gap": -0.04,
+          "unit": "ratio",
+          "direction": "below_peer",
+          "interpretation": "资产负债率低于（利好）同业中位 4.0pp"
+        },
+        {
+          "id": "score::financial",
+          "type": "score_dimension",
+          "dimension": "financial",
+          "score": 72,
+          "weight": 0.35,
+          "weighted": 25.2,
+          "source": "scoring_model_corporate.py::_score_financial",
+          "sub_scores": {
+            "debt_ratio": 78,
+            "revenue_growth": 70,
+            "net_margin": 65,
+            "current_ratio": 75,
+            "ar_turnover_days": 72,
+            "cashflow_quality": 68
+          }
+        },
+        {
+          "id": "decision::final",
+          "type": "decision",
+          "decision": "通过",
+          "anchor": "评分定档 B + 无红线 → 通过",
+          "approved_amount_wan": 2600,
+          "approved_term_months": 36,
+          "rate_bps": 485,
+          "rule_hit_count": 0,
+          "blocking_rules": []
+        }
+      ],
+      "edges": [
+        {"from": "feature::financial.debt_ratio", "to": "rule_hit::corp_debt_ratio_warn", "type": "triggered"},
+        {"from": "rule::corp_debt_ratio_warn", "to": "rule_hit::corp_debt_ratio_warn", "type": "threshold_of"},
+        {"from": "rule_hit::corp_debt_ratio_warn", "to": "decision::final", "type": "caused"},
+        {"from": "feature::financial.debt_ratio", "to": "peer_benchmark::C34::debt_ratio", "type": "compared_to"},
+        {"from": "feature::financial.debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
+        {"from": "peer_benchmark::C34::debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
+        {"from": "score::financial", "to": "decision::final", "type": "evidenced_by"},
+        {"from": "feature::financial.debt_ratio", "to": "score::financial", "type": "derived_from"}
+      ],
+      "peer_gap_summary": {
+        "debt_ratio_gap": -0.04,
+        "net_margin_gap": 0.012,
+        "revenue_growth_gap": 0.018,
+        "ar_turnover_gap": -8
+      },
+      "missing_evidence": []
+    },
+    "decision": {
+      "decision": "通过",
+      "approved_amount_wan": 2600,
+      "approved_term_months": 36,
+      "rate_bps": 485,
+      "anchor": "评分定档 B + 无红线 → 通过"
+    },
+    "ledger": {
+      "decision_id": "ledger_credit_demo_corp_001",
+      "jurisdiction": "HQ",
+      "retention_class": "standard",
+      "idempotency_key": "credit:CORP_CREDIT:a3f1b2c0d4e5f678:2026-05-11T09:21:00Z",
+      "input_hash": "9f1e2d3c4b5a69788b0c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708",
+      "output_hash": "3f2e1d0c9b8a76655443322110ffeeddccbbaa998877665544332211ff00eedd"
+    }
+  },
+  "verdict": "PASS",
+  "qc_score": {
+    "passed": 9,
+    "total": 9
+  },
+  "evidence_refs": [
+    "ev_demo_corp_001_audit_2024",
+    "ev_demo_corp_001_news_2026_q1"
+  ],
+  "created_at": "2026-05-11T09:21:00Z",
+  "updated_at": "2026-05-11T09:21:42Z",
+  "resolved_at": "2026-05-11T09:21:42Z"
+}
