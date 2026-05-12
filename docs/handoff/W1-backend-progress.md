@@ -68,3 +68,63 @@
   - SSE stream skeleton 用 `id: {turn_id}:{seq}` format · 一行带俩 id · EventSource Last-Event-ID 自动 carry · 下一棒 adapter 实现真重连时直接读 last_event_id parse 出 turn_id + seq · 不需 frontend 额外送
 - **ELAPSED min**: ~40 (含 7 件 read + 8 文件 write + 2 smoke test + progress append)
 - **commit SHA**: 6da4fe74c34aa9699eb8085da8c191e9b56228da
+
+## 2026-05-12 · checkpoint 3 (5 adapter + 3 Managed stub · 第 3 棒)
+
+- **完成文件** (17/18):
+  - `liuye_service/adapters/__init__.py` (27 行 · 空 export · 包级 docstring 说明 7 子模块各自职责 + W1 file checklist 一文件一 adapter 硬线)
+  - `liuye_service/adapters/base.py` (240 行 · `AgentAdapter` Protocol (start_turn / dispatch_message / abort_turn · cowork/managed_readonly boundary 字段) + 共享 utility `_make_seq(turn_id)` (`threading.Lock` 序列化 · 1-based · multi-worker Redis 未来扩展点) + `reset_seq()` 测试 helper + LIUYE_FIXTURES_PATH loader (`fixtures_root()` / `load_fixture(name)` · path component 拒入 · `FixtureLoadError` 用于 turn.error code=DEMO_FIXTURE_MISSING) + `envelope()` helper (schema_version='1' + 单调 seq + tool_call_id/artifact_id/message_id optional 注入))
+  - `liuye_service/adapters/sse_v1_to_liuye.py` (425 行 · `SseV1ToLiuyeAdapter` class 实做 8 v1 event handler: `_on_profile_loaded` / `_on_stage` / `_on_stream` / `_on_tool_call` / `_on_tool_result` / `_on_done` / `_on_error` / `_on_heartbeat` · dedup `(event, sha256(canonical_json(payload)))` set 去重 · v1 progress 0-1 float → liuye percent 0-100 int round() 转换 · ToolCall context inheritance (stage 自动继承最近 tool_call 的 `_current_tool_call_id`) · stream 首帧 emit `message.created` · delta 走 SSE comment line (非事件 · API 层处理) · 7 v1 → 7 liuye 直接映射 + heartbeat 透传 · `_V1_HANDLERS` dispatch table · ANY handler exception → 单条 `turn.error code=SSE_ADAPTER_FAILED fallback_available=true human_hint='事件流转换失败 · 已切换至完整快照模式'` · 11th event `permission.request` 不在本 adapter scope · `artifact.patch` / `evidence.attached` 由 BFF 直接 emit)
+  - `liuye_service/adapters/channel.py` (380 行 · `ChannelAdapter` agent_id='channel' boundary='cowork' · `httpx.AsyncClient` Timeout(5.0, read=30.0) · backend_url default `http://localhost:8001` (mock-test SSE port) · DEMO_MODE 走 `load_fixture("channel_5candidates")` → `_synthesise_channel_v1_frames` (matrix §2.1 Scenario A · profile_loaded → tool_call(signal_search) → 3 stage → tool_result → done) · live 模式 `client.stream("POST", url, json=body)` + `_iter_sse_v1(response)` parser · timeout → `turn.error code=ADAPTER_TIMEOUT human_hint='获客 Agent 暂时不可用 · 已切换至降级模式'` · `record_turn_decision()` retention=short 90d per §3.7.5 · 调 `audit.record_liuye_decision()`)
+  - `liuye_service/adapters/credit.py` (336 行 · `CreditAdapter` agent_id='credit' boundary='cowork' · backend_url default `http://localhost:8002` · DEMO_MODE 走 `credit_decision_PASS` fixture → matrix §2.2 Scenario A 4-dim PASS frames (reuse_report_json → 4dim_scoring → red_line_check → peer_gap_evidence) · `parent_tool_call_id` 透传 (Report → Credit handoff lineage · v3 §2.1 + 必修 #51) · `record_turn_decision()` retention=standard 5y per §3.7.5 银保监 archive · 复用 `channel._iter_sse_v1` SSE 解析 (DRY))
+  - `liuye_service/adapters/report.py` (370 行 · `ReportAdapter` agent_id='report' boundary='cowork' · `httpx.Timeout(5.0, read=60.0)` (报告 SLA 30s · headroom 60s) · backend_url default `http://localhost:8003` · DEMO_MODE 走 `report_v16_PARTIAL` fixture → matrix §2.3 Scenario A 5-stage v16 (classifier → truth_fill → generator → evidence_link → qc_gate) · `record_turn_decision()` retention=long 10y per §3.7.5 审贷会 底稿 · fixture 缺失时 emit `DEMO_FIXTURE_MISSING` 不编 (Evidence-First §3.3))
+  - `liuye_service/adapters/riskctrl.py` (105 行 · `RiskctrlAdapter` agent_id='riskctrl' boundary='managed_readonly' Phase 2 stub · `NotImplementedError("agent=riskctrl is Managed (job_id + poll · ≥ 1 min backtest) · Phase 1 BFF does not implement live dispatch · see root §3.1.1 + matrix §2.6 + W1-backend §11 · ships Phase 2 (Q4 2026 · shared/job_runtime)")` · docstring 写清触发源 (策略诉求 + 历史样本回测) / 响应 SLA (≥ 1 min · 50000 行 KS per Q-040) / 持久化 (本地 JSON + decision_ledger) / Phase 2 起点)
+  - `liuye_service/adapters/alert.py` (87 行 · `AlertAdapter` agent_id='alert' boundary='managed_readonly' Phase 2 stub · 同结构 · docstring 写清触发源 (客户行为变化 batch cron) / SLA (分钟 ~ 数小时) / 持久化 (job_id + status + retry + artifact + decision_ledger short 90d · red severity 升 standard))
+  - `liuye_service/adapters/compliance.py` (89 行 · `ComplianceAdapter` agent_id='compliance' boundary='managed_readonly' Phase 2 stub · 同结构 · docstring 写清触发源 (政策发布事件 · 银保监 / 央行 / 内规变更) / SLA (分钟 ~ 数小时) / 持久化 (decision_ledger standard 5y 银保监 archive) · 命名 SSOT `compliance` 全栈 per Q-042.B + Stage 4 ratify)
+- **关键决策** (skeleton 取舍):
+  - **SSE v1→liuye 转换走 dispatch table + dedup set**: `_V1_HANDLERS: dict[str, str]` table 把 v1 event name 映射到 handler method name · 任何 handler 抛 exception 进入 `try/except` 统一转 `turn.error code=SSE_ADAPTER_FAILED` (matrix §4.2 rule 5 verbatim) · dedup_key `(event, sha256(canonical_json(payload)))` 防 v1 re-delivery · forward-compat: unknown v1 event silent skip (per `sse-envelope.md` §1.5 容忍未识别 event)
+  - **percent 0-1 float → 0-100 int 转换** (matrix §3 Q1): `int(round(float(progress) * 100))` 在 `_on_stage` 实施 · clamp 0-100 范围 · 也支持 v1 已是 0-100 整数的 backwards compat (`percent` 字段直接 round)
+  - **`_current_tool_call_id` context inheritance**: v1 `stage` event 不带 tool_call_id · liuye `tool.progress` 必带 (per v3 §2.3 + matrix §1) · 翻译器 stateful 记最近 `tool_call` 的 id · `stage` 自动继承 · 这是 SSE matrix §1 + §4 没明说但 SSE matrix §2 实际 cell 表达的语义
+  - **stream → message.created 仅首帧**: per matrix §4 row 3 · subsequent token delta 走 SSE `comment:` 行 (非事件 · API 层 `_stream_skeleton` 处理) · 翻译器只 emit 一次 `message.created` 守 `self._message_started`
+  - **3 Cowork adapter 同结构 · 不抽 base 实做**: per CLAUDE.md "前端一线必丝滑 + 后端可复杂"但**这是后端 adapter 中间层** · 显式重复让 Phase 2 加 per-agent 特化 (e.g. 报告大 artifact chunked patch · credit 调 peer_gap subtool) 时不互相影响 · base.py 只共享 Protocol + utility · 不强制继承
+  - **Managed stub `NotImplementedError` 带完整 Phase 2 message**: 触发源 / 响应 SLA / 持久化 / Phase 2 milestone 全写 docstring · 任何 worker 触到 stub 都能立刻读懂为什么 stop · 不必跳读 root §3.1.1 + matrix §2.4-2.6
+  - **httpx SSE 解析 `_iter_sse_v1` 放 channel.py 共享**: credit/report import 复用 (DRY) · 不抽 base 因 base 是 framework-free (Protocol + utility · 不引 httpx · 测试 easier)
+  - **fixture 路径不允许 path component**: `load_fixture(name)` 若 `name` 含 `/` 或 `\\` 或 `..` 直接抛 FixtureLoadError · 防 path traversal · 调用方只能传 stem name (e.g. `channel_5candidates`)
+- **下一棒 file checklist** (5 文件 · 30-45 min 估时):
+  - `liuye_service/workers/outbox_retry.py` (60s 扫 `data/liuye/outbox/` · 5 retry · backoff 60/120/240/480/960s · 超 5 写 `data/liuye/dead-letter/` + Sentry alert · idempotency_key 防重 · systemd unit 部署)
+  - `liuye_service/ledger_review.py` (`POST /api/liuye/ledger/decisions/{id}/review_events` handler 实做 · append-only · idempotency_key 防重 · 调 `shared.decision_ledger` store 写 sqlite review chain · 推 façade upgrade PR 加 `parent_turn_id` kwarg 到 `shared/decision_ledger/store.py:612` 与 `record_decision`)
+  - `liuye_service/tests/__init__.py` + `liuye_service/tests/test_contracts.py` (5 协议 Pydantic schema validate)
+  - `liuye_service/tests/test_sse_adapter.py` (7 v1 → liuye 11 event mapping · dedup · percent · degraded fallback · seq monotonic 单调 · 含 demo fixture replay 集成测试)
+  - `liuye_service/tests/test_outbox.py` (outbox worker retry + dead-letter + idempotency)
+- **blocker** (or "无"):
+  - 无
+- **hidden gotcha** (下一棒注意):
+  - **`shared.decision_ledger.record_decision` façade 仍未暴露 `parent_turn_id` kwarg** · 我延续上一棒走 `evidence_chain._meta.parent_turn_id` (audit.py) · 但 `audit.record_liuye_decision(parent_turn_id=...)` 接 kwarg 已能完整 forward · 下一棒 `ledger_review.py` 强烈建议落 façade upgrade PR: 在 `shared/decision_ledger/store.py:612` 加 `parent_turn_id` kwarg 转发 + façade `record_decision` 同步加 · 否则 v1.1.0 schema 字段长期沉默 (PR 单独开 · 不动 shared/ 是 shared scope · 在 audit.py 端 PR 我已显式准备好 parent_turn_id 形参 forward 即可)
+  - **httpx async streaming 边角**: `client.stream("POST", url, json=body)` async context manager 必须 await · 我用 `async with`正确 · DEMO_MODE 完全绕过 httpx 直接生成 v1 frames list · 不存在 streaming 状态泄漏 · live 模式 `_iter_sse_v1` 是 async generator · 按 SSE line spec 解析 (`event:` / `data:` / empty line 分隔事件 · `:` comment 行忽略)
+  - **dedup_key 实际生成**: `_dedup_key(event, payload)` = `event::sha256(canonical_json(payload))` · canonical_json 用 `sort_keys=True ensure_ascii=False default=str` 让 datetime / UUID 等也能稳定 hash · 同一 v1 event 重发 (老 agent 重试 / 网络 redelivery) 1.6KB v1 payload 也只占 64 byte hash · 单 turn 数十 event 量 set 占内存可忽略
+  - **parent_tool_call_id Report→Credit handoff 实做**: `credit.py:_synthesise_credit_v1_frames` 接 `parent_tool_call_id` kwarg · 若调用 dispatch 时 payload 含此字段 (从 `tool_call` v1 event 透传) · adapter 在 `tool_call_payload` 加 `parent_tool_call_id` · 翻译器 `_on_tool_call` 把它 passthrough 到 liuye `tool.started.payload.parent_tool_call_id` · 客户端可还原 Report → Credit 的 audit lineage
+  - **`api.py` 接 9 adapter mount 还没做**: 当前 `api.py:register_liuye_routes` 仅 mount 11 endpoint · adapter 实例化 + `orchestrator.register_adapter(ChannelAdapter())` 等绑定逻辑留下一棒接 (顺序: outbox_retry → ledger_review → tests · adapter wiring 在 tests 之后 single PR 接 · 否则未测代码 bind 入 api_server 风险大)
+  - **SSE bridge (orchestrator → SSE stream queue) 还没实做**: 当前 `_stream_skeleton` 只 emit turn.started + heartbeat · 真的 emit→stream 桥接还需要 (i) 一个 per-turn `asyncio.Queue` (ii) `_dispatch_via_adapter` 把 adapter 输出 `await queue.put(evt)` (iii) `_stream_skeleton` 改 `await queue.get()` 推 wire · 这是下一棒 + 下下一棒 (test_sse_adapter 集成测试时也需要 fake queue)
+- **adapter import smoke check 结果**: 9 文件 import clean · `AgentAdapter` Protocol / `SseV1ToLiuyeAdapter` / `ChannelAdapter` / `CreditAdapter` / `ReportAdapter` / `RiskctrlAdapter` / `AlertAdapter` / `ComplianceAdapter` 全 import OK · agent_id + boundary 字段 verify (3 cowork + 3 managed_readonly)
+- **SSE v1→liuye mapping smoke 结果** (verify 7+1 v1 → 7+1 liuye 直接映射):
+  - `v1.profile_loaded` → `liuye.turn.started` seq=1 ✅
+  - `v1.tool_call`      → `liuye.tool.started` seq=2 ✅
+  - `v1.stage`          → `liuye.tool.progress` seq=3 ✅
+  - `v1.stream`         → `liuye.message.created` seq=4 ✅
+  - `v1.tool_result`    → `liuye.tool.completed` seq=5 ✅
+  - `v1.done`           → `liuye.turn.completed` seq=6 ✅
+  - `v1.error`          → `liuye.turn.error` seq=7 ✅
+  - `v1.heartbeat`      → `liuye.heartbeat` seq=8 ✅
+  - dedup: 同 v1 event 再 translate 0 emit (1st=1 / 2nd=0) ✅
+  - percent: v1 progress=0.42 → liuye percent=42 (int) ✅
+  - degraded: missing `event` field → `turn.error code=SSE_ADAPTER_FAILED fallback_available=true` ✅
+- **demo fixture replay smoke 结果** (LIUYE_DEMO_MODE=1):
+  - ChannelAdapter 用 `channel_5candidates.json` fixture · emit 7 liuye event (turn.started → tool.started → 3 tool.progress → tool.completed → turn.completed) ✅
+  - CreditAdapter 用 `credit_decision_PASS.json` fixture · emit 8 liuye event (turn.started → tool.started → 4 tool.progress → tool.completed → turn.completed) ✅
+  - ReportAdapter 用 `report_v16_PARTIAL.json` fixture (W1-mock-test worker 已 ship · 不是缺失) · emit 5-stage v16 序列 ✅
+- **SSE 7→11 mapping 一致性 verify** (与 matrix §4 + v3 附录 A.1):
+  - 7 老 v1 event 全部覆盖 (profile_loaded / stage / stream / tool_call / tool_result / done / error) ✅
+  - heartbeat v1→liuye 透传 (matrix §4 表行) ✅
+  - 3 新 liuye event 明确不在 adapter scope: `artifact.patch` / `evidence.attached` 由 BFF 监听 mutate 直接 emit · `permission.request` 由 `permissions.py::emit_permission_request` 直接 emit (PM 2026-05-11 Q2 ratify · matrix §3 Q3 verbatim · 与 §4.1 表 11th event 行一致)
+- **ELAPSED min**: ~38 (含 7 件 read + 9 文件 write + 4 smoke test 类型 + progress append)
+- **commit SHA**: <fill-after-commit>
