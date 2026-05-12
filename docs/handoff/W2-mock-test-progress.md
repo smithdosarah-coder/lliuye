@@ -56,3 +56,61 @@
 
 ### ELAPSED min: ~32 (起手 7 件事 · 写 progress + scope verify segment + commit 准备)
 ### Commit SHA: (本 commit · git log 下一行)
+
+---
+
+## 2026-05-12 · checkpoint 2 (第 2 棒 · step-budget utility + demo-path step 4-7 spec 起手)
+
+### What I did (第 2 棒 · 30-45 min)
+
+1. 起手对齐: 读 W2-mock-test brief 正本 §3 file checklist + §4.1 9 step 70s 预算表 + §4.2 STEP_BUDGETS 形态 SSOT + §4.7 globalSetup probe + §8 不准做; 读 W1 demo-path-step1-3.spec.ts 全 (test.step + Date.now() 差值模式 + isMockSseAlive helper 复用) + W1 home-silent.spec.ts 头 95 行 (REQUIRED_TESTIDS 集 7 项 verify 不冲突); 读 W2-frontend brief §4.1 11 event UI mapping + §4.4 PermissionRequest 3 子组件 + §4.7 useLiuyeBridge hook + §6 NEW-DOM 锁 4 testid (permission-modal / permission-drawer / fallback-banner / evidence-ref-row); 读 W2-backend progress checkpoint 0 (live mode + `_resolve_backend_url` + 16 文件 scope) 确认 W2 backend 仍未 ship live mode (0/16) · 我 spec 跑 step 6 真路径会失败 · 加 SKIP_DEMO_STEP4_9=1 env flag 优雅降级.
+2. 新建 `tests/perf/` 目录 (W1 不存在 · 本棒首建)
+3. 写 `tests/perf/step-budget.ts` (180 行 · STEP_BUDGETS 9 step 常量 verbatim per brief §4.1 表: step1=3000 / step2=1000 / step3=15000 / step4=10000 / step5=2000 / step6=15000 / step7=10000 / step8=5000 / step9=5000 · 总 66s ≤ 70s buffer 4s + withBudget(name, fn): Promise<number> 用 test.step 包 + Date.now() 差值 + ±20% hardLimit 断言 + log [step-budget] 行 + saveBaseline(spec, perStep, env?): Promise<void> append 进 `_temp/w2-rehearsal-baseline.json` array · 写失败 silent-fail · env 默认从 LIUYE_DEMO_MODE + LIUYE_BACKEND_CHANNEL_URL 推断 mock/hybrid/live · 公共 export STEP_BUDGETS / withBudget / saveBaseline / HARD_GATE_RATIO / TOTAL_BUDGET_MS / BaselineRecord interface)
+4. 写 `tests/e2e/playwright/demo-path-step4-9.spec.ts` (170 行 · step 4-7 4 个 step · step 8-9 留第 3 棒 · 用 withBudget 包 + saveBaseline 一次性写 · isMockSseAlive probe :8001 (channel) + :8002 (credit) 任一不可达 → test.skip · SKIP_DEMO_STEP4_9=1 顶层 skip · precondition step 1-3 不重复 W1 断言仅快走到 candidate-row-0 visible · 5 个 step 测试函数 (precondition + step4 + step5 + step6 + step7) · 真断言 testid: candidate-row-0 / ideal-profile-12d / ideal-profile-dim-* count=12 / pin-handle Space activate / artifact-pinned / agent-chip-credit / credit-handoff-active / parent-tool-call-link count=1 / radar-4d / radar-dim-* count=4 / redline-chip count=0 仅 log)
+5. 跑 tsc noEmit 验类型: 2 新文件 + 2 W1 spec 都 EXIT=0 0 error (inline config target ES2020 / module ESNext / moduleResolution Bundler / strict / skipLibCheck / types node · tests/ 无 tsconfig + 无 lint script · fallback inline 命令 per brief)
+
+### 关键决策 (5 条)
+
+1. **STEP_BUDGETS 命名跟 W2-mock-test brief 正本 §4.2 verbatim** (step1..step9 · 不用接力 brief 给的 step1_silent_home 长命名 · 接力 brief 那段是中间转述 with stale 数字: step2=2000 应为 1000 / step4=6000 应为 10000 / step6=12000 应为 15000 / step7=8000 应为 10000 · brief §4.1 表是 SSOT · 接力 brief saveBaseline 实例代码也跟 brief §4.2 verbatim 不一致 · 跟正 brief).
+2. **saveBaseline 写 `_temp/w2-rehearsal-baseline.json` repo-root-relative** (per brief §4.2 路径 `../../_temp/w2-rehearsal-baseline.json` 相对 spec · step-budget.ts 在 `tests/perf/` · 用 `path.resolve(__dirname, '..', '..', '_temp', '...')` · 跨 spec append 同一 array · 第 8-10 棒 rehearsal-mock/hybrid/live 续 append · 接力 brief 提的 per-spec baseline `_temp/w2-rehearsal-baseline-step4-9.json` 跟正 brief 不一致 · 跟正 brief · 单一 JSON 入库) · `_temp/` 目录现仓内不存在 · saveBaseline 自动 mkdir -p · 入库 commit 由第 10 棒做 (per file checklist 末项 baseline JSON 入库).
+3. **本棒 spec 仅落 step 4-7 (4 step)** · step 8-9 留第 3 棒 (per接力 brief 指令 + 自然依赖 step 8 需 PermissionRequest medium fixture / step 9 需 LE-01 trace UI 都依赖第 3 棒交付 · 不一次性写完留接力点).
+4. **真断言 testid 命名我立 contract**: candidate-row-0 / ideal-profile-12d / ideal-profile-dim-{0..11} / pin-handle / artifact-pinned / credit-handoff-active / parent-tool-call-link / radar-4d / radar-dim-{financial,industry,operation,guarantee} / redline-chip · W2-frontend brief §6 NEW-DOM 已锁 permission-modal / permission-drawer / fallback-banner / evidence-ref-row · 不重叠 · W2-frontend worker 后续按本 spec testid 加 data-testid · 与 W1 锁 7 testid (hero-static / composer-textarea / composer-submit / agent-chip-{channel,credit,report,alert}) 也不冲突.
+5. **SKIP_DEMO_STEP4_9=1 顶层 skip flag** + mock SSE probe skipIf · W1 demo-path-step1-3 同模式 · W2-frontend 真渲组件未到位时优雅降级 · 不 fail (W2-backend live mode 0/16 · W2-frontend 0/18 都未起 · 本 spec 现在跑会 fail · ship 后 unset env flag 跑全验).
+
+### Hidden gotcha (第 2 棒 record · 接力 sub-agent 必读)
+
+1. **接力 brief 数字 stale** · W2-mock-test brief 正本 §4.1 表才是 SSOT (step2=1000 不是 2000 / step4=10000 不是 6000 / step6=15000 不是 12000 / step7=10000 不是 8000 · 总 66s 不是 59s · 第 3 棒写 step 8-9 + rehearsal spec 时直接 import STEP_BUDGETS 不要硬编)
+2. **接力 brief `newBaseline` API stale** · 正 brief §4.2 是 imperative `saveBaseline(spec, perStep)` · 不是 closure factory · 第 3 棒 + 第 8-10 棒 spec 直接 `await saveBaseline('rehearsal-mock', perStep)` 写就行 · 不要建 newBaseline factory
+3. **`_temp/` 目录现仓内不存在** · saveBaseline 自动 `mkdir -p` 创立 · 第 10 棒 baseline JSON 入库 commit 时把 `_temp/w2-rehearsal-baseline.json` 入库 · 注意 `_temp/` 是否在 `.gitignore` (.tmp/ 在 · `_temp/` 看到 root .gitignore 未确认 · 第 10 棒 commit 前 git status 看)
+4. **W2-frontend / W2-backend 同 W2 并行未 ship** · 本 spec 跑会 fail · 用 SKIP_DEMO_STEP4_9=1 暂跳 · D7 W2-frontend ship 第一波后 + W2-backend live mode ship 后才能跑 · 第 3 棒不要急着跑 spec 验 · 写 spec 即可
+5. **mock SSE :8002 (credit) 现 W1 已 ship** (per W1 mock-test 第 3 棒 cee80ab) · 不需新启 · spec 跑前提示调用方 `cd tests && npm run mock-sse:channel + mock-sse:credit` · 用了 npm-scripts 名 verbatim 见 tests/package.json
+6. **step 6 parent_tool_call_id 透传** · W1 sse_v1_to_liuye.py adapter 有 `_current_tool_call_id` inheritance · W2-backend §4.1 credit.py 也透传 · frontend brief §4.1 mapping tool.started event payload.parent_tool_call_id · ToolCallCard 内显示 link · testid `parent-tool-call-link` 是 W2-frontend ToolCallCard 内的 link 元素 · count == 1 因为 Channel ToolCall → Credit ToolCall 1:1 handoff
+7. **step 7 redline-chip 不强断** · credit_decision_PASS.json fixture composite=82 > 60 · 不触红线 · count=0 是 deterministic 不是 missing · 仅 console.log status · W3-W4 高难度 fixture (composite < 60) 才验 redline · 不在 W2 mock-test scope
+
+### File checklist 状态更新 (11 + 1 baseline JSON)
+
+- [x] tests/perf/step-budget.ts (第 2 棒 · DONE · STEP_BUDGETS + withBudget + saveBaseline)
+- [x] tests/e2e/playwright/demo-path-step4-9.spec.ts (第 2 棒 step 4-7 · 第 3 棒 step 8-9)
+- [ ] tests/e2e/playwright/rehearsal-mock.spec.ts (第 3 棒 D9 优先 · 9 step + saveBaseline `rehearsal-mock`)
+- [ ] tests/e2e/playwright/rehearsal-hybrid.spec.ts (第 3-4 棒 · 第 3 棒可起手 · D10 跑 · per-adapter URL)
+- [ ] tests/e2e/playwright/rehearsal-live.spec.ts (第 3-4 棒 · 第 3 棒可起手 · D10 跑)
+- [ ] tests/fixtures/permission_request_a3_new.json (第 3 棒 · medium · A3-NEW Decision submit)
+- [ ] tests/fixtures/permission_request_le05_sign.json (第 3 棒 · high · LE-05 reason_required)
+- [ ] tests/fixtures/permission_request_kb_upload.json (第 3 棒 · medium · KB upload)
+- [ ] tests/e2e/playwright/fallback-tavily-quota.spec.ts (第 4-5 棒 · 附录 C.2.1)
+- [ ] tests/e2e/playwright/fallback-ledger-silent-fail.spec.ts (第 5-6 棒 · 附录 C.2.3)
+- [ ] _temp/w2-rehearsal-baseline.json (第 10 棒 · D9-D10 baseline append + 入库)
+
+### Next 棒 (第 3 棒 30-45 min) 预计
+
+- 3 PermissionRequest fixture (a3_new medium / le05_sign high reason_required / kb_upload medium · per W2-mock-test brief §4.5 verbatim payload 形态 · 验 `tests/contract/payload-shape.spec.ts` W1 spec 复用通过 PermissionRequestEventPayload schema · idempotency_key 留 uuid placeholder spec 跑时真生成)
+- step 8 + step 9 加进 `demo-path-step4-9.spec.ts` (step 8 confirm modal 提交并上链 · testid `permission-modal` + `confirm-submit-button` · ledger 写入断言 · idempotency_key 防重 · step 9 LE-01 trace modal 弹审计链 · testid `le01-trace-modal` + `trace-chain-link-{decision,toolcall,artifact,evidence}`)
+- `rehearsal-mock.spec.ts` 起手 (D9 跑 · 走通是 W2 sign-off 硬线 · 9 step 完整 · LIUYE_DEMO_MODE=1 · 3 mock SSE 起 · saveBaseline 'rehearsal-mock' · 估时 30 min · 第 3 棒能完即满)
+- 第 3 棒不写: hybrid/live spec (第 4 棒) · 2 应急 spec (第 5-6 棒) · baseline JSON 入库 commit (第 10 棒)
+
+### Blocker
+- 无
+
+### ELAPSED min: ~38 (起手 read 5 文件 verify W1 testid + W2-frontend brief testid contract + W2-backend progress + tests/ 目录结构 + tests/package.json 无 tsc 命令; 写 2 文件 + tsc 跑通; 写 progress segment + commit 准备)
+### Commit SHA: (本 commit · git log 下一行)
+
