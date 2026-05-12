@@ -108,3 +108,15 @@ adminTest.beforeEach(async ({ context }, testInfo) => {
  * 单 spec 通用超时 · SSE done 在 60s 内是 PM SLA · 留 1.5x buffer
  */
 export const E2E_TIMEOUT_MS = 90_000;
+
+/**
+ * 初次 selector 容差 · prod CF cold + AuthGate bootstrap + SPA hydration
+ *
+ * 历史 fail: 15s 在 CF cold start 下经常 timeout (实测 admin-credit / admin-riskctrl
+ * 跑 6 spec 顺序时 transient fail · /api/auth/me 返 200 但 workspace 首次 render
+ * 超 15s · per B.4 SLO-2 主活 D 排查 2026-05-11).
+ *
+ * 30s 容差: CF cold ~3-8s + AuthGate spinner 0.5-1s + bootstrap fetch ~1-2s + Next 16
+ * hydration ~5-10s + workspace mount ~2-3s = worst case ~25s · 30s 留 buffer.
+ */
+export const FIRST_PAINT_TIMEOUT_MS = 30_000;

@@ -5,7 +5,7 @@
  *   登录 admin · 点 "一键示例·中等" · 等 SSE done ·
  *   验 ≥ 8 候选 + 4 字段 industry/geo/scale/similarity 全出 (per Q-041)
  */
-import { adminTest as test, expect, E2E_TIMEOUT_MS } from "./_shared";
+import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS } from "./_shared";
 
 test.describe("B.3.4 · admin 真号 · channel 获客 demo medium", () => {
   test("点 一键示例·中等 · ≥ 8 候选 + 4 字段全出 · 无 [object/未知/null", async ({
@@ -15,10 +15,10 @@ test.describe("B.3.4 · admin 真号 · channel 获客 demo medium", () => {
 
     await page.goto("/archive/channel", { waitUntil: "networkidle" });
 
-    // AuthGate bootstrap + Cloudflare 首次连接延迟 · 第 1 assert 15s 容差
+    // AuthGate bootstrap + Cloudflare 首次连接延迟 · CF cold + SPA hydration 容差 30s
     await expect(
       page.locator('[data-testid="input-mode-sample"]'),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: FIRST_PAINT_TIMEOUT_MS });
 
     // 切到 sample 形态 → 点 medium
     await page.locator('[data-testid="input-mode-sample"]').click();

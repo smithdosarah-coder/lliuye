@@ -8,7 +8,7 @@
  * 触发: riskctrl-demo-seed-select (选 credit_v15) + riskctrl-demo-run-cta
  *   per RiskctrlWorkspace.tsx:715,740
  */
-import { adminTest as test, expect, E2E_TIMEOUT_MS } from "./_shared";
+import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS } from "./_shared";
 
 test.describe("B.3.4 · admin 真号 · riskctrl 风控 demo credit_v15 回测", () => {
   test("跑 credit_v15 demo · KS chart 真出 + DSL rules 真出", async ({ page }) => {
@@ -17,10 +17,10 @@ test.describe("B.3.4 · admin 真号 · riskctrl 风控 demo credit_v15 回测",
     await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
 
     // workspace root 必显 (per RiskctrlWorkspace.tsx:479 · 不管 started 状态)
-    // (AuthGate bootstrap + CF 首连延迟 · 15s 容差)
+    // (AuthGate bootstrap + CF 首连延迟 · CF cold + SPA hydration 容差 30s)
     await expect(
       page.locator('[data-testid="riskctrl-workspace"]'),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: FIRST_PAINT_TIMEOUT_MS });
 
     // 默认 mode="real" (per RiskctrlWorkspace.tsx:190) · 切到 demo 才出 demo CTA
     await page.locator('[data-testid="riskctrl-mode-toggle-demo"]').click();

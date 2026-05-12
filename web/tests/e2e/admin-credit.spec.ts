@@ -7,7 +7,7 @@
  *
  * 触发: credit-input-mode-demo + credit-demo-cta (per CreditWorkspace.tsx:2030,2062)
  */
-import { adminTest as test, expect, E2E_TIMEOUT_MS } from "./_shared";
+import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS } from "./_shared";
 
 test.describe("B.3.4 · admin 真号 · credit 授信 demo 鼎盛商贸", () => {
   test("点 demo 鼎盛商贸 · 4 维评分真分数 · 无 NaN/[object", async ({ page }) => {
@@ -16,10 +16,10 @@ test.describe("B.3.4 · admin 真号 · credit 授信 demo 鼎盛商贸", () => 
     await page.goto("/archive/credit", { waitUntil: "networkidle" });
 
     // empty-skeleton 加载 · 切 demo 模式 · 点 demo CTA
-    // (AuthGate bootstrap + CF 首连延迟 · 15s 容差)
+    // (AuthGate bootstrap + CF 首连延迟 · CF cold + SPA hydration 容差 30s)
     await expect(
       page.locator('[data-testid="credit-empty-skeleton"]'),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: FIRST_PAINT_TIMEOUT_MS });
     await page.locator('[data-testid="credit-input-mode-demo"]').click();
     await page.locator('[data-testid="credit-demo-cta"]').click();
 

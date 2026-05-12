@@ -1,14 +1,18 @@
-name: Daily Visual + Admin E2E (B.3.4 · P0-R5 · e2e-daily)
+name: Daily Visual + Admin E2E (B.3.4 + B.4 SLO-2 · e2e-daily)
 
-# B.3.4 修正版 commit 5f3d2ec (2026-05-11 06:30 GO · KT R5) + 2026-05-11 reframe.
+# B.3.4 修正版 5f3d2ec (2026-05-11 06:30 KT R5) + B.4 SLO-2 reframe (2026-05-11 12:55 GO).
 #
 # 2 jobs · 独立 gate · 独立 Issue:
-#   1. daily-visual: 主活 C+D · 6 助手 idle 视觉基线 (本地 dev server pixel diff)
+#   1. daily-visual: 6 助手 idle 视觉基线 (本地 dev server pixel diff)
 #      - flag: vars.DAILY_VISUAL_ENABLED (= 'true' 才跑 schedule)
-#      - 等 fix-indep 主活 B 完 + baseline ship 后 PM enable
-#   2. admin-e2e: 主活 A+B · 6 agent demo/run 真后端 E2E (prod baseURL)
-#      - flag: vars.ADMIN_E2E_ENABLED (= 'true' 才跑 schedule)
-#      - 等 secrets.ADMIN_COOKIE 配上后 PM enable
+#   2. admin-e2e: 真后端 admin 真号 E2E · 双轨 (mock 演示 + 实时搜索) verification
+#      - flag: vars.ADMIN_E2E_ENABLED (= 'true' 才跑 schedule) · 需 secrets.ADMIN_COOKIE
+#      - B.4 SLO-2 4 主活全 cover (见 docs/contracts/e2e-slo-2-contract.md):
+#         · D 6 demo spec  (admin-{agent}.spec.ts × 6 · B.3.4)
+#         · A 6 realtime spec (admin-{agent}-realtime.spec.ts × 6 · B.4)
+#         · B replay 一致性 (admin-replay-consistency.spec.ts · 6 sub-test serial · B.4)
+#         · C 双轨并发 (admin-dual-track-concurrency.spec.ts · 2 sub-test · B.4)
+#      - glob admin-*.spec.ts 自动 cover 全 14 spec · 总 ~12min · timeout 25min 余量充足
 #
 # 触发 (3 条 · 2 job 共用):
 #   1. cron 22:00 UTC = 06:00 Asia/Shanghai · PM 起床前自检
