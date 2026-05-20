@@ -59,7 +59,7 @@ USERS = {
 }
 ```
 
-Demo 期 password 仍取 user 名拼音 (用户 2026-04-27 决议 · 见 `LoginForm.tsx:33` 注释) · 客户走访 / 生产前替换企业 SSO。
+Demo 期 password 取 user 名拼音 **大写** (用户 2026-05-20 决议 · 历史 2026-04-27 为小写) · 见 `LoginForm.tsx:33` 注释 · 客户走访 / 生产前替换企业 SSO。
 
 ---
 

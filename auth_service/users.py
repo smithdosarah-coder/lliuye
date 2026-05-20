@@ -6,7 +6,7 @@ Spec: auth-protocol.md §2 · 5 fixed accounts (preserve current shape).
 本模块把密码移到 backend bcrypt hash · frontend Stage D.1 frontend 后续 worker 改用
 `POST /api/auth/login` 走真验证 · 不再 view-source 明文。
 
-Demo 期 password 仍取 user 名拼音 (用户 2026-04-27 决议 · 见 LoginForm.tsx:33 注释)。
+Demo 期 password 取 user 名拼音 **大写** (用户 2026-05-20 决议 · 历史 2026-04-27 为小写 · 现统一大写)。
 Production 期换强密码后 bcrypt rehash · 不影响 spec / 不需改代码。
 """
 from __future__ import annotations
@@ -43,11 +43,11 @@ def verify_password(plain: str, hashed: str) -> bool:
 def _build_users() -> dict[str, dict[str, Any]]:
     raw: list[tuple[str, str, str, str, str, str]] = [
         # (id, name, role, team, avatar, plain_password)
-        ("u_wangzhe", "王哲",  "rm",                 "华东·上海第一支行", "哲", "wangzhe"),
-        ("u_lihua",   "李华",  "credit_officer",     "华东·授信审查部",   "华", "lihua"),
-        ("u_zhoumin", "周敏",  "compliance_officer", "总部·合规管理部",   "敏", "zhoumin"),
-        ("u_chenkai", "陈凯",  "risk_manager",       "总部·风险管理部",   "凯", "chenkai"),
-        ("u_liuye",   "刘野",  "admin",              "AI 中台",          "野", "liuye"),
+        ("u_wangzhe", "王哲",  "rm",                 "华东·上海第一支行", "哲", "WANGZHE"),
+        ("u_lihua",   "李华",  "credit_officer",     "华东·授信审查部",   "华", "LIHUA"),
+        ("u_zhoumin", "周敏",  "compliance_officer", "总部·合规管理部",   "敏", "ZHOUMIN"),
+        ("u_chenkai", "陈凯",  "risk_manager",       "总部·风险管理部",   "凯", "CHENKAI"),
+        ("u_liuye",   "刘野",  "admin",              "AI 中台",          "野", "LIUYE"),
     ]
     return {
         uid: {

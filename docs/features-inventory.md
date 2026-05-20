@@ -403,7 +403,7 @@ smoke_test: <web/tests/regression/*.spec.ts 路径·没写就标 pending>
 ## F-036 · LoginForm · 5 用户密码 + persona dropdown
 
 - **location**: `web/src/app/login/_components/LoginForm.tsx` + `web/src/lib/store/auth-store.ts`（`DEMO_USERS` / `useAuthStore.login`）
-- **selector**: `.login-form` · `<select#lf-persona[data-role]>` 5 用户 · `<input#lf-pass type=password>` · `.lf-submit[data-role]` · `<div role="alert">` 错误 banner · `PASSWORD_MAP`（`u_wangzhe / u_lihua / u_zhoumin / u_chenkai / u_liuye` → 名拼音小写）
+- **selector**: `.login-form` · `<select#lf-persona[data-role]>` 5 用户 · `<input#lf-pass type=password>` · `.lf-submit[data-role]` · `<div role="alert">` 错误 banner · `PASSWORD_MAP`（`u_wangzhe / u_lihua / u_zhoumin / u_chenkai / u_liuye` → 名拼音大写 (2026-05-20 起 · 历史为小写)）
 - **interaction**: 选 persona → 输入密码 → submit → 校验 `expected !== password` 显 banner「账号或密码错误」/ 通过 `useAuthStore.login(userId)` → `useEffect(currentUser)` redirect `/today`
 - **introduce**: `090f69e` 2026-04-21 3D earth hero + persona dropdown + `858f77f` 2026-04-23 L2 figure-1 shape + `6f96121` 2026-04-27 5 真密码 login + `3c1c2f3` 2026-04-27 AuthGate race fix + `de2d947` 2026-04-27 删密码提示
 - **lost_at**: N/A
@@ -1134,3 +1134,51 @@ F-009 ~ pending · 等用户继续指出 → enrich 此清单
 3. **改 web/ 不动 inventory feature**·trailer `PRESERVES: F-001, F-005, ...` 列保留 id
 4. **smoke test 写完后**·把 `pending` 替换为实际路径
 5. **每周巡检**：grep `web/` 找未列入 inventory 的 critical interaction（按钮 / 拖拽 / 跳转）补 entry
+
+---
+
+## Liuye Phase 1 Features (LY-NNN)
+
+> **Source**: `_temp/liuye-final-spec-v3.md` §3 Phase 1 scope lockdown 28 项 (R-debate 1-11 14 轮真辩论收敛)
+> **Namespace 决策**: per `docs/contracts/liuye-architecture.md` §2 · F-001~F-068 是老 archive/ 系统 (@deprecated 30 天后删) · LY-NNN 是 Liuye 新前端命名空间 (新仓 `credit_matrix_next/`)
+> **Repo**: `credit_matrix_next/` (W0 D1 git init · 独立 repo) + 后端 BFF `credit_report_agent_work/liuye_service/` (老仓 in-process 共享层 + HTTP 调 6 agent)
+> **Lockdown rule**: LY-NNN 命名空间 W0 后冻结 · 修改走 RFC (`shared-change-protocol.md`)
+> **Layout 类型**: A composer 流 / B modal / C popover / D drawer / E inline
+
+| LY-id | 中文名 | layout | risk | BFF endpoint |
+|---|---|---|---|---|
+| LY-001 | 退出登录 (LogoutButton · 合并到 persona popover) | C | low | `POST /api/liuye/auth/logout` |
+| LY-002 | Canvas 模式切换 (C popover from ⊞) | C | - | `PATCH /api/liuye/session/ui-mode` |
+| LY-003 | 主题切换 (仅 light + projection) | C | - | local store (Phase 1) |
+| LY-004 | Today 静默首页 (ground truth) | A | - | `GET /api/liuye/today/bootstrap?silent=1` |
+| LY-005 | (保留 · v3 spec F-007 同义合并到 LY-004) | - | - | - |
+| LY-006 | 登录 (Login B modal, 不 composer 伪装) | B | - | `POST /api/liuye/auth/login` |
+| LY-007 | PersonaSwitcher (张瑞 · floating pill) | C | - | `GET/POST /api/liuye/personas` |
+| LY-008 | PinHandle (单 MIME `application/vnd.liuye.artifact+json`) | E | low | `PATCH /api/liuye/artifacts/{id}/pin` |
+| LY-009 | AuthGate (路由层 + 短 shimmer) | A | - | `GET /api/liuye/auth/session` |
+| LY-010 | Cmd+K (B modal · 删 Desk hover 热区) | B | - | `GET /api/liuye/commands` |
+| LY-011 | 403 RBAC 拒绝 (notice 嵌入 main view) | A | - | `GET /api/liuye/auth/permissions` |
+| LY-012 | Dispatch IM 入口 (C popover from 💬) | C | - | `POST /api/liuye/dispatch/im/session` |
+| LY-013 | LE-01 单笔决策详情 trace | B | - | `GET /api/liuye/ledger/decisions/{id}?include_trace=1` |
+| LY-014 | LE-02 agent 决策列表 | A | - | `GET /api/liuye/ledger/decisions?agent=...` |
+| LY-015 | LE-03 管辖区 (HQ/银/保/证/BRANCH) | C | - | `GET /api/liuye/ledger/jurisdictions` |
+| LY-016 | LE-04 audit manifest a/b (LE-04a 下载低 + LE-04b 生成 ZIP 高 · 同 F-id 两 sub-variant) | E + D | low + high | `GET /api/liuye/ledger/audit-manifests/{id}/download` + `POST /api/liuye/ledger/audit-zip/jobs` |
+| LY-017 | LE-05 人工 review 签字 (append-only event) | B | high | `POST /api/liuye/ledger/decisions/{id}/review_events` |
+| LY-018 | F-066 Channel 信号搜索 (ranked rows 5 字段 inline badges · 禁 table) | A | - | `GET /api/liuye/channel/search/stream` |
+| LY-019 | A1-NEW-1 IdealProfile 12 维抽取 | A | - | `POST /api/liuye/channel/ideal-profile/extract` |
+| LY-020 | A1-NEW-2 Personal insight drawer | D | - | `GET /api/liuye/channel/insights/{id}` |
+| LY-021 | F-067-list Credit reports/sessions 列表 | A | - | `GET /api/liuye/credit/reports` |
+| LY-022 | F-067-handoff Credit handoff/from_report SSE | A | - | `POST /api/liuye/credit/handoff/from_report/stream` |
+| LY-023 | F-053 Credit 决策 SSE + 4 维评分 (progressive disclosure) | A | - | `POST /api/liuye/credit/decision/stream` |
+| LY-024 | A3-NEW Decision submit + ledger 写入 (idempotency_key) | B | medium | `POST /api/liuye/credit/decision/submit` |
+| LY-025 | F-052-upload Report 材料上传 | E | - | `POST /api/liuye/report/materials` |
+| LY-026 | F-052-v16 Report v16 主管线 5 stage SSE | A | - | `POST /api/liuye/report/v16/stream` |
+| LY-027 | F-052-refine Report 章节 refine (inline composer 内嵌) | A | - | `POST /api/liuye/report/sections/{id}/refine/stream` |
+| LY-028 | F-052-export Report docx 导出 + handoff (PARTIAL 不能 primary) | B | medium | `POST /api/liuye/report/{id}/export/docx` |
+
+> **LY-id mapping 主版本 SSOT**: `docs/contracts/liuye-fid-namespace.md` §2 · 本表与之 1:1 一致 (perfect-check-3 reconcile 修齐 · 按 C 主版本) · v3 §3 表 28 F-id (LE-04a/04b 同 F-id 两 sub-variant 合并 LY-016)
+
+**砍 (放 Phase 2)**: EV-01 / EV-02 admin UI (留 CLI + CI 输出, 不留 admin 后门)
+**降 inline 协议 (不计 LY-id)**: FR-01 Evidence freshness chip (绑 EvidenceRef.freshness, E inline) · FR-02 Data tier badge (绑 KBDoc.tier, E inline)
+
+**F-001~F-068 是老 archive/ 系统, @deprecated 30 天后删. LY-NNN 是 Liuye 新前端命名空间.**

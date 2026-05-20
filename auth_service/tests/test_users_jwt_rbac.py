@@ -43,13 +43,13 @@ def test_bcrypt_hash_verify_roundtrip():
 
 
 def test_5_user_authenticate_happy():
-    """5 fixed user · password = user 名拼音 (per LoginForm.tsx:33 注释)."""
+    """5 fixed user · password = user 名拼音 **大写** (2026-05-20 起 · per LoginForm.tsx:33 注释)."""
     expected = {
-        "u_wangzhe": "wangzhe",
-        "u_lihua":   "lihua",
-        "u_zhoumin": "zhoumin",
-        "u_chenkai": "chenkai",
-        "u_liuye":   "liuye",
+        "u_wangzhe": "WANGZHE",
+        "u_lihua":   "LIHUA",
+        "u_zhoumin": "ZHOUMIN",
+        "u_chenkai": "CHENKAI",
+        "u_liuye":   "LIUYE",
     }
     assert set(list_user_ids()) == set(expected.keys())
     for uid, pwd in expected.items():
