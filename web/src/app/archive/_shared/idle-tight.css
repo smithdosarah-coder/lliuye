@@ -91,7 +91,10 @@
  * 修法: 列改 align-self: start · 只占内容高度
  */
 .v-archive--canon .rpt-col,
-.v-archive--canon [class*="rpt-col--"] {
+.v-archive--canon [class*="rpt-col--"],
+.v-archive--canon .rpt-main,
+.v-archive--canon .rpt-side,
+.v-archive--canon .rpt-aux {
   align-self: start !important;
 }
 
@@ -109,12 +112,17 @@
   overflow-y: auto !important;
 }
 
-/* ── 12. PM 真痛根因 · .rpt-grid min-height: calc(100vh - 220px) 强 860px ──
- * 主 CLI 实测发现 report-workspace.css:193 定义 .rpt-grid min-height 强 viewport - 220
+/* ── 12. PM 真痛根因 · .rpt-grid + .rpt-body min-height: calc(100vh - 220px) 强 860px ──
+ * 主 CLI 实测发现 report-workspace.css:186/210 定义 .rpt-body + .rpt-grid min-height 强 viewport - 220
  * 1080p 屏 = 860px · 但 panel 内容常只 400-600px · 留 200-460px 空白
  * 修法: min-height auto · grid 跟内容走
+ *
+ * 2026-05-21 补漏 (PM 真号 dogfooding 抓到): v1 命名 (.rpt-body) 同样需要覆盖
+ *   - report workspace 用 v1 命名 (.rpt-body / .rpt-main) · 5/11 universal override 只修了 v2 (.rpt-grid / .rpt-col)
+ *   - credit/alert/compliance 用 v2 命名所以 5/11 已修 · report 漏修至 5/21 才被抓
  */
-.v-archive--canon .rpt-grid {
+.v-archive--canon .rpt-grid,
+.v-archive--canon .rpt-body {
   min-height: auto !important;
   align-items: start !important;
 }
