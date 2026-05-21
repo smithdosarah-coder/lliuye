@@ -1,8 +1,8 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.1.1",
   "created": "2026-05-21",
   "updated": "2026-05-21",
-  "description": "v16 模板 placeholder 化 治本 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值 · v1.1 合并 D Phase 4 worker 5 (对私 retail 场景 23 key) · v1.0 全保留 (对公 corporate 场景在用)",
+  "description": "v16 模板 placeholder 化 治本 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值 · v1.1.1 新增 6 业务描述大段 key (治本 Phase 3 · 解决 DP002 业务描述残留) · v1.1 合并 D Phase 4 worker 5 (对私 retail 场景 23 key) · v1.0 全保留 (对公 corporate 场景在用)",
   "changelog": [
     {
       "version": "1.0",
@@ -21,6 +21,15 @@
       "fields_promoted_to_both_scope": 3,
       "scope": "retail",
       "source_metadata": "samples/小微对私授信申报书_模板.metadata.json"
+    },
+    {
+      "version": "1.1.1",
+      "date": "2026-05-21",
+      "phase": "D Phase 3 治本 (业务描述残留 hot-fix)",
+      "summary": "DP002 dogfood 报告残留 '测绘地理信息高新技术服务企业' 等大段业务描述硬编码 · Phase 2 仅 placeholder 化公司名/法人/资本/地址等 metadata 级字段 · 长段业务描述走 REWRITE 路径但 LLM 漏改 · Phase 3 把 6 类大段业务描述也 placeholder 化 · deterministic 路径覆盖 + REWRITE 作 fallback",
+      "fields_added": 7,
+      "scope": "corporate",
+      "new_keys": ["CLIENT_BUSINESS_DESC_LONG", "CLIENT_INDUSTRY_NARRATIVE", "CLIENT_HISTORY_NARRATIVE", "CLIENT_INDUSTRY_POSITION", "CLIENT_QUALIFICATION_DETAIL", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"]
     }
   ],
   "syntax": {
@@ -304,6 +313,70 @@
       "scope_tag": "corporate",
       "description": "经营战略 / 子公司布局 / 集团化叙述 (可空)",
       "example": "采用品牌矩阵 + 渠道下沉的双轮战略,在长三角 6 城设有运营子公司。"
+    },
+
+    {
+      "key": "CLIENT_BUSINESS_DESC_LONG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "主营业务大段描述 (100-300 字 · 段落级 · 用于 P11/P104/P176/P200 等长描述段) · Phase 3 治本新增 · deterministic 路径替换 LLM 漏改的大段",
+      "example": "公司是一家集日用消费品采购、仓储、分销、零售于一体的综合性商贸服务企业,主营高端日化品批发与连锁零售,业务覆盖长三角 6 城,服务客户超过 2000 家。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业背景叙述大段 (200-500 字 · 用于 P59/P60/P61/P63/P65/P67 等行业上下文长段) · Phase 3 治本新增",
+      "example": "日用消费品批发零售行业是国民经济的重要组成部分,2022 年行业总产值超 15 万亿元,近 5 年保持年均增长 8% 以上。随着电商分流加剧,传统线下批发商面临渠道下沉与数字化转型的双重压力,头部企业通过 OMO 模式整合线上线下,逐步形成新的竞争格局。"
+    },
+    {
+      "key": "CLIENT_HISTORY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "公司或集团历史沿革叙述 (50-200 字 · 用于 P16/P64/P99/P171 等沿革段)· Phase 3 治本新增",
+      "example": "公司前身为成立于 2005 年的鼎盛贸易行,2014 年改制为有限责任公司,2018 年完成股权结构优化引入战略投资者,目前为长三角区域日化品批发头部企业。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_POSITION",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业地位 / 竞争力叙述 (50-150 字 · 用于授信结论段对客户行业地位的判定)· Phase 3 治本新增",
+      "example": "公司是长三角区域日化品批发领先企业之一,与超过 300 家头部品牌建立战略合作,在区域细分市场占有率领先,具备较强的渠道资源和议价能力。"
+    },
+    {
+      "key": "CLIENT_QUALIFICATION_DETAIL",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "公司资质证书详细叙述 (100-300 字 · 用于 P12 资质段 + T2R3C6 资质表格)· Phase 3 治本新增",
+      "example": "公司目前已获得 ISO9001 质量管理体系认证、ISO14001 环境管理体系认证、3A 级信用企业、品牌运营 A 级资质、连续 3 年纳税信用 A 级,以及多项行业奖项。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_TAG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业短标签 (8-15 字 · 用于 P100 类愿景段嵌入)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
+      "example": "日用消费品批发零售"
+    },
+    {
+      "key": "CLIENT_BUSINESS_QUALIFICATION_TAG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "资质短标签 (4-10 字 · 用于 P11 主描述段嵌入资质前缀)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
+      "example": "3A 信用"
     },
 
     {

@@ -57,7 +57,7 @@ V1_0_BASELINE_KEYS = [
     "BUSINESS_HISTORY_DESC", "BUSINESS_STRATEGY_DESC",
 ]
 
-_VERSION_RE = re.compile(r"^\d+\.\d+$")
+_VERSION_RE = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 _KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]+$")
 
 
@@ -70,7 +70,7 @@ def lint(data: dict) -> list[str]:
     if not version:
         failed.append("C1 · schema_version 字段缺失")
     elif not isinstance(version, str) or not _VERSION_RE.match(version):
-        failed.append(f"C1 · schema_version 格式非法: {version!r} (应为 'N.N')")
+        failed.append(f"C1 · schema_version 格式非法: {version!r} (应为 'N.N' 或 'N.N.N')")
 
     # ─── C2 · changelog 至少 1 entry ───
     changelog = data.get("changelog")
