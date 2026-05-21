@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "schema_extension_proposed": "1.1-retail-personal",
+  "created": "2026-05-21",
+  "docx_basename": "小微对私授信申报书_模板.docx",
+  "purpose": "v16 模板 placeholder 化 治本 Phase 3 worker 4 — 小微对私授信申报书模板 placeholder 化 (分支 A skeleton · 对私场景)",
+  "brief": "D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md",
+  "branch": "A (skeleton)",
+  "branch_rationale": "docx 全文 21 element / 473 chars · 0 真客户姓名 · 0 公司名 · 0 身份证号 · 0 手机号 · basename 已显式标 '(模板)' · P1 首段已声明 '本模板为脱敏教学版,所有字段均待业务方真实数据填入' · 无真实客户字面 · 不需 SUBSTITUTIONS 路径 · 全 paragraph 用 PARAGRAPH_OVERRIDES 把字段标签后的 :____ 空槽改为 :{{KEY}} · 让 framework REPLACE handler 用 runtime client_metadata 填值",
+
+  "scenario": "retail_personal_credit",
+  "scenario_rationale": "对私 (retail personal) 信贷场景 · 客户主体是自然人 (不是公司) · 字段集与对公 (corporate) 差异大: 不需 CLIENT_LEGAL_REP/CLIENT_GROUP_*/CLIENT_SHAREHOLDER_* · 但需 CLIENT_ID_NUMBER/CLIENT_MARITAL_STATUS/CLIENT_HOME_ADDRESS/CLIENT_MONTHLY_INCOME/CLIENT_DSR 等对私专属字段 · 这是 schema v1.0 没覆盖到的命中点 · 提议 schema v1.1 扩展见 schema_v1_1_proposed_keys",
+
+  "original_client": {},
+
+  "client_metadata": {},
+
+  "placeholder_locations": {
+    "P3": ["CLIENT_FULL_NAME", "CLIENT_ID_NUMBER"],
+    "P4": ["CLIENT_EMPLOYER_OR_BUSINESS", "CLIENT_POSITION_OR_YEARS"],
+    "P5": ["CLIENT_MARITAL_STATUS", "CLIENT_HOUSEHOLD_INCOME"],
+    "P6": ["CLIENT_HOME_ADDRESS", "CLIENT_PHONE"],
+    "P8": ["CREDIT_QUERY_COUNT_2Y"],
+    "P9": ["CREDIT_LOAN_QUERY_6M"],
+    "P10": ["CREDIT_CARD_QUERY_6M"],
+    "P11": ["CREDIT_OUTSTANDING_BALANCE", "CREDIT_OVERDUE_RECORD"],
+    "P13": ["CLIENT_MONTHLY_INCOME", "CLIENT_MONTHLY_DEBT_PAYMENT", "CLIENT_DSR"],
+    "P14": ["REPAYMENT_ABILITY_ASSESSMENT"],
+    "P16": ["CREDIT_AMOUNT", "CREDIT_PERIOD", "REPAYMENT_METHOD"],
+    "P17": ["CREDIT_PURPOSE", "GUARANTEE_METHOD"],
+    "P19": ["RISK_KEY_POINTS", "RISK_MITIGATION"],
+    "P20": ["CREDIT_CONCLUSION", "CREDIT_PRECONDITIONS"]
+  },
+
+  "schema_v1_1_proposed_keys": {
+    "rationale": "对私 (retail personal) 场景与 schema v1.0 对公字段集不重叠 · 23 个新 key 走 client_metadata 直填 · 不修改 templates/placeholder-schema.json (避免影响其他 worker) · 调用方在 retail handoff payload 传入这些 key · placeholder_replace handler 自动命中",
+    "personal_identity": {
+      "CLIENT_ID_NUMBER": "身份证号 (18 位 · 极敏感 · runtime 传入)",
+      "CLIENT_EMPLOYER_OR_BUSINESS": "工作单位或经营实体名称",
+      "CLIENT_POSITION_OR_YEARS": "职务或经营年限",
+      "CLIENT_MARITAL_STATUS": "婚姻状况 (枚举: 已婚 / 未婚 / 离异 / 丧偶) · checkbox_tick handler 也可消费此值勾选 [ ]",
+      "CLIENT_HOUSEHOLD_INCOME": "家庭年收入(万元)",
+      "CLIENT_HOME_ADDRESS": "家庭住址 (敏感)",
+      "CLIENT_PHONE": "联系方式 (手机号 · 敏感)"
+    },
+    "credit_report_facts": {
+      "CREDIT_QUERY_COUNT_2Y": "本人查询次数(近 2 年)",
+      "CREDIT_LOAN_QUERY_6M": "贷款审批查询(近 6 个月)",
+      "CREDIT_CARD_QUERY_6M": "信用卡审批查询(近 6 个月)",
+      "CREDIT_OUTSTANDING_BALANCE": "在贷余额(万元)",
+      "CREDIT_OVERDUE_RECORD": "逾期记录"
+    },
+    "repayment_capacity": {
+      "CLIENT_MONTHLY_INCOME": "月均收入(元)",
+      "CLIENT_MONTHLY_DEBT_PAYMENT": "月均负债支出(元)",
+      "CLIENT_DSR": "月均偿债比 Debt-Service Ratio (%)",
+      "REPAYMENT_ABILITY_ASSESSMENT": "可还款能力评估 (短叙述)"
+    },
+    "credit_application_personal": {
+      "REPAYMENT_METHOD": "还款方式 (枚举: 等额本息 / 等额本金 / 一次还本付息)",
+      "CREDIT_PURPOSE": "授信用途",
+      "GUARANTEE_METHOD": "担保方式 (枚举: 信用 / 抵押 / 第三方保证)"
+    },
+    "risk_and_conclusion": {
+      "RISK_KEY_POINTS": "主要风险点",
+      "RISK_MITIGATION": "缓释措施",
+      "CREDIT_CONCLUSION": "建议授信结论 (枚举: 同意 / 不同意 / 有条件同意)",
+      "CREDIT_PRECONDITIONS": "前提条件"
+    },
+    "compatibility_note": "alias_map 中没有对私 key 别名 → schema v1.0 的 alias fallback (CLIENT_FULL_NAME → name) 对对私 key 无效 · 直填路径要求 client_metadata 严格用 schema v1.1 key 名 (兼容时可走 retail handoff payload 把对私字段直传)"
+  },
+
+  "out_of_scope": {
+    "section_headers": "P0 标题 / P1 脱敏声明 / P2/P7/P12/P15/P18 章节号 (一/二/三/四/五) · SCAFFOLD · 不放 placeholder",
+    "checkbox_groups": "P5 婚姻状况 [ ] 已婚 [ ] 未婚 · P16 还款方式 [ ] 等额本息 [ ] 等额本金 [ ] 一次还本付息 · P17 担保方式 [ ] 信用 [ ] 抵押 [ ] 第三方保证 · checkbox_tick handler 在 runtime 根据 CLIENT_MARITAL_STATUS/REPAYMENT_METHOD/GUARANTEE_METHOD 值勾选 [ ] · 文本侧仍保留 [ ] 字面 · placeholder_replace 只填章节末 placeholder · 不动 checkbox 字面"
+  },
+
+  "rationale": {
+    "why_skeleton_branch_A": "全 21 element · 0 真客户字面 · 全是 字段:____ 空槽 + [ ] checkbox + 章节号 · 跟 worker 2 普惠骨架同模式 · 不需 SUBSTITUTIONS · 只 PARAGRAPH_OVERRIDES",
+    "why_propose_v1_1_not_modify_v1_0": "templates/placeholder-schema.json 由 worker 1/2/3 共享 · 修改它会污染对公场景的 v16_classifier 词典 · 干净做法是: metadata.json 内部 propose v1.1 key · client_metadata 直填 · alias_map 不需扩展 (对私场景调用方传 schema v1.1 key 即可) · placeholder_replace 优先大写 key 查 metadata · 不依赖 schema",
+    "why_no_alias_fallback_for_retail_keys": "v16_op_handlers.placeholder_replace alias_map 只覆盖对公字段 (CLIENT_FULL_NAME → name 等) · 对私 23 个新 key 不在 alias_map · 不写 fallback 反而更安全: 调用方必须用 schema v1.1 完整 key 名传入 · 命中则填 · 缺则保留 {{KEY}} 原文 + pending (符合 '幻觉零容忍 · 字段填不了标 未能自动填写' 银行/金融红线)",
+    "fallback_to_FALLBACK_CURRENT_CLIENT": "v16_step1_extract.load_client_for_template 在 sidecar.original_client 为空 dict 时会返回 fallback (_FALLBACK_CURRENT_CLIENT '中锐') · 不 break classifier prompt 上下文 · 但 placeholder 路径不依赖 CURRENT_CLIENT · 依赖 mats.client_metadata (runtime 传入)",
+    "section_headers_kept_as_scaffold": "章节号 (一、申请人基本情况 / 二、征信情况 / 三、收入与负债情况 / 四、授信申请方案 / 五、风险评估及结论) 是 form 骨架 · 任何客户填表都不变 · 走 SCAFFOLD 路径 · 不放 placeholder",
+    "client_full_name_in_personal_context": "对私场景 CLIENT_FULL_NAME 含义 = 自然人姓名 (不是公司名) · 调用方应在 retail handoff payload 把自然人姓名映射到 CLIENT_FULL_NAME · 复用 schema v1.0 已有 key 减少 alias_map 维护 · 若后续混淆可加 CLIENT_NATURAL_PERSON_NAME 但当前阶段不必"
+  },
+
+  "vs_other_workers": {
+    "vs_jingwei_phase2": "经纬测绘 (worker 0 pilot): 真客户成稿 · 1023 element · 29 location · 56 occurrence · 10 unique key · 走 SUBSTITUTIONS + PARAGRAPH_OVERRIDES 双路径",
+    "vs_xingye_phase3_worker1": "兴业资管 (worker 1): 真客户成稿 · 1500+ element · 141 location · 13 unique key · 三级股权结构 (子/母/集团) · 走 SUBSTITUTIONS + PARAGRAPH_OVERRIDES",
+    "vs_puhui_phase3_worker2": "普惠申报书 (worker 2): 骨架模板 · 495 element · 6 location · 6 unique key · 对公场景 form 头部 · 仅 PARAGRAPH_OVERRIDES",
+    "vs_xiaowei_phase3_worker4_this": "小微对私 (worker 4 本): 骨架模板 · 21 element · 14 location · ~26 unique key (23 个 schema v1.1 + 3 个 v1.0 复用) · 对私场景 · 自然人主体 (无股权/法人/集团) · 仅 PARAGRAPH_OVERRIDES",
+    "core_diff_corp_vs_retail": "对公: 公司全称/简称/股权层级/注册资本/法人/经营范围 · 对私: 自然人姓名/身份证/家庭住址/月收入/DSR/婚姻状态 · 字段集几乎不重叠 · placeholder schema 必须分两套 (v1.0 corp + v1.1 retail)"
+  }
+}
