@@ -69,6 +69,24 @@
 
 **为什么需要这层自动化**：5/21 已经验证"CI warning + PR 评论"不足以触发停手——人会忽略 warning。开正式 Issue with checklist 把"看到 warning"转成"必须 close 的 todo"，比 PR 评论更难忽略。
 
+## 3.6. Overdue 自动升级 (cron 闭环)
+
+policy §3.5 自动开 Issue 后，**仍可能被忽略**。`.github/workflows/fix-forward-overdue-check.yml` 每 6h 扫 open `fix-forward-retro` Issue:
+
+- 创建后 ≥ 24h 仍无 ack（无 assignee · 无 user 评论 · 无 `fix-forward-approved` label）→ 加 `overdue-retro` label + 评论 @ PM
+- 重复升级：每 6h 跑 · 已 `overdue-retro` 不重加 label · 但持续评论 @ PM 直到 ack
+
+**Ack 定义（任一即算）**：
+- assignee 不为空
+- 任意 user 评论（非 bot）
+- label 含 `fix-forward-approved`
+
+**为什么需要这层**：5/21 复盘 §病灶 #2 真因不是"没 CI gate"，是"看见 warning 不 act"。Issue + @ mention 比 CI warning 难忽略，但**人仍可能忽略**。Cron + label 升级把"忽略"转成 "label 标在 GitHub 公开可见" + 重复评论压力。
+
+**未来升级路径**（agent12 R3 提议）：
+- 中: 接飞书 webhook · open / overdue 时同步推 #liuye-mesh @ PM
+- 重: 接 PagerDuty / Opsgenie 真正 on-call 升级
+
 ## 4. Freeze procedure（触发 > 50% 后必走）
 
 ### Step 1: Stop the line（< 1 day）

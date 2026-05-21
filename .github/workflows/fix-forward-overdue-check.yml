@@ -1,0 +1,116 @@
+name: "Fix-Forward Retro Overdue Check (ROI #3 last mile)"
+
+# Codex R1 修正版 ROI #3 闭环最后一环 · 见 docs/contracts/fix-forward-budget-policy.md §3.5
+#
+# 上游链路:
+#   1. fix-forward-budget.yml gate: ratio > 50% 阻断 PR
+#   2. fix-forward-budget.yml: push to main fail 自动开 Issue (label fix-forward-retro)
+#   3. **本 workflow**: cron 每 6h 扫 open Issue · 超 24h 无 ack 升级 label
+#
+# Ack 定义 (任一即算):
+#   - assignee 不为空
+#   - 有 PM (or anyone) 评论
+#   - 标签含 fix-forward-approved (人工标 "正在处理")
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # UTC 0/6/12/18 每 6h · ~Asia/Shanghai 08/14/20/02
+  workflow_dispatch:  # 手动 trigger 测试
+
+jobs:
+  scan-overdue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write   # 加 label + 评论
+      contents: read
+    steps:
+      - name: Scan open fix-forward-retro Issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ACK_HOURS_LIMIT = 24;
+            const PM_HANDLE = 'smithdosarah-coder';  // 按真实 GitHub username 填 (repo owner)
+
+            // 拉 open fix-forward-retro Issues
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'fix-forward-retro',
+              per_page: 100,
+            });
+
+            console.log(`Found ${issues.length} open fix-forward-retro Issue(s)`);
+
+            let escalated = 0;
+
+            for (const issue of issues) {
+              // Skip 已升级
+              if (issue.labels.some(l => l.name === 'overdue-retro')) {
+                console.log(`Issue #${issue.number}: already overdue-retro · skip`);
+                continue;
+              }
+
+              // Compute 创建后 hours
+              const createdAt = new Date(issue.created_at);
+              const ageHours = (Date.now() - createdAt.getTime()) / 1000 / 3600;
+
+              if (ageHours < ACK_HOURS_LIMIT) {
+                console.log(`Issue #${issue.number}: age ${ageHours.toFixed(1)}h < ${ACK_HOURS_LIMIT}h · within budget`);
+                continue;
+              }
+
+              // Check ack: assignee / comment / fix-forward-approved label
+              const hasAssignee = (issue.assignees || []).length > 0 || issue.assignee !== null;
+
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+              });
+              const hasUserComment = comments.some(c =>
+                !c.user.login.endsWith('[bot]') && c.user.login !== 'github-actions'
+              );
+
+              const hasApprovedLabel = issue.labels.some(l => l.name === 'fix-forward-approved');
+
+              const acked = hasAssignee || hasUserComment || hasApprovedLabel;
+
+              if (acked) {
+                console.log(`Issue #${issue.number}: age ${ageHours.toFixed(1)}h but acked (assignee=${hasAssignee} comment=${hasUserComment} approved=${hasApprovedLabel}) · skip`);
+                continue;
+              }
+
+              // 升级
+              console.log(`Issue #${issue.number}: OVERDUE (age ${ageHours.toFixed(1)}h · no ack) · escalating`);
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['overdue-retro'],
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `## ⚠️ OVERDUE · @${PM_HANDLE}\n\n` +
+                      `本 Issue 已 open ${ageHours.toFixed(1)} 小时但**仍无 ack**（无 assignee · 无 user 评论 · 无 fix-forward-approved label）。\n\n` +
+                      `按 [policy §3.5](docs/contracts/fix-forward-budget-policy.md) · trigger 后 24h 必须 ack。\n\n` +
+                      `**立即行动**：\n` +
+                      `1. assign 本 Issue 给 retro owner (PM 或 tech lead)\n` +
+                      `2. 评论 retro 启动状态 (Step 1 stop the line announce 是否已发)\n` +
+                      `3. 或 label \`fix-forward-approved\` (如果 retro 已实际跑完 · 见 \`docs/handoff/retro-*.md\`)\n\n` +
+                      `**重复升级**：本 workflow 每 6h 跑一次 · 如继续无 ack 会持续 @ PM (不会升级 label 第二次)。\n\n` +
+                      `🤖 Auto-escalated by fix-forward-overdue-check.yml`,
+              });
+
+              escalated += 1;
+            }
+
+            console.log(`Total escalated: ${escalated}/${issues.length}`);
+
+            // Set output for downstream notification (将来加飞书 webhook 等)
+            core.setOutput('escalated_count', escalated);
+            core.setOutput('total_open', issues.length);
