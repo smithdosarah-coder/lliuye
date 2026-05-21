@@ -49,6 +49,26 @@
 - **谁能加**：retro 主持人（默认 PM）
 - **前置条件**：retro 文档已沉淀到 `docs/handoff/retro-YYYY-MM-DD.md`
 
+## 3.5. Auto-triggered retro（CI 自动开 Issue）
+
+触发 > 50% 后 CI workflow 自动开 GitHub Issue with label `fix-forward-retro` + `p0-incident` + `stop-the-line`。仅在 `push` 到 `main` 时开（PR 失败由 PR comment 处理，避免重复噪音）。Issue body 含：
+
+- 数据快照（window / fix count / ratio / CI run URL / 触发 commit SHA）
+- Top 20 fix commits（自动从 main 拉最近 50 commits 过滤）
+- Step 1-4 retro checklist（与 §4 freeze procedure 对齐 · checklist 格式可直接勾）
+- 关闭条件（重跑 ratio 命令 · < 30% 关 Issue）
+- 配套链接（policy doc / 5/10 retro wiki page）
+
+**去重**：开 Issue 前查同 label 是否已有 open Issue，有则在原 Issue 上加评论说明新 commit 仍 fail，不重开（防止连续 push 刷一堆重复 Issue）。
+
+**首次 trigger 后 24 小时内必须**：
+
+1. PM ack Issue（评论或 assign）
+2. 跑 retro · 沉淀 `docs/handoff/retro-YYYY-MM-DD.md`
+3. apply 防御 patch（label `fix-forward-approved`）
+
+**为什么需要这层自动化**：5/21 已经验证"CI warning + PR 评论"不足以触发停手——人会忽略 warning。开正式 Issue with checklist 把"看到 warning"转成"必须 close 的 todo"，比 PR 评论更难忽略。
+
 ## 4. Freeze procedure（触发 > 50% 后必走）
 
 ### Step 1: Stop the line（< 1 day）

@@ -148,3 +148,113 @@ jobs:
               issue_number: context.issue.number,
               body: body
             });
+
+      - name: Open retro Issue on FAIL
+        if: |
+          failure() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ratio = '${{ steps.ratio.outputs.ratio }}';
+            const window = '${{ steps.ratio.outputs.window }}';
+            const fix = '${{ steps.ratio.outputs.fix_count }}';
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const commitSha = '${{ github.sha }}';
+            const shortSha = commitSha.substring(0, 7);
+            const today = new Date().toISOString().split('T')[0];
+
+            // 拿最近 N=50 commits message list 给 retro template
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: 'main',
+              per_page: 50,
+            });
+            const fixCommits = commits.filter(c =>
+              /^(fix|hotfix|revert)[:( ]|修复/i.test(c.commit.message)
+            );
+            const fixList = fixCommits.slice(0, 20).map(c =>
+              `- ${c.sha.substring(0, 7)} ${c.commit.message.split('\n')[0]}`
+            ).join('\n');
+
+            const body = [
+              '## 🔴 Fix-Forward Budget EXCEEDED · Retro Required',
+              '',
+              '### 数据快照',
+              `- Window: 最近 ${window} commits`,
+              `- Fix/hotfix/revert: ${fix} (${ratio}%)`,
+              `- 触发 CI run: ${runUrl}`,
+              `- 触发 commit: ${shortSha}`,
+              '- 阈值: > 50% FAIL · 已 STOP THE LINE',
+              '',
+              '### 触发本 retro 的 Top 20 fix commits',
+              fixList || '_(无法拉取 commit list · 见 CI run 日志)_',
+              '',
+              '### Retro 流程（per docs/contracts/fix-forward-budget-policy.md §4）',
+              '',
+              '#### Step 1 · Stop the line（< 1 天）',
+              '- [ ] PM 在 #liuye-mesh 发 freeze announcement',
+              '- [ ] 所有 worker / contributor 暂停 feature 工作',
+              '- [ ] 当前 in-flight PRs 不强删 · 但 **新 PR 暂停 merge**（除 `hotfix-emergency` label）',
+              '',
+              '#### Step 2 · Retro（1-2 天）',
+              '- [ ] 收集最近 50 commits 全列表（见上）',
+              '- [ ] 按根因分类（参考 5/10 retro §2 5 个病灶）',
+              '- [ ] 找 top 2 类根因 · 确定 owner + due date',
+              `- [ ] 沉淀到 \`docs/handoff/retro-${today}.md\``,
+              '',
+              '#### Step 3 · Apply fixes（1-3 天）',
+              '- [ ] 写防御 patch（每 PR 加 `fix-forward-approved` label）',
+              '- [ ] Merge 后跑 ratio 检查命令（见下）看新 ratio',
+              '',
+              '#### Step 4 · Resume',
+              '- [ ] Ratio 降到 ≤ 30% 触发 unfreeze',
+              '- [ ] 沉淀经验到 `docs/contracts/` 防再坑',
+              '',
+              '### 配套',
+              '- [policy doc](../blob/main/docs/contracts/fix-forward-budget-policy.md)',
+              '- 5/10 retro reference (wiki): `2026-05-21-产品矩阵-status-vs-510-retro`',
+              '',
+              '### 关闭本 Issue 条件',
+              '',
+              '跑：',
+              '```bash',
+              `git log -50 --format=%s | awk 'BEGIN{f=0;t=0} {t++; if ($0 ~ /^(fix|hotfix|revert)[:( ]/ || $0 ~ /修复/) f++} END{printf "ratio: %.1f%%\\n", (f/t)*100}'`,
+              '```',
+              '',
+              'ratio < 30% 关 Issue · 反之保持 open',
+              '',
+              '---',
+              '',
+              `🤖 Auto-opened by fix-forward-budget.yml on ${shortSha}`,
+            ].join('\n');
+
+            // Check if Issue 已存在 (同 label · 不重开)
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'fix-forward-retro',
+            });
+
+            if (existing.length > 0) {
+              // 评论已有 Issue · 不重开
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body: `**重复触发** · 新 commit ${shortSha} 仍 fail (ratio ${ratio}%)\n\n${body}`,
+              });
+              core.info(`Commented on existing retro Issue #${existing[0].number}`);
+            } else {
+              const { data: created } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔴 Fix-Forward Budget Retro Required · ${today} · ratio ${ratio}%`,
+                body: body,
+                labels: ['fix-forward-retro', 'p0-incident', 'stop-the-line'],
+              });
+              core.info(`Opened retro Issue #${created.number}`);
+            }
