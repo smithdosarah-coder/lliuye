@@ -80,7 +80,22 @@ adminTest.use({
   ...(STORAGE_STATE_EXISTS ? { storageState: STORAGE_STATE_PATH } : {}),
 });
 
-adminTest.beforeEach(async ({ context }, testInfo) => {
+/**
+ * ROI #5 (2026-05-21) · E2E 证据链 run_id 注入
+ *
+ * CI 模式: process.env.LIUYE_E2E_RUN_ID = ${{ github.run_id }} (GH Actions 设)
+ * 本地模式: 缺该 env → fallback "local-<timestamp>" (避免空 header 写 NULL ·
+ *           本地跑也能 grep audit log 自查 · "local-" 前缀防误入 cron audit 数据)
+ *
+ * 注入路径: page.setExtraHTTPHeaders 每个 page · 走真后端的所有 XHR/fetch 都带
+ *
+ * 失败模式: 注入失败 throw → spec fail · 不允许 silent skip (证据链是 PM gate)
+ */
+const E2E_RUN_ID =
+  process.env.LIUYE_E2E_RUN_ID ||
+  `local-${Date.now()}`;
+
+adminTest.beforeEach(async ({ context, page }, testInfo) => {
   if (!STORAGE_STATE_EXISTS) {
     testInfo.skip(
       true,
@@ -102,6 +117,11 @@ adminTest.beforeEach(async ({ context }, testInfo) => {
       sameSite: "Lax",
     },
   ]);
+  // ROI #5 · X-Liuye-E2E-Run-Id header 注入 · audit_service.middleware 读后
+  // 写入 e2e_run_id 列 · daily-visual workflow 用 /api/audit/by_run_id/{run_id} 拉
+  await page.setExtraHTTPHeaders({
+    "X-Liuye-E2E-Run-Id": E2E_RUN_ID,
+  });
 });
 
 /**

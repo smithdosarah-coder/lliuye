@@ -239,6 +239,11 @@ jobs:
       # 显式 PLAYWRIGHT_BASE_URL → playwright.config.ts useWebServer=false ·
       # 不起本地 dev server · 跑真 prod
       PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://liuye.me' }}
+      # ROI #5 (2026-05-21) · E2E 证据链 run_id 全链路传递
+      # · bash 探针 (run_admin_daily.sh) + Playwright spec (_shared.ts) 都读这个 env
+      # · backend audit_service.middleware 从 X-Liuye-E2E-Run-Id header 解 · 写 e2e_run_id 列
+      LIUYE_E2E_RUN_ID: ${{ github.run_id }}
+      LIUYE_E2E_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -307,6 +312,78 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      # ----------------------------------------------------------------------
+      # ROI #5 (2026-05-21) · E2E 证据链三件套 - 件 3: audit log export
+      #
+      # 用 admin cookie 调 /api/audit/by_run_id/{run_id} · 拉 6 agent 真调记录 ·
+      # 即使 spec fail 也跑 (if: always) · Issue 评论可显示 backend 真实行为.
+      #
+      # 失败兜底: backend 5xx / cookie 过期 → 写空 envelope · 不阻断 issue 流程.
+      # ----------------------------------------------------------------------
+      - name: Export audit log artifact (ROI #5 · 证据链件 3)
+        id: export_audit
+        if: always()
+        env:
+          BASE_URL: ${{ vars.E2E_BASE_URL || 'https://liuye.me' }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set +e  # 不让 curl 失败拖垮 workflow · audit export 是辅助产物
+          mkdir -p audit-export
+          OUT="audit-export/audit-trail-${RUN_ID}.json"
+
+          if [ -z "${ADMIN_COOKIE:-}" ]; then
+            echo "::warning::ADMIN_COOKIE 缺 · audit export 跳过 · 写空 envelope"
+            cat > "$OUT" <<EOF
+          {"run_id":"${RUN_ID}","count":0,"total":0,"agents_hit":[],"endpoints_hit":[],"errors":[],"total_cost_cny":0,"items":[],"limit":5000,"offset":0,"has_more":false,"_note":"ADMIN_COOKIE missing · workflow could not call backend"}
+          EOF
+          else
+            # 兼容用户 paste 完整 'name=value' 或仅 'value'
+            COOKIE_VALUE="${ADMIN_COOKIE#zhongan_auth=}"
+            HTTP_CODE=$(curl -sS --max-time 30 \
+              -H "Cookie: zhongan_auth=${COOKIE_VALUE}" \
+              -H "Accept: application/json" \
+              "${BASE_URL}/api/audit/by_run_id/${RUN_ID}?limit=5000" \
+              -o "$OUT" -w '%{http_code}' || echo "000")
+            echo "audit-trail HTTP code: $HTTP_CODE"
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "::warning::audit export 非 200 (got $HTTP_CODE) · 写 fallback envelope"
+              # 用 fallback envelope 覆盖 curl 的 partial body · 防 jq 后面解析炸
+              cat > "$OUT" <<EOF
+          {"run_id":"${RUN_ID}","count":0,"total":0,"agents_hit":[],"endpoints_hit":[],"errors":[],"total_cost_cny":0,"items":[],"limit":5000,"offset":0,"has_more":false,"_note":"backend returned HTTP ${HTTP_CODE}"}
+          EOF
+            fi
+          fi
+
+          # 解 summary 字段写 GITHUB_OUTPUT (Issue 评论用 · jq 缺时 grep fallback)
+          if command -v jq >/dev/null 2>&1; then
+            audit_records=$(jq -r '.count // 0' "$OUT")
+            agents_hit=$(jq -r '.agents_hit // [] | join(",")' "$OUT")
+            error_count=$(jq -r '.errors // [] | length' "$OUT")
+            total_cost=$(jq -r '.total_cost_cny // 0' "$OUT")
+            has_more=$(jq -r '.has_more // false' "$OUT")
+          else
+            audit_records=$(grep -oE '"count":[0-9]+' "$OUT" | head -1 | grep -oE '[0-9]+' || echo "0")
+            agents_hit=$(grep -oE '"agents_hit":\[[^]]*\]' "$OUT" | head -1 || echo "")
+            error_count=0
+            total_cost=0
+            has_more=false
+          fi
+          echo "audit_records=${audit_records}" >> "$GITHUB_OUTPUT"
+          echo "agents_hit=${agents_hit}" >> "$GITHUB_OUTPUT"
+          echo "error_count=${error_count}" >> "$GITHUB_OUTPUT"
+          echo "total_cost_cny=${total_cost}" >> "$GITHUB_OUTPUT"
+          echo "has_more=${has_more}" >> "$GITHUB_OUTPUT"
+          echo "[summary] records=${audit_records} agents=${agents_hit} errors=${error_count} cost_cny=${total_cost} more=${has_more}"
+
+      - name: Upload audit log artifact (ROI #5 · 件 3 持久化)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-trail-${{ github.run_id }}
+          path: audit-export/
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Ensure labels exist (fault-tolerant)
         if: failure() && github.event_name == 'schedule'
         continue-on-error: true
@@ -335,17 +412,36 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
+          # ROI #5 · audit summary (from step export_audit)
+          AUDIT_RECORDS: ${{ steps.export_audit.outputs.audit_records }}
+          AUDIT_AGENTS: ${{ steps.export_audit.outputs.agents_hit }}
+          AUDIT_ERRORS: ${{ steps.export_audit.outputs.error_count }}
+          AUDIT_COST: ${{ steps.export_audit.outputs.total_cost_cny }}
         run: |
           DATE=$(date -u +'%Y-%m-%d')
           TITLE="[admin-e2e] 真号 E2E fail · ${DATE} 06:00 CST"
+          RUN_URL="${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}"
+          ARTIFACTS_URL="${RUN_URL}#artifacts"
 
           BODY=$(cat <<EOF
-          ## Admin 真号 E2E 失败 (prod backend · https://liuye.me)
+          ## 🔴 Admin 真号 E2E 失败 (prod backend · https://liuye.me)
 
+          ### 证据链 (ROI #5 · 三件套)
+          - **件 1 · Cron Run URL**: ${RUN_URL}
+          - **件 2 · Playwright Report artifact**: \`admin-e2e-report-${RUN_ID}\` ([下载](${ARTIFACTS_URL}) · 含 screenshot/video/trace)
+          - **件 3 · Audit Log artifact**: \`audit-trail-${RUN_ID}\` ([下载](${ARTIFACTS_URL}) · ${AUDIT_RECORDS:-0} records · agents: ${AUDIT_AGENTS:-none} · ${AUDIT_ERRORS:-0} errors · cost ¥${AUDIT_COST:-0})
+
+          ### 基础信息
           - **触发**: cron schedule (06:00 Asia/Shanghai · ${DATE})
           - **commit**: ${COMMIT_SHA}
           - **branch**: ${REF_NAME}
-          - **run URL**: ${SERVER_URL}/${REPO}/actions/runs/${RUN_ID}
+
+          ## 排查 SOP (三件套联查)
+
+          1. 看 \`admin-e2e-report-${RUN_ID}\` 的 \`playwright-report/index.html\` · 定位哪个 spec fail
+          2. 看 \`audit-trail-${RUN_ID}.json\` 的 \`items\` · 按 agent_id grep 对应 spec 的 backend 真实调用 / latency / error
+          3. 跨链路对账: spec 看 frontend 期望 · audit log 看 backend 真实行为 · 差异 = bug
+          4. 若 audit_records=0 → backend 完全没收到流量 (DNS / CF / nginx 层 fail) · 看 ECS uvicorn log
 
           ## 可能原因
 
@@ -356,13 +452,11 @@ jobs:
 
           ## 下一步
 
-          1. 下载 artifact \`admin-e2e-report-${RUN_ID}\` · 解压看 \`playwright-report/index.html\`
-          2. 看 GHA log 确认 bash 探针哪步 fail (channel/credit/alert/compliance/report/riskctrl)
-          3. 责任 worker fix-forward · 改 spec 必带 \`PRESERVES / NEW-DOM / SMOKE-PASS\` trailer
-          4. 修绿后此 Issue 自动 close · 或 worker 手 close
+          1. 责任 worker fix-forward · 改 spec 必带 \`PRESERVES / NEW-DOM / SMOKE-PASS\` trailer
+          2. 修绿后此 Issue 自动 close · 或 worker 手 close
 
           ---
-          *Auto-opened by .github/workflows/daily-visual.yml admin-e2e job*
+          *Auto-opened by .github/workflows/daily-visual.yml admin-e2e job · ROI #5 evidence chain*
           EOF
           )
 

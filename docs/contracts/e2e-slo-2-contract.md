@@ -64,6 +64,48 @@ Playwright `retries: 1` (prod baseURL 自动开 · 见 `web/playwright.config.ts
 - alert page body 不含 credit 关键词 (`/4 维评分|credit-decision-cta|授信建议/`)
 - credit page body 不含 alert 关键词 (`/alert-pool|180 户|红黄灯|alert-hitlist/`)
 
+### 3.6 E2E 证据链 (ROI #5 · 2026-05-21 加)
+
+> 每次 admin-e2e cron run 必出**三件套** · Issue 评论自动含三链接 · PM 5 分钟定位问题 (不再翻 workflow run 列表 + audit log endpoint 找证据).
+
+**件 1 · Cron Run URL**: GitHub Actions run 链接 · 看 workflow log
+
+**件 2 · Playwright Report artifact** (`admin-e2e-report-{run_id}`):
+- `playwright-report/index.html` · 交互式报告 (含 screenshot / video / trace)
+- `test-results/` · 失败 retry 全程数据
+- retention: 14 天
+
+**件 3 · Audit Log artifact** (`audit-trail-{run_id}`):
+- `audit-trail-{run_id}.json` · backend 6 agent 真调记录 (LLMCall envelope)
+- 含 `agents_hit` / `endpoints_hit` / `errors` / `total_cost_cny` summary
+- retention: 30 天
+
+**串联机制**:
+
+1. workflow `LIUYE_E2E_RUN_ID=${{ github.run_id }}` env 注入
+2. Playwright spec `_shared.ts` 把 env 通过 `page.setExtraHTTPHeaders` 注 `X-Liuye-E2E-Run-Id` header
+3. Bash 探针 `scripts/e2e/run_admin_daily.sh` 把同样 env 注同样 header (curl `-H`)
+4. Backend `audit_service.middleware.AuditLogMiddleware` 从 ASGI scope.headers 取 header · set `e2e_run_id_var` contextvar
+5. `audit_service.recorder.AuditRecorder.record()` 从 contextvar 拿 run_id · 写 `e2e_run_id` 列 (LLMCall.e2e_run_id 优先 · contextvar 兜底)
+6. Workflow `Export audit log artifact` step 用 `ADMIN_COOKIE` curl `GET /api/audit/by_run_id/{run_id}` · 拉 JSON envelope
+7. Workflow `Open GitHub Issue` step 把三件套链接 + audit summary (records / agents / errors / cost) 写入 Issue body
+
+**失败兜底**:
+- ADMIN_COOKIE 缺 → audit export 写空 envelope · 不阻 issue 流程
+- backend 5xx → 同上 · fallback envelope 含 `_note` 字段说明
+- `X-Liuye-E2E-Run-Id` 被 CF/nginx strip (实测未发现 strip 自定义 X-*) → `e2e_run_id` 写 NULL · `audit_records=0` 提醒人工 ECS uvicorn log
+- 本地跑 spec 时 env 缺 → fallback `local-<timestamp>` · 不污染 cron audit (前缀 `local-` 区分 · 也不删老数据)
+
+**Schema 变更** (DB migration · 已就位):
+- `audit_service/recorder.py` sqlite 加 `e2e_run_id TEXT` 列 + `idx_e2e_run_id` 索引
+- 兼容已存在 db: `_init_schema` 走 `ALTER TABLE ADD COLUMN` (sqlite ADD COLUMN 不锁全表 · 即跑即就绪)
+- 老 audit 行 `e2e_run_id=NULL` · 不影响 `/api/audit/llm_calls` 老查询路径
+
+**Admin RBAC**:
+- `GET /api/audit/by_run_id/{run_id}` 走 `_check_admin` (role == "admin" 才允)
+- 不扩 RBAC matrix 加 "audit" agent (避免污染 6 agent 业务域)
+- ADMIN_COOKIE 即 admin user 的 JWT · 复用 daily-visual job 已有 secret
+
 ## 4. Test infra
 
 | 文件 | 干啥 |

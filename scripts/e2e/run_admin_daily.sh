@@ -221,6 +221,10 @@ test_agent() {
   trap 'rm -f "$resp_file"' RETURN
 
   # curl SSE · --max-time 兜底 · --no-buffer 即时刷
+  # ROI #5 · 注入 X-Liuye-E2E-Run-Id (= ${LIUYE_E2E_RUN_ID:-local-<pid>}) ·
+  # audit_service.middleware 读后写 e2e_run_id 列 · workflow 用 /api/audit/by_run_id
+  # 拉证据链 artifact
+  local e2e_run_id="${LIUYE_E2E_RUN_ID:-local-$$}"
   local curl_exit=0
   curl --silent --show-error --no-buffer \
        --max-time "$TIMEOUT" \
@@ -229,6 +233,7 @@ test_agent() {
        -H "Cookie: zhongan_auth=${COOKIE_VALUE}" \
        -H "Content-Type: application/json" \
        -H "Accept: text/event-stream" \
+       -H "X-Liuye-E2E-Run-Id: ${e2e_run_id}" \
        -d "$body" \
        -o "$resp_file" 2>"${resp_file}.stderr" || curl_exit=$?
 
