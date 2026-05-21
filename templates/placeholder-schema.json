@@ -1,8 +1,8 @@
 {
-  "schema_version": "1.1.1",
+  "schema_version": "1.1.2",
   "created": "2026-05-21",
   "updated": "2026-05-21",
-  "description": "v16 模板 placeholder 化 治本 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值 · v1.1.1 新增 6 业务描述大段 key (治本 Phase 3 · 解决 DP002 业务描述残留) · v1.1 合并 D Phase 4 worker 5 (对私 retail 场景 23 key) · v1.0 全保留 (对公 corporate 场景在用)",
+  "description": "v16 模板 placeholder 化 治本 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值 · v1.1.2 新增 4 财务/关联方 key (治本 Phase 4 · 解决 DP002 第 2 次 dogfood 财务段残留) · v1.1.1 新增 7 业务描述大段 key · v1.1 合并 D Phase 4 worker 5 (对私 retail 场景 23 key) · v1.0 全保留 (对公 corporate 场景在用)",
   "changelog": [
     {
       "version": "1.0",
@@ -30,6 +30,15 @@
       "fields_added": 7,
       "scope": "corporate",
       "new_keys": ["CLIENT_BUSINESS_DESC_LONG", "CLIENT_INDUSTRY_NARRATIVE", "CLIENT_HISTORY_NARRATIVE", "CLIENT_INDUSTRY_POSITION", "CLIENT_QUALIFICATION_DETAIL", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"]
+    },
+    {
+      "version": "1.1.2",
+      "date": "2026-05-21",
+      "phase": "D Phase 4 治本 (财务段残留 hot-fix)",
+      "summary": "DP002 第 2 次 dogfood 仍残留经纬测绘真实财务数字 (3375 万授信 / 10500 万吸收投资 / 1713 万借款) + 关联方公司名 (福建省六一八信息技术 / 三明新基建产业发展) · Phase 3 漏扫财务分析段 P150/P168 + 授信结论段 P177 + 额度表 T0R1C0P0/T0R1C1P0 + 合并报表 T15R1C1P1 · Phase 4 把 4 个新 key (2 关联方 + 2 财务叙述) 加进 schema · deterministic 路径整段替换",
+      "fields_added": 4,
+      "scope": "corporate",
+      "new_keys": ["RELATED_PARTY_1_FULL_NAME", "RELATED_PARTY_2_FULL_NAME", "FINANCING_ACTIVITY_NARRATIVE", "CASHFLOW_ASSESSMENT_NARRATIVE"]
     }
   ],
   "syntax": {
@@ -377,6 +386,43 @@
       "group": "business_narrative",
       "description": "资质短标签 (4-10 字 · 用于 P11 主描述段嵌入资质前缀)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
       "example": "3A 信用"
+    },
+
+    {
+      "key": "RELATED_PARTY_1_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "related_parties",
+      "description": "关联方 1 全称 (合并报表合并范围) · 经纬测绘原文含 '福建省六一八信息技术有限公司' · Phase 4 治本新增 · 若客户无关联方填空字符串",
+      "example": "某某科技子公司"
+    },
+    {
+      "key": "RELATED_PARTY_2_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "related_parties",
+      "description": "关联方 2 全称 (合并报表合并范围) · 经纬测绘原文含 '三明新基建产业发展有限公司' · Phase 4 治本新增 · 若客户无第二关联方填空字符串",
+      "example": "某某产业发展子公司"
+    },
+    {
+      "key": "FINANCING_ACTIVITY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "financial_narrative",
+      "description": "筹资活动现金流叙述大段 (100-300 字 · 用于 P150 等筹资活动段) · Phase 4 治本新增 · 各客户按真实财务数字填",
+      "example": "筹资活动产生的现金流量净额整体稳定,主要为日常经营所需的银行融资与关联方周转资金,资金用途与业务匹配,体现公司稳健的财务管理风格。"
+    },
+    {
+      "key": "CASHFLOW_ASSESSMENT_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "financial_narrative",
+      "description": "货币资金 / 现金流评估叙述大段 (100-300 字 · 用于 P168 等现金流评估段 · 含授信风险判断) · Phase 4 治本新增",
+      "example": "公司货币资金水平整体匹配日常经营开支,资金回流节奏与业务结算周期吻合,授信发放后预计可有效覆盖经营周转需求,本次授信风险整体可控。"
     },
 
     {
