@@ -1,23 +1,51 @@
 {
-  "version": "1.0",
+  "schema_version": "1.1",
   "created": "2026-05-21",
-  "description": "v16 模板 placeholder 化 治本 Phase 1 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值",
+  "updated": "2026-05-21",
+  "description": "v16 模板 placeholder 化 治本 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值 · v1.1 合并 D Phase 4 worker 5 (对私 retail 场景 23 key) · v1.0 全保留 (对公 corporate 场景在用)",
+  "changelog": [
+    {
+      "version": "1.0",
+      "date": "2026-05-21",
+      "phase": "D Phase 1+2",
+      "summary": "初版 34 字段 · 对公 (corporate) 场景 · 经纬测绘 pilot + 兴业资管 + 普惠/科创骨架 worker 1/2/3 共用",
+      "fields_added": 34,
+      "scope": "corporate"
+    },
+    {
+      "version": "1.1",
+      "date": "2026-05-21",
+      "phase": "D Phase 4 worker 5",
+      "summary": "合并 worker 4 (小微对私授信申报书 metadata.json schema_v1_1_proposed_keys) 23 个对私 (retail) 场景 key · 不动 v1.0 34 字段 · 3 个复用字段 (CLIENT_FULL_NAME / CREDIT_AMOUNT / CREDIT_PERIOD) scope_tag 由 corporate 升级为 both · 新加顶层 scope_tag 元数据 (corporate / retail / both) 用于 v16_classifier 路由",
+      "fields_added": 23,
+      "fields_promoted_to_both_scope": 3,
+      "scope": "retail",
+      "source_metadata": "samples/小微对私授信申报书_模板.metadata.json"
+    }
+  ],
   "syntax": {
     "marker": "{{KEY}}",
     "note": "全角空格不影响匹配; cross-run 字符串拆分需 placeholder 整段位于单一 run 内 (Phase 2 改 docx 时按 paragraph-level 整段替换保证)"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公 (legal entity 法人主体) 场景 · 经纬测绘 / 兴业资管 / 普惠 / 科创",
+    "retail": "仅对私 (natural person 自然人主体) 场景 · 小微对私",
+    "both": "对公 + 对私 共用 · v16_classifier 根据 scenario 路由"
   },
   "fields": [
     {
       "key": "CLIENT_FULL_NAME",
       "type": "string",
       "required": true,
-      "description": "客户企业全称",
+      "scope_tag": "both",
+      "description": "客户主体全称 · 对公=企业全称 · 对私=自然人姓名 (per worker 4 metadata.client_full_name_in_personal_context)",
       "example": "鼎盛商贸有限公司"
     },
     {
       "key": "CLIENT_CORE_NAME",
       "type": "string",
       "required": true,
+      "scope_tag": "corporate",
       "description": "客户核心简称 (用于报告内简写)",
       "example": "鼎盛"
     },
@@ -25,6 +53,7 @@
       "key": "CLIENT_LEGAL_REP",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "法定代表人姓名",
       "example": "张三"
     },
@@ -32,6 +61,7 @@
       "key": "CLIENT_USCC",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "统一社会信用代码",
       "example": "91310000XXXXXXXXXX"
     },
@@ -39,6 +69,7 @@
       "key": "CLIENT_ESTABLISHMENT_DATE",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "成立日期 (年-月-日 或中文日期)",
       "example": "2015年3月15日"
     },
@@ -46,6 +77,7 @@
       "key": "CLIENT_REGISTERED_CAPITAL",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "注册资本 (含单位)",
       "example": "2000万元"
     },
@@ -53,6 +85,7 @@
       "key": "CLIENT_PAID_IN_CAPITAL",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "实收资本 (含单位)",
       "example": "2000万元"
     },
@@ -60,6 +93,7 @@
       "key": "CLIENT_REGISTERED_ADDRESS",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "注册地址 (含省市区)",
       "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
     },
@@ -67,6 +101,7 @@
       "key": "CLIENT_OPERATING_ADDRESS",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "经营地址 (可与注册地址同)",
       "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
     },
@@ -74,6 +109,7 @@
       "key": "CLIENT_LOCATION_CITY",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "城市/简称 (用于行文叙述)",
       "example": "上海"
     },
@@ -81,6 +117,7 @@
       "key": "CLIENT_INDUSTRY_FULL",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "所属行业全称 (国标门类-大类)",
       "example": "批发和零售业-批发业"
     },
@@ -88,6 +125,7 @@
       "key": "CLIENT_INDUSTRY_CODE",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "国标行业代码",
       "example": "F51"
     },
@@ -95,6 +133,7 @@
       "key": "CLIENT_INDUSTRY_CATEGORY",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "行业分类 (我行投向政策对应行业)",
       "example": "批发和零售业"
     },
@@ -102,6 +141,7 @@
       "key": "CLIENT_BUSINESS_SCOPE",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "主要产品和服务内容 / 经营范围",
       "example": "高端日化品批发;美容护肤品零售;化妆品技术开发;品牌连锁运营。"
     },
@@ -109,6 +149,7 @@
       "key": "CLIENT_BUSINESS_DESC",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "主营业务一句话描述 (行文用)",
       "example": "主营高端日化品批发与连锁零售"
     },
@@ -116,6 +157,7 @@
       "key": "CLIENT_BACKGROUND",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "企业背景 / 母公司关系 / 所属集团 (1-3 句叙述)",
       "example": "上海重点商贸企业,沪东商贸集团权属子公司"
     },
@@ -123,6 +165,7 @@
       "key": "CLIENT_PARENT_FULL_NAME",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "母公司全称 (若无填空字符串)",
       "example": "沪东商贸集团有限公司"
     },
@@ -130,6 +173,7 @@
       "key": "CLIENT_PARENT_SHORT_NAME",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "母公司简称 / 行文别名 (若无填空字符串)",
       "example": "沪东商贸"
     },
@@ -137,6 +181,7 @@
       "key": "CLIENT_GROUP_FULL_NAME",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "祖父级集团全称 (二级母公司 · 经纬测绘 docx 出现 · 多层股权结构)",
       "example": "沪东资本控股集团有限公司"
     },
@@ -144,6 +189,7 @@
       "key": "CLIENT_GROUP_SHORT_NAME",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "祖父级集团简称 / 行文别名",
       "example": "沪东资本"
     },
@@ -151,6 +197,7 @@
       "key": "CLIENT_LONG_CORE_NAME",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "客户长简称 (4-6 字 · 介于全称和单字 core 之间 · 如 '经纬数字科技')",
       "example": "鼎盛商贸"
     },
@@ -158,6 +205,7 @@
       "key": "CLIENT_OPERATING_YEARS",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "经营年数 (含单位)",
       "example": "8 年"
     },
@@ -165,6 +213,7 @@
       "key": "CLIENT_EMPLOYEE_COUNT",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "员工人数 (含单位)",
       "example": "350 人"
     },
@@ -172,6 +221,7 @@
       "key": "CLIENT_SHAREHOLDER_PRIMARY",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "主要股东名称",
       "example": "沪东商贸集团有限公司"
     },
@@ -179,6 +229,7 @@
       "key": "CLIENT_SHARE_PCT_PRIMARY",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "主要股东持股比例",
       "example": "100%"
     },
@@ -186,13 +237,15 @@
       "key": "CREDIT_AMOUNT",
       "type": "string",
       "required": false,
-      "description": "综合授信额度 (含单位)",
+      "scope_tag": "both",
+      "description": "综合授信额度 (含单位) · 对公=对公申报方案额度 · 对私=个人授信额度",
       "example": "5000 万元"
     },
     {
       "key": "CREDIT_EXPOSURE",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "授信敞口 (含单位)",
       "example": "4500 万元"
     },
@@ -200,13 +253,15 @@
       "key": "CREDIT_PERIOD",
       "type": "string",
       "required": false,
-      "description": "授信期限",
+      "scope_tag": "both",
+      "description": "授信期限 · 对公/对私通用",
       "example": "一年"
     },
     {
       "key": "PD_RATING",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "我行 PD 评级",
       "example": "5"
     },
@@ -214,6 +269,7 @@
       "key": "INDUSTRY_POLICY_GUIDANCE",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "我行行业投向指引",
       "example": "总体适度进入"
     },
@@ -221,6 +277,7 @@
       "key": "FOUNDED_YEAR",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "成立年份 (短形式 · 用于段落叙述)",
       "example": "2015"
     },
@@ -228,6 +285,7 @@
       "key": "BUSINESS_QUALIFICATION_DESC",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "资质 / 认证叙述 (1-3 句)",
       "example": "已获得 ISO9001 认证、品牌运营 A 级资质、连续 3 年纳税信用 A 级。"
     },
@@ -235,6 +293,7 @@
       "key": "BUSINESS_HISTORY_DESC",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "公司发展沿革叙述 (1-3 句)",
       "example": "公司成立于 2015 年,经过 8 年深耕,目前已成为长三角区域日化品批发领先品牌之一。"
     },
@@ -242,16 +301,235 @@
       "key": "BUSINESS_STRATEGY_DESC",
       "type": "string",
       "required": false,
+      "scope_tag": "corporate",
       "description": "经营战略 / 子公司布局 / 集团化叙述 (可空)",
       "example": "采用品牌矩阵 + 渠道下沉的双轮战略,在长三角 6 城设有运营子公司。"
+    },
+
+    {
+      "key": "CLIENT_ID_NUMBER",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "身份证号 (18 位 · 极敏感 · runtime 传入)",
+      "example": "310101199001010011"
+    },
+    {
+      "key": "CLIENT_EMPLOYER_OR_BUSINESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "工作单位或经营实体名称",
+      "example": "上海某科技有限公司"
+    },
+    {
+      "key": "CLIENT_POSITION_OR_YEARS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "职务或经营年限",
+      "example": "市场总监 / 5 年"
+    },
+    {
+      "key": "CLIENT_MARITAL_STATUS",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "婚姻状况 · checkbox_tick handler 也可消费此值勾选 [ ]",
+      "enum_values": ["已婚", "未婚", "离异", "丧偶"],
+      "example": "已婚"
+    },
+    {
+      "key": "CLIENT_HOUSEHOLD_INCOME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "家庭年收入(万元)",
+      "example": "30 万元"
+    },
+    {
+      "key": "CLIENT_HOME_ADDRESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "家庭住址 (敏感)",
+      "example": "上海市浦东新区世纪大道 1234 号 5 楼 502 室"
+    },
+    {
+      "key": "CLIENT_PHONE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "联系方式 (手机号 · 敏感)",
+      "example": "138****0011"
+    },
+
+    {
+      "key": "CREDIT_QUERY_COUNT_2Y",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "本人查询次数(近 2 年)",
+      "example": 12
+    },
+    {
+      "key": "CREDIT_LOAN_QUERY_6M",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "贷款审批查询(近 6 个月)",
+      "example": 3
+    },
+    {
+      "key": "CREDIT_CARD_QUERY_6M",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "信用卡审批查询(近 6 个月)",
+      "example": 2
+    },
+    {
+      "key": "CREDIT_OUTSTANDING_BALANCE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "在贷余额(万元)",
+      "example": "45 万元"
+    },
+    {
+      "key": "CREDIT_OVERDUE_RECORD",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "逾期记录 (无逾期 / 1 次 30 天内 / N 次)",
+      "example": "无"
+    },
+
+    {
+      "key": "CLIENT_MONTHLY_INCOME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均收入(元)",
+      "example": "18000 元"
+    },
+    {
+      "key": "CLIENT_MONTHLY_DEBT_PAYMENT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均负债支出(元)",
+      "example": "6000 元"
+    },
+    {
+      "key": "CLIENT_DSR",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均偿债比 Debt-Service Ratio (%)",
+      "example": "33%"
+    },
+    {
+      "key": "REPAYMENT_ABILITY_ASSESSMENT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "可还款能力评估 (短叙述)",
+      "example": "申请人收入稳定 · DSR 处于合理水平 · 具备还款能力"
+    },
+
+    {
+      "key": "REPAYMENT_METHOD",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "还款方式",
+      "enum_values": ["等额本息", "等额本金", "一次还本付息"],
+      "example": "等额本息"
+    },
+    {
+      "key": "CREDIT_PURPOSE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "授信用途",
+      "example": "经营周转"
+    },
+    {
+      "key": "GUARANTEE_METHOD",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "担保方式",
+      "enum_values": ["信用", "抵押", "第三方保证"],
+      "example": "抵押"
+    },
+
+    {
+      "key": "RISK_KEY_POINTS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "主要风险点",
+      "example": "经营波动 + 个人征信查询过频"
+    },
+    {
+      "key": "RISK_MITIGATION",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "缓释措施",
+      "example": "提供住房抵押 · 配偶共同还款"
+    },
+    {
+      "key": "CREDIT_CONCLUSION",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "建议授信结论",
+      "enum_values": ["同意", "不同意", "有条件同意"],
+      "example": "有条件同意"
+    },
+    {
+      "key": "CREDIT_PRECONDITIONS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "前提条件",
+      "example": "完成住房抵押登记后放款"
     }
   ],
   "fallback_strategy": {
     "missing_value": "保留 {{KEY}} placeholder 原文",
-    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。"
+    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。",
+    "retail_specific": "对私 23 key 没有 alias_map fallback (worker 4 metadata.why_no_alias_fallback_for_retail_keys) · 调用方必须用 schema v1.1 完整 key 名传入 · 缺则保留原文 + pending"
   },
   "compatibility": {
     "fallback_when_no_metadata": "v16_step1_extract.py 走老 CURRENT_CLIENT 常量 (中锐 hardcode) · 不 break 现有 5 个 DP001-005 sample fixture",
-    "feature_flag": "client_metadata=None 时走旧逻辑 · 显式传 dict 时走 placeholder REPLACE 路径"
+    "feature_flag": "client_metadata=None 时走旧逻辑 · 显式传 dict 时走 placeholder REPLACE 路径",
+    "v1_0_to_v1_1": "v1.0 → v1.1 纯加法 · 0 字段删除 · 0 字段语义变更 · 3 字段 scope_tag 由 corporate 升 both (语义实际未变 · 仅显式标注 retail 也用) · 现有对公 5 docx 模板 100% 向后兼容 · v16_classifier 可按 scope_tag 筛字段"
   }
 }

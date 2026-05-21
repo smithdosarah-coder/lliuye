@@ -79,6 +79,126 @@ export type ReportProfile = {
   [k: string]: unknown;
 };
 
+/**
+ * D Phase 4 worker 5 · v16 placeholder schema v1.1 (templates/placeholder-schema.json)。
+ * 前端可选传入 client_metadata · v16_generator REPLACE handler 用此填 {{KEY}} placeholder。
+ * 所有字段 optional · 缺则保留 {{KEY}} 原文 + pending (符合"幻觉零容忍 · 字段填不了标 未能自动填写"红线)。
+ *
+ * scope_tag 分组 (per placeholder-schema.json:scope_tag_legend):
+ *   - corporate (31): 对公场景 · 经纬测绘 / 兴业资管 / 普惠 / 科创
+ *   - retail (23):    对私场景 · 小微对私 (worker 4)
+ *   - both (3):       CLIENT_FULL_NAME / CREDIT_AMOUNT / CREDIT_PERIOD
+ *
+ * 后端契约:
+ *   - 后端按 schema_version 校验 · v1.0 调用方仍兼容 (v1.0 字段全保留)
+ *   - 后端不会 reject 多余 key · 但 v16_classifier 按 scope_tag 路由 · 跨 scope 传值 = 浪费 (e.g. 对私场景传 CLIENT_USCC 不会被消费)
+ *
+ * 不破坏既有 fetch logic: 调用方可不传 client_metadata · 兼容 ReportV16FillRequest / ReportDemoRunRequest 旧 shape。
+ */
+export interface ClientMetadata {
+  /* ── scope=both (v1.0 复用 · 对公/对私通用) ─────────────────────── */
+  /** 客户主体全称 · 对公=企业全称 · 对私=自然人姓名 */
+  CLIENT_FULL_NAME?: string;
+  /** 综合授信额度 (含单位) */
+  CREDIT_AMOUNT?: string;
+  /** 授信期限 */
+  CREDIT_PERIOD?: string;
+
+  /* ── scope=corporate · v1.0 对公场景 ────────────────────────────── */
+  CLIENT_CORE_NAME?: string;
+  CLIENT_LEGAL_REP?: string;
+  CLIENT_USCC?: string;
+  CLIENT_ESTABLISHMENT_DATE?: string;
+  CLIENT_REGISTERED_CAPITAL?: string;
+  CLIENT_PAID_IN_CAPITAL?: string;
+  CLIENT_REGISTERED_ADDRESS?: string;
+  CLIENT_OPERATING_ADDRESS?: string;
+  CLIENT_LOCATION_CITY?: string;
+  CLIENT_INDUSTRY_FULL?: string;
+  CLIENT_INDUSTRY_CODE?: string;
+  CLIENT_INDUSTRY_CATEGORY?: string;
+  CLIENT_BUSINESS_SCOPE?: string;
+  CLIENT_BUSINESS_DESC?: string;
+  CLIENT_BACKGROUND?: string;
+  CLIENT_PARENT_FULL_NAME?: string;
+  CLIENT_PARENT_SHORT_NAME?: string;
+  CLIENT_GROUP_FULL_NAME?: string;
+  CLIENT_GROUP_SHORT_NAME?: string;
+  CLIENT_LONG_CORE_NAME?: string;
+  CLIENT_OPERATING_YEARS?: string;
+  CLIENT_EMPLOYEE_COUNT?: string;
+  CLIENT_SHAREHOLDER_PRIMARY?: string;
+  CLIENT_SHARE_PCT_PRIMARY?: string;
+  CREDIT_EXPOSURE?: string;
+  PD_RATING?: string;
+  INDUSTRY_POLICY_GUIDANCE?: string;
+  FOUNDED_YEAR?: string;
+  BUSINESS_QUALIFICATION_DESC?: string;
+  BUSINESS_HISTORY_DESC?: string;
+  BUSINESS_STRATEGY_DESC?: string;
+
+  /* ── scope=retail · v1.1 worker 4 小微对私 (5 分组) ─────────────── */
+
+  /* group: personal_identity */
+  /** 身份证号 (18 位 · 极敏感) */
+  CLIENT_ID_NUMBER?: string;
+  /** 工作单位或经营实体名称 */
+  CLIENT_EMPLOYER_OR_BUSINESS?: string;
+  /** 职务或经营年限 */
+  CLIENT_POSITION_OR_YEARS?: string;
+  /** 婚姻状况 (enum: 已婚 / 未婚 / 离异 / 丧偶) · checkbox_tick handler 消费 */
+  CLIENT_MARITAL_STATUS?: "已婚" | "未婚" | "离异" | "丧偶";
+  /** 家庭年收入 (万元) */
+  CLIENT_HOUSEHOLD_INCOME?: string;
+  /** 家庭住址 (敏感) */
+  CLIENT_HOME_ADDRESS?: string;
+  /** 联系方式 · 手机号 (敏感) */
+  CLIENT_PHONE?: string;
+
+  /* group: credit_report_facts */
+  /** 本人查询次数 (近 2 年) */
+  CREDIT_QUERY_COUNT_2Y?: number;
+  /** 贷款审批查询 (近 6 个月) */
+  CREDIT_LOAN_QUERY_6M?: number;
+  /** 信用卡审批查询 (近 6 个月) */
+  CREDIT_CARD_QUERY_6M?: number;
+  /** 在贷余额 (万元) */
+  CREDIT_OUTSTANDING_BALANCE?: string;
+  /** 逾期记录 (无逾期 / 1 次 30 天内 / N 次) */
+  CREDIT_OVERDUE_RECORD?: string;
+
+  /* group: repayment_capacity */
+  /** 月均收入 (元) */
+  CLIENT_MONTHLY_INCOME?: string;
+  /** 月均负债支出 (元) */
+  CLIENT_MONTHLY_DEBT_PAYMENT?: string;
+  /** 月均偿债比 Debt-Service Ratio (%) */
+  CLIENT_DSR?: string;
+  /** 可还款能力评估 (短叙述) */
+  REPAYMENT_ABILITY_ASSESSMENT?: string;
+
+  /* group: credit_application_personal */
+  /** 还款方式 (enum) · checkbox_tick handler 消费 */
+  REPAYMENT_METHOD?: "等额本息" | "等额本金" | "一次还本付息";
+  /** 授信用途 */
+  CREDIT_PURPOSE?: string;
+  /** 担保方式 (enum) · checkbox_tick handler 消费 */
+  GUARANTEE_METHOD?: "信用" | "抵押" | "第三方保证";
+
+  /* group: risk_and_conclusion */
+  /** 主要风险点 */
+  RISK_KEY_POINTS?: string;
+  /** 缓释措施 */
+  RISK_MITIGATION?: string;
+  /** 建议授信结论 (enum) */
+  CREDIT_CONCLUSION?: "同意" | "不同意" | "有条件同意";
+  /** 前提条件 */
+  CREDIT_PRECONDITIONS?: string;
+
+  /** 未来扩展兜底 · 后端遇到未知 key 不 reject · 但 v16_classifier 不会路由 */
+  [k: string]: string | number | boolean | undefined;
+}
+
 /** ALL IN Phase B step 4 · per shared/evidence_drawer/drawer.py:Evidence dataclass.
  *  字段级 evidence · claim_id 关联到具体 section/field (e.g. "chapter_3_finance")
  *  EvidenceDrawer 渲染时按 claim_id group · 消费 to_drawer_payload 同源 schema. */
@@ -189,6 +309,8 @@ export type ReportV16FillRequest = {
   classified_json?: string;
   business_line?: string;
   mock?: boolean;
+  /** D Phase 4 worker 5 · v16 placeholder schema v1.1 client_metadata · 缺则保留 {{KEY}} pending */
+  client_metadata?: ClientMetadata;
 };
 
 /**
@@ -283,6 +405,8 @@ export type ReportSampleId =
 
 export type ReportDemoRunRequest = {
   sample_id: ReportSampleId | string; // string fallback · 后端白名单校验
+  /** D Phase 4 worker 5 · 演示 (demo) 路径也支持 v16 placeholder schema v1.1 client_metadata · 缺则用 sample fixture 自身 metadata */
+  client_metadata?: ClientMetadata;
 };
 
 export async function streamReportDemoRun(
