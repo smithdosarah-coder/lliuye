@@ -934,6 +934,7 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             value = metadata.get(key.lower())
         if value is None and key.startswith("CLIENT_"):
             # CLIENT_FULL_NAME → name / CLIENT_CORE_NAME → name_core 兜底 (sidecar original_client 简短 key)
+            # 也对 metadata 没 CLIENT_ 前缀的 key 做兜底 (DP00X / corp scenarios 的 flat 命名)
             alias_map = {
                 "CLIENT_FULL_NAME": "name",
                 "CLIENT_CORE_NAME": "name_core",
@@ -946,6 +947,12 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
                 "CLIENT_LOCATION_CITY": "location",
                 "CLIENT_REGISTERED_ADDRESS": "location",
                 "CLIENT_OPERATING_ADDRESS": "location",
+                # 2026-05-21 P0 fix · render-smoke 抓到模板 placeholder 有 CLIENT_ 前缀
+                # 但 DP00X / corp scenarios metadata 没前缀 · 这里做无前缀兜底.
+                "CLIENT_BUSINESS_QUALIFICATION_DESC": "BUSINESS_QUALIFICATION_DESC",
+                "CLIENT_BUSINESS_STRATEGY_DESC": "BUSINESS_STRATEGY_DESC",
+                "CLIENT_BUSINESS_HISTORY_DESC": "BUSINESS_HISTORY_DESC",
+                "CLIENT_FOUNDED_YEAR": "FOUNDED_YEAR",
             }
             alias = alias_map.get(key)
             if alias:
