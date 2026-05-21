@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "created": "2026-05-21",
+  "docx_basename": "普惠申报书_骨架型.docx",
+  "purpose": "v16 模板 placeholder 化 治本 Phase 3 — skeleton 模板 placeholder 注入 (form 头部字段标签)",
+  "brief": "D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md",
+  "branch": "A (skeleton)",
+  "branch_rationale": "本 docx 为 '骨架型' 申报书模板 · 无真实客户字面 · 全文是 form fields + 例句指引文 · 不需要 SUBSTITUTIONS 路径 · 仅在 form 头部 (T0R1/T0R2) 字段标签后注入 {{KEY}} 让 generator REPLACE handler 用 client_metadata 填值",
+
+  "original_client": {},
+
+  "client_metadata": {},
+
+  "placeholder_locations": {
+    "T0R1C0P0": ["CLIENT_FULL_NAME"],
+    "T0R1C0P1": ["CLIENT_GROUP_FULL_NAME"],
+    "T0R1C0P5": ["CLIENT_INDUSTRY_FULL"],
+    "T0R2C0P0": ["CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
+    "T0R2C0P1": ["CREDIT_PERIOD"],
+    "T0R2C0P3": ["PD_RATING"]
+  },
+
+  "out_of_scope": {
+    "narrative_example_paragraphs": "T0R3C0P3-P133 等长正文段含大量 'XX/XXX/张XX/2010年5月/中芯国际' 等示例数据 · 不放 placeholder · v16 pipeline REWRITE handler 用 LLM + real client materials 重写",
+    "table_header_cells": "表头/列名 cell (股东名称 / 出资比例% / 财务指标列名 等) 是 SCAFFOLD · 不动",
+    "checkbox_groups": "□新客户 / □微型 □小型 □中型 等 checkbox 组 · checkbox_tick handler 处理 · 不放 placeholder",
+    "instruction_hints": "（如涉及） / （若有） / （请描述...） 等指引短语 · PRESERVE handler · 不动",
+    "approval_signature_lines": "客户经理 / 共同调查人 / 管理经理 / 分管行长 / 行长 签名行 · pending (流程外字段)"
+  },
+
+  "rationale": {
+    "why_only_6_placeholders": "skeleton 模板的核心价值是 form 结构 (章节 + 表格布局 + 字段标签) · 不是 'jingwei docx 的真客户成稿' · 6 个 placeholder 只覆盖 form 头部 (申报表第 1-2 行) 必填字段 · 其余字段 (注册资本 / 法人 / 主营业务 / 财务数据) 在 T0R3 长 cell 中以 '注册资本：XX万元、实收资本：XX万元' 等模式埋藏在指引文中 · 这些走 FILL/SLOT/REWRITE handler 由 v16 pipeline 处理 · 不放 placeholder 避免破坏指引文的可读性",
+    "why_credit_amount_etc_are_in_t0r2": "T0R2 是申报方案区 (申报额度 / 业务期限 / 担保方式 / PD 评级) · 真实生产填表时这些都是新值 · 模板示例的 '1000万元/12个月/6级' 是给客户经理看的示范值 · 把额度/敞口/期限/评级 placeholder 化让 framework 强制覆盖 · 避免示范值被当真客户值导出",
+    "why_no_real_client_facts": "本 docx 是 '骨架型' (basename 已显式标注) · 任何 'XX/XXX/张XX/陈XX/中船重工第XX研究所/2010年5月' 都是示范字面 · 不是任何真实客户 · 因此 original_client 为空字典 · client_metadata 也为空 (调用方在 runtime 经 API 传入)",
+    "fallback_to_FALLBACK_CURRENT_CLIENT": "v16_step1_extract.load_client_for_template 在 sidecar.original_client 为空 dict 时会返回 fallback (_FALLBACK_CURRENT_CLIENT '中锐') · 不 break classifier prompt 上下文 · 但 placeholder 路径不依赖 CURRENT_CLIENT · 依赖 mats.client_metadata (runtime 传入)"
+  }
+}
