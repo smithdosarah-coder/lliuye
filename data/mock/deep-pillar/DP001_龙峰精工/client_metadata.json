@@ -1,6 +1,7 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1.1",
   "created": "2026-05-21",
+  "updated": "2026-05-21",
   "sample_id": "DP001",
   "source": "营业执照PDF + 授信补充材料docx + 文件名hint (高新技术企业 + 专精特新小巨人)",
 
@@ -18,17 +19,20 @@
   "CLIENT_INDUSTRY_FULL": "制造业-通用设备制造业-金属加工机械制造",
   "CLIENT_INDUSTRY_CODE": "C34",
   "CLIENT_INDUSTRY_CATEGORY": "制造业",
-  "CLIENT_BUSINESS_SCOPE": "市场营销策划;家居建材批发;企业管理咨询;财务咨询;装饰装修工程;五金交电销售;机电产品销售;机械零部件加工。",
+  "CLIENT_INDUSTRY_TAG": "精密机械制造",
+  "CLIENT_BUSINESS_SCOPE": "精密机械零部件加工;CNC数控加工;金属表面处理;模具设计与制造;机械零件销售;机电产品配套加工。",
   "CLIENT_BUSINESS_DESC": "主营航空航天与汽车用精密零部件CNC加工及表面处理",
+  "CLIENT_BUSINESS_DESC_LONG": "是一家专注于精密零部件CNC加工及表面处理的高新技术企业,主要服务于汽车与航空航天领域的配套厂家。公司具备完整的精密机械加工产能,涵盖原材料切削、热处理、表面处理、检测等全流程工艺,并通过严格的质量管理体系,为下游客户提供高一致性、高可靠性的精密零部件产品。",
+  "CLIENT_BUSINESS_QUALIFICATION_TAG": "省级专精特新小巨人",
   "CLIENT_BACKGROUND": "福建晋江精密机械制造企业,持有福建省高新技术企业(2023第3批)及福建省专精特新小巨人(2024第1批)资质,核心客户为汽车与航空航天领域配套厂家。",
-  "CLIENT_PARENT_FULL_NAME": "",
-  "CLIENT_PARENT_SHORT_NAME": "",
-  "CLIENT_GROUP_FULL_NAME": "",
-  "CLIENT_GROUP_SHORT_NAME": "",
+  "CLIENT_PARENT_FULL_NAME": "龙峰精工控股集团",
+  "CLIENT_PARENT_SHORT_NAME": "龙峰控股",
+  "CLIENT_GROUP_FULL_NAME": "龙峰精工控股集团",
+  "CLIENT_GROUP_SHORT_NAME": "龙峰控股",
   "CLIENT_OPERATING_YEARS": "14年",
-  "CLIENT_EMPLOYEE_COUNT": "",
+  "CLIENT_EMPLOYEE_COUNT": "215人",
   "CLIENT_SHAREHOLDER_PRIMARY": "黄祖桐",
-  "CLIENT_SHARE_PCT_PRIMARY": "",
+  "CLIENT_SHARE_PCT_PRIMARY": "65%",
   "CREDIT_AMOUNT": "500万元",
   "CREDIT_EXPOSURE": "500万元",
   "CREDIT_PERIOD": "一年",
@@ -37,5 +41,10 @@
   "FOUNDED_YEAR": "2012",
   "BUSINESS_QUALIFICATION_DESC": "持有福建省高新技术企业备案(2023第3批)、福建省专精特新小巨人(省级·2024第1批)资质,并取得多项精密机械加工相关专利。",
   "BUSINESS_HISTORY_DESC": "公司成立于2012年,深耕精密机械加工14年,目前已成为闽南区域汽车与航空航天精密零部件加工领先供应商之一。",
-  "BUSINESS_STRATEGY_DESC": ""
+  "BUSINESS_STRATEGY_DESC": "采用专精特新 + 高附加值产品双轮战略,重点拓展汽车、航空航天精密配套客户,持续投入研发与工艺升级。",
+
+  "CLIENT_INDUSTRY_NARRATIVE": "精密机械加工是高端装备制造业的关键基础环节,2022 年我国精密机械零部件市场规模超 4000 亿元,近 5 年保持年均增长 12% 以上。随着新能源汽车、商用航空航天等下游高端制造产业快速发展,对精密零部件的精度、一致性、可靠性要求持续提升。具备数控加工、表面处理一体化能力的企业,在产业链中占据稀缺位置,享有较高的客户粘性和议价能力。",
+  "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2012 年的精密机械加工车间,经过 14 年技术积累,已成长为具备汽车与航空航天双行业供货资质的精密零部件制造企业,2023 年获评福建省高新技术企业,2024 年入选省级专精特新小巨人。",
+  "CLIENT_INDUSTRY_POSITION": "是闽南区域精密机械加工领先企业之一,具备国家级高新技术企业与省级专精特新小巨人双资质,客户涵盖头部汽车配套与航空航天系统集成商,具备较强的技术壁垒与产能优势。",
+  "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得福建省高新技术企业证书 (2023 第 3 批)、福建省专精特新小巨人称号 (2024 第 1 批)、ISO9001 质量管理体系认证、IATF16949 汽车行业质量管理体系认证,以及多项精密机械加工核心工艺专利。"
 }

@@ -57,7 +57,14 @@
     "FOUNDED_YEAR": "2009",
     "BUSINESS_QUALIFICATION_DESC": "国家级专精特新 '小巨人' · 国家高新技术企业认证 · 已获 ISO9001 / IATF16949 体系认证 · 税务 A 级。",
     "BUSINESS_HISTORY_DESC": "公司成立于 2009 年,经过 17 年深耕,现已成为苏州工业园区精密零部件制造领先企业之一,服务覆盖汽车 / 航空 / 工业自动化多个下游领域。",
-    "BUSINESS_STRATEGY_DESC": "采用研发驱动 + 产业链协同战略,主要客户分散度高,无单一客户超过 15% 营收占比。"
+    "BUSINESS_STRATEGY_DESC": "采用研发驱动 + 产业链协同战略,主要客户分散度高,无单一客户超过 15% 营收占比。",
+    "CLIENT_INDUSTRY_TAG": "高端精密制造",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家级专精特新",
+    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于高端装备精密零部件研发与制造的国家级专精特新 \"小巨人\" 企业,业务覆盖汽车、航空、工业自动化等多个高端下游领域。公司具备完整的研发设计、精密加工、品质管控全流程能力,主要客户分散度高,无单一客户超过 15% 营收占比,客户结构健康。",
+    "CLIENT_INDUSTRY_NARRATIVE": "高端装备精密零部件制造是新型工业化的核心环节,2022 年市场规模超 6500 亿元,近 5 年保持年均增长 15% 以上。新能源汽车、商业航天、半导体装备等下游高端制造行业的快速发展,持续推升对精密零部件精度、可靠性的要求,头部企业具备较强的客户粘性与议价能力。",
+    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2009 年的精密机械加工车间,经过 17 年深耕,已成长为兼具汽车、航空航天、工业自动化多行业供货能力的国家级专精特新 \"小巨人\" 企业,客户结构高度分散健康。",
+    "CLIENT_INDUSTRY_POSITION": "是苏州工业园区精密零部件制造领先企业之一,具备国家级专精特新 \"小巨人\" 与国家高新技术企业双资质,服务覆盖汽车、航空、工业自动化多个高端下游领域,在区域内具备较强的技术壁垒。",
+    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家级专精特新 \"小巨人\" 称号、国家高新技术企业认证、ISO9001 质量管理体系认证、IATF16949 汽车行业体系认证、税务 A 级,以及多项精密机械加工核心工艺专利。"
   },
   "feature_done": {
     "financial.debt_ratio": 0.42,
@@ -136,7 +143,11 @@
     "schema_version": "1.0.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
-    "appetite": {"segment": "corporate", "version": "default-2026-04", "client_id": ""},
+    "appetite": {
+      "segment": "corporate",
+      "version": "default-2026-04",
+      "client_id": ""
+    },
     "subject_name": "瑞恒精密制造股份有限公司",
     "segment": "corporate",
     "built_at": "2026-05-01T10:31:00",
@@ -150,48 +161,282 @@
       "composite_score": 87
     },
     "nodes": [
-      {"id": "decision::final", "type": "decision", "decision": "批准", "approved_amount": 300, "approved_term_months": 24, "interest_rate": 0.045, "rate_benchmark": "LPR+50BP", "risk_grade": "A", "composite_score": 87, "rationale_anchor": "评分定档 A + 无红线 → 批准"},
-      {"id": "feature::financial.debt_ratio", "type": "feature", "key": "financial.debt_ratio", "value": 0.42, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.debt_ratio"},
-      {"id": "feature::financial.net_margin", "type": "feature", "key": "financial.net_margin", "value": 0.11, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.net_margin"},
-      {"id": "feature::financial.revenue_growth", "type": "feature", "key": "financial.revenue_growth", "value": 0.22, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.revenue_growth"},
-      {"id": "feature::financial.ar_turnover_days", "type": "feature", "key": "financial.ar_turnover_days", "value": 65, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.ar_turnover_days"},
-      {"id": "peer_benchmark::C34::debt_ratio", "type": "peer_benchmark", "industry_code": "C34", "metric": "debt_ratio", "value": 0.52, "source": "industry_baselines_v2.json#C34#debt_ratio_median"},
-      {"id": "peer_benchmark::C34::net_margin", "type": "peer_benchmark", "industry_code": "C34", "metric": "net_margin", "value": 0.06, "source": "industry_baselines_v2.json#C34#net_margin_median"},
-      {"id": "peer_benchmark::C34::revenue_growth", "type": "peer_benchmark", "industry_code": "C34", "metric": "revenue_growth", "value": 0.08, "source": "industry_baselines_v2.json#C34#revenue_growth_median"},
-      {"id": "peer_benchmark::C34::ar_turnover_days", "type": "peer_benchmark", "industry_code": "C34", "metric": "ar_turnover_days", "value": 72, "source": "industry_baselines_v2.json#C34#ar_turnover_days_median"},
-      {"id": "peer_gap::debt_ratio", "type": "peer_gap", "metric": "debt_ratio", "label": "资产负债率", "feature_value": 0.42, "peer_value": 0.52, "gap": -0.10, "unit": "ratio", "direction": "below_peer", "interpretation": "资产负债率低于（利好）同业中位 10.0pp"},
-      {"id": "peer_gap::net_margin", "type": "peer_gap", "metric": "net_margin", "label": "净利率", "feature_value": 0.11, "peer_value": 0.06, "gap": 0.05, "unit": "ratio", "direction": "above_peer", "interpretation": "净利率高于（利好）同业中位 5.0pp"},
-      {"id": "peer_gap::revenue_growth", "type": "peer_gap", "metric": "revenue_growth", "label": "营收增长率", "feature_value": 0.22, "peer_value": 0.08, "gap": 0.14, "unit": "ratio", "direction": "above_peer", "interpretation": "营收增长率高于（利好）同业中位 14.0pp"},
-      {"id": "peer_gap::ar_turnover_days", "type": "peer_gap", "metric": "ar_turnover_days", "label": "应收账款周转天数", "feature_value": 65, "peer_value": 72, "gap": -7, "unit": "days", "direction": "below_peer", "interpretation": "应收账款周转天数低于（利好）同业中位 7 天"},
-      {"id": "score::financial", "type": "score_dimension", "dimension": "financial", "score": 89, "weight": 0.35, "weighted": 31.15, "source": "scoring_model_corporate.py::_score_financial", "sub_scores": {"资产负债率": 88, "营收增长率": 92, "净利率": 90, "流动比率": 88, "应收账款周转": 85, "现金流质量": 88}},
-      {"id": "score::industry", "type": "score_dimension", "dimension": "industry", "score": 84, "weight": 0.15, "weighted": 12.6, "source": "scoring_model_corporate.py::_score_industry", "sub_scores": {}},
-      {"id": "score::operational", "type": "score_dimension", "dimension": "operational", "score": 88, "weight": 0.25, "weighted": 22.0, "source": "scoring_model_corporate.py::_score_operational", "sub_scores": {}},
-      {"id": "score::guarantee", "type": "score_dimension", "dimension": "guarantee", "score": 86, "weight": 0.25, "weighted": 21.5, "source": "scoring_model_corporate.py::_score_guarantee", "sub_scores": {}}
+      {
+        "id": "decision::final",
+        "type": "decision",
+        "decision": "批准",
+        "approved_amount": 300,
+        "approved_term_months": 24,
+        "interest_rate": 0.045,
+        "rate_benchmark": "LPR+50BP",
+        "risk_grade": "A",
+        "composite_score": 87,
+        "rationale_anchor": "评分定档 A + 无红线 → 批准"
+      },
+      {
+        "id": "feature::financial.debt_ratio",
+        "type": "feature",
+        "key": "financial.debt_ratio",
+        "value": 0.42,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.debt_ratio"
+      },
+      {
+        "id": "feature::financial.net_margin",
+        "type": "feature",
+        "key": "financial.net_margin",
+        "value": 0.11,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.net_margin"
+      },
+      {
+        "id": "feature::financial.revenue_growth",
+        "type": "feature",
+        "key": "financial.revenue_growth",
+        "value": 0.22,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.revenue_growth"
+      },
+      {
+        "id": "feature::financial.ar_turnover_days",
+        "type": "feature",
+        "key": "financial.ar_turnover_days",
+        "value": 65,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.ar_turnover_days"
+      },
+      {
+        "id": "peer_benchmark::C34::debt_ratio",
+        "type": "peer_benchmark",
+        "industry_code": "C34",
+        "metric": "debt_ratio",
+        "value": 0.52,
+        "source": "industry_baselines_v2.json#C34#debt_ratio_median"
+      },
+      {
+        "id": "peer_benchmark::C34::net_margin",
+        "type": "peer_benchmark",
+        "industry_code": "C34",
+        "metric": "net_margin",
+        "value": 0.06,
+        "source": "industry_baselines_v2.json#C34#net_margin_median"
+      },
+      {
+        "id": "peer_benchmark::C34::revenue_growth",
+        "type": "peer_benchmark",
+        "industry_code": "C34",
+        "metric": "revenue_growth",
+        "value": 0.08,
+        "source": "industry_baselines_v2.json#C34#revenue_growth_median"
+      },
+      {
+        "id": "peer_benchmark::C34::ar_turnover_days",
+        "type": "peer_benchmark",
+        "industry_code": "C34",
+        "metric": "ar_turnover_days",
+        "value": 72,
+        "source": "industry_baselines_v2.json#C34#ar_turnover_days_median"
+      },
+      {
+        "id": "peer_gap::debt_ratio",
+        "type": "peer_gap",
+        "metric": "debt_ratio",
+        "label": "资产负债率",
+        "feature_value": 0.42,
+        "peer_value": 0.52,
+        "gap": -0.1,
+        "unit": "ratio",
+        "direction": "below_peer",
+        "interpretation": "资产负债率低于（利好）同业中位 10.0pp"
+      },
+      {
+        "id": "peer_gap::net_margin",
+        "type": "peer_gap",
+        "metric": "net_margin",
+        "label": "净利率",
+        "feature_value": 0.11,
+        "peer_value": 0.06,
+        "gap": 0.05,
+        "unit": "ratio",
+        "direction": "above_peer",
+        "interpretation": "净利率高于（利好）同业中位 5.0pp"
+      },
+      {
+        "id": "peer_gap::revenue_growth",
+        "type": "peer_gap",
+        "metric": "revenue_growth",
+        "label": "营收增长率",
+        "feature_value": 0.22,
+        "peer_value": 0.08,
+        "gap": 0.14,
+        "unit": "ratio",
+        "direction": "above_peer",
+        "interpretation": "营收增长率高于（利好）同业中位 14.0pp"
+      },
+      {
+        "id": "peer_gap::ar_turnover_days",
+        "type": "peer_gap",
+        "metric": "ar_turnover_days",
+        "label": "应收账款周转天数",
+        "feature_value": 65,
+        "peer_value": 72,
+        "gap": -7,
+        "unit": "days",
+        "direction": "below_peer",
+        "interpretation": "应收账款周转天数低于（利好）同业中位 7 天"
+      },
+      {
+        "id": "score::financial",
+        "type": "score_dimension",
+        "dimension": "financial",
+        "score": 89,
+        "weight": 0.35,
+        "weighted": 31.15,
+        "source": "scoring_model_corporate.py::_score_financial",
+        "sub_scores": {
+          "资产负债率": 88,
+          "营收增长率": 92,
+          "净利率": 90,
+          "流动比率": 88,
+          "应收账款周转": 85,
+          "现金流质量": 88
+        }
+      },
+      {
+        "id": "score::industry",
+        "type": "score_dimension",
+        "dimension": "industry",
+        "score": 84,
+        "weight": 0.15,
+        "weighted": 12.6,
+        "source": "scoring_model_corporate.py::_score_industry",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::operational",
+        "type": "score_dimension",
+        "dimension": "operational",
+        "score": 88,
+        "weight": 0.25,
+        "weighted": 22.0,
+        "source": "scoring_model_corporate.py::_score_operational",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::guarantee",
+        "type": "score_dimension",
+        "dimension": "guarantee",
+        "score": 86,
+        "weight": 0.25,
+        "weighted": 21.5,
+        "source": "scoring_model_corporate.py::_score_guarantee",
+        "sub_scores": {}
+      }
     ],
     "edges": [
-      {"from": "feature::financial.debt_ratio", "to": "peer_benchmark::C34::debt_ratio", "type": "compared_to"},
-      {"from": "feature::financial.debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
-      {"from": "peer_benchmark::C34::debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
-      {"from": "feature::financial.net_margin", "to": "peer_benchmark::C34::net_margin", "type": "compared_to"},
-      {"from": "feature::financial.net_margin", "to": "peer_gap::net_margin", "type": "compared_to"},
-      {"from": "peer_benchmark::C34::net_margin", "to": "peer_gap::net_margin", "type": "compared_to"},
-      {"from": "feature::financial.revenue_growth", "to": "peer_benchmark::C34::revenue_growth", "type": "compared_to"},
-      {"from": "feature::financial.revenue_growth", "to": "peer_gap::revenue_growth", "type": "compared_to"},
-      {"from": "peer_benchmark::C34::revenue_growth", "to": "peer_gap::revenue_growth", "type": "compared_to"},
-      {"from": "feature::financial.ar_turnover_days", "to": "peer_benchmark::C34::ar_turnover_days", "type": "compared_to"},
-      {"from": "feature::financial.ar_turnover_days", "to": "peer_gap::ar_turnover_days", "type": "compared_to"},
-      {"from": "peer_benchmark::C34::ar_turnover_days", "to": "peer_gap::ar_turnover_days", "type": "compared_to"},
-      {"from": "feature::financial.debt_ratio", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.net_margin", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.revenue_growth", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.ar_turnover_days", "to": "score::financial", "type": "derived_from"},
-      {"from": "score::financial", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::industry", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::operational", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::guarantee", "to": "decision::final", "type": "evidenced_by"}
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "peer_benchmark::C34::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "peer_gap::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::C34::debt_ratio",
+        "to": "peer_gap::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "peer_benchmark::C34::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "peer_gap::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::C34::net_margin",
+        "to": "peer_gap::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "peer_benchmark::C34::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "peer_gap::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::C34::revenue_growth",
+        "to": "peer_gap::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "peer_benchmark::C34::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "peer_gap::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::C34::ar_turnover_days",
+        "to": "peer_gap::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "score::financial",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::industry",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::operational",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::guarantee",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      }
     ],
     "peer_gap_summary": {
-      "debt_ratio_gap": -0.10,
+      "debt_ratio_gap": -0.1,
       "net_margin_gap": 0.05,
       "revenue_growth_gap": 0.14,
       "ar_turnover_gap": -7

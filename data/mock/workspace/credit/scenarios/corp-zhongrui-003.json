@@ -57,7 +57,14 @@
     "FOUNDED_YEAR": "2017",
     "BUSINESS_QUALIFICATION_DESC": "已获 ISO27001 信息安全管理体系认证 + 软件企业资质,税务 B 级,涉诉 1 起,未有重大经营违法记录。",
     "BUSINESS_HISTORY_DESC": "公司成立于 2017 年,经过 9 年发展,目前已在企业级 SaaS 订阅服务领域形成稳定客户基础,SaaS ARR 占总营收 78%。",
-    "BUSINESS_STRATEGY_DESC": "采用 SaaS 订阅 + 大客户深耕的双轨战略,关联方中锐控股贡献 32% 营收,客户经理需补充未来 12 个月去关联化路径。"
+    "BUSINESS_STRATEGY_DESC": "采用 SaaS 订阅 + 大客户深耕的双轨战略,关联方中锐控股贡献 32% 营收,客户经理需补充未来 12 个月去关联化路径。",
+    "CLIENT_INDUSTRY_TAG": "互联网科技服务",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家高新技术企业",
+    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于企业级互联网科技服务的综合性高新技术企业,业务涵盖企业数字化解决方案、SaaS 平台运营、技术咨询等多个细分赛道。公司具备完整的产品研发与技术服务能力,已为多家中大型企业客户提供数字化转型方案,客户粘性较高,具备稳定的订阅与服务收入来源。",
+    "CLIENT_INDUSTRY_NARRATIVE": "企业级互联网科技服务是数字经济的核心组成部分,2022 年中国 B 端 SaaS 与企业服务市场规模超 8000 亿元。在企业数字化转型加速背景下,具备垂直行业 know-how、产品矩阵化能力的科技服务商,获得了较快的用户增长与稳定的订阅收入,行业整体处于上升通道。",
+    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2015 年的上海本地企业服务初创公司,经过 10 年技术积累与产品迭代,已成长为兼具行业方案能力与平台运营能力的综合性企业服务商,客户覆盖金融、制造、零售等多个垂直领域。",
+    "CLIENT_INDUSTRY_POSITION": "是长三角区域企业级互联网科技服务领先企业之一,具备国家高新技术企业资质,产品已落地于多家头部行业客户,在区域细分市场中具备较强的品牌认知度与客户粘性。",
+    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家高新技术企业证书、CMMI 3 级软件能力成熟度认证、ISO27001 信息安全管理体系认证,并拥有多项核心软件著作权与技术专利,具备完整的技术服务能力体系。"
   },
   "feature_done": {
     "financial.debt_ratio": 0.58,
@@ -95,8 +102,11 @@
       "can_waive": true,
       "severity": "medium",
       "actual_value": 0.32,
-      "threshold": 0.30,
-      "waiver_conditions": ["补充关联方独立审计意见", "披露未来 12 个月去关联化路径"]
+      "threshold": 0.3,
+      "waiver_conditions": [
+        "补充关联方独立审计意见",
+        "披露未来 12 个月去关联化路径"
+      ]
     },
     {
       "rule_id": "corp_rl_029",
@@ -106,7 +116,10 @@
       "severity": "medium",
       "actual_value": 140,
       "threshold": 120,
-      "waiver_conditions": ["前 5 大客户回款承诺函", "应收质押"]
+      "waiver_conditions": [
+        "前 5 大客户回款承诺函",
+        "应收质押"
+      ]
     }
   ],
   "case_matches": [
@@ -161,7 +174,11 @@
     "schema_version": "1.0.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
-    "appetite": {"segment": "corporate", "version": "default-2026-04", "client_id": ""},
+    "appetite": {
+      "segment": "corporate",
+      "version": "default-2026-04",
+      "client_id": ""
+    },
     "subject_name": "中锐网络科技 (上海) 有限公司",
     "segment": "corporate",
     "built_at": "2026-05-01T10:32:00",
@@ -175,56 +192,359 @@
       "composite_score": 64
     },
     "nodes": [
-      {"id": "decision::final", "type": "decision", "decision": "有条件批准", "approved_amount": 380, "approved_term_months": 18, "interest_rate": 0.0535, "rate_benchmark": "LPR+85BP", "risk_grade": "B", "composite_score": 64, "rationale_anchor": "软告警 2 条 + 评分定档 B → 有条件批准"},
-      {"id": "rule::corp_rl_022", "type": "rule", "rule_id": "corp_rl_022", "rule_name": "关联交易收入占比软红线", "threshold": 0.30, "operator": ">", "severity": "yellow", "version": "v3.1+default", "source": "red_line_rules_corporate.json#corp_rl_022"},
-      {"id": "rule_hit::corp_rl_022", "type": "rule_hit", "rule_id": "corp_rl_022", "actual": 0.32, "threshold": 0.30, "severity": "yellow", "can_waive": true, "description": "关联交易收入占比 32% · 超 30% 软红线 · 可豁免"},
-      {"id": "rule::corp_rl_029", "type": "rule", "rule_id": "corp_rl_029", "rule_name": "应收账款周转天数软红线", "threshold": 120, "operator": ">", "severity": "yellow", "version": "v3.1+default", "source": "red_line_rules_corporate.json#corp_rl_029"},
-      {"id": "rule_hit::corp_rl_029", "type": "rule_hit", "rule_id": "corp_rl_029", "actual": 140, "threshold": 120, "severity": "yellow", "can_waive": true, "description": "应收账款周转 140 天 · 超 120 天软红线 · 可豁免"},
-      {"id": "feature::external.related_party_pct", "type": "feature", "key": "external.related_party_pct", "value": 0.32, "source": "feature_extractor.py::_extract_corporate", "feature_path": "external.related_party_pct"},
-      {"id": "feature::financial.debt_ratio", "type": "feature", "key": "financial.debt_ratio", "value": 0.58, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.debt_ratio"},
-      {"id": "feature::financial.net_margin", "type": "feature", "key": "financial.net_margin", "value": 0.04, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.net_margin"},
-      {"id": "feature::financial.revenue_growth", "type": "feature", "key": "financial.revenue_growth", "value": 0.14, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.revenue_growth"},
-      {"id": "feature::financial.ar_turnover_days", "type": "feature", "key": "financial.ar_turnover_days", "value": 140, "source": "feature_extractor.py::_extract_corporate", "feature_path": "financial.ar_turnover_days"},
-      {"id": "peer_benchmark::I65::debt_ratio", "type": "peer_benchmark", "industry_code": "I65", "metric": "debt_ratio", "value": 0.45, "source": "industry_baselines_v2.json#I65#debt_ratio_median"},
-      {"id": "peer_benchmark::I65::net_margin", "type": "peer_benchmark", "industry_code": "I65", "metric": "net_margin", "value": 0.09, "source": "industry_baselines_v2.json#I65#net_margin_median"},
-      {"id": "peer_benchmark::I65::revenue_growth", "type": "peer_benchmark", "industry_code": "I65", "metric": "revenue_growth", "value": 0.15, "source": "industry_baselines_v2.json#I65#revenue_growth_median"},
-      {"id": "peer_benchmark::I65::ar_turnover_days", "type": "peer_benchmark", "industry_code": "I65", "metric": "ar_turnover_days", "value": 95, "source": "industry_baselines_v2.json#I65#ar_turnover_days_median"},
-      {"id": "peer_gap::debt_ratio", "type": "peer_gap", "metric": "debt_ratio", "label": "资产负债率", "feature_value": 0.58, "peer_value": 0.45, "gap": 0.13, "unit": "ratio", "direction": "above_peer", "interpretation": "资产负债率高于（不利）同业中位 13.0pp"},
-      {"id": "peer_gap::net_margin", "type": "peer_gap", "metric": "net_margin", "label": "净利率", "feature_value": 0.04, "peer_value": 0.09, "gap": -0.05, "unit": "ratio", "direction": "below_peer", "interpretation": "净利率低于（不利）同业中位 5.0pp"},
-      {"id": "peer_gap::revenue_growth", "type": "peer_gap", "metric": "revenue_growth", "label": "营收增长率", "feature_value": 0.14, "peer_value": 0.15, "gap": -0.01, "unit": "ratio", "direction": "below_peer", "interpretation": "营收增长率低于（不利）同业中位 1.0pp"},
-      {"id": "peer_gap::ar_turnover_days", "type": "peer_gap", "metric": "ar_turnover_days", "label": "应收账款周转天数", "feature_value": 140, "peer_value": 95, "gap": 45, "unit": "days", "direction": "above_peer", "interpretation": "应收账款周转天数高于（不利）同业中位 45 天"},
-      {"id": "score::financial", "type": "score_dimension", "dimension": "financial", "score": 58, "weight": 0.35, "weighted": 20.3, "source": "scoring_model_corporate.py::_score_financial", "sub_scores": {"资产负债率": 60, "营收增长率": 70, "净利率": 50, "流动比率": 60, "应收账款周转": 45, "现金流质量": 60}},
-      {"id": "score::industry", "type": "score_dimension", "dimension": "industry", "score": 72, "weight": 0.15, "weighted": 10.8, "source": "scoring_model_corporate.py::_score_industry", "sub_scores": {}},
-      {"id": "score::operational", "type": "score_dimension", "dimension": "operational", "score": 67, "weight": 0.25, "weighted": 16.75, "source": "scoring_model_corporate.py::_score_operational", "sub_scores": {}},
-      {"id": "score::guarantee", "type": "score_dimension", "dimension": "guarantee", "score": 59, "weight": 0.25, "weighted": 14.75, "source": "scoring_model_corporate.py::_score_guarantee", "sub_scores": {}}
+      {
+        "id": "decision::final",
+        "type": "decision",
+        "decision": "有条件批准",
+        "approved_amount": 380,
+        "approved_term_months": 18,
+        "interest_rate": 0.0535,
+        "rate_benchmark": "LPR+85BP",
+        "risk_grade": "B",
+        "composite_score": 64,
+        "rationale_anchor": "软告警 2 条 + 评分定档 B → 有条件批准"
+      },
+      {
+        "id": "rule::corp_rl_022",
+        "type": "rule",
+        "rule_id": "corp_rl_022",
+        "rule_name": "关联交易收入占比软红线",
+        "threshold": 0.3,
+        "operator": ">",
+        "severity": "yellow",
+        "version": "v3.1+default",
+        "source": "red_line_rules_corporate.json#corp_rl_022"
+      },
+      {
+        "id": "rule_hit::corp_rl_022",
+        "type": "rule_hit",
+        "rule_id": "corp_rl_022",
+        "actual": 0.32,
+        "threshold": 0.3,
+        "severity": "yellow",
+        "can_waive": true,
+        "description": "关联交易收入占比 32% · 超 30% 软红线 · 可豁免"
+      },
+      {
+        "id": "rule::corp_rl_029",
+        "type": "rule",
+        "rule_id": "corp_rl_029",
+        "rule_name": "应收账款周转天数软红线",
+        "threshold": 120,
+        "operator": ">",
+        "severity": "yellow",
+        "version": "v3.1+default",
+        "source": "red_line_rules_corporate.json#corp_rl_029"
+      },
+      {
+        "id": "rule_hit::corp_rl_029",
+        "type": "rule_hit",
+        "rule_id": "corp_rl_029",
+        "actual": 140,
+        "threshold": 120,
+        "severity": "yellow",
+        "can_waive": true,
+        "description": "应收账款周转 140 天 · 超 120 天软红线 · 可豁免"
+      },
+      {
+        "id": "feature::external.related_party_pct",
+        "type": "feature",
+        "key": "external.related_party_pct",
+        "value": 0.32,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "external.related_party_pct"
+      },
+      {
+        "id": "feature::financial.debt_ratio",
+        "type": "feature",
+        "key": "financial.debt_ratio",
+        "value": 0.58,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.debt_ratio"
+      },
+      {
+        "id": "feature::financial.net_margin",
+        "type": "feature",
+        "key": "financial.net_margin",
+        "value": 0.04,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.net_margin"
+      },
+      {
+        "id": "feature::financial.revenue_growth",
+        "type": "feature",
+        "key": "financial.revenue_growth",
+        "value": 0.14,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.revenue_growth"
+      },
+      {
+        "id": "feature::financial.ar_turnover_days",
+        "type": "feature",
+        "key": "financial.ar_turnover_days",
+        "value": 140,
+        "source": "feature_extractor.py::_extract_corporate",
+        "feature_path": "financial.ar_turnover_days"
+      },
+      {
+        "id": "peer_benchmark::I65::debt_ratio",
+        "type": "peer_benchmark",
+        "industry_code": "I65",
+        "metric": "debt_ratio",
+        "value": 0.45,
+        "source": "industry_baselines_v2.json#I65#debt_ratio_median"
+      },
+      {
+        "id": "peer_benchmark::I65::net_margin",
+        "type": "peer_benchmark",
+        "industry_code": "I65",
+        "metric": "net_margin",
+        "value": 0.09,
+        "source": "industry_baselines_v2.json#I65#net_margin_median"
+      },
+      {
+        "id": "peer_benchmark::I65::revenue_growth",
+        "type": "peer_benchmark",
+        "industry_code": "I65",
+        "metric": "revenue_growth",
+        "value": 0.15,
+        "source": "industry_baselines_v2.json#I65#revenue_growth_median"
+      },
+      {
+        "id": "peer_benchmark::I65::ar_turnover_days",
+        "type": "peer_benchmark",
+        "industry_code": "I65",
+        "metric": "ar_turnover_days",
+        "value": 95,
+        "source": "industry_baselines_v2.json#I65#ar_turnover_days_median"
+      },
+      {
+        "id": "peer_gap::debt_ratio",
+        "type": "peer_gap",
+        "metric": "debt_ratio",
+        "label": "资产负债率",
+        "feature_value": 0.58,
+        "peer_value": 0.45,
+        "gap": 0.13,
+        "unit": "ratio",
+        "direction": "above_peer",
+        "interpretation": "资产负债率高于（不利）同业中位 13.0pp"
+      },
+      {
+        "id": "peer_gap::net_margin",
+        "type": "peer_gap",
+        "metric": "net_margin",
+        "label": "净利率",
+        "feature_value": 0.04,
+        "peer_value": 0.09,
+        "gap": -0.05,
+        "unit": "ratio",
+        "direction": "below_peer",
+        "interpretation": "净利率低于（不利）同业中位 5.0pp"
+      },
+      {
+        "id": "peer_gap::revenue_growth",
+        "type": "peer_gap",
+        "metric": "revenue_growth",
+        "label": "营收增长率",
+        "feature_value": 0.14,
+        "peer_value": 0.15,
+        "gap": -0.01,
+        "unit": "ratio",
+        "direction": "below_peer",
+        "interpretation": "营收增长率低于（不利）同业中位 1.0pp"
+      },
+      {
+        "id": "peer_gap::ar_turnover_days",
+        "type": "peer_gap",
+        "metric": "ar_turnover_days",
+        "label": "应收账款周转天数",
+        "feature_value": 140,
+        "peer_value": 95,
+        "gap": 45,
+        "unit": "days",
+        "direction": "above_peer",
+        "interpretation": "应收账款周转天数高于（不利）同业中位 45 天"
+      },
+      {
+        "id": "score::financial",
+        "type": "score_dimension",
+        "dimension": "financial",
+        "score": 58,
+        "weight": 0.35,
+        "weighted": 20.3,
+        "source": "scoring_model_corporate.py::_score_financial",
+        "sub_scores": {
+          "资产负债率": 60,
+          "营收增长率": 70,
+          "净利率": 50,
+          "流动比率": 60,
+          "应收账款周转": 45,
+          "现金流质量": 60
+        }
+      },
+      {
+        "id": "score::industry",
+        "type": "score_dimension",
+        "dimension": "industry",
+        "score": 72,
+        "weight": 0.15,
+        "weighted": 10.8,
+        "source": "scoring_model_corporate.py::_score_industry",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::operational",
+        "type": "score_dimension",
+        "dimension": "operational",
+        "score": 67,
+        "weight": 0.25,
+        "weighted": 16.75,
+        "source": "scoring_model_corporate.py::_score_operational",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::guarantee",
+        "type": "score_dimension",
+        "dimension": "guarantee",
+        "score": 59,
+        "weight": 0.25,
+        "weighted": 14.75,
+        "source": "scoring_model_corporate.py::_score_guarantee",
+        "sub_scores": {}
+      }
     ],
     "edges": [
-      {"from": "rule::corp_rl_022", "to": "rule_hit::corp_rl_022", "type": "threshold_of"},
-      {"from": "rule::corp_rl_029", "to": "rule_hit::corp_rl_029", "type": "threshold_of"},
-      {"from": "feature::external.related_party_pct", "to": "rule_hit::corp_rl_022", "type": "triggered"},
-      {"from": "feature::financial.ar_turnover_days", "to": "rule_hit::corp_rl_029", "type": "triggered"},
-      {"from": "rule_hit::corp_rl_022", "to": "decision::final", "type": "caused"},
-      {"from": "rule_hit::corp_rl_029", "to": "decision::final", "type": "caused"},
-      {"from": "feature::financial.debt_ratio", "to": "peer_benchmark::I65::debt_ratio", "type": "compared_to"},
-      {"from": "feature::financial.debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
-      {"from": "peer_benchmark::I65::debt_ratio", "to": "peer_gap::debt_ratio", "type": "compared_to"},
-      {"from": "feature::financial.net_margin", "to": "peer_benchmark::I65::net_margin", "type": "compared_to"},
-      {"from": "feature::financial.net_margin", "to": "peer_gap::net_margin", "type": "compared_to"},
-      {"from": "peer_benchmark::I65::net_margin", "to": "peer_gap::net_margin", "type": "compared_to"},
-      {"from": "feature::financial.revenue_growth", "to": "peer_benchmark::I65::revenue_growth", "type": "compared_to"},
-      {"from": "feature::financial.revenue_growth", "to": "peer_gap::revenue_growth", "type": "compared_to"},
-      {"from": "peer_benchmark::I65::revenue_growth", "to": "peer_gap::revenue_growth", "type": "compared_to"},
-      {"from": "feature::financial.ar_turnover_days", "to": "peer_benchmark::I65::ar_turnover_days", "type": "compared_to"},
-      {"from": "feature::financial.ar_turnover_days", "to": "peer_gap::ar_turnover_days", "type": "compared_to"},
-      {"from": "peer_benchmark::I65::ar_turnover_days", "to": "peer_gap::ar_turnover_days", "type": "compared_to"},
-      {"from": "feature::financial.debt_ratio", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.net_margin", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.revenue_growth", "to": "score::financial", "type": "derived_from"},
-      {"from": "feature::financial.ar_turnover_days", "to": "score::financial", "type": "derived_from"},
-      {"from": "score::financial", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::industry", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::operational", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::guarantee", "to": "decision::final", "type": "evidenced_by"}
+      {
+        "from": "rule::corp_rl_022",
+        "to": "rule_hit::corp_rl_022",
+        "type": "threshold_of"
+      },
+      {
+        "from": "rule::corp_rl_029",
+        "to": "rule_hit::corp_rl_029",
+        "type": "threshold_of"
+      },
+      {
+        "from": "feature::external.related_party_pct",
+        "to": "rule_hit::corp_rl_022",
+        "type": "triggered"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "rule_hit::corp_rl_029",
+        "type": "triggered"
+      },
+      {
+        "from": "rule_hit::corp_rl_022",
+        "to": "decision::final",
+        "type": "caused"
+      },
+      {
+        "from": "rule_hit::corp_rl_029",
+        "to": "decision::final",
+        "type": "caused"
+      },
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "peer_benchmark::I65::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "peer_gap::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::I65::debt_ratio",
+        "to": "peer_gap::debt_ratio",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "peer_benchmark::I65::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "peer_gap::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::I65::net_margin",
+        "to": "peer_gap::net_margin",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "peer_benchmark::I65::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "peer_gap::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::I65::revenue_growth",
+        "to": "peer_gap::revenue_growth",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "peer_benchmark::I65::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "peer_gap::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "peer_benchmark::I65::ar_turnover_days",
+        "to": "peer_gap::ar_turnover_days",
+        "type": "compared_to"
+      },
+      {
+        "from": "feature::financial.debt_ratio",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.net_margin",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.revenue_growth",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "feature::financial.ar_turnover_days",
+        "to": "score::financial",
+        "type": "derived_from"
+      },
+      {
+        "from": "score::financial",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::industry",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::operational",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::guarantee",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      }
     ],
     "peer_gap_summary": {
       "debt_ratio_gap": 0.13,
