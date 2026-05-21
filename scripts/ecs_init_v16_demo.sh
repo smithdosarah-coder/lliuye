@@ -26,6 +26,19 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Python 解析器统一定义 · prefer .venv/bin/python (3.11+) > py launcher > system python3
+# 2026-05-21 治本: 原 `command -v py || python3` fallback 在 Linux 上 py 不存在 →
+# fallback 到系统 python3 (< 3.7 老版本) → v16_step1_extract.py 行 19
+# `from __future__ import annotations` SyntaxError. .venv/bin/python 是 3.11 是正解.
+if [ -x "$PROJECT_ROOT/.venv/bin/python" ]; then
+  PY="$PROJECT_ROOT/.venv/bin/python"
+elif command -v py >/dev/null 2>&1; then
+  PY=py
+else
+  PY=python3
+fi
+echo "[ecs_init] PY=$PY ($($PY --version 2>&1))"
+
 CLASSIFIED_JSON="$PROJECT_ROOT/outputs/v16_llm_classified.json"
 LABELED_JSON="$PROJECT_ROOT/outputs/v16_labeled_elements.json"
 FORCE=0
@@ -46,7 +59,6 @@ fi
 
 if [ ! -f "$LABELED_JSON" ]; then
   echo "[step 1/2] labeled_elements.json 缺失 · 跑 v16_step1_extract.py 生成"
-  if command -v py >/dev/null 2>&1; then PY=py; else PY=python3; fi
   "$PY" v16_step1_extract.py
   if [ ! -f "$LABELED_JSON" ]; then
     echo "[FATAL] v16_step1_extract.py 跑完 labeled_elements.json 仍缺失 · 检查 samples/*.docx"
@@ -57,7 +69,6 @@ else
 fi
 
 echo "[step 2/2] 跑 scripts/run_v16_classifier.py (调 DeepSeek · 预计 ≤ 5 min)"
-if command -v py >/dev/null 2>&1; then PY=py; else PY=python3; fi
 "$PY" scripts/run_v16_classifier.py
 
 if [ ! -f "$CLASSIFIED_JSON" ]; then
