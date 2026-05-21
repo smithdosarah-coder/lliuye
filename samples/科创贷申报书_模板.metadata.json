@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "created": "2026-05-21",
+  "docx_basename": "科创贷申报书_模板.docx",
+  "purpose": "v16 模板 placeholder 化 治本 Phase 3 worker 3 — skeleton 模板 placeholder 注入 (form 字段 ____ 槽位)",
+  "brief": "D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md",
+  "branch": "A (skeleton)",
+  "branch_rationale": "本 docx 为 '科技创新企业授信申报书(模板)' · basename 已显式标注 '模板' · 副标题 P1 写明 '本模板为脱敏教学版,所有字段均待业务方真实数据填入' · 全文 22 段全是 form 字段 + ____ 空槽 · 0 真客户名 + 0 法人 + 0 业务描述 · 不需要 SUBSTITUTIONS 路径 · 仅在 form 字段 P3/P5/P6/P16 注入 {{KEY}} 让 generator REPLACE handler 用 client_metadata 填值",
+
+  "original_client": {},
+
+  "client_metadata": {},
+
+  "placeholder_locations": {
+    "P3": ["CLIENT_FULL_NAME"],
+    "P5": ["CLIENT_ESTABLISHMENT_DATE", "CLIENT_REGISTERED_CAPITAL", "CLIENT_PAID_IN_CAPITAL"],
+    "P6": ["CLIENT_INDUSTRY_CATEGORY"],
+    "P16": ["CREDIT_AMOUNT", "CREDIT_EXPOSURE", "CREDIT_PERIOD"]
+  },
+
+  "out_of_scope": {
+    "checkbox_groups": "P6 '高新认定:[ ] 是 [ ] 否 · 科技型中小企业入库:[ ] 是 [ ] 否' · P18 '担保方式:[ ] 信用 [ ] 知识产权质押 [ ] 第三方担保 [ ] 抵押' · checkbox_tick handler 处理 · 不放 placeholder",
+    "rd_section_P7_P10": "二、研发情况 (近三年研发投入 / 研发投入强度 / 研发人员占比 / 发明专利数) · 科创贷特有数据 · 不在 canonical placeholder schema · 走 FILL handler 由 v16 pipeline 走 credit handoff payload 注入 (不放 placeholder)",
+    "finance_section_P11_P14": "三、财务情况 (营业收入 / 净利润 / 资产负债率 / 经营性现金流净额 · 三年数据) · 财务数字走 FILL/SLOT handler · facts pipeline 注入 · 不放 placeholder",
+    "narrative_P17_P21": "用途 / 还款来源 / 主要风险点 / 缓释措施 / 建议授信结论 / 前提条件 · narrative slots · 走 REWRITE handler · LLM + real client materials 重写 · 不放 placeholder",
+    "P4_credit_code": "统一社会信用代码 · 18 位字母数字串 · 不在 canonical placeholder schema · 走 FILL handler · 不放 placeholder",
+    "instruction_hints": "P1 '(本模板为脱敏教学版,所有字段均待业务方真实数据填入)' · P9 '(科创贷认定口径 ≥5%)' · PRESERVE handler · 不动",
+    "section_titles": "P0 标题 / P2/P7/P11/P15/P19 二级章节标题 · PRESERVE · 不动"
+  },
+
+  "rationale": {
+    "why_only_4_locations_8_keys": "skeleton 模板的核心价值是 form 结构 (章节 + 字段标签) · 不是 'jingwei docx 的真客户成稿' · 4 个 placeholder location 覆盖 form 主干字段 (企业名称 / 成立日期 / 注册资本 / 实缴资本 / 所属行业 / 申请综合授信 / 敞口 / 期限) · 其余 R&D / 财务 / 担保 / 风险 字段不在 canonical schema · 由 v16 pipeline FILL/SLOT/REWRITE handler 处理 · 不放 placeholder 保留 ____ 槽位让 classifier 识别为 SLOT",
+    "why_strip_trailing_units": "P5 / P16 原文有 '____ 万元' / '____ 个月' 等单位 · placeholder 化时单位归并到 placeholder value (兴业资管 client_metadata CREDIT_AMOUNT='5亿元' / CLIENT_REGISTERED_CAPITAL='195000万元' 单位 baked-in) · 模板文本去掉 trailing 单位 · 避免 '195000万元 万元' 双单位",
+    "why_skip_P4_credit_code": "统一社会信用代码 是 18 位字母数字标识 (eg 91110108MA01XXXXXX) · 不属于 client_metadata canonical schema 字段 (现有 schema 无 CLIENT_CREDIT_CODE / CLIENT_UNIFIED_CREDIT_CODE) · 不引入新 key (此 worker scope 是模板 placeholder 化 · 不动 framework) · 留 ____ 走 SLOT/FILL handler",
+    "why_skip_rd_finance_narrative": "本 worker scope 是 Phase 3 worker 3 placeholder 化模板 · 不动 framework 与 client_metadata schema · 新 placeholder key (CLIENT_RD_INVESTMENT_2024 / CLIENT_REVENUE_2024 等) 需要 schema 改动 + alias_map 改动 + credit handoff payload 改动 · 跨 worker scope · Phase 3 外的 Phase 4 (multi-客户 metadata 表) 应该处理这些字段 · 当前 worker 保守只动 canonical key",
+    "why_no_real_client_facts": "本 docx 副标题 P1 显式声明 '本模板为脱敏教学版,所有字段均待业务方真实数据填入' · 全文 0 真客户公司名 / 0 法人 / 0 业务描述 / 0 财务数值 (除 5% 科创贷认定口径常量) · 因此 original_client 为空字典 · client_metadata 也为空 (调用方 runtime 经 API 传入)",
+    "fallback_to_FALLBACK_CURRENT_CLIENT": "v16_step1_extract.load_client_for_template 在 sidecar.original_client 为空 dict 时会返回 fallback (_FALLBACK_CURRENT_CLIENT '中锐') · 不 break classifier prompt 上下文 · 但 placeholder 路径不依赖 CURRENT_CLIENT · 依赖 mats.client_metadata (runtime 传入)"
+  },
+
+  "vs_other_templates": {
+    "vs_经纬测绘_对公成稿A_docx": "经纬: 1023 element / 真客户成稿 / 56+ occurrence / 复杂多级股权 (Phase 2 pilot 模式 · 走 SUBSTITUTIONS + PARAGRAPH_OVERRIDES). 科创贷: 22 element / skeleton / 8 placeholder 命中 / 无 SUBSTITUTIONS (无真客户字面) · 与普惠骨架同 Branch A.",
+    "vs_兴业资管_对公成稿B_docx": "兴业资管: 141 location / 13 key / 真客户成稿 / 三级股权结构 (Phase 3 worker 1 · Branch B). 科创贷与之根本不同: form skeleton 没任何客户字面 · 不走 SUBSTITUTIONS.",
+    "vs_普惠申报书_骨架型_docx": "普惠: 495 element / 6 placeholder 命中 / 表格 form 结构 (Phase 3 worker 2 · Branch A skeleton). 科创贷: 22 element / 8 placeholder 命中 / 纯段落 form 结构 (无表格) · 同 Branch A · 数量级更小. 共同特点: original_client={} / client_metadata={} / 仅 PARAGRAPH_OVERRIDES (无 SUBSTITUTIONS).",
+    "structural_simplicity": "科创贷 22 段全 paragraph kind (无 table cell) · location 全是 P0..P21 · 因此 placeholder_locations 没有 T0R*C*P* prefix · 解析与改动都最简单"
+  }
+}
