@@ -87,8 +87,13 @@ def run_pipeline(
     material_dir: Path,
     classified_json: Path = DEFAULT_CLASSIFIED_JSON,
     output_dir: Path = OUTPUT_DIR,
+    client_metadata: dict | None = None,
 ) -> dict[str, Any]:
-    """跑 v16 全链路,返回聚合结果字典."""
+    """跑 v16 全链路,返回聚合结果字典.
+
+    2026-05-21 治本 Phase 1: ``client_metadata`` 透传到 ``generate()`` ·
+    驱动 placeholder REPLACE handler · None 时 generate 内部 fallback 老路径.
+    """
     from v16_generator import generate
 
     source_docx = Path(source_docx)
@@ -118,6 +123,7 @@ def run_pipeline(
         template_docx=source_docx,
         material_dir=material_dir,
         output_docx=output_docx,
+        client_metadata=client_metadata,
     )
 
     # Step 3: QC gate

@@ -894,6 +894,102 @@ def _section_batch_rewrite_once(
 
 
 # ────────────────────────────────────────────────────────────
+# Handler 6: placeholder_replace  (REPLACE/PLACEHOLDER)
+#   - 2026-05-21 治本 Phase 1 新增 · 处理 {{KEY}} placeholder
+#   - 在 mats.client_metadata 字典里查 KEY · 命中即替换 · 未命中保留原 {{KEY}} + pending
+#   - placeholder 格式: {{KEY}} 其中 KEY 大写字母 + 数字 + 下划线 (见 templates/placeholder-schema.json)
+# ────────────────────────────────────────────────────────────
+
+_PLACEHOLDER_KEY_RE = re.compile(r"\{\{([A-Z][A-Z0-9_]{1,40})\}\}")
+
+
+def placeholder_replace(elem, cls, mats) -> "GenResult":
+    """v16 模板 placeholder 化 治本 — 用 client_metadata 替换 {{KEY}}.
+
+    匹配规则:
+      - 文本含 1+ `{{KEY}}` 标记 (上游 prelabel/classifier 已识别)
+      - 对每个 KEY 在 mats.client_metadata 查值 (key 是 schema 定义的 placeholder name)
+      - 命中 → 整段替换 {{KEY}} → metadata[KEY] (保留 placeholder 周边文本)
+      - 未命中 → 保留原 {{KEY}} 原文 + 写 pending_tag (幻觉零容忍 红线)
+      - mats.client_metadata=None → 整段保留 + 全 placeholder pending
+    """
+    text = elem.text or ""
+    matches = list(_PLACEHOLDER_KEY_RE.finditer(text))
+    if not matches:
+        return GenResult(
+            location=elem.location,
+            action="keep",
+            debug="placeholder_replace: no {{KEY}} match (cls/text mismatch)",
+        )
+
+    metadata = getattr(mats, "client_metadata", None) or {}
+    new_text = text
+    missing_keys: list[str] = []
+    replaced_keys: list[str] = []
+    for m in matches:
+        key = m.group(1)
+        # 优先大写 key · 兼容 lower_case 同义 key (例如 client_full_name)
+        value = metadata.get(key)
+        if value is None:
+            value = metadata.get(key.lower())
+        if value is None and key.startswith("CLIENT_"):
+            # CLIENT_FULL_NAME → name / CLIENT_CORE_NAME → name_core 兜底 (sidecar original_client 简短 key)
+            alias_map = {
+                "CLIENT_FULL_NAME": "name",
+                "CLIENT_CORE_NAME": "name_core",
+                "CLIENT_LEGAL_REP": "legal_rep",
+                "CLIENT_INDUSTRY_CATEGORY": "industry",
+                "CLIENT_INDUSTRY_FULL": "industry",
+                "CLIENT_BUSINESS_DESC": "business",
+                "CLIENT_BUSINESS_SCOPE": "business",
+                "CLIENT_REGISTERED_CAPITAL": "registered_capital",
+                "CLIENT_LOCATION_CITY": "location",
+                "CLIENT_REGISTERED_ADDRESS": "location",
+                "CLIENT_OPERATING_ADDRESS": "location",
+            }
+            alias = alias_map.get(key)
+            if alias:
+                value = metadata.get(alias)
+        if value is None or str(value).strip() == "":
+            missing_keys.append(key)
+            continue
+        new_text = new_text.replace(m.group(0), str(value))
+        replaced_keys.append(key)
+
+    if missing_keys and not replaced_keys:
+        # 全部 placeholder 都未命中 → keep 原 text + pending
+        return GenResult(
+            location=elem.location,
+            action="keep",
+            pending_tag={
+                "location": elem.location,
+                "reason": f"client_metadata 缺 placeholder: {', '.join(missing_keys[:5])}",
+                "text": text[:80],
+                "suggested_action": "credit handoff payload 补 client_metadata 字段 (key 见 templates/placeholder-schema.json)",
+            },
+            debug=f"placeholder_replace: all-miss ({len(missing_keys)} keys)",
+        )
+
+    pending = None
+    if missing_keys:
+        pending = {
+            "location": elem.location,
+            "reason": f"client_metadata 部分缺 placeholder: {', '.join(missing_keys[:5])}",
+            "text": text[:80],
+            "suggested_action": "credit handoff payload 补缺失 metadata key",
+        }
+
+    return GenResult(
+        location=elem.location,
+        action="fill",
+        new_text=new_text,
+        pending_tag=pending,
+        debug=f"placeholder_replace: {len(replaced_keys)} replaced "
+              f"{'+' + str(len(missing_keys)) + ' missed' if missing_keys else ''}",
+    )
+
+
+# ────────────────────────────────────────────────────────────
 # 路由表(唯一真源)
 # (op, label) → handler
 # Step 2 先覆盖确定性路径;REWRITE 和 SLOT 用 _not_impl 占位
@@ -918,6 +1014,8 @@ OP_LABEL_HANDLERS: dict[tuple[str, str], Callable] = {
     ("FILL", "SLOT"): multi_slot_decompose,
     # REWRITE
     ("REWRITE", "REWRITE"): _not_impl,  # Step 4
+    # REPLACE (2026-05-21 治本 Phase 1 · placeholder 化)
+    ("REPLACE", "PLACEHOLDER"): placeholder_replace,
 }
 
 

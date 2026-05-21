@@ -33,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from v16_step1_extract import (
     CURRENT_CLIENT, Element, SAMPLES_DIR, SECTION_NUM_RES, extract_elements,
+    load_client_for_template,  # 2026-05-21 治本 Phase 1 · per-docx sidecar metadata
 )
 from llm import LLMClient
 from config import CLASSIFIER_PROVIDER, CLASSIFIER_TEMPERATURE
@@ -105,7 +106,7 @@ SYSTEM_PROMPT = """你是银行信贷报告"模板元素分类器"。
 你要为每个 element 判断它在报告生成流水线中应归属的操作类型。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【3 种操作 op — 必须从下面三者中二选一或三选一】
+【4 种操作 op — 必须从下面四者中选一】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • PRESERVE — 逐字保留原文不动。
   - 章节标题 / 章节编号 / 字段名标签 / 表头 / 单位说明 / 指引文字
@@ -120,20 +121,28 @@ SYSTEM_PROMPT = """你是银行信贷报告"模板元素分类器"。
   - 正文段落、分析段、评价段、趋势描述、业务论述
   - 例: "公司主营智慧水利系统集成...该领域行业景气度持续提升"
 
+• REPLACE — 2026-05-21 治本 Phase 1 新增 · 文本含 `{{KEY}}` placeholder 占位符的整段。
+  - 例: "{{CLIENT_FULL_NAME}}维持{{CREDIT_AMOUNT}}综合授信额度的授信报告"
+  - generator 走 placeholder REPLACE handler 用 client_metadata 替换 (不调 LLM, 也不 PRESERVE)
+  - 命中即 op=REPLACE label=PLACEHOLDER (高优先级 · 早于 SCAFFOLD/FILL/REWRITE 判别)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【7 类细分 label — 用于下游路由决策】
+【8 类细分 label — 用于下游路由决策】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• SCAFFOLD  (op=PRESERVE) — 骨架性保留:章节号/标题/字段标签/表头
-• PRESERVE  (op=PRESERVE) — 说明性指引:"如涉及...""注:""备注:"
-• FILL      (op=FILL)     — 有明确对应客户数据的字段取值(无对应材料时值为空)
-• CLEAR     (op=FILL)     — 示例性但客户无对应数据(PD评级/申报单位/绿色信贷/银行方字段),清空+pending
-• SLOT      (op=FILL)     — 纯占位符(下划线/连续空格/"(面积等)")
-• CHECKBOX  (op=FILL)     — 复选框字段 "□XX;□YY" 结构,执行是勾/叉而非填值或清空
-• REWRITE   (op=REWRITE)  — 叙述段落重写
+• SCAFFOLD    (op=PRESERVE) — 骨架性保留:章节号/标题/字段标签/表头
+• PRESERVE    (op=PRESERVE) — 说明性指引:"如涉及...""注:""备注:"
+• FILL        (op=FILL)     — 有明确对应客户数据的字段取值(无对应材料时值为空)
+• CLEAR       (op=FILL)     — 示例性但客户无对应数据(PD评级/申报单位/绿色信贷/银行方字段),清空+pending
+• SLOT        (op=FILL)     — 纯占位符(下划线/连续空格/"(面积等)")
+• CHECKBOX    (op=FILL)     — 复选框字段 "□XX;□YY" 结构,执行是勾/叉而非填值或清空
+• REWRITE     (op=REWRITE)  — 叙述段落重写
+• PLACEHOLDER (op=REPLACE)  — 含 `{{KEY}}` placeholder 标记的整段 · 走 metadata 替换 (治本 Phase 1)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【判别规则 — 按优先级应用】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0. **文本含 `{{KEY}}` 形式占位符 (KEY 是大写字母 + 下划线, 如 `{{CLIENT_FULL_NAME}}`, `{{CREDIT_AMOUNT}}`)
+   → op=REPLACE label=PLACEHOLDER (最高优先级 · 早于其他规则)**
 1. 独立行是"(一)1.①※"等章节编号/标题 → SCAFFOLD
 2. 样式是 Heading/标题 N → SCAFFOLD
 3. 文本**含 □ 或 ☐ 字符**(哪怕只有一个)→ CHECKBOX(执行逻辑:勾选符合客户的,其余打叉;不是清空)
@@ -191,7 +200,20 @@ confidence 取值说明:
   0.8+  : 规则适用,但有轻微噪声
   0.6+  : 存在歧义,凭 section 上下文判断
   <0.6  : 很不确定,标记 review
-""".replace("%CLIENT_PROFILE%", json.dumps(CURRENT_CLIENT, ensure_ascii=False, indent=2))
+"""
+# SYSTEM_PROMPT 保留 %CLIENT_PROFILE% 占位 · build_system_prompt() 动态注入 (Phase 1 治本 · per-docx 切档案)
+
+
+def build_system_prompt(client_profile: dict | None = None) -> str:
+    """注入当前 client_profile 到 SYSTEM_PROMPT (Phase 1 治本 · per-docx sidecar 切档案).
+
+    client_profile=None 时 fallback to 模块全局 CURRENT_CLIENT (旧路径兼容).
+    """
+    profile = client_profile if isinstance(client_profile, dict) and client_profile else CURRENT_CLIENT
+    return SYSTEM_PROMPT.replace(
+        "%CLIENT_PROFILE%",
+        json.dumps(profile, ensure_ascii=False, indent=2),
+    )
 
 
 def _fmt_element_for_prompt(i: int, e: dict, section: list[str]) -> str:
@@ -284,7 +306,12 @@ def main():
     t0 = time.time()
 
     for src, items in grouped.items():
-        print(f"\n[classifier] === processing {src}: {len(items)} elements ===")
+        # 2026-05-21 Phase 1: per-docx sidecar 切 client profile · build_system_prompt 注入
+        src_path = SAMPLES_DIR / src
+        per_docx_client = load_client_for_template(src_path)
+        per_docx_prompt = build_system_prompt(per_docx_client)
+        print(f"\n[classifier] === processing {src}: {len(items)} elements "
+              f"(client={per_docx_client.get('name', '?')}) ===")
         for start in range(0, len(items), BATCH_SIZE):
             batch = items[start:start + BATCH_SIZE]
             batch_no = start // BATCH_SIZE + 1
@@ -293,7 +320,7 @@ def main():
             print(f"  batch {batch_no}/{total_batches} (size={len(batch)})...", end=" ", flush=True)
             try:
                 resp = llm.chat_json(
-                    SYSTEM_PROMPT, user_msg,
+                    per_docx_prompt, user_msg,
                     temperature=CLASSIFIER_TEMPERATURE,
                     max_retries=2,
                 )

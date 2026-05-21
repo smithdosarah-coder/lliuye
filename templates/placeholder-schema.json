@@ -1,0 +1,257 @@
+{
+  "version": "1.0",
+  "created": "2026-05-21",
+  "description": "v16 模板 placeholder 化 治本 Phase 1 schema · 用于 v16_step1_extract 读 sidecar metadata + v16_generator REPLACE op 填值",
+  "syntax": {
+    "marker": "{{KEY}}",
+    "note": "全角空格不影响匹配; cross-run 字符串拆分需 placeholder 整段位于单一 run 内 (Phase 2 改 docx 时按 paragraph-level 整段替换保证)"
+  },
+  "fields": [
+    {
+      "key": "CLIENT_FULL_NAME",
+      "type": "string",
+      "required": true,
+      "description": "客户企业全称",
+      "example": "鼎盛商贸有限公司"
+    },
+    {
+      "key": "CLIENT_CORE_NAME",
+      "type": "string",
+      "required": true,
+      "description": "客户核心简称 (用于报告内简写)",
+      "example": "鼎盛"
+    },
+    {
+      "key": "CLIENT_LEGAL_REP",
+      "type": "string",
+      "required": false,
+      "description": "法定代表人姓名",
+      "example": "张三"
+    },
+    {
+      "key": "CLIENT_USCC",
+      "type": "string",
+      "required": false,
+      "description": "统一社会信用代码",
+      "example": "91310000XXXXXXXXXX"
+    },
+    {
+      "key": "CLIENT_ESTABLISHMENT_DATE",
+      "type": "string",
+      "required": false,
+      "description": "成立日期 (年-月-日 或中文日期)",
+      "example": "2015年3月15日"
+    },
+    {
+      "key": "CLIENT_REGISTERED_CAPITAL",
+      "type": "string",
+      "required": false,
+      "description": "注册资本 (含单位)",
+      "example": "2000万元"
+    },
+    {
+      "key": "CLIENT_PAID_IN_CAPITAL",
+      "type": "string",
+      "required": false,
+      "description": "实收资本 (含单位)",
+      "example": "2000万元"
+    },
+    {
+      "key": "CLIENT_REGISTERED_ADDRESS",
+      "type": "string",
+      "required": false,
+      "description": "注册地址 (含省市区)",
+      "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
+    },
+    {
+      "key": "CLIENT_OPERATING_ADDRESS",
+      "type": "string",
+      "required": false,
+      "description": "经营地址 (可与注册地址同)",
+      "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
+    },
+    {
+      "key": "CLIENT_LOCATION_CITY",
+      "type": "string",
+      "required": false,
+      "description": "城市/简称 (用于行文叙述)",
+      "example": "上海"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_FULL",
+      "type": "string",
+      "required": false,
+      "description": "所属行业全称 (国标门类-大类)",
+      "example": "批发和零售业-批发业"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_CODE",
+      "type": "string",
+      "required": false,
+      "description": "国标行业代码",
+      "example": "F51"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_CATEGORY",
+      "type": "string",
+      "required": false,
+      "description": "行业分类 (我行投向政策对应行业)",
+      "example": "批发和零售业"
+    },
+    {
+      "key": "CLIENT_BUSINESS_SCOPE",
+      "type": "string",
+      "required": false,
+      "description": "主要产品和服务内容 / 经营范围",
+      "example": "高端日化品批发;美容护肤品零售;化妆品技术开发;品牌连锁运营。"
+    },
+    {
+      "key": "CLIENT_BUSINESS_DESC",
+      "type": "string",
+      "required": false,
+      "description": "主营业务一句话描述 (行文用)",
+      "example": "主营高端日化品批发与连锁零售"
+    },
+    {
+      "key": "CLIENT_BACKGROUND",
+      "type": "string",
+      "required": false,
+      "description": "企业背景 / 母公司关系 / 所属集团 (1-3 句叙述)",
+      "example": "上海重点商贸企业,沪东商贸集团权属子公司"
+    },
+    {
+      "key": "CLIENT_PARENT_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "description": "母公司全称 (若无填空字符串)",
+      "example": "沪东商贸集团有限公司"
+    },
+    {
+      "key": "CLIENT_PARENT_SHORT_NAME",
+      "type": "string",
+      "required": false,
+      "description": "母公司简称 / 行文别名 (若无填空字符串)",
+      "example": "沪东商贸"
+    },
+    {
+      "key": "CLIENT_GROUP_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "description": "祖父级集团全称 (二级母公司 · 经纬测绘 docx 出现 · 多层股权结构)",
+      "example": "沪东资本控股集团有限公司"
+    },
+    {
+      "key": "CLIENT_GROUP_SHORT_NAME",
+      "type": "string",
+      "required": false,
+      "description": "祖父级集团简称 / 行文别名",
+      "example": "沪东资本"
+    },
+    {
+      "key": "CLIENT_LONG_CORE_NAME",
+      "type": "string",
+      "required": false,
+      "description": "客户长简称 (4-6 字 · 介于全称和单字 core 之间 · 如 '经纬数字科技')",
+      "example": "鼎盛商贸"
+    },
+    {
+      "key": "CLIENT_OPERATING_YEARS",
+      "type": "string",
+      "required": false,
+      "description": "经营年数 (含单位)",
+      "example": "8 年"
+    },
+    {
+      "key": "CLIENT_EMPLOYEE_COUNT",
+      "type": "string",
+      "required": false,
+      "description": "员工人数 (含单位)",
+      "example": "350 人"
+    },
+    {
+      "key": "CLIENT_SHAREHOLDER_PRIMARY",
+      "type": "string",
+      "required": false,
+      "description": "主要股东名称",
+      "example": "沪东商贸集团有限公司"
+    },
+    {
+      "key": "CLIENT_SHARE_PCT_PRIMARY",
+      "type": "string",
+      "required": false,
+      "description": "主要股东持股比例",
+      "example": "100%"
+    },
+    {
+      "key": "CREDIT_AMOUNT",
+      "type": "string",
+      "required": false,
+      "description": "综合授信额度 (含单位)",
+      "example": "5000 万元"
+    },
+    {
+      "key": "CREDIT_EXPOSURE",
+      "type": "string",
+      "required": false,
+      "description": "授信敞口 (含单位)",
+      "example": "4500 万元"
+    },
+    {
+      "key": "CREDIT_PERIOD",
+      "type": "string",
+      "required": false,
+      "description": "授信期限",
+      "example": "一年"
+    },
+    {
+      "key": "PD_RATING",
+      "type": "string",
+      "required": false,
+      "description": "我行 PD 评级",
+      "example": "5"
+    },
+    {
+      "key": "INDUSTRY_POLICY_GUIDANCE",
+      "type": "string",
+      "required": false,
+      "description": "我行行业投向指引",
+      "example": "总体适度进入"
+    },
+    {
+      "key": "FOUNDED_YEAR",
+      "type": "string",
+      "required": false,
+      "description": "成立年份 (短形式 · 用于段落叙述)",
+      "example": "2015"
+    },
+    {
+      "key": "BUSINESS_QUALIFICATION_DESC",
+      "type": "string",
+      "required": false,
+      "description": "资质 / 认证叙述 (1-3 句)",
+      "example": "已获得 ISO9001 认证、品牌运营 A 级资质、连续 3 年纳税信用 A 级。"
+    },
+    {
+      "key": "BUSINESS_HISTORY_DESC",
+      "type": "string",
+      "required": false,
+      "description": "公司发展沿革叙述 (1-3 句)",
+      "example": "公司成立于 2015 年,经过 8 年深耕,目前已成为长三角区域日化品批发领先品牌之一。"
+    },
+    {
+      "key": "BUSINESS_STRATEGY_DESC",
+      "type": "string",
+      "required": false,
+      "description": "经营战略 / 子公司布局 / 集团化叙述 (可空)",
+      "example": "采用品牌矩阵 + 渠道下沉的双轮战略,在长三角 6 城设有运营子公司。"
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "保留 {{KEY}} placeholder 原文",
+    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。"
+  },
+  "compatibility": {
+    "fallback_when_no_metadata": "v16_step1_extract.py 走老 CURRENT_CLIENT 常量 (中锐 hardcode) · 不 break 现有 5 个 DP001-005 sample fixture",
+    "feature_flag": "client_metadata=None 时走旧逻辑 · 显式传 dict 时走 placeholder REPLACE 路径"
+  }
+}

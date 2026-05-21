@@ -42,8 +42,8 @@ DEFAULT_CLASSIFIED_JSON = OUTPUT_DIR / "v16_llm_classified.json"
 class Classification:
     """单个 element 的分类结果."""
     location: str
-    op: str           # PRESERVE / FILL / REWRITE
-    label: str        # SCAFFOLD / PRESERVE / FILL / CLEAR / SLOT / CHECKBOX / REWRITE
+    op: str           # PRESERVE / FILL / REWRITE / REPLACE (2026-05-21 治本 Phase 1 新增 REPLACE)
+    label: str        # SCAFFOLD / PRESERVE / FILL / CLEAR / SLOT / CHECKBOX / REWRITE / PLACEHOLDER
     confidence: float
     justification: str = ""
 
@@ -54,6 +54,9 @@ class Materials:
 
     Step 1 仅作为占位;KB / financial / anchors 的实际加载在 Step 2+ 接入.
     body_gaps: Step 5 预处理,location → gap_info 映射,用于 SCAFFOLD 注入提示。
+    client_metadata: 2026-05-21 治本 Phase 1 新增 — v16 模板 placeholder 化的
+        当前客户档案 (key 见 templates/placeholder-schema.json) · REPLACE op handler
+        从此读 placeholder 替换值 · None 时 placeholder 整段保留原文 + 写 pending_tag.
     """
     file_contents: dict[str, str] = field(default_factory=dict)
     kb: dict[str, Any] = field(default_factory=dict)
@@ -61,6 +64,7 @@ class Materials:
     anchors: dict[str, Any] = field(default_factory=dict)
     index: Any = None
     body_gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
+    client_metadata: dict[str, Any] | None = None
 
     @property
     def facts(self) -> dict[str, Any]:
@@ -499,11 +503,20 @@ def generate(
     template_docx: Path,
     material_dir: Path | None,
     output_docx: Path,
+    client_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """V16 主入口:按 classifier 路由处理所有 element,写回 docx.
 
     Step 2 范围: PRESERVE/*、FILL/FILL、FILL/CLEAR、FILL/CHECKBOX 走确定性 handler;
                  FILL/SLOT、REWRITE/REWRITE 暂走 _not_impl(保留原状).
+
+    2026-05-21 治本 Phase 1:
+      - client_metadata 可选 dict (key 见 templates/placeholder-schema.json) —
+        驱动 REPLACE op handler 替换 `{{KEY}}` placeholder.
+      - client_metadata=None → 走旧路径 (CURRENT_CLIENT hardcode + 老 docx 模板)
+        不 break 现有 5 个 sample fixture
+      - 若模板含 placeholder 但 client_metadata 缺对应 key,该 placeholder 整段保留
+        原文 + 写 pending_tag (符合 "幻觉零容忍 · 字段填不了标 未能自动填写")
     """
     # 延迟 import handler(它依赖 v16_generator 的 GenResult)
     from v16_op_handlers import dispatch, section_batch_rewrite
@@ -512,6 +525,27 @@ def generate(
     classifications = load_classifier_output(classified_json)
     doc, elements, section_by_loc = load_template(template_docx)
     mats = load_materials(material_dir)
+
+    # 2026-05-21 治本 Phase 1: client_metadata 优先级 — 显式参数 > sidecar > None
+    if client_metadata is None:
+        sidecar = template_docx.with_suffix(".metadata.json")
+        if sidecar.is_file():
+            try:
+                _data = json.loads(sidecar.read_text(encoding="utf-8"))
+                # original_client 用作 metadata 兜底值的 source (Phase 2 经纬测绘 sidecar 结构)
+                # 真实生产路径 client_metadata 应该从 credit handoff payload 来
+                if isinstance(_data, dict):
+                    client_metadata = _data.get("client_metadata") or _data.get("original_client")
+                    if client_metadata is not None and not isinstance(client_metadata, dict):
+                        client_metadata = None
+            except (OSError, ValueError):
+                client_metadata = None
+    mats.client_metadata = client_metadata
+    if client_metadata:
+        print(f"  client_metadata: {len(client_metadata)} 字段 "
+              f"(client={client_metadata.get('CLIENT_FULL_NAME') or client_metadata.get('name', '?')})")
+    else:
+        print("  client_metadata: None (走旧路径 · placeholder 保留原文)")
     # classifier 是按 sampled elements 产出的,面对新模板会有大批 element
     # 没有分类落位(location 不匹配)。兜底策略:
     #   - 超短(<4 ch) 或纯符号/分隔:PRESERVE/PRESERVE (原样保留)
@@ -529,7 +563,25 @@ def generate(
     import re as _re
     # "XX:" 或 "XX：" 结尾的字段标签(单槽或多槽)
     _label_pat = _re.compile(r"^([\u4e00-\u9fff（）()0-9A-Za-z、/ -]{2,40})\s*[:：]\s*$")
-    fb_stats = {"preserve": 0, "fill": 0, "slot": 0, "rewrite": 0, "upgrade": 0}
+    fb_stats = {"preserve": 0, "fill": 0, "slot": 0, "rewrite": 0, "upgrade": 0, "placeholder": 0}
+
+    # ───────────────────────────────────────────────────────────────
+    # 治本 · 全量 deterministic placeholder pre-pass (2026-05-21 codex R1 抓的根因 3 闭环)
+    # ───────────────────────────────────────────────────────────────
+    # 问题: classifier 只 sample 235/1023 element,未采样的含 {{KEY}} element 会被
+    #       下面 fallback 路径错路由到 PRESERVE,原文输出字面 "{{CLIENT_FULL_NAME}}".
+    # 治本: deterministic regex 扫全量 element,含 {{KEY}} 立即标 REPLACE/PLACEHOLDER
+    #       (不依赖 LLM / sampled flag · 强制覆盖已分类即使 classifier 误分 PRESERVE).
+    _placeholder_re = _re.compile(r"\{\{([A-Z_]+)\}\}")
+    for e in elements:
+        text = (e.text or "")
+        if _placeholder_re.search(text):
+            classifications[e.location] = Classification(
+                location=e.location, op="REPLACE", label="PLACEHOLDER",
+                confidence=1.0,
+                justification="deterministic placeholder pre-pass · 全量 regex 识别 {{KEY}}"
+            )
+            fb_stats["placeholder"] += 1
 
     # Pre-pass: 现有 PRESERVE/SCAFFOLD 若文本是已知字段标签(如"客户名称：")且 KB
     # 有对应值,上调为 FILL/FILL。分类器会把只写了标签的短段判为 SCAFFOLD,

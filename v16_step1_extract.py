@@ -12,9 +12,17 @@ table cell 作为 element,按(source × type × structure_feature)分层抽样 2
   REWRITE   — 正文段落,LLM 基于当前客户材料整段重写
   SLOT      — 下划线/占位槽位,按有无数据决定 FILL/CLEAR
   PRESERVE  — 说明性指引文本,保留不动
+  PLACEHOLDER — v16 模板 placeholder 化 治本: 文本含 `{{KEY}}` 占位符,
+                generator 走 REPLACE op 用 client_metadata 替换 (Phase 1+ 新增)
 
-假想的"当前客户":福建中锐网络股份有限公司(黄祖海实控,智慧水利+智慧教育,
-注册资本 4100 万,2025 年营收 10010 万)
+"当前客户"档案 (CURRENT_CLIENT) 加载策略 (2026-05-21 治本 Phase 1):
+  1. 优先读 samples/<docx_stem>.metadata.json sidecar 的 original_client 字段
+     (Phase 2+ 经纬测绘等模板已 placeholder 化时,sidecar 提供真实客户档案
+     供 classifier prompt context + featurize 当前客户词识别)
+  2. fallback 到旧 hardcode "中锐" (兼容现有 5 个 sample fixture / 5 个 docx)
+     避免 break 老路径 — placeholder 化是 docx-by-docx 渐进迁移,不是 big-bang
+
+v16 模板 placeholder 化治本 brief: D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md
 """
 from __future__ import annotations
 
@@ -27,7 +35,9 @@ from docx import Document
 SAMPLES_DIR = Path(__file__).parent / "samples"
 OUT_PATH = Path(__file__).parent / "outputs" / "v16_labeled_elements.json"
 
-CURRENT_CLIENT = {
+# Fallback CURRENT_CLIENT (旧 hardcode · 兼容兜底)
+# 真实生产路径应该走 sidecar metadata (Phase 2+) — 5 个 docx 全 placeholder 化后此常量可删除
+_FALLBACK_CURRENT_CLIENT = {
     "name": "福建中锐网络股份有限公司",
     "name_core": "中锐",
     "legal_rep": "黄祖海",
@@ -36,6 +46,44 @@ CURRENT_CLIENT = {
     "registered_capital": "4100万元",
     "location": "福州",
 }
+
+
+def load_client_for_template(docx_path: Path) -> dict:
+    """加载 docx 模板对应的 "当前客户" 档案 (用于 classifier prompt + featurize 当前客户词).
+
+    优先级:
+      1. samples/<docx_stem>.metadata.json sidecar 的 ``original_client`` 字段
+      2. fallback _FALLBACK_CURRENT_CLIENT (中锐 hardcode · 老路径兼容)
+
+    返回:
+      dict 含 keys: name / name_core / legal_rep / industry / business /
+                    registered_capital / location
+
+    Phase 1 设计 (与 brief §3 一致):
+      - 不传 docx_path 时返 fallback (向后兼容)
+      - sidecar 存在但缺字段时,从 fallback 补齐 (避免 KeyError)
+    """
+    if docx_path is None:
+        return dict(_FALLBACK_CURRENT_CLIENT)
+    sidecar = Path(docx_path).with_suffix(".metadata.json")
+    if not sidecar.is_file():
+        return dict(_FALLBACK_CURRENT_CLIENT)
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return dict(_FALLBACK_CURRENT_CLIENT)
+    original = data.get("original_client") or {}
+    if not isinstance(original, dict):
+        return dict(_FALLBACK_CURRENT_CLIENT)
+    # 缺字段补齐 (avoid KeyError downstream)
+    merged = dict(_FALLBACK_CURRENT_CLIENT)
+    merged.update({k: str(v) for k, v in original.items() if v is not None})
+    return merged
+
+
+# 全局 CURRENT_CLIENT (向后兼容 · 模块 import 期默认 fallback · runtime 可 reload)
+# v16_classifier / v16_step1_extract main 都从此取 · 切 sidecar 走 load_client_for_template
+CURRENT_CLIENT = dict(_FALLBACK_CURRENT_CLIENT)
 
 # ─────────────────────────────────────────────────────────────
 # Element 抽取
@@ -237,6 +285,13 @@ def featurize(e: Element) -> tuple[list[str], dict]:
     if e.in_table and e.is_header_row:
         feats.append("table_header")
 
+    # v16 模板 placeholder 化治本 Phase 1: {{KEY}} 标记
+    # 用 (?:^|[^{]) 边界避免 {{{ 误命中 · 用非贪婪保证一段含多个 {{X}}{{Y}} 全捕获
+    _ph_matches = re.findall(r"\{\{([A-Z][A-Z0-9_]{1,40})\}\}", text)
+    if _ph_matches:
+        feats.append("has_placeholder_marker")
+        info["placeholder_keys"] = _ph_matches[:10]
+
     # 长段(正文)
     if len(text) > 80 and not feats:
         feats.append("long_narrative")
@@ -255,6 +310,12 @@ def prelabel(e: Element, feats: list[str], info: dict) -> tuple[str, float, str]
     # 1. 空段或只标点,不处理
     if not e.text.strip():
         return "PRESERVE", 0.9, "空文本"
+
+    # 1.5 v16 模板 placeholder 化 治本: {{KEY}} 标记一律 PLACEHOLDER (高置信)
+    #     classifier prompt 同样按此规则识别 · generator REPLACE op 处理
+    if "has_placeholder_marker" in feats:
+        keys = info.get("placeholder_keys", [])
+        return "PLACEHOLDER", 0.98, f"含 placeholder {keys}"
 
     # 2. 标题/章节编号 → SCAFFOLD(高置信)
     if "heading_style" in feats:
@@ -385,9 +446,20 @@ def stratified_sample(elements: list[Element], target_per_source: int = 70) -> l
 # ─────────────────────────────────────────────────────────────
 
 def main():
+    # 2026-05-21 治本 Phase 1: CURRENT_CLIENT 改成 per-docx 加载 sidecar
+    # 走 load_client_for_template 拿真实客户档案 (旧 sample fallback 到中锐)
+    global CURRENT_CLIENT, CURRENT_CORE_WORDS
     all_elements: list[Element] = []
     for f in sorted(SAMPLES_DIR.glob("*.docx")):
         print(f"[extract] {f.name}")
+        # 切换当前客户档案 (sidecar > fallback)
+        CURRENT_CLIENT = load_client_for_template(f)
+        # 重建 CURRENT_CORE_WORDS (featurize 用此判定"非外来公司")
+        CURRENT_CORE_WORDS = [
+            CURRENT_CLIENT["name_core"], CURRENT_CLIENT["legal_rep"],
+            "汉鼎", "青云", "海沃", "康恩慧", "陈其俤",
+        ]
+        print(f"  当前客户档案: {CURRENT_CLIENT.get('name')} (core={CURRENT_CLIENT.get('name_core')})")
         elems = extract_elements(f)
         print(f"  抽取 {len(elems)} 个 element")
         for e in elems:

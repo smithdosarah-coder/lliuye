@@ -480,6 +480,11 @@ class V16FillRequest(BaseModel):
     classified_json: str = ""     # 默认走 outputs/v16_llm_classified.json
     business_line: str = "corporate"
     mock: bool = False            # explicit mock = true → 走 mock_v16_stream
+    # 2026-05-21 治本 Phase 1: v16 模板 placeholder 化 client_metadata
+    # 优先级: 显式参数 > sample sidecar (DP00X/scenarios) > docx sidecar (original_client)
+    # 字段 key 见 templates/placeholder-schema.json (CLIENT_FULL_NAME 等)
+    # 真实生产路径: credit handoff payload 含此 dict, channel 上游传递
+    client_metadata: dict | None = None
 
 
 @app.post("/api/report/v16/fill")
@@ -582,6 +587,18 @@ async def report_v16_fill(
             )
             return
         try:
+            # 2026-05-21 治本 Phase 1: client_metadata 优先级 · 显式 req > sidecar resolve (template_adapter)
+            resolved_metadata = req.client_metadata
+            if resolved_metadata is None:
+                # 从 sample sidecar 解析 · 兜底走 template_adapter (Phase 4 补充 metadata)
+                try:
+                    from agent_report.template_adapter import resolve_client_metadata
+                    resolved_metadata = resolve_client_metadata(
+                        source_docx=source_docx,
+                        material_dir=material_dir,
+                    )
+                except (ImportError, AttributeError):
+                    resolved_metadata = None
             async for evt in fill_stream(
                 report_id=report_id,
                 source_docx=source_docx,
@@ -589,6 +606,7 @@ async def report_v16_fill(
                 classified_json=classified_json,
                 output_dir=output_dir,
                 explicit_mock=bool(req.mock),
+                client_metadata=resolved_metadata,
             ):
                 yield evt
         except Exception as e:
@@ -1037,6 +1055,9 @@ _SAMPLE_ID_RE = re.compile(r"^DP\d{3}_[一-鿿A-Za-z0-9_\-]+$")
 
 class ReportDemoRunRequest(BaseModel):
     sample_id: str = "DP001_龙峰精工"  # data/mock/deep-pillar/<sample_id>/ 优质 batch
+    # 2026-05-21 治本 Phase 1: 显式覆盖 client_metadata (placeholder 替换值)
+    # None 时 resolve_client_metadata 从 sample_id 推断 (Phase 4 + DP001-005 sidecar metadata)
+    client_metadata: dict | None = None
 
 
 @app.post("/api/report/demo/run")
@@ -1145,6 +1166,18 @@ async def report_demo_run(
         status = "ok"
         err: str | None = None
         try:
+            # 2026-05-21 治本 Phase 1: client_metadata 优先级 · 显式 > sample sidecar > docx sidecar
+            resolved_metadata = req.client_metadata
+            if resolved_metadata is None:
+                try:
+                    from agent_report.template_adapter import resolve_client_metadata
+                    resolved_metadata = resolve_client_metadata(
+                        source_docx=source_docx,
+                        material_dir=sample_dir,
+                        sample_id=req.sample_id,
+                    )
+                except (ImportError, AttributeError):
+                    resolved_metadata = None
             async for evt in fill_stream(
                 report_id=report_id,
                 source_docx=source_docx,
@@ -1152,6 +1185,7 @@ async def report_demo_run(
                 classified_json=classified_json,
                 output_dir=output_dir,
                 explicit_mock=False,  # PM 真意: demo = 真后端跑 · 不切 mock
+                client_metadata=resolved_metadata,
             ):
                 yield evt
         except Exception as e:

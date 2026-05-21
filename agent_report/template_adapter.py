@@ -183,6 +183,105 @@ def detect_template(path: str | Path) -> TemplateProfile:
 
 
 # ============================================================================
+# 2026-05-21 治本 Phase 1: client_metadata 解析 · placeholder 化路径专用
+# ============================================================================
+
+
+def _load_json_if_exists(path: Path) -> dict | None:
+    """读 path 的 JSON 文件 (失败/不存在返 None)."""
+    try:
+        if not path or not Path(path).is_file():
+            return None
+        import json
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return None
+        return data
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _normalize_metadata_keys(raw: dict) -> dict:
+    """归一 metadata key 命名 (sidecar 用 lower-case · placeholder schema 用 UPPER_CASE).
+
+    输入可能是 original_client {name, name_core, legal_rep, registered_capital, ...}
+    或 client_metadata {CLIENT_FULL_NAME, CLIENT_CORE_NAME, ...}
+    · 返回 hybrid dict 同时含两种 key (上层 placeholder_replace 用 alias_map 兜底).
+    """
+    if not isinstance(raw, dict):
+        return {}
+    out = dict(raw)  # 保留原 key
+    # 反向 alias map: lower-case → UPPER_CASE (与 placeholder_replace alias_map 同源 inverse)
+    inverse_alias = {
+        "name": "CLIENT_FULL_NAME",
+        "name_core": "CLIENT_CORE_NAME",
+        "legal_rep": "CLIENT_LEGAL_REP",
+        "industry": "CLIENT_INDUSTRY_CATEGORY",
+        "business": "CLIENT_BUSINESS_DESC",
+        "registered_capital": "CLIENT_REGISTERED_CAPITAL",
+        "location": "CLIENT_LOCATION_CITY",
+    }
+    for lk, uk in inverse_alias.items():
+        if lk in raw and uk not in out:
+            out[uk] = raw[lk]
+    return out
+
+
+def resolve_client_metadata(
+    *,
+    source_docx: Path | None = None,
+    material_dir: Path | None = None,
+    sample_id: str | None = None,
+    credit_handoff_payload: dict | None = None,
+) -> dict | None:
+    """解析 client_metadata · placeholder 替换值的多源合并.
+
+    优先级 (高 → 低):
+      1. credit_handoff_payload (channel → credit → report 跨 agent handoff 主链)
+      2. material_dir 内 client_metadata.json (Phase 4 · DP00X sample 每个 sample 配一份)
+      3. source_docx 的 .metadata.json sidecar 的 original_client 字段
+         (Phase 2 模板 placeholder 化时配 · 同时作 docx 真实客户档案兜底)
+
+    返回:
+      dict (含 UPPER_CASE placeholder key + lower-case alias key) 或 None (全无源)
+
+    设计:
+      - 老路径 / 老 docx 未 placeholder 化 → 返 None · generator 走旧逻辑不 break
+      - placeholder 化 docx 无 handoff 时 → 拿 docx sidecar original_client 兜底
+        (报告生成的还是"经纬测绘"自己的客户,与原 docx 字面一致 · 不产生 mismatch)
+    """
+    # 1. credit_handoff_payload
+    if credit_handoff_payload and isinstance(credit_handoff_payload, dict):
+        cm = credit_handoff_payload.get("client_metadata")
+        if isinstance(cm, dict) and cm:
+            return _normalize_metadata_keys(cm)
+
+    # 2. material_dir / sample_id 的 client_metadata.json
+    if material_dir:
+        m_path = Path(material_dir) / "client_metadata.json"
+        data = _load_json_if_exists(m_path)
+        if isinstance(data, dict):
+            cm = data.get("client_metadata") if "client_metadata" in data else data
+            if isinstance(cm, dict) and cm:
+                return _normalize_metadata_keys(cm)
+
+    # 3. source_docx sidecar
+    if source_docx:
+        sidecar = Path(source_docx).with_suffix(".metadata.json")
+        data = _load_json_if_exists(sidecar)
+        if isinstance(data, dict):
+            cm = data.get("client_metadata")
+            if isinstance(cm, dict) and cm:
+                return _normalize_metadata_keys(cm)
+            # 兜底: original_client (Phase 2 sidecar 主字段 · docx 真实客户档案)
+            oc = data.get("original_client")
+            if isinstance(oc, dict) and oc:
+                return _normalize_metadata_keys(oc)
+
+    return None
+
+
+# ============================================================================
 # 批量扫描(用于回归 baseline 报告)
 # ============================================================================
 

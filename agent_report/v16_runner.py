@@ -161,14 +161,21 @@ def _load_profile_for_real(report_id: str) -> dict:
 async def mock_v16_stream(
     *,
     report_id: str,
-    source_docx: str = "samples/经纬测绘_对公成稿A.docx",
+    source_docx: str | None = None,
     pretend_pass: bool = True,
+    client_metadata: dict | None = None,
 ) -> AsyncIterator[str]:
     """v16 mock SSE 流 · 用于测试 + empty-state demo.
 
     输出 5 阶段假进度 + 1 个假 done payload。**不**真跑 v16_pipeline。
     empty-state-design-protocol 要求 demo 显式标 · done event 含 mock_pipeline=true。
+
+    2026-05-21 治本 Phase 1:
+      - source_docx=None 时不再 hardcode 经纬测绘 · 由 caller (api.py) 显式传入
+      - client_metadata 可选 · 用于 mock payload 中的 profile (后续 Phase 5 与真路径打通)
     """
+    if source_docx is None:
+        source_docx = "samples/经纬测绘_对公成稿A.docx"  # 仅 mock fallback (兼容)
     messages = {
         STAGE_INGEST: "材料解析(mock) · 0 / 0 真材料",
         STAGE_EXTRACT: "v16_classifier 路由复用(mock 跳过 LLM)",
@@ -358,6 +365,7 @@ def _run_v16_in_thread(
     classified_json: Path,
     output_dir: Path,
     emit: "queue.Queue[str]",
+    client_metadata: dict | None = None,
 ) -> None:
     """工作线程 · 真跑 v16_pipeline.run_pipeline · 把 stage/done/error push 队列.
 
@@ -422,6 +430,7 @@ def _run_v16_in_thread(
                 material_dir=material_dir,
                 classified_json=classified_json,
                 output_dir=output_dir,
+                client_metadata=client_metadata,  # 2026-05-21 治本 Phase 1
             )
         except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             traceback.print_exc()
@@ -593,8 +602,12 @@ async def real_v16_stream(
     material_dir: Path,
     classified_json: Path,
     output_dir: Path,
+    client_metadata: dict | None = None,
 ) -> AsyncIterator[str]:
-    """真路径 SSE 流 · 启动后台线程 · 主协程从队列消费."""
+    """真路径 SSE 流 · 启动后台线程 · 主协程从队列消费.
+
+    2026-05-21 治本 Phase 1: client_metadata 透传到 _run_v16_in_thread → run_pipeline → generate.
+    """
     emit: "queue.Queue[str]" = queue.Queue()
     worker = threading.Thread(
         target=_run_v16_in_thread,
@@ -604,6 +617,7 @@ async def real_v16_stream(
             classified_json=classified_json,
             output_dir=output_dir,
             emit=emit,
+            client_metadata=client_metadata,
         ),
         daemon=True,
     )
@@ -660,8 +674,13 @@ async def fill_stream(
     classified_json: Path,
     output_dir: Path,
     explicit_mock: bool = False,
+    client_metadata: dict | None = None,
 ) -> AsyncIterator[str]:
-    """v16 fill 主入口 · 自动选 mock / real."""
+    """v16 fill 主入口 · 自动选 mock / real.
+
+    2026-05-21 治本 Phase 1: client_metadata 透传 · 驱动 placeholder REPLACE.
+    None 时 generate 内部 fallback sidecar 或 老路径.
+    """
     has_key = bool(os.environ.get("DEEPSEEK_API_KEY", "").strip())
     use_mock, reason = should_use_mock_v16(
         classified_json=classified_json,
@@ -673,15 +692,19 @@ async def fill_stream(
         async for evt in mock_v16_stream(
             report_id=report_id,
             source_docx=str(source_docx),
+            client_metadata=client_metadata,
         ):
             yield evt
     else:
-        logger.warning("[v16_runner] real path · classified=%s", classified_json)
+        logger.warning("[v16_runner] real path · classified=%s · "
+                       "client_metadata=%s", classified_json,
+                       "yes" if client_metadata else "no")
         async for evt in real_v16_stream(
             source_docx=source_docx,
             material_dir=material_dir,
             classified_json=classified_json,
             output_dir=output_dir,
+            client_metadata=client_metadata,
         ):
             yield evt
 
