@@ -1,0 +1,53 @@
+# Pre-commit hooks · 防 future regression (Liu Ye D Phase 5 retroactive 防御)
+#
+# 集成 3 个 lint script:
+#   1. docx-residue-check · byte-level diff (commit 22bc76f · 替代 keyword 黑名单)
+#   2. schema-v1-1-check  · placeholder-schema.json 6 项硬规则 (commit 10fa2bb)
+#   3. css-universal-override-check · idle-tight v1/v2 命名 cover (commit 22b7653)
+#
+# 用法:
+#   pip install pre-commit
+#   pre-commit install                  # 一次性 install git hook
+#   pre-commit run --all-files          # 手动全量跑
+#   git commit                          # 自动 trigger (改了 docx / schema / css 时)
+#
+# 跳过 (debug only · 不推荐):
+#   SKIP=docx-residue-check git commit ...
+#   git commit --no-verify ...          # 全跳
+#
+# 与 CI 关系:
+#   pre-commit hook = 本地早警 · CI workflow (.github/workflows/lint.yml) = 阻断 PR
+#   两层冗余 · 防 dev 漏跑 / 改 hook 配置
+
+repos:
+  - repo: local
+    hooks:
+      # ─── 1. Docx placeholder residue (byte-level diff) ────────────────
+      # 改了 samples/*.docx 或 samples/*.metadata.json 时 trigger
+      # FAIL 阈值: HIGH > 0 OR MED > 0 · LOW 仅 pattern 兜底 (不阻断)
+      - id: docx-residue-check
+        name: docx placeholder residue check (byte-level diff)
+        entry: python scripts/lint/liuye_docx_residue_check.py
+        language: system
+        files: ^samples/.*\.(docx|metadata\.json)$
+        pass_filenames: false
+
+      # ─── 2. Schema v1.1 health check ──────────────────────────────────
+      # 改了 placeholder-schema.json 时 trigger
+      # FAIL 阈值: 任一 C1-C6 检查未过即 exit 1
+      - id: schema-v1-1-check
+        name: placeholder-schema.json v1.1 health (C1-C6 硬规则)
+        entry: python scripts/lint/liuye_schema_v1_1_check.py
+        language: system
+        files: ^templates/placeholder-schema\.json$
+        pass_filenames: false
+
+      # ─── 3. CSS universal override v1/v2 cover ────────────────────────
+      # 改了 idle-tight.css 或 workspace tsx 时 trigger
+      # FAIL 阈值: workspace 用 v1 但 idle-tight 只 cover v2 (反之同理)
+      - id: css-universal-override-check
+        name: idle-tight.css universal override v1/v2 cover
+        entry: bash scripts/lint/css_universal_override_check.sh
+        language: system
+        files: ^web/src/app/archive/.*\.(css|tsx)$
+        pass_filenames: false
