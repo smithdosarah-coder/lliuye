@@ -10,6 +10,10 @@
  *   - 任何 fallback 到 mock / [object] / null / "未知" / `data-mode="mock"` = fail
  *
  * 跟 admin-channel.spec.ts (demo medium 路径 · input-mode-sample) 完全互补.
+ *
+ * NOTE: codex R2 R2.1 #3 strict assertion ·
+ * channel 历来就是 6 spec 里最严的 (data-mode=live + ≥ 1 候选 + 4 字段 + 占位拒) ·
+ * 本次仅补 body 无 MOCK / fallback 字样 (跟其他 5 spec 统一 silent 降级阻 spec).
  */
 import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS } from "./_shared";
 
@@ -65,5 +69,12 @@ test.describe("B.4 SLO-2 主活 A · admin 真号 · channel realtime", () => {
       body,
       "页面含 fallback banner (Tavily key 缺 / 0 命中 fallback)",
     ).not.toMatch(/Tavily key 缺|TavilyClient init 失败|5 路 0 命中/);
+
+    // codex R2 R2.1 #3 strict · body 不允许 MOCK / mock fake / fallback 字样
+    // (silent 降级 阻 spec · Q-055 §4 后端默认假数据混跑红线)
+    expect(
+      body,
+      "页面含 MOCK / mock fake / fallback · backend silent 降级",
+    ).not.toMatch(/\bMOCK\b|mock fake|fallback/i);
   });
 });
