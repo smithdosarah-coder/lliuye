@@ -51,8 +51,22 @@ class AuditLogMiddleware:
             return
 
         path = scope.get("path", "")
+        # ROI #5 · 即使 path 不在 audit_paths 也要 set contextvar (decorator/stream_helpers
+        # 用 contextvar 拿 e2e_run_id) · 否则 /api/auth/login 等非 audit_paths 的 LLM
+        # endpoint 拿不到 run_id. 早 set 早覆盖整个 request 生命周期.
+        run_id = _extract_e2e_run_id_from_scope(scope)
+        ctx_token = None
+        if run_id:
+            from .recorder import e2e_run_id_var
+            ctx_token = e2e_run_id_var.set(run_id)
+
         if not any(path.startswith(p) for p in self.audit_paths):
-            await self.app(scope, receive, send)
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                if ctx_token is not None:
+                    from .recorder import e2e_run_id_var
+                    e2e_run_id_var.reset(ctx_token)
             return
 
         t0 = time.time()
@@ -89,10 +103,41 @@ class AuditLogMiddleware:
                         model="middleware",
                         latency_ms=latency_ms,
                         error=err,
+                        # e2e_run_id 由 record() 从 contextvar 自动拿
                     ),
                 )
             except Exception as audit_err:  # noqa: BLE001
                 logger.warning("[audit_service] middleware record failed: %s", audit_err)
+            # ROI #5 · reset contextvar (避免泄漏到下一个 request · 仅同协程影响 ·
+            # 但严谨起见显式 reset · 防 starlette 复用 task 时残留)
+            if ctx_token is not None:
+                try:
+                    from .recorder import e2e_run_id_var
+                    e2e_run_id_var.reset(ctx_token)
+                except Exception:  # noqa: BLE001
+                    pass
+
+
+def _extract_e2e_run_id_from_scope(scope: Any) -> str | None:
+    """从 ASGI scope.headers 取 ``X-Liuye-E2E-Run-Id`` (lower-case · bytes pair list).
+
+    ROI #5 · 本 header 由 daily-visual.yml admin-e2e job E2E 触发时注入 ·
+    生产 cloudflare/nginx 不应 strip 自定义 header (实测 X-Forwarded-* 全透传) ·
+    若被 strip 则 record 写 NULL · 不阻塞业务. 见 e2e-slo-2-contract.md §3.6.
+    """
+    headers = scope.get("headers") or []
+    target = b"x-liuye-e2e-run-id"
+    for name, value in headers:
+        if isinstance(name, bytes) and name.lower() == target:
+            try:
+                v = value.decode("latin-1") if isinstance(value, bytes) else str(value)
+                # sanitize: 仅允许 alphanumeric + - · 防 SQL/log injection · GH run_id
+                # 仅为数字 string · 实战传 "local" / "12345" / "test-foo" 即可
+                v = "".join(ch for ch in v if ch.isalnum() or ch in "-_.")
+                return v[:64] or None  # 防超长 · 截 64
+            except (UnicodeDecodeError, AttributeError):
+                return None
+    return None
 
 
 def _default_agent_resolver(path: str) -> str:

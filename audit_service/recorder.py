@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """audit_service.recorder — sqlite store + LLMCall dataclass + cost / truncate utils.
 
-Schema (per W-E1-A1 onboarding):
+Schema (per W-E1-A1 onboarding · ROI #5 2026-05-21 加 e2e_run_id 列):
     CREATE TABLE llm_calls (
       id INTEGER PRIMARY KEY,
       ts TEXT NOT NULL,            -- ISO 8601
@@ -15,16 +15,25 @@ Schema (per W-E1-A1 onboarding):
       output_tokens INTEGER,
       cost_cny REAL,
       latency_ms INTEGER,
-      error TEXT
+      error TEXT,
+      encryption_marker TEXT,      -- Stage E.3 PIPL · null=plain · "aes-gcm-256"=encrypted
+      e2e_run_id TEXT              -- ROI #5 · GitHub Actions run_id 串联证据链 · null=非 CI 流量
     );
     CREATE INDEX idx_user_ts ON llm_calls(user_id, ts);
     CREATE INDEX idx_agent_ts ON llm_calls(agent_id, ts);
+    CREATE INDEX idx_e2e_run_id ON llm_calls(e2e_run_id) WHERE e2e_run_id IS NOT NULL;
 
 Truncate: prompt 4 KB · response 8 KB · 防 sqlite 膨胀。
 Cost 估算: tokens × 0.0001 RMB (各 model 单价后续 config 化)。
+
+ROI #5 (2026-05-21 · E2E 证据链):
+  e2e_run_id ContextVar 由 AuditLogMiddleware 从 ``X-Liuye-E2E-Run-Id`` HTTP header
+  设置 · ``record()`` 若 LLMCall.e2e_run_id 未填则自动从 contextvar 取 · daily-visual
+  workflow 用 ``GET /api/audit/by_run_id/{run_id}`` 拉证据链 artifact.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 import sqlite3
@@ -33,6 +42,14 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# ROI #5 · GitHub Actions run_id contextvar (跨 middleware/decorator/stream_helpers 共享)
+# - Middleware (AuditLogMiddleware) 解 X-Liuye-E2E-Run-Id header 后 set
+# - record() 默认从这里取 (LLMCall.e2e_run_id 优先 · 显式注入覆盖 ctx)
+# - 非 CI 流量 (header 缺) → None → 写 NULL · 老 audit 行向后兼容
+e2e_run_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "audit_e2e_run_id", default=None,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +75,24 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   cost_cny REAL,
   latency_ms INTEGER,
   error TEXT,
-  encryption_marker TEXT  -- Stage E.3 PIPL · null=plain · "aes-gcm-256"=encrypted
+  encryption_marker TEXT,  -- Stage E.3 PIPL · null=plain · "aes-gcm-256"=encrypted
+  e2e_run_id TEXT          -- ROI #5 · GitHub Actions run_id · null=非 CI 流量
 );
 CREATE INDEX IF NOT EXISTS idx_user_ts ON llm_calls(user_id, ts);
 CREATE INDEX IF NOT EXISTS idx_agent_ts ON llm_calls(agent_id, ts);
+-- idx_e2e_run_id 在 ALTER TABLE 之后单独建 · 避免老 db 走 _SCHEMA_SQL 时
+-- table 已存在但 e2e_run_id 列没加上 · CREATE INDEX 立即抓 no such column 炸
 """
 
 # Stage E.3 PIPL · 兼容已存在 db (不含 encryption_marker 列) · ALTER TABLE ADD COLUMN
 _MIGRATE_ADD_ENCRYPTION_MARKER = (
     "ALTER TABLE llm_calls ADD COLUMN encryption_marker TEXT"
+)
+
+# ROI #5 (2026-05-21) · 兼容已存在 db (不含 e2e_run_id 列) · ALTER TABLE ADD COLUMN
+# sqlite ADD COLUMN 不锁全表 · 即跑即就绪 · 老行 e2e_run_id=NULL 向后兼容
+_MIGRATE_ADD_E2E_RUN_ID = (
+    "ALTER TABLE llm_calls ADD COLUMN e2e_run_id TEXT"
 )
 
 
@@ -86,6 +112,8 @@ class LLMCall:
     cost_cny: float | None = None
     latency_ms: int | None = None
     error: str | None = None
+    # ROI #5 · GitHub Actions run_id (X-Liuye-E2E-Run-Id header) · null=非 CI 流量
+    e2e_run_id: str | None = None
     id: int | None = None  # set by sqlite after insert
 
     def to_dict(self) -> dict[str, Any]:
@@ -142,6 +170,20 @@ class AuditRecorder:
             except sqlite3.OperationalError:
                 # 列已存在 · ignore
                 pass
+            # ROI #5 · 兼容已存在 db (Stage E.1/E.3 创的 · 不含 e2e_run_id)
+            try:
+                conn.execute(_MIGRATE_ADD_E2E_RUN_ID)
+            except sqlite3.OperationalError:
+                # 列已存在 · ignore
+                pass
+            # ROI #5 · 兼容已存在 db · idx_e2e_run_id 即跑即就绪
+            try:
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_e2e_run_id "
+                    "ON llm_calls(e2e_run_id)",
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
     def record(self, call: LLMCall) -> int:
@@ -149,6 +191,8 @@ class AuditRecorder:
 
         Stage E.3 PIPL · ENCRYPT_AT_REST=true 时 prompt/response 走 AES-GCM 加密 ·
         encryption_marker 标 'aes-gcm-256' · query() 自动解密.
+
+        ROI #5 · LLMCall.e2e_run_id 未填时从 contextvar 取 (middleware 已 set).
         """
         # 应用 truncate (调用方可能传超长 prompt/response)
         prompt = truncate_text(call.prompt, PROMPT_MAX_BYTES)
@@ -165,6 +209,13 @@ class AuditRecorder:
             cost_cny = estimate_cost_cny(
                 call.input_tokens, call.output_tokens, model=call.model,
             )
+        # ROI #5 · e2e_run_id 优先级: LLMCall.e2e_run_id (显式注入) > contextvar (middleware set)
+        e2e_run_id = call.e2e_run_id
+        if e2e_run_id is None:
+            try:
+                e2e_run_id = e2e_run_id_var.get()
+            except LookupError:
+                e2e_run_id = None
         try:
             with self._lock, sqlite3.connect(self.db_path) as conn:
                 cur = conn.execute(
@@ -173,14 +224,15 @@ class AuditRecorder:
                       ts, user_id, agent_id, endpoint, model,
                       prompt, response,
                       input_tokens, output_tokens, cost_cny,
-                      latency_ms, error, encryption_marker
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      latency_ms, error, encryption_marker, e2e_run_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         call.ts, call.user_id, call.agent_id, call.endpoint,
                         call.model, prompt_stored, response_stored,
                         call.input_tokens, call.output_tokens, cost_cny,
                         call.latency_ms, call.error, encryption_marker,
+                        e2e_run_id,
                     ),
                 )
                 conn.commit()
@@ -198,10 +250,14 @@ class AuditRecorder:
         agent_id: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        e2e_run_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        """查询审计记录 · 默认按 ts desc · paginated."""
+        """查询审计记录 · 默认按 ts desc · paginated.
+
+        ROI #5 · e2e_run_id 过滤: 拿单次 GitHub Actions run 的全部 audit (含 6 agent).
+        """
         clauses: list[str] = []
         params: list[Any] = []
         if user_id is not None:
@@ -216,11 +272,15 @@ class AuditRecorder:
         if until is not None:
             clauses.append("ts < ?")
             params.append(until)
+        if e2e_run_id is not None:
+            clauses.append("e2e_run_id = ?")
+            params.append(e2e_run_id)
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = (
             f"SELECT id, ts, user_id, agent_id, endpoint, model, prompt, response, "
-            f"input_tokens, output_tokens, cost_cny, latency_ms, error, encryption_marker "
+            f"input_tokens, output_tokens, cost_cny, latency_ms, error, "
+            f"encryption_marker, e2e_run_id "
             f"FROM llm_calls {where} "
             f"ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
         )
@@ -251,6 +311,7 @@ class AuditRecorder:
         agent_id: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        e2e_run_id: str | None = None,
     ) -> int:
         """同 query · 仅返 count."""
         clauses: list[str] = []
@@ -267,6 +328,9 @@ class AuditRecorder:
         if until is not None:
             clauses.append("ts < ?")
             params.append(until)
+        if e2e_run_id is not None:
+            clauses.append("e2e_run_id = ?")
+            params.append(e2e_run_id)
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         sql = f"SELECT COUNT(*) AS n FROM llm_calls {where}"
         try:
@@ -320,6 +384,7 @@ def query_calls(
     agent_id: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    e2e_run_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
     recorder: AuditRecorder | None = None,
@@ -329,17 +394,76 @@ def query_calls(
     items = rec.query(
         user_id=user_id, agent_id=agent_id,
         since=since, until=until,
+        e2e_run_id=e2e_run_id,
         limit=limit, offset=offset,
     )
     total = rec.count(
         user_id=user_id, agent_id=agent_id,
         since=since, until=until,
+        e2e_run_id=e2e_run_id,
     )
     return {
         "items": items,
         "total": total,
         "limit": int(limit),
         "offset": int(offset),
+    }
+
+
+# ============================================================================
+# ROI #5 · E2E 证据链 export helper (daily-visual workflow 调)
+# ============================================================================
+
+def query_by_run_id(
+    run_id: str,
+    *,
+    limit: int = 1000,
+    offset: int = 0,
+    recorder: AuditRecorder | None = None,
+) -> dict[str, Any]:
+    """按 GitHub Actions run_id 拉单次 cron run 的全部 audit 记录.
+
+    Args:
+        run_id: ``X-Liuye-E2E-Run-Id`` header (= ``${{ github.run_id }}``)
+        limit: 单次最多返 ≤ 5000 (防 artifact 爆 · admin E2E 14 spec × 6 agent
+            × ~5 call ≈ 420 record · 加 SSE 中间记录撑死 ~2000 · 5000 留 buffer)
+        offset: 分页
+
+    Returns:
+        ``{
+            run_id, count, agents_hit, endpoints_hit, session_ids,
+            errors, total_cost_cny, items,
+            limit, offset, has_more
+        }``
+        · ``count`` = 本次返回行数 (≤ limit)
+        · ``agents_hit`` = 出现过的 agent_id 去重 list (用于 Issue 评论提要)
+        · ``has_more`` = total > offset+limit (有 next page)
+    """
+    rec = recorder or default_recorder()
+    items = rec.query(e2e_run_id=run_id, limit=limit, offset=offset)
+    total = rec.count(e2e_run_id=run_id)
+
+    agents_hit = sorted({r.get("agent_id") for r in items if r.get("agent_id")})
+    endpoints_hit = sorted({r.get("endpoint") for r in items if r.get("endpoint")})
+    errors = [
+        {"endpoint": r.get("endpoint"), "agent_id": r.get("agent_id"), "error": r.get("error")}
+        for r in items if r.get("error")
+    ]
+    total_cost = round(sum((r.get("cost_cny") or 0.0) for r in items), 4)
+
+    return {
+        "run_id": run_id,
+        "count": len(items),
+        "total": total,
+        "agents_hit": agents_hit,
+        "endpoints_hit": endpoints_hit,
+        "session_ids": [],  # 当前 LLMCall schema 无 session_id · 留空 placeholder
+        "errors": errors,
+        "total_cost_cny": total_cost,
+        "items": items,
+        "limit": int(limit),
+        "offset": int(offset),
+        "has_more": total > (int(offset) + len(items)),
     }
 
 
@@ -350,7 +474,9 @@ __all__ = [
     "PROMPT_MAX_BYTES",
     "RESPONSE_MAX_BYTES",
     "default_recorder",
+    "e2e_run_id_var",
     "estimate_cost_cny",
+    "query_by_run_id",
     "query_calls",
     "set_default_recorder",
     "truncate_text",
