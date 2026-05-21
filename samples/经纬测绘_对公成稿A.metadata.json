@@ -4,7 +4,6 @@
   "docx_basename": "经纬测绘_对公成稿A.docx",
   "purpose": "v16 模板 placeholder 化 治本 Phase 2 pilot — sidecar metadata + 真实客户档案兜底",
   "brief": "D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md",
-
   "original_client": {
     "name": "福建经纬数字科技信息有限公司",
     "name_core": "经纬",
@@ -32,7 +31,6 @@
     "credit_period": "一年",
     "pd_rating": "5"
   },
-
   "client_metadata": {
     "CLIENT_FULL_NAME": "福建经纬数字科技信息有限公司",
     "CLIENT_CORE_NAME": "经纬",
@@ -60,54 +58,155 @@
     "CREDIT_PERIOD": "一年",
     "PD_RATING": "5"
   },
-
   "placeholder_locations": {
-    "P0": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT"],
-    "P2": ["CLIENT_FULL_NAME", "CLIENT_INDUSTRY_CATEGORY"],
-    "P11": ["CLIENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_BUSINESS_QUALIFICATION_TAG", "CLIENT_INDUSTRY_TAG"],
-    "P15": ["CLIENT_PARENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_FULL_NAME"],
-    "P16": ["CLIENT_GROUP_FULL_NAME"],
-    "P19": ["CLIENT_PARENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME"],
-    "P20": ["CLIENT_PARENT_FULL_NAME"],
-    "P21": ["CLIENT_GROUP_FULL_NAME", "CLIENT_FULL_NAME"],
-    "P26": ["CLIENT_FULL_NAME", "CLIENT_PARENT_FULL_NAME"],
-    "P32": ["CLIENT_LEGAL_REP"],
-    "P100": ["CLIENT_LONG_CORE_NAME", "CLIENT_INDUSTRY_TAG"],
-    "P104": ["CLIENT_FULL_NAME", "CLIENT_INDUSTRY_CATEGORY"],
-    "P159": ["CLIENT_FULL_NAME"],
-    "P169": ["CLIENT_FULL_NAME"],
-    "P173": ["CLIENT_FULL_NAME", "CLIENT_INDUSTRY_CATEGORY"],
-    "P174": ["CLIENT_FULL_NAME"],
-    "P176": ["CLIENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"],
-    "P177": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "P189": ["CLIENT_FULL_NAME", "CLIENT_PARENT_FULL_NAME"],
-    "P198": ["CLIENT_FULL_NAME", "CLIENT_LONG_CORE_NAME", "CLIENT_PARENT_FULL_NAME"],
-    "P200": ["CLIENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_PARENT_FULL_NAME", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"],
-    "T2R0C1P0": ["CLIENT_ESTABLISHMENT_DATE"],
-    "T2R0C2P0": ["CLIENT_ESTABLISHMENT_DATE"],
-    "T2R0C3P0": ["CLIENT_ESTABLISHMENT_DATE"],
-    "T2R0C6P0": ["CLIENT_REGISTERED_ADDRESS"],
-    "T2R1C1P0": ["CLIENT_REGISTERED_CAPITAL"],
-    "T2R1C2P0": ["CLIENT_REGISTERED_CAPITAL"],
-    "T2R1C3P0": ["CLIENT_REGISTERED_CAPITAL"],
-    "T2R1C6P0": ["CLIENT_PAID_IN_CAPITAL"],
-    "T2R2C1P0": ["CLIENT_PARENT_FULL_NAME"],
-    "T2R2C2P0": ["CLIENT_PARENT_FULL_NAME"],
-    "T2R2C3P0": ["CLIENT_PARENT_FULL_NAME"],
-    "T2R2C6P0": ["CLIENT_LEGAL_REP"],
-    "T2R3C6P0": ["CLIENT_GROUP_FULL_NAME", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"],
-    "T2R5C0P0": ["CLIENT_SHAREHOLDER_PRIMARY"],
-    "T2R5C1P0": ["CLIENT_SHAREHOLDER_PRIMARY"],
-    "T2R5C2P0": ["CLIENT_REGISTERED_CAPITAL"],
-    "T2R6C2P0": ["CLIENT_REGISTERED_CAPITAL"]
+    "P0": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT"
+    ],
+    "P2": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_INDUSTRY_CATEGORY"
+    ],
+    "P11": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_BUSINESS_QUALIFICATION_TAG",
+      "CLIENT_INDUSTRY_TAG"
+    ],
+    "P15": [
+      "CLIENT_PARENT_FULL_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_FULL_NAME"
+    ],
+    "P16": [
+      "CLIENT_GROUP_FULL_NAME"
+    ],
+    "P19": [
+      "CLIENT_PARENT_FULL_NAME",
+      "CLIENT_GROUP_FULL_NAME"
+    ],
+    "P20": [
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "P21": [
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_FULL_NAME"
+    ],
+    "P26": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "P32": [
+      "CLIENT_LEGAL_REP"
+    ],
+    "P100": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_INDUSTRY_TAG"
+    ],
+    "P104": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_INDUSTRY_CATEGORY"
+    ],
+    "P159": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P169": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P173": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_INDUSTRY_CATEGORY",
+      "PD_RATING"
+    ],
+    "P174": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P176": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_INDUSTRY_TAG",
+      "CLIENT_BUSINESS_QUALIFICATION_TAG"
+    ],
+    "P177": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "P189": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "P198": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "P200": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_PARENT_FULL_NAME",
+      "CLIENT_INDUSTRY_TAG",
+      "CLIENT_BUSINESS_QUALIFICATION_TAG"
+    ],
+    "T2R0C1P0": [
+      "CLIENT_ESTABLISHMENT_DATE"
+    ],
+    "T2R0C2P0": [
+      "CLIENT_ESTABLISHMENT_DATE"
+    ],
+    "T2R0C3P0": [
+      "CLIENT_ESTABLISHMENT_DATE"
+    ],
+    "T2R0C6P0": [
+      "CLIENT_REGISTERED_ADDRESS"
+    ],
+    "T2R1C1P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ],
+    "T2R1C2P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ],
+    "T2R1C3P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ],
+    "T2R1C6P0": [
+      "CLIENT_PAID_IN_CAPITAL"
+    ],
+    "T2R2C1P0": [
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "T2R2C2P0": [
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "T2R2C3P0": [
+      "CLIENT_PARENT_FULL_NAME"
+    ],
+    "T2R2C6P0": [
+      "CLIENT_LEGAL_REP"
+    ],
+    "T2R3C6P0": [
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_INDUSTRY_TAG",
+      "CLIENT_BUSINESS_QUALIFICATION_TAG"
+    ],
+    "T2R5C0P0": [
+      "CLIENT_SHAREHOLDER_PRIMARY"
+    ],
+    "T2R5C1P0": [
+      "CLIENT_SHAREHOLDER_PRIMARY"
+    ],
+    "T2R5C2P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ],
+    "T2R6C2P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ]
   },
-
   "out_of_scope": {
     "credit_amount_in_body": "授信额度数字 (3375/3000/2300/2875 等) 在长正文段 P177/P200/T0R1C0P0-P6/T0R1C1P0-P6 出现 · Phase 2 仅替换 P177 + T0 主额度表 · 其余出现在长 REWRITE 段保留 (REWRITE handler 会用 mats.facts 覆盖)",
     "industry_long_descriptions": "P51/P57/P60/P61/P67/P99 长行业叙事段 · 走 REWRITE op · 不放 placeholder",
     "qualification_certs": "T2R3C6P0 资质证书叙述含 '2008/2014/2016' 等历史时点 · Phase 2 仅 placeholder 化组织名 · 时点保留 (Phase 4 metadata 再处理)"
   },
-
   "rationale": {
     "why_long_paragraphs_use_placeholder_only_for_company_name": "P11/P15/P21/P26 等长段是 REWRITE 候选 · LLM 重写时若 mats.facts 含 company_name 会自然嵌入正确名称 · 但 placeholder 化首字符的公司名段落 (如 P0 标题段) 保证 generator REPLACE 路径稳定填值 · 长段标题首字符公司名也 placeholder 化 · 让 v16 pipeline 任一档 (REPLACE / REWRITE / FILL) 都不会输出 '经纬' 字面"
   }

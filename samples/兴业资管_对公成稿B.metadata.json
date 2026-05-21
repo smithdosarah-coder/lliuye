@@ -4,7 +4,6 @@
   "docx_basename": "兴业资管_对公成稿B.docx",
   "purpose": "v16 模板 placeholder 化 治本 Phase 3 worker 1 — 兴业资管对公成稿 B 模板 placeholder 化 (跟 Phase 2 经纬测绘 pilot 同模式)",
   "brief": "D:/second-brain/wiki/concepts/v16-template-placeholder-治本-brief.md",
-
   "original_client": {
     "name": "兴业资产管理有限公司",
     "name_core": "兴业",
@@ -32,7 +31,6 @@
     "credit_period": "一年",
     "pd_rating": "4"
   },
-
   "client_metadata": {
     "CLIENT_FULL_NAME": "兴业资产管理有限公司",
     "CLIENT_CORE_NAME": "兴业",
@@ -58,88 +56,291 @@
     "CREDIT_AMOUNT": "5亿元",
     "CREDIT_EXPOSURE": "5亿元",
     "CREDIT_PERIOD": "一年",
-    "PD_RATING": "4"
+    "PD_RATING": "4",
+    "CLIENT_INDUSTRY_NARRATIVE": "不良资产管理 (AMC) 行业作为金融生态体系的重要组成部分，在化解金融风险、修复市场功能方面发挥着关键作用。我国资产管理行业从政策性逐步走向商业化、市场化，形成了由国有四家金融资产管理公司、地方资产管理公司及银行系资产管理公司共同竞争的多层次格局。该行业属于资金密集型，自有资金通常无法满足业务规模扩张所需，依赖外部融资支持。在政策支持与经济结构调整背景下，行业整体处于稳健发展通道。",
+    "CLIENT_INDUSTRY_POSITION": "公司作为省级地方资产管理公司，在区域不良资产收购处置、债权转股权等业务领域具备较强专业能力与资源储备。借助福建省地方资产管理公司的政策与区位优势，公司能够深度参与区域金融风险化解与产业升级，与地方政府保持紧密合作关系，市场竞争力突出。",
+    "CLIENT_HISTORY_NARRATIVE": "公司经省级人民政府批准设立、银保监会备案运营，是兼具金融业务资质与省级地方AMC定位的省级资产管理公司，与所属集团形成完整业务协同。公司外部评级AAA、展望稳定，呈现较好的市场认可度。"
   },
-
   "placeholder_locations": {
-    "P0": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "P2": ["CLIENT_FULL_NAME", "CLIENT_LONG_CORE_NAME"],
-    "P3": ["CLIENT_INDUSTRY_CATEGORY"],
-    "P16": ["CLIENT_LONG_CORE_NAME", "CLIENT_PARENT_FULL_NAME", "CLIENT_PARENT_SHORT_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P17": ["CLIENT_PARENT_SHORT_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P18": ["CLIENT_GROUP_SHORT_NAME"],
-    "P19": ["CLIENT_LONG_CORE_NAME", "CLIENT_GROUP_FULL_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P20": ["CLIENT_GROUP_SHORT_NAME"],
-    "P29": ["CLIENT_LONG_CORE_NAME", "CLIENT_FULL_NAME"],
-    "P32": ["CLIENT_FULL_NAME"],
-    "P34": ["CLIENT_PARENT_FULL_NAME", "CLIENT_FULL_NAME", "CLIENT_LEGAL_REP"],
-    "P35": ["CLIENT_FULL_NAME", "CLIENT_LEGAL_REP"],
-    "P37": ["CLIENT_LEGAL_REP", "CLIENT_FULL_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P38": ["CLIENT_GROUP_SHORT_NAME", "CLIENT_FULL_NAME"],
-    "P46": ["CLIENT_LONG_CORE_NAME"],
-    "P49": ["CLIENT_FULL_NAME"],
-    "P50": ["CLIENT_LONG_CORE_NAME"],
-    "P52": ["CLIENT_LONG_CORE_NAME"],
-    "P56": ["CLIENT_LONG_CORE_NAME"],
-    "P58": ["CLIENT_LONG_CORE_NAME"],
-    "P60": ["CLIENT_LONG_CORE_NAME"],
-    "P62": ["CLIENT_LONG_CORE_NAME"],
-    "P63": ["CLIENT_LONG_CORE_NAME"],
-    "P67": ["CLIENT_LONG_CORE_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P69": ["CLIENT_LONG_CORE_NAME"],
-    "P72": ["CLIENT_LONG_CORE_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P73": ["CLIENT_LONG_CORE_NAME"],
-    "P83": ["CLIENT_LONG_CORE_NAME"],
-    "P85": ["CLIENT_LONG_CORE_NAME", "CLIENT_GROUP_SHORT_NAME"],
-    "P101": ["CLIENT_LONG_CORE_NAME"],
-    "P105": ["CLIENT_LONG_CORE_NAME"],
-    "P109": ["CLIENT_LONG_CORE_NAME"],
-    "P119": ["CLIENT_LONG_CORE_NAME"],
-    "P125": ["CLIENT_LONG_CORE_NAME"],
-    "P129": ["CLIENT_LONG_CORE_NAME"],
-    "P133": ["CLIENT_LONG_CORE_NAME"],
-    "P142": ["CLIENT_LONG_CORE_NAME"],
-    "P148": ["CLIENT_LONG_CORE_NAME"],
-    "P152": ["CLIENT_LONG_CORE_NAME"],
-    "P170": ["CLIENT_LONG_CORE_NAME"],
-    "P176": ["CLIENT_LONG_CORE_NAME"],
-    "P179": ["CLIENT_PARENT_SHORT_NAME"],
-    "P189": ["CLIENT_LONG_CORE_NAME"],
-    "P198": ["CLIENT_LONG_CORE_NAME"],
-    "P204": ["CLIENT_LONG_CORE_NAME"],
-    "P211": ["CLIENT_LONG_CORE_NAME"],
-    "P214": ["CLIENT_LONG_CORE_NAME"],
-    "P224": ["CLIENT_LONG_CORE_NAME"],
-    "P241": ["CLIENT_LONG_CORE_NAME"],
-    "P243": ["CLIENT_LONG_CORE_NAME"],
-    "P245": ["CLIENT_FULL_NAME"],
-    "P247": ["CLIENT_FULL_NAME", "CLIENT_INDUSTRY_CATEGORY"],
-    "P249": ["CLIENT_LONG_CORE_NAME", "CLIENT_INDUSTRY_CATEGORY"],
-    "P251": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "P260": ["CLIENT_LONG_CORE_NAME"],
-    "P262": ["CLIENT_LONG_CORE_NAME"],
-    "P264": ["CLIENT_FULL_NAME", "CLIENT_LONG_CORE_NAME"],
-    "P275": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "P290": ["CLIENT_LONG_CORE_NAME"],
-    "P293": ["CLIENT_LONG_CORE_NAME"],
-    "P295": ["CLIENT_LONG_CORE_NAME"],
-    "P297": ["CLIENT_LONG_CORE_NAME"],
-    "P299": ["CLIENT_LONG_CORE_NAME"],
-    "P301": ["CLIENT_LONG_CORE_NAME"],
-    "T0R1C0P0": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "T0R1C1P0": ["CLIENT_FULL_NAME", "CREDIT_AMOUNT", "CREDIT_EXPOSURE"],
-    "T2R0C1P0": ["CLIENT_ESTABLISHMENT_DATE"],
-    "T2R0C3P0": ["CLIENT_REGISTERED_ADDRESS"],
-    "T2R1C1P0": ["CLIENT_REGISTERED_CAPITAL"],
-    "T2R1C3P0": ["CLIENT_PAID_IN_CAPITAL"],
-    "T2R2C1P0": ["CLIENT_GROUP_FULL_NAME"],
-    "T2R2C3P0": ["CLIENT_LEGAL_REP"],
-    "T2R3C3P0": ["CLIENT_FULL_NAME"],
-    "T2R5C0P0": ["CLIENT_SHAREHOLDER_PRIMARY"],
-    "T2R5C3P0": ["CLIENT_SHARE_PCT_PRIMARY"],
-    "T2R6C3P0": ["CLIENT_SHARE_PCT_PRIMARY"]
+    "P0": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "P2": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P3": [
+      "CLIENT_INDUSTRY_CATEGORY"
+    ],
+    "P16": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_PARENT_FULL_NAME",
+      "CLIENT_PARENT_SHORT_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P17": [
+      "CLIENT_PARENT_SHORT_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P18": [
+      "CLIENT_GROUP_SHORT_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_HISTORY_NARRATIVE"
+    ],
+    "P19": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_GROUP_FULL_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P20": [
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P29": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_FULL_NAME"
+    ],
+    "P32": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P34": [
+      "CLIENT_PARENT_FULL_NAME",
+      "CLIENT_FULL_NAME",
+      "CLIENT_LEGAL_REP"
+    ],
+    "P35": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_LEGAL_REP"
+    ],
+    "P37": [
+      "CLIENT_LEGAL_REP",
+      "CLIENT_FULL_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P38": [
+      "CLIENT_GROUP_SHORT_NAME",
+      "CLIENT_FULL_NAME"
+    ],
+    "P46": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P49": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P50": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P52": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P56": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P58": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P60": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P62": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P63": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P67": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P69": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P72": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P73": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P83": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P85": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_GROUP_SHORT_NAME"
+    ],
+    "P101": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P105": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P109": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P119": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P125": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P129": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P133": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P142": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P148": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P152": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P170": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P176": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P179": [
+      "CLIENT_PARENT_SHORT_NAME"
+    ],
+    "P189": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P198": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P204": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P211": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P214": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P224": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P241": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_INDUSTRY_TAG"
+    ],
+    "P243": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P245": [
+      "CLIENT_FULL_NAME"
+    ],
+    "P247": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_INDUSTRY_CATEGORY",
+      "CLIENT_INDUSTRY_NARRATIVE"
+    ],
+    "P249": [
+      "CLIENT_LONG_CORE_NAME",
+      "CLIENT_INDUSTRY_CATEGORY"
+    ],
+    "P251": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "P260": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P262": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P264": [
+      "CLIENT_FULL_NAME",
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P275": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "P290": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P293": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P295": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P297": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P299": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "P301": [
+      "CLIENT_LONG_CORE_NAME"
+    ],
+    "T0R1C0P0": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "T0R1C1P0": [
+      "CLIENT_FULL_NAME",
+      "CREDIT_AMOUNT",
+      "CREDIT_EXPOSURE"
+    ],
+    "T2R0C1P0": [
+      "CLIENT_ESTABLISHMENT_DATE"
+    ],
+    "T2R0C3P0": [
+      "CLIENT_REGISTERED_ADDRESS"
+    ],
+    "T2R1C1P0": [
+      "CLIENT_REGISTERED_CAPITAL"
+    ],
+    "T2R1C3P0": [
+      "CLIENT_PAID_IN_CAPITAL"
+    ],
+    "T2R2C1P0": [
+      "CLIENT_GROUP_FULL_NAME"
+    ],
+    "T2R2C3P0": [
+      "CLIENT_LEGAL_REP"
+    ],
+    "T2R3C3P0": [
+      "CLIENT_FULL_NAME"
+    ],
+    "T2R5C0P0": [
+      "CLIENT_SHAREHOLDER_PRIMARY"
+    ],
+    "T2R5C3P0": [
+      "CLIENT_SHARE_PCT_PRIMARY"
+    ],
+    "T2R6C3P0": [
+      "CLIENT_SHARE_PCT_PRIMARY"
+    ],
+    "P77": [
+      "CLIENT_INDUSTRY_NARRATIVE"
+    ],
+    "P82": [
+      "CLIENT_INDUSTRY_POSITION"
+    ],
+    "P256": [
+      "CLIENT_INDUSTRY_TAG"
+    ],
+    "P257": [
+      "CREDIT_AMOUNT"
+    ],
+    "T34R0C0P0": [
+      "CLIENT_INDUSTRY_CATEGORY"
+    ]
   },
-
   "out_of_scope": {
     "financial_numerics": "195,000.00 / 138,542 / 2,410,501 等大量财务表数字 (T11/T24/T37/T40 等) · Phase 3 不替换 · 由 REWRITE/FILL handler 走 client materials 填",
     "credit_amount_in_long_paragraphs": "P251/P275 已 placeholder 化 (短段) · T0R1C0P0/T0R1C1P0 表格段已 placeholder 化 (题首带公司名) · 长 REWRITE 段 (P257/P262) 内的金额由 REWRITE handler 处理",
@@ -147,7 +348,6 @@
     "litigation_table_T43": "T43 涉诉案件表大量列出 '兴业资产管理有限公司与...' 案件名 (40+ 行) · Phase 3 不 placeholder 化 · 这些是历史案件标题非客户身份字面 · 由 REWRITE handler 用 client materials 重写; 若 client_metadata 含案件清单可填入",
     "subsidiary_names_in_P17_P34": "P17 '兴业国际信托' / '联华国际信托' · P34 '方智勇/吴红珍/郭明' / P35 '赖富荣/吴红珍/倪勤/汪祖福' · 是关联方/管理团队历史姓名 · 不属于客户身份 placeholder schema · Phase 3 保留 (后续 REWRITE 段 LLM 重写时按 client materials 自然替换)"
   },
-
   "rationale": {
     "why_long_paragraphs_use_placeholder_only_for_company_name": "P16-20 长股权叙事段含三级股权结构 (兴业资管 / 兴业国信 / 兴业银行) · placeholder 化全部三级公司全称+简称 · 保证不论 REPLACE / REWRITE / FILL 哪条路径填值都不会输出 '兴业' 字面客户标识",
     "why_not_replace_bare_xingye": "'兴业' 单字会 substring 命中 兴业国信/兴业银行/兴业信托/兴业资管 · 不替换 bare '兴业' · 只替换长字符串 · 顺序: 全名(兴业资产管理有限公司) → 短名(兴业资管) → 母公司全(兴业国信资产管理有限公司) → 母公司短(兴业国信) → 集团全(兴业银行股份有限公司) → 集团短(兴业银行)",
