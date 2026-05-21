@@ -35,6 +35,11 @@ DOCX_PATH = Path(__file__).resolve().parent.parent / "samples" / "经纬测绘_�
 # 段落级整段替换 (paragraph_index → new_text)
 # ────────────────────────────────────────────────────────────────────────────
 PARAGRAPH_REPLACEMENTS: dict[int, str] = {
+    # ── Phase 4.5 治本 hot-fix (lint --json byte-level diff 暴露的 7 HIGH 残留) ──
+    # P173: 评级+行业段 · 商务服务业 仍是 raw canonical → 改 placeholder
+    # 原: 'a．{{CLIENT_FULL_NAME}}为我行PD评级5级客户，所属行业为商务服务业，目前我行行业投向指引...'
+    173: "a．{{CLIENT_FULL_NAME}}为我行PD评级{{PD_RATING}}级客户，所属行业为{{CLIENT_INDUSTRY_CATEGORY}}，目前我行行业投向指引为：总体适度进入，符合投向政策要求。",
+
     # P150: 筹资活动现金流叙述
     # 原: '筹资活动产生的现金流量流入主要为吸收投资收到的现金10500万元、取得借款收到的现金1713万元...'
     150: "{{FINANCING_ACTIVITY_NARRATIVE}}",
@@ -120,6 +125,18 @@ PARAGRAPH_REPLACEMENTS: dict[int, str] = {
 # 仅替换 cell 内特定 paragraph, 不动其余 (避免破坏额度品种分布列表)
 # ────────────────────────────────────────────────────────────────────────────
 TABLE_CELL_PARA_REPLACEMENTS: dict[tuple[int, int, int, int], str] = {
+    # ── Phase 4.5: T2 注册资本/实收资本 cell · 6 处 5000万元 raw → placeholder ──
+    # T2R1 row 是 "注册资本 | 5000万元 | 5000万元 | 5000万元 | 实收资本 | 实收资本 | 5000万元"
+    # C1-C3 跨度均为注册资本 col · C6 是实收资本 col
+    (2, 1, 1, 0): "{{CLIENT_REGISTERED_CAPITAL}}",
+    (2, 1, 2, 0): "{{CLIENT_REGISTERED_CAPITAL}}",
+    (2, 1, 3, 0): "{{CLIENT_REGISTERED_CAPITAL}}",
+    (2, 1, 6, 0): "{{CLIENT_PAID_IN_CAPITAL}}",
+    # T2R5 row 是 "{母公司} | {母公司} | 5000万元 | 货币资金 | ..." · 主要股东出资额 col
+    (2, 5, 2, 0): "{{CLIENT_REGISTERED_CAPITAL}}",
+    # T2R6 row 是 "合计 | 合计 | 5000万元 | 货币资金 | ..." · 总出资合计 col
+    (2, 6, 2, 0): "{{CLIENT_REGISTERED_CAPITAL}}",
+
     # T0R1C0P0: 额度表第 1 段 (3375 万 / 2300 万)
     # 原: '综合授信额度3375万元（敞口2300万元），额度循环使用，授信期限1年，敞口部分以企业自身信用担保。具体分类额度如下：'
     (0, 1, 0, 0): "综合授信额度{{CREDIT_AMOUNT}}（敞口{{CREDIT_EXPOSURE}}），额度循环使用，授信期限{{CREDIT_PERIOD}}，敞口部分以企业自身信用担保。具体分类额度如下：",
