@@ -108,4 +108,24 @@ echo "=== 8. healthcheck (本地直连 · 跳过 cloudflared) ==="
 ssh_run "curl -sI -H 'Host: $HEALTH_HOST' $HEALTH_URL_LOCAL | head -3"
 
 echo ""
+echo "=== 8.5 deep healthcheck · /api/report/demo/run 不能返 503 (B.3.4 Bug B follow-up · 2026-05-21) ==="
+# 2026-05-21 治本: 防今天踩的坑 - step 3.6 ecs_init_v16_demo.sh 仅 warn 不阻断
+# deploy 成功不等于 v16 cache ready · 必须 verify endpoint 不返 503
+# 401/422/400 = OK (RBAC/payload 拒)  ·  503 = BAD (cache 或 DEEPSEEK_KEY 缺)
+deep_status=$(ssh_run "curl -s -X POST -H 'Content-Type: application/json' -d '{}' http://127.0.0.1:8000/api/report/demo/run -o /dev/null -w '%{http_code}'" | tr -d '\r\n ')
+case "$deep_status" in
+  401|422|400)
+    echo "[✓] /api/report/demo/run 返 $deep_status · cache + DEEPSEEK_KEY 真 ready (RBAC/payload 拒到这层 = 业务路径 OK)"
+    ;;
+  503)
+    echo "[✗ FATAL] /api/report/demo/run 返 503 · v16 cache 或 DEEPSEEK_KEY 缺失"
+    echo "         fix: ssh -i \$ECS_KEY $ECS_USER@$ECS_HOST 'cd $ECS_REPO && bash scripts/ecs_init_v16_demo.sh'"
+    echo "         (deploy 已完成 service 已起 · 但 /demo/run 不可用)"
+    ;;
+  *)
+    echo "[? WARN] /api/report/demo/run 返 $deep_status · 非预期 status · 检查 backend service 真 alive"
+    ;;
+esac
+
+echo ""
 echo "=== ✓ deploy complete · public URL: https://liuye.me/login ==="
