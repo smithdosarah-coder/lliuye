@@ -602,6 +602,20 @@ def generate(
         "周转", "应收", "应付", "净资产收益率", "ROA", "ROE",
         "财务费用", "营业成本", "管理费用", "销售费用",
     )
+    # 2026-05-22 user dogfood 5th: 扩 client-specific 关键词 catch 业务背景/历史/关联方/地名段
+    _NARRATIVE_CLIENT_SPECIFIC_KEYWORDS = (
+        # 业务/行业描述类
+        "测绘", "地理信息", "招标", "投标", "工程咨询", "信托", "资产管理",
+        "国信", "兴业", "经纬", "六一八", "三明",
+        # 政府/公司类专有 (经纬模板里出现的)
+        "省经贸委", "省政府", "省管国有", "拟上市", "上市子公司",
+        # 历史时间 specific (经纬模板里的)
+        "1988年", "2010年", "2017年", "2019年", "2020年", "2021年", "2022年", "2023年",
+        # 人名/具体身份 (经纬模板里的)
+        "郑志煌", "谢斌",
+        # 地名 specific
+        "福州市", "福建省", "马尾区", "仓山区", "厦门",
+    )
     _NUM_PATTERN = _re.compile(r"[\d,]+(?:\.\d+)?\s*(?:万元|亿元|百万元|千万元|%|‰|个百分点)")
     _financial_skipped_keys = ("PLACEHOLDER",)  # 已 placeholder 化的不动
     for e in elements:
@@ -613,13 +627,24 @@ def generate(
         if existing and existing.label in _financial_skipped_keys:
             continue
         # 含财务关键词 + 含具体数字 = 财务分析段 · force REWRITE
-        has_kw = any(kw in text for kw in _FINANCIAL_KEYWORDS)
+        has_fin_kw = any(kw in text for kw in _FINANCIAL_KEYWORDS)
         has_num = bool(_NUM_PATTERN.search(text))
-        if has_kw and has_num:
+        if has_fin_kw and has_num:
             classifications[e.location] = Classification(
                 location=e.location, op="REWRITE", label="FINANCIAL",
                 confidence=1.0,
                 justification="deterministic financial pre-pass · 强制 REWRITE 防经纬数字 PRESERVE 残留"
+            )
+            fb_stats["rewrite"] += 1
+            continue
+        # 2026-05-22 user dogfood 5th: 含 client-specific narrative 关键词 (经纬业务/历史/股权/地名/人名)
+        # = 经纬原模板的 client-specific 叙述段 · force REWRITE 防 PRESERVE 漏过
+        has_narrative_kw = any(kw in text for kw in _NARRATIVE_CLIENT_SPECIFIC_KEYWORDS)
+        if has_narrative_kw and len(text) >= 50:
+            classifications[e.location] = Classification(
+                location=e.location, op="REWRITE", label="FINANCIAL",
+                confidence=1.0,
+                justification="deterministic narrative pre-pass · 含经纬模板 client-specific 关键词 · 强制 REWRITE"
             )
             fb_stats["rewrite"] += 1
 
