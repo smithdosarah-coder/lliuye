@@ -903,6 +903,57 @@ def _section_batch_rewrite_once(
 _PLACEHOLDER_KEY_RE = re.compile(r"\{\{([A-Z][A-Z0-9_]{1,40})\}\}")
 
 
+def _lookup_metadata_value(key: str, metadata: dict):
+    """3-layer 感知的 metadata 查找 · backward compat 旧 flat dict.
+
+    2026-05-21 C 档第 1 步: schema 拆 3 layer 后 · metadata 可能有两种格式:
+      a) flat dict (旧 · DP00X / 老 sidecar): {CLIENT_FULL_NAME: ..., CREDIT_AMOUNT: ..., ...}
+      b) 3 section nested (新): {client_metadata: {...}, credit_terms: {...}, material_facts: {...}}
+         · template_adapter.resolve_client_metadata 已自动 flatten · 保留 _sections 子结构
+      c) hybrid: 既有 flat 顶层 key · 又有 _sections 子结构 (resolve 后的输出)
+
+    查找顺序:
+      1. metadata[key] 直接命中 (flat dict / hybrid flat 部分)
+      2. metadata[key.lower()] 命中 (lower-case 同义 key)
+      3. metadata['_sections'][layer][key] 命中 (nested 结构残留时兜底)
+      4. metadata['client_metadata'/'credit_terms'/'material_facts'][key] 命中
+         (caller 没走 resolve_client_metadata · 直接传 3 section nested)
+    """
+    if not isinstance(metadata, dict):
+        return None
+
+    # 1. flat 顶层直接命中
+    value = metadata.get(key)
+    if value is not None:
+        return value
+
+    # 2. lower-case 同义
+    lower = key.lower()
+    value = metadata.get(lower)
+    if value is not None:
+        return value
+
+    # 3. _sections 兜底 (resolve_client_metadata 注入的子结构)
+    sections = metadata.get("_sections")
+    if isinstance(sections, dict):
+        for layer_name in ("client_metadata", "credit_terms", "material_facts"):
+            sub = sections.get(layer_name)
+            if isinstance(sub, dict):
+                v = sub.get(key) or sub.get(lower)
+                if v is not None:
+                    return v
+
+    # 4. 直接 3 section nested (caller 没走 resolve_client_metadata)
+    for layer_name in ("client_metadata", "credit_terms", "material_facts"):
+        sub = metadata.get(layer_name)
+        if isinstance(sub, dict):
+            v = sub.get(key) or sub.get(lower)
+            if v is not None:
+                return v
+
+    return None
+
+
 def placeholder_replace(elem, cls, mats) -> "GenResult":
     """v16 模板 placeholder 化 治本 — 用 client_metadata 替换 {{KEY}}.
 
@@ -912,6 +963,9 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
       - 命中 → 整段替换 {{KEY}} → metadata[KEY] (保留 placeholder 周边文本)
       - 未命中 → 保留原 {{KEY}} 原文 + 写 pending_tag (幻觉零容忍 红线)
       - mats.client_metadata=None → 整段保留 + 全 placeholder pending
+
+    2026-05-21 C 档第 1 步: 3 layer schema 拆分后 · 通过 _lookup_metadata_value 同时支持
+      flat dict (旧) + 3 section nested (新) · 同时保留所有原 alias_map fallback.
     """
     text = elem.text or ""
     matches = list(_PLACEHOLDER_KEY_RE.finditer(text))
@@ -928,10 +982,8 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
     replaced_keys: list[str] = []
     for m in matches:
         key = m.group(1)
-        # 优先大写 key · 兼容 lower_case 同义 key (例如 client_full_name)
-        value = metadata.get(key)
-        if value is None:
-            value = metadata.get(key.lower())
+        # 3 layer 感知查找 (优先 flat 顶层 · 再 lower-case · 再 _sections / 直接 nested 兜底)
+        value = _lookup_metadata_value(key, metadata)
         if value is None and key.startswith("CLIENT_"):
             # CLIENT_FULL_NAME → name / CLIENT_CORE_NAME → name_core 兜底 (sidecar original_client 简短 key)
             # 也对 metadata 没 CLIENT_ 前缀的 key 做兜底 (DP00X / corp scenarios 的 flat 命名)
@@ -956,7 +1008,7 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             }
             alias = alias_map.get(key)
             if alias:
-                value = metadata.get(alias)
+                value = _lookup_metadata_value(alias, metadata)
         if value is None or str(value).strip() == "":
             missing_keys.append(key)
             continue

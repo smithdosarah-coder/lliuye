@@ -207,10 +207,26 @@ def _normalize_metadata_keys(raw: dict) -> dict:
     输入可能是 original_client {name, name_core, legal_rep, registered_capital, ...}
     或 client_metadata {CLIENT_FULL_NAME, CLIENT_CORE_NAME, ...}
     · 返回 hybrid dict 同时含两种 key (上层 placeholder_replace 用 alias_map 兜底).
+
+    2026-05-21 C 档第 1 步: 支持 3 section nested 输入 (templates/{client-metadata,credit-terms,material-facts}-schema.json 拆分后) ·
+    检测到 raw 含 'client_metadata' / 'credit_terms' / 'material_facts' 子 dict 时 · 自动 merge 成 flat dict
+    + 保留原 nested 结构供高级 consumer 使用 (向后兼容旧 flat metadata).
     """
     if not isinstance(raw, dict):
         return {}
     out = dict(raw)  # 保留原 key
+
+    # 2026-05-21 C 档第 1 步: 3 layer nested → flat merge
+    # 检测 raw 是否含 3 section 子 dict (新格式) · 不动旧 flat 输入
+    _SECTION_KEYS = ("client_metadata", "credit_terms", "material_facts")
+    for section in _SECTION_KEYS:
+        sub = raw.get(section)
+        if isinstance(sub, dict) and sub:
+            # 把 section 内的 UPPER_CASE key flatten 到 top level (优先级低于已有 top key)
+            for k, v in sub.items():
+                if isinstance(k, str) and k not in out:
+                    out[k] = v
+
     # 反向 alias map: lower-case → UPPER_CASE (与 placeholder_replace alias_map 同源 inverse)
     inverse_alias = {
         "name": "CLIENT_FULL_NAME",
@@ -224,6 +240,39 @@ def _normalize_metadata_keys(raw: dict) -> dict:
     for lk, uk in inverse_alias.items():
         if lk in raw and uk not in out:
             out[uk] = raw[lk]
+    return out
+
+
+def _has_three_section_structure(data: dict) -> bool:
+    """检测 data 是否为 2026-05-21 C 档第 1 步引入的 3 section nested 结构.
+
+    判定: 同时含 'client_metadata' + 'credit_terms' + 'material_facts' 任 2 个子 dict.
+    (任一 section 缺失的旧 corp scenarios fixture 走 nested client_metadata 单源路径 · 不在此命中.)
+    """
+    if not isinstance(data, dict):
+        return False
+    sections = ("client_metadata", "credit_terms", "material_facts")
+    hit = sum(1 for s in sections if isinstance(data.get(s), dict) and data.get(s))
+    return hit >= 2
+
+
+def _merge_three_sections(data: dict) -> dict:
+    """3 section nested → flat dict (供 placeholder_replace 消费).
+
+    优先级: client_metadata > credit_terms > material_facts (前者覆盖后者).
+    同 key 在不同 section 重复时, client_metadata 胜出 (符合 schema split SSOT 规则 · 同 key 只在 1 layer).
+    保留 nested 子 dict 供后续 consumer 用 nested 访问.
+    """
+    out: dict = {}
+    for section in ("material_facts", "credit_terms", "client_metadata"):
+        sub = data.get(section)
+        if isinstance(sub, dict):
+            out.update(sub)
+    # 保留 nested 子结构 (高级 consumer 可读 _sections 区分来源)
+    out["_sections"] = {
+        s: dict(data.get(s, {})) for s in ("client_metadata", "credit_terms", "material_facts")
+        if isinstance(data.get(s), dict)
+    }
     return out
 
 
@@ -249,34 +298,61 @@ def resolve_client_metadata(
       - 老路径 / 老 docx 未 placeholder 化 → 返 None · generator 走旧逻辑不 break
       - placeholder 化 docx 无 handoff 时 → 拿 docx sidecar original_client 兜底
         (报告生成的还是"经纬测绘"自己的客户,与原 docx 字面一致 · 不产生 mismatch)
+      - 2026-05-21 C 档第 1 步: 支持 3 section nested 格式输入 (Phase C 改 metadata 文件后) ·
+        三个子 dict 自动 merge 成 flat · 旧 flat 格式仍工作
+
+    格式优先 (per source):
+      a) {'client_metadata': {...}, 'credit_terms': {...}, 'material_facts': {...}}  ← 新 3 section
+      b) {'client_metadata': {...}}                                                   ← 旧 nested
+      c) {CLIENT_FULL_NAME: ..., CREDIT_AMOUNT: ..., ...}                             ← flat (DP00X)
+      d) {'original_client': {name: ..., ...}}                                        ← sidecar 兜底
     """
-    # 1. credit_handoff_payload
-    if credit_handoff_payload and isinstance(credit_handoff_payload, dict):
-        cm = credit_handoff_payload.get("client_metadata")
+    def _extract(data: dict) -> dict | None:
+        """统一抽取 client_metadata · 兼容 3 种格式."""
+        if not isinstance(data, dict):
+            return None
+        # a) 3 section nested
+        if _has_three_section_structure(data):
+            return _normalize_metadata_keys(_merge_three_sections(data))
+        # b) 旧 nested
+        cm = data.get("client_metadata")
         if isinstance(cm, dict) and cm:
             return _normalize_metadata_keys(cm)
+        # c) flat (DP00X · 顶层就是 client_metadata)
+        upper_keys = [k for k in data.keys() if isinstance(k, str) and k.isupper() and "_" in k]
+        if len(upper_keys) >= 3:
+            # 看起来是 flat UPPER_CASE 字典
+            return _normalize_metadata_keys(data)
+        # d) original_client 兜底
+        oc = data.get("original_client")
+        if isinstance(oc, dict) and oc:
+            return _normalize_metadata_keys(oc)
+        return None
+
+    # 1. credit_handoff_payload
+    if credit_handoff_payload and isinstance(credit_handoff_payload, dict):
+        # handoff 可能直接给 client_metadata · 也可能整个 payload 是 3 section
+        result = _extract(credit_handoff_payload)
+        if result:
+            return result
 
     # 2. material_dir / sample_id 的 client_metadata.json
     if material_dir:
         m_path = Path(material_dir) / "client_metadata.json"
         data = _load_json_if_exists(m_path)
         if isinstance(data, dict):
-            cm = data.get("client_metadata") if "client_metadata" in data else data
-            if isinstance(cm, dict) and cm:
-                return _normalize_metadata_keys(cm)
+            result = _extract(data)
+            if result:
+                return result
 
     # 3. source_docx sidecar
     if source_docx:
         sidecar = Path(source_docx).with_suffix(".metadata.json")
         data = _load_json_if_exists(sidecar)
         if isinstance(data, dict):
-            cm = data.get("client_metadata")
-            if isinstance(cm, dict) and cm:
-                return _normalize_metadata_keys(cm)
-            # 兜底: original_client (Phase 2 sidecar 主字段 · docx 真实客户档案)
-            oc = data.get("original_client")
-            if isinstance(oc, dict) and oc:
-                return _normalize_metadata_keys(oc)
+            result = _extract(data)
+            if result:
+                return result
 
     return None
 
