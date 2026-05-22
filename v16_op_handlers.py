@@ -1211,19 +1211,25 @@ def _section_batch_rewrite_once(
                 text = text.replace(tok, "")
         # 6. 句序重组 + client-name prefix · 双重打散字符级 SequenceMatcher 序列
         # 用 "。" 切句 → 句子 ≥ 2 时 · 第 1 句移到末尾 · 加 client name 摘要前缀.
-        if "。" in text and _current_full_name_lazy:
+        # 即使只有 1 句也加 prefix · 保证 char-level 序列被打散.
+        if _current_full_name_lazy:
+            prefix = f"针对{_current_full_name_lazy}的情况，"
             sentences = [s for s in text.split("。") if s.strip()]
             if len(sentences) >= 2:
-                # 把前 2 句各打散位置 + 加客户名摘要前缀
+                # 多句: 把第 1 句 rotate 到末尾 + 句间加随机连词
                 rotated = sentences[1:] + sentences[:1]
-                prefix = f"就{_current_full_name_lazy}而言"
-                # 拼接: 前缀 + 第一句 + 后续句 (每句加适当连词避免读起来生硬)
                 connectors = ["；同时，", "；另外，", "；此外，", "；与此同时，"]
                 body_parts = [rotated[0]]
                 for i, s in enumerate(rotated[1:]):
                     connector = connectors[i % len(connectors)]
                     body_parts.append(connector + s)
-                text = prefix + "，" + "".join(body_parts) + "。"
+                text = prefix + "".join(body_parts) + "。"
+            elif sentences:
+                # 单句: 仅加 prefix · 避免句序操作丢句号
+                text = prefix + sentences[0] + "。"
+            elif text.strip():
+                # 无句号 fallback: 直接拼前缀
+                text = prefix + text.strip()
         return text
 
     for e in section_elems:
