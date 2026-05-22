@@ -1233,11 +1233,13 @@ def _section_batch_rewrite_once(
             pending = None
             elem_text_head = (e.text or "")[:200]
             is_risk = any(kw in elem_text_head for kw in _RISK_MARKERS)
-            # LLM 偷懒检测: 与原文相似度 ≥ 0.85 视为偷懒 · 跑 deterministic 替换抹经纬味道
+            # LLM 偷懒检测: 与原文相似度 ≥ 0.7 视为偷懒/小修小补 · 跑 deterministic 替换抹经纬味道
+            # 阈值 0.7 (从 0.85 下调) 因为实测 LLM 即使改了几个字 (XX万元→0万元) sim 仍 0.85-0.91 ·
+            # e2e 结构断言要求 < 0.6 · 0.7 阈值能抓更多"小修小补型偷懒" 推到 < 0.6.
             _original_text = (e.text or "").strip()
             if _original_text and len(_original_text) >= 50:
                 _lazy_sim = _SM(None, new_text, _original_text).ratio()
-                if _lazy_sim >= 0.85:
+                if _lazy_sim >= 0.7:
                     new_text = _strip_jingwei_traces(new_text, _original_text)
             # 履历/关联方段的 proper-noun 归位:
             # 校验文本中出现的 大学/学院/科技有限公司/网络有限公司/股份有限公司 等
