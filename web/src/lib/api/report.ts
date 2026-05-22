@@ -292,7 +292,7 @@ export async function uploadReportMaterials(
   const fd = new FormData();
   for (const f of files) fd.append("files", f, f.name);
   const url = `${API_BASE}/api/report/upload?business_line=${encodeURIComponent(businessLine)}`;
-  const resp = await fetch(url, { method: "POST", body: fd });
+  const resp = await fetch(url, { method: "POST", body: fd, credentials: "include" });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`upload 失败 HTTP ${resp.status} · ${text.slice(0, 120)}`);
@@ -356,7 +356,7 @@ export async function uploadReportTemplate(
     business_line: businessLine,
   });
   const url = `${API_BASE}/api/report/upload-template?${qs.toString()}`;
-  const resp = await fetch(url, { method: "POST", body: fd });
+  const resp = await fetch(url, { method: "POST", body: fd, credentials: "include" });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     // typed error code (per 后端 detail.error.code)
@@ -396,7 +396,7 @@ export type TemplateListResponse = {
 
 export async function listReportTemplates(): Promise<TemplateListResponse> {
   const url = `${API_BASE}/api/report/templates`;
-  const resp = await fetch(url, { method: "GET" });
+  const resp = await fetch(url, { method: "GET", credentials: "include" });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`templates 列表失败 HTTP ${resp.status} · ${text.slice(0, 120)}`);
@@ -442,7 +442,7 @@ export async function deleteReportTemplate(
     throw new Error("仅 user-* 模板可删 · 内置模板拒删");
   }
   const url = `${API_BASE}/api/report/templates/${encodeURIComponent(templateId)}`;
-  const resp = await fetch(url, { method: "DELETE" });
+  const resp = await fetch(url, { method: "DELETE", credentials: "include" });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw _parseTypedError(text, resp.status);
@@ -471,6 +471,7 @@ export async function renameReportTemplate(
   const resp = await fetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ template_name: trimmed }),
   });
   if (!resp.ok) {
@@ -512,6 +513,8 @@ export async function streamReportV16Fill(
     resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    credentials: "include",
       body: JSON.stringify(body),
       signal: callbacks.signal,
     });
@@ -604,6 +607,8 @@ export async function streamReportDemoRun(
     resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    credentials: "include",
       body: JSON.stringify(body),
       signal: callbacks.signal,
     });
@@ -672,6 +677,7 @@ export async function refineReportSection(args: {
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(args),
   });
   if (!resp.ok) {
@@ -707,6 +713,7 @@ export async function exportReportDocx(
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!resp.ok) {
@@ -746,6 +753,7 @@ export async function exportReportPdf(
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!resp.ok) {
