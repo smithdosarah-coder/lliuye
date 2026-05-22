@@ -514,7 +514,6 @@ export async function streamReportV16Fill(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-    credentials: "include",
       body: JSON.stringify(body),
       signal: callbacks.signal,
     });
@@ -608,7 +607,6 @@ export async function streamReportDemoRun(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-    credentials: "include",
       body: JSON.stringify(body),
       signal: callbacks.signal,
     });
