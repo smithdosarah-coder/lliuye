@@ -43,3 +43,10 @@ PyJWT>=2.10
 
 # PIPL Data Compliance · audit AES-GCM at-rest (Stage E.3 · 2026-04-28)
 cryptography>=42.0
+
+# Test toolkit · prod venv 也装 (agent10 提 · 2026-05-21)
+# 原因: deploy_to_ecs.sh step 8.6 跑 prod render-smoke verify · 需 pytest 永久在 prod venv
+# 不持久化的话每次 deploy 重建 venv 会丢 pytest · render-smoke 验证就跑不起来
+# python-docx 已上面声明 (运行时本身就要 · template_decomposer.py 用)
+pytest>=8.0
+pytest-asyncio>=0.24

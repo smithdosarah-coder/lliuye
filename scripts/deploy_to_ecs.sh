@@ -128,4 +128,23 @@ case "$deep_status" in
 esac
 
 echo ""
+echo "=== 8.6 prod render-smoke (D 治本 regression 防御 · agent10 提 · 2026-05-21) ==="
+# 防御目的: deploy 完成后跑 prod venv 的 render-smoke 9/9 验证
+# - lint exit 0 = byte-level diff 无 leak · 但不证明 rendered docx 干净
+# - render-smoke 9/9 = 真跑生成→extract→断言全链路 · 是 user dogfooding 之前最后的网
+# - 任何 fail = deploy 引入 regression · 部署不算成功 · 报警 exit 1
+# 前置: requirements.txt 已加 pytest/pytest-asyncio · step 3.5 pip install 会装上
+set +e
+ssh_run "cd $ECS_REPO && .venv/bin/python -m pytest tests/integration/test_render_smoke.py -v --tb=short" 2>&1 | tail -25
+RENDER_SMOKE_EXIT=${PIPESTATUS[0]}
+set -e
+if [ "$RENDER_SMOKE_EXIT" -ne 0 ]; then
+  echo "[✗ FATAL] step 8.6 render-smoke FAILED (exit=$RENDER_SMOKE_EXIT) · 部署可能引入 regression"
+  echo "         deploy 已完成 service 已起 · 但 render layer 不可信 · 不要让 user dogfooding"
+  echo "         fix: 本地复现 → 修 → 重 deploy · 或 ssh 上去手动跑 pytest 看完整 traceback"
+  exit 1
+fi
+echo "[✓] step 8.6 render-smoke 9/9 PASS · render layer 健康"
+
+echo ""
 echo "=== ✓ deploy complete · public URL: https://liuye.me/login ==="
