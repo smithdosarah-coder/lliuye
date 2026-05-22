@@ -34,11 +34,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent.parent  # credit_report_agent_work/
 
 # 2026-05-21 C 档第 1 步 升级 · 3 layer schema 拆分
-# 默认全检 4 个 (3 layer + union view) · 任一 fail 即 exit 1
+# 2026-05-21 W1 第 1 步 升级 · 加入 decision_context layer (4 agent canonical input schema)
+# 默认全检 5 个 (4 layer + union view) · 任一 fail 即 exit 1
 SCHEMA_FILES = [
     REPO / "templates" / "client-metadata-schema.json",
     REPO / "templates" / "credit-terms-schema.json",
     REPO / "templates" / "material-facts-schema.json",
+    REPO / "templates" / "decision-context-schema.json",  # W1 第 1 步 · credit Agent 决策结果 (跨 agent canonical handoff)
     REPO / "templates" / "placeholder-schema.json",  # union view (backward compat · DEPRECATED)
 ]
 SCHEMA = SCHEMA_FILES[-1]  # 兼容老 --schema 默认值
@@ -184,12 +186,18 @@ def _lint_one(path: Path, data: dict) -> tuple[list[str], dict]:
 def _cross_layer_checks(layer_files: list[Path]) -> list[str]:
     """C7 + C8 · 跨 layer 一致性检查.
 
-    C7: 3 layer (不含 union) 字段不重复
+    C7: 3 layer (不含 union 和 decision_context) 字段不重复
     C8: 3 layer 合并 == union view 字段集
+
+    注: decision_context (W1 第 1 步) 是独立 inter-agent canonical handoff schema ·
+    不属 docx placeholder 68 key 集 · 跨层一致性检查仅检 client_metadata/credit_terms/material_facts vs union view.
     """
     failures: list[str] = []
     layers: dict[str, set[str]] = {}
     union_keys: set[str] = set()
+
+    # W1 第 1 步: 跨层一致性仅覆盖 placeholder 三层 + union view · 排除 decision_context
+    PLACEHOLDER_LAYERS = {"client_metadata", "credit_terms", "material_facts"}
 
     for p in layer_files:
         try:
@@ -200,7 +208,11 @@ def _cross_layer_checks(layer_files: list[Path]) -> list[str]:
         if p.name == "placeholder-schema.json":
             union_keys = keys
         else:
-            layers[d.get("layer") or p.stem] = keys
+            layer_name = d.get("layer") or p.stem
+            # decision_context 不参与 placeholder 跨层校验
+            if layer_name not in PLACEHOLDER_LAYERS:
+                continue
+            layers[layer_name] = keys
 
     # C7 · 3 layer 不重叠
     seen: dict[str, str] = {}

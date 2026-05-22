@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.0.0",
+  "layer": "decision_context",
+  "created": "2026-05-21",
+  "updated": "2026-05-21",
+  "description": "授信决策上下文层 — credit Agent 输出的决策结果 · 供下游 riskctrl/compliance/alert 消费 (codex R3 R3.4 W1 第 1 步 · 4 agent canonical input schema)",
+  "source_of_truth": "agent_credit · POST /api/credit/decision · _decision_event_stream_v4 done envelope (composite_score + decision + sub_scores + rule_hits + case_matches + reasoning)",
+  "split_from": "新增 · 非 placeholder-schema.json 拆分 · 决策结果不参与 docx REPLACE rendering · 仅作 inter-agent canonical handoff",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-05-21",
+      "phase": "W1 第 1 步 · 4 agent canonical input schema 落地",
+      "summary": "新增 decision_context 层 · 7 字段 · credit Agent 决策 verdict + score + breakdown + redlines + cases + reasoning + confidence · 与 codex R3 R3.2 default design (credit 7 维评分 + 红线 + 案例 + LLM 理由 + confidence) 对齐",
+      "fields_count": 7
+    }
+  ],
+  "syntax": {
+    "marker": "N/A",
+    "note": "decision_context 不是 docx placeholder · 不走 v16_op_handlers REPLACE 路径 · 仅作 BFF adapter 内部 canonical handoff payload (riskctrl risk_assess / compliance matrix_check / alert drill 都吃此 schema)"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公 (legal entity 法人主体) 场景",
+    "retail": "仅对私 (natural person 自然人主体) 场景",
+    "both": "对公 + 对私 共用 · 由 credit Agent 透出"
+  },
+  "fields": [
+    {
+      "key": "DECISION_VERDICT",
+      "type": "enum",
+      "required": true,
+      "scope_tag": "both",
+      "description": "授信决策 verdict (per codex R3 R3.2 #1 credit 输出 4 态)· approved=直接批 · rejected=直接拒 · conditional=有条件批 (需补件/抵押)· pending=待人工复核 (LLM 置信度不足/材料缺)",
+      "enum_values": [
+        "approved",
+        "rejected",
+        "conditional",
+        "pending"
+      ],
+      "example": "conditional"
+    },
+    {
+      "key": "DECISION_SCORE",
+      "type": "number",
+      "required": true,
+      "scope_tag": "both",
+      "description": "授信综合评分 0-100 (codex R3 R3.2 #1 credit 7 维加权 normalized · 对公=100 制 · 对私走 850 FICO 后归一)· 不是 PD_RATING (PD_RATING 是分级 1-9 · 此为连续值)",
+      "example": 72
+    },
+    {
+      "key": "DECISION_SCORE_BREAKDOWN",
+      "type": "object",
+      "required": true,
+      "scope_tag": "both",
+      "description": "7 维评分明细 dict (codex R3 R3.2 #1 ack)· key=维度 id · value=0-100 子分 · 7 维=财务健康/现金流/履约历史/行业景气/经营稳定/担保抵质押/负面司法 (对公) · 对私子分 key 可不同 (FICO 派生)· 不是 sub_scores list (避免名次错位 · 走 axis_id 命名 dict)",
+      "example": {
+        "financial_health": 75,
+        "cash_flow": 68,
+        "repayment_history": 80,
+        "industry_outlook": 65,
+        "operational_stability": 70,
+        "collateral": 60,
+        "negative_judicial": 90
+      }
+    },
+    {
+      "key": "DECISION_REDLINES_TRIGGERED",
+      "type": "list",
+      "required": false,
+      "scope_tag": "both",
+      "description": "已触发的红线 rule_id 列表 (codex R3 R3.2 #1 ack credit 红线检查)· 空数组=无红线触发 · 非空=必影响 verdict (硬红线 → rejected · 可豁免红线 → conditional + waiver_conditions)",
+      "example": [
+        "corp_rl_003_overdue_60d",
+        "corp_rl_005_lawsuit_pending"
+      ]
+    },
+    {
+      "key": "DECISION_CASES_REFERENCED",
+      "type": "list",
+      "required": false,
+      "scope_tag": "both",
+      "description": "决策引用的相似 case_id 列表 (codex R3 R3.2 #1 ack credit 案例匹配)· case_retriever.py 输出 · 空数组=无相似案例 · 用于 reasoning 解释 + 后续 case_matches drill-down",
+      "example": [
+        "case_corp_022_dingsheng",
+        "case_corp_117_qiming"
+      ]
+    },
+    {
+      "key": "DECISION_REASONING",
+      "type": "string",
+      "required": false,
+      "scope_tag": "both",
+      "description": "LLM 生成的决策理由 (codex R3 R3.2 #1 ack · 确定性出分 + LLM 写理由 · 不让 LLM 改分)· 50-500 字 · 含 'why this score' + 'why this verdict' + 'mitigation if conditional' · pending 状态可空",
+      "example": "综合 7 维评分 72/100 · 财务健康 75 · 现金流 68 · 红线 corp_rl_005 触发 (诉讼悬而未决 · 可豁免)· 参考相似 case_corp_022 (鼎盛批 400 万)· 建议有条件批准 200 万 · 前提条件: 诉讼结果出来后追加抵押。"
+    },
+    {
+      "key": "DECISION_CONFIDENCE",
+      "type": "number",
+      "required": true,
+      "scope_tag": "both",
+      "description": "决策置信度 0-1 (codex R3 R3.2 #1 ack · LLM self-judge confidence · 不是 score 归一)· < 0.7 → verdict 自动 fallback 到 pending (走人工复核 · 符合刘野 CLAUDE.md 幻觉零容忍)· ≥ 0.7 → verdict 直出",
+      "example": 0.82
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "字段缺失 → canonical contracts validation raise · BFF adapter 返 400 (不是 stub 501)",
+    "rationale": "decision_context 是 credit Agent 决策结果 · 缺字段意味决策不完整 · 不走 placeholder REPLACE 回退 · 符合刘野 CLAUDE.md '证据支撑 + 幻觉零容忍'。",
+    "retail_specific": "对私场景子分维度可能不同 (FICO 派生)· 但 7 维 key 全部 required · 缺则 LLM 必须补 0 + reasoning 说明 'why no data'"
+  },
+  "compatibility": {
+    "merge_to_flat_dict": "decision_context 是独立层 · 不 merge 进 client_metadata flat dict · v16_op_handlers 不消费 · 仅 BFF adapter 在 _canonical_to_*_input mapper 阶段读",
+    "backward_compat": "旧 credit done envelope (composite_score + sub_scores + rule_hits + case_matches + advice) 自动 mapping → decision_context (BFF adapter 内部 _credit_done_to_decision_context 函数)· 不破坏 agent_credit 现有 done envelope shape"
+  }
+}
