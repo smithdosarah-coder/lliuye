@@ -335,6 +335,9 @@ export type TemplateUploadResponse = {
   template_id: string;
   template_path: string;           // = template_ref
   validation_report: TemplateValidationReport;
+  /** CRUD 完整 (2026-05-21) · 同 template_name 已存在的 user 模板 ID 列表 · 已被自动 archive
+   *  前端可在 banner 提示 "已替换 N 份同名旧模板" · 让客户经理知道 supersede 发生 */
+  superseded_ids?: string[];
 };
 
 export async function uploadReportTemplate(
@@ -399,6 +402,82 @@ export async function listReportTemplates(): Promise<TemplateListResponse> {
     throw new Error(`templates 列表失败 HTTP ${resp.status} · ${text.slice(0, 120)}`);
   }
   return (await resp.json()) as TemplateListResponse;
+}
+
+/* ── Q6-B CRUD 完整 (2026-05-21 · agent17 TODO medium-value 3 项) ─────────
+   DELETE  /api/report/templates/{id}  → soft-delete (搬 .archived/{id}/)
+   PATCH   /api/report/templates/{id}  → 重命名 (只改 metadata.template_name)
+   Boundary: 只允许 user-* template · builtin 拒 (typed error · banner 友好提示)
+*/
+
+/** typed error · 把后端 detail.error.{code, message} 揉成可读 Error · 前端 banner 消费 */
+function _parseTypedError(text: string, fallbackHttp: number): Error {
+  try {
+    const parsed = JSON.parse(text) as {
+      detail?: { error?: { code?: string; message?: string } };
+    };
+    const inner = parsed?.detail?.error;
+    if (inner?.code) {
+      const e = new Error(`[${inner.code}] ${inner.message ?? ""}`.trim());
+      (e as Error & { code?: string }).code = inner.code;
+      return e;
+    }
+  } catch {
+    /* fall through to plain HTTP */
+  }
+  return new Error(`HTTP ${fallbackHttp} · ${text.slice(0, 160)}`);
+}
+
+export type TemplateDeleteResponse = {
+  deleted: string;
+  archive_path: string;
+  archived_at: string;
+  archive_reason: string;
+};
+
+export async function deleteReportTemplate(
+  templateId: string,
+): Promise<TemplateDeleteResponse> {
+  if (!templateId || !templateId.startsWith("user-")) {
+    throw new Error("仅 user-* 模板可删 · 内置模板拒删");
+  }
+  const url = `${API_BASE}/api/report/templates/${encodeURIComponent(templateId)}`;
+  const resp = await fetch(url, { method: "DELETE" });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw _parseTypedError(text, resp.status);
+  }
+  return (await resp.json()) as TemplateDeleteResponse;
+}
+
+export type TemplatePatchResponse = {
+  updated: string;
+  metadata: TemplateValidationReport & { renamed_at?: string; renamed_by?: string };
+  noop: boolean;
+};
+
+export async function renameReportTemplate(
+  templateId: string,
+  newName: string,
+): Promise<TemplatePatchResponse> {
+  if (!templateId || !templateId.startsWith("user-")) {
+    throw new Error("仅 user-* 模板可重命名 · 内置模板拒改");
+  }
+  const trimmed = (newName ?? "").trim();
+  if (trimmed.length < 2 || trimmed.length > 80) {
+    throw new Error("模板名长度必须 2-80 字符");
+  }
+  const url = `${API_BASE}/api/report/templates/${encodeURIComponent(templateId)}`;
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ template_name: trimmed }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw _parseTypedError(text, resp.status);
+  }
+  return (await resp.json()) as TemplatePatchResponse;
 }
 
 /* ── SSE consume: POST /api/report/v16/fill ────────────────────────── */

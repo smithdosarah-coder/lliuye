@@ -26,10 +26,12 @@ import { ScanCTA } from "@/components/shared/ScanCTA";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
+  deleteReportTemplate,
   exportReportDocx,
   exportReportPdf,
   listReportTemplates,
   refineReportSection,
+  renameReportTemplate,
   streamReportDemoRun,
   streamReportV16Fill,
   triggerDownloadBlob,
@@ -360,6 +362,70 @@ export function ReportWorkspace() {
     [businessLine, refreshTemplateList],
   );
 
+  /* CRUD 完整 (2026-05-21 · agent17 TODO medium-value 3 项)
+     - 删 user 模板: confirm → DELETE endpoint → 列表刷 + 若选中则清 templateChoice
+     - 重命名: prompt → PATCH endpoint → 列表刷 + 若选中则同步 templateChoice 内的 name (id 不变 path 不变)
+     Boundary: 只对 user-* 模板暴露按钮 · 内置不让动 (后端也拒) */
+  const handleDeleteUserTemplate = useCallback(
+    async (templateId: string, templateName: string) => {
+      if (typeof window !== "undefined") {
+        const ok = window.confirm(
+          `确认删除模板「${templateName}」?\n\n操作可由管理员从 .archived/ 恢复 · 但客户经理 dropdown 立即看不到。`,
+        );
+        if (!ok) return;
+      }
+      try {
+        await deleteReportTemplate(templateId);
+        // 若当前选中的就是被删的 · 清掉 (用户得重新选)
+        if (templateChoice === `user-template:${templateId}`) {
+          setTemplateChoice("");
+        }
+        await refreshTemplateList();
+        setErrMsg(null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setErrMsg(msg);
+        setLiveFailErr({
+          endpoint: `DELETE /api/report/templates/${templateId}`,
+          status: (e as Error & { code?: string })?.code ?? "ERR",
+          message: msg,
+        });
+      }
+    },
+    [templateChoice, refreshTemplateList],
+  );
+
+  const handleRenameUserTemplate = useCallback(
+    async (templateId: string, currentName: string) => {
+      if (typeof window === "undefined") return;
+      const newName = window.prompt(
+        `重命名模板 (2-80 字符):`,
+        currentName,
+      );
+      if (newName === null) return; // user cancelled
+      const trimmed = newName.trim();
+      if (trimmed.length < 2 || trimmed.length > 80) {
+        setErrMsg("模板名长度必须 2-80 字符");
+        return;
+      }
+      if (trimmed === currentName) return; // noop
+      try {
+        await renameReportTemplate(templateId, trimmed);
+        await refreshTemplateList();
+        setErrMsg(null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setErrMsg(msg);
+        setLiveFailErr({
+          endpoint: `PATCH /api/report/templates/${templateId}`,
+          status: (e as Error & { code?: string })?.code ?? "ERR",
+          message: msg,
+        });
+      }
+    },
+    [refreshTemplateList],
+  );
+
   const handleRefineSection = useCallback(
     async (sectionId: string, userEdit: string) => {
       const sid = liveData?.session_id;
@@ -601,6 +667,9 @@ export function ReportWorkspace() {
           uploadingTemplate={uploadingTemplate}
           onUploadTemplate={handleUploadTemplate}
           onDismissTemplateReport={() => setLastTemplateReport(null)}
+          /* CRUD 完整 (2026-05-21) · 删 / 重命名 user 模板 */
+          onDeleteUserTemplate={handleDeleteUserTemplate}
+          onRenameUserTemplate={handleRenameUserTemplate}
         />
         {started ? (
           <>
@@ -2021,6 +2090,9 @@ function ReportLaunchBar(p: {
   uploadingTemplate: boolean;
   onUploadTemplate: (files: File[]) => void;
   onDismissTemplateReport: () => void;
+  /* CRUD 完整 (2026-05-21) · 删 / 重命名 user 模板 (icon button 旁挂 dropdown · 选中 user 模板时显式) */
+  onDeleteUserTemplate: (templateId: string, templateName: string) => void;
+  onRenameUserTemplate: (templateId: string, currentName: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const templateInputRef = useRef<HTMLInputElement | null>(null);
@@ -2129,9 +2201,62 @@ function ReportLaunchBar(p: {
               </optgroup>
             ) : null}
           </select>
+          {/* CRUD 完整 (2026-05-21) · 选中 user 模板时显式 重命名 / 删除 icon 按钮
+              boundary: 仅 user-template:xxx · builtin 不显示 (内置不让动) */}
+          {(() => {
+            if (!p.templateChoice.startsWith("user-template:")) return null;
+            const selected = p.templateList.user.find(
+              (t) => t.template_path === p.templateChoice,
+            );
+            if (!selected || !selected.template_id) return null;
+            const tid = selected.template_id;
+            const tname = selected.name;
+            return (
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <button
+                  type="button"
+                  data-testid="report-template-rename-btn"
+                  onClick={() => p.onRenameUserTemplate(tid, tname)}
+                  title={`重命名「${tname}」`}
+                  aria-label={`重命名模板 ${tname}`}
+                  style={{
+                    padding: "4px 6px",
+                    fontSize: 12,
+                    fontFamily: "var(--cjk)",
+                    background: "transparent",
+                    border: "1px solid var(--ink-25, #d1d5db)",
+                    borderRadius: 4,
+                    color: "var(--ink-65)",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  type="button"
+                  data-testid="report-template-delete-btn"
+                  onClick={() => p.onDeleteUserTemplate(tid, tname)}
+                  title={`删除「${tname}」(soft delete · 可恢复)`}
+                  aria-label={`删除模板 ${tname}`}
+                  style={{
+                    padding: "4px 6px",
+                    fontSize: 12,
+                    fontFamily: "var(--cjk)",
+                    background: "transparent",
+                    border: "1px solid #ef4444",
+                    borderRadius: 4,
+                    color: "#dc2626",
+                    cursor: "pointer",
+                  }}
+                >
+                  🗑
+                </button>
+              </div>
+            );
+          })()}
         </div>
         <span style={_LAUNCH_HINT_STYLE}>
-          上传 .docx 自动 lint · 选预制或已上传
+          上传 .docx 自动 lint · 选预制或已上传 · 我上传的可改名 / 删
         </span>
       </div>
 

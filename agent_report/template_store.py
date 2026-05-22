@@ -23,6 +23,7 @@ Boundary (per CLAUDE.md "不动 v16 pipeline 核心"):
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import uuid
 from datetime import datetime
@@ -35,6 +36,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # 模板根目录 · 与 data/kb/report/{report_id}/ (材料) 隔离 · 防混淆
 TEMPLATE_ROOT = PROJECT_ROOT / "data" / "kb" / "templates"
+# Soft-delete 归档目录 · DELETE / supersede 把老模板搬这里 · 不真删 · 留 audit trail
+TEMPLATE_ARCHIVE_DIRNAME = ".archived"
 
 # 5 个内置模板 · 与前端 SSOT (single source of truth)
 # 前端 dropdown / v16/fill 默认 source_docx 都消费此列表 · 修改时同步前端 ReportWorkspace
@@ -229,6 +232,9 @@ def list_user_templates() -> list[dict[str, Any]]:
     for tdir in TEMPLATE_ROOT.iterdir():
         if not tdir.is_dir():
             continue
+        # Skip soft-delete archive dir (per CRUD 完整 2026-05-21 · archive_template 搬这里)
+        if tdir.name == TEMPLATE_ARCHIVE_DIRNAME or tdir.name.startswith("."):
+            continue
         meta_path = tdir / "metadata.json"
         if not meta_path.exists():
             continue
@@ -266,14 +272,207 @@ def get_template_metadata(template_id: str) -> dict[str, Any] | None:
         return None
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# CRUD 完整 (per agent17 TODO medium-value 3 项 · 2026-05-21)
+#   archive_template / rename_user_template / archive_duplicates_by_name
+#   设计原则:
+#     - 真删 = soft delete · 搬 .archived/{id}/ · metadata 加 archived_at + reason
+#       (保 audit trail · 客户经理误删可手动 recover · 后续 GC 再考虑硬删)
+#     - rename 只改 metadata.template_name + renamed_at · 不动 docx 本体 (template_id 不变 · 引用链稳定)
+#     - supersede = upload 同 template_name 自动 archive 老的 (dropdown 保持干净 · UUID 仍唯一防误覆盖)
+#   只允许操作 user-* template · builtin 拒 (raise PermissionError caller 翻 400)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+def _archive_root() -> Path:
+    """.archived 根目录 · lazy create."""
+    return TEMPLATE_ROOT / TEMPLATE_ARCHIVE_DIRNAME
+
+
+def archive_template(
+    template_id: str,
+    *,
+    reason: str = "user_deleted",
+    archived_by: str = "unknown",
+) -> dict[str, Any]:
+    """Soft-delete · 把 user template 搬到 .archived/{id}/ · 写 archived_at + reason 到 metadata.
+
+    Args:
+        template_id: 必须 "user-" 前缀 · builtin 拒.
+        reason: "user_deleted" / "superseded_by:{new_id}" / 其他自定义.
+        archived_by: 操作人 (审计 · uploader 维度).
+
+    Returns:
+        归档后 metadata dict (含 archived_at / archive_reason / archive_path).
+
+    Raises:
+        FileNotFoundError: template_id 不存在.
+        PermissionError: 拒删 builtin (template_id 不以 "user-" 开头).
+        OSError: 搬迁失败 (磁盘问题 caller 翻 500).
+    """
+    if not template_id.startswith("user-"):
+        raise PermissionError(
+            f"拒删 builtin template · template_id={template_id!r} · 仅 user-* 允许"
+        )
+
+    src_dir = template_dir(template_id)
+    if not src_dir.exists():
+        raise FileNotFoundError(
+            f"template {template_id!r} 不存在 · path={src_dir}"
+        )
+
+    # 读 metadata 防丢 · 后面写归档信息
+    meta_path = src_dir / "metadata.json"
+    metadata: dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            metadata = {}
+
+    # 准备目标 (lazy mkdir · 防 race: 同 template_id 二次归档 · 加 ts 后缀)
+    archive_root = _archive_root()
+    archive_root.mkdir(parents=True, exist_ok=True)
+    dst_dir = archive_root / template_id
+    if dst_dir.exists():
+        # 极少情况 · 同 id 被搬过 · 加 ts 后缀防覆盖 audit trail
+        dst_dir = archive_root / f"{template_id}__{int(datetime.now().timestamp())}"
+
+    # 真搬 (shutil.move · cross-fs 时 copy+rm)
+    shutil.move(str(src_dir), str(dst_dir))
+
+    # 写 archived_at + reason 到新位置 metadata (audit trail)
+    metadata["archived_at"] = datetime.now().isoformat(timespec="seconds")
+    metadata["archive_reason"] = reason
+    metadata["archived_by"] = archived_by
+    metadata["archive_path"] = str(dst_dir.relative_to(TEMPLATE_ROOT))
+    try:
+        (dst_dir / "metadata.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except OSError:
+        # 写归档 metadata 失败不阻塞 · 文件已搬走 caller 看到了 deleted 行为
+        pass
+
+    return metadata
+
+
+def rename_user_template(
+    template_id: str,
+    new_name: str,
+    *,
+    renamed_by: str = "unknown",
+) -> dict[str, Any]:
+    """重命名 user template · 只改 metadata.template_name + renamed_at · 不动 docx / template_id.
+
+    Args:
+        template_id: 必须 "user-" 前缀 · builtin 拒.
+        new_name: 新 template_name · 2-80 字符 · 与 upload 校验同.
+        renamed_by: 操作人 (审计).
+
+    Returns:
+        更新后 metadata dict (含 template_name=new_name + renamed_at).
+
+    Raises:
+        FileNotFoundError: template_id 不存在.
+        PermissionError: 拒改 builtin.
+        ValueError: new_name 长度不合规.
+        OSError: 写 metadata.json 失败.
+    """
+    if not template_id.startswith("user-"):
+        raise PermissionError(
+            f"拒改 builtin template · template_id={template_id!r} · 仅 user-* 允许"
+        )
+
+    name_stripped = (new_name or "").strip()
+    if len(name_stripped) < 2 or len(name_stripped) > 80:
+        raise ValueError(
+            f"template_name 长度 2-80 字符 · 实际给了 {len(name_stripped)} 字符"
+        )
+
+    tdir = template_dir(template_id)
+    meta_path = tdir / "metadata.json"
+    if not meta_path.exists():
+        raise FileNotFoundError(
+            f"template {template_id!r} metadata.json 不存在 · path={meta_path}"
+        )
+
+    try:
+        metadata = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise FileNotFoundError(
+            f"template {template_id!r} metadata.json 解析失败 · {exc}"
+        ) from exc
+
+    metadata["template_name"] = name_stripped
+    metadata["renamed_at"] = datetime.now().isoformat(timespec="seconds")
+    metadata["renamed_by"] = renamed_by
+
+    meta_path.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return metadata
+
+
+def archive_duplicates_by_name(
+    template_name: str,
+    *,
+    superseded_by: str,
+    archived_by: str = "unknown",
+) -> list[str]:
+    """upload 同 template_name 时自动 archive 老的 · 保 dropdown 干净 (UUID 唯一仍存).
+
+    设计 (per supersede 实施单 Step 3):
+      - 新模板 upload 后 caller 调本函数 · 把所有同 template_name 的 active user 模板归档
+      - reason="superseded_by:{new_template_id}" · 后续可追溯哪个 new 替换了哪个 old
+      - 不影响 builtin · 只匹配 user-* · 内置 template_name 不会和 user 撞 (设计上)
+
+    Args:
+        template_name: 要去重的名字 · trim 后比较 (case-sensitive).
+        superseded_by: 新模板 template_id · 写入老的 archive metadata reason.
+        archived_by: 操作人 (审计).
+
+    Returns:
+        被归档的 template_id 列表 (空表示无重名 · 是首传).
+    """
+    name_stripped = (template_name or "").strip()
+    if not name_stripped:
+        return []
+
+    archived_ids: list[str] = []
+    for item in list_user_templates():
+        if item.get("name", "").strip() != name_stripped:
+            continue
+        tid = item.get("template_id", "")
+        if not tid or tid == superseded_by:
+            continue  # 防自归档
+        try:
+            archive_template(
+                tid,
+                reason=f"superseded_by:{superseded_by}",
+                archived_by=archived_by,
+            )
+            archived_ids.append(tid)
+        except (FileNotFoundError, PermissionError, OSError):
+            # 归档失败 silent · 不阻塞主 upload · 老的留在 dropdown 也无大碍
+            continue
+    return archived_ids
+
+
 __all__ = [
     "BUILTIN_TEMPLATES",
     "MAX_TEMPLATE_BYTES",
+    "TEMPLATE_ARCHIVE_DIRNAME",
     "TEMPLATE_ROOT",
+    "archive_duplicates_by_name",
+    "archive_template",
     "get_template_metadata",
     "list_user_templates",
     "make_template_id",
     "persist_template",
+    "rename_user_template",
     "resolve_template_path",
     "safe_filename",
     "template_dir",

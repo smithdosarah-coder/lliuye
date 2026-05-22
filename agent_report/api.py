@@ -536,7 +536,10 @@ async def report_upload_template(
     })
 
     # 4. 落盘 + lint
-    from agent_report.template_store import persist_template  # noqa: E402
+    from agent_report.template_store import (  # noqa: E402
+        archive_duplicates_by_name,
+        persist_template,
+    )
 
     try:
         metadata = persist_template(
@@ -585,6 +588,20 @@ async def report_upload_template(
             }},
         ) from exc
 
+    # 5. Supersede 老的同名 user 模板 · 保 dropdown 干净 (per CRUD 完整 实施单 Step 3)
+    #    同 template_name 已存在 active user 模板 → 归档老的 · 新的 active
+    #    UUID 唯一 · 老的 .archived/{old_id}/ 留 audit trail · client 可调 DELETE undo (Phase 2 加)
+    superseded_ids: list[str] = []
+    try:
+        superseded_ids = archive_duplicates_by_name(
+            template_name=name_stripped,
+            superseded_by=metadata["template_id"],
+            archived_by=str(_user.get("name") or _user.get("sub") or _audit_user),
+        )
+    except (OSError, RuntimeError):
+        # 归档失败 silent · 不阻塞主上传 · 老的仍在 dropdown 也无大碍 (UUID 唯一不撞)
+        superseded_ids = []
+
     audit_log({
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "user_id": _audit_user,
@@ -596,12 +613,14 @@ async def report_upload_template(
         "validation": metadata["validation"],
         "placeholder_count": metadata["placeholder_count"],
         "residue_count": metadata["residue_count"],
+        "superseded_count": len(superseded_ids),
     })
 
     return {
         "template_id": metadata["template_id"],
         "template_path": metadata["template_ref"],   # "user-template:{id}" · V16FillRequest 直接消费
         "validation_report": metadata,
+        "superseded_ids": superseded_ids,            # supersede 归档掉的老 user template id (per CRUD 完整 Step 3)
     }
 
 
@@ -628,6 +647,281 @@ async def report_list_templates(
     return {
         "builtin": list(BUILTIN_TEMPLATES),
         "user": list_user_templates(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/report/templates/{template_id} — soft-delete user template
+# PATCH  /api/report/templates/{template_id} — rename user template metadata
+# (per agent17 TODO medium-value 3 项 · CRUD 完整 2026-05-21)
+# ---------------------------------------------------------------------------
+
+
+@app.delete("/api/report/templates/{template_id}")
+async def report_delete_template(
+    template_id: str,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """Soft-delete user template · 搬到 ``data/kb/templates/.archived/{id}/`` · builtin 拒.
+
+    Why soft-delete:
+      - 客户经理误删 (e.g. 客户合同还在用此模板生成报告) · 后台可手动 recover
+      - audit trail 保留 archived_at + archived_by + reason
+      - Phase 2 可加 GC (e.g. .archived/ 30 天后真删 · cron)
+
+    Returns:
+      {deleted: template_id, archive_path: ".archived/{id}", archived_at, reason}
+
+    Errors:
+      400 CANNOT_DELETE_BUILTIN — template_id 不以 "user-" 开头
+      404 TEMPLATE_NOT_FOUND   — template_id 不存在
+      500 TEMPLATE_DELETE_FAILED — 搬迁失败 (磁盘 / 权限)
+    """
+    from agent_report.template_store import archive_template  # noqa: E402
+
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or _user.get("sub") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": f"/api/report/templates/{template_id}",
+        "method": "DELETE",
+        "template_id": template_id,
+    })
+    operator = str(_user.get("name") or _user.get("sub") or _audit_user)
+
+    try:
+        archived_meta = archive_template(
+            template_id,
+            reason="user_deleted",
+            archived_by=operator,
+        )
+    except PermissionError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "DELETE",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {
+                "code": "CANNOT_DELETE_BUILTIN",
+                "message": str(exc),
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+    except FileNotFoundError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "DELETE",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {
+                "code": "TEMPLATE_NOT_FOUND",
+                "message": str(exc),
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+    except OSError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "DELETE",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": f"OSError: {exc}",
+        })
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {
+                "code": "TEMPLATE_DELETE_FAILED",
+                "message": f"模板归档失败 · {exc}",
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": f"/api/report/templates/{template_id}",
+        "method": "DELETE",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+        "template_id": template_id,
+        "archive_path": archived_meta.get("archive_path"),
+    })
+
+    return {
+        "deleted": template_id,
+        "archive_path": archived_meta.get("archive_path"),
+        "archived_at": archived_meta.get("archived_at"),
+        "archive_reason": archived_meta.get("archive_reason"),
+    }
+
+
+class TemplatePatchRequest(BaseModel):
+    """PATCH /api/report/templates/{id} body · 当前只支持改 template_name (轻量 · 不动 docx).
+
+    Phase 2 可扩展 business_line / visibility / pinned 等 metadata 字段 · 加 optional 即可.
+    """
+    template_name: Optional[str] = None
+
+
+@app.patch("/api/report/templates/{template_id}")
+async def report_patch_template(
+    template_id: str,
+    req: TemplatePatchRequest,
+    request: Request,
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """重命名 user template · 只改 metadata.template_name + renamed_at · template_id 不变 (引用稳定).
+
+    Errors:
+      400 CANNOT_PATCH_BUILTIN  — template_id 不以 "user-" 开头
+      400 TEMPLATE_NAME_INVALID — template_name 长度不在 2-80
+      404 TEMPLATE_NOT_FOUND    — template_id 不存在
+      500 TEMPLATE_PATCH_FAILED — 写 metadata.json 失败
+    """
+    from agent_report.template_store import rename_user_template  # noqa: E402
+
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or _user.get("sub") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": f"/api/report/templates/{template_id}",
+        "method": "PATCH",
+        "template_id": template_id,
+        "new_name": (req.template_name or "")[:80],
+    })
+    operator = str(_user.get("name") or _user.get("sub") or _audit_user)
+
+    # 当前只支持 template_name · 缺则空 noop 返当前 metadata (UX 友好)
+    if req.template_name is None:
+        from agent_report.template_store import get_template_metadata  # noqa: E402
+        meta = get_template_metadata(template_id)
+        if meta is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": {
+                    "code": "TEMPLATE_NOT_FOUND",
+                    "message": f"template {template_id!r} 不存在",
+                    "details": {"template_id": template_id},
+                }},
+            )
+        return {"updated": template_id, "metadata": meta, "noop": True}
+
+    try:
+        updated_meta = rename_user_template(
+            template_id,
+            req.template_name,
+            renamed_by=operator,
+        )
+    except PermissionError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "PATCH",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {
+                "code": "CANNOT_PATCH_BUILTIN",
+                "message": str(exc),
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+    except ValueError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "PATCH",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {
+                "code": "TEMPLATE_NAME_INVALID",
+                "message": str(exc),
+                "details": {"template_name": req.template_name},
+            }},
+        ) from exc
+    except FileNotFoundError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "PATCH",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {
+                "code": "TEMPLATE_NOT_FOUND",
+                "message": str(exc),
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+    except OSError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": f"/api/report/templates/{template_id}",
+            "method": "PATCH",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": f"OSError: {exc}",
+        })
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {
+                "code": "TEMPLATE_PATCH_FAILED",
+                "message": f"模板元数据写入失败 · {exc}",
+                "details": {"template_id": template_id},
+            }},
+        ) from exc
+
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": f"/api/report/templates/{template_id}",
+        "method": "PATCH",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+        "template_id": template_id,
+        "new_name": req.template_name,
+    })
+
+    return {
+        "updated": template_id,
+        "metadata": updated_meta,
+        "noop": False,
     }
 
 
