@@ -1,0 +1,315 @@
+{
+  "schema_version": "1.1.2",
+  "layer": "client_metadata",
+  "created": "2026-05-21",
+  "updated": "2026-05-21",
+  "description": "客户基础信息层 — 营业执照 / 工商档案 / 个人身份等冷数据 (rendering 用 deterministic REPLACE)",
+  "source_of_truth": "营业执照 + 工商档案 (对公) · 身份证 + 居住证明 (对私)",
+  "split_from": "placeholder-schema.json v1.1.2 (C 档第 1 步 · 68 字段 3 层拆分)",
+  "changelog": [
+    {
+      "version": "1.1.2",
+      "date": "2026-05-21",
+      "phase": "C 档 第 1 步 · 3-layer split",
+      "summary": "从 placeholder-schema.json v1.1.2 按 semantic 拆出 client_metadata 层 · 33 字段 · field 定义逐字保留 · 不改字段语义",
+      "fields_count": 33
+    }
+  ],
+  "syntax": {
+    "marker": "{{KEY}}",
+    "note": "全角空格不影响匹配; cross-run 字符串拆分需 placeholder 整段位于单一 run 内 (Phase 2 改 docx 时按 paragraph-level 整段替换保证)"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公 (legal entity 法人主体) 场景 · 经纬测绘 / 兴业资管 / 普惠 / 科创",
+    "retail": "仅对私 (natural person 自然人主体) 场景 · 小微对私",
+    "both": "对公 + 对私 共用 · v16_classifier 根据 scenario 路由"
+  },
+  "fields": [
+    {
+      "key": "CLIENT_FULL_NAME",
+      "type": "string",
+      "required": true,
+      "scope_tag": "both",
+      "description": "客户主体全称 · 对公=企业全称 · 对私=自然人姓名 (per worker 4 metadata.client_full_name_in_personal_context)",
+      "example": "鼎盛商贸有限公司"
+    },
+    {
+      "key": "CLIENT_CORE_NAME",
+      "type": "string",
+      "required": true,
+      "scope_tag": "corporate",
+      "description": "客户核心简称 (用于报告内简写)",
+      "example": "鼎盛"
+    },
+    {
+      "key": "CLIENT_LEGAL_REP",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "法定代表人姓名",
+      "example": "张三"
+    },
+    {
+      "key": "CLIENT_USCC",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "统一社会信用代码",
+      "example": "91310000XXXXXXXXXX"
+    },
+    {
+      "key": "CLIENT_ESTABLISHMENT_DATE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "成立日期 (年-月-日 或中文日期)",
+      "example": "2015年3月15日"
+    },
+    {
+      "key": "CLIENT_REGISTERED_CAPITAL",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "注册资本 (含单位)",
+      "example": "2000万元"
+    },
+    {
+      "key": "CLIENT_PAID_IN_CAPITAL",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "实收资本 (含单位)",
+      "example": "2000万元"
+    },
+    {
+      "key": "CLIENT_REGISTERED_ADDRESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "注册地址 (含省市区)",
+      "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
+    },
+    {
+      "key": "CLIENT_OPERATING_ADDRESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "经营地址 (可与注册地址同)",
+      "example": "上海市浦东新区张江高科技园区科苑路 1234 号"
+    },
+    {
+      "key": "CLIENT_LOCATION_CITY",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "城市/简称 (用于行文叙述)",
+      "example": "上海"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_FULL",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "所属行业全称 (国标门类-大类)",
+      "example": "批发和零售业-批发业"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_CODE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "国标行业代码",
+      "example": "F51"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_CATEGORY",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "行业分类 (我行投向政策对应行业)",
+      "example": "批发和零售业"
+    },
+    {
+      "key": "CLIENT_BUSINESS_SCOPE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "主要产品和服务内容 / 经营范围",
+      "example": "高端日化品批发;美容护肤品零售;化妆品技术开发;品牌连锁运营。"
+    },
+    {
+      "key": "CLIENT_BUSINESS_DESC",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "主营业务一句话描述 (行文用)",
+      "example": "主营高端日化品批发与连锁零售"
+    },
+    {
+      "key": "CLIENT_BACKGROUND",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "企业背景 / 母公司关系 / 所属集团 (1-3 句叙述)",
+      "example": "上海重点商贸企业,沪东商贸集团权属子公司"
+    },
+    {
+      "key": "CLIENT_PARENT_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "母公司全称 (若无填空字符串)",
+      "example": "沪东商贸集团有限公司"
+    },
+    {
+      "key": "CLIENT_PARENT_SHORT_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "母公司简称 / 行文别名 (若无填空字符串)",
+      "example": "沪东商贸"
+    },
+    {
+      "key": "CLIENT_GROUP_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "祖父级集团全称 (二级母公司 · 经纬测绘 docx 出现 · 多层股权结构)",
+      "example": "沪东资本控股集团有限公司"
+    },
+    {
+      "key": "CLIENT_GROUP_SHORT_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "祖父级集团简称 / 行文别名",
+      "example": "沪东资本"
+    },
+    {
+      "key": "CLIENT_LONG_CORE_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "客户长简称 (4-6 字 · 介于全称和单字 core 之间 · 如 '经纬数字科技')",
+      "example": "鼎盛商贸"
+    },
+    {
+      "key": "CLIENT_OPERATING_YEARS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "经营年数 (含单位)",
+      "example": "8 年"
+    },
+    {
+      "key": "CLIENT_EMPLOYEE_COUNT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "员工人数 (含单位)",
+      "example": "350 人"
+    },
+    {
+      "key": "CLIENT_SHAREHOLDER_PRIMARY",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "主要股东名称",
+      "example": "沪东商贸集团有限公司"
+    },
+    {
+      "key": "CLIENT_SHARE_PCT_PRIMARY",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "主要股东持股比例",
+      "example": "100%"
+    },
+    {
+      "key": "FOUNDED_YEAR",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "成立年份 (短形式 · 用于段落叙述)",
+      "example": "2015"
+    },
+    {
+      "key": "CLIENT_ID_NUMBER",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "身份证号 (18 位 · 极敏感 · runtime 传入)",
+      "example": "310101199001010011"
+    },
+    {
+      "key": "CLIENT_EMPLOYER_OR_BUSINESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "工作单位或经营实体名称",
+      "example": "上海某科技有限公司"
+    },
+    {
+      "key": "CLIENT_POSITION_OR_YEARS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "职务或经营年限",
+      "example": "市场总监 / 5 年"
+    },
+    {
+      "key": "CLIENT_MARITAL_STATUS",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "婚姻状况 · checkbox_tick handler 也可消费此值勾选 [ ]",
+      "enum_values": [
+        "已婚",
+        "未婚",
+        "离异",
+        "丧偶"
+      ],
+      "example": "已婚"
+    },
+    {
+      "key": "CLIENT_HOUSEHOLD_INCOME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "家庭年收入(万元)",
+      "example": "30 万元"
+    },
+    {
+      "key": "CLIENT_HOME_ADDRESS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "家庭住址 (敏感)",
+      "example": "上海市浦东新区世纪大道 1234 号 5 楼 502 室"
+    },
+    {
+      "key": "CLIENT_PHONE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "personal_identity",
+      "description": "联系方式 (手机号 · 敏感)",
+      "example": "138****0011"
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "保留 {{KEY}} placeholder 原文",
+    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。",
+    "retail_specific": "对私 23 key 没有 alias_map fallback (worker 4 metadata.why_no_alias_fallback_for_retail_keys) · 调用方必须用 schema v1.1 完整 key 名传入 · 缺则保留原文 + pending"
+  },
+  "compatibility": {
+    "merge_to_flat_dict": "consumer (v16_op_handlers.placeholder_replace) 仍消费 flat dict · resolve_client_metadata 把 3 层 merge 成单 dict 后注入 Materials.client_metadata",
+    "backward_compat": "旧 metadata.json (单 flat dict 含全 68 key) 仍工作 · resolve_client_metadata 检测格式自动归一"
+  }
+}

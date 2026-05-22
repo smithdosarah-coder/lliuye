@@ -1,0 +1,242 @@
+{
+  "schema_version": "1.1.2",
+  "layer": "material_facts",
+  "created": "2026-05-21",
+  "updated": "2026-05-21",
+  "description": "物料事实/长叙述层 — 客户档案大段业务/行业/资质叙述 + 关联方 + 财务现金流 + 对私征信/还款能力事实",
+  "source_of_truth": "客户档案大段叙述 + 审计报告 + 关联方说明 + 征信报告",
+  "split_from": "placeholder-schema.json v1.1.2 (C 档第 1 步 · 68 字段 3 层拆分)",
+  "changelog": [
+    {
+      "version": "1.1.2",
+      "date": "2026-05-21",
+      "phase": "C 档 第 1 步 · 3-layer split",
+      "summary": "从 placeholder-schema.json v1.1.2 按 semantic 拆出 material_facts 层 · 23 字段 · field 定义逐字保留 · 不改字段语义",
+      "fields_count": 23
+    }
+  ],
+  "syntax": {
+    "marker": "{{KEY}}",
+    "note": "全角空格不影响匹配; cross-run 字符串拆分需 placeholder 整段位于单一 run 内 (Phase 2 改 docx 时按 paragraph-level 整段替换保证)"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公 (legal entity 法人主体) 场景 · 经纬测绘 / 兴业资管 / 普惠 / 科创",
+    "retail": "仅对私 (natural person 自然人主体) 场景 · 小微对私",
+    "both": "对公 + 对私 共用 · v16_classifier 根据 scenario 路由"
+  },
+  "fields": [
+    {
+      "key": "BUSINESS_QUALIFICATION_DESC",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "资质 / 认证叙述 (1-3 句)",
+      "example": "已获得 ISO9001 认证、品牌运营 A 级资质、连续 3 年纳税信用 A 级。"
+    },
+    {
+      "key": "BUSINESS_HISTORY_DESC",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "公司发展沿革叙述 (1-3 句)",
+      "example": "公司成立于 2015 年,经过 8 年深耕,目前已成为长三角区域日化品批发领先品牌之一。"
+    },
+    {
+      "key": "BUSINESS_STRATEGY_DESC",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "经营战略 / 子公司布局 / 集团化叙述 (可空)",
+      "example": "采用品牌矩阵 + 渠道下沉的双轮战略,在长三角 6 城设有运营子公司。"
+    },
+    {
+      "key": "CLIENT_BUSINESS_DESC_LONG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "主营业务大段描述 (100-300 字 · 段落级 · 用于 P11/P104/P176/P200 等长描述段) · Phase 3 治本新增 · deterministic 路径替换 LLM 漏改的大段",
+      "example": "公司是一家集日用消费品采购、仓储、分销、零售于一体的综合性商贸服务企业,主营高端日化品批发与连锁零售,业务覆盖长三角 6 城,服务客户超过 2000 家。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业背景叙述大段 (200-500 字 · 用于 P59/P60/P61/P63/P65/P67 等行业上下文长段) · Phase 3 治本新增",
+      "example": "日用消费品批发零售行业是国民经济的重要组成部分,2022 年行业总产值超 15 万亿元,近 5 年保持年均增长 8% 以上。随着电商分流加剧,传统线下批发商面临渠道下沉与数字化转型的双重压力,头部企业通过 OMO 模式整合线上线下,逐步形成新的竞争格局。"
+    },
+    {
+      "key": "CLIENT_HISTORY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "公司或集团历史沿革叙述 (50-200 字 · 用于 P16/P64/P99/P171 等沿革段)· Phase 3 治本新增",
+      "example": "公司前身为成立于 2005 年的鼎盛贸易行,2014 年改制为有限责任公司,2018 年完成股权结构优化引入战略投资者,目前为长三角区域日化品批发头部企业。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_POSITION",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业地位 / 竞争力叙述 (50-150 字 · 用于授信结论段对客户行业地位的判定)· Phase 3 治本新增",
+      "example": "公司是长三角区域日化品批发领先企业之一,与超过 300 家头部品牌建立战略合作,在区域细分市场占有率领先,具备较强的渠道资源和议价能力。"
+    },
+    {
+      "key": "CLIENT_QUALIFICATION_DETAIL",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "公司资质证书详细叙述 (100-300 字 · 用于 P12 资质段 + T2R3C6 资质表格)· Phase 3 治本新增",
+      "example": "公司目前已获得 ISO9001 质量管理体系认证、ISO14001 环境管理体系认证、3A 级信用企业、品牌运营 A 级资质、连续 3 年纳税信用 A 级,以及多项行业奖项。"
+    },
+    {
+      "key": "CLIENT_INDUSTRY_TAG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "行业短标签 (8-15 字 · 用于 P100 类愿景段嵌入)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
+      "example": "日用消费品批发零售"
+    },
+    {
+      "key": "CLIENT_BUSINESS_QUALIFICATION_TAG",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "business_narrative",
+      "description": "资质短标签 (4-10 字 · 用于 P11 主描述段嵌入资质前缀)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
+      "example": "3A 信用"
+    },
+    {
+      "key": "RELATED_PARTY_1_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "related_parties",
+      "description": "关联方 1 全称 (合并报表合并范围) · 经纬测绘原文含 '福建省六一八信息技术有限公司' · Phase 4 治本新增 · 若客户无关联方填空字符串",
+      "example": "某某科技子公司"
+    },
+    {
+      "key": "RELATED_PARTY_2_FULL_NAME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "related_parties",
+      "description": "关联方 2 全称 (合并报表合并范围) · 经纬测绘原文含 '三明新基建产业发展有限公司' · Phase 4 治本新增 · 若客户无第二关联方填空字符串",
+      "example": "某某产业发展子公司"
+    },
+    {
+      "key": "FINANCING_ACTIVITY_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "financial_narrative",
+      "description": "筹资活动现金流叙述大段 (100-300 字 · 用于 P150 等筹资活动段) · Phase 4 治本新增 · 各客户按真实财务数字填",
+      "example": "筹资活动产生的现金流量净额整体稳定,主要为日常经营所需的银行融资与关联方周转资金,资金用途与业务匹配,体现公司稳健的财务管理风格。"
+    },
+    {
+      "key": "CASHFLOW_ASSESSMENT_NARRATIVE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "financial_narrative",
+      "description": "货币资金 / 现金流评估叙述大段 (100-300 字 · 用于 P168 等现金流评估段 · 含授信风险判断) · Phase 4 治本新增",
+      "example": "公司货币资金水平整体匹配日常经营开支,资金回流节奏与业务结算周期吻合,授信发放后预计可有效覆盖经营周转需求,本次授信风险整体可控。"
+    },
+    {
+      "key": "CREDIT_QUERY_COUNT_2Y",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "本人查询次数(近 2 年)",
+      "example": 12
+    },
+    {
+      "key": "CREDIT_LOAN_QUERY_6M",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "贷款审批查询(近 6 个月)",
+      "example": 3
+    },
+    {
+      "key": "CREDIT_CARD_QUERY_6M",
+      "type": "number",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "信用卡审批查询(近 6 个月)",
+      "example": 2
+    },
+    {
+      "key": "CREDIT_OUTSTANDING_BALANCE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "在贷余额(万元)",
+      "example": "45 万元"
+    },
+    {
+      "key": "CREDIT_OVERDUE_RECORD",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_report_facts",
+      "description": "逾期记录 (无逾期 / 1 次 30 天内 / N 次)",
+      "example": "无"
+    },
+    {
+      "key": "CLIENT_MONTHLY_INCOME",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均收入(元)",
+      "example": "18000 元"
+    },
+    {
+      "key": "CLIENT_MONTHLY_DEBT_PAYMENT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均负债支出(元)",
+      "example": "6000 元"
+    },
+    {
+      "key": "CLIENT_DSR",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "月均偿债比 Debt-Service Ratio (%)",
+      "example": "33%"
+    },
+    {
+      "key": "REPAYMENT_ABILITY_ASSESSMENT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "repayment_capacity",
+      "description": "可还款能力评估 (短叙述)",
+      "example": "申请人收入稳定 · DSR 处于合理水平 · 具备还款能力"
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "保留 {{KEY}} placeholder 原文",
+    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。",
+    "retail_specific": "对私 23 key 没有 alias_map fallback (worker 4 metadata.why_no_alias_fallback_for_retail_keys) · 调用方必须用 schema v1.1 完整 key 名传入 · 缺则保留原文 + pending"
+  },
+  "compatibility": {
+    "merge_to_flat_dict": "consumer (v16_op_handlers.placeholder_replace) 仍消费 flat dict · resolve_client_metadata 把 3 层 merge 成单 dict 后注入 Materials.client_metadata",
+    "backward_compat": "旧 metadata.json (单 flat dict 含全 68 key) 仍工作 · resolve_client_metadata 检测格式自动归一"
+  }
+}

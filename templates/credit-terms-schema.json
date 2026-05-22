@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.1.2",
+  "layer": "credit_terms",
+  "created": "2026-05-21",
+  "updated": "2026-05-21",
+  "description": "授信条件层 — 授信批复 / 信贷决策结果 (一笔授信一份)",
+  "source_of_truth": "信贷决策引擎 + 授信批复",
+  "split_from": "placeholder-schema.json v1.1.2 (C 档第 1 步 · 68 字段 3 层拆分)",
+  "changelog": [
+    {
+      "version": "1.1.2",
+      "date": "2026-05-21",
+      "phase": "C 档 第 1 步 · 3-layer split",
+      "summary": "从 placeholder-schema.json v1.1.2 按 semantic 拆出 credit_terms 层 · 12 字段 · field 定义逐字保留 · 不改字段语义",
+      "fields_count": 12
+    }
+  ],
+  "syntax": {
+    "marker": "{{KEY}}",
+    "note": "全角空格不影响匹配; cross-run 字符串拆分需 placeholder 整段位于单一 run 内 (Phase 2 改 docx 时按 paragraph-level 整段替换保证)"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公 (legal entity 法人主体) 场景 · 经纬测绘 / 兴业资管 / 普惠 / 科创",
+    "retail": "仅对私 (natural person 自然人主体) 场景 · 小微对私",
+    "both": "对公 + 对私 共用 · v16_classifier 根据 scenario 路由"
+  },
+  "fields": [
+    {
+      "key": "CREDIT_AMOUNT",
+      "type": "string",
+      "required": false,
+      "scope_tag": "both",
+      "description": "综合授信额度 (含单位) · 对公=对公申报方案额度 · 对私=个人授信额度",
+      "example": "5000 万元"
+    },
+    {
+      "key": "CREDIT_EXPOSURE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "授信敞口 (含单位)",
+      "example": "4500 万元"
+    },
+    {
+      "key": "CREDIT_PERIOD",
+      "type": "string",
+      "required": false,
+      "scope_tag": "both",
+      "description": "授信期限 · 对公/对私通用",
+      "example": "一年"
+    },
+    {
+      "key": "PD_RATING",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "我行 PD 评级",
+      "example": "5"
+    },
+    {
+      "key": "INDUSTRY_POLICY_GUIDANCE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "description": "我行行业投向指引",
+      "example": "总体适度进入"
+    },
+    {
+      "key": "REPAYMENT_METHOD",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "还款方式",
+      "enum_values": [
+        "等额本息",
+        "等额本金",
+        "一次还本付息"
+      ],
+      "example": "等额本息"
+    },
+    {
+      "key": "CREDIT_PURPOSE",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "授信用途",
+      "example": "经营周转"
+    },
+    {
+      "key": "GUARANTEE_METHOD",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "credit_application_personal",
+      "description": "担保方式",
+      "enum_values": [
+        "信用",
+        "抵押",
+        "第三方保证"
+      ],
+      "example": "抵押"
+    },
+    {
+      "key": "RISK_KEY_POINTS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "主要风险点",
+      "example": "经营波动 + 个人征信查询过频"
+    },
+    {
+      "key": "RISK_MITIGATION",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "缓释措施",
+      "example": "提供住房抵押 · 配偶共同还款"
+    },
+    {
+      "key": "CREDIT_CONCLUSION",
+      "type": "enum",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "建议授信结论",
+      "enum_values": [
+        "同意",
+        "不同意",
+        "有条件同意"
+      ],
+      "example": "有条件同意"
+    },
+    {
+      "key": "CREDIT_PRECONDITIONS",
+      "type": "string",
+      "required": false,
+      "scope_tag": "retail",
+      "group": "risk_and_conclusion",
+      "description": "前提条件",
+      "example": "完成住房抵押登记后放款"
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "保留 {{KEY}} placeholder 原文",
+    "rationale": "v16_generator REPLACE handler 在 client_metadata 无对应 key 时 不替换 + 写 pending_tag,符合刘野第二大脑 CLAUDE.md '幻觉零容忍 · 字段填不了标 未能自动填写' 规则。",
+    "retail_specific": "对私 23 key 没有 alias_map fallback (worker 4 metadata.why_no_alias_fallback_for_retail_keys) · 调用方必须用 schema v1.1 完整 key 名传入 · 缺则保留原文 + pending"
+  },
+  "compatibility": {
+    "merge_to_flat_dict": "consumer (v16_op_handlers.placeholder_replace) 仍消费 flat dict · resolve_client_metadata 把 3 层 merge 成单 dict 后注入 Materials.client_metadata",
+    "backward_compat": "旧 metadata.json (单 flat dict 含全 68 key) 仍工作 · resolve_client_metadata 检测格式自动归一"
+  }
+}

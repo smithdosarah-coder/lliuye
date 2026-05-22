@@ -29,7 +29,15 @@
       "summary": "DP002 dogfood 报告残留 '测绘地理信息高新技术服务企业' 等大段业务描述硬编码 · Phase 2 仅 placeholder 化公司名/法人/资本/地址等 metadata 级字段 · 长段业务描述走 REWRITE 路径但 LLM 漏改 · Phase 3 把 6 类大段业务描述也 placeholder 化 · deterministic 路径覆盖 + REWRITE 作 fallback",
       "fields_added": 7,
       "scope": "corporate",
-      "new_keys": ["CLIENT_BUSINESS_DESC_LONG", "CLIENT_INDUSTRY_NARRATIVE", "CLIENT_HISTORY_NARRATIVE", "CLIENT_INDUSTRY_POSITION", "CLIENT_QUALIFICATION_DETAIL", "CLIENT_INDUSTRY_TAG", "CLIENT_BUSINESS_QUALIFICATION_TAG"]
+      "new_keys": [
+        "CLIENT_BUSINESS_DESC_LONG",
+        "CLIENT_INDUSTRY_NARRATIVE",
+        "CLIENT_HISTORY_NARRATIVE",
+        "CLIENT_INDUSTRY_POSITION",
+        "CLIENT_QUALIFICATION_DETAIL",
+        "CLIENT_INDUSTRY_TAG",
+        "CLIENT_BUSINESS_QUALIFICATION_TAG"
+      ]
     },
     {
       "version": "1.1.2",
@@ -38,7 +46,12 @@
       "summary": "DP002 第 2 次 dogfood 仍残留经纬测绘真实财务数字 (3375 万授信 / 10500 万吸收投资 / 1713 万借款) + 关联方公司名 (福建省六一八信息技术 / 三明新基建产业发展) · Phase 3 漏扫财务分析段 P150/P168 + 授信结论段 P177 + 额度表 T0R1C0P0/T0R1C1P0 + 合并报表 T15R1C1P1 · Phase 4 把 4 个新 key (2 关联方 + 2 财务叙述) 加进 schema · deterministic 路径整段替换",
       "fields_added": 4,
       "scope": "corporate",
-      "new_keys": ["RELATED_PARTY_1_FULL_NAME", "RELATED_PARTY_2_FULL_NAME", "FINANCING_ACTIVITY_NARRATIVE", "CASHFLOW_ASSESSMENT_NARRATIVE"]
+      "new_keys": [
+        "RELATED_PARTY_1_FULL_NAME",
+        "RELATED_PARTY_2_FULL_NAME",
+        "FINANCING_ACTIVITY_NARRATIVE",
+        "CASHFLOW_ASSESSMENT_NARRATIVE"
+      ]
     }
   ],
   "syntax": {
@@ -323,7 +336,6 @@
       "description": "经营战略 / 子公司布局 / 集团化叙述 (可空)",
       "example": "采用品牌矩阵 + 渠道下沉的双轮战略,在长三角 6 城设有运营子公司。"
     },
-
     {
       "key": "CLIENT_BUSINESS_DESC_LONG",
       "type": "string",
@@ -387,7 +399,6 @@
       "description": "资质短标签 (4-10 字 · 用于 P11 主描述段嵌入资质前缀)· Phase 3 治本新增 · 经纬测绘 sidecar metadata 已使用 · 此次入正式 schema",
       "example": "3A 信用"
     },
-
     {
       "key": "RELATED_PARTY_1_FULL_NAME",
       "type": "string",
@@ -424,7 +435,6 @@
       "description": "货币资金 / 现金流评估叙述大段 (100-300 字 · 用于 P168 等现金流评估段 · 含授信风险判断) · Phase 4 治本新增",
       "example": "公司货币资金水平整体匹配日常经营开支,资金回流节奏与业务结算周期吻合,授信发放后预计可有效覆盖经营周转需求,本次授信风险整体可控。"
     },
-
     {
       "key": "CLIENT_ID_NUMBER",
       "type": "string",
@@ -459,7 +469,12 @@
       "scope_tag": "retail",
       "group": "personal_identity",
       "description": "婚姻状况 · checkbox_tick handler 也可消费此值勾选 [ ]",
-      "enum_values": ["已婚", "未婚", "离异", "丧偶"],
+      "enum_values": [
+        "已婚",
+        "未婚",
+        "离异",
+        "丧偶"
+      ],
       "example": "已婚"
     },
     {
@@ -489,7 +504,6 @@
       "description": "联系方式 (手机号 · 敏感)",
       "example": "138****0011"
     },
-
     {
       "key": "CREDIT_QUERY_COUNT_2Y",
       "type": "number",
@@ -535,7 +549,6 @@
       "description": "逾期记录 (无逾期 / 1 次 30 天内 / N 次)",
       "example": "无"
     },
-
     {
       "key": "CLIENT_MONTHLY_INCOME",
       "type": "string",
@@ -572,7 +585,6 @@
       "description": "可还款能力评估 (短叙述)",
       "example": "申请人收入稳定 · DSR 处于合理水平 · 具备还款能力"
     },
-
     {
       "key": "REPAYMENT_METHOD",
       "type": "enum",
@@ -580,7 +592,11 @@
       "scope_tag": "retail",
       "group": "credit_application_personal",
       "description": "还款方式",
-      "enum_values": ["等额本息", "等额本金", "一次还本付息"],
+      "enum_values": [
+        "等额本息",
+        "等额本金",
+        "一次还本付息"
+      ],
       "example": "等额本息"
     },
     {
@@ -599,10 +615,13 @@
       "scope_tag": "retail",
       "group": "credit_application_personal",
       "description": "担保方式",
-      "enum_values": ["信用", "抵押", "第三方保证"],
+      "enum_values": [
+        "信用",
+        "抵押",
+        "第三方保证"
+      ],
       "example": "抵押"
     },
-
     {
       "key": "RISK_KEY_POINTS",
       "type": "string",
@@ -628,7 +647,11 @@
       "scope_tag": "retail",
       "group": "risk_and_conclusion",
       "description": "建议授信结论",
-      "enum_values": ["同意", "不同意", "有条件同意"],
+      "enum_values": [
+        "同意",
+        "不同意",
+        "有条件同意"
+      ],
       "example": "有条件同意"
     },
     {
@@ -650,5 +673,7 @@
     "fallback_when_no_metadata": "v16_step1_extract.py 走老 CURRENT_CLIENT 常量 (中锐 hardcode) · 不 break 现有 5 个 DP001-005 sample fixture",
     "feature_flag": "client_metadata=None 时走旧逻辑 · 显式传 dict 时走 placeholder REPLACE 路径",
     "v1_0_to_v1_1": "v1.0 → v1.1 纯加法 · 0 字段删除 · 0 字段语义变更 · 3 字段 scope_tag 由 corporate 升 both (语义实际未变 · 仅显式标注 retail 也用) · 现有对公 5 docx 模板 100% 向后兼容 · v16_classifier 可按 scope_tag 筛字段"
-  }
+  },
+  "_status": "DEPRECATED-UNION-VIEW",
+  "_split_note": "2026-05-21 C 档第 1 步: 按 semantic 拆 3 层 → client-metadata-schema.json + credit-terms-schema.json + material-facts-schema.json. 本文件保留作 union view + backward compat · 新 consumer 应读 3 个独立 schema."
 }
