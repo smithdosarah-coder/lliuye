@@ -49,26 +49,7 @@
     "CLIENT_EMPLOYEE_COUNT": "246 人",
     "CLIENT_SHAREHOLDER_PRIMARY": "王瑞恒",
     "CLIENT_SHARE_PCT_PRIMARY": "62%",
-    "CREDIT_AMOUNT": "300万元",
-    "CREDIT_EXPOSURE": "300万元",
-    "CREDIT_PERIOD": "二年",
-    "PD_RATING": "3",
-    "INDUSTRY_POLICY_GUIDANCE": "积极支持",
-    "FOUNDED_YEAR": "2009",
-    "BUSINESS_QUALIFICATION_DESC": "国家级专精特新 '小巨人' · 国家高新技术企业认证 · 已获 ISO9001 / IATF16949 体系认证 · 税务 A 级。",
-    "BUSINESS_HISTORY_DESC": "公司成立于 2009 年,经过 17 年深耕,现已成为苏州工业园区精密零部件制造领先企业之一,服务覆盖汽车 / 航空 / 工业自动化多个下游领域。",
-    "BUSINESS_STRATEGY_DESC": "采用研发驱动 + 产业链协同战略,主要客户分散度高,无单一客户超过 15% 营收占比。",
-    "CLIENT_INDUSTRY_TAG": "高端精密制造",
-    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家级专精特新",
-    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于高端装备精密零部件研发与制造的国家级专精特新 \"小巨人\" 企业,业务覆盖汽车、航空、工业自动化等多个高端下游领域。公司具备完整的研发设计、精密加工、品质管控全流程能力,主要客户分散度高,无单一客户超过 15% 营收占比,客户结构健康。",
-    "CLIENT_INDUSTRY_NARRATIVE": "高端装备精密零部件制造是新型工业化的核心环节,2022 年市场规模超 6500 亿元,近 5 年保持年均增长 15% 以上。新能源汽车、商业航天、半导体装备等下游高端制造行业的快速发展,持续推升对精密零部件精度、可靠性的要求,头部企业具备较强的客户粘性与议价能力。",
-    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2009 年的精密机械加工车间,经过 17 年深耕,已成长为兼具汽车、航空航天、工业自动化多行业供货能力的国家级专精特新 \"小巨人\" 企业,客户结构高度分散健康。",
-    "CLIENT_INDUSTRY_POSITION": "是苏州工业园区精密零部件制造领先企业之一,具备国家级专精特新 \"小巨人\" 与国家高新技术企业双资质,服务覆盖汽车、航空、工业自动化多个高端下游领域,在区域内具备较强的技术壁垒。",
-    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家级专精特新 \"小巨人\" 称号、国家高新技术企业认证、ISO9001 质量管理体系认证、IATF16949 汽车行业体系认证、税务 A 级,以及多项精密机械加工核心工艺专利。",
-    "RELATED_PARTY_1_FULL_NAME": "瑞恒精工子公司（苏州）",
-    "RELATED_PARTY_2_FULL_NAME": "",
-    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和股东支持为主,资金主要用于研发投入与新产线扩建。整体筹资结构稳健,与公司高端装备制造长周期投资匹配,无大额对外担保或异常融资行为,体现稳健的财务管理风格。",
-    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平充裕,经营性现金流稳健,客户结构分散使得现金回流节奏可控。授信发放后预计可有效支撑研发投入与产能扩张所需的中长期资金需求,本次授信风险整体可控。"
+    "FOUNDED_YEAR": "2009"
   },
   "feature_done": {
     "financial.debt_ratio": 0.42,
@@ -446,5 +427,38 @@
       "ar_turnover_gap": -7
     },
     "missing_evidence": []
+  },
+  "credit_terms": {
+    "CREDIT_AMOUNT": "300万元",
+    "CREDIT_EXPOSURE": "300万元",
+    "CREDIT_PERIOD": "二年",
+    "PD_RATING": "3",
+    "INDUSTRY_POLICY_GUIDANCE": "积极支持"
+  },
+  "material_facts": {
+    "BUSINESS_QUALIFICATION_DESC": "国家级专精特新 '小巨人' · 国家高新技术企业认证 · 已获 ISO9001 / IATF16949 体系认证 · 税务 A 级。",
+    "BUSINESS_HISTORY_DESC": "公司成立于 2009 年,经过 17 年深耕,现已成为苏州工业园区精密零部件制造领先企业之一,服务覆盖汽车 / 航空 / 工业自动化多个下游领域。",
+    "BUSINESS_STRATEGY_DESC": "采用研发驱动 + 产业链协同战略,主要客户分散度高,无单一客户超过 15% 营收占比。",
+    "CLIENT_INDUSTRY_TAG": "高端精密制造",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家级专精特新",
+    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于高端装备精密零部件研发与制造的国家级专精特新 \"小巨人\" 企业,业务覆盖汽车、航空、工业自动化等多个高端下游领域。公司具备完整的研发设计、精密加工、品质管控全流程能力,主要客户分散度高,无单一客户超过 15% 营收占比,客户结构健康。",
+    "CLIENT_INDUSTRY_NARRATIVE": "高端装备精密零部件制造是新型工业化的核心环节,2022 年市场规模超 6500 亿元,近 5 年保持年均增长 15% 以上。新能源汽车、商业航天、半导体装备等下游高端制造行业的快速发展,持续推升对精密零部件精度、可靠性的要求,头部企业具备较强的客户粘性与议价能力。",
+    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2009 年的精密机械加工车间,经过 17 年深耕,已成长为兼具汽车、航空航天、工业自动化多行业供货能力的国家级专精特新 \"小巨人\" 企业,客户结构高度分散健康。",
+    "CLIENT_INDUSTRY_POSITION": "是苏州工业园区精密零部件制造领先企业之一,具备国家级专精特新 \"小巨人\" 与国家高新技术企业双资质,服务覆盖汽车、航空、工业自动化多个高端下游领域,在区域内具备较强的技术壁垒。",
+    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家级专精特新 \"小巨人\" 称号、国家高新技术企业认证、ISO9001 质量管理体系认证、IATF16949 汽车行业体系认证、税务 A 级,以及多项精密机械加工核心工艺专利。",
+    "RELATED_PARTY_1_FULL_NAME": "瑞恒精工子公司（苏州）",
+    "RELATED_PARTY_2_FULL_NAME": "",
+    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和股东支持为主,资金主要用于研发投入与新产线扩建。整体筹资结构稳健,与公司高端装备制造长周期投资匹配,无大额对外担保或异常融资行为,体现稳健的财务管理风格。",
+    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平充裕,经营性现金流稳健,客户结构分散使得现金回流节奏可控。授信发放后预计可有效支撑研发投入与产能扩张所需的中长期资金需求,本次授信风险整体可控。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

@@ -38,8 +38,6 @@
     "CLIENT_LEGAL_REP": "郑志煌",
     "CLIENT_INDUSTRY_CATEGORY": "商务服务业",
     "CLIENT_INDUSTRY_FULL": "商务服务业-科学研究和技术服务-专业技术服务-测绘地理信息服务",
-    "CLIENT_INDUSTRY_TAG": "测绘地理信息",
-    "CLIENT_BUSINESS_QUALIFICATION_TAG": "甲级测绘",
     "CLIENT_BUSINESS_DESC": "测绘服务及其他专业技术服务",
     "CLIENT_REGISTERED_CAPITAL": "5000万元",
     "CLIENT_PAID_IN_CAPITAL": "5000万元",
@@ -52,11 +50,7 @@
     "CLIENT_GROUP_FULL_NAME": "福建省招标采购集团有限公司",
     "CLIENT_GROUP_SHORT_NAME": "招标采购集团",
     "CLIENT_SHAREHOLDER_PRIMARY": "福建省招标股份有限公司",
-    "CLIENT_SHARE_PCT_PRIMARY": "100%",
-    "CREDIT_AMOUNT": "3375万元",
-    "CREDIT_EXPOSURE": "3000万元",
-    "CREDIT_PERIOD": "一年",
-    "PD_RATING": "5"
+    "CLIENT_SHARE_PCT_PRIMARY": "100%"
   },
   "placeholder_locations": {
     "P0": [
@@ -209,5 +203,25 @@
   },
   "rationale": {
     "why_long_paragraphs_use_placeholder_only_for_company_name": "P11/P15/P21/P26 等长段是 REWRITE 候选 · LLM 重写时若 mats.facts 含 company_name 会自然嵌入正确名称 · 但 placeholder 化首字符的公司名段落 (如 P0 标题段) 保证 generator REPLACE 路径稳定填值 · 长段标题首字符公司名也 placeholder 化 · 让 v16 pipeline 任一档 (REPLACE / REWRITE / FILL) 都不会输出 '经纬' 字面"
+  },
+  "credit_terms": {
+    "CREDIT_AMOUNT": "3375万元",
+    "CREDIT_EXPOSURE": "3000万元",
+    "CREDIT_PERIOD": "一年",
+    "PD_RATING": "5"
+  },
+  "material_facts": {
+    "CLIENT_INDUSTRY_TAG": "测绘地理信息",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "甲级测绘"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

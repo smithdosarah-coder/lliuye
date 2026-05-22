@@ -48,26 +48,7 @@
     "CLIENT_EMPLOYEE_COUNT": "38 人",
     "CLIENT_SHAREHOLDER_PRIMARY": "陈鼎盛",
     "CLIENT_SHARE_PCT_PRIMARY": "70%",
-    "CREDIT_AMOUNT": "0万元",
-    "CREDIT_EXPOSURE": "0万元",
-    "CREDIT_PERIOD": "—",
-    "PD_RATING": "9",
-    "INDUSTRY_POLICY_GUIDANCE": "审慎进入",
-    "FOUNDED_YEAR": "2014",
-    "BUSINESS_QUALIFICATION_DESC": "持有批发零售业一般经营许可,无特殊资质认证,税务评级 C 级。",
-    "BUSINESS_HISTORY_DESC": "公司成立于 2014 年,经营 11 年,深耕莆田本地日用商贸市场,近 2 年受电商冲击营收同比 -5%。",
-    "BUSINESS_STRATEGY_DESC": "采用本地分销 + 上下游赊销的传统模式,未建立线上渠道,关联方占款规模偏高。",
-    "CLIENT_INDUSTRY_TAG": "日用消费品批发零售",
-    "CLIENT_BUSINESS_QUALIFICATION_TAG": "商贸经营许可",
-    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于日用消费品批发与零售的中小型商贸企业,业务涵盖化妆品、百货商品的采购、分销与终端零售。公司经营 11 年,在莆田本地形成稳定的供应链与分销网络,但近 2 年受电商分流冲击,营收同比下滑约 5%,转型压力较大。",
-    "CLIENT_INDUSTRY_NARRATIVE": "日用消费品批发零售行业是国内零售业的基础组成部分,2022 年市场规模超 3.8 万亿元。受电商渠道渗透加速影响,传统线下批发零售商面临双重压力 (毛利率压缩 + 客流分流),具备数字化转型能力与渠道整合能力的企业具备相对竞争优势。",
-    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2014 年的莆田本地百货商贸行,经过 11 年深耕,逐步形成日用消费品批发与零售的本地分销网络,但近 2 年受电商冲击,营收增长承压。",
-    "CLIENT_INDUSTRY_POSITION": "是莆田本地中小型日用消费品商贸企业,具备稳定的本地分销渠道,但在区域细分市场中处于跟随者位置,数字化转型滞后于头部同业。",
-    "CLIENT_QUALIFICATION_DETAIL": "公司目前持有日用消费品批发零售经营许可、食品销售许可等一般经营资质,无特殊行业认证,税务评级 C 级。",
-    "RELATED_PARTY_1_FULL_NAME": "",
-    "RELATED_PARTY_2_FULL_NAME": "",
-    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动主要依赖银行授信和股东借款,资金用途以日常经营周转为主。近年因电商分流冲击,关联方往来款规模偏高,筹资结构存在一定优化空间,需关注关联方占款对实际经营现金流的占用。",
-    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平偏紧,经营性现金流受营收下滑与上下游账期错配双重压力影响,日常运转对短期融资依赖较高。本次授信申请需综合考量公司还款能力与潜在的现金流风险敞口。"
+    "FOUNDED_YEAR": "2014"
   },
   "feature_done": {
     "financial.debt_ratio": 0.78,
@@ -584,5 +565,38 @@
       "ar_turnover_gap": 18.5
     },
     "missing_evidence": []
+  },
+  "credit_terms": {
+    "CREDIT_AMOUNT": "0万元",
+    "CREDIT_EXPOSURE": "0万元",
+    "CREDIT_PERIOD": "—",
+    "PD_RATING": "9",
+    "INDUSTRY_POLICY_GUIDANCE": "审慎进入"
+  },
+  "material_facts": {
+    "BUSINESS_QUALIFICATION_DESC": "持有批发零售业一般经营许可,无特殊资质认证,税务评级 C 级。",
+    "BUSINESS_HISTORY_DESC": "公司成立于 2014 年,经营 11 年,深耕莆田本地日用商贸市场,近 2 年受电商冲击营收同比 -5%。",
+    "BUSINESS_STRATEGY_DESC": "采用本地分销 + 上下游赊销的传统模式,未建立线上渠道,关联方占款规模偏高。",
+    "CLIENT_INDUSTRY_TAG": "日用消费品批发零售",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "商贸经营许可",
+    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于日用消费品批发与零售的中小型商贸企业,业务涵盖化妆品、百货商品的采购、分销与终端零售。公司经营 11 年,在莆田本地形成稳定的供应链与分销网络,但近 2 年受电商分流冲击,营收同比下滑约 5%,转型压力较大。",
+    "CLIENT_INDUSTRY_NARRATIVE": "日用消费品批发零售行业是国内零售业的基础组成部分,2022 年市场规模超 3.8 万亿元。受电商渠道渗透加速影响,传统线下批发零售商面临双重压力 (毛利率压缩 + 客流分流),具备数字化转型能力与渠道整合能力的企业具备相对竞争优势。",
+    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2014 年的莆田本地百货商贸行,经过 11 年深耕,逐步形成日用消费品批发与零售的本地分销网络,但近 2 年受电商冲击,营收增长承压。",
+    "CLIENT_INDUSTRY_POSITION": "是莆田本地中小型日用消费品商贸企业,具备稳定的本地分销渠道,但在区域细分市场中处于跟随者位置,数字化转型滞后于头部同业。",
+    "CLIENT_QUALIFICATION_DETAIL": "公司目前持有日用消费品批发零售经营许可、食品销售许可等一般经营资质,无特殊行业认证,税务评级 C 级。",
+    "RELATED_PARTY_1_FULL_NAME": "",
+    "RELATED_PARTY_2_FULL_NAME": "",
+    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动主要依赖银行授信和股东借款,资金用途以日常经营周转为主。近年因电商分流冲击,关联方往来款规模偏高,筹资结构存在一定优化空间,需关注关联方占款对实际经营现金流的占用。",
+    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平偏紧,经营性现金流受营收下滑与上下游账期错配双重压力影响,日常运转对短期融资依赖较高。本次授信申请需综合考量公司还款能力与潜在的现金流风险敞口。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

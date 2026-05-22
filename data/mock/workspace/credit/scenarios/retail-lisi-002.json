@@ -31,25 +31,7 @@
     "CLIENT_MARITAL_STATUS": "已婚",
     "CLIENT_HOUSEHOLD_INCOME": "62.4万元",
     "CLIENT_HOME_ADDRESS": "四川省成都市武侯区一环路********",
-    "CLIENT_PHONE": "139****0002",
-    "CREDIT_QUERY_COUNT_2Y": "6 次",
-    "CREDIT_LOAN_QUERY_6M": "2 次",
-    "CREDIT_CARD_QUERY_6M": "3 次",
-    "CREDIT_OUTSTANDING_BALANCE": "18 万元",
-    "CREDIT_OVERDUE_RECORD": "近 2 年逾期 1 次 (已结清)",
-    "CLIENT_MONTHLY_INCOME": "38000 元",
-    "CLIENT_MONTHLY_DEBT_PAYMENT": "17480 元",
-    "CLIENT_DSR": "46%",
-    "REPAYMENT_ABILITY_ASSESSMENT": "月均收入 3.8 万元,DTI 46% 已接近上限,近 12 个月收入同比 -18% (受双减政策影响),还款能力存在下行压力。",
-    "REPAYMENT_METHOD": "等额本息",
-    "CREDIT_PURPOSE": "经营周转 / 业务转型 (拟向素质教育转型)",
-    "GUARANTEE_METHOD": "信用",
-    "RISK_KEY_POINTS": "行业准入红线 (K12 学科类校外培训受双减政策禁止) · 收入同比 -18% · DTI 46% 偏高 · 无抵押。",
-    "RISK_MITIGATION": "需提供营业执照副本与当前实际授课科目证据 · 若已完成向素质 / 艺术 / 体育类转型 · 凭变更登记证明可重新评估。",
-    "CREDIT_CONCLUSION": "人工复核",
-    "CREDIT_PRECONDITIONS": "审贷员现场核实实际授课内容 + 工商变更登记;若仍涉 K12 学科类 · 系统拒贷。",
-    "CREDIT_AMOUNT": "0万元",
-    "CREDIT_PERIOD": "—"
+    "CLIENT_PHONE": "139****0002"
   },
   "feature_done": {
     "credit.score_pboc": 695,
@@ -142,7 +124,11 @@
     "schema_version": "1.0.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
-    "appetite": {"segment": "retail", "version": "default-2026-04", "client_id": ""},
+    "appetite": {
+      "segment": "retail",
+      "version": "default-2026-04",
+      "client_id": ""
+    },
     "subject_name": "李四",
     "segment": "retail",
     "built_at": "2026-05-01T10:34:00",
@@ -156,25 +142,160 @@
       "composite_score": 688
     },
     "nodes": [
-      {"id": "decision::final", "type": "decision", "decision": "人工复核", "approved_amount": 0, "approved_term_months": 0, "interest_rate": 0, "rate_benchmark": "—", "risk_grade": "边界", "composite_score": 688, "rationale_anchor": "硬红线 retail_rl_011 触发 + 边界档位 → 人工复核"},
-      {"id": "rule::retail_rl_011", "type": "rule", "rule_id": "retail_rl_011", "rule_name": "行业准入红线 · K12 学科类校外培训", "threshold": "禁止准入", "operator": "==", "severity": "red", "version": "v3.1+default", "source": "red_line_rules_retail.json#retail_rl_011"},
-      {"id": "rule_hit::retail_rl_011", "type": "rule_hit", "rule_id": "retail_rl_011", "actual": "K12 学科类", "threshold": "禁止准入", "severity": "red", "can_waive": false, "description": "K12 学科类校外培训受双减政策禁止准入 · 不可豁免"},
-      {"id": "feature::compliance.industry_policy_risk", "type": "feature", "key": "compliance.industry_policy_risk", "value": "high_K12_subject", "source": "feature_extractor.py::_extract_retail", "feature_path": "compliance.industry_policy_risk"},
-      {"id": "score::ability", "type": "score_dimension", "dimension": "ability", "score": 692, "weight": 0.30, "weighted": 207.6, "source": "scoring_model_retail.py::score::repayment_capacity", "sub_scores": {}},
-      {"id": "score::willingness", "type": "score_dimension", "dimension": "willingness", "score": 705, "weight": 0.25, "weighted": 176.25, "source": "scoring_model_retail.py::score::repayment_willingness", "sub_scores": {}},
-      {"id": "score::stability", "type": "score_dimension", "dimension": "stability", "score": 668, "weight": 0.25, "weighted": 167.0, "source": "scoring_model_retail.py::score::stability", "sub_scores": {}},
-      {"id": "score::collateral", "type": "score_dimension", "dimension": "collateral", "score": 686, "weight": 0.20, "weighted": 137.2, "source": "scoring_model_retail.py::score::collateral", "sub_scores": {}}
+      {
+        "id": "decision::final",
+        "type": "decision",
+        "decision": "人工复核",
+        "approved_amount": 0,
+        "approved_term_months": 0,
+        "interest_rate": 0,
+        "rate_benchmark": "—",
+        "risk_grade": "边界",
+        "composite_score": 688,
+        "rationale_anchor": "硬红线 retail_rl_011 触发 + 边界档位 → 人工复核"
+      },
+      {
+        "id": "rule::retail_rl_011",
+        "type": "rule",
+        "rule_id": "retail_rl_011",
+        "rule_name": "行业准入红线 · K12 学科类校外培训",
+        "threshold": "禁止准入",
+        "operator": "==",
+        "severity": "red",
+        "version": "v3.1+default",
+        "source": "red_line_rules_retail.json#retail_rl_011"
+      },
+      {
+        "id": "rule_hit::retail_rl_011",
+        "type": "rule_hit",
+        "rule_id": "retail_rl_011",
+        "actual": "K12 学科类",
+        "threshold": "禁止准入",
+        "severity": "red",
+        "can_waive": false,
+        "description": "K12 学科类校外培训受双减政策禁止准入 · 不可豁免"
+      },
+      {
+        "id": "feature::compliance.industry_policy_risk",
+        "type": "feature",
+        "key": "compliance.industry_policy_risk",
+        "value": "high_K12_subject",
+        "source": "feature_extractor.py::_extract_retail",
+        "feature_path": "compliance.industry_policy_risk"
+      },
+      {
+        "id": "score::ability",
+        "type": "score_dimension",
+        "dimension": "ability",
+        "score": 692,
+        "weight": 0.3,
+        "weighted": 207.6,
+        "source": "scoring_model_retail.py::score::repayment_capacity",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::willingness",
+        "type": "score_dimension",
+        "dimension": "willingness",
+        "score": 705,
+        "weight": 0.25,
+        "weighted": 176.25,
+        "source": "scoring_model_retail.py::score::repayment_willingness",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::stability",
+        "type": "score_dimension",
+        "dimension": "stability",
+        "score": 668,
+        "weight": 0.25,
+        "weighted": 167.0,
+        "source": "scoring_model_retail.py::score::stability",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::collateral",
+        "type": "score_dimension",
+        "dimension": "collateral",
+        "score": 686,
+        "weight": 0.2,
+        "weighted": 137.2,
+        "source": "scoring_model_retail.py::score::collateral",
+        "sub_scores": {}
+      }
     ],
     "edges": [
-      {"from": "rule::retail_rl_011", "to": "rule_hit::retail_rl_011", "type": "threshold_of"},
-      {"from": "feature::compliance.industry_policy_risk", "to": "rule_hit::retail_rl_011", "type": "triggered"},
-      {"from": "rule_hit::retail_rl_011", "to": "decision::final", "type": "caused"},
-      {"from": "score::ability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::willingness", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::stability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::collateral", "to": "decision::final", "type": "evidenced_by"}
+      {
+        "from": "rule::retail_rl_011",
+        "to": "rule_hit::retail_rl_011",
+        "type": "threshold_of"
+      },
+      {
+        "from": "feature::compliance.industry_policy_risk",
+        "to": "rule_hit::retail_rl_011",
+        "type": "triggered"
+      },
+      {
+        "from": "rule_hit::retail_rl_011",
+        "to": "decision::final",
+        "type": "caused"
+      },
+      {
+        "from": "score::ability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::willingness",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::stability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::collateral",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      }
     ],
     "peer_gap_summary": {},
-    "missing_evidence": ["retail_peer_baselines_unavailable_in_v1.0_schema"]
+    "missing_evidence": [
+      "retail_peer_baselines_unavailable_in_v1.0_schema"
+    ]
+  },
+  "credit_terms": {
+    "REPAYMENT_METHOD": "等额本息",
+    "CREDIT_PURPOSE": "经营周转 / 业务转型 (拟向素质教育转型)",
+    "GUARANTEE_METHOD": "信用",
+    "RISK_KEY_POINTS": "行业准入红线 (K12 学科类校外培训受双减政策禁止) · 收入同比 -18% · DTI 46% 偏高 · 无抵押。",
+    "RISK_MITIGATION": "需提供营业执照副本与当前实际授课科目证据 · 若已完成向素质 / 艺术 / 体育类转型 · 凭变更登记证明可重新评估。",
+    "CREDIT_CONCLUSION": "人工复核",
+    "CREDIT_PRECONDITIONS": "审贷员现场核实实际授课内容 + 工商变更登记;若仍涉 K12 学科类 · 系统拒贷。",
+    "CREDIT_AMOUNT": "0万元",
+    "CREDIT_PERIOD": "—"
+  },
+  "material_facts": {
+    "CREDIT_QUERY_COUNT_2Y": "6 次",
+    "CREDIT_LOAN_QUERY_6M": "2 次",
+    "CREDIT_CARD_QUERY_6M": "3 次",
+    "CREDIT_OUTSTANDING_BALANCE": "18 万元",
+    "CREDIT_OVERDUE_RECORD": "近 2 年逾期 1 次 (已结清)",
+    "CLIENT_MONTHLY_INCOME": "38000 元",
+    "CLIENT_MONTHLY_DEBT_PAYMENT": "17480 元",
+    "CLIENT_DSR": "46%",
+    "REPAYMENT_ABILITY_ASSESSMENT": "月均收入 3.8 万元,DTI 46% 已接近上限,近 12 个月收入同比 -18% (受双减政策影响),还款能力存在下行压力。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

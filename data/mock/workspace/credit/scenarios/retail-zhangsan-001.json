@@ -31,25 +31,7 @@
     "CLIENT_MARITAL_STATUS": "已婚",
     "CLIENT_HOUSEHOLD_INCOME": "67.2万元",
     "CLIENT_HOME_ADDRESS": "浙江省杭州市西湖区文三路********",
-    "CLIENT_PHONE": "138****0001",
-    "CREDIT_QUERY_COUNT_2Y": "4 次",
-    "CREDIT_LOAN_QUERY_6M": "1 次",
-    "CREDIT_CARD_QUERY_6M": "2 次",
-    "CREDIT_OUTSTANDING_BALANCE": "12 万元",
-    "CREDIT_OVERDUE_RECORD": "近 2 年无逾期",
-    "CLIENT_MONTHLY_INCOME": "42000 元",
-    "CLIENT_MONTHLY_DEBT_PAYMENT": "14280 元",
-    "CLIENT_DSR": "34%",
-    "REPAYMENT_ABILITY_ASSESSMENT": "月均经营流水 4.2 万元,DTI 34% 处于可承受区间,经营 9 年稳定,具备覆盖 50 万 36 期月供能力。",
-    "REPAYMENT_METHOD": "等额本息",
-    "CREDIT_PURPOSE": "门店升级改造与流动资金周转",
-    "GUARANTEE_METHOD": "抵押 (营业用房产)",
-    "RISK_KEY_POINTS": "餐饮行业受消费景气影响,客流季节性波动;商铺抵押 LTV 53% 处于安全区间。",
-    "RISK_MITIGATION": "营业用房产抵押覆盖 + 每月经营流水监测 + 配偶共同还款承诺。",
-    "CREDIT_CONCLUSION": "同意",
-    "CREDIT_PRECONDITIONS": "无 (常规快速通道)",
-    "CREDIT_AMOUNT": "50万元",
-    "CREDIT_PERIOD": "36个月"
+    "CLIENT_PHONE": "138****0001"
   },
   "feature_done": {
     "credit.score_pboc": 720,
@@ -126,7 +108,11 @@
     "schema_version": "1.0.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
-    "appetite": {"segment": "retail", "version": "default-2026-04", "client_id": ""},
+    "appetite": {
+      "segment": "retail",
+      "version": "default-2026-04",
+      "client_id": ""
+    },
     "subject_name": "张三",
     "segment": "retail",
     "built_at": "2026-05-01T10:33:00",
@@ -140,19 +126,116 @@
       "composite_score": 728
     },
     "nodes": [
-      {"id": "decision::final", "type": "decision", "decision": "批准", "approved_amount": 50, "approved_term_months": 36, "interest_rate": 0.043, "rate_benchmark": "LPR+20BP", "risk_grade": "良好", "composite_score": 728, "rationale_anchor": "评分定档 良好 + 无红线 → 批准"},
-      {"id": "score::ability", "type": "score_dimension", "dimension": "ability", "score": 720, "weight": 0.30, "weighted": 216.0, "source": "scoring_model_retail.py::score::repayment_capacity", "sub_scores": {}},
-      {"id": "score::willingness", "type": "score_dimension", "dimension": "willingness", "score": 745, "weight": 0.25, "weighted": 186.25, "source": "scoring_model_retail.py::score::repayment_willingness", "sub_scores": {}},
-      {"id": "score::stability", "type": "score_dimension", "dimension": "stability", "score": 730, "weight": 0.25, "weighted": 182.5, "source": "scoring_model_retail.py::score::stability", "sub_scores": {}},
-      {"id": "score::collateral", "type": "score_dimension", "dimension": "collateral", "score": 718, "weight": 0.20, "weighted": 143.6, "source": "scoring_model_retail.py::score::collateral", "sub_scores": {}}
+      {
+        "id": "decision::final",
+        "type": "decision",
+        "decision": "批准",
+        "approved_amount": 50,
+        "approved_term_months": 36,
+        "interest_rate": 0.043,
+        "rate_benchmark": "LPR+20BP",
+        "risk_grade": "良好",
+        "composite_score": 728,
+        "rationale_anchor": "评分定档 良好 + 无红线 → 批准"
+      },
+      {
+        "id": "score::ability",
+        "type": "score_dimension",
+        "dimension": "ability",
+        "score": 720,
+        "weight": 0.3,
+        "weighted": 216.0,
+        "source": "scoring_model_retail.py::score::repayment_capacity",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::willingness",
+        "type": "score_dimension",
+        "dimension": "willingness",
+        "score": 745,
+        "weight": 0.25,
+        "weighted": 186.25,
+        "source": "scoring_model_retail.py::score::repayment_willingness",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::stability",
+        "type": "score_dimension",
+        "dimension": "stability",
+        "score": 730,
+        "weight": 0.25,
+        "weighted": 182.5,
+        "source": "scoring_model_retail.py::score::stability",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::collateral",
+        "type": "score_dimension",
+        "dimension": "collateral",
+        "score": 718,
+        "weight": 0.2,
+        "weighted": 143.6,
+        "source": "scoring_model_retail.py::score::collateral",
+        "sub_scores": {}
+      }
     ],
     "edges": [
-      {"from": "score::ability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::willingness", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::stability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::collateral", "to": "decision::final", "type": "evidenced_by"}
+      {
+        "from": "score::ability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::willingness",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::stability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::collateral",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      }
     ],
     "peer_gap_summary": {},
-    "missing_evidence": ["retail_peer_baselines_unavailable_in_v1.0_schema"]
+    "missing_evidence": [
+      "retail_peer_baselines_unavailable_in_v1.0_schema"
+    ]
+  },
+  "credit_terms": {
+    "REPAYMENT_METHOD": "等额本息",
+    "CREDIT_PURPOSE": "门店升级改造与流动资金周转",
+    "GUARANTEE_METHOD": "抵押 (营业用房产)",
+    "RISK_KEY_POINTS": "餐饮行业受消费景气影响,客流季节性波动;商铺抵押 LTV 53% 处于安全区间。",
+    "RISK_MITIGATION": "营业用房产抵押覆盖 + 每月经营流水监测 + 配偶共同还款承诺。",
+    "CREDIT_CONCLUSION": "同意",
+    "CREDIT_PRECONDITIONS": "无 (常规快速通道)",
+    "CREDIT_AMOUNT": "50万元",
+    "CREDIT_PERIOD": "36个月"
+  },
+  "material_facts": {
+    "CREDIT_QUERY_COUNT_2Y": "4 次",
+    "CREDIT_LOAN_QUERY_6M": "1 次",
+    "CREDIT_CARD_QUERY_6M": "2 次",
+    "CREDIT_OUTSTANDING_BALANCE": "12 万元",
+    "CREDIT_OVERDUE_RECORD": "近 2 年无逾期",
+    "CLIENT_MONTHLY_INCOME": "42000 元",
+    "CLIENT_MONTHLY_DEBT_PAYMENT": "14280 元",
+    "CLIENT_DSR": "34%",
+    "REPAYMENT_ABILITY_ASSESSMENT": "月均经营流水 4.2 万元,DTI 34% 处于可承受区间,经营 9 年稳定,具备覆盖 50 万 36 期月供能力。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

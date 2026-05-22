@@ -31,25 +31,7 @@
     "CLIENT_MARITAL_STATUS": "已婚",
     "CLIENT_HOUSEHOLD_INCOME": "122.4万元",
     "CLIENT_HOME_ADDRESS": "广东省深圳市龙岗区龙翔大道********",
-    "CLIENT_PHONE": "136****0003",
-    "CREDIT_QUERY_COUNT_2Y": "3 次",
-    "CREDIT_LOAN_QUERY_6M": "0 次",
-    "CREDIT_CARD_QUERY_6M": "1 次",
-    "CREDIT_OUTSTANDING_BALANCE": "25 万元",
-    "CREDIT_OVERDUE_RECORD": "近 5 年无逾期",
-    "CLIENT_MONTHLY_INCOME": "86000 元",
-    "CLIENT_MONTHLY_DEBT_PAYMENT": "18920 元",
-    "CLIENT_DSR": "22%",
-    "REPAYMENT_ABILITY_ASSESSMENT": "月均经营流水 8.6 万元,DTI 22% 处于优秀区间,行业 18 年深耕,本地居住 16 年,具备覆盖 200 万 60 期月供的充裕能力。",
-    "REPAYMENT_METHOD": "等额本息",
-    "CREDIT_PURPOSE": "工程项目周转资金 + 设备采购",
-    "GUARANTEE_METHOD": "抵押 (自有住宅房产 · 深圳)",
-    "RISK_KEY_POINTS": "建筑装修行业周期性波动 · 工程款回款周期较长 · 但抵押物 LTV 53% 处于安全区间。",
-    "RISK_MITIGATION": "深圳自有住宅抵押覆盖 (评估值 380 万元) + 上下游供应商背书 + 配偶共同还款 + 季度流水监测。",
-    "CREDIT_CONCLUSION": "同意",
-    "CREDIT_PRECONDITIONS": "无 (VIP 通道一档过 · 可主动 pre-approve 上调至 250 万)",
-    "CREDIT_AMOUNT": "200万元",
-    "CREDIT_PERIOD": "60个月"
+    "CLIENT_PHONE": "136****0003"
   },
   "feature_done": {
     "credit.score_pboc": 810,
@@ -128,7 +110,11 @@
     "schema_version": "1.0.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
-    "appetite": {"segment": "retail", "version": "default-2026-04", "client_id": ""},
+    "appetite": {
+      "segment": "retail",
+      "version": "default-2026-04",
+      "client_id": ""
+    },
     "subject_name": "王五",
     "segment": "retail",
     "built_at": "2026-05-01T10:35:00",
@@ -142,19 +128,116 @@
       "composite_score": 812
     },
     "nodes": [
-      {"id": "decision::final", "type": "decision", "decision": "批准", "approved_amount": 200, "approved_term_months": 60, "interest_rate": 0.0355, "rate_benchmark": "LPR-10BP", "risk_grade": "优", "composite_score": 812, "rationale_anchor": "评分定档 优 + 无红线 → 批准 (VIP 通道)"},
-      {"id": "score::ability", "type": "score_dimension", "dimension": "ability", "score": 808, "weight": 0.30, "weighted": 242.4, "source": "scoring_model_retail.py::score::repayment_capacity", "sub_scores": {}},
-      {"id": "score::willingness", "type": "score_dimension", "dimension": "willingness", "score": 820, "weight": 0.25, "weighted": 205.0, "source": "scoring_model_retail.py::score::repayment_willingness", "sub_scores": {}},
-      {"id": "score::stability", "type": "score_dimension", "dimension": "stability", "score": 815, "weight": 0.25, "weighted": 203.75, "source": "scoring_model_retail.py::score::stability", "sub_scores": {}},
-      {"id": "score::collateral", "type": "score_dimension", "dimension": "collateral", "score": 805, "weight": 0.20, "weighted": 161.0, "source": "scoring_model_retail.py::score::collateral", "sub_scores": {}}
+      {
+        "id": "decision::final",
+        "type": "decision",
+        "decision": "批准",
+        "approved_amount": 200,
+        "approved_term_months": 60,
+        "interest_rate": 0.0355,
+        "rate_benchmark": "LPR-10BP",
+        "risk_grade": "优",
+        "composite_score": 812,
+        "rationale_anchor": "评分定档 优 + 无红线 → 批准 (VIP 通道)"
+      },
+      {
+        "id": "score::ability",
+        "type": "score_dimension",
+        "dimension": "ability",
+        "score": 808,
+        "weight": 0.3,
+        "weighted": 242.4,
+        "source": "scoring_model_retail.py::score::repayment_capacity",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::willingness",
+        "type": "score_dimension",
+        "dimension": "willingness",
+        "score": 820,
+        "weight": 0.25,
+        "weighted": 205.0,
+        "source": "scoring_model_retail.py::score::repayment_willingness",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::stability",
+        "type": "score_dimension",
+        "dimension": "stability",
+        "score": 815,
+        "weight": 0.25,
+        "weighted": 203.75,
+        "source": "scoring_model_retail.py::score::stability",
+        "sub_scores": {}
+      },
+      {
+        "id": "score::collateral",
+        "type": "score_dimension",
+        "dimension": "collateral",
+        "score": 805,
+        "weight": 0.2,
+        "weighted": 161.0,
+        "source": "scoring_model_retail.py::score::collateral",
+        "sub_scores": {}
+      }
     ],
     "edges": [
-      {"from": "score::ability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::willingness", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::stability", "to": "decision::final", "type": "evidenced_by"},
-      {"from": "score::collateral", "to": "decision::final", "type": "evidenced_by"}
+      {
+        "from": "score::ability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::willingness",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::stability",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      },
+      {
+        "from": "score::collateral",
+        "to": "decision::final",
+        "type": "evidenced_by"
+      }
     ],
     "peer_gap_summary": {},
-    "missing_evidence": ["retail_peer_baselines_unavailable_in_v1.0_schema"]
+    "missing_evidence": [
+      "retail_peer_baselines_unavailable_in_v1.0_schema"
+    ]
+  },
+  "credit_terms": {
+    "REPAYMENT_METHOD": "等额本息",
+    "CREDIT_PURPOSE": "工程项目周转资金 + 设备采购",
+    "GUARANTEE_METHOD": "抵押 (自有住宅房产 · 深圳)",
+    "RISK_KEY_POINTS": "建筑装修行业周期性波动 · 工程款回款周期较长 · 但抵押物 LTV 53% 处于安全区间。",
+    "RISK_MITIGATION": "深圳自有住宅抵押覆盖 (评估值 380 万元) + 上下游供应商背书 + 配偶共同还款 + 季度流水监测。",
+    "CREDIT_CONCLUSION": "同意",
+    "CREDIT_PRECONDITIONS": "无 (VIP 通道一档过 · 可主动 pre-approve 上调至 250 万)",
+    "CREDIT_AMOUNT": "200万元",
+    "CREDIT_PERIOD": "60个月"
+  },
+  "material_facts": {
+    "CREDIT_QUERY_COUNT_2Y": "3 次",
+    "CREDIT_LOAN_QUERY_6M": "0 次",
+    "CREDIT_CARD_QUERY_6M": "1 次",
+    "CREDIT_OUTSTANDING_BALANCE": "25 万元",
+    "CREDIT_OVERDUE_RECORD": "近 5 年无逾期",
+    "CLIENT_MONTHLY_INCOME": "86000 元",
+    "CLIENT_MONTHLY_DEBT_PAYMENT": "18920 元",
+    "CLIENT_DSR": "22%",
+    "REPAYMENT_ABILITY_ASSESSMENT": "月均经营流水 8.6 万元,DTI 22% 处于优秀区间,行业 18 年深耕,本地居住 16 年,具备覆盖 200 万 60 期月供的充裕能力。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

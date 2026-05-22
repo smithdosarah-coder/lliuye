@@ -49,26 +49,7 @@
     "CLIENT_EMPLOYEE_COUNT": "112 人",
     "CLIENT_SHAREHOLDER_PRIMARY": "中锐控股 (上海) 有限公司",
     "CLIENT_SHARE_PCT_PRIMARY": "85%",
-    "CREDIT_AMOUNT": "380万元",
-    "CREDIT_EXPOSURE": "380万元",
-    "CREDIT_PERIOD": "一年六个月",
-    "PD_RATING": "6",
-    "INDUSTRY_POLICY_GUIDANCE": "总体适度进入",
-    "FOUNDED_YEAR": "2017",
-    "BUSINESS_QUALIFICATION_DESC": "已获 ISO27001 信息安全管理体系认证 + 软件企业资质,税务 B 级,涉诉 1 起,未有重大经营违法记录。",
-    "BUSINESS_HISTORY_DESC": "公司成立于 2017 年,经过 9 年发展,目前已在企业级 SaaS 订阅服务领域形成稳定客户基础,SaaS ARR 占总营收 78%。",
-    "BUSINESS_STRATEGY_DESC": "采用 SaaS 订阅 + 大客户深耕的双轨战略,关联方中锐控股贡献 32% 营收,客户经理需补充未来 12 个月去关联化路径。",
-    "CLIENT_INDUSTRY_TAG": "互联网科技服务",
-    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家高新技术企业",
-    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于企业级互联网科技服务的综合性高新技术企业,业务涵盖企业数字化解决方案、SaaS 平台运营、技术咨询等多个细分赛道。公司具备完整的产品研发与技术服务能力,已为多家中大型企业客户提供数字化转型方案,客户粘性较高,具备稳定的订阅与服务收入来源。",
-    "CLIENT_INDUSTRY_NARRATIVE": "企业级互联网科技服务是数字经济的核心组成部分,2022 年中国 B 端 SaaS 与企业服务市场规模超 8000 亿元。在企业数字化转型加速背景下,具备垂直行业 know-how、产品矩阵化能力的科技服务商,获得了较快的用户增长与稳定的订阅收入,行业整体处于上升通道。",
-    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2015 年的上海本地企业服务初创公司,经过 10 年技术积累与产品迭代,已成长为兼具行业方案能力与平台运营能力的综合性企业服务商,客户覆盖金融、制造、零售等多个垂直领域。",
-    "CLIENT_INDUSTRY_POSITION": "是长三角区域企业级互联网科技服务领先企业之一,具备国家高新技术企业资质,产品已落地于多家头部行业客户,在区域细分市场中具备较强的品牌认知度与客户粘性。",
-    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家高新技术企业证书、CMMI 3 级软件能力成熟度认证、ISO27001 信息安全管理体系认证,并拥有多项核心软件著作权与技术专利,具备完整的技术服务能力体系。",
-    "RELATED_PARTY_1_FULL_NAME": "中锐控股 (上海) 有限公司",
-    "RELATED_PARTY_2_FULL_NAME": "",
-    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和母公司中锐控股的关联方借款为主,资金主要用于产品研发与销售扩张。关联方融资比例偏高,需关注未来 12 个月去关联化进度,整体筹资结构需配合内部治理改进同步推进。",
-    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配 SaaS 订阅业务的现金回流节奏,但受应收账款周转偏慢与关联方收入占比较高影响,经营性现金流存在一定波动。授信发放后可缓解短期周转压力,但需重点关注关联方占款与回款节奏的可持续性。"
+    "FOUNDED_YEAR": "2017"
   },
   "feature_done": {
     "financial.debt_ratio": 0.58,
@@ -557,5 +538,38 @@
       "ar_turnover_gap": 45
     },
     "missing_evidence": []
+  },
+  "credit_terms": {
+    "CREDIT_AMOUNT": "380万元",
+    "CREDIT_EXPOSURE": "380万元",
+    "CREDIT_PERIOD": "一年六个月",
+    "PD_RATING": "6",
+    "INDUSTRY_POLICY_GUIDANCE": "总体适度进入"
+  },
+  "material_facts": {
+    "BUSINESS_QUALIFICATION_DESC": "已获 ISO27001 信息安全管理体系认证 + 软件企业资质,税务 B 级,涉诉 1 起,未有重大经营违法记录。",
+    "BUSINESS_HISTORY_DESC": "公司成立于 2017 年,经过 9 年发展,目前已在企业级 SaaS 订阅服务领域形成稳定客户基础,SaaS ARR 占总营收 78%。",
+    "BUSINESS_STRATEGY_DESC": "采用 SaaS 订阅 + 大客户深耕的双轨战略,关联方中锐控股贡献 32% 营收,客户经理需补充未来 12 个月去关联化路径。",
+    "CLIENT_INDUSTRY_TAG": "互联网科技服务",
+    "CLIENT_BUSINESS_QUALIFICATION_TAG": "国家高新技术企业",
+    "CLIENT_BUSINESS_DESC_LONG": "是一家专注于企业级互联网科技服务的综合性高新技术企业,业务涵盖企业数字化解决方案、SaaS 平台运营、技术咨询等多个细分赛道。公司具备完整的产品研发与技术服务能力,已为多家中大型企业客户提供数字化转型方案,客户粘性较高,具备稳定的订阅与服务收入来源。",
+    "CLIENT_INDUSTRY_NARRATIVE": "企业级互联网科技服务是数字经济的核心组成部分,2022 年中国 B 端 SaaS 与企业服务市场规模超 8000 亿元。在企业数字化转型加速背景下,具备垂直行业 know-how、产品矩阵化能力的科技服务商,获得了较快的用户增长与稳定的订阅收入,行业整体处于上升通道。",
+    "CLIENT_HISTORY_NARRATIVE": "前身为成立于 2015 年的上海本地企业服务初创公司,经过 10 年技术积累与产品迭代,已成长为兼具行业方案能力与平台运营能力的综合性企业服务商,客户覆盖金融、制造、零售等多个垂直领域。",
+    "CLIENT_INDUSTRY_POSITION": "是长三角区域企业级互联网科技服务领先企业之一,具备国家高新技术企业资质,产品已落地于多家头部行业客户,在区域细分市场中具备较强的品牌认知度与客户粘性。",
+    "CLIENT_QUALIFICATION_DETAIL": "公司目前已取得国家高新技术企业证书、CMMI 3 级软件能力成熟度认证、ISO27001 信息安全管理体系认证,并拥有多项核心软件著作权与技术专利,具备完整的技术服务能力体系。",
+    "RELATED_PARTY_1_FULL_NAME": "中锐控股 (上海) 有限公司",
+    "RELATED_PARTY_2_FULL_NAME": "",
+    "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和母公司中锐控股的关联方借款为主,资金主要用于产品研发与销售扩张。关联方融资比例偏高,需关注未来 12 个月去关联化进度,整体筹资结构需配合内部治理改进同步推进。",
+    "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配 SaaS 订阅业务的现金回流节奏,但受应收账款周转偏慢与关联方收入占比较高影响,经营性现金流存在一定波动。授信发放后可缓解短期周转压力,但需重点关注关联方占款与回款节奏的可持续性。"
+  },
+  "_layer_split": {
+    "schema_version": "1.1.2",
+    "structure": "3-section-split",
+    "split_phase": "C Phase C · 2026-05-21",
+    "schemas": [
+      "client-metadata-schema.json",
+      "credit-terms-schema.json",
+      "material-facts-schema.json"
+    ]
   }
 }

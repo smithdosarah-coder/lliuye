@@ -103,20 +103,48 @@ PENDING_WHITELIST = {
 def _load_client_metadata(metadata_path: Path) -> tuple[dict, str | None]:
     """加载 fixture 的 client_metadata · 返回 (metadata, new_client_name).
 
-    两种 fixture 格式:
-      - DP00X: flat dict (json 顶层就是 client_metadata 字段)
-      - corp scenarios: nested dict (json 顶层有 'client_metadata' key + 'profile.company_name')
+    支持 3 种 fixture 格式 (2026-05-21 C 档第 1 步 升级):
+      a) 3 section nested (Phase C 后): {client_metadata: {...}, credit_terms: {...}, material_facts: {...}}
+         → merge 成 flat dict 供 placeholder_replace 消费
+      b) 旧 nested (corp scenarios 旧格式): {client_metadata: {全 45 key}}
+      c) 旧 flat (DP00X 旧格式): {schema_version: ..., CLIENT_FULL_NAME: ..., ...}
+
+    placeholder_replace handler (v16_op_handlers._lookup_metadata_value) 同时支持 flat dict
+    和 nested · 这里 merge 后传 flat 是为了兼容 handler 的 alias_map fallback (需要 flat 顶层 key).
     """
     raw = json.loads(metadata_path.read_text(encoding="utf-8"))
-    if "client_metadata" in raw and isinstance(raw["client_metadata"], dict):
-        # nested · corp scenario 格式
+
+    # 检测 3 section nested 结构 (Phase C 后的格式)
+    has_three_section = (
+        isinstance(raw.get("client_metadata"), dict)
+        and isinstance(raw.get("credit_terms"), dict)
+        and isinstance(raw.get("material_facts"), dict)
+    )
+
+    if has_three_section:
+        # a) 3 section nested → merge to flat dict (保留 _sections 子结构给 handler 二级查找)
+        merged: dict = {}
+        for section in ("material_facts", "credit_terms", "client_metadata"):
+            sub = raw.get(section)
+            if isinstance(sub, dict):
+                merged.update(sub)
+        merged["_sections"] = {
+            s: dict(raw.get(s, {})) for s in ("client_metadata", "credit_terms", "material_facts")
+        }
+        client_metadata = merged
+        new_client_name = (
+            merged.get("CLIENT_FULL_NAME")
+            or raw.get("profile", {}).get("company_name")
+        )
+    elif "client_metadata" in raw and isinstance(raw["client_metadata"], dict):
+        # b) 旧 nested · corp scenario 格式
         client_metadata = raw["client_metadata"]
         new_client_name = (
             client_metadata.get("CLIENT_FULL_NAME")
             or raw.get("profile", {}).get("company_name")
         )
     else:
-        # flat · DP00X 格式
+        # c) 旧 flat · DP00X 格式
         client_metadata = raw
         new_client_name = client_metadata.get("CLIENT_FULL_NAME")
     return client_metadata, new_client_name
