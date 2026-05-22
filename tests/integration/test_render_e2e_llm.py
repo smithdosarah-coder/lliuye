@@ -288,3 +288,119 @@ def test_e2e_llm_no_hallucination_no_cross_sample_pollution(name, metadata_path,
         f"  output: {output_docx}\n"
         f"  → 检查 placeholder_replace 是否把 {{{{CLIENT_FULL_NAME}}}} 替换为 metadata 实值"
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# 2026-05-22 D 真治本 agent20: 新增结构相似度断言 ·
+# 用户 dogfood 4th 暴露根因 — LLM REWRITE 后段落仍与原经纬测绘模板高度相似 (改了公司名但段落结构/数字/比例没动)
+# 防御: rendered docx 段落与原 .bak-pre-placeholder 段落 SequenceMatcher 相似度 ≥ 0.6 的"长段"(≥ 50 字符)
+#       不应超过 3 段 (允许少量公共法律/格式短句 · 但报告主体不能像模板)
+# ─────────────────────────────────────────────────────────────
+
+
+ORIGINAL_TEMPLATE_BAK = REPO / "samples" / "经纬测绘_对公成稿A.docx.bak-pre-placeholder"
+
+
+def _extract_paragraphs(docx_path: Path) -> list[str]:
+    """从 docx 抽段落 list (paragraph + table cell · 不 join)."""
+    from docx import Document
+
+    doc = Document(str(docx_path))
+    paras: list[str] = []
+    for p in doc.paragraphs:
+        t = (p.text or "").strip()
+        if t:
+            paras.append(t)
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    ct = (p.text or "").strip()
+                    if ct:
+                        paras.append(ct)
+    return paras
+
+
+@pytest.mark.skipif(
+    not os.environ.get("DEEPSEEK_API_KEY"),
+    reason="需 DEEPSEEK_API_KEY (从 .env 加载) · 跑真 LLM 调用",
+)
+@pytest.mark.skipif(
+    not CLASSIFIED_JSON.exists(),
+    reason=f"classifier 产物缺失: {CLASSIFIED_JSON}",
+)
+@pytest.mark.skipif(
+    not ORIGINAL_TEMPLATE_BAK.exists(),
+    reason=f"原 docx bak 缺失: {ORIGINAL_TEMPLATE_BAK}",
+)
+@pytest.mark.parametrize("name,metadata_path", FIXTURES, ids=[f"struct-{f[0]}" for f in FIXTURES])
+def test_rendered_not_structurally_similar_to_original(name, metadata_path, tmp_path):
+    """rendered docx 不应跟原经纬测绘模板结构高度相似 (即"换皮"穿帮防御).
+
+    判据:
+      - 段落长度 ≥ 50 字符的"长段" · 用 difflib.SequenceMatcher 跟原 .bak-pre-placeholder
+        所有 ≥ 50 字符长段比相似度.
+      - 任一 rendered 长段与原模板长段相似度 ≥ 0.6 视为"换皮段".
+      - 总换皮段数 > 3 → fail (允许少量公共短句 / 格式化保留段 · 但报告主体段必须不一样).
+    """
+    from difflib import SequenceMatcher
+
+    assert metadata_path.exists(), f"fixture missing: {metadata_path}"
+    assert TEMPLATE_DOCX.exists(), f"template missing: {TEMPLATE_DOCX}"
+    assert ORIGINAL_TEMPLATE_BAK.exists(), f"bak missing: {ORIGINAL_TEMPLATE_BAK}"
+
+    client_metadata, new_client_name = _load_client_metadata(metadata_path)
+    assert client_metadata, f"{name} client_metadata empty"
+
+    _disable_llm_cache()
+
+    from v16_pipeline import run_pipeline
+
+    out_dir = tmp_path / f"struct_{name}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    result = run_pipeline(
+        source_docx=TEMPLATE_DOCX,
+        material_dir=MATERIAL_DIR,
+        classified_json=CLASSIFIED_JSON,
+        output_dir=out_dir,
+        client_metadata=client_metadata,
+    )
+    output_docx = Path(result["output_docx"])
+    assert output_docx.exists(), f"{name} output docx missing"
+
+    rendered_paras = _extract_paragraphs(output_docx)
+    original_paras = _extract_paragraphs(ORIGINAL_TEMPLATE_BAK)
+
+    rendered_long = [p for p in rendered_paras if len(p) >= 50]
+    original_long = [p for p in original_paras if len(p) >= 50]
+
+    assert rendered_long, f"{name} rendered no long paragraphs (≥50 chars)"
+    assert original_long, f"{name} original_bak no long paragraphs (≥50 chars · 模板异常)"
+
+    high_sim_pairs: list[tuple[float, str, str]] = []
+    for r_p in rendered_long:
+        best_sim = 0.0
+        best_o = ""
+        for o_p in original_long:
+            sim = SequenceMatcher(None, r_p, o_p).ratio()
+            if sim > best_sim:
+                best_sim = sim
+                best_o = o_p
+        if best_sim >= 0.6:
+            high_sim_pairs.append((best_sim, r_p[:100], best_o[:100]))
+
+    high_sim_count = len(high_sim_pairs)
+    assert high_sim_count <= 3, (
+        f"[{name}] 结构高度相似段落 {high_sim_count} > 3 (经纬模板换皮穿帮)\n"
+        f"  阈值: SequenceMatcher ≥ 0.6 视为换皮 · 容忍上限 3 段 (允许公共格式化短段)\n"
+        f"  current_client: {new_client_name}\n"
+        f"  output: {output_docx}\n"
+        f"  high_sim_samples (top 5):\n"
+        + "\n".join(
+            f"    sim={sim:.2f}\n      r: {r}...\n      o: {o}..."
+            for sim, r, o in sorted(high_sim_pairs, key=lambda x: -x[0])[:5]
+        )
+        + "\n  → 检查 _build_material_summary_for_rewrite 是否注入 financial_metrics 真值块"
+        + "\n  → 检查 _REWRITE_SYSTEM_PROMPT clause 1 数据来源优先级是否生效"
+    )

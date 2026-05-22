@@ -589,14 +589,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动主要依赖银行授信和股东借款,资金用途以日常经营周转为主。近年因电商分流冲击,关联方往来款规模偏高,筹资结构存在一定优化空间,需关注关联方占款对实际经营现金流的占用。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平偏紧,经营性现金流受营收下滑与上下游账期错配双重压力影响,日常运转对短期融资依赖较高。本次授信申请需综合考量公司还款能力与潜在的现金流风险敞口。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "2800万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "2700万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "2184万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "616万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "1850万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "1620万元",
+    "FINANCIAL_AR_LATEST": "780万元",
+    "FINANCIAL_INVENTORY_LATEST": "680万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "620万元",
+    "FINANCIAL_REVENUE_LATEST": "5800万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "-5.0%",
+    "FINANCIAL_NET_PROFIT_LATEST": "232万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "-18.5%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "12.0%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "4.0%",
+    "FINANCIAL_DEBT_RATIO": "78.0%",
+    "FINANCIAL_QUICK_RATIO": "0.46",
+    "FINANCIAL_CURRENT_RATIO": "0.82",
+    "FINANCIAL_OPERATING_CASHFLOW": "180万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-50万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-90万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 79
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

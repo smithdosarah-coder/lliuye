@@ -55,14 +55,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和股东支持为主,资金用途以购置精密加工设备及流动资金补充为主,与公司技术升级战略匹配。整体筹资结构稳健,无大额对外担保或异常融资行为。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配下游汽车与航空航天客户结算周期,关键大客户回款节奏稳定。授信发放后可支撑研发投入与设备升级所需的中长期资金需求,本次授信风险整体可控。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "5400万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "4800万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "2160万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "3240万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "2900万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "1680万元",
+    "FINANCIAL_AR_LATEST": "920万元",
+    "FINANCIAL_INVENTORY_LATEST": "640万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "2200万元",
+    "FINANCIAL_REVENUE_LATEST": "4800万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "14.9%",
+    "FINANCIAL_NET_PROFIT_LATEST": "560万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "18.6%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "32.5%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "11.7%",
+    "FINANCIAL_DEBT_RATIO": "40.0%",
+    "FINANCIAL_QUICK_RATIO": "1.34",
+    "FINANCIAL_CURRENT_RATIO": "1.73",
+    "FINANCIAL_OPERATING_CASHFLOW": "680万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-450万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-80万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 68
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

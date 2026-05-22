@@ -55,14 +55,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信、商业承兑汇票贴现和股东支持为主,资金主要用于大宗建材集采备货与上游议价。地产链条业务的应收账款融资需求较为明显,整体筹资结构匹配业务节奏,无大额异常融资行为。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配大宗建材批发的备货与结算周期,主要客户回款节奏受地产项目交付进度影响存在一定波动。授信发放后可缓解上游集采资金压力并对冲下游账期错配,本次授信风险整体可控但需关注地产链条传导。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "18500万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "17800万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "10800万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "7700万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "12600万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "9200万元",
+    "FINANCIAL_AR_LATEST": "4800万元",
+    "FINANCIAL_INVENTORY_LATEST": "4200万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "3800万元",
+    "FINANCIAL_REVENUE_LATEST": "26800万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "3.5%",
+    "FINANCIAL_NET_PROFIT_LATEST": "1320万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "-2.1%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "12.8%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "4.9%",
+    "FINANCIAL_DEBT_RATIO": "58.4%",
+    "FINANCIAL_QUICK_RATIO": "0.91",
+    "FINANCIAL_CURRENT_RATIO": "1.37",
+    "FINANCIAL_OPERATING_CASHFLOW": "1450万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-580万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-420万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 62
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

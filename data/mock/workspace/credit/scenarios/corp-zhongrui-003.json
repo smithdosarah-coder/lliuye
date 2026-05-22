@@ -562,14 +562,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和母公司中锐控股的关联方借款为主,资金主要用于产品研发与销售扩张。关联方融资比例偏高,需关注未来 12 个月去关联化进度,整体筹资结构需配合内部治理改进同步推进。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配 SaaS 订阅业务的现金回流节奏,但受应收账款周转偏慢与关联方收入占比较高影响,经营性现金流存在一定波动。授信发放后可缓解短期周转压力,但需重点关注关联方占款与回款节奏的可持续性。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "5400万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "4800万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "3132万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "2268万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "3600万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "2980万元",
+    "FINANCIAL_AR_LATEST": "1850万元",
+    "FINANCIAL_INVENTORY_LATEST": "120万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "650万元",
+    "FINANCIAL_REVENUE_LATEST": "9200万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "14.0%",
+    "FINANCIAL_NET_PROFIT_LATEST": "640万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "7.5%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "46.0%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "7.0%",
+    "FINANCIAL_DEBT_RATIO": "58.0%",
+    "FINANCIAL_QUICK_RATIO": "1.08",
+    "FINANCIAL_CURRENT_RATIO": "1.21",
+    "FINANCIAL_OPERATING_CASHFLOW": "780万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-280万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-150万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 140
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

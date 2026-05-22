@@ -55,14 +55,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信融资和大股东支持为主,资金用途与门店扩张及日常经营匹配。整体筹资结构稳健,无大额对外担保或抽贷风险,与公司轻资产零售业务模型适配。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平整体匹配日常经营开支,以零售门店即时回款为主要现金来源,资金回笼周期较短。授信发放后预计可有效缓解旺季备货资金压力,本次授信风险整体可控。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "6800万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "6200万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "3200万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "3600万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "4500万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "2800万元",
+    "FINANCIAL_AR_LATEST": "320万元",
+    "FINANCIAL_INVENTORY_LATEST": "1850万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "1600万元",
+    "FINANCIAL_REVENUE_LATEST": "8600万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "8.2%",
+    "FINANCIAL_NET_PROFIT_LATEST": "620万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "10.5%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "21.8%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "7.2%",
+    "FINANCIAL_DEBT_RATIO": "47.1%",
+    "FINANCIAL_QUICK_RATIO": "0.95",
+    "FINANCIAL_CURRENT_RATIO": "1.61",
+    "FINANCIAL_OPERATING_CASHFLOW": "780万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-220万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-180万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 14
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

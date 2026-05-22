@@ -217,8 +217,9 @@ def _normalize_metadata_keys(raw: dict) -> dict:
     out = dict(raw)  # 保留原 key
 
     # 2026-05-21 C 档第 1 步: 3 layer nested → flat merge
-    # 检测 raw 是否含 3 section 子 dict (新格式) · 不动旧 flat 输入
-    _SECTION_KEYS = ("client_metadata", "credit_terms", "material_facts")
+    # 2026-05-22 D 真治本 agent20: + financial_metrics 第 4 layer (LLM REWRITE 引用 · 不走 placeholder_replace)
+    # 检测 raw 是否含 section 子 dict (新格式) · 不动旧 flat 输入
+    _SECTION_KEYS = ("client_metadata", "credit_terms", "material_facts", "financial_metrics")
     for section in _SECTION_KEYS:
         sub = raw.get(section)
         if isinstance(sub, dict) and sub:
@@ -257,20 +258,24 @@ def _has_three_section_structure(data: dict) -> bool:
 
 
 def _merge_three_sections(data: dict) -> dict:
-    """3 section nested → flat dict (供 placeholder_replace 消费).
+    """3+1 section nested → flat dict (供 placeholder_replace 消费).
 
-    优先级: client_metadata > credit_terms > material_facts (前者覆盖后者).
+    优先级: client_metadata > credit_terms > material_facts > financial_metrics (前者覆盖后者).
     同 key 在不同 section 重复时, client_metadata 胜出 (符合 schema split SSOT 规则 · 同 key 只在 1 layer).
-    保留 nested 子 dict 供后续 consumer 用 nested 访问.
+    保留 nested 子 dict 供后续 consumer 用 nested 访问 (含 financial_metrics).
+
+    2026-05-22 D 真治本 agent20: financial_metrics 第 4 layer 一并 merge ·
+    但 financial_metrics 字段 (FINANCIAL_*) 不是 placeholder 字面 · placeholder_replace 不会用 ·
+    主要 consumer 是 _build_material_summary_for_rewrite 注入 LLM prompt.
     """
     out: dict = {}
-    for section in ("material_facts", "credit_terms", "client_metadata"):
+    for section in ("financial_metrics", "material_facts", "credit_terms", "client_metadata"):
         sub = data.get(section)
         if isinstance(sub, dict):
             out.update(sub)
     # 保留 nested 子结构 (高级 consumer 可读 _sections 区分来源)
     out["_sections"] = {
-        s: dict(data.get(s, {})) for s in ("client_metadata", "credit_terms", "material_facts")
+        s: dict(data.get(s, {})) for s in ("client_metadata", "credit_terms", "material_facts", "financial_metrics")
         if isinstance(data.get(s), dict)
     }
     return out

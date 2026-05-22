@@ -451,14 +451,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "公司筹资活动以经营周转所需的银行授信和股东支持为主,资金主要用于研发投入与新产线扩建。整体筹资结构稳健,与公司高端装备制造长周期投资匹配,无大额对外担保或异常融资行为,体现稳健的财务管理风格。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "公司货币资金水平充裕,经营性现金流稳健,客户结构分散使得现金回流节奏可控。授信发放后预计可有效支撑研发投入与产能扩张所需的中长期资金需求,本次授信风险整体可控。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "12800万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "10800万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "5376万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "7424万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "7800万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "4200万元",
+    "FINANCIAL_AR_LATEST": "2100万元",
+    "FINANCIAL_INVENTORY_LATEST": "1850万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "4200万元",
+    "FINANCIAL_REVENUE_LATEST": "18600万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "22.0%",
+    "FINANCIAL_NET_PROFIT_LATEST": "2790万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "26.5%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "31.0%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "15.0%",
+    "FINANCIAL_DEBT_RATIO": "42.0%",
+    "FINANCIAL_QUICK_RATIO": "1.34",
+    "FINANCIAL_CURRENT_RATIO": "1.86",
+    "FINANCIAL_OPERATING_CASHFLOW": "3200万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-1450万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-680万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 38
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

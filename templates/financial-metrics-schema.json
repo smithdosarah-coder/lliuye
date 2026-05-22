@@ -1,0 +1,256 @@
+{
+  "schema_version": "1.2.0",
+  "layer": "financial_metrics",
+  "created": "2026-05-22",
+  "updated": "2026-05-22",
+  "description": "财务指标层 — 已计算的对公财务三表 + 比率指标 (LLM REWRITE 引用真值,不再凭空编数字) · D 真治本第 4 layer",
+  "source_of_truth": "审计报告 + 财务报表 + 内部财务系统计算 · 每个 sample fixture 按客户真实业务推断填入",
+  "split_from": "D 真治本 agent20 · 第 4 层独立 (前 3 layer: client-metadata / credit-terms / material-facts)",
+  "rationale": "agent20 真治本 · 用户 dogfood 4th 暴露根因: prompt clause 1 已允许 LLM 编合理数字, 但 LLM 无客户真财务数据 → 仍可能套用经纬测绘训练数据 (3375 万 / 5000 万 等). 本 layer 给每个客户配真财务数据 → REWRITE prompt clause 1 优先级 a) 真值强引用 · LLM 不需编",
+  "changelog": [
+    {
+      "version": "1.2.0",
+      "date": "2026-05-22",
+      "phase": "D 真治本 第 4 层 financial_metrics 落地 (agent20 retry 3)",
+      "summary": "新增 financial_metrics 第 4 layer · 24 字段 · 覆盖三表 (BS + IS + CF) + 关键比率 · 5 DP00X + 3 corp 已配真数据",
+      "fields_count": 24
+    }
+  ],
+  "syntax": {
+    "marker": "{{KEY}}",
+    "note": "本 layer 字段不直接出现在 docx placeholder · 用法是注入 _build_material_summary_for_rewrite 的 LLM prompt · 让 LLM REWRITE 时引用真值 · 而非 placeholder_replace handler 替换"
+  },
+  "scope_tag_legend": {
+    "corporate": "仅对公场景 · 法人主体三表",
+    "retail": "个人贷不适用 (个人贷只有 income / DTI · 见 material-facts retail_specific group)",
+    "both": "无 · financial_metrics 设计为 corporate-only"
+  },
+  "scope_tag_default": "corporate",
+  "fields": [
+    {
+      "key": "FINANCIAL_REPORT_PERIOD_LATEST",
+      "type": "string",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "period_meta",
+      "description": "最近报告期标识 (抽象表述 · 不写具体年月 · 避免穿帮经纬模板示例日期)",
+      "example": "最近报告期"
+    },
+    {
+      "key": "FINANCIAL_PERIODS_AVAILABLE",
+      "type": "array",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "period_meta",
+      "description": "可用报告期列表 (抽象表述 · 用于趋势叙述 · 不写绝对年份)",
+      "example": ["近三年", "上年末", "最近报告期"]
+    },
+    {
+      "key": "FINANCIAL_TOTAL_ASSETS_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期总资产 (万元 · 包含单位)",
+      "example": "5800万元"
+    },
+    {
+      "key": "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "上年末总资产 (用于较年初对比)",
+      "example": "5200万元"
+    },
+    {
+      "key": "FINANCIAL_TOTAL_LIABILITIES_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期总负债",
+      "example": "2900万元"
+    },
+    {
+      "key": "FINANCIAL_OWNER_EQUITY_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期所有者权益",
+      "example": "2900万元"
+    },
+    {
+      "key": "FINANCIAL_CURRENT_ASSETS_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期流动资产合计",
+      "example": "3500万元"
+    },
+    {
+      "key": "FINANCIAL_CURRENT_LIABILITIES_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期流动负债合计",
+      "example": "2100万元"
+    },
+    {
+      "key": "FINANCIAL_AR_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期应收账款",
+      "example": "850万元"
+    },
+    {
+      "key": "FINANCIAL_INVENTORY_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期存货",
+      "example": "1200万元"
+    },
+    {
+      "key": "FINANCIAL_FIXED_ASSETS_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "balance_sheet",
+      "description": "最近报告期固定资产",
+      "example": "1800万元"
+    },
+    {
+      "key": "FINANCIAL_REVENUE_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "最近报告期营业收入",
+      "example": "7200万元"
+    },
+    {
+      "key": "FINANCIAL_REVENUE_YOY_PCT",
+      "type": "percentage",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "营业收入同比变化率 (正数=增长 / 负数=下滑 · 包含百分号)",
+      "example": "12.5%"
+    },
+    {
+      "key": "FINANCIAL_NET_PROFIT_LATEST",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "最近报告期净利润",
+      "example": "580万元"
+    },
+    {
+      "key": "FINANCIAL_NET_PROFIT_YOY_PCT",
+      "type": "percentage",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "净利润同比变化率",
+      "example": "8.3%"
+    },
+    {
+      "key": "FINANCIAL_GROSS_PROFIT_MARGIN",
+      "type": "percentage",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "毛利率",
+      "example": "22.4%"
+    },
+    {
+      "key": "FINANCIAL_NET_PROFIT_MARGIN",
+      "type": "percentage",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "income_statement",
+      "description": "净利率",
+      "example": "8.1%"
+    },
+    {
+      "key": "FINANCIAL_DEBT_RATIO",
+      "type": "percentage",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "ratio",
+      "description": "资产负债率",
+      "example": "50.0%"
+    },
+    {
+      "key": "FINANCIAL_QUICK_RATIO",
+      "type": "ratio",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "ratio",
+      "description": "速动比率",
+      "example": "1.10"
+    },
+    {
+      "key": "FINANCIAL_CURRENT_RATIO",
+      "type": "ratio",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "ratio",
+      "description": "流动比率",
+      "example": "1.67"
+    },
+    {
+      "key": "FINANCIAL_OPERATING_CASHFLOW",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "cashflow",
+      "description": "经营活动产生的现金流量净额",
+      "example": "650万元"
+    },
+    {
+      "key": "FINANCIAL_INVESTING_CASHFLOW",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "cashflow",
+      "description": "投资活动产生的现金流量净额",
+      "example": "-180万元"
+    },
+    {
+      "key": "FINANCIAL_FINANCING_CASHFLOW",
+      "type": "money",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "cashflow",
+      "description": "筹资活动产生的现金流量净额",
+      "example": "-120万元"
+    },
+    {
+      "key": "FINANCIAL_AR_TURNOVER_DAYS",
+      "type": "number",
+      "required": false,
+      "scope_tag": "corporate",
+      "group": "ratio",
+      "description": "应收账款周转天数",
+      "example": 65
+    }
+  ],
+  "fallback_strategy": {
+    "missing_value": "REWRITE prompt 不注入此 layer 块 · LLM 走 clause 1c 编合理数字路径",
+    "rationale": "财务数据缺时 fallback 到 LLM 推断 (基于注册资本 + 行业 + 经营年限) · 不输出 placeholder 字面 · demo 演示不穿帮",
+    "retail_specific": "retail scenarios 不需要 financial_metrics · 个人贷叙述只用 retail material_facts 的 income / DSR / repayment_ability"
+  },
+  "compatibility": {
+    "consumer": "v16_op_handlers._build_material_summary_for_rewrite() 注入 LLM prompt 上下文 · 不通过 placeholder_replace handler 替换 docx 字面",
+    "backward_compat": "未配 financial_metrics 的 sample (含老 5 fixture 之外) · prompt 跳过此 block · LLM 走 clause 1c 编合理数字路径 · 不 break"
+  }
+}

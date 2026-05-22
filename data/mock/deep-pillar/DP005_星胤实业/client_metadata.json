@@ -55,14 +55,41 @@
     "FINANCING_ACTIVITY_NARRATIVE": "集团筹资活动以银行授信、集团内部互保和股东支持为主,资金主要用于多业态板块协同运营与商业地产板块周转。集团互保结构存在一定关联敞口,但实业现金流为主要还款来源,整体筹资结构与多元化战略匹配,需关注地产板块的周期性传导。",
     "CASHFLOW_ASSESSMENT_NARRATIVE": "集团货币资金水平整体匹配多板块经营节奏,实业制造现金流为主要稳定回流来源,商业地产板块受周期影响存在一定波动。授信发放后可缓解集团多业态协同的资金调度压力,本次授信风险整体可控但需重点关注地产关联敞口与互保稳健性。"
   },
+  "financial_metrics": {
+    "FINANCIAL_REPORT_PERIOD_LATEST": "最近报告期",
+    "FINANCIAL_PERIODS_AVAILABLE": ["近三年", "上年末", "最近报告期"],
+    "FINANCIAL_TOTAL_ASSETS_LATEST": "98000万元",
+    "FINANCIAL_TOTAL_ASSETS_LAST_YEAR_END": "92000万元",
+    "FINANCIAL_TOTAL_LIABILITIES_LATEST": "52000万元",
+    "FINANCIAL_OWNER_EQUITY_LATEST": "46000万元",
+    "FINANCIAL_CURRENT_ASSETS_LATEST": "42000万元",
+    "FINANCIAL_CURRENT_LIABILITIES_LATEST": "31000万元",
+    "FINANCIAL_AR_LATEST": "8600万元",
+    "FINANCIAL_INVENTORY_LATEST": "12000万元",
+    "FINANCIAL_FIXED_ASSETS_LATEST": "38000万元",
+    "FINANCIAL_REVENUE_LATEST": "62000万元",
+    "FINANCIAL_REVENUE_YOY_PCT": "5.8%",
+    "FINANCIAL_NET_PROFIT_LATEST": "4200万元",
+    "FINANCIAL_NET_PROFIT_YOY_PCT": "3.2%",
+    "FINANCIAL_GROSS_PROFIT_MARGIN": "22.5%",
+    "FINANCIAL_NET_PROFIT_MARGIN": "6.8%",
+    "FINANCIAL_DEBT_RATIO": "53.1%",
+    "FINANCIAL_QUICK_RATIO": "0.97",
+    "FINANCIAL_CURRENT_RATIO": "1.35",
+    "FINANCIAL_OPERATING_CASHFLOW": "5200万元",
+    "FINANCIAL_INVESTING_CASHFLOW": "-2800万元",
+    "FINANCIAL_FINANCING_CASHFLOW": "-1500万元",
+    "FINANCIAL_AR_TURNOVER_DAYS": 48
+  },
   "_layer_split": {
-    "schema_version": "1.1.2",
-    "structure": "3-section-split",
-    "split_phase": "C Phase C · 2026-05-21",
+    "schema_version": "1.2.0",
+    "structure": "4-section-split",
+    "split_phase": "D 真治本 agent20 · 2026-05-22",
     "schemas": [
       "client-metadata-schema.json",
       "credit-terms-schema.json",
-      "material-facts-schema.json"
+      "material-facts-schema.json",
+      "financial-metrics-schema.json"
     ]
   }
 }

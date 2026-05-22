@@ -452,10 +452,12 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
    特别注意:与档案中 CLIENT_FULL_NAME 不同的任何客户名(如"福建经纬数字
    科技""兴业资产管理""鼎盛""蓝汀"之外的客户名 等)都视为跨样本污染,
    严禁出现在重写正文中。
-1. 【数据来源优先级 · 2026-05-22 demo 场景调整】优先级:
-   a) 【已计算财务指标】(client_metadata.financial_metrics) 真值 · 强引用
-   b) 【当前客户档案】基础字段 (公司名/法人/USCC/资本/行业) · 强引用
-   c) 上面 a/b 都未给 · 但段落需要数字 → 基于客户行业+注册资本+经营年限**编合理数字**
+1. 【数据来源优先级 · 2026-05-22 D 真治本 agent20 升级】所有数字必须严格按以下优先级取值:
+   a) 【已计算财务指标】块 (FINANCIAL_TOTAL_ASSETS_LATEST / FINANCIAL_REVENUE_LATEST /
+      FINANCIAL_DEBT_RATIO / FINANCIAL_OPERATING_CASHFLOW 等 FINANCIAL_* 字段) — **客户真值 · 第一优先 · 强引用**
+      · 若财务/经营/现金流段涉及总资产/营收/净利润/资产负债率/现金流等指标 · 必须从此块原样引用 · 不得自行编造或四舍五入
+   b) 【当前客户档案】基础字段 (公司名/法人/USCC/资本/行业) — **强引用 · 不得编造**
+   c) 上面 a/b 都未给数字 · 但段落需要数字 → 基于客户行业+注册资本+经营年限**编合理数字**
       (零售业总资产≈注册资本×2-5 / 制造业×3-7 / 服务业×1.5-3 ·
        资产负债率 30-70% · 净利率零售 5-12% 制造 8-15% 服务 10-20%)
    d) 编的数字必须跟客户业务匹配 · 严禁照搬原段落数字 (那是经纬测绘模板示例)
@@ -626,6 +628,32 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
             current_full_name = str(_lookup_metadata_value("CLIENT_FULL_NAME", client_metadata) or "")
             current_core_name = str(_lookup_metadata_value("CLIENT_CORE_NAME", client_metadata) or "")
             parts.append("")
+
+        # 2026-05-22 D 真治本 agent20: 第 4 layer financial_metrics 注入 (LLM REWRITE 引用真值)
+        # 优先级在 client_metadata 之后 · 在 anchors / facts 之前 · 让 LLM 在写财务段时
+        # 直接拿真数字 · 不靠"基于注册资本编合理数字"路径 · 避免穿帮经纬模板数字.
+        # consumer:这是 prompt clause 1 数据来源优先级 a) 的真实数据源.
+        fin_metrics: dict = {}
+        sections_dict = client_metadata.get("_sections") if isinstance(client_metadata, dict) else None
+        if isinstance(sections_dict, dict) and isinstance(sections_dict.get("financial_metrics"), dict):
+            fin_metrics = sections_dict["financial_metrics"]
+        elif isinstance(client_metadata, dict) and isinstance(client_metadata.get("financial_metrics"), dict):
+            fin_metrics = client_metadata["financial_metrics"]
+        if fin_metrics:
+            fin_lines: list[str] = []
+            for fkey, fval in fin_metrics.items():
+                if fval is None:
+                    continue
+                if isinstance(fval, list):
+                    fval_str = " / ".join(str(x) for x in fval if x is not None)
+                else:
+                    fval_str = str(fval).strip()
+                if fval_str:
+                    fin_lines.append(f"  - {fkey}: {fval_str}")
+            if fin_lines:
+                parts.append("【已计算财务指标 · 客户真值 · 强引用 · 写财务/经营/现金流段必须按此原文引用 · 严禁编造或保留原模板数字】")
+                parts.extend(fin_lines)
+                parts.append("")
 
     # 2026-05-21 红线 fix · 跨样本材料屏蔽:
     #   当 client_metadata 显式给出时 · 判断 material 是否属于当前客户.
@@ -1249,17 +1277,18 @@ def _lookup_metadata_value(key: str, metadata: dict):
         return value
 
     # 3. _sections 兜底 (resolve_client_metadata 注入的子结构)
+    # 2026-05-22 D 真治本 agent20: + financial_metrics 第 4 layer
     sections = metadata.get("_sections")
     if isinstance(sections, dict):
-        for layer_name in ("client_metadata", "credit_terms", "material_facts"):
+        for layer_name in ("client_metadata", "credit_terms", "material_facts", "financial_metrics"):
             sub = sections.get(layer_name)
             if isinstance(sub, dict):
                 v = sub.get(key) or sub.get(lower)
                 if v is not None:
                     return v
 
-    # 4. 直接 3 section nested (caller 没走 resolve_client_metadata)
-    for layer_name in ("client_metadata", "credit_terms", "material_facts"):
+    # 4. 直接 3+1 section nested (caller 没走 resolve_client_metadata)
+    for layer_name in ("client_metadata", "credit_terms", "material_facts", "financial_metrics"):
         sub = metadata.get(layer_name)
         if isinstance(sub, dict):
             v = sub.get(key) or sub.get(lower)

@@ -35,11 +35,13 @@ REPO = Path(__file__).resolve().parent.parent.parent  # credit_report_agent_work
 
 # 2026-05-21 C 档第 1 步 升级 · 3 layer schema 拆分
 # 2026-05-21 W1 第 1 步 升级 · 加入 decision_context layer (4 agent canonical input schema)
-# 默认全检 5 个 (4 layer + union view) · 任一 fail 即 exit 1
+# 2026-05-22 D 真治本 agent20 升级 · 加入 financial_metrics layer (LLM 编合理数字真治本第 4 层)
+# 默认全检 6 个 (5 layer + union view) · 任一 fail 即 exit 1
 SCHEMA_FILES = [
     REPO / "templates" / "client-metadata-schema.json",
     REPO / "templates" / "credit-terms-schema.json",
     REPO / "templates" / "material-facts-schema.json",
+    REPO / "templates" / "financial-metrics-schema.json",  # D 真治本 · LLM REWRITE 引用真值财务三表
     REPO / "templates" / "decision-context-schema.json",  # W1 第 1 步 · credit Agent 决策结果 (跨 agent canonical handoff)
     REPO / "templates" / "placeholder-schema.json",  # union view (backward compat · DEPRECATED)
 ]
@@ -186,17 +188,21 @@ def _lint_one(path: Path, data: dict) -> tuple[list[str], dict]:
 def _cross_layer_checks(layer_files: list[Path]) -> list[str]:
     """C7 + C8 · 跨 layer 一致性检查.
 
-    C7: 3 layer (不含 union 和 decision_context) 字段不重复
+    C7: 3 layer (不含 union / decision_context / financial_metrics) 字段不重复
     C8: 3 layer 合并 == union view 字段集
 
     注: decision_context (W1 第 1 步) 是独立 inter-agent canonical handoff schema ·
     不属 docx placeholder 68 key 集 · 跨层一致性检查仅检 client_metadata/credit_terms/material_facts vs union view.
+
+    注 (2026-05-22 D 真治本): financial_metrics layer 是 LLM REWRITE prompt 注入 ·
+    不通过 placeholder_replace 走 docx 字面 · 也排除跨层一致性 (不在 68 key 集).
     """
     failures: list[str] = []
     layers: dict[str, set[str]] = {}
     union_keys: set[str] = set()
 
-    # W1 第 1 步: 跨层一致性仅覆盖 placeholder 三层 + union view · 排除 decision_context
+    # W1 第 1 步: 跨层一致性仅覆盖 placeholder 三层 + union view ·
+    # 排除 decision_context (W1) 和 financial_metrics (D 真治本)
     PLACEHOLDER_LAYERS = {"client_metadata", "credit_terms", "material_facts"}
 
     for p in layer_files:
