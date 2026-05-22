@@ -517,7 +517,19 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
     正确:"营业收入同比增长14.9%"、"资产负债率较年初下降7.7个百分点";
     错误:"营业收入2025年同比增长14.9%"、"资产负债率2025年较年初下降7.7个百分点"。
     年份归属由段首统一交代,不得在每个对比句重复。违者下游 regex 清洗无法识别,
-    会导致"分别为X、Y"的重复值残留在最终文档。"""
+    会导致"分别为X、Y"的重复值残留在最终文档。
+17. 【零模板数字引用 · 2026-05-22 user dogfood 红线 fix】原段落里的所有具体数字
+    (XX万元/XX亿元/XX%/X.X%/X倍/XX人/XX年X月) 若【当前客户档案】或【已计算财务指标】
+    块未给出对应客户字段,严禁照抄到改写后段落。原段落数字属于"模板示例数字"
+    (例:经纬测绘原报告的 3375 万元授信、19 万元应收账款减少、92.21% 流动资产占比),
+    与当前客户业务无关。LLM 必须:
+    a) 若客户档案/财务块给了真值 → 引用真值
+    b) 若客户档案/财务块未给 → 写 "【未能自动填写:<对应字段如营业收入/应收账款/授信金额>】"
+    c) 严禁保留原段落的数字然后只换公司名 — 这就是 user 反馈的"分析逻辑还是经纬度"
+    粒度守恒(clause 3) 不要求保留数字 · 段落长度量级即可。
+18. 【日期/比率/比例同零模板数字引用】"较 2021 年末""2022 年 9 月""占比 92.21%"
+    "环比下降 7.7 个百分点" 等表述,若客户档案未给客户真实财务周期数据,
+    写 "【未能自动填写:财务对比基期】" 而非保留原日期/比例。"""
 
 
 # 跨样本污染过滤 · 老 sample 客户名清单 (2026-05-21 红线 fix · agent15 实测)
@@ -689,9 +701,15 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
     raw = mats.kb.get("raw_statements", []) if mats.kb else []
     if raw and not suppress_unrelated_materials:
         parts.append("")
-        parts.append("【材料原文片段 · 已过滤跨样本污染】")
+        parts.append("【材料原文片段 · 已过滤跨样本污染 + 已剔除原模板数字】")
         budget = max_chars - sum(len(p) for p in parts)
         polluted_skipped = 0
+        # 2026-05-22 user dogfood 红线 fix · 剔除原 material 中的数字 / 日期 / 比例 ·
+        # 防止 LLM 把模板示例 (e.g. 经纬测绘 3375 万元) 照抄到当前客户报告.
+        # 替换为占位 · 让 LLM 既能理解段落结构 · 又找不到具体数字可抄.
+        _NUM_PATTERN = re.compile(r"[\d,]+(?:\.\d+)?\s*(?:万元|亿元|百万元|千万元|元|%|‰|个百分点|倍|人)")
+        _DATE_PATTERN = re.compile(r"(?:19|20)\d{2}\s*年(?:\s*\d{1,2}\s*月)?(?:\s*\d{1,2}\s*日)?(?:末|初)?")
+        _RATIO_PATTERN = re.compile(r"(?:占比|比例|比率|增幅|降幅)\s*[\d,]+(?:\.\d+)?\s*%?")
         for stmt in raw:
             if budget <= 200:
                 break
@@ -703,7 +721,11 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
             if current_full_name and _is_polluted_for_current(t, current_full_name, current_core_name):
                 polluted_skipped += 1
                 continue
+            # 2026-05-22 红线 fix · 剔除原模板数字 / 日期 / 比例 · LLM 想抄也没数据
             chunk = t[:600]
+            chunk = _NUM_PATTERN.sub("[原模板数字·禁用]", chunk)
+            chunk = _DATE_PATTERN.sub("[原模板日期·禁用]", chunk)
+            chunk = _RATIO_PATTERN.sub("[原模板比例·禁用]", chunk)
             parts.append(chunk)
             budget -= len(chunk)
         if polluted_skipped:
