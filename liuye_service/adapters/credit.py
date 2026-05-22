@@ -46,6 +46,7 @@ from liuye_service.adapters.base import (
 from liuye_service.adapters.sse_v1_to_liuye import SseV1ToLiuyeAdapter
 from liuye_service.audit import record_liuye_decision
 from liuye_service.config import get_settings
+from shared.canonical import CanonicalInput, canonical_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -243,16 +244,28 @@ class CreditAdapter:
           lineage; the SSE translator emits ``tool.started`` with both
           ``tool_call_id`` (new uuid) + ``parent_tool_call_id`` (handoff link).
         - Cowork SLA: connect=5s / read=30s
+
+        W1 Phase B (codex R3 R3.4 W2 · 2026-05-21): canonical input adapter.
+        若 payload 含 ``client_metadata`` key (新 canonical 路径) · 走
+        ``_canonical_to_credit_input`` mapper 归一成 agent_credit
+        ``DecisionRequestV4`` 形态 (stage_tab / report_json / materials /
+        appetite_config / preset_name)· 旧 raw payload 路径 (已含 stage_tab
+        + report_json) 不变 · backward compat.
         """
         client = self._http_client or httpx.AsyncClient(timeout=HTTP_TIMEOUT)
         owns_client = self._http_client is None
         try:
             base = self._resolve_backend_url(self.agent_id).rstrip("/")
             url = f"{base}{_ENDPOINT_MAP[self.agent_id]}"
+
+            # W1 Phase B canonical input branch: 若 payload 是 canonical shape
+            # (含 client_metadata layer) · 跑 mapper 归一 · 否则 backward compat
+            # 直接透传 (channel/old e2e test 走此路径).
+            mapped_body = _canonical_to_credit_input(dict(payload))
             body: dict[str, Any] = {
                 "turn_id": turn_id,
                 "trace_id": translator.trace_id,
-                **dict(payload),
+                **mapped_body,
             }
             # Defensive: even if payload already carried it (orchestrator
             # forwards from the SSE bridge), make sure the wire body has
@@ -455,8 +468,208 @@ def _synthesise_credit_v1_frames(
     ]
 
 
+# ---------------------------------------------------------------------------
+# W1 Phase B · Canonical input mapper (codex R3 R3.4 W2)
+# ---------------------------------------------------------------------------
+
+
+def _canonical_to_credit_input(payload: dict[str, Any]) -> dict[str, Any]:
+    """Map ``CanonicalInput`` (4-layer canonical) → agent_credit ``DecisionRequestV4``.
+
+    agent_credit ``POST /api/credit/decision`` 现有形态 (api.py:568):
+        {
+          "stage_tab": "corporate" | "small_business" | "retail",
+          "report_json": dict | None,
+          "materials": list[dict] | None,
+          "preset_name": str | None,
+          "appetite_config": dict | None,
+          "provider": str | None, "api_key": str | None,
+          "mock": bool,
+        }
+
+    Mapper 行为:
+
+    1. 若 payload **不含** canonical signature (无 ``client_metadata`` key) ·
+       直接 passthrough (backward compat · 不破坏现有 raw shape).
+
+    2. 若 payload 含 canonical signature ·
+       - client_metadata + credit_terms + material_facts → report_json (新建 dict)
+       - canonical ``stage_tab`` passthrough · 缺则按 client_metadata 推断
+         (CLIENT_ID_NUMBER 存在 → retail · CLIENT_USCC 存在 → corporate · 默认 small_business)
+       - canonical ``materials`` passthrough (若有)· 否则 None
+       - canonical ``appetite_config`` passthrough · 缺则 None (走 agent_credit default)
+       - canonical ``preset_name`` passthrough · 缺则 None
+
+    3. passthrough 字段 (mock / provider / api_key / parent_tool_call_id) 原样保留.
+
+    Note: 这是 mapper 不是 validator · pydantic validation 走 ``canonical_from_dict``
+    (单独 wrap 在调用点 · 当前 ``_run_live`` 不强制 validate · 留 backward
+    compat 透传路径)。
+    """
+    if not isinstance(payload, dict):
+        return {}
+
+    # Detect canonical signature: client_metadata as dict layer
+    has_canonical = isinstance(payload.get("client_metadata"), dict)
+    if not has_canonical:
+        # Backward compat: 已是 raw shape · 直接 passthrough
+        return dict(payload)
+
+    # Canonical path: 走 pydantic 归一 + 重 wrap 成 DecisionRequestV4 shape
+    try:
+        ci = canonical_from_dict(payload)
+    except Exception as exc:  # noqa: BLE001 · validation 失败 fallback raw
+        logger.warning(
+            "[credit_adapter] canonical_from_dict failed · fallback raw payload · err=%s",
+            exc,
+        )
+        return dict(payload)
+
+    cm_fields = ci.client_metadata.fields
+    ct_fields = ci.credit_terms.fields if ci.credit_terms else {}
+    mf_fields = ci.material_facts.fields if ci.material_facts else {}
+
+    # Infer stage_tab from client_metadata if not provided in passthrough
+    stage_tab = ci.passthrough.get("stage_tab")
+    if not stage_tab:
+        if cm_fields.get("CLIENT_ID_NUMBER"):
+            stage_tab = "retail"
+        elif cm_fields.get("CLIENT_USCC"):
+            stage_tab = "corporate"
+        else:
+            stage_tab = "small_business"
+
+    # Build report_json (canonical-merged · agent_credit 复用 Agent6 ReportJSON shape)
+    # 形态对齐 agent_credit/api.py _decision_event_stream_v4 期待:
+    #   header (subject_name/applied_product/applied_amount_wan) +
+    #   business_line (stage_tab) + financial_anchors (financial.*)
+    report_json: dict[str, Any] = {
+        "header": {
+            "subject_name": cm_fields.get("CLIENT_FULL_NAME", ""),
+            "uscc": cm_fields.get("CLIENT_USCC", ""),
+            "applied_product": ct_fields.get("CREDIT_PURPOSE", "综合授信"),
+            "applied_amount_wan": _parse_amount_wan(ct_fields.get("CREDIT_AMOUNT", "")),
+            "applied_term_months": _parse_term_months(ct_fields.get("CREDIT_PERIOD", "")),
+            "industry": cm_fields.get("CLIENT_INDUSTRY_FULL", ""),
+            "industry_code": cm_fields.get("CLIENT_INDUSTRY_CODE", ""),
+            "location": cm_fields.get("CLIENT_LOCATION_CITY", ""),
+            "establishment_date": cm_fields.get("CLIENT_ESTABLISHMENT_DATE", ""),
+            "registered_capital": cm_fields.get("CLIENT_REGISTERED_CAPITAL", ""),
+            "employee_count": cm_fields.get("CLIENT_EMPLOYEE_COUNT", ""),
+            "operating_years": cm_fields.get("CLIENT_OPERATING_YEARS", ""),
+        },
+        "business_line": stage_tab,
+        "client_metadata": dict(cm_fields),
+        "credit_terms": dict(ct_fields),
+        "material_facts": dict(mf_fields),
+        # financial_anchors: 由 material_facts 现金流叙述派生 · agent_credit 自己 extract
+        # (canonical 不强制 LLM 抽数 · 留给 feature_extractor)
+        "financial_anchors": _extract_financial_anchors(mf_fields),
+    }
+
+    # 若 caller 透传了 report_json (e.g. Agent6 handoff)· canonical 让位
+    upstream_report_json = ci.passthrough.get("report_json")
+    if isinstance(upstream_report_json, dict) and upstream_report_json:
+        # Merge: upstream 优先 · canonical 仅补缺
+        merged = dict(report_json)
+        merged.update(upstream_report_json)
+        report_json = merged
+
+    body: dict[str, Any] = {
+        "stage_tab": stage_tab,
+        "report_json": report_json,
+        "materials": ci.passthrough.get("materials"),
+        "preset_name": ci.passthrough.get("preset_name"),
+        "appetite_config": ci.passthrough.get("appetite_config"),
+        "provider": ci.passthrough.get("provider"),
+        "api_key": ci.passthrough.get("api_key"),
+        "mock": bool(ci.passthrough.get("mock", False)),
+    }
+
+    # Drop None to avoid Pydantic schema noise · keep mock=False explicit
+    body = {k: v for k, v in body.items() if not (v is None and k != "mock")}
+    return body
+
+
+def _parse_amount_wan(s: Any) -> Optional[float]:
+    """'5000 万元' → 5000.0 · '5000万' → 5000.0 · 解析失败 None."""
+    if s is None:
+        return None
+    if isinstance(s, (int, float)):
+        return float(s)
+    if not isinstance(s, str):
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    # Strip 中文单位 / 空格
+    cleaned = s.replace("万元", "").replace("万", "").replace("元", "").replace(",", "").strip()
+    try:
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_term_months(s: Any) -> Optional[int]:
+    """'一年' → 12 · '12 个月' → 12 · '36 月' → 36 · '3 年' → 36 · 解析失败 None."""
+    if s is None:
+        return None
+    if isinstance(s, int):
+        return s
+    if not isinstance(s, str):
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    # 中文数字 → 阿拉伯 (简化版 · 仅一/二/三...十)
+    cn_digits = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+                 "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    import re as _re
+    # 提取数字
+    m = _re.search(r"(\d+)", s)
+    if m:
+        n = int(m.group(1))
+    else:
+        n = None
+        for cn, v in cn_digits.items():
+            if cn in s:
+                n = v
+                break
+    if n is None:
+        return None
+    if "年" in s:
+        return n * 12
+    # 默认月
+    return n
+
+
+def _extract_financial_anchors(mf_fields: dict[str, Any]) -> dict[str, Any]:
+    """从 material_facts 派生 financial_anchors (agent_credit feature_extractor 兜底).
+
+    canonical 不强制 LLM 抽数 · 仅做 deterministic 1-to-1 mapping:
+      - CREDIT_OUTSTANDING_BALANCE → debt_balance
+      - CREDIT_OVERDUE_RECORD      → overdue_status (retail)
+      - CLIENT_MONTHLY_INCOME      → monthly_income (retail)
+      - CLIENT_DSR                 → dsr (retail)
+    缺字段 → 不出现在 financial_anchors · agent_credit 走 LLM 抽数路径.
+    """
+    anchors: dict[str, Any] = {}
+    if mf_fields.get("CREDIT_OUTSTANDING_BALANCE"):
+        anchors["debt_balance"] = mf_fields["CREDIT_OUTSTANDING_BALANCE"]
+    if mf_fields.get("CREDIT_OVERDUE_RECORD"):
+        anchors["overdue_status"] = mf_fields["CREDIT_OVERDUE_RECORD"]
+    if mf_fields.get("CLIENT_MONTHLY_INCOME"):
+        anchors["monthly_income"] = mf_fields["CLIENT_MONTHLY_INCOME"]
+    if mf_fields.get("CLIENT_DSR"):
+        anchors["dsr"] = mf_fields["CLIENT_DSR"]
+    if mf_fields.get("REPAYMENT_ABILITY_ASSESSMENT"):
+        anchors["repayment_assessment"] = mf_fields["REPAYMENT_ABILITY_ASSESSMENT"]
+    return anchors
+
+
 __all__ = [
     "CREDIT_AGENT_ID",
     "CREDIT_ENDPOINT",
     "CreditAdapter",
+    "_canonical_to_credit_input",
 ]
