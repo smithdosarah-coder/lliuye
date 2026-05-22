@@ -648,6 +648,83 @@ def generate(
             )
             fb_stats["rewrite"] += 1
 
+    # ───────────────────────────────────────────────────────────────
+    # 治本 · 长段 pre-pass (2026-05-22 user dogfood 5th · agent diag 实测)
+    # ───────────────────────────────────────────────────────────────
+    # 真根因: classifier 把"经纬模板的财务/业务/授信品种叙述段"标 PRESERVE,
+    #         这些段不含 financial keyword 也不含 narrative keyword (业务通用描述),
+    #         但**就是经纬原模板逐字保留** → 报告主体跟原模板高相似度 (e2e 结构断言 FAIL).
+    # 实测样本 (corp-dingsheng 跑通后 dump):
+    #   - P127 (121): "其他应付款及其他流动负债：公司其他应付款主要为关联方往来款..."
+    #   - P115 (105): "负债结构分析：公司负债主要分布在短期借款、应付账款..."
+    #   - P149 (88): "投资活动产生的现金流量受公司当期资本性支出节奏..."
+    #   - P122 (83): "存货：公司存货整体呈一定波动趋势..."
+    #   - P188 (89): "（2）商票保贴：由于企业的下游客户多为大型企业..."
+    #   - P190/P191/P192: "国内证及买方押汇 / 非融资性保函 / 快捷保理" 授信品种叙述
+    # 治本: 长段 PRESERVE (≥ 50 char) 一律 force REWRITE · 让 LLM 改写为客户 specific.
+    # 排除 _is_obvious_generic_template (table header / checkbox 模板 / 章节号 / 落款)
+    # 避免 force LLM 编 nonsense 标题.
+    _LONG_PARA_THRESHOLD = 50
+
+    def _is_obvious_generic_template(t: str) -> bool:
+        """识别"不该 force REWRITE"的 generic template 段 (header / 章节号 / checkbox / 落款)."""
+        if not t:
+            return True
+        stripped = t.strip()
+        if len(stripped) < _LONG_PARA_THRESHOLD:
+            return True
+        # checkbox 模板 (含 □ 或 ☑ 或 "是  否" 表格 header)
+        if "□" in stripped or "☑" in stripped:
+            return True
+        # 落款行 (含多个 ":" / "：" 但每个后面跟空格 · 没实质内容)
+        # e.g. "客户经理:              总经理助理:              部门负责人:"
+        if stripped.count("：") + stripped.count(":") >= 3:
+            # 且总字数不多 (落款典型 < 80) 且没句号
+            if len(stripped) < 80 and "。" not in stripped and "，" not in stripped:
+                return True
+        # 章节号 / 标题 (短 + 编号前缀 + 无句号)
+        if _SECTION_NUM_RE.search(stripped) and "。" not in stripped and len(stripped) < 80:
+            return True
+        # 全 placeholder ({{KEY}}{{KEY}}...) — 已 PLACEHOLDER 化的 (pre-pass 已经覆盖,这里双保险)
+        if _placeholder_re.search(stripped):
+            return True
+        # 全数字 / 全标点 / 表格数据行
+        non_punct = _re.sub(r"[\s\d\.,，。;；:：\-—、()（）%]+", "", stripped)
+        if len(non_punct) < 5:
+            return True
+        # 表格 header 枚举型 (含"系统/网站/类目"逗号枚举 + 短 + 无句号)
+        # e.g. "企查查、天眼查、启信宝、裁判文书网、中国执行网、信用中国、各地市环保局网站..."
+        comma_count = stripped.count("、")
+        if comma_count >= 3 and "。" not in stripped and len(stripped) < 80:
+            return True
+        return False
+
+    long_para_forced = 0
+    for e in elements:
+        text = (e.text or "").strip()
+        if len(text) < _LONG_PARA_THRESHOLD:
+            continue
+        existing = classifications.get(e.location)
+        if existing is None:
+            continue
+        if existing.op != "PRESERVE":
+            continue
+        if _is_obvious_generic_template(text):
+            continue
+        # force REWRITE · 用 FINANCIAL label 走 section_batch_rewrite 路径
+        classifications[e.location] = Classification(
+            location=e.location, op="REWRITE", label="FINANCIAL",
+            confidence=1.0,
+            justification=(
+                f"long-para pre-pass · 长段 PRESERVE (len={len(text)}) "
+                f"force REWRITE 防经纬模板原文残留"
+            ),
+        )
+        fb_stats["rewrite"] += 1
+        long_para_forced += 1
+    if long_para_forced:
+        print(f"  [long-para pre-pass] 强制 {long_para_forced} 长段 PRESERVE → REWRITE/FINANCIAL")
+
     # Pre-pass: 现有 PRESERVE/SCAFFOLD 若文本是已知字段标签(如"客户名称：")且 KB
     # 有对应值,上调为 FILL/FILL。分类器会把只写了标签的短段判为 SCAFFOLD,
     # 错失填充机会;这里做事实驱动的补救。
