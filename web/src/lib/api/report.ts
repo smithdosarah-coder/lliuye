@@ -300,6 +300,107 @@ export async function uploadReportMaterials(
   return (await resp.json()) as ReportUploadResponse;
 }
 
+/* ── Q6-B · 用户自定义 docx 模板上传 + lint ────────────────────────────
+   后端: POST /api/report/upload-template (multipart: file + ?template_name=...&business_line=...)
+   - byte-level diff standalone lint 自动检测 placeholder 完整性
+   - 返 validation_report 给客户经理 (PASS/WARN/ERROR)
+   - persistent 到 data/kb/templates/{id}/ · 共享可见 (uploader 字段审计)
+*/
+
+export type TemplateValidationReport = {
+  template_id: string;
+  template_name: string;
+  filename: string;
+  business_line: string;
+  uploader: string;
+  uploaded_at: string;
+  size_bytes: number;
+  placeholder_count: number;       // 位置维度 · 一个 element 多 placeholder 算多次
+  placeholder_keys: string[];      // unique {{KEY}} 列表 · sorted
+  residue_count: number;           // 未 placeholder 化的 specific 字面数
+  residue_samples: Array<{
+    location: string;              // "P3" / "T0R1C2P0" element 位置
+    element_kind: "para" | "cell";
+    kind: "company" | "person" | "money" | "date" | "id_number" | "uscc";
+    value: string;
+    snippet: string;               // 前 100 字符上下文
+  }>;
+  validation: "PASS" | "WARN" | "ERROR" | "SKIP";
+  element_count: number;
+  lint_error?: string | null;
+  template_ref: string;            // "user-template:{id}" · V16FillRequest source_docx 直接用
+};
+
+export type TemplateUploadResponse = {
+  template_id: string;
+  template_path: string;           // = template_ref
+  validation_report: TemplateValidationReport;
+};
+
+export async function uploadReportTemplate(
+  file: File,
+  templateName: string,
+  businessLine: string = "corporate",
+): Promise<TemplateUploadResponse> {
+  if (!file) throw new Error("请选模板 docx 文件");
+  if (!templateName || templateName.trim().length < 2) {
+    throw new Error("template_name 至少 2 字符");
+  }
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  const qs = new URLSearchParams({
+    template_name: templateName,
+    business_line: businessLine,
+  });
+  const url = `${API_BASE}/api/report/upload-template?${qs.toString()}`;
+  const resp = await fetch(url, { method: "POST", body: fd });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    // typed error code (per 后端 detail.error.code)
+    let typedMsg = `upload-template 失败 HTTP ${resp.status}`;
+    try {
+      const parsed = JSON.parse(text) as { detail?: { error?: { code?: string; message?: string } } };
+      const inner = parsed?.detail?.error;
+      if (inner?.code) typedMsg = `[${inner.code}] ${inner.message ?? ""}`.trim();
+    } catch {
+      typedMsg = `${typedMsg} · ${text.slice(0, 160)}`;
+    }
+    throw new Error(typedMsg);
+  }
+  return (await resp.json()) as TemplateUploadResponse;
+}
+
+export type TemplateListItem = {
+  template_path: string;          // builtin "samples/xxx.docx" · user "user-template:{id}"
+  name: string;
+  type: "builtin" | "user";
+  business_line?: string;
+  // user 字段 (builtin 没有)
+  uploader?: string;
+  uploaded_at?: string;
+  placeholder_count?: number;
+  residue_count?: number;
+  validation?: "PASS" | "WARN" | "ERROR" | "SKIP";
+  size_bytes?: number;
+  filename?: string;
+  template_id?: string;
+};
+
+export type TemplateListResponse = {
+  builtin: TemplateListItem[];     // 5 内置
+  user: TemplateListItem[];        // N user 上传 · sort by uploaded_at DESC
+};
+
+export async function listReportTemplates(): Promise<TemplateListResponse> {
+  const url = `${API_BASE}/api/report/templates`;
+  const resp = await fetch(url, { method: "GET" });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`templates 列表失败 HTTP ${resp.status} · ${text.slice(0, 120)}`);
+  }
+  return (await resp.json()) as TemplateListResponse;
+}
+
 /* ── SSE consume: POST /api/report/v16/fill ────────────────────────── */
 
 export type ReportV16FillRequest = {

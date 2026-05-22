@@ -28,11 +28,13 @@ import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import {
   exportReportDocx,
   exportReportPdf,
+  listReportTemplates,
   refineReportSection,
   streamReportDemoRun,
   streamReportV16Fill,
   triggerDownloadBlob,
   uploadReportMaterials,
+  uploadReportTemplate,
   type ReportExportPayload,
   reportDoneDataSource,
   type ReportV16DoneEvent,
@@ -41,6 +43,8 @@ import {
   type ReportV16Evidence,
   type ReportV16Section,
   type ReportV16StageEvent,
+  type TemplateListItem,
+  type TemplateValidationReport,
 } from "@/lib/api/report";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
 /* PM 2026-05-09 ALL IN Phase B.1 fix: 删 REPORT_EVIDENCE / REPORT_GLOBAL_STATS fixtures import
@@ -137,6 +141,13 @@ export function ReportWorkspace() {
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [uploadedTemplate, setUploadedTemplate] = useState<string>("");
+  // Q6-B · 用户上传模板 + dropdown 双 section (builtin + user)
+  const [templateList, setTemplateList] = useState<{ builtin: TemplateListItem[]; user: TemplateListItem[] }>({
+    builtin: [],
+    user: [],
+  });
+  const [lastTemplateReport, setLastTemplateReport] = useState<TemplateValidationReport | null>(null);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
   // W-FIX-A1 · live-fallback-banner-spec §2 规则 1: live mode 调失败 → 顶部 banner
   const [liveFailErr, setLiveFailErr] = useState<{
     endpoint: string;
@@ -173,6 +184,30 @@ export function ReportWorkspace() {
     };
   }, []);
 
+  // Q6-B · 加载模板列表 (5 内置 + N user) · started 切真时刷新 + 上传后 manual refetch
+  useEffect(() => {
+    let cancelled = false;
+    listReportTemplates()
+      .then((j) => {
+        if (!cancelled) setTemplateList(j);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplateList({ builtin: [], user: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshTemplateList = useCallback(async () => {
+    try {
+      const j = await listReportTemplates();
+      setTemplateList(j);
+    } catch {
+      /* silent · 失败不阻塞主流程 · 已有 list 仍可用 */
+    }
+  }, []);
+
   /* gate 4 · ESC 关 selectedSection · 4-gate parity with ChannelWorkspace selectedCandidate */
   useEffect(() => {
     if (!selectedSection) return;
@@ -199,11 +234,15 @@ export function ReportWorkspace() {
       abortRef.current = ac;
 
       const useMock = opts?.explicitMock ?? mode === "mock";
+      // Q6-B · templateChoice 选了具体模板 (内置 path 或 user-template:{id}) 时显式传 source_docx
+      // 空时后端默认走 V16FillRequest.source_docx 缺省 (samples/经纬测绘_对公成稿A.docx)
+      const sourceDocx = templateChoice || undefined;
       streamReportV16Fill(
         {
           report_id: opts?.reportIdOverride ?? reportId ?? "",
           business_line: businessLine,
           mock: useMock,
+          ...(sourceDocx ? { source_docx: sourceDocx } : {}),
         },
         {
           signal: ac.signal,
@@ -242,7 +281,7 @@ export function ReportWorkspace() {
         },
       );
     },
-    [generating, reportId, businessLine, mode],
+    [generating, reportId, businessLine, mode, templateChoice],
   );
 
   const handleUpload = useCallback(
@@ -284,34 +323,41 @@ export function ReportWorkspace() {
     setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
   }, [triggerV16Fill]);
 
-  // W-FIX-A1 · live-fallback-banner-spec §3 规则 3: "上传模板" button 必 wire
-  // 真后端·走同 /api/report/upload multipart endpoint·标 business_line=template
+  // Q6-B · 真用户自定义 docx 模板上传 · 走专用 endpoint
+  // - 后端自动跑 byte-level diff lint · 返 validation_report
+  // - 上传成功后 templateChoice 自动切到 user-template:{id} · 客户经理可直接生成
   const handleUploadTemplate = useCallback(
     async (files: File[]) => {
       if (!files.length) return;
       setErrMsg(null);
+      const file = files[0];
+      // 模板名默认取 docx basename (去 .docx 扩展) · 用户后续可在 metadata 看
+      const templateName = file.name.replace(/\.docx$/i, "").slice(0, 80);
+      setUploadingTemplate(true);
       try {
-        const resp = await uploadReportMaterials(files, "corporate");
-        // 模板单独存 · uploaded files 列表也 enrich
-        setUploadedTemplate(resp.file_summary[0]?.name ?? files[0].name);
-        if (!reportId) {
-          setReportId(resp.report_id);
-        }
+        const resp = await uploadReportTemplate(file, templateName, businessLine);
+        setUploadedTemplate(resp.validation_report.template_name);
+        setLastTemplateReport(resp.validation_report);
+        // 自动选用此 user template · 客户经理点 "开始生成" 即用此模板
+        setTemplateChoice(resp.template_path);
         setMode("live");
         setStarted(true);
+        // 刷新列表 (dropdown 下次打开能看到)
+        await refreshTemplateList();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         setErrMsg(msg);
-        // upload endpoint live 失败 · 也算 banner 触发
         const statusMatch = /HTTP (\d{3})/.exec(msg);
         setLiveFailErr({
-          endpoint: "/api/report/upload (template)",
+          endpoint: "/api/report/upload-template",
           status: statusMatch ? statusMatch[1] : "network",
           message: msg,
         });
+      } finally {
+        setUploadingTemplate(false);
       }
     },
-    [reportId],
+    [businessLine, refreshTemplateList],
   );
 
   const handleRefineSection = useCallback(
@@ -549,6 +595,12 @@ export function ReportWorkspace() {
           onBusinessLineChange={setBusinessLine}
           onStartGenerate={() => triggerV16Fill()}
           onExport={handleExportDocx}
+          /* Q6-B · 模板上传 + dropdown 真接 */
+          templateList={templateList}
+          lastTemplateReport={lastTemplateReport}
+          uploadingTemplate={uploadingTemplate}
+          onUploadTemplate={handleUploadTemplate}
+          onDismissTemplateReport={() => setLastTemplateReport(null)}
         />
         {started ? (
           <>
@@ -1782,6 +1834,7 @@ const _LAUNCH_ROOT_STYLE: CSSProperties = {
   background: "color-mix(in srgb, var(--chalk) 60%, transparent)",
   border: "1px solid var(--ink-14)",
   borderRadius: "var(--r-md)",
+  position: "relative",  // Q6-B · validation_report banner absolute-positions inside
 };
 
 const _LAUNCH_GROUP_STYLE: CSSProperties = {
@@ -1962,11 +2015,15 @@ function ReportLaunchBar(p: {
   onBusinessLineChange: (v: string) => void;
   onStartGenerate: () => void;
   onExport: () => void;
+  /* Q6-B · 用户自定义模板上传 (per Q6-B 实施单 2026-05-21) */
+  templateList: { builtin: TemplateListItem[]; user: TemplateListItem[] };
+  lastTemplateReport: TemplateValidationReport | null;
+  uploadingTemplate: boolean;
+  onUploadTemplate: (files: File[]) => void;
+  onDismissTemplateReport: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const templateInputRef = useRef<HTMLInputElement | null>(null);
-  /* PM 2026-05-09 ALL IN: 历史 session dropdown 删 (mock 残留) · 模板列表 EMPTY (后端 templates endpoint 待 Phase C) */
-  const templates: ReportSession["availableTemplates"] = [];
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -1975,9 +2032,10 @@ function ReportLaunchBar(p: {
   }
 
   function handleTemplateChange(e: ChangeEvent<HTMLInputElement>) {
-    // Phase B.1.4 (PM 2026-05-10) · "上传模板" 按钮 · 复用 onUpload (后端 /api/report/upload 区分 type)
+    // Q6-B · "上传模板" 走专用 endpoint (POST /api/report/upload-template)
+    // 自动跑 byte-level diff lint · 返 validation_report
     const files = Array.from(e.target.files ?? []);
-    if (files.length) p.onUpload(files);
+    if (files.length) p.onUploadTemplate(files);
     e.target.value = "";
   }
 
@@ -2018,7 +2076,7 @@ function ReportLaunchBar(p: {
         </span>
       </div>
 
-      {/* Secondary: 模板 · 双入口 (Phase B.1.4 PM 2026-05-10): 上传模板 + 选预制模板 */}
+      {/* Q6-B · 模板双入口 (PM 2026-05-21): 上传 docx (自动 byte-level lint) + 选预制/已上传 */}
       <div style={_LAUNCH_GROUP_STYLE}>
         <span style={_LAUNCH_LABEL_STYLE}>模板</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -2026,15 +2084,20 @@ function ReportLaunchBar(p: {
             type="button"
             data-testid="report-upload-template-cta-launch"
             onClick={() => templateInputRef.current?.click()}
-            style={_LAUNCH_BTN_SECONDARY}
+            disabled={p.uploadingTemplate}
+            style={{
+              ..._LAUNCH_BTN_SECONDARY,
+              opacity: p.uploadingTemplate ? 0.5 : 1,
+              cursor: p.uploadingTemplate ? "wait" : "pointer",
+            }}
           >
-            ⇪ 上传模板
+            {p.uploadingTemplate ? "上传中…" : "⇪ 上传模板"}
           </button>
           <input
             ref={templateInputRef}
             type="file"
             hidden
-            accept=".docx,.doc,.xlsx,.xls"
+            accept=".docx"
             onChange={handleTemplateChange}
           />
           <select
@@ -2044,15 +2107,108 @@ function ReportLaunchBar(p: {
             style={_LAUNCH_SELECT_STYLE}
           >
             <option value="">默认 (按业务线)</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} · {t.version}
-              </option>
-            ))}
+            <optgroup label="内置模板">
+              {p.templateList.builtin.map((t) => (
+                <option key={t.template_path} value={t.template_path}>
+                  {t.name}
+                </option>
+              ))}
+            </optgroup>
+            {p.templateList.user.length > 0 ? (
+              <optgroup label="我上传的">
+                {p.templateList.user.map((t) => (
+                  <option key={t.template_path} value={t.template_path}>
+                    {t.name}
+                    {t.validation === "WARN" ? " ⚠" : ""}
+                    {t.validation === "ERROR" ? " ✗" : ""}
+                    {" · "}
+                    {t.placeholder_count ?? 0} 占位
+                    {t.residue_count && t.residue_count > 0 ? ` · ${t.residue_count} 残留` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </div>
-        <span style={_LAUNCH_HINT_STYLE}>上传自定义模板 或 选预制</span>
+        <span style={_LAUNCH_HINT_STYLE}>
+          上传 .docx 自动 lint · 选预制或已上传
+        </span>
       </div>
+
+      {/* Q6-B · validation_report banner · 上传成功后显示 placeholder / residue · 让客户经理决定是否继续 */}
+      {p.lastTemplateReport ? (
+        <div
+          data-testid="report-template-validation-banner"
+          style={{
+            position: "absolute",
+            top: -2,
+            right: 12,
+            maxWidth: 360,
+            padding: "8px 12px",
+            background:
+              p.lastTemplateReport.validation === "PASS"
+                ? "color-mix(in srgb, #22c55e 12%, var(--surface))"
+                : p.lastTemplateReport.validation === "ERROR"
+                  ? "color-mix(in srgb, #ef4444 14%, var(--surface))"
+                  : "color-mix(in srgb, #f59e0b 14%, var(--surface))",
+            border: `1px solid ${
+              p.lastTemplateReport.validation === "PASS"
+                ? "#22c55e"
+                : p.lastTemplateReport.validation === "ERROR"
+                  ? "#ef4444"
+                  : "#f59e0b"
+            }`,
+            borderRadius: 6,
+            fontSize: 11,
+            fontFamily: "var(--cjk)",
+            color: "var(--ink-85)",
+            zIndex: 5,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <strong>
+              {p.lastTemplateReport.validation === "PASS"
+                ? "✓ 模板验证通过"
+                : p.lastTemplateReport.validation === "ERROR"
+                  ? "✗ 模板验证失败"
+                  : "⚠ 模板含残留 specific 字面"}
+            </strong>
+            <button
+              type="button"
+              onClick={p.onDismissTemplateReport}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--ink-65)",
+                cursor: "pointer",
+                fontSize: 14,
+                padding: 0,
+                marginLeft: 8,
+              }}
+              aria-label="关闭"
+            >
+              ×
+            </button>
+          </div>
+          <div>
+            占位符 {p.lastTemplateReport.placeholder_count} 个 · 唯一 key{" "}
+            {p.lastTemplateReport.placeholder_keys.length} · 残留{" "}
+            {p.lastTemplateReport.residue_count}
+          </div>
+          {p.lastTemplateReport.residue_samples.length > 0 ? (
+            <div style={{ marginTop: 4, color: "var(--ink-65)" }}>
+              示例:{" "}
+              {p.lastTemplateReport.residue_samples
+                .slice(0, 3)
+                .map((r) => `${r.kind}=${r.value}`)
+                .join(" · ")}
+            </div>
+          ) : null}
+          {p.lastTemplateReport.lint_error ? (
+            <div style={{ marginTop: 4, color: "#dc2626" }}>{p.lastTemplateReport.lint_error}</div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* PM 2026-05-09 ALL IN: 删 "历史 (示例 · 仅培训演示)" dropdown · 历史 session 走 mock 残留 · 后端 history endpoint 待 Phase C */}
 

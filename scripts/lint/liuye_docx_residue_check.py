@@ -330,6 +330,89 @@ def lint_docx(docx_path: Path) -> dict:
     }
 
 
+def lint_docx_standalone(docx_path: Path) -> dict:
+    """对单个 docx 做 standalone (独立) lint · 不依赖 `.bak-pre-placeholder` / metadata.json.
+
+    适用场景: 用户上传自定义 docx 模板 · 没有原始 .bak (备份) · 没有 sidecar metadata.
+    通用 (general-purpose) 机制 (per 第一性原则):
+      1. 抽 placeholder set: 扫所有 element 找 `{{KEY}}` · 取 unique KEY set
+      2. 抽 placeholder count: element 含 `{{KEY}}` 数 (位置维度 · 一个 element 多个 placeholder 算多次)
+      3. 检测 residue (残留): 移除所有 `{{KEY}}` 后 · 用 backup pattern 扫剩余文本 ·
+         找出未 placeholder 化的 specific 字面 (公司名 / 中文人名 / 资金 / 日期 / 身份证 / USCC)
+      4. residue_samples: 给前端 ≤ 5 个 sample 让用户看 (per 交互体验原则 · 反馈引导行动)
+      5. validation: PASS (residue=0) · WARN (residue ≥ 1) · 不强 block · 用户决定
+
+    返:
+      {
+        placeholder_count: int (位置数 · 一个 element 多 placeholder 算多次),
+        placeholder_keys: list[str] (unique KEY · sorted),
+        residue_count: int (residue 数 · 全部 backup pattern hit 去重),
+        residue_samples: list[dict] (≤5 个 · {location, kind, value, snippet}),
+        validation: "PASS" | "WARN" | "ERROR",
+        element_count: int (总 element 数 · 含 paragraph + cell),
+        error: str | None (extract 失败时填),
+      }
+    """
+    try:
+        elements = extract_elements(docx_path)
+    except Exception as exc:  # noqa: BLE001 — extract 失败 · 返 ERROR 给前端 banner
+        return {
+            "placeholder_count": 0,
+            "placeholder_keys": [],
+            "residue_count": 0,
+            "residue_samples": [],
+            "validation": "ERROR",
+            "element_count": 0,
+            "error": f"docx 抽取失败 · {type(exc).__name__}: {exc}",
+        }
+
+    placeholder_keys: set[str] = set()
+    placeholder_count = 0
+    residues: list[dict] = []
+    seen_residue: set[tuple[str, str]] = set()  # (kind, value) 去重 · 跨 element
+
+    for elem in elements:
+        text = (elem.text or "").strip()
+        if not text:
+            continue
+
+        # 1. 统计 placeholder
+        for m in PLACEHOLDER_RE.finditer(text):
+            placeholder_keys.add(m.group(1))
+            placeholder_count += 1
+
+        # 2. 移除 placeholder 后扫 residue
+        residual = strip_placeholders(text).strip()
+        if not residual:
+            continue
+
+        # 3. backup pattern 找 specific 字面 (未 placeholder 化的真实客户数据)
+        for kind, value in find_pattern_hits(residual):
+            if value in EXAMPLE_PLACEHOLDERS:
+                continue
+            key = (kind, value)
+            if key in seen_residue:
+                continue
+            seen_residue.add(key)
+            residues.append({
+                "location": elem.location,
+                "element_kind": elem.kind,
+                "kind": kind,           # company / person / money / date / id_number / uscc
+                "value": value,
+                "snippet": text[:100],  # 前 100 字符 · 给用户看上下文
+            })
+
+    return {
+        "placeholder_count": placeholder_count,
+        "placeholder_keys": sorted(placeholder_keys),
+        "residue_count": len(residues),
+        "residue_samples": residues[:5],  # ≤5 个 sample 给前端展示
+        "validation": "PASS" if not residues else "WARN",
+        "element_count": len(elements),
+        "error": None,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Docx 残留 lint · byte-level diff")
     parser.add_argument(

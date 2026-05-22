@@ -470,6 +470,168 @@ async def report_upload(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/report/upload-template — Q6-B 用户自定义 docx 模板上传 + 自动 lint
+# ---------------------------------------------------------------------------
+
+@app.post("/api/report/upload-template")
+async def report_upload_template(
+    request: Request,
+    file: UploadFile = File(...),
+    template_name: str = Query(..., description="用户给模板取的名字 (用于 dropdown 显示)"),
+    business_line: str = Query("corporate", description="业务线 · corporate/inclusive/retail"),
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """上传自定义 docx 模板 · 自动跑 byte-level diff standalone lint 验证 placeholder 完整性.
+
+    Q6-B 实施路径 (per 2026-05-21 PM 实施单):
+      - 真客户能上传自己 docx 模板 · 不需开发手动 placeholder 化
+      - 后端自动检测 {{KEY}} 数 + 残留 specific 字面 (公司名/人名/数字/日期 未替换)
+      - 返 validation_report 给客户经理看 (含 ≤5 residue sample · 引导行动)
+      - 持久化到 ``data/kb/templates/{template_id}/`` · 共享可见 (uploader 字段审计)
+
+    Validation 三态 (per 客户底线 · 不强 block · 让用户决定):
+      - PASS: placeholder ≥ 1 · residue = 0 · 直接可用
+      - WARN: placeholder ≥ 1 · residue ≥ 1 · 提示用户 docx 含未替换的 specific 字面
+      - ERROR: docx extract 失败 · placeholder = 0 (拒收 · 模板无意义)
+
+    多用户隔离: 共享 · 加 uploader 审计字段 (per Q-053 决策).
+    """
+    # 1. 文件类型校验 (扩展名 + content type 双闸门)
+    filename = file.filename or "upload.docx"
+    if not filename.lower().endswith(".docx"):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {
+                "code": "TEMPLATE_EXT_INVALID",
+                "message": "仅接受 .docx 文件 · .doc/.pdf 等不支持",
+                "details": {"filename": filename},
+            }},
+        )
+
+    # 2. template_name 校验 (≥2 字符 防空 · ≤80 字符防超长)
+    name_stripped = (template_name or "").strip()
+    if len(name_stripped) < 2 or len(name_stripped) > 80:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {
+                "code": "TEMPLATE_NAME_INVALID",
+                "message": "template_name 长度 2-80 字符 · 实际给了 "
+                           f"{len(name_stripped)} 字符",
+                "details": {"template_name": template_name},
+            }},
+        )
+
+    # 3. 读 bytes (体积上限在 persist_template 内强 · 此处不预先 read 防 OOM)
+    content = await file.read()
+
+    # 审计上下文 (与 /api/report/upload 同 风格)
+    _audit_t0 = time.time()
+    _audit_user = (request.headers.get("x-user-id") or _user.get("sub") or "mock_wangzhe")
+    _audit_input = hash_input({
+        "endpoint": "/api/report/upload-template",
+        "filename": filename,
+        "template_name": name_stripped,
+        "business_line": business_line,
+        "size_bytes": len(content),
+    })
+
+    # 4. 落盘 + lint
+    from agent_report.template_store import persist_template  # noqa: E402
+
+    try:
+        metadata = persist_template(
+            file_bytes=content,
+            original_filename=filename,
+            template_name=name_stripped,
+            business_line=business_line,
+            uploader=str(_user.get("name") or _user.get("sub") or _audit_user),
+        )
+    except ValueError as exc:
+        # 体积超限 / 扩展名不对 (在 persist 内已校但 defense in depth)
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/upload-template",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": str(exc),
+        })
+        # 体积超限返 413 · 其他 400
+        status = 413 if "超限" in str(exc) else 400
+        raise HTTPException(
+            status_code=status,
+            detail={"error": {
+                "code": "TEMPLATE_PERSIST_REJECTED",
+                "message": str(exc),
+                "details": {"filename": filename},
+            }},
+        ) from exc
+    except OSError as exc:
+        audit_log({
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "user_id": _audit_user,
+            "endpoint": "/api/report/upload-template",
+            "input_hash": _audit_input,
+            "output_status": "error",
+            "latency_ms": int((time.time() - _audit_t0) * 1000),
+            "error": f"OSError: {exc}",
+        })
+        raise HTTPException(
+            status_code=500,
+            detail={"error": {
+                "code": "TEMPLATE_PERSIST_FAILED",
+                "message": f"模板落盘失败 · {exc}",
+            }},
+        ) from exc
+
+    audit_log({
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "user_id": _audit_user,
+        "endpoint": "/api/report/upload-template",
+        "input_hash": _audit_input,
+        "output_status": "ok",
+        "latency_ms": int((time.time() - _audit_t0) * 1000),
+        "template_id": metadata["template_id"],
+        "validation": metadata["validation"],
+        "placeholder_count": metadata["placeholder_count"],
+        "residue_count": metadata["residue_count"],
+    })
+
+    return {
+        "template_id": metadata["template_id"],
+        "template_path": metadata["template_ref"],   # "user-template:{id}" · V16FillRequest 直接消费
+        "validation_report": metadata,
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/report/templates — 列出内置 + user 上传的所有模板
+# ---------------------------------------------------------------------------
+
+@app.get("/api/report/templates")
+async def report_list_templates(
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """列 5 个内置模板 + 全部 user 上传的模板 · 前端 dropdown 渲染 2 sections.
+
+    返:
+      {
+        builtin: [{template_path, name, type, business_line}, ...],  # 5
+        user: [{template_path, name, type, validation, uploader, ...}, ...],  # 0+
+      }
+
+    多用户: 共享 (所有人看所有人上传的) · uploader 字段标识责任人.
+    """
+    from agent_report.template_store import BUILTIN_TEMPLATES, list_user_templates  # noqa: E402
+
+    return {
+        "builtin": list(BUILTIN_TEMPLATES),
+        "user": list_user_templates(),
+    }
+
+
+# ---------------------------------------------------------------------------
 # POST /api/report/v16/fill — Stage C.1 v16 主管线 SSE wrapper
 # ---------------------------------------------------------------------------
 
@@ -523,11 +685,24 @@ async def report_v16_fill(
 
     from agent_report.upload import upload_dir  # noqa: E402
     from agent_report.v16_runner import fill_stream  # noqa: E402
+    from agent_report.template_store import resolve_template_path  # noqa: E402
 
     # report_id 兜底
     report_id = (req.report_id or "").strip() or str(int(time.time()))
 
-    source_docx = (PROJECT_ROOT / req.source_docx).resolve()
+    # Q6-B · source_docx 支持 "user-template:{id}" prefix (per Q6-B 实施单)
+    # 内置走 PROJECT_ROOT / source_docx · user 上传走 data/kb/templates/{id}/{filename}
+    try:
+        source_docx = resolve_template_path(req.source_docx)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {
+                "code": "TEMPLATE_NOT_FOUND",
+                "message": str(exc),
+                "details": {"source_docx": req.source_docx},
+            }},
+        ) from exc
     classified_json = (
         Path(req.classified_json).resolve() if req.classified_json
         else (PROJECT_ROOT / "outputs" / "v16_llm_classified.json").resolve()
