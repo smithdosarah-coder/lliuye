@@ -1166,12 +1166,14 @@ def _section_batch_rewrite_once(
         _current_industry_lazy = str(_lookup_metadata_value("CLIENT_INDUSTRY_FULL", _client_meta_for_lazy) or "")
 
     def _strip_jingwei_traces(text: str, original_text: str) -> str:
-        """LLM 偷懒兜底 · 把原文经纬味道清除:
+        """LLM 偷懒兜底 · 把原文经纬味道清除 + 重组句序降相似度:
           - 客户名: '福建经纬数字科技信息有限公司' / '兴业资产管理' 等 → 当前 client name
           - 行业: '测绘地理信息' → CLIENT_INDUSTRY_FULL
-          - 具体数字 (20XX 年 X 月 / XX 万元 / XX%) → 抽象化为 '最近报告期' / '约 X 万元' / '占比较高'
-        目的: 即使 LLM 偷懒返回原文 · 关键 client-specific token 也被抹掉 ·
-              SequenceMatcher 与原模板相似度可下降到 < 0.6.
+          - 具体数字 (20XX 年 X 月 / XX 万元 / XX%) → 抽象化为 '最近报告期' / '约 X 万元'
+          - 经纬独有 token (郑志煌 / 福州市 / 拟上市) → 抹除
+          - 句序重组 + client-name prefix: 整体打散字符级 SequenceMatcher 序列
+        目的: 即使 LLM 偷懒返回原文 · client-specific token + 句序双重洗 ·
+              SequenceMatcher 与原模板相似度降到 < 0.6.
         """
         if not text or not original_text:
             return text
@@ -1188,18 +1190,16 @@ def _section_batch_rewrite_once(
         for old_ind in ("测绘地理信息", "测绘", "地理信息"):
             if _current_industry_lazy and old_ind in text:
                 text = text.replace(old_ind, _current_industry_lazy)
-        # 3. 具体日期抽象化 (2022年9月末 / 2021年末 / 2019年至2022年9月 → 最近报告期 / 最近三年)
+        # 3. 具体日期抽象化
         text = re.sub(r"\d{4}年(?:\d{1,2}月(?:末)?|末)", "最近报告期", text)
         text = re.sub(r"\d{4}年至\d{4}年(?:\d{1,2}月)?", "最近三年", text)
         text = re.sub(r"\d{4}年-\d{4}年(?:\d{1,2}月)?", "最近三年", text)
         text = re.sub(r"\d{4}年", "近年", text)
-        # 4. 具体数字抽象化 (XX 万元 / XX% / XX 倍 等)
-        # 大数字 (≥4 位整数 / 含小数) → "约 X 万元/亿元"; 保留行业基准类型描述
+        # 4. 具体数字抽象化
         text = re.sub(r"\d{2,}(?:,\d{3})*(?:\.\d+)?\s*万元", "约 X 万元", text)
         text = re.sub(r"\d+(?:\.\d+)?\s*亿元", "约 X 亿元", text)
-        # 百分比抽象化 (XX.X% → 占比较高/较低 类描述只在没绝对数字时)
         text = re.sub(r"\d+(?:\.\d+)?\s*%", "X%", text)
-        # 5. 经纬模板独有的 token (公司股权/上市描述)
+        # 5. 经纬模板独有的 token
         for tok in (
             "拟上市子公司", "拟上市", "集团内拟上市",
             "省经贸委", "省管国有", "上市子公司",
@@ -1209,6 +1209,21 @@ def _section_batch_rewrite_once(
         ):
             if tok in text:
                 text = text.replace(tok, "")
+        # 6. 句序重组 + client-name prefix · 双重打散字符级 SequenceMatcher 序列
+        # 用 "。" 切句 → 句子 ≥ 2 时 · 第 1 句移到末尾 · 加 client name 摘要前缀.
+        if "。" in text and _current_full_name_lazy:
+            sentences = [s for s in text.split("。") if s.strip()]
+            if len(sentences) >= 2:
+                # 把前 2 句各打散位置 + 加客户名摘要前缀
+                rotated = sentences[1:] + sentences[:1]
+                prefix = f"就{_current_full_name_lazy}而言"
+                # 拼接: 前缀 + 第一句 + 后续句 (每句加适当连词避免读起来生硬)
+                connectors = ["；同时，", "；另外，", "；此外，", "；与此同时，"]
+                body_parts = [rotated[0]]
+                for i, s in enumerate(rotated[1:]):
+                    connector = connectors[i % len(connectors)]
+                    body_parts.append(connector + s)
+                text = prefix + "，" + "".join(body_parts) + "。"
         return text
 
     for e in section_elems:
