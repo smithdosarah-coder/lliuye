@@ -291,20 +291,25 @@ export function ReportWorkspace() {
 
   const handleUpload = useCallback(
     async (files: File[]) => {
-      if (!files.length) return;
+      // 2026-05-22 debug · user dogfood 多次 fail · 加 alert 强制让 user 看到 fetch 状态
+      alert(`[DEBUG] handleUpload 被调用 · files=${files.length} 个 (${files.map(f => f.name).join(", ")})`);
+      if (!files.length) {
+        alert("[DEBUG] files=0 · early return · 没真上传");
+        return;
+      }
       setErrMsg(null);
       try {
+        alert(`[DEBUG] 开始 fetch /api/report/upload?business_line=${businessLine}`);
         const resp = await uploadReportMaterials(files, businessLine);
+        alert(`[DEBUG] fetch 成功 · report_id=${resp.report_id} · 上传 ${resp.file_summary.length} 个 file`);
         setReportId(resp.report_id);
-        // user 反馈 2026-05-22 · 累加而非覆盖 · 客户经理多批次上传也都能看见
         setUploadedFiles((prev) => [...prev, ...resp.file_summary]);
         setMode("live");
         setStarted(true);
-        // 不自动触发 fill · 用户须显式点 "开始生成" CTA (empty-state §3)
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        alert(`[DEBUG] fetch 失败 · msg=${msg}`);
         setErrMsg(msg);
-        // W-FIX-A1 · upload endpoint live 失败也算 banner 触发
         const statusMatch = /HTTP (\d{3})/.exec(msg);
         setLiveFailErr({
           endpoint: "/api/report/upload",
