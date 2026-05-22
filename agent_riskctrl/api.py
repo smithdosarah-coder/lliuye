@@ -1215,6 +1215,150 @@ async def riskctrl_demo_run(
     return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
 
 
+# ============================================================================
+# W1 Phase D (codex R3 R3.2 #3 ack · 2026-05-21) · 客户风险评级 endpoint
+#
+# 新业务方向 · 与旧 DSL `/dsl_gen` + `/backtest` 物理隔离 (backward compat 全保留)
+# 输入: canonical (client_metadata + decision_context + credit_terms + material_facts)
+# 输出: 7 维评分 + 评级 (低/中/高) + Top risks + 缓释 + 后审周期 + LLM reasoning
+# 实现: in-process · agent_riskctrl.risk_assess_engine · 确定性出分 + LLM 写理由
+# ============================================================================
+
+
+class RiskAssessRequest(BaseModel):
+    """客户风险评级请求 (W1 Phase D · codex R3 R3.2 #3).
+
+    canonical signature: 含 ``client_metadata`` layer · 推荐
+    backward compat: 老路径直接传 dict (无 client_metadata 层)· 会按 flat 自动归一
+    """
+
+    client_metadata: dict = Field(default_factory=dict, description="客户基础信息 (canonical 33 字段)")
+    decision_context: dict | None = Field(
+        default=None, description="credit Agent 决策上下文 (7 字段 · optional · 提升评分准确度)",
+    )
+    credit_terms: dict | None = Field(default=None, description="授信条件 (canonical 12 字段 · optional)")
+    material_facts: dict | None = Field(
+        default=None, description="物料事实 (canonical 23 字段 · optional)",
+    )
+    use_llm: bool = Field(default=True, description="是否调 LLM 写 reasoning · 默认 True · False 走模板兜底")
+
+
+@app.post("/api/riskctrl/risk_assess")
+@audit_llm_call(agent_id="riskctrl", endpoint="/api/riskctrl/risk_assess", model="deepseek-chat")
+async def riskctrl_risk_assess(
+    req: RiskAssessRequest,
+    _user: dict = Depends(require_action("riskctrl", "invoke")),
+):
+    """客户风险评级 · 7 维加权 (deterministic) + LLM 写理由 · SSE stream.
+
+    W1 Phase D (codex R3 R3.2 #3 user ack · 2026-05-21):
+
+    - 新业务方向 · 与旧 ``/dsl_gen`` + ``/backtest`` DSL 业务并行 (backward compat 全保留)
+    - 7 维 (信用/财务/交易/行业/担保/集中度/舆情司法) · 确定性加权 · LLM 不改分
+    - 输出 grade=低/中/高 · review_cycle=12/6/3 月 · top_risks + mitigations + reasoning
+    - LLM 缺 key / 失败 → 模板兜底 reasoning · data_source=mock_fallback (不假装 live)
+
+    Stream:
+        event: stage  {stage: dim_scoring | aggregate | llm_reasoning, status}
+        event: done   panels={
+            risk_assess: {composite_risk_score, risk_grade, dimension_scores,
+                          top_risks, mitigations, review_cycle_months,
+                          reasoning, confidence, data_source}
+        }, metrics={composite_risk_score, risk_grade, review_cycle_months}
+
+    Auth: require_action("riskctrl", "invoke") · 与 dsl_gen/backtest 一致.
+    """
+    from shared.sse_envelope import (
+        DATA_SOURCE_LIVE,
+        DATA_SOURCE_MOCK_FALLBACK,
+        encode_event,
+        make_done,
+        make_error_from_exception,
+        make_stage,
+    )
+
+    def gen():
+        try:
+            from agent_riskctrl.risk_assess_engine import run_risk_assess
+        except (ImportError, ModuleNotFoundError) as e:
+            yield encode_event(make_error_from_exception(e, code="IMPORT_FAILED"))
+            return
+
+        yield encode_event(make_stage("dim_scoring", "running", message="7 维评分计算中..."))
+
+        # Build LLM caller (optional)
+        llm_caller = None
+        if req.use_llm:
+            try:
+                from shared.llm_caller import make_text_caller
+                llm_caller = make_text_caller(
+                    agent_id="riskctrl",
+                    endpoint="/api/riskctrl/risk_assess",
+                    temperature=0.0,
+                )
+            except (ImportError, RuntimeError) as e:
+                logger_msg = f"LLM caller unavailable · template fallback · {type(e).__name__}: {e}"
+                yield encode_event(make_stage("llm_reasoning", "running", message=logger_msg))
+
+        yield encode_event(make_stage("dim_scoring", "done"))
+        yield encode_event(make_stage("aggregate", "running", message="加权汇总 + 评级中..."))
+
+        try:
+            result = run_risk_assess(
+                client_metadata=req.client_metadata or {},
+                decision_context=req.decision_context,
+                credit_terms=req.credit_terms,
+                material_facts=req.material_facts,
+                llm_caller=llm_caller,
+            )
+        except (RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
+            yield encode_event(make_error_from_exception(e, code="RISK_ASSESS_FAILED"))
+            return
+
+        yield encode_event(make_stage("aggregate", "done"))
+        yield encode_event(make_stage(
+            "llm_reasoning",
+            "done",
+            message=f"reasoning 来源: {result.data_source}",
+        ))
+
+        data_source = DATA_SOURCE_LIVE if result.data_source == "live" else DATA_SOURCE_MOCK_FALLBACK
+
+        # session_id deterministic per client · 不调用 timestamp / random
+        session_id = _deterministic_id(
+            "ra",
+            req.client_metadata.get("CLIENT_FULL_NAME", ""),
+            req.client_metadata.get("CLIENT_USCC", "") or req.client_metadata.get("CLIENT_ID_NUMBER", ""),
+            f"{result.composite_risk_score:.1f}",
+        )
+
+        yield encode_event(make_done(
+            agent_id="riskctrl",
+            panels={
+                "risk_assess": {
+                    "composite_risk_score": result.composite_risk_score,
+                    "risk_grade": result.risk_grade,
+                    "dimension_scores": result.dimension_scores,
+                    "top_risks": result.top_risks,
+                    "mitigations": result.mitigations,
+                    "review_cycle_months": result.review_cycle_months,
+                    "reasoning": result.reasoning,
+                    "confidence": result.confidence,
+                },
+            },
+            metrics={
+                "composite_risk_score": result.composite_risk_score,
+                "risk_grade": result.risk_grade,
+                "review_cycle_months": result.review_cycle_months,
+                "dim_count": len(result.dimension_scores),
+            },
+            data_source=data_source,
+            session_id=session_id,
+        ))
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_sse_headers())
+
+
 @app.post("/api/riskctrl/export_pdf")
 async def riskctrl_export_pdf(
     req: ExportRequest,
