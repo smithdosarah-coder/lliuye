@@ -572,7 +572,10 @@ def generate(
     #       下面 fallback 路径错路由到 PRESERVE,原文输出字面 "{{CLIENT_FULL_NAME}}".
     # 治本: deterministic regex 扫全量 element,含 {{KEY}} 立即标 REPLACE/PLACEHOLDER
     #       (不依赖 LLM / sampled flag · 强制覆盖已分类即使 classifier 误分 PRESERVE).
-    _placeholder_re = _re.compile(r"\{\{([A-Z_]+)\}\}")
+    # 2026-05-21 红线 fix · 允许 KEY 中含数字 (如 RELATED_PARTY_1_FULL_NAME) ·
+    # 原 [A-Z_]+ regex 漏掉 · 致 LLM REWRITE 漏字面 {{RELATED_PARTY_1_*}} 进 docx.
+    # 与 v16_op_handlers._PLACEHOLDER_KEY_RE 对齐.
+    _placeholder_re = _re.compile(r"\{\{([A-Z][A-Z0-9_]{1,40})\}\}")
     for e in elements:
         text = (e.text or "")
         if _placeholder_re.search(text):

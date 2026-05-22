@@ -441,7 +441,16 @@ def multi_slot_decompose(elem, cls, mats) -> "GenResult":
 _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷员重写报告段落。
 
 核心约束:
-1. 【证据优先】每个数字/结论都要来自客户材料,禁止凭空编造或估算
+0. 【当前客户档案 · 强约束 · 顶级铁律】下方【当前客户档案】块是本次报告
+   唯一允许使用的客户基本档案数据源。所有客户名、法人、统一社会信用代码、
+   注册地址、注册资本、行业、成立日期、员工人数、授信金额/期限/担保方式、
+   评级 等"档案字段"必须严格来自此块。档案没列的字段:严禁编造、严禁猜测、
+   严禁套用【客户材料】中其他客户的痕迹,只能写
+   "【未能自动填写:<字段名>】"。
+   特别注意:与档案中 CLIENT_FULL_NAME 不同的任何客户名(如"福建经纬数字
+   科技""兴业资产管理""鼎盛""蓝汀"之外的客户名 等)都视为跨样本污染,
+   严禁出现在重写正文中。
+1. 【证据优先】每个数字/结论都要来自客户材料 + 当前客户档案,禁止凭空编造或估算
 2. 【无证据标注】材料无法支撑的段落,输出 "【未能自动填写:该段所需字段】"
 3. 【粒度守恒】新段落长度量级应与原段落相当,不要过度扩写/压缩
 4. 【口吻中立】使用第三人称正式书面语,不要评价、煽情、推销
@@ -451,6 +460,9 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
    理解字段结构(要写什么类型信息、包含哪些要素),禁止套用其中的具体数值、
    公司名、行业、地名、人名、日期等实质内容。示例中的"XX/XXX"、"张XX"、
    "2010年5月"、"芯片设计"等都是模板虚构,不代表客户实际情况。
+   原段落中可能残留 "{{CLIENT_XXX}}" 等 placeholder 字面、或其他客户的
+   痕迹(如"兴业""经纬""鼎盛""蓝汀"等老 sample 客户名),都视为模板残留,
+   必须按【当前客户档案】替换,不得保留原文。
 8. 【事实强制引用】如果【企业事实】中列出了 company_name / uscc / controller_id /
    phone / post_code / bank_account / registered_capital / legal_representative /
    industry / business_description / operating_address 等字段,且正在写的段落
@@ -508,8 +520,46 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
     会导致"分别为X、Y"的重复值残留在最终文档。"""
 
 
+# 跨样本污染过滤 · 老 sample 客户名清单 (2026-05-21 红线 fix · agent15 实测)
+# 当 client_metadata 的 CLIENT_FULL_NAME 不属于这些老 sample 时,
+# raw_statements / file_contents 里出现的这些老客户名都视为污染,过滤。
+# 注意:这是"非当前客户名"的兜底过滤 · 不是关键词黑名单(由 _is_polluted_for_current 判断)。
+_OLD_SAMPLE_CLIENT_KEYWORDS = (
+    # 经纬 sample
+    "福建经纬数字科技", "经纬数字科技", "经纬测绘", "测绘地理信息",
+    "郑志煌", "福建省招标股份", "福建省招标采购集团", "招标采购集团",
+    # 兴业 sample
+    "兴业资产管理", "兴业国际信托", "兴业国信资产管理", "兴业国信",
+    # 各 sample 客户简称 / 法人 / 关键字段
+    # (鼎盛 / 蓝汀 / 龙峰精工 / 宸星家装 / 汇德建材 / 星胤实业 等
+    #  若不是当前客户也算污染 · 由 _is_polluted_for_current 用 CLIENT_FULL_NAME 兜底)
+)
+
+
+def _is_polluted_for_current(text: str, current_full_name: str, current_core_name: str) -> bool:
+    """判断一段 raw text 是否含跨样本污染.
+
+    规则: 含 _OLD_SAMPLE_CLIENT_KEYWORDS 任一,且该 keyword 不属于当前客户
+          (CLIENT_FULL_NAME / CLIENT_CORE_NAME 都不包含此 keyword 时,视为污染)。
+    """
+    for kw in _OLD_SAMPLE_CLIENT_KEYWORDS:
+        if kw and kw in text:
+            # 当前客户全称或核心名含这个 keyword,则不算污染 (例如经纬本身就是当前客户)
+            if current_full_name and kw in current_full_name:
+                continue
+            if current_core_name and kw in current_core_name:
+                continue
+            return True
+    return False
+
+
 def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
-    """给 REWRITE 用的材料摘要块 — 财务确定性指标 + facts + 行业政策卡片 + 原文片段.
+    """给 REWRITE 用的材料摘要块 — 当前客户档案(强约束) + 财务指标 + facts + 行业政策卡片 + 原文片段.
+
+    2026-05-21 红线 fix (agent15 实测 LLM REWRITE 重度幻觉 + 跨样本污染):
+      - 强制在 prompt 顶部注入 "【当前客户档案】" 块 (从 mats.client_metadata 拉)
+      - 过滤 raw_statements / facts 里的跨样本污染 (老 sample 客户名)
+      - 当前客户档案里没列的字段 · LLM 必须输出 "【未能自动填写:KEY】"
 
     (per docs/contracts/agent-output-rubric-2026-05-11.md §3.5 report · audit P5 fix:
      industry_cards / policy_cards 来源 material_anchor.py · 防 LLM 行业章
@@ -517,21 +567,98 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
     """
     parts: list[str] = []
 
+    # 0. 当前客户档案 (强约束 · 红线 fix) — 从 mats.client_metadata 提取
+    client_metadata = getattr(mats, "client_metadata", None) or {}
+    current_full_name = ""
+    current_core_name = ""
+    if isinstance(client_metadata, dict) and client_metadata:
+        # 关键字段优先 (LLM 必须严格按此重写 · 没列的字段必须标"未能自动填写")
+        _PRIORITY_KEYS = [
+            "CLIENT_FULL_NAME", "CLIENT_CORE_NAME", "CLIENT_LONG_CORE_NAME",
+            "CLIENT_LEGAL_REP", "CLIENT_USCC",
+            "CLIENT_REGISTERED_ADDRESS", "CLIENT_OPERATING_ADDRESS",
+            "CLIENT_LOCATION_CITY",
+            "CLIENT_REGISTERED_CAPITAL", "CLIENT_PAID_IN_CAPITAL",
+            "CLIENT_ESTABLISHMENT_DATE", "FOUNDED_YEAR",
+            "CLIENT_INDUSTRY_FULL", "CLIENT_INDUSTRY_CATEGORY", "CLIENT_INDUSTRY_CODE",
+            "CLIENT_BUSINESS_SCOPE", "CLIENT_BUSINESS_DESC", "CLIENT_BACKGROUND",
+            "CLIENT_OPERATING_YEARS", "CLIENT_EMPLOYEE_COUNT",
+            "CLIENT_SHAREHOLDER_PRIMARY", "CLIENT_SHARE_PCT_PRIMARY",
+            "CLIENT_PARENT_FULL_NAME", "CLIENT_GROUP_FULL_NAME",
+            "CREDIT_AMOUNT", "CREDIT_EXPOSURE", "CREDIT_PERIOD",
+            "GUARANTEE_METHOD", "PD_RATING", "INDUSTRY_POLICY_GUIDANCE",
+        ]
+        # _lookup_metadata_value 支持 flat dict + 3 section nested · 兜底兼容
+        client_lines = []
+        for key in _PRIORITY_KEYS:
+            value = _lookup_metadata_value(key, client_metadata)
+            if value is not None and str(value).strip():
+                client_lines.append(f"  - {key}: {str(value).strip()}")
+        if client_lines:
+            parts.append("【当前客户档案 · 强约束 · 重写时必须严格按此 · 没列的字段写"
+                         "未能自动填写】")
+            parts.extend(client_lines)
+            current_full_name = str(_lookup_metadata_value("CLIENT_FULL_NAME", client_metadata) or "")
+            current_core_name = str(_lookup_metadata_value("CLIENT_CORE_NAME", client_metadata) or "")
+            parts.append("")
+
+    # 2026-05-21 红线 fix · 跨样本材料屏蔽:
+    #   当 client_metadata 显式给出时 · 判断 material 是否属于当前客户.
+    #   规则: 看 mats.file_contents 文件名 / KB facts 里是否提及当前客户的核心名.
+    #   不属于 → suppress 全部 facts + raw_statements (这些是其他客户的内容 · LLM 抄就是污染).
+    suppress_unrelated_materials = False
+    if client_metadata and current_full_name:
+        material_mentions_current = False
+        # 检查 KB facts (company_name / borrower_name 等顶层身份字段)
+        for ident_key in ("company_name", "borrower_name", "client_name", "full_name"):
+            iv = mats.facts.get(ident_key) if mats.facts else None
+            if iv and (current_full_name in str(iv) or (current_core_name and current_core_name in str(iv))):
+                material_mentions_current = True
+                break
+        # 检查 file_contents 文件名 (e.g. samples/{客户名}-补充材料.docx)
+        if not material_mentions_current and mats.file_contents:
+            for fname in mats.file_contents.keys():
+                if current_core_name and current_core_name in fname:
+                    material_mentions_current = True
+                    break
+                if current_full_name and current_full_name[:4] in fname:
+                    material_mentions_current = True
+                    break
+        if not material_mentions_current:
+            suppress_unrelated_materials = True
+
     # P2: 优先放 financial_analyzer 的确定性指标(同比/趋势/三大活动现金流),
     # 供 LLM 做深度财务叙事。该块权威,禁止重新计算,LLM 必须原文引用数值。
-    if mats.financial and isinstance(mats.financial, dict):
+    # 2026-05-21 红线 fix: 跨样本材料屏蔽时不发 (财务数据是其他客户的 · 抄了就是幻觉).
+    if mats.financial and isinstance(mats.financial, dict) and not suppress_unrelated_materials:
         fin_block = mats.financial.get("prompt_block", "")
         if fin_block:
             parts.append(fin_block[:3000])
             parts.append("")
 
     facts = mats.facts
-    if facts:
-        parts.append("【企业事实(来自 KB 解析)】")
+    if facts and not suppress_unrelated_materials:
+        # 跨样本污染过滤 (红线 fix) — facts 若含其他客户名,LLM 会把它当真实事实
+        filtered_facts = {}
+        skipped = 0
         for k, v in sorted(facts.items()):
             s = str(v).strip() if v is not None else ""
-            if s and len(s) < 300:
+            if not s or len(s) >= 300:
+                continue
+            if current_full_name and _is_polluted_for_current(s, current_full_name, current_core_name):
+                skipped += 1
+                continue
+            filtered_facts[k] = s
+        if filtered_facts:
+            parts.append("【企业事实(来自 KB 解析 · 已过滤跨样本污染)】")
+            for k, s in filtered_facts.items():
                 parts.append(f"  - {k}: {s}")
+            if skipped:
+                parts.append(f"  (已过滤 {skipped} 条含其他客户痕迹的 facts · 红线零幻觉)")
+    elif facts and suppress_unrelated_materials:
+        # 材料属于其他客户 · 完全屏蔽 facts (附加一句明确告知 LLM)
+        parts.append("【企业事实】(暂无 · 当前客户档案以上方为准 · 其他字段写"
+                     "未能自动填写)")
 
     # P5: 行业 / 政策参考卡片注入 · 让 LLM 行业 / 政策章节有锚而非现编 ·
     # 卡片来自 material_anchor.py industry_cards/policy_cards · 若 anchors 字典
@@ -560,19 +687,33 @@ def _build_material_summary_for_rewrite(mats, max_chars: int = 6000) -> str:
                 parts.append(f"  - {title}{(' (' + meta + ')') if meta else ''}: {summary[:200]}")
 
     raw = mats.kb.get("raw_statements", []) if mats.kb else []
-    if raw:
+    if raw and not suppress_unrelated_materials:
         parts.append("")
-        parts.append("【材料原文片段】")
+        parts.append("【材料原文片段 · 已过滤跨样本污染】")
         budget = max_chars - sum(len(p) for p in parts)
+        polluted_skipped = 0
         for stmt in raw:
             if budget <= 200:
                 break
             t = str(stmt).strip()
             if len(t) < 20:
                 continue
+            # 跨样本污染过滤 (红线 fix) — 老 sample 客户原始材料若混进当前 sample,
+            # LLM 直接抄 · 是 P46 兴业国际信托幻觉的根因.
+            if current_full_name and _is_polluted_for_current(t, current_full_name, current_core_name):
+                polluted_skipped += 1
+                continue
             chunk = t[:600]
             parts.append(chunk)
             budget -= len(chunk)
+        if polluted_skipped:
+            parts.append(f"(已过滤 {polluted_skipped} 段含其他客户痕迹的材料 · 红线零幻觉)")
+    elif raw and suppress_unrelated_materials:
+        # 材料属于其他客户 · 完全屏蔽 raw_statements ·
+        # LLM 必须按【当前客户档案】重写 · 未列字段一律 "未能自动填写".
+        parts.append("")
+        parts.append("【材料原文片段】(暂无 · 当前客户尚未上传材料 · 档案以外字段一律写"
+                     "未能自动填写 · 严禁编造)")
     text = "\n".join(parts)
     return text[:max_chars]
 
@@ -689,6 +830,58 @@ def _inject_hard_facts(text: str, facts: dict) -> str:
             else:
                 out = out + f"(审计机构:{auditor})"
 
+    return out
+
+
+def _final_placeholder_sweep(text: str, client_metadata: dict | None) -> str:
+    """REWRITE 输出后兜底 sweep · 把 LLM 漏掉的 {{KEY}} placeholder 替换.
+
+    2026-05-21 红线 fix (agent15 实测): LLM 在 REWRITE 时可能照抄原段落
+    的 "{{CLIENT_INDUSTRY_FULL}}" / "{{CREDIT_PERIOD}}" 等字面 placeholder
+    进入 rendered docx · 是用户看到的最严重渲染 bug.
+
+    策略:
+      1. 扫描 text 中所有 {{KEY}} (匹配 _PLACEHOLDER_KEY_RE)
+      2. 在 client_metadata 查值 (走 _lookup_metadata_value · 支持 flat / 3 section nested)
+      3. 命中 → 替换;未命中 → 用 "【未能自动填写:KEY】" 标记
+    """
+    if not text:
+        return text
+    matches = list(_PLACEHOLDER_KEY_RE.finditer(text))
+    if not matches:
+        return text
+    metadata = client_metadata or {}
+    out = text
+    for m in matches:
+        key = m.group(1)
+        value = _lookup_metadata_value(key, metadata)
+        if value is None and isinstance(metadata, dict) and key.startswith("CLIENT_"):
+            # 同 placeholder_replace handler 的 alias_map fallback · 红线 P0 fix 兜底
+            alias_map = {
+                "CLIENT_FULL_NAME": "name",
+                "CLIENT_CORE_NAME": "name_core",
+                "CLIENT_LEGAL_REP": "legal_rep",
+                "CLIENT_INDUSTRY_CATEGORY": "industry",
+                "CLIENT_INDUSTRY_FULL": "industry",
+                "CLIENT_BUSINESS_DESC": "business",
+                "CLIENT_BUSINESS_SCOPE": "business",
+                "CLIENT_REGISTERED_CAPITAL": "registered_capital",
+                "CLIENT_LOCATION_CITY": "location",
+                "CLIENT_REGISTERED_ADDRESS": "location",
+                "CLIENT_OPERATING_ADDRESS": "location",
+                "CLIENT_BUSINESS_QUALIFICATION_DESC": "BUSINESS_QUALIFICATION_DESC",
+                "CLIENT_BUSINESS_STRATEGY_DESC": "BUSINESS_STRATEGY_DESC",
+                "CLIENT_BUSINESS_HISTORY_DESC": "BUSINESS_HISTORY_DESC",
+                "CLIENT_FOUNDED_YEAR": "FOUNDED_YEAR",
+            }
+            alias = alias_map.get(key)
+            if alias:
+                value = _lookup_metadata_value(alias, metadata)
+        if value is not None and str(value).strip():
+            out = out.replace(m.group(0), str(value))
+        else:
+            # 未命中 · 替换为"未能自动填写"标记 (幻觉零容忍 · 红线)
+            out = out.replace(m.group(0), f"【未能自动填写:{key}】")
     return out
 
 
@@ -809,10 +1002,41 @@ def _section_batch_rewrite_once(
             )
         return out
 
-    # 全材料文本串用于 proper-noun 归位校验(履历段/关联方段 幻觉拦截)
+    # 全材料文本串用于 proper-noun 归位校验(履历段/关联方段 幻觉拦截).
+    # 2026-05-21 红线 fix · 跨样本材料屏蔽时不用 file_contents 做验证
+    # (那是其他客户的材料 · 用它验证当前 LLM 输出会假阳性 + 假阴性都有).
     all_material_text = ""
     if mats and getattr(mats, "file_contents", None):
-        all_material_text = " ".join(mats.file_contents.values())
+        # 复用 _build_material_summary_for_rewrite 的 suppress 判定逻辑 ·
+        # 内联简化版 (避免重复跑判定 + 不引出新 helper)
+        client_metadata = getattr(mats, "client_metadata", None) or {}
+        current_full_name = ""
+        current_core_name = ""
+        if client_metadata:
+            current_full_name = str(_lookup_metadata_value("CLIENT_FULL_NAME", client_metadata) or "")
+            current_core_name = str(_lookup_metadata_value("CLIENT_CORE_NAME", client_metadata) or "")
+        material_related = False
+        if current_full_name:
+            # 文件名命中当前客户名 → 相关
+            for fname in mats.file_contents.keys():
+                if current_core_name and current_core_name in fname:
+                    material_related = True
+                    break
+                if current_full_name[:4] in fname:
+                    material_related = True
+                    break
+            # facts 顶层身份字段命中 → 相关
+            if not material_related:
+                for ident_key in ("company_name", "borrower_name", "client_name", "full_name"):
+                    iv = (mats.facts or {}).get(ident_key)
+                    if iv and (current_full_name in str(iv) or (current_core_name and current_core_name in str(iv))):
+                        material_related = True
+                        break
+        else:
+            # 没 client_metadata · 走旧路径 · 用所有 material (兼容 5 sample 老路径)
+            material_related = True
+        if material_related:
+            all_material_text = " ".join(mats.file_contents.values())
 
     for e in section_elems:
         new_text = result.get(e.location)
@@ -864,12 +1088,17 @@ def _section_batch_rewrite_once(
             # 这里按段落语义补齐(不改动 LLM 产出的叙事主干,仅在相关主体首次
             # 出现且原文无对应标识符时追加)。
             new_text = _inject_hard_facts(new_text, mats.facts if mats else {})
+            # 2026-05-21 红线 fix · final placeholder sweep ·
+            # LLM 可能把原段的 {{KEY}} 字面照抄进 rendered 文本 · 用 client_metadata 兜底替换 ·
+            # 缺失时 fallback 到 "【未能自动填写:KEY】" (幻觉零容忍).
+            client_metadata = getattr(mats, "client_metadata", None) if mats else None
+            new_text = _final_placeholder_sweep(new_text, client_metadata)
             if pending is None and "【未能自动填写" in new_text:
                 pending = {
                     "location": e.location,
-                    "reason": "LLM 判定材料证据不足",
+                    "reason": "LLM 判定材料证据不足 / final sweep 缺 metadata key",
                     "text": elem_text_head[:80],
-                    "suggested_action": "客户经理补充材料后重写",
+                    "suggested_action": "客户经理补充材料 / 补 client_metadata 后重写",
                 }
             out[e.location] = GenResult(
                 location=e.location,
@@ -961,8 +1190,10 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
       - 文本含 1+ `{{KEY}}` 标记 (上游 prelabel/classifier 已识别)
       - 对每个 KEY 在 mats.client_metadata 查值 (key 是 schema 定义的 placeholder name)
       - 命中 → 整段替换 {{KEY}} → metadata[KEY] (保留 placeholder 周边文本)
-      - 未命中 → 保留原 {{KEY}} 原文 + 写 pending_tag (幻觉零容忍 红线)
-      - mats.client_metadata=None → 整段保留 + 全 placeholder pending
+      - 未命中 → 替换为 "【未能自动填写:KEY】" + 写 pending_tag (幻觉零容忍 红线)
+        (2026-05-21 红线 fix · agent15 实测发现 raw {{KEY}} 字面渗进 docx ·
+         给用户看 "未能自动填写" 比 "{{KEY}}" 更有金融业可读性 · 按金融客户底线)
+      - mats.client_metadata=None → 全 placeholder 替换为 "【未能自动填写:KEY】"
 
     2026-05-21 C 档第 1 步: 3 layer schema 拆分后 · 通过 _lookup_metadata_value 同时支持
       flat dict (旧) + 3 section nested (新) · 同时保留所有原 alias_map fallback.
@@ -1010,23 +1241,26 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             if alias:
                 value = _lookup_metadata_value(alias, metadata)
         if value is None or str(value).strip() == "":
+            # 2026-05-21 红线 fix · 缺值 → 替换为 "【未能自动填写:KEY】" 而不是保留 {{KEY}}
+            new_text = new_text.replace(m.group(0), f"【未能自动填写:{key}】")
             missing_keys.append(key)
             continue
         new_text = new_text.replace(m.group(0), str(value))
         replaced_keys.append(key)
 
     if missing_keys and not replaced_keys:
-        # 全部 placeholder 都未命中 → keep 原 text + pending
+        # 全部 placeholder 都未命中 → 整段含"未能自动填写" 标记 + pending (action=fill 因为 new_text 已改)
         return GenResult(
             location=elem.location,
-            action="keep",
+            action="fill",
+            new_text=new_text,
             pending_tag={
                 "location": elem.location,
                 "reason": f"client_metadata 缺 placeholder: {', '.join(missing_keys[:5])}",
                 "text": text[:80],
                 "suggested_action": "credit handoff payload 补 client_metadata 字段 (key 见 templates/placeholder-schema.json)",
             },
-            debug=f"placeholder_replace: all-miss ({len(missing_keys)} keys)",
+            debug=f"placeholder_replace: all-miss ({len(missing_keys)} keys · 标未能自动填写)",
         )
 
     pending = None
@@ -1044,7 +1278,7 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
         new_text=new_text,
         pending_tag=pending,
         debug=f"placeholder_replace: {len(replaced_keys)} replaced "
-              f"{'+' + str(len(missing_keys)) + ' missed' if missing_keys else ''}",
+              f"{'+' + str(len(missing_keys)) + ' missed (标未能自动填写)' if missing_keys else ''}",
     )
 
 
