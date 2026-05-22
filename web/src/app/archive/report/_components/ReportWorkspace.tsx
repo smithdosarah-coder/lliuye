@@ -38,6 +38,7 @@ import {
   uploadReportMaterials,
   uploadReportTemplate,
   type ReportExportPayload,
+  type ReportFileSummary,
   reportDoneDataSource,
   type ReportV16DoneEvent,
   type ReportV16ErrorEvent,
@@ -141,7 +142,9 @@ export function ReportWorkspace() {
   const coverPct = Math.round((s.coverage.filled / Math.max(s.coverage.total, 1)) * 100);
   const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  // user 反馈 2026-05-22 · 已上传材料列表必须可见 (含 filename / size / parsed_chars / 删除按钮)
+  // 不再只存 filename 字符串 · 而是完整 ReportFileSummary[] 让 UI 显 size + parse_status
+  const [uploadedFiles, setUploadedFiles] = useState<ReportFileSummary[]>([]);
   const [uploadedTemplate, setUploadedTemplate] = useState<string>("");
   // Q6-B · 用户上传模板 + dropdown 双 section (builtin + user)
   const [templateList, setTemplateList] = useState<{ builtin: TemplateListItem[]; user: TemplateListItem[] }>({
@@ -293,7 +296,8 @@ export function ReportWorkspace() {
       try {
         const resp = await uploadReportMaterials(files, businessLine);
         setReportId(resp.report_id);
-        setUploadedFiles(resp.file_summary.map((fs) => fs.name));
+        // user 反馈 2026-05-22 · 累加而非覆盖 · 客户经理多批次上传也都能看见
+        setUploadedFiles((prev) => [...prev, ...resp.file_summary]);
         setMode("live");
         setStarted(true);
         // 不自动触发 fill · 用户须显式点 "开始生成" CTA (empty-state §3)
@@ -315,6 +319,12 @@ export function ReportWorkspace() {
   /* B-2 click-to-fire · dropdown 仅 set 选择 state · "开始生成" CTA 显式触发 */
   const handleSelectTemplate = useCallback((tpl: string) => {
     setTemplateChoice(tpl);
+  }, []);
+
+  /* user 反馈 2026-05-22 · 从已上传列表移除一份 (前端 state 移除 · 后端无 per-file 删 endpoint
+     效果: UI 立即看不见 · 下次 v16/fill 仍走 report_id 全集 · 如需后端真删需扩 endpoint) */
+  const handleRemoveUploadedFile = useCallback((idx: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
   /* PM 2026-05-09 ALL IN: handleApplyLaunch 仅留 live 路径 · 删 historyChoice mock 触发分支
@@ -656,6 +666,7 @@ export function ReportWorkspace() {
           exporting={exporting}
           errMsg={errMsg}
           onUpload={handleUpload}
+          onRemoveUploadedFile={handleRemoveUploadedFile}
           onSelectTemplate={handleSelectTemplate}
           onApplyLaunch={handleApplyLaunch}
           onBusinessLineChange={setBusinessLine}
@@ -2074,11 +2085,13 @@ function ReportLaunchBar(p: {
   reportId: string;
   businessLine: string;
   templateChoice: string;
-  uploadedFiles: string[];
+  /* user 反馈 2026-05-22 · 改 ReportFileSummary[] · UI 显 size + parse_status + 删除按钮 */
+  uploadedFiles: ReportFileSummary[];
   generating: boolean;
   exporting: boolean;
   errMsg: string | null;
   onUpload: (files: File[]) => void;
+  onRemoveUploadedFile: (idx: number) => void;
   onSelectTemplate: (tpl: string) => void;
   onApplyLaunch: () => void;
   onBusinessLineChange: (v: string) => void;
@@ -2112,6 +2125,7 @@ function ReportLaunchBar(p: {
   }
 
   return (
+    <>
     <section
       data-testid="report-launch-bar"
       style={_LAUNCH_ROOT_STYLE}
@@ -2138,7 +2152,7 @@ function ReportLaunchBar(p: {
         />
         <span style={_LAUNCH_HINT_STYLE}>
           {p.uploadedFiles.length > 0
-            ? `已上传 ${p.uploadedFiles.length} 份`
+            ? `已上传 ${p.uploadedFiles.length} 份 · 见下方列表`
             /* B.4 SLO-3 · report-bug-4 · 5 标签分隔符统一
              * 真因: "PDF / Word / Excel / 图片 · 多文件" 混用 " / " 和 " · "
              *      → 标签间距视觉不一致 (· 中圆点 vs / 斜杠 视觉重量不同)
@@ -2406,6 +2420,442 @@ function ReportLaunchBar(p: {
       )}
 
       {/* B-banner · errMsg 已提到 workspace 顶部 ReportLaunchErrorBanner · 此处不再 inline */}
+    </section>
+
+    {/* user 反馈 2026-05-22 fix · 已上传材料列表 (per-file 可见 + 删除按钮)
+        agent17 commit b9c7fbf 只把 count 塞 hint · user 反馈"看不到已上传列表" → 此处真展开 */}
+    <UploadedMaterialsList
+      files={p.uploadedFiles}
+      onRemove={p.onRemoveUploadedFile}
+    />
+
+    {/* user 反馈 2026-05-22 fix · 已上传模板列表 (always-visible · 不仅在 dropdown 内)
+        builtin 5 (folder icon · 不可删) + user N (user icon · ✎ 重命名 / 🗑 删除)
+        validation badge: PASS ✓ / WARN ⚠ / ERROR ✗ */}
+    <TemplateLibraryList
+      templates={p.templateList}
+      selectedPath={p.templateChoice}
+      onSelect={p.onSelectTemplate}
+      onRename={p.onRenameUserTemplate}
+      onDelete={p.onDeleteUserTemplate}
+    />
+    </>
+  );
+}
+
+/* user 反馈 2026-05-22 · 已上传材料列表 (visible · per-file row)
+   columns: filename / size / parsed_chars / parse_status / 删除按钮
+   empty state: hint "尚未上传 · 点击上方'上传材料'选文件" */
+function UploadedMaterialsList(p: {
+  files: ReportFileSummary[];
+  onRemove: (idx: number) => void;
+}) {
+  if (p.files.length === 0) {
+    return (
+      <section
+        data-testid="report-uploaded-materials-empty"
+        aria-label="已上传材料 (空)"
+        style={{
+          margin: "8px 0 16px 0",
+          padding: "10px 14px",
+          background: "color-mix(in srgb, var(--chalk) 40%, transparent)",
+          border: "1px dashed var(--ink-14)",
+          borderRadius: "var(--r-md)",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          color: "var(--ink-65)",
+          fontStyle: "italic",
+        }}
+      >
+        尚未上传材料 · 点击上方「上传材料文件」选 PDF / Word / Excel / 图片
+      </section>
+    );
+  }
+  const fmtBytes = (n: number): string => {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(2)} MB`;
+  };
+  const statusColor: Record<ReportFileSummary["parse_status"], string> = {
+    ok: "#22c55e",
+    skipped: "#f59e0b",
+    deferred: "#f59e0b",
+    empty: "#9ca3af",
+    error: "#ef4444",
+    save_failed: "#ef4444",
+  };
+  return (
+    <section
+      data-testid="report-uploaded-materials-list"
+      aria-label={`已上传材料 · ${p.files.length} 份`}
+      style={{
+        margin: "8px 0 16px 0",
+        padding: "12px 14px",
+        background: "color-mix(in srgb, var(--chalk) 55%, transparent)",
+        border: "1px solid var(--ink-14)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 8,
+          marginBottom: 8,
+          fontFamily: "var(--cjk)",
+        }}
+      >
+        <strong style={{ fontSize: 13, color: "var(--ink)" }}>
+          已上传材料 · {p.files.length} 份
+        </strong>
+        <span style={{ fontSize: 11, color: "var(--ink-65)" }}>
+          总解析 {p.files.reduce((s, f) => s + (f.parsed_chars ?? 0), 0)} 字 · 后端真返回
+        </span>
+      </header>
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        {p.files.map((f, idx) => (
+          <li
+            key={`${f.name}-${idx}`}
+            data-testid="report-uploaded-material-row"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 10px",
+              background: "var(--chalk)",
+              border: "1px solid var(--ink-14)",
+              borderRadius: 6,
+              fontFamily: "var(--cjk)",
+              fontSize: 12,
+            }}
+          >
+            <span aria-hidden style={{ fontSize: 14 }}>
+              {f.type.includes("pdf")
+                ? "📄"
+                : f.type.includes("word") || f.name.endsWith(".docx")
+                  ? "📝"
+                  : f.type.includes("sheet") || f.name.match(/\.xlsx?$/)
+                    ? "📊"
+                    : f.type.includes("image")
+                      ? "🖼"
+                      : "📎"}
+            </span>
+            <span
+              style={{
+                flex: 1,
+                color: "var(--ink)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={f.name}
+            >
+              {f.name}
+            </span>
+            <span style={{ color: "var(--ink-65)", fontSize: 11, minWidth: 60 }}>
+              {fmtBytes(f.size_bytes)}
+            </span>
+            <span style={{ color: "var(--ink-65)", fontSize: 11, minWidth: 80 }}>
+              {f.parsed_chars} 字
+            </span>
+            <span
+              data-status={f.parse_status}
+              title={f.parse_note ?? f.parse_status}
+              style={{
+                fontSize: 10,
+                padding: "2px 6px",
+                borderRadius: 3,
+                background: `color-mix(in srgb, ${statusColor[f.parse_status]} 18%, transparent)`,
+                color: statusColor[f.parse_status],
+                fontWeight: 500,
+                minWidth: 50,
+                textAlign: "center",
+              }}
+            >
+              {f.parse_status}
+            </span>
+            <button
+              type="button"
+              data-testid="report-uploaded-material-remove"
+              onClick={() => p.onRemove(idx)}
+              aria-label={`从列表移除 ${f.name}`}
+              title="从列表移除 (前端 state · 不删后端材料)"
+              style={{
+                padding: "3px 8px",
+                fontSize: 11,
+                fontFamily: "var(--cjk)",
+                background: "transparent",
+                border: "1px solid var(--ink-14)",
+                borderRadius: 4,
+                color: "var(--ink-65)",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/* user 反馈 2026-05-22 · 模板库列表 (always-visible · 不只在 dropdown 内)
+   - builtin: 5 内置 · folder icon · 不可删
+   - user: N 上传 · user icon · ✎ 重命名 + 🗑 删除
+   - selected 行高亮 + 点击切换 templateChoice (同 dropdown 同源)
+   - validation badge: PASS / WARN / ERROR */
+function TemplateLibraryList(p: {
+  templates: { builtin: TemplateListItem[]; user: TemplateListItem[] };
+  selectedPath: string;
+  onSelect: (path: string) => void;
+  onRename: (templateId: string, currentName: string) => void;
+  onDelete: (templateId: string, templateName: string) => void;
+}) {
+  const all = [...p.templates.builtin, ...p.templates.user];
+  if (all.length === 0) {
+    return (
+      <section
+        data-testid="report-template-library-empty"
+        style={{
+          margin: "0 0 16px 0",
+          padding: "10px 14px",
+          background: "color-mix(in srgb, var(--chalk) 40%, transparent)",
+          border: "1px dashed var(--ink-14)",
+          borderRadius: "var(--r-md)",
+          fontFamily: "var(--cjk)",
+          fontSize: 12,
+          color: "var(--ink-65)",
+          fontStyle: "italic",
+        }}
+      >
+        模板库加载中 · 或后端 /api/report/templates 不可达
+      </section>
+    );
+  }
+  const validBadge = (v?: TemplateListItem["validation"]) => {
+    if (!v) return null;
+    const m: Record<NonNullable<TemplateListItem["validation"]>, { txt: string; bg: string }> = {
+      PASS: { txt: "✓ PASS", bg: "#22c55e" },
+      WARN: { txt: "⚠ WARN", bg: "#f59e0b" },
+      ERROR: { txt: "✗ ERROR", bg: "#ef4444" },
+      SKIP: { txt: "— SKIP", bg: "#9ca3af" },
+    };
+    const x = m[v];
+    return (
+      <span
+        data-validation={v}
+        style={{
+          fontSize: 10,
+          padding: "2px 6px",
+          borderRadius: 3,
+          background: `color-mix(in srgb, ${x.bg} 18%, transparent)`,
+          color: x.bg,
+          fontWeight: 500,
+        }}
+      >
+        {x.txt}
+      </span>
+    );
+  };
+  return (
+    <section
+      data-testid="report-template-library-list"
+      aria-label={`模板库 · 内置 ${p.templates.builtin.length} + 我上传 ${p.templates.user.length}`}
+      style={{
+        margin: "0 0 16px 0",
+        padding: "12px 14px",
+        background: "color-mix(in srgb, var(--chalk) 55%, transparent)",
+        border: "1px solid var(--ink-14)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 8,
+          marginBottom: 8,
+          fontFamily: "var(--cjk)",
+        }}
+      >
+        <strong style={{ fontSize: 13, color: "var(--ink)" }}>
+          模板库 · 内置 {p.templates.builtin.length} · 我上传 {p.templates.user.length}
+        </strong>
+        <span style={{ fontSize: 11, color: "var(--ink-65)" }}>
+          点击选用 · 上传新模板见上方「⇪ 上传模板」
+        </span>
+      </header>
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        {p.templates.builtin.map((t) => {
+          const active = p.selectedPath === t.template_path;
+          return (
+            <li
+              key={t.template_path}
+              data-testid="report-template-row-builtin"
+              data-active={active ? "yes" : "no"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 10px",
+                background: active
+                  ? "color-mix(in srgb, var(--t-report) 12%, var(--chalk))"
+                  : "var(--chalk)",
+                border: `1px solid ${active ? "var(--t-report)" : "var(--ink-14)"}`,
+                borderRadius: 6,
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+              onClick={() => p.onSelect(t.template_path)}
+            >
+              <span aria-hidden style={{ fontSize: 14 }}>📁</span>
+              <span style={{ flex: 1, color: "var(--ink)" }} title={t.template_path}>
+                {t.name}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  borderRadius: 3,
+                  background: "color-mix(in srgb, #6b7280 18%, transparent)",
+                  color: "#4b5563",
+                }}
+              >
+                内置 · 不可删
+              </span>
+              {t.business_line ? (
+                <span style={{ fontSize: 10, color: "var(--ink-65)" }}>
+                  {t.business_line}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+        {p.templates.user.map((t) => {
+          const active = p.selectedPath === t.template_path;
+          const tid = t.template_id ?? "";
+          return (
+            <li
+              key={t.template_path}
+              data-testid="report-template-row-user"
+              data-active={active ? "yes" : "no"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 10px",
+                background: active
+                  ? "color-mix(in srgb, var(--t-report) 12%, var(--chalk))"
+                  : "var(--chalk)",
+                border: `1px solid ${active ? "var(--t-report)" : "var(--ink-14)"}`,
+                borderRadius: 6,
+                fontFamily: "var(--cjk)",
+                fontSize: 12,
+              }}
+            >
+              <span aria-hidden style={{ fontSize: 14 }}>👤</span>
+              <button
+                type="button"
+                onClick={() => p.onSelect(t.template_path)}
+                style={{
+                  flex: 1,
+                  textAlign: "left",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  fontFamily: "var(--cjk)",
+                  fontSize: 12,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={t.template_path}
+              >
+                {t.name}
+              </button>
+              {validBadge(t.validation)}
+              <span style={{ fontSize: 10, color: "var(--ink-65)" }}>
+                {t.placeholder_count ?? 0} 占位
+                {t.residue_count && t.residue_count > 0
+                  ? ` · ${t.residue_count} 残留`
+                  : ""}
+              </span>
+              {t.uploaded_at ? (
+                <span
+                  style={{ fontSize: 10, color: "var(--ink-65)", minWidth: 80 }}
+                  title={`上传者 ${t.uploader ?? "—"}`}
+                >
+                  {t.uploaded_at.slice(0, 10)}
+                </span>
+              ) : null}
+              {tid ? (
+                <>
+                  <button
+                    type="button"
+                    data-testid="report-template-row-rename"
+                    onClick={() => p.onRename(tid, t.name)}
+                    title={`重命名「${t.name}」`}
+                    aria-label={`重命名模板 ${t.name}`}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: 11,
+                      fontFamily: "var(--cjk)",
+                      background: "transparent",
+                      border: "1px solid var(--ink-14)",
+                      borderRadius: 4,
+                      color: "var(--ink-65)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="report-template-row-delete"
+                    onClick={() => p.onDelete(tid, t.name)}
+                    title={`删除「${t.name}」(soft delete · 可由管理员从 .archived/ 恢复)`}
+                    aria-label={`删除模板 ${t.name}`}
+                    style={{
+                      padding: "3px 8px",
+                      fontSize: 11,
+                      fontFamily: "var(--cjk)",
+                      background: "transparent",
+                      border: "1px solid #ef4444",
+                      borderRadius: 4,
+                      color: "#dc2626",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🗑
+                  </button>
+                </>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
