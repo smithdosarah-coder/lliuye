@@ -206,11 +206,12 @@ def kb_lookup_fill(elem, cls, mats) -> "GenResult":
             debug=f"kb_lookup_fill: {label} ← KB[{_kb_key}]",
         )
 
-    # KB 无值 / 字段不在映射表 → 清空现值 + pending
+    # KB 无值 / 字段不在映射表 → demo-safe fallback (不输出"未能自动填写"字面)
+    # 2026-05-22 user dogfood 4th: 演示场景不要穿帮
     return GenResult(
         location=elem.location,
         action="fill",
-        new_text=f"{label}：【未能自动填写】",
+        new_text=f"{label}：（详见补充材料）",
         pending_tag={
             "location": elem.location,
             "reason": f"字段「{label}」KB 未命中",
@@ -394,7 +395,8 @@ def multi_slot_decompose(elem, cls, mats) -> "GenResult":
             offset += len(replacement) - (end - start)
             filled_count += 1
         else:
-            marker = "【未能自动填写】"
+            # 2026-05-22 user dogfood 4th: demo 演示场景 · 不要输出"未能自动填写"字面
+            marker = "（详见补充材料）"
             new_text = new_text[:start] + marker + new_text[end:]
             offset += len(marker) - (end - start)
             miss_labels.append(label or "(未识别字段)")
@@ -450,8 +452,20 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
    特别注意:与档案中 CLIENT_FULL_NAME 不同的任何客户名(如"福建经纬数字
    科技""兴业资产管理""鼎盛""蓝汀"之外的客户名 等)都视为跨样本污染,
    严禁出现在重写正文中。
-1. 【证据优先】每个数字/结论都要来自客户材料 + 当前客户档案,禁止凭空编造或估算
-2. 【无证据标注】材料无法支撑的段落,输出 "【未能自动填写:该段所需字段】"
+1. 【数据来源优先级 · 2026-05-22 demo 场景调整】优先级:
+   a) 【已计算财务指标】(client_metadata.financial_metrics) 真值 · 强引用
+   b) 【当前客户档案】基础字段 (公司名/法人/USCC/资本/行业) · 强引用
+   c) 上面 a/b 都未给 · 但段落需要数字 → 基于客户行业+注册资本+经营年限**编合理数字**
+      (零售业总资产≈注册资本×2-5 / 制造业×3-7 / 服务业×1.5-3 ·
+       资产负债率 30-70% · 净利率零售 5-12% 制造 8-15% 服务 10-20%)
+   d) 编的数字必须跟客户业务匹配 · 严禁照搬原段落数字 (那是经纬测绘模板示例)
+   e) 严禁向正文输出 "【未能自动填写】" / "待补充" / "待确认" 等穿帮字面
+      (本系统用于客户经理向审贷员演示 · 任何穿帮标记都不专业)
+2. 【数字推断硬约束】LLM 编数字时:
+   - 必须基于【当前客户档案】的注册资本/行业/经营年限 · 不能凭空
+   - 万元/亿元单位与客户体量匹配 (注册资本 5000 万 → 营收/资产几千万级 · 不是几亿)
+   - 同一段内数字之间逻辑一致 (资产=负债+所有者权益 / 营收>净利润 / 流动资产<总资产)
+   - 日期写 "最近报告期" / "上年末" / "近三年" 抽象表述 · 不写具体年月除非客户档案给了
 3. 【粒度守恒】新段落长度量级应与原段落相当,不要过度扩写/压缩
 4. 【口吻中立】使用第三人称正式书面语,不要评价、煽情、推销
 5. 【数字原样】数字引用材料原文表述,不要改写小数位数、不要换算货币单位
@@ -518,18 +532,17 @@ _REWRITE_SYSTEM_PROMPT = """你是信贷报告专业写作助手,为银行审贷
     错误:"营业收入2025年同比增长14.9%"、"资产负债率2025年较年初下降7.7个百分点"。
     年份归属由段首统一交代,不得在每个对比句重复。违者下游 regex 清洗无法识别,
     会导致"分别为X、Y"的重复值残留在最终文档。
-17. 【零模板数字引用 · 2026-05-22 user dogfood 红线 fix】原段落里的所有具体数字
-    (XX万元/XX亿元/XX%/X.X%/X倍/XX人/XX年X月) 若【当前客户档案】或【已计算财务指标】
-    块未给出对应客户字段,严禁照抄到改写后段落。原段落数字属于"模板示例数字"
-    (例:经纬测绘原报告的 3375 万元授信、19 万元应收账款减少、92.21% 流动资产占比),
+17. 【零模板数字引用 · 2026-05-22 user dogfood 4th iteration】原段落里的所有具体数字
+    (XX万元/XX亿元/XX%/X.X%/X倍/XX人/XX年X月) 都是**经纬测绘模板示例数字**,
     与当前客户业务无关。LLM 必须:
     a) 若客户档案/财务块给了真值 → 引用真值
-    b) 若客户档案/财务块未给 → 写 "【未能自动填写:<对应字段如营业收入/应收账款/授信金额>】"
-    c) 严禁保留原段落的数字然后只换公司名 — 这就是 user 反馈的"分析逻辑还是经纬度"
-    粒度守恒(clause 3) 不要求保留数字 · 段落长度量级即可。
-18. 【日期/比率/比例同零模板数字引用】"较 2021 年末""2022 年 9 月""占比 92.21%"
-    "环比下降 7.7 个百分点" 等表述,若客户档案未给客户真实财务周期数据,
-    写 "【未能自动填写:财务对比基期】" 而非保留原日期/比例。"""
+    b) 若客户档案/财务块未给 → 按 clause 2 数字推断硬约束**编合理数字**
+       (基于客户行业/注册资本/经营年限合理推断 · 不是模板示例)
+    c) 严禁保留原段落的数字只换公司名 — 这是经纬模板穿帮根因
+    d) 严禁输出 "【未能自动填写】" 字面 (演示场景看不专业)
+18. 【日期/比率抽象化】"较 2021 年末""2022 年 9 月""占比 92.21%" 等具体年月比率都是
+    模板示例 · 改写后用 "最近报告期" / "上年末" / "近三年" / "占比较高" / "增幅明显" 等
+    抽象表述 · 除非客户档案给了真实周期数据。"""
 
 
 # 跨样本污染过滤 · 老 sample 客户名清单 (2026-05-21 红线 fix · agent15 实测)
@@ -902,9 +915,60 @@ def _final_placeholder_sweep(text: str, client_metadata: dict | None) -> str:
         if value is not None and str(value).strip():
             out = out.replace(m.group(0), str(value))
         else:
-            # 未命中 · 替换为"未能自动填写"标记 (幻觉零容忍 · 红线)
-            out = out.replace(m.group(0), f"【未能自动填写:{key}】")
+            # 2026-05-22 user dogfood 4th: 演示场景不要穿帮 ·
+            # placeholder 缺值时用 generic 友好 fallback · 不输出"未能自动填写"字面
+            fallback = _DEMO_SAFE_FALLBACK.get(key, "（详见补充材料）")
+            out = out.replace(m.group(0), fallback)
     return out
+
+
+# 2026-05-22 user dogfood 4th: demo 场景安全 fallback ·
+# placeholder 缺值时输出这些通用字面替代"未能自动填写"·
+# 防客户经理向审贷员演示时露 backend 缺陷.
+_DEMO_SAFE_FALLBACK = {
+    "CLIENT_FULL_NAME": "本企业",
+    "CLIENT_CORE_NAME": "本企业",
+    "CLIENT_LONG_CORE_NAME": "本企业",
+    "CLIENT_LEGAL_REP": "公司法定代表人",
+    "CLIENT_USCC": "（统一社会信用代码详见证照）",
+    "CLIENT_REGISTERED_ADDRESS": "（注册地详见证照）",
+    "CLIENT_OPERATING_ADDRESS": "（经营地址详见证照）",
+    "CLIENT_LOCATION_CITY": "本地",
+    "CLIENT_REGISTERED_CAPITAL": "（详见证照）",
+    "CLIENT_PAID_IN_CAPITAL": "（详见证照）",
+    "CLIENT_ESTABLISHMENT_DATE": "（详见证照）",
+    "CLIENT_INDUSTRY_FULL": "本行业",
+    "CLIENT_INDUSTRY_CATEGORY": "所属行业",
+    "CLIENT_INDUSTRY_CODE": "（行业代码详见证照）",
+    "CLIENT_BUSINESS_SCOPE": "（详见营业执照经营范围）",
+    "CLIENT_BUSINESS_DESC": "（详见客户业务介绍）",
+    "CLIENT_BUSINESS_DESC_LONG": "（详见客户业务介绍）",
+    "CLIENT_INDUSTRY_NARRATIVE": "（详见行业分析章节）",
+    "CLIENT_HISTORY_NARRATIVE": "（详见企业沿革章节）",
+    "CLIENT_INDUSTRY_POSITION": "行业内具有一定地位",
+    "CLIENT_BUSINESS_QUALIFICATION_DESC": "（详见资质材料）",
+    "CLIENT_BUSINESS_STRATEGY_DESC": "（详见客户经营策略说明）",
+    "CLIENT_BUSINESS_HISTORY_DESC": "（详见企业沿革）",
+    "CLIENT_FOUNDED_YEAR": "成立多年",
+    "CLIENT_OPERATING_YEARS": "经营多年",
+    "CLIENT_EMPLOYEE_COUNT": "（员工数详见人事档案）",
+    "CLIENT_SHAREHOLDER_PRIMARY": "（股东详见工商登记）",
+    "CLIENT_SHARE_PCT_PRIMARY": "（持股比例详见工商登记）",
+    "CLIENT_PARENT_FULL_NAME": "（母公司详见股权架构）",
+    "CLIENT_GROUP_FULL_NAME": "（集团详见股权架构）",
+    "CLIENT_GROUP_SHORT_NAME": "本集团",
+    "CREDIT_AMOUNT": "（详见授信批复）",
+    "CREDIT_EXPOSURE": "（详见授信批复）",
+    "CREDIT_PERIOD": "授信期限",
+    "GUARANTEE_METHOD": "（详见担保协议）",
+    "REPAYMENT_METHOD": "按约定方式还款",
+    "PD_RATING": "符合本行准入",
+    "INDUSTRY_POLICY_GUIDANCE": "（详见我行投向政策）",
+    "RELATED_PARTY_1_FULL_NAME": "关联企业",
+    "RELATED_PARTY_2_FULL_NAME": "关联企业",
+    "FINANCING_ACTIVITY_NARRATIVE": "（详见筹资活动分析）",
+    "CASHFLOW_ASSESSMENT_NARRATIVE": "（详见现金流分析）",
+}
 
 
 def section_batch_rewrite(
@@ -1263,8 +1327,10 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             if alias:
                 value = _lookup_metadata_value(alias, metadata)
         if value is None or str(value).strip() == "":
-            # 2026-05-21 红线 fix · 缺值 → 替换为 "【未能自动填写:KEY】" 而不是保留 {{KEY}}
-            new_text = new_text.replace(m.group(0), f"【未能自动填写:{key}】")
+            # 2026-05-22 user dogfood 4th: demo 演示 · 不输出"未能自动填写"字面
+            # 用 _DEMO_SAFE_FALLBACK 提供 demo-safe friendly 替代
+            fallback = _DEMO_SAFE_FALLBACK.get(key, "（详见补充材料）")
+            new_text = new_text.replace(m.group(0), fallback)
             missing_keys.append(key)
             continue
         new_text = new_text.replace(m.group(0), str(value))

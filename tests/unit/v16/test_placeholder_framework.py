@@ -210,7 +210,7 @@ def test_placeholder_replace_handler_fills_multiple_placeholders_same_para():
 
 
 def test_placeholder_replace_handler_pending_when_missing_key():
-    """metadata 缺 CLIENT_LEGAL_REP · 保留 {{CLIENT_LEGAL_REP}} 原文 + 写 pending_tag."""
+    """metadata 缺 CLIENT_LEGAL_REP · demo-safe fallback 替换 + 写 pending_tag (2026-05-22 demo 4th iteration)."""
     elem = _make_element(
         "P1", "法定代表人:{{CLIENT_LEGAL_REP}} · 注册资本:{{CLIENT_REGISTERED_CAPITAL}}"
     )
@@ -223,17 +223,19 @@ def test_placeholder_replace_handler_pending_when_missing_key():
 
     result = placeholder_replace(elem, cls, mats)
 
-    # 部分命中 (CLIENT_REGISTERED_CAPITAL) · 部分 miss (CLIENT_LEGAL_REP)
+    # 部分命中 (CLIENT_REGISTERED_CAPITAL) · 部分 miss (CLIENT_LEGAL_REP) demo-safe fallback
     assert result.action == "fill"
-    assert "{{CLIENT_LEGAL_REP}}" in (result.new_text or ""), "缺 key 时必须保留 placeholder 原文"
+    assert "{{CLIENT_LEGAL_REP}}" not in (result.new_text or ""), "缺 key 时不能保留裸 {{KEY}} 字面 (穿帮)"
+    assert "【未能自动填写" not in (result.new_text or ""), "demo 不输出未能自动填写字面"
+    assert "公司法定代表人" in (result.new_text or ""), "缺 key 走 demo-safe fallback · CLIENT_LEGAL_REP 应替换为'公司法定代表人'"
     assert "2000万元" in (result.new_text or ""), "命中的 key 必须被替换"
-    assert result.pending_tag is not None, "缺 key 必须写 pending_tag"
+    assert result.pending_tag is not None, "缺 key 必须写 pending_tag (backend audit · 不显前端)"
     assert "CLIENT_LEGAL_REP" in result.pending_tag["reason"]
     assert result.pending_tag["suggested_action"], "pending_tag 必须含下一步指引"
 
 
 def test_placeholder_replace_handler_all_miss_keeps_original():
-    """所有 placeholder 都没命中 metadata · action=keep · 整段原文保留 + pending."""
+    """所有 placeholder 都没命中 metadata · demo-safe fallback 替换 + pending (action=fill)."""
     elem = _make_element("P0", "{{CLIENT_FULL_NAME}}信用授信申报")
     cls = _make_classification("P0")
     empty_metadata: dict = {}  # 完全空
@@ -241,21 +243,26 @@ def test_placeholder_replace_handler_all_miss_keeps_original():
 
     result = placeholder_replace(elem, cls, mats)
 
-    assert result.action == "keep", "全 miss 时 action 应为 keep · 原文不动"
-    assert result.pending_tag is not None
+    assert result.action == "fill", "全 miss · demo-safe fallback 替换 · action=fill"
+    assert "{{CLIENT_FULL_NAME}}" not in (result.new_text or ""), "demo 不留裸 placeholder"
+    assert "【未能自动填写" not in (result.new_text or ""), "demo 不输出未能自动填写字面"
+    assert "本企业" in (result.new_text or ""), "CLIENT_FULL_NAME demo fallback 应为'本企业'"
+    assert result.pending_tag is not None, "全 miss 必须写 pending_tag (backend audit)"
     assert "CLIENT_FULL_NAME" in result.pending_tag["reason"]
 
 
 def test_placeholder_replace_handler_none_metadata_keeps_original():
-    """mats.client_metadata=None · 整段保留 + pending (向后兼容旧调用方)."""
+    """mats.client_metadata=None · demo-safe fallback 替换 (2026-05-22 demo 4th iteration)."""
     elem = _make_element("P0", "{{CLIENT_FULL_NAME}}信用授信申报")
     cls = _make_classification("P0")
     mats = _build_materials(None)  # 显式 None
 
     result = placeholder_replace(elem, cls, mats)
 
-    # None metadata 走空 dict 路径 · 全 miss · action=keep
-    assert result.action == "keep"
+    # None metadata 走空 dict 路径 · 全 miss · 走 demo-safe fallback
+    assert result.action == "fill"
+    assert "{{CLIENT_FULL_NAME}}" not in (result.new_text or ""), "demo 不留裸 placeholder"
+    assert "本企业" in (result.new_text or ""), "None metadata demo fallback 应为'本企业'"
     assert result.pending_tag is not None
 
 
