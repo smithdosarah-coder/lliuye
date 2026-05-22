@@ -586,6 +586,43 @@ def generate(
             )
             fb_stats["placeholder"] += 1
 
+    # ───────────────────────────────────────────────────────────────
+    # 治本 · 全量 deterministic financial pre-pass (2026-05-22 agent21 抓的真根因)
+    # ───────────────────────────────────────────────────────────────
+    # 问题: classifier 把财务分析段 (营业收入/资产负债率/经营活动现金流/应收账款 + 具体数字)
+    #       误标 PRESERVE → handler 直接保留原文 → 经纬模板财务数字渗进 docx ·
+    #       是 user 第 3+4 次 dogfood 看到"分析逻辑还是经纬度"的真根因.
+    # 治本: deterministic regex 扫全量 element · 含【财务关键词 + 具体数字】立即标 REWRITE
+    #       走 LLM 改写 (LLM 已有 raw material 剔除数字 + financial_metrics 真值 block).
+    # 强制覆盖 classifier 误分的 PRESERVE/SCAFFOLD/FILL · 不让经纬数字漏过.
+    _FINANCIAL_KEYWORDS = (
+        "营业收入", "总资产", "总负债", "所有者权益", "应收账款", "应付账款",
+        "存货", "净利润", "毛利", "资产负债率", "流动比率", "速动比率",
+        "经营活动", "投资活动", "筹资活动", "现金流", "毛利率", "净利率",
+        "周转", "应收", "应付", "净资产收益率", "ROA", "ROE",
+        "财务费用", "营业成本", "管理费用", "销售费用",
+    )
+    _NUM_PATTERN = _re.compile(r"[\d,]+(?:\.\d+)?\s*(?:万元|亿元|百万元|千万元|%|‰|个百分点)")
+    _financial_skipped_keys = ("PLACEHOLDER",)  # 已 placeholder 化的不动
+    for e in elements:
+        text = (e.text or "")
+        if not text or len(text) < 30:
+            continue
+        # 已是 PLACEHOLDER (pre-pass 优先) 跳过 · 走 REPLACE 路径不冲突
+        existing = classifications.get(e.location)
+        if existing and existing.label in _financial_skipped_keys:
+            continue
+        # 含财务关键词 + 含具体数字 = 财务分析段 · force REWRITE
+        has_kw = any(kw in text for kw in _FINANCIAL_KEYWORDS)
+        has_num = bool(_NUM_PATTERN.search(text))
+        if has_kw and has_num:
+            classifications[e.location] = Classification(
+                location=e.location, op="REWRITE", label="FINANCIAL",
+                confidence=1.0,
+                justification="deterministic financial pre-pass · 强制 REWRITE 防经纬数字 PRESERVE 残留"
+            )
+            fb_stats["rewrite"] += 1
+
     # Pre-pass: 现有 PRESERVE/SCAFFOLD 若文本是已知字段标签(如"客户名称：")且 KB
     # 有对应值,上调为 FILL/FILL。分类器会把只写了标签的短段判为 SCAFFOLD,
     # 错失填充机会;这里做事实驱动的补救。
