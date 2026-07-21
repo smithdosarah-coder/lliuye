@@ -63,6 +63,36 @@ def _stage(stage: str, progress: float, message: str) -> str:
     })
 
 
+def _load_pending_questions(pending_path: str | Path | None) -> list[dict]:
+    """Load generator pending JSON and flatten legacy/nested containers."""
+    if not pending_path or not Path(pending_path).is_file():
+        return []
+    try:
+        raw = json.loads(Path(pending_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return []
+
+    pending: list[dict] = []
+
+    def _collect(value: Any) -> None:
+        if len(pending) >= 30:
+            return
+        if isinstance(value, list):
+            for item in value:
+                _collect(item)
+        elif isinstance(value, dict):
+            if any(key in value for key in ("id", "label", "reason", "location")):
+                pending.append(value)
+            elif "pending_tags" in value:
+                _collect(value["pending_tags"])
+            else:
+                for item in value.values():
+                    _collect(item)
+
+    _collect(raw)
+    return pending[:30]
+
+
 # ---------------------------------------------------------------------------
 # Section extraction · 从 v16 输出 docx 抽 4 章 sections (V2 fix issue 2 · codex DISAGREE)
 # ---------------------------------------------------------------------------
@@ -456,16 +486,7 @@ def _run_v16_in_thread(
         # done 事件 · 聚合 summary
         output_docx = summary.get("output_docx")
         pending_path = summary.get("pending_json")
-        pending_questions: list[dict] = []
-        if pending_path and Path(pending_path).is_file():
-            try:
-                raw = json.loads(Path(pending_path).read_text(encoding="utf-8"))
-                if isinstance(raw, list):
-                    pending_questions = raw[:30]
-                elif isinstance(raw, dict):
-                    pending_questions = list(raw.values())[:30]
-            except (OSError, ValueError, TypeError):
-                pass
+        pending_questions = _load_pending_questions(pending_path)
 
         report_docx_url = None
         if output_docx and Path(output_docx).is_file():
@@ -486,6 +507,9 @@ def _run_v16_in_thread(
                 "score": qc.get("score"),
                 "fatal_fail": qc.get("fatal_fail", False),
                 "halluc_count": qc.get("hallucinations", 0),
+                "fatal_reasons": qc.get("fatal_reasons") or [],
+                "dimensions": qc.get("dimensions") or [],
+                "hallucinations": qc.get("hallucination_details") or [],
             }
             stats_payload = {
                 "handler": summary.get("handler_stats"),
@@ -506,6 +530,9 @@ def _run_v16_in_thread(
                 "score": qc.get("score"),
                 "fatal_fail": qc.get("fatal_fail", False),
                 "halluc_count": qc.get("hallucinations", 0),
+                "fatal_reasons": qc.get("fatal_reasons") or [],
+                "dimensions": qc.get("dimensions") or [],
+                "hallucinations": qc.get("hallucination_details") or [],
             }
             stats_payload = {
                 "handler": summary.get("handler_stats"),

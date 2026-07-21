@@ -20,6 +20,13 @@ from dataclasses import dataclass, field, asdict
 from typing import Callable, Optional, Any
 
 
+DIMENSION_GATES: dict[str, float] = {
+    "财务分析深度": 7.0,
+    "格式规范": 6.0,
+    "申报方案硬字段": 5.0,
+}
+
+
 # -------------------------------------------------------------------
 # 数据契约
 # -------------------------------------------------------------------
@@ -244,13 +251,8 @@ class QualityScorer:
         # 维度级 fatal_fail 闸 · 总分 75 过宽 · per-dim 不达即 fatal
         # (per docs/contracts/agent-output-rubric-2026-05-11.md §3.5 report · audit P5 fix)
         # 维度 raw_score 0-10 · 财务深度 ≥ 7 / 格式规范 ≥ 6 / 申报方案硬字段 ≥ 5
-        _DIM_GATES: dict[str, float] = {
-            "财务分析深度": 7.0,
-            "格式规范": 6.0,
-            "申报方案硬字段": 5.0,
-        }
         for d in dims:
-            min_required = _DIM_GATES.get(d.name)
+            min_required = DIMENSION_GATES.get(d.name)
             if min_required is None:
                 continue
             if d.raw_score < min_required:

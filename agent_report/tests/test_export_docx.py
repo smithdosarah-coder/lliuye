@@ -2,7 +2,7 @@
 """Stage C.1 · POST /api/report/export_docx + GET /api/report/downloads/{report_id} 单测.
 
 锁定:
-  - export_docx 直接 payload 路径(profile + sections) → valid docx
+  - export_docx 拒绝客户端直接 payload 路径(profile + sections)
   - export_docx 从 session 取数据(session_id) → valid docx · 含 sections 内容
   - 空 sections + 空 profile → 400 VALIDATION_FAILED
   - filename build 含 company name
@@ -152,20 +152,12 @@ def test_build_filename_strips_illegal_chars():
 # POST /api/report/export_docx · 端点
 # ============================================================================
 
-def test_endpoint_with_direct_payload(client):
+def test_endpoint_rejects_untrusted_direct_payload(client):
     resp = client.post("/api/report/export_docx", json=_full_payload())
-    assert resp.status_code == 200, resp.text
-    ct = resp.headers["content-type"]
-    assert "wordprocessingml.document" in ct
-    cd = resp.headers["content-disposition"]
-    assert "attachment" in cd
-    assert "filename*=UTF-8''" in cd
-    body = resp.content
-    assert len(body) > 4000
-    with zipfile.ZipFile(io.BytesIO(body)) as z:
-        assert "word/document.xml" in z.namelist()
-    assert resp.headers["X-Agent6-Export-Type"] == "docx"
-    assert int(resp.headers["X-Agent6-Export-Sections"]) == 3
+    assert resp.status_code == 400
+    error = resp.json()["detail"]["error"]
+    assert error["code"] == "VALIDATION_FAILED"
+    assert "服务端会话" in error["message"]
 
 
 def test_endpoint_with_session_id(client):

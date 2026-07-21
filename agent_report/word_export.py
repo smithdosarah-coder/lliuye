@@ -32,9 +32,11 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
+from quality_scorer import DIMENSION_GATES
 
 _DEFAULT_FONT = "Microsoft YaHei"
 NA = "—"
+QUALITY_GATE_WATERMARK = "质量闸未过 · 内部草稿 · 不得作为审批依据"
 
 _BUSINESS_LABEL = {
     "corporate": "对公授信",
@@ -134,6 +136,79 @@ def _safe_section_title(sec: dict) -> str:
     return _CHAPTER_TITLES.get(sid, sid or "段落")
 
 
+def _quality_gate_reasons(qc: dict) -> list[str]:
+    reasons: list[str] = []
+
+    def _append(message: Any, severity: Any = None) -> None:
+        if message in (None, ""):
+            return
+        prefix = f"{severity}: " if severity not in (None, "") else ""
+        reasons.append(prefix + str(message))
+
+    # quality_scorer.QualityReport.to_json() 的真实结构。
+    for reason in qc.get("fatal_reasons") or []:
+        _append(reason, "fatal")
+
+    for dimension in qc.get("dimensions") or []:
+        if not isinstance(dimension, dict):
+            continue
+        name = str(dimension.get("name") or "未命名维度")
+        threshold = dimension.get("pass_threshold", dimension.get("threshold"))
+        if not isinstance(threshold, (int, float)):
+            threshold = DIMENSION_GATES.get(name)
+        raw_score = dimension.get("raw_score")
+        gate_failed = (
+            threshold is not None
+            and isinstance(raw_score, (int, float))
+            and raw_score < threshold
+        )
+        explicit_failed = (
+            dimension.get("passed") is False
+            or str(dimension.get("status") or "").lower() in {"fail", "failed", "blocked"}
+        )
+        failed = gate_failed or explicit_failed
+        if not failed:
+            continue
+        missed = dimension.get("missed_items") or []
+        score_detail = (
+            f"实际分 {raw_score:g} vs 闸值 {threshold:g}"
+            if gate_failed else f"实际分 {raw_score:g}，该维度标记失败"
+            if isinstance(raw_score, (int, float)) else "该维度标记失败"
+        )
+        missed_detail = "；".join(str(item) for item in missed if item)
+        detail = f"{score_detail}；{missed_detail}" if missed_detail else score_detail
+        _append(f"维度「{name}」：{detail}")
+
+    hallucinations = qc.get("hallucinations") or []
+    if isinstance(hallucinations, list):
+        for item in hallucinations:
+            if not isinstance(item, dict):
+                continue
+            text = item.get("text") or "疑似幻觉"
+            reason = item.get("reason") or "需人工复核"
+            location = item.get("location")
+            location_text = f"（{location}）" if location else ""
+            _append(f"{text}{location_text}：{reason}")
+
+    # 兼容历史/外部 QC 载荷；有真实 severity 才显示前缀。
+    for key in ("issues", "blocks", "warnings", "blocking_reasons"):
+        raw = qc.get(key) or []
+        if isinstance(raw, dict):
+            raw = list(raw.values())
+        if not isinstance(raw, list):
+            raw = [raw]
+        for item in raw:
+            if isinstance(item, dict):
+                severity = item.get("severity") or item.get("level")
+                message = item.get("message") or item.get("reason") or item.get("detail")
+                _append(message, severity)
+            elif item:
+                _append(item)
+    if not reasons:
+        reasons.append("会话未通过质量检查")
+    return reasons
+
+
 # ============================================================================
 # 主入口
 # ============================================================================
@@ -160,6 +235,29 @@ def export(payload: dict, output_path: str | Path | None = None) -> bytes:
         section.bottom_margin = Cm(2.0)
         section.left_margin = Cm(2.2)
         section.right_margin = Cm(2.2)
+
+    gate_blocked = qc.get("passed") is not True
+    if gate_blocked:
+        for section in doc.sections:
+            header = section.header.paragraphs[0]
+            header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = header.add_run(QUALITY_GATE_WATERMARK)
+            _set_font(run, size=10, bold=True, color=(175, 60, 45))
+
+        _add_paragraph(
+            doc,
+            QUALITY_GATE_WATERMARK,
+            size=12,
+            bold=True,
+            align=WD_ALIGN_PARAGRAPH.CENTER,
+            color=(175, 60, 45),
+        )
+        _add_paragraph(
+            doc,
+            "阻断原因：" + "；".join(_quality_gate_reasons(qc)),
+            size=10,
+            color=(175, 60, 45),
+        )
 
     # ---------- 标题 ----------
     _add_paragraph(
@@ -359,17 +457,21 @@ def _render_section(doc, sec: dict) -> None:
 
 def _render_pending_section(doc, pending: list[dict]) -> None:
     _add_heading(doc, "附录：待补字段清单", level=2)
-    table = doc.add_table(rows=1, cols=3)
+    table = doc.add_table(rows=1, cols=5)
     table.style = "Light Grid Accent 1"
-    for i, h in enumerate(["#", "字段", "建议来源 / 推荐答案"]):
+    for i, h in enumerate(["#", "字段 / 位置", "缺失原因", "建议动作", "建议来源 / 推荐答案"]):
         _set_cell_text(table.rows[0].cells[i], h, bold=True, size=10)
     for i, q in enumerate(pending[:30], 1):
         row = table.add_row().cells
         _set_cell_text(row[0], str(i), size=9.5)
-        label = _fmt(q.get("label") or q.get("id"))
-        _set_cell_text(row[1], label, size=9.5)
+        label = q.get("label") or q.get("text") or q.get("id")
+        location = q.get("location")
+        field_location = " / ".join(str(v) for v in (label, location) if v not in (None, ""))
+        _set_cell_text(row[1], _fmt(field_location), size=9.5)
+        _set_cell_text(row[2], _fmt(q.get("reason")), size=9.5)
+        _set_cell_text(row[3], _fmt(q.get("suggested_action")), size=9.5)
         rec = q.get("recommended") or q.get("source_ref") or NA
-        _set_cell_text(row[2], _fmt(rec), size=9.5)
+        _set_cell_text(row[4], _fmt(rec), size=9.5)
     _add_paragraph(doc, "")
 
 

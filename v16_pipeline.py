@@ -139,6 +139,9 @@ def run_pipeline(
         qc_result["score"] = report.total_score
         qc_result["fatal_fail"] = report.fatal_fail
         qc_result["hallucinations"] = len(report.hallucinations)
+        qc_result["fatal_reasons"] = list(report.fatal_reasons)
+        qc_result["dimensions"] = report.to_json()["dimensions"]
+        qc_result["hallucination_details"] = report.to_json()["hallucinations"]
         print(f"\n[QC] score={report.total_score:.1f} / 100  "
               f"passed={report.passed}  halluc={len(report.hallucinations)}")
         print(f"  └ qc md: {qc_md_path}")

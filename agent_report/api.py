@@ -1246,11 +1246,38 @@ class ExportDocxRequest(BaseModel):
     # 直接传字段(不依赖 session · 用于 mock 路径)
     profile: dict | None = None
     sections: list[dict] | None = None
-    pending_questions: list[dict] | None = None
+    pending_questions: list[dict] | dict | None = None
     stats: dict | None = None
     qc: dict | None = None
     business_line: str = "corporate"
     client_manager: str = ""
+
+
+def _normalize_pending_questions(value: list[dict] | dict | None) -> list[dict]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if value and all(isinstance(item, dict) for item in value.values()):
+        return list(value.values())
+    return [value]
+
+
+def _trusted_export_fields(sess: dict[str, Any]) -> dict[str, Any]:
+    """Return export content/QC owned by the server-side session only."""
+    done_payload = sess.get("done_payload") or {}
+    qc_payload = sess.get("qc_payload") or done_payload.get("qc")
+    if not isinstance(qc_payload, dict):
+        qc_payload = {"passed": None}
+    return {
+        "profile": sess.get("enterprise_profile") or done_payload.get("profile") or {},
+        "sections": done_payload.get("sections") or [],
+        "pending_questions": _normalize_pending_questions(
+            sess.get("pending_questions") or done_payload.get("pending_questions")
+        ),
+        "stats": done_payload.get("stats") or {},
+        "qc": qc_payload,
+    }
 
 
 """Sprint 5+ D5 · 回写 Agent6 endpoint (per Codex+Claude R1 双辩论 + xlsx v2 3.2 verbatim "回写 Agent6 闭环 · 决策上链 ledger evidence")
@@ -1370,35 +1397,23 @@ async def report_export_docx(
         "client_manager": req.client_manager,
     }
 
-    # 优先从 session 取 sections / profile / pending
+    # profile / sections / qc 只信任服务端 session；请求字段仅为旧客户端兼容保留。
     if sid:
         sess = store.get(sid)
         if sess:
-            done_payload = sess.get("done_payload") or {}
-            ep = sess.get("enterprise_profile") or done_payload.get("profile") or {}
-            payload["profile"] = ep
-            payload["sections"] = done_payload.get("sections") or []
-            payload["pending_questions"] = sess.get("pending_questions") or []
-            payload["stats"] = done_payload.get("stats") or {}
+            payload.update(_trusted_export_fields(sess))
 
-    # 显式 payload 字段覆盖 session
-    if req.profile is not None:
-        payload["profile"] = req.profile
-    if req.sections is not None:
-        payload["sections"] = req.sections
     if req.pending_questions is not None:
-        payload["pending_questions"] = req.pending_questions
+        payload["pending_questions"] = _normalize_pending_questions(req.pending_questions)
     if req.stats is not None:
         payload["stats"] = req.stats
-    if req.qc is not None:
-        payload["qc"] = req.qc
 
     if not payload.get("sections") and not payload.get("profile"):
         raise HTTPException(
             status_code=400,
             detail={"error": {"code": "VALIDATION_FAILED",
-                              "message": "需 session_id (含 sections) 或显式 profile/sections",
-                              "details": {"field": "session_id|sections"}}},
+                              "message": "需有效 session_id；报告正文与质检结果必须来自服务端会话",
+                              "details": {"field": "session_id"}}},
         )
 
     # 审计
@@ -1791,30 +1806,19 @@ async def report_export_pdf(
     if sid:
         sess = store.get(sid)
         if sess:
-            done_payload = sess.get("done_payload") or {}
-            ep = sess.get("enterprise_profile") or done_payload.get("profile") or {}
-            payload["profile"] = ep
-            payload["sections"] = done_payload.get("sections") or []
-            payload["pending_questions"] = sess.get("pending_questions") or []
-            payload["stats"] = done_payload.get("stats") or {}
+            payload.update(_trusted_export_fields(sess))
 
-    if req.profile is not None:
-        payload["profile"] = req.profile
-    if req.sections is not None:
-        payload["sections"] = req.sections
     if req.pending_questions is not None:
-        payload["pending_questions"] = req.pending_questions
+        payload["pending_questions"] = _normalize_pending_questions(req.pending_questions)
     if req.stats is not None:
         payload["stats"] = req.stats
-    if req.qc is not None:
-        payload["qc"] = req.qc
 
     if not payload.get("sections") and not payload.get("profile"):
         raise HTTPException(
             status_code=400,
             detail={"error": {"code": "VALIDATION_FAILED",
-                              "message": "需 session_id (含 sections) 或显式 profile/sections",
-                              "details": {"field": "session_id|sections"}}},
+                              "message": "需有效 session_id；报告正文与质检结果必须来自服务端会话",
+                              "details": {"field": "session_id"}}},
         )
 
     _audit_t0 = time.time()
@@ -1868,6 +1872,17 @@ async def report_export_pdf(
     foot = ParagraphStyle("footcn", parent=styles["Italic"], fontName=cn_font, fontSize=9, textColor="#666666")
 
     flow: list[Any] = []
+    from agent_report.word_export import QUALITY_GATE_WATERMARK, _quality_gate_reasons
+    qc = payload.get("qc") or {}
+    gate_blocked = qc.get("passed") is not True
+    if gate_blocked:
+        flow.append(Paragraph(QUALITY_GATE_WATERMARK, h2))
+        flow.append(Paragraph(
+            "阻断原因：" + "；".join(_quality_gate_reasons(qc)),
+            body,
+        ))
+        flow.append(Spacer(1, 12))
+
     profile = payload.get("profile") or {}
     title = profile.get("company_name") or sid or "授信调查报告"
     flow.append(Paragraph(f"{title} · 授信调查报告", h1))
@@ -1899,8 +1914,17 @@ async def report_export_pdf(
         "— 以上为 AI 协作预览稿 · 未经人工终审不得作为正式决策依据 —", foot,
     ))
 
+    def _draw_gate_header(canvas, _doc):
+        if not gate_blocked:
+            return
+        canvas.saveState()
+        canvas.setFont(cn_font, 10)
+        canvas.setFillColorRGB(0.69, 0.24, 0.18)
+        canvas.drawCentredString(A4[0] / 2, A4[1] - 28, QUALITY_GATE_WATERMARK)
+        canvas.restoreState()
+
     try:
-        doc.build(flow)
+        doc.build(flow, onFirstPage=_draw_gate_header, onLaterPages=_draw_gate_header)
     except Exception as e:
         audit_log({
             "timestamp": datetime.now().isoformat(timespec="seconds"),
