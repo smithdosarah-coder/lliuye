@@ -19,7 +19,12 @@
 
 ## CP 记录（Claude 填写）
 
-（暂无）
+### CP1-BLOCKED · 260721 · 判定：环境失效，清障后重启（非任务失败）
+
+- Codex 自述核验 ✅：HEAD 0082067 零新 commit、Stage 1 目标文件零改动、无 push/deploy——边界纪律执行正确
+- 根因：宿主机内存 88%（free 1.7GB，chrome×21 + node×40 + 挂死 codex 共 2.6GB 残留）→ apply_patch 与 PowerShell 探针挂起。已清障至 76%（free 3.4GB）
+- 方案修正：A5 补验收形态（纯文档卡 TDD 例外：OPEN=红态，grep PASS=绿态）+ 全 Stage 通用「编辑工具挂起→py 脚本替代」姿势
+- 处置：Stage 1 从 A5 原顺序重跑，重启指令含 30 秒环境自检前置（探针挂起立即报告不硬跑）
 
 ## 砍卡登记
 
