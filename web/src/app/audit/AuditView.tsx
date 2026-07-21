@@ -79,8 +79,8 @@ export function AuditView() {
         </span>
       </h1>
       <p className="lede">
-        当前 persona <strong>{currentUser?.name ?? "—"}</strong>
-        ·实时 event-bus 前 50 条。完整历史走后端 /api/audit 接口（Phase 2 接线）。
+        当前用户 <strong>{currentUser?.name ?? "—"}</strong>
+        · 显示本次会话最近 50 条操作记录 · 完整历史查询即将上线。
       </p>
 
       <div className="audit-toolbar">

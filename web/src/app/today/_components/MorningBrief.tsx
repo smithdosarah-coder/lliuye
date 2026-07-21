@@ -184,19 +184,19 @@ export function MorningBrief() {
       <div className="hero-meta hero-meta--row">
         <StatCell
           label="待办 · Tickets"
-          value={String(stats.tickets).padStart(2, "0")}
+          value={String(stats.tickets)}
           unit="项"
-          hint="warroom 未交付,先用 mock fallback"
+          hint="待处理的交接任务"
         />
         <StatCell
           label="今日预警 · Alerts"
-          value={String(stats.alerts).padStart(2, "0")}
+          value={String(stats.alerts)}
           unit="条"
-          hint="event-bus 订阅 · type=alert.*"
+          hint="今日新增预警信号"
         />
         <StatCell
           label="活跃客户 · Active"
-          value={String(stats.active).padStart(2, "0")}
+          value={String(stats.active)}
           unit="户"
           hint="归属于你 · 今日有活动"
         />

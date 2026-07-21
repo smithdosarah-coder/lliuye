@@ -1997,7 +1997,7 @@ function CreditEmptyState(p: {
       <header className="credit-empty__hero">
         <div className="credit-empty__hero-eyebrow">AGENT · 03 · BENCH · 授信决策辅助</div>
         <h1 className="credit-empty__hero-title">
-          授信决策辅助 · 4 维评分 + 红线 + 案例 + 决策建议书
+          授信决策辅助 · 评分、红线核查与决策建议
         </h1>
         <p className="credit-empty__hero-sub">
           当前板块: <strong>{CREDIT_MODE_LABEL[p.mode]}</strong> · {stageDesc}
@@ -2038,8 +2038,8 @@ function CreditEmptyState(p: {
           onClick={() => p.onInputModeChange("demo")}
           disabled={p.decisionRunning || !p.onRunDemo}
         >
-          演示数据
-          <span className="credit-empty__input-mode-sub">内置 sample · 真后端跑</span>
+          示例数据
+          <span className="credit-empty__input-mode-sub">内置示例客户</span>
         </button>
       </div>
 
@@ -2059,7 +2059,7 @@ function CreditEmptyState(p: {
               {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
             </span>
             <span className="credit-empty__cta-sub">
-              选已完成尽调报告 · 自动注入企业画像 · LLM SSE 决策 (cat 0 北极星)
+              选择已完成的尽调报告 · 自动带入企业画像 · 生成决策建议
             </span>
           </button>
         ) : (
@@ -2071,12 +2071,12 @@ function CreditEmptyState(p: {
             onClick={p.onRunDemo}
             disabled={p.decisionRunning || !p.onRunDemo}
           >
-            <span className="credit-empty__cta-rank">演示数据 · 内置 sample</span>
+            <span className="credit-empty__cta-rank">示例数据 · 内置客户</span>
             <span className="credit-empty__cta-title">
               {p.decisionRunning ? "运行中…" : `一键运行 · ${sampleName}`}
             </span>
             <span className="credit-empty__cta-sub">
-              加载内置 ReportJSON · 真后端 LLM/评分/红线/案例/ledger 全真跑 · 演示 ≠ 假数据
+              使用内置示例客户 · 评分、红线与建议全流程与正式模式一致
             </span>
           </button>
         )}
@@ -2106,7 +2106,7 @@ function CreditEmptyState(p: {
         </div>
         <div className="credit-empty__skel-row">
           <div className="credit-empty__skel-card credit-empty__skel-card--wide" data-skel="advice">
-            <div className="credit-empty__skel-lbl">决策建议书 · LLM 自然语言</div>
+            <div className="credit-empty__skel-lbl">决策建议书</div>
             <div className="credit-empty__skel-hint">
               起决策完成后显示决策结论 / 额度 / 期限 / 利率 / 红线解释
             </div>
@@ -2136,10 +2136,10 @@ function CreditEmptyState(p: {
           ◉ 服务正常
         </span>
         <span className="credit-empty__status-item">
-          板块: <code>{stageTab}</code>
+          当前板块: {CREDIT_MODE_LABEL[p.mode]?.split(" · ")[0] ?? stageTab}
         </span>
         <span className="credit-empty__status-item credit-empty__status-item--demo">
-          {p.decisionRunning ? "授信流式中…" : "等待主操作"}
+          {p.decisionRunning ? "决策生成中…" : "等待发起决策"}
         </span>
         {p.decisionError ? (
           <span

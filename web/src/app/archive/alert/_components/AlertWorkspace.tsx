@@ -2066,11 +2066,11 @@ function AlertEmptyState(p: {
   const ctaTitle = p.scanRunning
     ? "扫描中…"
     : isDemo
-    ? "启动 demo 扫描 · alert-pool 180 户"
-    : "启动风险扫描 · 上传客户名录后真跑";
+    ? "启动示例扫描 · 内置 180 户样例"
+    : "启动风险扫描 · 请先上传客户名录";
   const ctaSub = isDemo
-    ? "POST /api/alert/demo/run · backend 真跑 + Tavily + LLM 处置 · 输入 alert-pool/clients.csv"
-    : "POST /api/alert/scan · 在贷客户池规则扫 + 双路交叉 · 真 Tavily + 真 LLM";
+    ? "对内置样例客户池执行完整扫描 · 流程与正式扫描一致"
+    : "外部信号与行内规则双路交叉 · 输出分级榜单与处置建议";
 
   return (
     <div className="alert-empty" data-testid="alert-empty-skeleton" data-input-mode={p.inputMode}>
@@ -2103,7 +2103,7 @@ function AlertEmptyState(p: {
           disabled={p.scanRunning}
           aria-pressed={p.inputMode === "live"}
         >
-          真实模式 · 客户经理上传名录
+          正式扫描 · 上传在贷客户名录
         </button>
         <button
           type="button"
@@ -2114,10 +2114,10 @@ function AlertEmptyState(p: {
           disabled={p.scanRunning}
           aria-pressed={p.inputMode === "demo"}
         >
-          演示模式 · alert-pool 180 户内部 batch
+          示例扫描 · 内置 180 户样例
         </button>
         <span className="alert-empty__input-toggle-hint">
-          backend 真跑 · 两 mode 同 pipeline · 仅输入不同
+          两种方式的扫描流程完全一致 · 仅数据来源不同
         </span>
       </section>
 
@@ -2132,42 +2132,42 @@ function AlertEmptyState(p: {
         {isDemo ? (
           <>
             <div className="alert-empty__preview-card">
-              <div className="alert-empty__preview-h">data/mock/alert-pool/ batch</div>
+              <div className="alert-empty__preview-h">内置样例包含什么</div>
               <ul className="alert-empty__preview-stats">
-                <li><b>180 户</b> 在贷客户池 · clients.csv (含行业 / 区域 / 规模 / 在贷余额)</li>
-                <li><b>180 份</b> 外部信号时间线 · external-signals/AP*.md (近 12 月舆情/司法/工商/监管)</li>
-                <li><b>180 份</b> 内部交易流水 · transactions/AP*.csv (近 24 月)</li>
-                <li>backend 真跑 · Tavily 真接 · LLM 真处置 · ledger 真上链</li>
+                <li><b>180 户</b> 在贷客户池（含行业 / 区域 / 规模 / 在贷余额）</li>
+                <li><b>180 份</b> 外部信号时间线（近 12 月舆情 / 司法 / 工商 / 监管）</li>
+                <li><b>180 份</b> 内部交易流水（近 24 月）</li>
+                <li>扫描、分级与处置建议全流程与正式扫描一致</li>
               </ul>
             </div>
             <div className="alert-empty__preview-card">
-              <div className="alert-empty__preview-h">演示路径透明性</div>
+              <div className="alert-empty__preview-h">结果如何留存</div>
               <ul className="alert-empty__preview-stats">
-                <li>POST /api/alert/demo/run → run_scan_and_persist (同 /api/alert/scan)</li>
-                <li>red 客户上链 retention=standard (5y · 银保监 archive)</li>
-                <li>yellow 客户上链 retention=short (90d · routine 预警)</li>
-                <li>结果不能 mock · 仅 alert-pool 输入是 mock</li>
+                <li>红档客户记录留存 5 年（监管归档要求）</li>
+                <li>黄档客户记录留存 90 天（日常预警）</li>
+                <li>每户命中均附证据链，可逐条追溯</li>
+                <li>示例仅数据为样例，扫描结果真实可查</li>
               </ul>
             </div>
           </>
         ) : (
           <>
             <div className="alert-empty__preview-card">
-              <div className="alert-empty__preview-h">真实模式输入清单</div>
+              <div className="alert-empty__preview-h">正式扫描需要准备</div>
               <ul className="alert-empty__preview-stats">
-                <li>客户名录 · Excel/CSV (含 company_name / unified_credit_code)</li>
-                <li>预警规则 · JSON (e.g. POL-001 逾期超阈 · POL-003 关联方重整)</li>
-                <li>内部制度 · Word/PDF (LLM 抽 POL- 前缀规则)</li>
-                <li>· 上传或选预置场景 demo_data/agent_alert/</li>
+                <li>客户名录 · Excel/CSV（含企业名称、统一社会信用代码）</li>
+                <li>预警规则 · 可用行内现行规则（如逾期超阈、关联方重整）</li>
+                <li>内部制度 · Word/PDF（系统自动提取预警规则）</li>
+                <li>也可选择预置场景快速开始</li>
               </ul>
             </div>
             <div className="alert-empty__preview-card">
-              <div className="alert-empty__preview-h">backend 路径</div>
+              <div className="alert-empty__preview-h">扫描怎么跑</div>
               <ul className="alert-empty__preview-stats">
-                <li>POST /api/alert/scan → run_scan_and_persist</li>
-                <li>双路扫: 外部 Tavily (舆情/司法) × 内部规则 (POL-)</li>
-                <li>LLM 处置 · 红/黄客户生成 disposition · 模板兜底</li>
-                <li>持久化 data/alert/sessions/ + ledger 上链</li>
+                <li>外部信号（舆情 / 司法 / 工商 / 失信）逐户核查</li>
+                <li>行内规则（制度 / 限额 / 白黑名单）逐条比对</li>
+                <li>双路交叉命中 → 红黄绿分级 + 处置建议</li>
+                <li>全部结果留档，可追溯每一条命中依据</li>
               </ul>
             </div>
           </>
@@ -2342,7 +2342,7 @@ function AlertIdleMidOverview(p: {
             <span className="alert-idle-mid-card__lbl">绿档 · 常规跟踪</span>
           </div>
           <div className="alert-idle-mid-card__hint">
-            数字来自后端 done envelope · 双路扫 (外部 Tavily × 内部规则) · LLM 处置 · ledger 上链
+            外部信号与行内规则双路交叉 · 每户命中均附证据链与处置建议
           </div>
         </article>
 

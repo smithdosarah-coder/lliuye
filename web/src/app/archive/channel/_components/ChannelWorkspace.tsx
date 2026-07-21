@@ -592,7 +592,7 @@ export default function ChannelWorkspace() {
                 margin: "0 0 10px 0",
               }}
             >
-              输入业务诉求 → 真接 Tavily/AI 搜出 look-alike
+              输入业务诉求，AI 检索相似企业
             </h3>
             <p
               style={{
@@ -671,7 +671,7 @@ export default function ChannelWorkspace() {
                 margin: "0 0 10px 0",
               }}
             >
-              银行营销倾向 docx → 真后端跑一遍
+              上传营销倾向文档，自动检索匹配企业
             </h3>
             <p
               style={{
@@ -682,9 +682,7 @@ export default function ChannelWorkspace() {
                 margin: "0 0 14px 0",
               }}
             >
-              用 <code style={{ fontFamily: "var(--mono)", color: "var(--accent)" }}>
-                channel-kb/marketing-preferences/
-              </code> 真上传 · 派生 seed query · 走真 Tavily/AI 跑全管线 · 候选/评分/匹配理由全 LLM 抽 · 不写死.
+              系统解析行内营销倾向文档，自动生成检索条件并完成企业匹配 · 候选、评分与匹配理由均由 AI 实时生成。
             </p>
             <p
               style={{
@@ -1975,7 +1973,7 @@ function QueryBar({
         <div>
           <div className="rpt-panel-eyebrow">QUERY · 形态切换</div>
           <h3 className="rpt-panel-title ch-querybar-title">
-            一句话描述要找的企业 · <em>两形态都跑真后端 (Tavily + AI)</em>
+            一句话描述要找的企业
           </h3>
         </div>
         {/* Phase B.2 (PM 2026-05-10) · 形态切换 segmented control · 不是 ModePill 切假
@@ -1996,7 +1994,7 @@ function QueryBar({
         >
           {[
             { key: "free", label: "自由查询", hint: "RM 输入业务诉求" },
-            { key: "sample", label: "一键示例", hint: "channel-kb 优质 batch 派生" },
+            { key: "sample", label: "一键示例", hint: "用内置营销倾向文档" },
           ].map((opt) => {
             const active = inputMode === opt.key;
             return (
