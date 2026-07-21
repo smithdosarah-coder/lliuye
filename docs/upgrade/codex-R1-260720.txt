@@ -1,0 +1,150 @@
+204:| Q-055/Q-056（虚构锚点永不引用 / stop-the-line 十条） | 全程有效；本方案新增的负例测试就是其代码化 |
+219:| 数智尽调 Agent（编排+工作台） | 编排最小版（H4）+ 工作台五律改造（P3） | 升级覆盖 |
+agent_report\api.py:1259:   行为: 1) ledger record_decision agent_id=report endpoint=/v16/inject
+agent_report\api.py:1292:        from shared.decision_ledger import default_ledger
+agent_compliance\api.py:212:        from shared.decision_ledger import default_ledger
+agent_credit\decision_engine.py:164:        # surface the real `persisted` flag — the public `record_decision`
+agent_credit\decision_engine.py:168:            from shared.decision_ledger import default_ledger
+shared\customer_aggregator.py:61:        from shared.decision_ledger import default_ledger
+shared\customer_aggregator.py:64:        from shared.decision_ledger import hash_subject_id
+shared\decision_review.py:124:        from shared.decision_ledger import default_ledger
+shared\decision_ledger\schema.py:2:"""shared.decision_ledger.schema — LedgerEntry dataclass + defaults.
+shared\decision_ledger\hashing.py:2:"""shared.decision_ledger.hashing — canonical JSON SHA-256 helpers.
+shared\decision_ledger\hashing.py:4:Used by `record_decision` to compute `input_hash` / `output_hash` over the
+shared\decision_ledger\__init__.py:2:"""shared.decision_ledger — cross-agent decision audit log (BE7).
+shared\decision_ledger\__init__.py:8:  - decision_ledger = "which DECISIONS were made, by whom, with what
+shared\decision_ledger\__init__.py:16:  - ``record_decision(...)`` writer · silent-fail · returns decision_id
+shared\decision_ledger\__init__.py:51:    record_decision,
+shared\decision_ledger\__init__.py:77:    "record_decision",
+shared\decision_ledger\store.py:2:"""shared.decision_ledger.store — sqlite-backed DecisionLedger.
+shared\decision_ledger\store.py:138:            logger.warning("[decision_ledger] schema init failed: %s", e)
+shared\decision_ledger\store.py:227:                "[decision_ledger] sqlite write failed for %s: %s",
+shared\decision_ledger\store.py:335:                "[decision_ledger] feedback sqlite write failed for %s: %s",
+shared\decision_ledger\store.py:382:            logger.warning("[decision_ledger] feedback query failed: %s", exc)
+shared\decision_ledger\store.py:414:            logger.warning("[decision_ledger] sqlite get failed: %s", exc)
+shared\decision_ledger\store.py:459:            logger.warning("[decision_ledger] sqlite query failed: %s", exc)
+shared\decision_ledger\store.py:492:            logger.warning("[decision_ledger] sqlite count failed: %s", exc)
+shared\decision_ledger\store.py:570:            logger.warning("[decision_ledger] sqlite review failed: %s", exc)
+shared\decision_ledger\store.py:624:def record_decision(
+shared\decision_ledger\store.py:739:    "record_decision",
+shared\personal_profile.py:14:# PII redact 默认 salt · 与 shared/decision_ledger/hashing.py 风格一致
+shared\production_check.py:12:2. shared/decision_ledger sqlite 可写
+shared\production_check.py:84:def _check_decision_ledger_import() -> CheckResult:
+
+ exited 1 in 4310ms:
+55:> 出口验收：三条负例测试永久进回归（铁律反例固化，借交付预检 B 层）
+57:| # | 动作 | 落点 | 验收负例 |
+65:**工程量**：1-2 天。全部是删除与拒绝逻辑，无新架构。
+103:**工程量**：1.5-2 周。验收：11 家真实年报级别的 golden case（可复用 dd-engine 测试集思路重建 6Agent 自己的 golden）+ 回归全绿 + 负例集。
+119:**工程量**：1 周。验收：值对撞映射表 diff 零不一致；获客候选证据等级分布（official 占比）对比 Tavily 基线。
+148:**工程量**：P3a 2-3 天；P3b 1 周（依赖 P1 台账）。验收：逐页截图对照 + 零工程话术 grep + 交互剧本走查（借「剧本即业务动线」法）。
+156:| H1 | LLM 调用显式超时 + 同 provider 指数退避 | llm.py:69；银行场景长挂不可接受 |
+157:| H2 | LLM 层唯一化收口：v16 管线/channel realtime 迁 shared/llm_caller；config.py 9-provider 注册表与 llm_caller 合一 | 历史验收硬线补完 |
+158:| H3 | job runtime 最小版：长任务（v16 生成/kb 扫描）job_id + status + 幂等键 + 并发信号量 | 解锁 §3.7.6 api_server 拆分红线的前置 |
+159:| H4 | 编排最小实现：Agent6→3→4 handoff 走事件 + 状态机（结构化契约），闭环从文档路径变代码路径 | 借 lxs-v2 事件溯源 NFR 思想（设计级，不搬代码） |
+178:    → 交付物：负例回归三件 + 生产可见改观（push liuye.me 第一波）
+183:W5：P3b 三段式阅读室 + P4 剩余（H1-H4）
+188:每期出口按**交付包预检清单 A+B 层**验收（一条命令跑通/铁律反例测试/不信任客户端输入/私有信息扫描/契约零漂移）；宣称完成必须有新鲜运行证据（verification-before-completion）。
+202:| CLAUDE.md §3.7.6（禁 api_server 纯搬家拆分） | 遵守：拆分只随 H3 job runtime 实质解耦走 |
+204:| Q-055/Q-056（虚构锚点永不引用 / stop-the-line 十条） | 全程有效；本方案新增的负例测试就是其代码化 |
+219:| 数智尽调 Agent（编排+工作台） | 编排最小版（H4）+ 工作台五律改造（P3） | 升级覆盖 |
+agent_report\api.py:1259:   行为: 1) ledger record_decision agent_id=report endpoint=/v16/inject
+agent_report\api.py:1292:        from shared.decision_ledger import default_ledger
+agent_compliance\api.py:212:        from shared.decision_ledger import default_ledger
+agent_credit\decision_engine.py:164:        # surface the real `persisted` flag — the public `record_decision`
+agent_credit\decision_engine.py:168:            from shared.decision_ledger import default_ledger
+shared\customer_aggregator.py:61:        from shared.decision_ledger import default_ledger
+shared\customer_aggregator.py:64:        from shared.decision_ledger import hash_subject_id
+shared\decision_review.py:124:        from shared.decision_ledger import default_ledger
+shared\decision_ledger\schema.py:2:"""shared.decision_ledger.schema — LedgerEntry dataclass + defaults.
+shared\decision_ledger\hashing.py:2:"""shared.decision_ledger.hashing — canonical JSON SHA-256 helpers.
+shared\decision_ledger\hashing.py:4:Used by `record_decision` to compute `input_hash` / `output_hash` over the
+shared\decision_ledger\__init__.py:2:"""shared.decision_ledger — cross-agent decision audit log (BE7).
+shared\decision_ledger\__init__.py:8:  - decision_ledger = "which DECISIONS were made, by whom, with what
+shared\decision_ledger\__init__.py:16:  - ``record_decision(...)`` writer · silent-fail · returns decision_id
+shared\decision_ledger\__init__.py:51:    record_decision,
+shared\decision_ledger\__init__.py:77:    "record_decision",
+shared\decision_ledger\store.py:2:"""shared.decision_ledger.store — sqlite-backed DecisionLedger.
+shared\decision_ledger\store.py:138:            logger.warning("[decision_ledger] schema init failed: %s", e)
+shared\decision_ledger\store.py:227:                "[decision_ledger] sqlite write failed for %s: %s",
+shared\decision_ledger\store.py:335:                "[decision_ledger] feedback sqlite write failed for %s: %s",
+shared\decision_ledger\store.py:382:            logger.warning("[decision_ledger] feedback query failed: %s", exc)
+shared\decision_ledger\store.py:414:            logger.warning("[decision_ledger] sqlite get failed: %s", exc)
+shared\decision_ledger\store.py:459:            logger.warning("[decision_ledger] sqlite query failed: %s", exc)
+shared\decision_ledger\store.py:492:            logger.warning("[decision_ledger] sqlite count failed: %s", exc)
+shared\decision_ledger\store.py:570:            logger.warning("[decision_ledger] sqlite review failed: %s", exc)
+shared\decision_ledger\store.py:624:def record_decision(
+shared\decision_ledger\store.py:739:    "record_decision",
+shared\personal_profile.py:14:# PII redact 默认 salt · 与 shared/decision_ledger/hashing.py 风格一致
+shared\production_check.py:12:2. shared/decision_ledger sqlite 可写
+shared\production_check.py:84:def _check_decision_ledger_import() -> CheckResult:
+
+codex
+1. severity: BLOCKER / 位置: 升级方案 §3 P0.3、§4.1；`agent_report/api.py:1365-1414` / 问题陈述: 发布门仍可被客户端绕过。当前接口允许直接提交 `profile/sections/qc`，且 `req.qc` 会覆盖服务端数据；方案只写“检查 `qc.passed`”，未规定 QC 必须由服务端按不可变产物重新求值。攻击者或旧前端可传 `qc={"passed": true}` 导出任意正文。此外“拒绝或强制水印”不是确定契约，同一失败状态可能被不同实现放行。 / 建议修法: P0 先禁止客户端提供权威 QC；导出只能接受 `session_id + artifact_version`，服务端加载冻结正文、重新执行 blocker/verifier，并依据唯一策略决定“阻断”或“水印草稿”。明确正式发布只能来自 `releasable`，水印草稿不得进入 `released`。
+
+2. severity: BLOCKER / 位置: 升级方案 §10 Q-070；`docs/handoff/decisions-log.md:3340-3355` / 问题陈述: “个人项目语境下 RFC 简化为本方案 + 刘野拍板”不成立。Q-070 的 Active rules 明确要求 LY-NNN 冻结后修改走 RFC，`archive/` 修改还要求 deprecated/parity 流程；现有约束没有授予方案作者自行降级流程的权力。“准备以后写 decisions-log”也不等于已经获得翻案授权。 / 建议修法: 将所有相关 P3 项标为 `BLOCKED_ON_DECISION`；先新增正式 Q-NNN，列出被豁免的具体文件、LY 编号、parity checklist、批准人和有效期。未批准前不得把简化流程写成既定事实。
+
+3. severity: BLOCKER / 位置: 升级方案 §11、§5、§13 R4 / 问题陈述: IP 把关不足以支持施工。清单用“通用工程范式”“三代同源”“设计级重写”替代权属、授权和洁净室证据；同时计划连接公司生产 MCP，并称已用 production key 实测，却没有数据处理授权、日志脱敏、调用目的限制、测试主体许可、配额责任或离职后的停用机制。代码不逐行复制不能自动消除商业秘密和职务成果风险。 / 建议修法: P1/P2 前设置独立 IP gate：资产权属人书面授权、允许使用的接口和数据类别、洁净室人员与输入清单、禁止复制材料、设计来源记录、凭据托管及吊销、测试主体授权、日志和缓存保留期。未通过则只实现仓库内原创通用接口与合成 provider，不接生产 MCP。
+
+4. severity: MAJOR / 位置: 审计报告 A2；升级方案 §1、§3 P0.1；`v16_op_handlers.py:956-999` / 问题陈述: `_DEMO_SAFE_FALLBACK` 的性质判断属实，但数量不实：字典实际为 42 个键，不是文档反复声明的 44 个。`v16_op_handlers.py:209-214` 的另一路 demo-safe 文案也属实，但它不属于该字典键数。证据基座宣称“所有现状判断均有证据”，此处已出现可机器计数的错误。 / 建议修法: 改成“42 键字典 + 1 条 KB 未命中通用回退路径”，增加 AST/单测计数与禁止伪事实值测试，不用易漂移的手工数字。
+
+5. severity: MAJOR / 位置: 升级方案 §3 P0.1 / 问题陈述: 验收负例“grep 产物中特定三句话为 0”防不住同类回归。开发者换成“业内领先”“经营稳定”“基本符合要求”即可绕过；“未能自动填写计数=缺值数”也没有定义重复占位、可选字段、`not_applicable` 和同字段多处出现的计数口径。 / 建议修法: 以字段状态和 provenance（来源）契约验收：每个无来源字段只能是 `missing_unknown/not_applicable`，不得生成事实型正文；对全部 placeholder key 做参数化测试，并加入同义伪造、空字符串、零值、重复字段和可选字段负例。
+
+6. severity: MAJOR / 位置: 升级方案 §3 P0.2；审计报告 A3；`agent_compliance/agent.py:314-325` / 问题陈述: 行号和清空真实结果的判断属实，但“删除两个 clear”不是完整治本方案。删除后真实规则结果与 planted 结果会混合，可能重复、冲突或让 fixture 被误认为真实检测；验收只要求“来源都是规则引擎输出”，没有验证 fixture 确实作为输入经过规则，也没有禁止输出层注入。 / 建议修法: 物理拆分 `fixture input → normalizer → rule engine → immutable ledger`；删除输出注入入口，给每项结果记录 `rule_id/input_fact_ids`，用同一输入在 live/demo 下断言 normalized facts 与 rule outputs 完全一致，仅展示标签不同。
+
+7. severity: MAJOR / 位置: 升级方案 §4.1、§4.3；审计报告 A1/A5/B3；`section_generator.py:883-916,983-992` / 问题陈述: 抽查结论属实：QC 只记录日志，`financial_anchor=None`，自审文本可在仍有数字错误时被接受。但方案直接上“四态发布门 + 六契约 verifier”，没有先定义单一权威 artifact、检查顺序、错误严重度映射和 fail-closed 行为。多个校验器异常时继续、超时、部分完成或版本漂移如何求状态均未规定。 / 建议修法: 先定义 `ArtifactVersion` 和纯函数 `evaluate_release(artifact, facts_snapshot, policy_version)`；固定检查次序和 severity 映射，任何校验器异常或版本缺失均 blocked；再由状态机消费该唯一 verdict。不要让四态成为又一套与现有 scorer/blocker 并存的口径。
+
+8. severity: MAJOR / 位置: 升级方案 §4.2；审计报告 A4；`shared/evidence/protocol.py:31-55`、`agent_report/evidence_pipeline.py:49-60` / 问题陈述: “协议存在、报告 wrapper 不调 LLM、主管线未形成持久字段台账”的方向基本属实，但方案忽略了仓库已有 `shared/decision_ledger` 及 Agent3/5/6 接线。若另建 `evidence_ledger` 而不规定与 decision ledger 的主外键和事务边界，将产生两个审计真相源。 / 建议修法: 明确两者职责与关联：字段证据台账保存事实及来源，决策台账只引用冻结的 `evidence_snapshot_id/artifact_version/policy_version`；发布事务必须原子固化这些引用，禁止复制一份可独立漂移的证据正文。
+
+9. severity: MAJOR / 位置: 升级方案 §4.4-§4.5、§5 / 问题陈述: P1 同时引入缺失四态、平账状态机、编译门、表覆盖检查、claim verifier、证据台账、发布状态机、双轨阈值和多期趋势，范围远超“修诚信线”。其中行业分位数 B 轨没有权威基准来源、样本口径、行业分类版本、适用范围和回退策略；它可能制造新的伪精确判断。 / 建议修法: P1 收窄为“冻结事实快照—字段证据—单一发布门”最短闭环。平账闸、行业分位数和趋势规则分别立 RFC；没有经过授权和版本化的行业基准时只输出“基准不可用”，不得形成准入结论。
+
+10. severity: MAJOR / 位置: 升级方案 §9、§7 H1-H4、工期说明 / 问题陈述: 4–6 周明显低估。计划同时覆盖证据数据模型、发布状态机、11 家真实年报 golden、MCP 9 服务、双获客管线收口、主要前端重构、LLM 层迁移、job runtime、幂等与并发控制、跨 Agent 事件状态机；H2-H4 被压到 W5，且没有迁移、回滚、兼容和压测预算。“P1 与 P2 无共享写面”也不成立：两者都会改变 source/evidence schema、registry 和消费契约。 / 建议修法: 先做 1 周 spike，输出依赖图、接口契约和基准耗时；将 H1/H3 提前到任何长任务或 MCP 扩张之前；按垂直切片估算。4–6 周只能承诺 P0 + 单条报告闭环，完整范围应重估为多个里程碑，不给未经实测的压缩承诺。
+
+11. severity: MAJOR / 位置: 升级方案 §3、§4、§5、§7、§9 验收 / 问题陈述: 多数验收不可机器判定。“回归全绿”“负例集”“逐页截图对照”“剧本走查”“official 占比对比”“一条命令”没有命令、fixture、期望输出、阈值或 CI job。11 家真实年报也没有合法来源、版本哈希和 golden oracle（黄金判定基准）；仅用回归一致性可能把旧错误固化。 / 建议修法: 每期给出测试文件、命令、固定输入哈希、逐字段 oracle、阈值和 CI 阻断条件；golden 由双人业务复核签署，分别覆盖缺表、错期、单位错、合并/母公司口径、负数、真零、OCR 错和相互矛盾材料。
+
+12. severity: MAJOR / 位置: 升级方案 §10 KT R1-R6；`docs/KT-2026-05-10-efficiency-collapse-retro.md:53-85` / 问题陈述: “全程遵守”与方案本身不一致。KT R1 要求现有各 Agent 的同名 `evidence_pipeline.py` 统一迁入 shared，而方案 §4.2 只处理报告线空壳；KT R2 要求测试先提交、service/agent 单测、真号 E2E 和 CI red→green，方案只笼统说“P1 测试先行”，没有覆盖 P0/P2/P3/P4，更没有 commit 和 CI 门。 / 建议修法: 不要写“全程遵守”；逐条建立 R1–R6 compliance matrix。明确哪些阶段完成六份 pipeline 收口、每项 test-first commit、真号 E2E 的隔离账户/清理机制，以及 fix-forward 预算超过 10 时的 stop-the-line。
+
+13. severity: MAJOR / 位置: 升级方案 §2.6、§6、§10 Q-047；`docs/handoff/decisions-log.md:2707-2733,2887-2890` / 问题陈述: Q-047 的最新校准是只冻结审美装饰层、不冻结工作台逻辑层；方案引用“冻结精神”大体方向正确，但 P3 包含主题控制重排、全局浮层、布局和视觉对照，已跨入可能的审美层，不能用“只修 bug 与信息架构”整体兜底。 / 建议修法: 将 P3 每项映射到逻辑层 F5/F7-F10/F15 或审美层 F1-F4/F11-F14/F16-F17；审美层变更逐项先问 PM，逻辑层才能直接施工。
+
+14. severity: MAJOR / 位置: 审计报告 C/F；升级方案整体 / 问题陈述: 审计报告已发现 demo 弱密码明文、5 个既有测试失败、双锁文件、死分支、生产脏数据和 snapshot 漂移，但方案只接住生产测试会话清理，未设置安全凭据修复、基线清零和仓库卫生进入条件。带着既有红灯做大规模改造会让“回归全绿”失去含义，也增加密钥与部署事故风险。 / 建议修法: 在 P0 前增加 P-1 baseline gate：移除/轮换弱密码和示例凭据，分类并清零或正式豁免既有失败，确定唯一包管理器锁文件，记录主分支基线和脏树策略；未完成不得启动 P1。
+
+15. severity: MAJOR / 位置: 升级方案 §13 风险登记 / 问题陈述: R1–R6 漏掉最重的实施风险：客户端伪造 QC、证据/决策双台账漂移、真实客户材料的 PII 与跨环境泄漏、MCP 返回值 schema/时效变化、生产接口限流与成本、golden 数据授权、规则版本迁移、存量已发布报告追溯，以及大范围并行改动造成契约冲突。现有 R6 甚至把未获批准的流程简化当成缓解措施。 / 建议修法: 增补上述风险的 owner、触发指标、概率/影响、预防控制、回滚和 stop condition；删除“§10 已登记即完成豁免”的自我授权式缓解。
+
+16. severity: MINOR / 位置: 审计报告 A6/C；`agent_credit/agent.py:108-114`、`llm.py:59-72,142`、`agent_report/api.py:1355-1414` / 问题陈述: 本次抽查确认这些引用实质属实：额度缺失确有 `or 300`；员工数失败确实归零；OpenAI client 初始化无显式 timeout；DOCX 导出路径没有检查 QC；另确认 `section_generator.py:983/987`、compliance clear、EvidenceItem 和 evidence wrapper 引用均属实。问题是若干文档引用只给函数起始行或旧行号，例如“llm.py:69 无 timeout”实际调用在 142 行，后续改动容易造成证据漂移。 / 建议修法: 证据表同时记录 commit SHA、符号名和关键代码片段哈希；行号只作辅助定位，并用审计脚本定期验证引用仍命中预期 AST 结构。
+
+verdict：主线“可信判断—证据台账—发布门”方向正确，但当前方案存在可绕过的发布门、未经批准的约束翻案和未闭合的 IP 边界，不能按稿开工；4.5/10。
+tokens used
+86,474
+1. severity: BLOCKER / 位置: 升级方案 §3 P0.3、§4.1；`agent_report/api.py:1365-1414` / 问题陈述: 发布门仍可被客户端绕过。当前接口允许直接提交 `profile/sections/qc`，且 `req.qc` 会覆盖服务端数据；方案只写“检查 `qc.passed`”，未规定 QC 必须由服务端按不可变产物重新求值。攻击者或旧前端可传 `qc={"passed": true}` 导出任意正文。此外“拒绝或强制水印”不是确定契约，同一失败状态可能被不同实现放行。 / 建议修法: P0 先禁止客户端提供权威 QC；导出只能接受 `session_id + artifact_version`，服务端加载冻结正文、重新执行 blocker/verifier，并依据唯一策略决定“阻断”或“水印草稿”。明确正式发布只能来自 `releasable`，水印草稿不得进入 `released`。
+
+2. severity: BLOCKER / 位置: 升级方案 §10 Q-070；`docs/handoff/decisions-log.md:3340-3355` / 问题陈述: “个人项目语境下 RFC 简化为本方案 + 刘野拍板”不成立。Q-070 的 Active rules 明确要求 LY-NNN 冻结后修改走 RFC，`archive/` 修改还要求 deprecated/parity 流程；现有约束没有授予方案作者自行降级流程的权力。“准备以后写 decisions-log”也不等于已经获得翻案授权。 / 建议修法: 将所有相关 P3 项标为 `BLOCKED_ON_DECISION`；先新增正式 Q-NNN，列出被豁免的具体文件、LY 编号、parity checklist、批准人和有效期。未批准前不得把简化流程写成既定事实。
+
+3. severity: BLOCKER / 位置: 升级方案 §11、§5、§13 R4 / 问题陈述: IP 把关不足以支持施工。清单用“通用工程范式”“三代同源”“设计级重写”替代权属、授权和洁净室证据；同时计划连接公司生产 MCP，并称已用 production key 实测，却没有数据处理授权、日志脱敏、调用目的限制、测试主体许可、配额责任或离职后的停用机制。代码不逐行复制不能自动消除商业秘密和职务成果风险。 / 建议修法: P1/P2 前设置独立 IP gate：资产权属人书面授权、允许使用的接口和数据类别、洁净室人员与输入清单、禁止复制材料、设计来源记录、凭据托管及吊销、测试主体授权、日志和缓存保留期。未通过则只实现仓库内原创通用接口与合成 provider，不接生产 MCP。
+
+4. severity: MAJOR / 位置: 审计报告 A2；升级方案 §1、§3 P0.1；`v16_op_handlers.py:956-999` / 问题陈述: `_DEMO_SAFE_FALLBACK` 的性质判断属实，但数量不实：字典实际为 42 个键，不是文档反复声明的 44 个。`v16_op_handlers.py:209-214` 的另一路 demo-safe 文案也属实，但它不属于该字典键数。证据基座宣称“所有现状判断均有证据”，此处已出现可机器计数的错误。 / 建议修法: 改成“42 键字典 + 1 条 KB 未命中通用回退路径”，增加 AST/单测计数与禁止伪事实值测试，不用易漂移的手工数字。
+
+5. severity: MAJOR / 位置: 升级方案 §3 P0.1 / 问题陈述: 验收负例“grep 产物中特定三句话为 0”防不住同类回归。开发者换成“业内领先”“经营稳定”“基本符合要求”即可绕过；“未能自动填写计数=缺值数”也没有定义重复占位、可选字段、`not_applicable` 和同字段多处出现的计数口径。 / 建议修法: 以字段状态和 provenance（来源）契约验收：每个无来源字段只能是 `missing_unknown/not_applicable`，不得生成事实型正文；对全部 placeholder key 做参数化测试，并加入同义伪造、空字符串、零值、重复字段和可选字段负例。
+
+6. severity: MAJOR / 位置: 升级方案 §3 P0.2；审计报告 A3；`agent_compliance/agent.py:314-325` / 问题陈述: 行号和清空真实结果的判断属实，但“删除两个 clear”不是完整治本方案。删除后真实规则结果与 planted 结果会混合，可能重复、冲突或让 fixture 被误认为真实检测；验收只要求“来源都是规则引擎输出”，没有验证 fixture 确实作为输入经过规则，也没有禁止输出层注入。 / 建议修法: 物理拆分 `fixture input → normalizer → rule engine → immutable ledger`；删除输出注入入口，给每项结果记录 `rule_id/input_fact_ids`，用同一输入在 live/demo 下断言 normalized facts 与 rule outputs 完全一致，仅展示标签不同。
+
+7. severity: MAJOR / 位置: 升级方案 §4.1、§4.3；审计报告 A1/A5/B3；`section_generator.py:883-916,983-992` / 问题陈述: 抽查结论属实：QC 只记录日志，`financial_anchor=None`，自审文本可在仍有数字错误时被接受。但方案直接上“四态发布门 + 六契约 verifier”，没有先定义单一权威 artifact、检查顺序、错误严重度映射和 fail-closed 行为。多个校验器异常时继续、超时、部分完成或版本漂移如何求状态均未规定。 / 建议修法: 先定义 `ArtifactVersion` 和纯函数 `evaluate_release(artifact, facts_snapshot, policy_version)`；固定检查次序和 severity 映射，任何校验器异常或版本缺失均 blocked；再由状态机消费该唯一 verdict。不要让四态成为又一套与现有 scorer/blocker 并存的口径。
+
+8. severity: MAJOR / 位置: 升级方案 §4.2；审计报告 A4；`shared/evidence/protocol.py:31-55`、`agent_report/evidence_pipeline.py:49-60` / 问题陈述: “协议存在、报告 wrapper 不调 LLM、主管线未形成持久字段台账”的方向基本属实，但方案忽略了仓库已有 `shared/decision_ledger` 及 Agent3/5/6 接线。若另建 `evidence_ledger` 而不规定与 decision ledger 的主外键和事务边界，将产生两个审计真相源。 / 建议修法: 明确两者职责与关联：字段证据台账保存事实及来源，决策台账只引用冻结的 `evidence_snapshot_id/artifact_version/policy_version`；发布事务必须原子固化这些引用，禁止复制一份可独立漂移的证据正文。
+
+9. severity: MAJOR / 位置: 升级方案 §4.4-§4.5、§5 / 问题陈述: P1 同时引入缺失四态、平账状态机、编译门、表覆盖检查、claim verifier、证据台账、发布状态机、双轨阈值和多期趋势，范围远超“修诚信线”。其中行业分位数 B 轨没有权威基准来源、样本口径、行业分类版本、适用范围和回退策略；它可能制造新的伪精确判断。 / 建议修法: P1 收窄为“冻结事实快照—字段证据—单一发布门”最短闭环。平账闸、行业分位数和趋势规则分别立 RFC；没有经过授权和版本化的行业基准时只输出“基准不可用”，不得形成准入结论。
+
+10. severity: MAJOR / 位置: 升级方案 §9、§7 H1-H4、工期说明 / 问题陈述: 4–6 周明显低估。计划同时覆盖证据数据模型、发布状态机、11 家真实年报 golden、MCP 9 服务、双获客管线收口、主要前端重构、LLM 层迁移、job runtime、幂等与并发控制、跨 Agent 事件状态机；H2-H4 被压到 W5，且没有迁移、回滚、兼容和压测预算。“P1 与 P2 无共享写面”也不成立：两者都会改变 source/evidence schema、registry 和消费契约。 / 建议修法: 先做 1 周 spike，输出依赖图、接口契约和基准耗时；将 H1/H3 提前到任何长任务或 MCP 扩张之前；按垂直切片估算。4–6 周只能承诺 P0 + 单条报告闭环，完整范围应重估为多个里程碑，不给未经实测的压缩承诺。
+
+11. severity: MAJOR / 位置: 升级方案 §3、§4、§5、§7、§9 验收 / 问题陈述: 多数验收不可机器判定。“回归全绿”“负例集”“逐页截图对照”“剧本走查”“official 占比对比”“一条命令”没有命令、fixture、期望输出、阈值或 CI job。11 家真实年报也没有合法来源、版本哈希和 golden oracle（黄金判定基准）；仅用回归一致性可能把旧错误固化。 / 建议修法: 每期给出测试文件、命令、固定输入哈希、逐字段 oracle、阈值和 CI 阻断条件；golden 由双人业务复核签署，分别覆盖缺表、错期、单位错、合并/母公司口径、负数、真零、OCR 错和相互矛盾材料。
+
+12. severity: MAJOR / 位置: 升级方案 §10 KT R1-R6；`docs/KT-2026-05-10-efficiency-collapse-retro.md:53-85` / 问题陈述: “全程遵守”与方案本身不一致。KT R1 要求现有各 Agent 的同名 `evidence_pipeline.py` 统一迁入 shared，而方案 §4.2 只处理报告线空壳；KT R2 要求测试先提交、service/agent 单测、真号 E2E 和 CI red→green，方案只笼统说“P1 测试先行”，没有覆盖 P0/P2/P3/P4，更没有 commit 和 CI 门。 / 建议修法: 不要写“全程遵守”；逐条建立 R1–R6 compliance matrix。明确哪些阶段完成六份 pipeline 收口、每项 test-first commit、真号 E2E 的隔离账户/清理机制，以及 fix-forward 预算超过 10 时的 stop-the-line。
+
+13. severity: MAJOR / 位置: 升级方案 §2.6、§6、§10 Q-047；`docs/handoff/decisions-log.md:2707-2733,2887-2890` / 问题陈述: Q-047 的最新校准是只冻结审美装饰层、不冻结工作台逻辑层；方案引用“冻结精神”大体方向正确，但 P3 包含主题控制重排、全局浮层、布局和视觉对照，已跨入可能的审美层，不能用“只修 bug 与信息架构”整体兜底。 / 建议修法: 将 P3 每项映射到逻辑层 F5/F7-F10/F15 或审美层 F1-F4/F11-F14/F16-F17；审美层变更逐项先问 PM，逻辑层才能直接施工。
+
+14. severity: MAJOR / 位置: 审计报告 C/F；升级方案整体 / 问题陈述: 审计报告已发现 demo 弱密码明文、5 个既有测试失败、双锁文件、死分支、生产脏数据和 snapshot 漂移，但方案只接住生产测试会话清理，未设置安全凭据修复、基线清零和仓库卫生进入条件。带着既有红灯做大规模改造会让“回归全绿”失去含义，也增加密钥与部署事故风险。 / 建议修法: 在 P0 前增加 P-1 baseline gate：移除/轮换弱密码和示例凭据，分类并清零或正式豁免既有失败，确定唯一包管理器锁文件，记录主分支基线和脏树策略；未完成不得启动 P1。
+
+15. severity: MAJOR / 位置: 升级方案 §13 风险登记 / 问题陈述: R1–R6 漏掉最重的实施风险：客户端伪造 QC、证据/决策双台账漂移、真实客户材料的 PII 与跨环境泄漏、MCP 返回值 schema/时效变化、生产接口限流与成本、golden 数据授权、规则版本迁移、存量已发布报告追溯，以及大范围并行改动造成契约冲突。现有 R6 甚至把未获批准的流程简化当成缓解措施。 / 建议修法: 增补上述风险的 owner、触发指标、概率/影响、预防控制、回滚和 stop condition；删除“§10 已登记即完成豁免”的自我授权式缓解。
+
+16. severity: MINOR / 位置: 审计报告 A6/C；`agent_credit/agent.py:108-114`、`llm.py:59-72,142`、`agent_report/api.py:1355-1414` / 问题陈述: 本次抽查确认这些引用实质属实：额度缺失确有 `or 300`；员工数失败确实归零；OpenAI client 初始化无显式 timeout；DOCX 导出路径没有检查 QC；另确认 `section_generator.py:983/987`、compliance clear、EvidenceItem 和 evidence wrapper 引用均属实。问题是若干文档引用只给函数起始行或旧行号，例如“llm.py:69 无 timeout”实际调用在 142 行，后续改动容易造成证据漂移。 / 建议修法: 证据表同时记录 commit SHA、符号名和关键代码片段哈希；行号只作辅助定位，并用审计脚本定期验证引用仍命中预期 AST 结构。
+
+verdict：主线“可信判断—证据台账—发布门”方向正确，但当前方案存在可绕过的发布门、未经批准的约束翻案和未闭合的 IP 边界，不能按稿开工；4.5/10。

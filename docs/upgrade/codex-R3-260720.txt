@@ -1,0 +1,70 @@
+### 1. R2 闭合核验
+
+| Finding | 判定 | 证据 |
+|---|---|---|
+| Gate-0 拆 0A/0B | **PARTIAL** | §8 明确拆分 Gate‑0A/0B（183–195）；但 §8/§10 规定 P‑1/P0 需 Gate‑0A 拍板，§14 又称“无需拍板、可直接开工”（300），原矛盾复发。 |
+| 发布失败策略确定化 | **CLOSED** | §4.1（84、87）：BLOCKER→拒绝导出；WARN→水印草稿；只有 releasable 可正式发布。 |
+| P0 撤回“无新架构”+调用方盘点 | **CLOSED** | §4（109–112）：承认 P0b 是结构性变更，增加调用方盘点、兼容迁移、灰度验证，并把工期改为约一周。 |
+| P0 仅用仓库现有检查器 | **CLOSED** | §4.1（83）：明确 `quality_blocker + numeric_validator + output_validator`，排除 claim verifier。 |
+| P1 保留最小财务勾稽 | **CLOSED** | §5.3（134–141）：保留恒等式、单位、期间、口径四项；47 条完整平账另立 RFC。 |
+| 每闸可签署记录 | **PARTIAL** | §10（231）定义了字段模板及落盘路径，但实际 [gates.md](D:/claude%20code/credit_report_agent_work/docs/upgrade/gates.md) 不存在，仍不是已经可签署的产物。 |
+| B3：日志/缓存保留期 | **PARTIAL** | §11（246）只要求“明确保留期”，没有具体期限、起算点、删除机制和删除证明，尚未真正“明确”。 |
+| B3：未授权设计输入隔离 | **NOT-CLOSED** | §11（244、249）规定不得进入实现者视野；但 §14（296）又写未授权时“设计级重写/延后”，重新允许了被 §11 明令禁止的路径。 |
+
+### 2. 代码事实抽查
+
+四项全部属实：
+
+1. [v16_op_handlers.py:956](D:/claude%20code/credit_report_agent_work/v16_op_handlers.py:956)：`_DEMO_SAFE_FALLBACK` 共 **42 个键**。
+2. [agent_report/api.py:1393](D:/claude%20code/credit_report_agent_work/agent_report/api.py:1393)：确有 `req.qc` 覆盖 `payload["qc"]`；请求模型也保留 `qc` 字段。
+3. [section_generator.py:987](D:/claude%20code/credit_report_agent_work/section_generator.py:987)：`financial_anchor=None`。
+4. [agent_compliance/agent.py:314](D:/claude%20code/credit_report_agent_work/agent_compliance/agent.py:314)：确有清空 normal/observation 后，从 planted 清单重放。
+
+因此本轮无“代码事实不实”BLOCKER。
+
+### 3. R1/R2 未抓到的新洞
+
+**MAJOR：P1 无 IP 授权时没有确定的降级验收契约。** §5.1（125）把 claim verifier 纳入 P1 的 `evaluate_release`，§8（194）又把授权设为 P1 前置；§11（249）则说授权不过只交付原创接口。究竟 P1 被整体阻断，还是可以缺 verifier 验收，没有唯一口径。会导致同一个“P1 完成”存在两种质量标准。
+
+**MAJOR：Gate 文本没有唯一真源。** §8、§10、§14 分别维护开工条件，且已经发生实质漂移。继续靠人工同步章节，施工时必然有人引用“可直接开工”的末尾摘要绕过 Gate‑0A。
+
+**过度设计风险：** P0 同时承诺导出契约重构、旧端点灰度、immutable ledger、三类检查器接入及生产验证，3–4 天仍偏乐观；至少应以调用方盘点结果作为重新估时点，而非预先锁死数字。
+
+**最终 verdict：v3 方向可拍，但控制面仍未形成单一、无矛盾的开工契约；6.8/10；可以呈刘野拍板，不能原样作为 P‑1/P0 开工的最终基准。**
+tokens used
+41,393
+判定：四项代码事实全部属实，无代码事实 BLOCKER；但 v3 仍有两处自相矛盾、两项只做了文字占位，尚未完全闭合。
+
+### 1. R2 闭合核验
+
+| Finding | 判定 | 证据 |
+|---|---|---|
+| Gate-0 拆 0A/0B | **PARTIAL** | §8 明确拆分 Gate‑0A/0B（183–195）；但 §8/§10 规定 P‑1/P0 需 Gate‑0A 拍板，§14 又称“无需拍板、可直接开工”（300），原矛盾复发。 |
+| 发布失败策略确定化 | **CLOSED** | §4.1（84、87）：BLOCKER→拒绝导出；WARN→水印草稿；只有 releasable 可正式发布。 |
+| P0 撤回“无新架构”+调用方盘点 | **CLOSED** | §4（109–112）：承认 P0b 是结构性变更，增加调用方盘点、兼容迁移、灰度验证，并把工期改为约一周。 |
+| P0 仅用仓库现有检查器 | **CLOSED** | §4.1（83）：明确 `quality_blocker + numeric_validator + output_validator`，排除 claim verifier。 |
+| P1 保留最小财务勾稽 | **CLOSED** | §5.3（134–141）：保留恒等式、单位、期间、口径四项；47 条完整平账另立 RFC。 |
+| 每闸可签署记录 | **PARTIAL** | §10（231）定义了字段模板及落盘路径，但实际 [gates.md](D:/claude%20code/credit_report_agent_work/docs/upgrade/gates.md) 不存在，仍不是已经可签署的产物。 |
+| B3：日志/缓存保留期 | **PARTIAL** | §11（246）只要求“明确保留期”，没有具体期限、起算点、删除机制和删除证明，尚未真正“明确”。 |
+| B3：未授权设计输入隔离 | **NOT-CLOSED** | §11（244、249）规定不得进入实现者视野；但 §14（296）又写未授权时“设计级重写/延后”，重新允许了被 §11 明令禁止的路径。 |
+
+### 2. 代码事实抽查
+
+四项全部属实：
+
+1. [v16_op_handlers.py:956](D:/claude%20code/credit_report_agent_work/v16_op_handlers.py:956)：`_DEMO_SAFE_FALLBACK` 共 **42 个键**。
+2. [agent_report/api.py:1393](D:/claude%20code/credit_report_agent_work/agent_report/api.py:1393)：确有 `req.qc` 覆盖 `payload["qc"]`；请求模型也保留 `qc` 字段。
+3. [section_generator.py:987](D:/claude%20code/credit_report_agent_work/section_generator.py:987)：`financial_anchor=None`。
+4. [agent_compliance/agent.py:314](D:/claude%20code/credit_report_agent_work/agent_compliance/agent.py:314)：确有清空 normal/observation 后，从 planted 清单重放。
+
+因此本轮无“代码事实不实”BLOCKER。
+
+### 3. R1/R2 未抓到的新洞
+
+**MAJOR：P1 无 IP 授权时没有确定的降级验收契约。** §5.1（125）把 claim verifier 纳入 P1 的 `evaluate_release`，§8（194）又把授权设为 P1 前置；§11（249）则说授权不过只交付原创接口。究竟 P1 被整体阻断，还是可以缺 verifier 验收，没有唯一口径。会导致同一个“P1 完成”存在两种质量标准。
+
+**MAJOR：Gate 文本没有唯一真源。** §8、§10、§14 分别维护开工条件，且已经发生实质漂移。继续靠人工同步章节，施工时必然有人引用“可直接开工”的末尾摘要绕过 Gate‑0A。
+
+**过度设计风险：** P0 同时承诺导出契约重构、旧端点灰度、immutable ledger、三类检查器接入及生产验证，3–4 天仍偏乐观；至少应以调用方盘点结果作为重新估时点，而非预先锁死数字。
+
+**最终 verdict：v3 方向可拍，但控制面仍未形成单一、无矛盾的开工契约；6.8/10；可以呈刘野拍板，不能原样作为 P‑1/P0 开工的最终基准。**
