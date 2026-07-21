@@ -48,12 +48,12 @@ Claude 亲验（不采信任何转述）：①亲跑 tests/upgrade 全量 = **16
 
 ## 修正卡（Codex 读此节执行 · 完成后更新对应卡报告行，不碰 git）
 
-### FIX-A1（v16_op_handlers.py + tests/upgrade/test_no_fabrication.py）
-1. `:399` multi_slot_decompose miss 分支：「（详见补充材料）」→ `UNFILLED_MARKER`（miss_labels/pending_tag 逻辑保持）
-2. pending 一致性：产出中 UNFILLED_MARKER 出现次数必须与 pending 清单条数对得上——核对 pending_tags 生成逻辑与 marker 同源，修失配
-3. 找出并修复 3 条既有回归失败（先全量跑 report 相关既有测试定位；禁止排除、禁止放宽断言，修实现不修测试——除非测试断言的旧行为本身就是本卡要消灭的造词行为，此时改测试须在卡报告注明理由）
-4. 主角结论重做：用真实完整生成路径跑 DP001 与 DP002（至少两家），按真实产出缺值数定主角，重写 log 前置检查节（注明"真实生成"字样）
-5. 补负例：多子槽全 miss case → 断言零「详见补充材料」且 marker 计入 pending
+### FIX-A1（v16_op_handlers.py + tests/upgrade/test_no_fabrication.py）｜260721 CC 裁决更新（BLOCKED 处置）
+1. ✅ 已完成：`:399` → UNFILLED_MARKER；pending 逐项记录；三条旧造词测试更新
+2. **pending_tag 形状裁决：保留 list 扩展**（生产消费者 v16_generator.py:845-848 已 isinstance 双形状兼容，全仓唯一失配是测试窄假设）——修 `tests/integration/test_render_smoke.py:207`：`tag if isinstance(tag, list) else [tag]` 后逐条取 reason。属"测试假设过窄"合法改测试，卡报告注明
+3. 修后跑 A1 全量绿：`tests/upgrade/test_no_fabrication.py + tests/integration/test_render_smoke.py` 一个不许红
+4. **~~真实生成定主角~~ 移出本卡**：Codex 沙箱禁网+无 LLM key，天然不可执行——该验证收归 CC 在 CP1-R2 亲跑（记录于 CP 节）。**任何情况下不得在对话或文件中出现 API key**
+5. 全量测试超时（34s 截断）处置：分文件/分批跑，每批报全量数字，不许静默截断
 
 ### FIX-A2（agent_report/word_export.py + api.py + 测试）
 1. `_quality_gate_reasons` 适配真实 quality_scorer 输出形状：先读 quality_scorer.py 实际返回键，把维度失败/幻觉明细转成阻断原因行；兜底句仅在真无明细时出现
