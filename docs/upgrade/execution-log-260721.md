@@ -26,6 +26,18 @@
 - 方案修正：A5 补验收形态（纯文档卡 TDD 例外：OPEN=红态，grep PASS=绿态）+ 全 Stage 通用「编辑工具挂起→py 脚本替代」姿势
 - 处置：Stage 1 从 A5 原顺序重跑，重启指令含 30 秒环境自检前置（探针挂起立即报告不硬跑）
 
+### CP1-BLOCKED-2 · 260721 · 判定：沙箱禁写 .git（架构修正），A5 语义 PASS 已由 Claude 代为落账
+
+- 环境自检 ✅（1.3s）；A5 文件改动语义验收 PASS（两闸 PASS+批准日+备注授权+变更记录，加备注列合理）；正则列序问题=方案断言写歪，备注列含日期属合理满足，接受
+- 根因：codex workspace-write 沙箱禁写 .git（index.lock Permission denied）——方案"每卡本地 commit"与沙箱模型冲突，属方案架构错误
+- 架构修正：**Codex 禁 git 一切写操作；commit 收归 Claude 在 CP 按卡分块执行**（A 线五卡文件域零重叠）；Codex 每卡完成在本 log「卡报告」节追加一行作为分块依据
+- A5 commit：已由 Claude 落账（chore(gates): GATE-0A PASS）
+- Codex 会话：019f83d2-38de-7793-96a5-a7eb1900e84e（resume 续跑 A1-A4）
+
+## 卡报告（Codex 每卡完成追加一行：`卡ID | 改动文件清单 | 验收命令与结果末行`）
+
+- A5 | docs/upgrade/gates.md | grep 红态2→绿态(OPEN=0, PASS+日期=2) ✅（Claude 已 commit）
+
 ## 砍卡登记
 
 （暂无）
