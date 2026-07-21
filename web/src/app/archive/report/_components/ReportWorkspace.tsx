@@ -504,22 +504,22 @@ export function ReportWorkspace() {
      翻成客户经理可读的 actionable hint (per dispatch §"错误降级") */
   const _formatDemoError = useCallback((codeOrMsg: string): string => {
     if (codeOrMsg.includes("DEEPSEEK_KEY_MISSING")) {
-      return "DEEPSEEK_API_KEY 未配置 · 真模式不可用 · 请联系运维配置 (PM 真意: 演示 = 上传 sample 跑真后端 · 不切假数据)";
+      return "AI 模型未配置，暂时无法生成报告 · 请联系管理员开通后重试";
     }
     if (codeOrMsg.includes("DEMO_CLASSIFIER_MISSING")) {
-      return "v16 分类器 cache 缺失 · 请管理员一次性预跑 `py v16_classifier.py` (per template 缓存 · 后续演示复用)";
+      return "该模板尚未完成首次准备 · 请联系管理员初始化后重试";
     }
     if (codeOrMsg.includes("DEMO_TEMPLATE_MISSING")) {
-      return "默认对公模板 docx 缺失 · 请检查 samples/ 目录";
+      return "默认对公模板缺失 · 请联系管理员检查模板库";
     }
     if (codeOrMsg.includes("SAMPLE_DIR_MISSING")) {
-      return "示例企业目录不存在 · 可选: DP001 龙峰精工 / DP002 蓝汀家电 / DP003 宸星家装 / DP004 汇德建材 / DP005 星胤实业";
+      return "示例企业暂不可用 · 可选：DP001 龙峰精工 / DP002 蓝汀家电 / DP003 宸星家装 / DP004 汇德建材 / DP005 星胤实业";
     }
     if (codeOrMsg.includes("SAMPLE_ID_INVALID")) {
-      return "示例企业 ID 命名不合法 · 必须形如 DP001_<name>";
+      return "示例企业标识不正确 · 请重新选择示例企业";
     }
     if (codeOrMsg.includes("V16_REAL_PATH_FAILED")) {
-      return "v16 真模式跑失败 · 演示拒 silent fallback mock · 请查后端日志或重试";
+      return "本次生成未成功 · 请稍后重试；若持续失败请联系管理员";
     }
     return codeOrMsg;
   }, []);
@@ -740,27 +740,27 @@ export function ReportWorkspace() {
                   data-testid="report-truth-first-drawer"
                   open
                 >
-                  <summary>Truth-First 字段清单 · 审贷员核对</summary>
+                  <summary>字段来源清单 · 审贷员核对</summary>
                   <dl className="report-truth-first-drawer__list">
                     <dt data-kind="truth">资产负债率</dt>
-                    <dd>Python 计算 · 总负债 / 总资产 · 确定性</dd>
+                    <dd>系统计算 · 总负债 / 总资产 · 确定值</dd>
                     <dt data-kind="truth">流动比率</dt>
-                    <dd>Python 计算 · 流动资产 / 流动负债 · 确定性</dd>
+                    <dd>系统计算 · 流动资产 / 流动负债 · 确定值</dd>
                     <dt data-kind="truth">净利润同比</dt>
-                    <dd>Python 计算 · (本期 - 上期) / 上期 · 确定性</dd>
+                    <dd>系统计算 · (本期 - 上期) / 上期 · 确定值</dd>
                     <dt data-kind="truth">应收账款周转天数</dt>
-                    <dd>Python 计算 · 应收账款 / 营业收入 × 365 · 确定性</dd>
+                    <dd>系统计算 · 应收账款 / 营业收入 × 365 · 确定值</dd>
                     <dt data-kind="truth">行业基准对比</dt>
-                    <dd>industry_benchmark.py · 行业卡 lookup · 确定性</dd>
+                    <dd>行业基准库 · 行业卡匹配 · 确定值</dd>
                     <dt data-kind="llm">行业意见</dt>
-                    <dd>LLM grounded · 证据来自材料锚定 · 概率</dd>
+                    <dd>AI 生成 · 依据上传材料 · 参考值</dd>
                     <dt data-kind="llm">经营风险点</dt>
-                    <dd>LLM grounded · Evidence-First 三阶段 · 概率</dd>
+                    <dd>AI 生成 · 经证据链核对 · 参考值</dd>
                     <dt data-kind="llm">话术建议</dt>
-                    <dd>LLM grounded · few-shot · 概率</dd>
+                    <dd>AI 生成 · 参考值</dd>
                   </dl>
                   <p className="report-truth-first-drawer__note">
-                    Truth-First 字段不可被 LLM 覆盖 · QC blocker 阻断 · 见 CLAUDE.md §3.1 + truth_fill.py
+                    确定值字段由系统计算，AI 不可改写；质检未通过的内容会被拦截，不进入报告。
                   </p>
                 </details>
               </aside>
@@ -770,7 +770,7 @@ export function ReportWorkspace() {
               aria-label="Evidence-grounded 分析结论"
             >
               <span className="ev-claim-summary-label">
-                分析结论 · Evidence-grounded
+                分析结论 · 证据支撑
               </span>
               <ClaimText text={EMPTY_CLAIM_SUMMARY} />
             </section>
@@ -802,6 +802,17 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
   const s = sessionData;
   // Phase B.1.3 (PM 2026-05-10) · revert ModePill 双控 · isLive 留作 future ref
   void isLive;
+  /* QC 结论单一真源: 与时间线/预览徽章同源 (s.qcCounts) 派生, 不再信任 s.stage 静态串 —
+     根治 "页头 QC 通过 vs 时间线 2 阻断" 矛盾. 无 QC 信号时回退生命周期 stage. */
+  const _qcTotal = s.qcCounts.block + s.qcCounts.warn + s.qcCounts.info;
+  const qcState =
+    _qcTotal > 0
+      ? s.qcCounts.block > 0
+        ? `QC 阻断 · ${s.qcCounts.block} 项`
+        : s.qcCounts.warn > 0
+          ? `QC 待复核 · ${s.qcCounts.warn} 项`
+          : "QC 通过"
+      : s.stage;
   return (
     <header className="rpt-hero">
       <div className="rpt-hero-left">
@@ -818,7 +829,7 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
           <div className="rpt-hero-sub">
             {s.clientName ? (
               <>
-                {s.clientName} · {s.amount} · {s.stage} · 字段覆盖 {coverPct}%
+                {s.clientName} · {s.amount} · {qcState} · 字段覆盖 {coverPct}%
               </>
             ) : (
               <span style={{ color: "var(--ink-65)", fontStyle: "italic" }}>
@@ -3210,7 +3221,7 @@ function ReportLiveStrip(p: {
           fontSize: 10,
         }}
       >
-        v16 PIPELINE {p.mode === "mock" ? "· (mock)" : ""}
+        生成流程 {p.mode === "mock" ? "· 示例" : ""}
       </span>
       {allStages.map((st) => {
         const isDone = seen.has(st);
@@ -3426,7 +3437,7 @@ function ReportLiveSections(p: {
             ))}
           </ul>
           <p style={{ margin: "6px 0 0 0", fontSize: 10, color: "var(--ink-65)", fontStyle: "italic" }}>
-            后续 step: freshness 衰减 + Tier 4 单源拒 + LLM 输出溯源闭环
+            每个字段均可回链到来源材料；材料更新后自动复核。
           </p>
         </div>
       ) : null}

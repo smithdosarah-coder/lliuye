@@ -61,7 +61,7 @@ import {
 const EMPTY_SESSION: RiskctrlSession = {
   id: "empty",
   objective: "",
-  stage: "等待真路径触发 · LLM 生成 DSL → 真回测",
+  stage: "尚未运行 · 写策略生成规则后回测",
   updated: "",
   query: {
     id: "empty-query",
@@ -662,8 +662,8 @@ function RiskTriggerBar(p: {
           onClick={() => p.onModeChange("real")}
           disabled={p.scanRunning}
         >
-          真实模式
-          <span className="riskctrl-mode-toggle__sub">用户输入策略 + CSV</span>
+          正式模式
+          <span className="riskctrl-mode-toggle__sub">输入自己的策略与样本</span>
         </button>
         <button
           type="button"
@@ -675,8 +675,8 @@ function RiskTriggerBar(p: {
           onClick={() => p.onModeChange("demo")}
           disabled={p.scanRunning}
         >
-          演示模式
-          <span className="riskctrl-mode-toggle__sub">优质 mock 输入 · 跑真后端</span>
+          示例模式
+          <span className="riskctrl-mode-toggle__sub">内置样本 · 流程与正式一致</span>
         </button>
       </div>
 
@@ -729,7 +729,7 @@ function RiskTriggerBar(p: {
                   策略意图：{selectedSeed.strategy_intent.slice(0, 60)}
                   {selectedSeed.strategy_intent.length > 60 ? "…" : ""}
                   <br />
-                  样本：{selectedSeed.csv_path} (真后端读 · MAX_ROWS=50000)
+                  样本：{selectedSeed.csv_path}（单次回测上限 5 万行）
                 </p>
               ) : null}
               <button
@@ -768,22 +768,22 @@ function RiskEmptySkeleton() {
       <div className="riskctrl-empty__head">
         <h3 className="riskctrl-empty__title">等待触发策略</h3>
         <p className="riskctrl-empty__hint">
-          选择上方<strong>「真实模式」</strong>写自己的策略 + CSV 跑真 LLM；
-          或切<strong>「演示模式」</strong>用优质 mock 输入 (loans.csv 7500 行)
-          一键跑真后端 pipeline · 真返 KS / AUC / 通过率结果。
+          选择上方<strong>「正式模式」</strong>输入自己的策略与样本；
+          或切<strong>「示例模式」</strong>用内置样本（7500 行贷款数据）一键回测，
+          输出 KS / AUC / 通过率结果。
           <br />
-          <em>不是切假数据 · 是真后端 LLM dsl_gen + 确定性 numpy backtest。</em>
+          <em>示例仅样本为内置数据，规则生成与回测计算流程与正式模式完全一致。</em>
         </p>
       </div>
       <div className="riskctrl-empty__panels">
         <div className="riskctrl-empty__panel" data-panel="dsl">
-          DSL 规则树 · IF / AND / OR / THEN 4 op · 真 LLM 生成后此处显示
+          规则树（条件与阈值）· 生成规则后此处显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="ks">
-          KS / AUC / 通过率 三大指标 + KS 双线图 · 真回测完成显示
+          KS / AUC / 通过率 三大指标 + 走势图 · 回测完成后显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="sample">
-          样本分布 (通过 / 复核 / 拒绝) · 真回测完成显示
+          样本分布（通过 / 复核 / 拒绝）· 回测完成后显示
         </div>
         <div className="riskctrl-empty__panel" data-panel="export">
           回测报告导出 · 完成后可一键导出 Word / Excel / PDF
@@ -827,7 +827,9 @@ function RiskHero({ sessionData, isLive, dataSourceKind }: {
             风控 <em>Forge.</em>
           </h1>
           <div className="rpt-hero-sub">
-            {s.objective} · {s.stage} · KS {s.ks.ksPeak.toFixed(2)} / 通过 {s.ks.passRate}%
+            {/* 零态不显示 KS 0.00 假指标 · 跑过回测才显示真值 */}
+            {[s.objective, s.stage].filter(Boolean).join(" · ")}
+            {s.ks.ksPeak > 0 ? ` · KS ${s.ks.ksPeak.toFixed(2)} / 通过 ${s.ks.passRate}%` : ""}
           </div>
         </div>
       </div>

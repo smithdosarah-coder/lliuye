@@ -814,18 +814,17 @@ function InputSourcePanel(p: {
   return (
     <section
       className="compliance-input-source"
-      aria-label="输入来源 · sample 批 vs 自上传 (后端都真跑)"
+      aria-label="输入来源选择"
       data-testid="compli-input-source-panel"
     >
       <div className="compliance-input-source__head">
         <div>
           <div className="compliance-input-source__eyebrow">INPUT SOURCE · 输入来源</div>
           <h3 className="compliance-input-source__title">
-            选择输入 · 后端 pipeline 都真跑 (LLM/Tavily/算法不变)
+            选择政策来源 · 系统按行内制度逐条比对
           </h3>
           <p className="compliance-input-source__sub">
-            mock 只能 mock <b>输入</b> · 不能 mock 结果 — sample batch 用 compliance-kb 制度库
-            走真后端 · 输出真违规 + 真 ViolationReason + 监管原文 hash.
+            示例与自上传走同一套扫描流程 · 输出违规明细、依据的监管原文与整改建议
           </p>
         </div>
         <div
@@ -843,7 +842,7 @@ function InputSourcePanel(p: {
             onClick={() => p.onInputSourceChange("sample_batch")}
             disabled={p.scanRunning}
           >
-            sample batch · compliance-kb
+            示例扫描 · 内置制度库
           </button>
           <button
             type="button"
@@ -867,8 +866,8 @@ function InputSourcePanel(p: {
               role="alert"
               data-testid="compli-scenarios-error"
             >
-              <b>无法加载 sample 批清单</b>
-              · /api/compliance/demo/scenarios 调用失败：{p.scenariosError}
+              <b>无法加载示例清单</b>
+              · 请稍后重试；持续失败请联系管理员（{p.scenariosError}）
               · 请检查 backend 是否启动 (py scripts/start_uvicorn.py).
             </div>
           ) : p.scenarios.length === 0 ? (
@@ -921,7 +920,7 @@ function InputSourcePanel(p: {
                   disabled={p.scanRunning || !selected}
                   data-testid="compli-sample-batch-run"
                 >
-                  {p.scanRunning ? "扫描中…" : "运行 sample 批 · 真后端"}
+                  {p.scanRunning ? "扫描中…" : "运行示例扫描"}
                 </button>
                 <span className="compliance-input-source__run-hint">
                   {selected
@@ -1201,8 +1200,13 @@ function HeroSection(p: {
         <span className="rpt-hero__sep">·</span>
         <span>合规扫描引擎</span>
       </div>
-      <h1 className="rpt-hero__title">{p.objective}</h1>
-      <p className="rpt-hero__sub">{p.stage} · {p.updated}</p>
+      {/* 空态回退品牌标题 · 修复生产实锤"大标题空渲染只剩孤立分隔符"（objective 空串时 h1 无内容） */}
+      <h1 className="rpt-hero__title">{p.objective || <>合规 <em>Ledger.</em></>}</h1>
+      {(p.stage || p.updated) ? (
+        <p className="rpt-hero__sub">{[p.stage, p.updated].filter(Boolean).join(" · ")}</p>
+      ) : (
+        <p className="rpt-hero__sub">尚未开始 · 选择政策来源后运行扫描</p>
+      )}
       <dl className="rpt-hero__stats">
         <div className="rpt-hero__stat">
           <dt>本周已扫</dt>
