@@ -797,7 +797,7 @@ function RiskEmptySkeleton() {
       >
         <span className="riskctrl-empty__status-item" data-tone="ok">◉ 服务正常</span>
         <span className="riskctrl-empty__status-item">
-          MAX_ROWS 50000 · numpy backtest · LLM dsl_gen
+          单次回测上限 5 万行 · 指标确定性计算
         </span>
         <span className="riskctrl-empty__status-item riskctrl-empty__status-item--demo">
           等待主操作

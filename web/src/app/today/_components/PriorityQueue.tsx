@@ -88,7 +88,7 @@ export function PriorityQueue() {
       {ordered.length === 0 ? (
         <div className="priority-queue__empty">
           <p>
-            今日没有归属客户。切换 persona 或去 <a href="/archive/channel">获客</a> 建线索。
+            今日没有归属客户。切换角色或去 <a href="/archive/channel">获客</a> 建线索。
           </p>
         </div>
       ) : (

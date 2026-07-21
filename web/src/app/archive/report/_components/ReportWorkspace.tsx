@@ -833,7 +833,7 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
               </>
             ) : (
               <span style={{ color: "var(--ink-65)", fontStyle: "italic" }}>
-                尚未开始 · 请<strong>上传客户材料</strong>(主入口) 或<strong>加载示例企业</strong>(下方 5 个真 batch) → 真后端 v16 主管线
+                尚未开始 · 请<strong>上传客户材料</strong>（主入口）或<strong>加载示例企业</strong>（下方 5 家）开始生成
               </span>
             )}
           </div>
@@ -2055,7 +2055,7 @@ function ReportSampleStrip({
       aria-label="加载示例企业 · 真材料 batch"
     >
       <span style={{ color: "var(--ink-65)", textTransform: "uppercase", letterSpacing: ".04em", fontSize: 10, marginRight: 4 }}>
-        示例企业 · 真材料跑真后端
+        示例企业 · 真实材料完整生成
       </span>
       {REPORT_SAMPLE_OPTIONS.map((opt) => (
         <button
@@ -2084,7 +2084,7 @@ function ReportSampleStrip({
           fontFamily: "var(--cjk)",
         }}
       >
-        真 LLM (DeepSeek) + 真 9 维 QC · PM 2026-05-10 真意 reframe
+        示例企业使用真实材料，生成与质检流程与正式模式完全一致
       </div>
     </section>
   );

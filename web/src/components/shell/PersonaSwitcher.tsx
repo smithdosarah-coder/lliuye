@@ -64,7 +64,7 @@ export function PersonaSwitcher() {
       </button>
       {open && (
         <div className="persona-sw-pop" role="menu">
-          <div className="persona-sw-head">切换 persona</div>
+          <div className="persona-sw-head">切换角色</div>
           {DEMO_USERS.map((u) => {
             const active = u.id === user.id;
             return (
