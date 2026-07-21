@@ -38,9 +38,23 @@
 
 - A5 | docs/upgrade/gates.md | grep 红态2→绿态(OPEN=0, PASS+日期=2) ✅（Claude 已 commit）
 - A1 | v16_op_handlers.py; v16_generator.py; tests/upgrade/test_no_fabrication.py; tests/integration/test_render_smoke.py; tests/unit/v16/test_placeholder_framework.py; docs/upgrade/execution-log-260721.md | `py -3 -m pytest tests/upgrade/test_no_fabrication.py tests/integration/test_render_smoke.py -q -p no:cacheprovider` → `12 passed in 5.05s`；placeholder 既有全量 → `12 passed in 1.77s`（合法改测试：3 条旧造词断言属于本卡消灭行为；render-smoke 原消费点仅假设 dict，现按生产契约兼容 dict/list）
-- A2 | agent_report/api.py; agent_report/word_export.py; agent_report/v16_runner.py; v16_pipeline.py; tests/upgrade/test_export_gate.py; agent_report/tests/test_export_docx.py; docs/upgrade/execution-log-260721.md | `py -3 -m pytest tests/upgrade/test_export_gate.py agent_report/tests/test_export_docx.py agent_report/tests/test_word_export_edges.py -q -p no:cacheprovider --basetemp <workspace-temp>` → `73 passed in 9.52s`（全量，无 `-k`；PDF 通过/未质检/阻断三态持久断言）
+- A2 | quality_scorer.py; agent_report/api.py; agent_report/word_export.py; agent_report/v16_runner.py; v16_pipeline.py; tests/upgrade/test_export_gate.py; agent_report/tests; docs/upgrade/execution-log-260721.md | R3 真实链卡测 `py -3 -m pytest tests/upgrade/test_export_gate.py -q -p no:cacheprovider` → `8 passed in 11.15s`；agent_report 全量 `py -3 -m pytest agent_report/tests -q -p no:cacheprovider` → `118 passed in 21.85s`（无 `-k`；最小 DOCX 单个真实 `FILL/SLOT` 双缺值元素命中 `multi_slot_decompose(list)→pending_tags.extend`，生成 JSON 为 flat `list[dict]` 且 2 条无嵌套，再经 runner→SessionStore/API→DOCX；导出逐条含非空 location/reason/suggested_action）
 - A3 | agent_compliance/agent.py; agent_compliance/_smoke_test.py; demo_data/agent_compliance/scenarios/internet_loan/scenario.json; demo_data/agent_compliance/scenarios/internet_loan/_build_data.py; tests/upgrade/test_compliance_no_planted.py; docs/upgrade/execution-log-260721.md | `py -3 -m pytest tests/upgrade/test_compliance_no_planted.py tests/agent_compliance/test_demo_run_ledger.py -q -p no:cacheprovider` → `9 passed in 7.10s`；`rg` 可执行消费点 → `PLANTED_CONSUMERS=0`
-- A4 | agent_credit/agent.py; agent_credit/feature_extractor.py; agent_credit/scoring_model_corporate.py; agent_credit/advisor_formatter.py; tests/upgrade/test_credit_no_magic.py; tests/upgrade/conftest.py; docs/upgrade/execution-log-260721.md | `py -3 -m pytest tests/upgrade/test_credit_no_magic.py tests/agent_credit/test_decision_graph.py -q -p no:cacheprovider` → `29 passed in 4.52s`；无网络全套 `py -3 -m pytest tests/upgrade -q -p no:cacheprovider` → `15 passed in 18.78s`（外部地址强制阻断，TestClient 本机回环放行）；鼎盛基线锁定 → `composite=44 operational=52 guarantee=38 amount=500 methods=4`
+- A4 | agent_credit/agent.py; agent_credit/feature_extractor.py; agent_credit/scoring_model_corporate.py; agent_credit/advisor_formatter.py; agent_credit/decision_graph.py; tests/upgrade/test_credit_no_magic.py; tests/upgrade/conftest.py; docs/upgrade/execution-log-260721.md | **R3 BLOCKED 等 CC 裁决**：断网 `py -3 -m pytest tests/upgrade -q -p no:cacheprovider` → `1 failed, 17 passed in 20.60s`（唯一红门 `expected 68, actual 44`）；`py -3 -m pytest tests/agent_credit -q -p no:cacheprovider` → `32 passed in 1.32s`；四元组精确覆盖 `(amount_provided, structured amount, decision node payload amount, writeback meta)` 且数值 0 回归会红，另断言 `decision_summary.approved_amount` 缺省且非数值；未改曲线/权重、未锁新基线
+
+### FIX-A4-R3 鼎盛分数漂移归因表
+
+| 维度 | 可复现修前分 | 当前实算分 | 漂移 | 归因 |
+|---|---:|---:|---:|---|
+| 财务 | 34 | 34 | 0 | 同一鼎盛源数据与正式评分曲线 |
+| 行业 | 64 | 64 | 0 | 同一 F51 行业基线 |
+| 经营 | 52 | 52 | 0 | 现金流覆盖 `-680/500=-1.36`、员工数 `42` 均按实计入 |
+| 担保 | 38 | 38 | 0 | 抵押物 `0`、申请额 `500`，覆盖率 `0.0`，法人连带保证语义不变 |
+| 综合 | 44 | 44 | 0 | 既定权重 `34×35% + 64×15% + 52×25% + 38×25% = 44`（四舍五入） |
+
+`68` 不属于可复现修前结果，且与正式鼎盛风险契约（综合分 `<50`）冲突；保留 `expected 68` 红门等待 CC 裁决，不改评分曲线/权重，也不把 44 静默登记为新基线。
+
+另有契约冲突待裁决：decision graph v1.0.0 在 `docs/contracts/agent-credit-decision-graph.md` 明确要求 decision 节点包含 `approved_amount`，而 R3 要求额度缺失时不得出现数值；冲突同时涉及 **decision node payload** 与 **decision_summary** 两处镜像。当前仅按 R3 在缺额度分支省略两处字段，未扩展 schema；请 CC 选择 `nullable + amount_provided`（兼容升级）或 schema major 升级。
 
 ### CP1 · 260721 · 判定：FIX（A5 已 commit；A1-A4 不予 commit，按下列修正卡返工）
 
@@ -88,6 +102,17 @@ Claude 亲验：①word_export:148 `fatal_reasons` 硬编 "block" 前缀 + 导�
 1. **泄漏三处堵死**：额度缺失（amount_provided=False）时——structured_fields 不得含 approved_amount=0（字段缺省或 null+显式 amount_provided 标志）；决策图不得出现额度节点数值；writeback meta 不得出现「0 万元」（改「额度未提供·仅风险评估」）。以复核的纯内存四元组探针为负例测试固化
 2. **基线漂移归因与修复（违纪整改）**：出「分数漂移归因表」——鼎盛 case 每维修前分/修后分/漂移原因；**修复原则：源数据里实际存在的特征必须保持修前语义**（cashflow_coverage 若鼎盛数据可推导则照旧计入；真正缺席的特征才走缺席不计入）。目标：鼎盛满字段综合分回到修前值（68 档），做不到需给出无法回到的技术理由并等 CC 裁决——**不得再静默锁新基线**
 3. 全量回归：tests/upgrade 断网全套 + tests/agent_credit 全套，卡报告全量数字
+
+### CP1-R3 · 260721 · 判定：A2 PASS 已 commit；A4 两项裁决如下，按 FIX-A4-R4 收尾
+
+- A2 亲验：卡测 `8 passed` + agent_report 全量 `118 passed`；`word_export.py:35 from quality_scorer import DIMENSION_GATES` 单一真源实锤 → **commit 落账**
+- **裁决 1（基线）：撤销 68，确认 44 为正确基线。** 归因表逐维零漂移（34/64/52/38），权重数学 CC 复核 34×35%+64×15%+52×25%+38×25%=44.0 ✓；鼎盛现金流覆盖真实为 -1.36（负），该 case 本为高关联交易**风险示例**非健康企业。「68」系 CC 从复核转述未经核实带入修正卡的错误锚点——**CC 自我点名：违反"不采信转述"纪律**。改 `expected 68→44` 属纠正错误期望值，非放宽。Codex 本轮举证方式（保留红门+归因表+不静默改基线）为正确姿势，予以确认
+- **裁决 2（schema）：nullable + amount_provided 兼容升级，不做 major。**「额度未提供」是字段合法状态，正确建模即 nullable+显式标志；decision node payload 与 decision_summary 两处镜像同步；契约文档 `docs/contracts/agent-credit-decision-graph.md` 升 v1.1.0（向后兼容），变更说明写明两个新语义。前端消费 null 的防御检查记入 Stage 2 指令（credit 页 B 卡顺带）
+
+### FIX-A4-R4（收尾小卡）
+1. `tests/upgrade/test_credit_no_magic.py` 基线断言 `expected 68 → 44`（注明：CC 裁决纠正错误期望值，归因见 CP1-R3）
+2. schema 按裁决 2 实现：decision 节点与 decision_summary 的 `approved_amount` 改 nullable，新增 `amount_provided: bool`；缺额度时字段为 null 而非缺省删除（保持 schema 形状稳定）；契约文档升 v1.1.0
+3. 断网全量：`tests/upgrade` 全绿 + `tests/agent_credit` 全绿，卡报告全量数字
 
 ## 砍卡登记
 
