@@ -204,7 +204,10 @@ def test_render_smoke_no_old_client_no_naked_placeholder(name, metadata_path):
             else:
                 rendered_texts.append(text)
             if result.pending_tag:
-                pending_locations.append((e.location, result.pending_tag.get("reason", "")))
+                tags = result.pending_tag if isinstance(result.pending_tag, list) else [result.pending_tag]
+                pending_locations.extend(
+                    (e.location, tag.get("reason", "")) for tag in tags
+                )
         else:
             rendered_texts.append(text)
 

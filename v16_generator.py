@@ -88,7 +88,7 @@ class GenResult:
     location: str
     action: str
     new_text: str | None = None
-    pending_tag: dict[str, Any] | None = None
+    pending_tag: dict[str, Any] | list[dict[str, Any]] | None = None
     debug: str = ""
 
 
@@ -842,7 +842,9 @@ def generate(
         else:
             r = dispatch(elem, cls, mats)
         results.append(r)
-        if r.pending_tag:
+        if isinstance(r.pending_tag, list):
+            pending_tags.extend(r.pending_tag)
+        elif r.pending_tag:
             pending_tags.append(r.pending_tag)
         key = f"{cls.op}/{cls.label}"
         handler_stats[key] = handler_stats.get(key, 0) + 1

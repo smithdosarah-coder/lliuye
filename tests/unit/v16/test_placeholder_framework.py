@@ -223,11 +223,10 @@ def test_placeholder_replace_handler_pending_when_missing_key():
 
     result = placeholder_replace(elem, cls, mats)
 
-    # 部分命中 (CLIENT_REGISTERED_CAPITAL) · 部分 miss (CLIENT_LEGAL_REP) demo-safe fallback
+    # 部分命中、部分 miss：缺值必须显式标记，旧 demo-safe 造词行为已由 A1 删除。
     assert result.action == "fill"
     assert "{{CLIENT_LEGAL_REP}}" not in (result.new_text or ""), "缺 key 时不能保留裸 {{KEY}} 字面 (穿帮)"
-    assert "【未能自动填写" not in (result.new_text or ""), "demo 不输出未能自动填写字面"
-    assert "公司法定代表人" in (result.new_text or ""), "缺 key 走 demo-safe fallback · CLIENT_LEGAL_REP 应替换为'公司法定代表人'"
+    assert "未能自动填写" in (result.new_text or ""), "缺 key 必须显式标记"
     assert "2000万元" in (result.new_text or ""), "命中的 key 必须被替换"
     assert result.pending_tag is not None, "缺 key 必须写 pending_tag (backend audit · 不显前端)"
     assert "CLIENT_LEGAL_REP" in result.pending_tag["reason"]
@@ -245,8 +244,7 @@ def test_placeholder_replace_handler_all_miss_keeps_original():
 
     assert result.action == "fill", "全 miss · demo-safe fallback 替换 · action=fill"
     assert "{{CLIENT_FULL_NAME}}" not in (result.new_text or ""), "demo 不留裸 placeholder"
-    assert "【未能自动填写" not in (result.new_text or ""), "demo 不输出未能自动填写字面"
-    assert "本企业" in (result.new_text or ""), "CLIENT_FULL_NAME demo fallback 应为'本企业'"
+    assert "未能自动填写" in (result.new_text or ""), "全 miss 必须显式标记"
     assert result.pending_tag is not None, "全 miss 必须写 pending_tag (backend audit)"
     assert "CLIENT_FULL_NAME" in result.pending_tag["reason"]
 
@@ -262,7 +260,7 @@ def test_placeholder_replace_handler_none_metadata_keeps_original():
     # None metadata 走空 dict 路径 · 全 miss · 走 demo-safe fallback
     assert result.action == "fill"
     assert "{{CLIENT_FULL_NAME}}" not in (result.new_text or ""), "demo 不留裸 placeholder"
-    assert "本企业" in (result.new_text or ""), "None metadata demo fallback 应为'本企业'"
+    assert "未能自动填写" in (result.new_text or ""), "None metadata 必须显式标记"
     assert result.pending_tag is not None
 
 

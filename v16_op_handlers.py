@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 # 运行期导入(避免循环)
 from v16_generator import GenResult
+from shared.evidence.protocol import UNFILLED_MARKER
 
 
 # ────────────────────────────────────────────────────────────
@@ -206,12 +207,11 @@ def kb_lookup_fill(elem, cls, mats) -> "GenResult":
             debug=f"kb_lookup_fill: {label} ← KB[{_kb_key}]",
         )
 
-    # KB 无值 / 字段不在映射表 → demo-safe fallback (不输出"未能自动填写"字面)
-    # 2026-05-22 user dogfood 4th: 演示场景不要穿帮
+    # KB 无值 / 字段不在映射表 → 显式标记缺值并进入 pending 清单。
     return GenResult(
         location=elem.location,
         action="fill",
-        new_text=f"{label}：（详见补充材料）",
+        new_text=f"{label}：{UNFILLED_MARKER}",
         pending_tag={
             "location": elem.location,
             "reason": f"字段「{label}」KB 未命中",
@@ -395,40 +395,33 @@ def multi_slot_decompose(elem, cls, mats) -> "GenResult":
             offset += len(replacement) - (end - start)
             filled_count += 1
         else:
-            # 2026-05-22 user dogfood 4th: demo 演示场景 · 不要输出"未能自动填写"字面
-            marker = "（详见补充材料）"
+            marker = UNFILLED_MARKER
             new_text = new_text[:start] + marker + new_text[end:]
             offset += len(marker) - (end - start)
             miss_labels.append(label or "(未识别字段)")
+
+    pending_entries = [{
+        "location": elem.location,
+        "reason": f"SLOT 子槽 KB 未命中: {label}",
+        "text": text[:80],
+        "suggested_action": f"请客户经理补录 {label}",
+    } for label in miss_labels]
+    pending_value = pending_entries[0] if len(pending_entries) == 1 else pending_entries
 
     if filled_count == 0:
         return GenResult(
             location=elem.location,
             action="fill",
             new_text=new_text,
-            pending_tag={
-                "location": elem.location,
-                "reason": f"SLOT 全部子槽 KB 未命中: {', '.join(miss_labels[:6])}",
-                "text": text[:80],
-                "suggested_action": "请客户经理补录各子字段",
-            },
+            pending_tag=pending_value,
             debug=f"multi_slot_decompose: {len(matches)} slots all miss",
         )
-
-    pending_tag = None
-    if miss_labels:
-        pending_tag = {
-            "location": elem.location,
-            "reason": f"SLOT 部分子槽未命中: {', '.join(miss_labels[:6])}",
-            "text": text[:80],
-            "suggested_action": f"请客户经理补录 {len(miss_labels)} 个子字段",
-        }
 
     return GenResult(
         location=elem.location,
         action="fill",
         new_text=new_text,
-        pending_tag=pending_tag,
+        pending_tag=pending_value if miss_labels else None,
         debug=f"multi_slot_decompose: {filled_count}/{len(matches)} filled",
     )
 
@@ -943,60 +936,8 @@ def _final_placeholder_sweep(text: str, client_metadata: dict | None) -> str:
         if value is not None and str(value).strip():
             out = out.replace(m.group(0), str(value))
         else:
-            # 2026-05-22 user dogfood 4th: 演示场景不要穿帮 ·
-            # placeholder 缺值时用 generic 友好 fallback · 不输出"未能自动填写"字面
-            fallback = _DEMO_SAFE_FALLBACK.get(key, "（详见补充材料）")
-            out = out.replace(m.group(0), fallback)
+            out = out.replace(m.group(0), UNFILLED_MARKER)
     return out
-
-
-# 2026-05-22 user dogfood 4th: demo 场景安全 fallback ·
-# placeholder 缺值时输出这些通用字面替代"未能自动填写"·
-# 防客户经理向审贷员演示时露 backend 缺陷.
-_DEMO_SAFE_FALLBACK = {
-    "CLIENT_FULL_NAME": "本企业",
-    "CLIENT_CORE_NAME": "本企业",
-    "CLIENT_LONG_CORE_NAME": "本企业",
-    "CLIENT_LEGAL_REP": "公司法定代表人",
-    "CLIENT_USCC": "（统一社会信用代码详见证照）",
-    "CLIENT_REGISTERED_ADDRESS": "（注册地详见证照）",
-    "CLIENT_OPERATING_ADDRESS": "（经营地址详见证照）",
-    "CLIENT_LOCATION_CITY": "本地",
-    "CLIENT_REGISTERED_CAPITAL": "（详见证照）",
-    "CLIENT_PAID_IN_CAPITAL": "（详见证照）",
-    "CLIENT_ESTABLISHMENT_DATE": "（详见证照）",
-    "CLIENT_INDUSTRY_FULL": "本行业",
-    "CLIENT_INDUSTRY_CATEGORY": "所属行业",
-    "CLIENT_INDUSTRY_CODE": "（行业代码详见证照）",
-    "CLIENT_BUSINESS_SCOPE": "（详见营业执照经营范围）",
-    "CLIENT_BUSINESS_DESC": "（详见客户业务介绍）",
-    "CLIENT_BUSINESS_DESC_LONG": "（详见客户业务介绍）",
-    "CLIENT_INDUSTRY_NARRATIVE": "（详见行业分析章节）",
-    "CLIENT_HISTORY_NARRATIVE": "（详见企业沿革章节）",
-    "CLIENT_INDUSTRY_POSITION": "行业内具有一定地位",
-    "CLIENT_BUSINESS_QUALIFICATION_DESC": "（详见资质材料）",
-    "CLIENT_BUSINESS_STRATEGY_DESC": "（详见客户经营策略说明）",
-    "CLIENT_BUSINESS_HISTORY_DESC": "（详见企业沿革）",
-    "CLIENT_FOUNDED_YEAR": "成立多年",
-    "CLIENT_OPERATING_YEARS": "经营多年",
-    "CLIENT_EMPLOYEE_COUNT": "（员工数详见人事档案）",
-    "CLIENT_SHAREHOLDER_PRIMARY": "（股东详见工商登记）",
-    "CLIENT_SHARE_PCT_PRIMARY": "（持股比例详见工商登记）",
-    "CLIENT_PARENT_FULL_NAME": "（母公司详见股权架构）",
-    "CLIENT_GROUP_FULL_NAME": "（集团详见股权架构）",
-    "CLIENT_GROUP_SHORT_NAME": "本集团",
-    "CREDIT_AMOUNT": "（详见授信批复）",
-    "CREDIT_EXPOSURE": "（详见授信批复）",
-    "CREDIT_PERIOD": "授信期限",
-    "GUARANTEE_METHOD": "（详见担保协议）",
-    "REPAYMENT_METHOD": "按约定方式还款",
-    "PD_RATING": "符合本行准入",
-    "INDUSTRY_POLICY_GUIDANCE": "（详见我行投向政策）",
-    "RELATED_PARTY_1_FULL_NAME": "关联企业",
-    "RELATED_PARTY_2_FULL_NAME": "关联企业",
-    "FINANCING_ACTIVITY_NARRATIVE": "（详见筹资活动分析）",
-    "CASHFLOW_ASSESSMENT_NARRATIVE": "（详见现金流分析）",
-}
 
 
 def section_batch_rewrite(
@@ -1444,14 +1385,19 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             if alias:
                 value = _lookup_metadata_value(alias, metadata)
         if value is None or str(value).strip() == "":
-            # 2026-05-22 user dogfood 4th: demo 演示 · 不输出"未能自动填写"字面
-            # 用 _DEMO_SAFE_FALLBACK 提供 demo-safe friendly 替代
-            fallback = _DEMO_SAFE_FALLBACK.get(key, "（详见补充材料）")
-            new_text = new_text.replace(m.group(0), fallback)
+            new_text = new_text.replace(m.group(0), UNFILLED_MARKER)
             missing_keys.append(key)
             continue
         new_text = new_text.replace(m.group(0), str(value))
         replaced_keys.append(key)
+
+    pending_entries = [{
+        "location": elem.location,
+        "reason": f"client_metadata 缺 placeholder: {key}",
+        "text": text[:80],
+        "suggested_action": "credit handoff payload 补 client_metadata 字段 (key 见 templates/placeholder-schema.json)",
+    } for key in missing_keys]
+    pending_value = pending_entries[0] if len(pending_entries) == 1 else pending_entries
 
     if missing_keys and not replaced_keys:
         # 全部 placeholder 都未命中 → 整段含"未能自动填写" 标记 + pending (action=fill 因为 new_text 已改)
@@ -1459,29 +1405,15 @@ def placeholder_replace(elem, cls, mats) -> "GenResult":
             location=elem.location,
             action="fill",
             new_text=new_text,
-            pending_tag={
-                "location": elem.location,
-                "reason": f"client_metadata 缺 placeholder: {', '.join(missing_keys[:5])}",
-                "text": text[:80],
-                "suggested_action": "credit handoff payload 补 client_metadata 字段 (key 见 templates/placeholder-schema.json)",
-            },
+            pending_tag=pending_value,
             debug=f"placeholder_replace: all-miss ({len(missing_keys)} keys · 标未能自动填写)",
         )
-
-    pending = None
-    if missing_keys:
-        pending = {
-            "location": elem.location,
-            "reason": f"client_metadata 部分缺 placeholder: {', '.join(missing_keys[:5])}",
-            "text": text[:80],
-            "suggested_action": "credit handoff payload 补缺失 metadata key",
-        }
 
     return GenResult(
         location=elem.location,
         action="fill",
         new_text=new_text,
-        pending_tag=pending,
+        pending_tag=pending_value if missing_keys else None,
         debug=f"placeholder_replace: {len(replaced_keys)} replaced "
               f"{'+' + str(len(missing_keys)) + ' missed (标未能自动填写)' if missing_keys else ''}",
     )
