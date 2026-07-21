@@ -259,8 +259,8 @@ function RmHome({ name }: { name: string }) {
           badge="01"
           tag="客户经理 · 拓客 → 尽调"
           title="今日待跟进客户"
-          subtitle="拓客信号 + 在途报告 · F5 客户上下文常驻"
-          hint="主调 channel + report · 看 credit / alert"
+          subtitle="拓客信号 + 在途报告 · 客户上下文一屏可见"
+          hint="常用：获客 + 报告 · 可查看授信 / 预警"
         />
         <RunningSheetsCard />
         <BoardCard />
@@ -301,8 +301,8 @@ function CreditOfficerHome({ name }: { name: string }) {
           badge="01"
           tag="审贷员 · 待审报告"
           title="今日待审授信申请"
-          subtitle="F8 上游 handoff (RM → credit) · 红线命中优先"
-          hint="主调 credit · 可 approve · 看 report / alert read-only"
+          subtitle="客户经理移交的审查任务 · 红线命中优先"
+          hint="常用：授信（可审批）· 可查看报告 / 预警"
         />
         <RunningSheetsCard />
         <BoardCard />
@@ -338,8 +338,8 @@ function ComplianceOfficerHome({ name }: { name: string }) {
           badge="01"
           tag="合规官 · 政策事件触发"
           title="新政策 / 违规冲突点"
-          subtitle="F8 上游 handoff (alert → compliance) · 改/补/强分类"
-          hint="主调 compliance · 可 approve · 看 report / alert read-only"
+          subtitle="预警移交的合规复核 · 按改 / 补 / 强分类"
+          hint="常用：合规（可审批）· 可查看报告 / 预警"
         />
         <RunningSheetsCard />
         <BoardCard />
@@ -375,8 +375,8 @@ function RiskManagerHome({ name }: { name: string }) {
           badge="01"
           tag="风险经理 · 预警 + DSL"
           title="今日红色预警 · DSL 部署"
-          subtitle="F9 segment-aware (在贷池) · alert 双路交叉命中"
-          hint="主调 riskctrl + alert · 可 approve · 看 credit read-only"
+          subtitle="在贷客户池 · 预警双路交叉命中"
+          hint="常用：风控 + 预警（可审批）· 可查看授信"
         />
         <RunningSheetsCard />
         <BoardCard />
