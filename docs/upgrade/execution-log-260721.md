@@ -7,9 +7,9 @@
 
 | Stage | 内容 | 状态 | CP 判定 | 备注 |
 |---|---|---|---|---|
-| Stage 1 | 后端诚信线 A5→A1→A2→A3→A4 | 待启动 | — | 指令已就绪（方案 §8） |
-| Stage 2 | 前端核心 B1→B2→B3→B9 | 锁定（等 CP1 PASS） | — | 指令由 Claude 在 CP1 后生成 |
-| Stage 3 | 演示数据周边 B4-B8+B10 | 锁定（等 CP2 PASS） | — | — |
+| Stage 1 | 后端诚信线 A5→A1→A2→A3→A4 | **完成** | CP1-R4 PASS | 五卡全 commit（A5 / 45d605b / 4185942 / 7f667cc / ab8d815） |
+| Stage 2 | 前端核心 B1→B2→B3→B9→B-null | **进行中** | — | 指令见「Stage 2 指令」节 |
+| Stage 3 | 演示数据周边 B4-B8+B10+B11+B12 | 锁定（等 CP2 PASS） | — | B11/B12 由「真实生成结论」节新增 |
 | Stage 4 | 彩排与冻结 | 锁定 | — | 彩排报告交刘野 |
 
 ## A1 前置检查 · 演示主角企业结论（Codex 填写此节）
@@ -120,6 +120,36 @@ Claude 亲验：①word_export:148 `fatal_reasons` 硬编 "block" 前缀 + 导�
 - 提交纪律：工作区 5 月遗留脏文件（`docs/handoff/decisions-log.md` Q-070、`docs/reset/state-snapshot.md`、`docs/contracts/decision-ledger.md` parent_turn_id、`poc_2026-05-06.xlsx`、`W1-contract-progress.md`）经 diff 逐一核对与本轮无关，**未混入 commit**
 - Stage 1 收账：A5（门禁）/ A1（45d605b）/ A3（4185942）/ A2（7f667cc）/ A4（ab8d815）
 - 移交下一段：① CC 亲跑 DP001/DP002 真实生成定演示主角（Codex 沙箱无网无 key，此账在 CC）② Stage 2 前端指令（B1/B2/B3/B9 + credit 页消费 `approved_amount: null` 的防御检查，源自裁决 2）
+
+## 真实生成结论（CC 亲跑 · 260721 · **覆盖并作废「A1 前置检查」节的拆前模拟数字**）
+
+CC 本机起 api_server（8000，.env 真 LLM），登录态走 `/api/report/demo/run` 真实链路各跑一遍（与演示同路径，各 ~177s）：
+
+| 样本 | pending（未能填写） | QC | fatal 原因 |
+|---|---|---|---|
+| DP001 龙峰精工 | 25 | 未过 | 维度「申报方案硬字段」raw 3.08 < 闸值 5.0 |
+| DP002 蓝汀家电 | 18 | 未过 | 同上，**同为 3.08** |
+
+- **主角改判：DP002 蓝汀家电**（真实 pending 更少；拆前模拟的「DP001=1 / DP002=0」与真实链路不符，作废）
+- **两家 fatal 分数一模一样 → 该维度卡的是模板银行侧人工字段**（PD 评级/白名单/申报金额/期限/业务品种/担保方式），与样本无关。A1 拆除造词兜底前是编造值把这维度顶过闸的——现在的全阻断是诚实系统的真实面貌，**不是回归**
+- **A2 真实数据端到端实锤**：对 DP002 真实会话调 `/api/report/export_docx`，产物 DOCX 解包含「质量闸未过 · 内部草稿 · 不得作为审批依据」水印 + 真实阻断原因（申报方案硬字段）——**幕 4 阻断素材就绪**
+- 新发现登记：
+  1. **幕 4 第二拍「通过会话正常导出」现无真实通过会话**（五家示例大概率同卡 3.08）→ Stage 3 新卡 **B11 补录版通过样本**：复制 DP002 为「蓝汀家电-补录版」，client_metadata 按 `templates/placeholder-schema.json` 补齐银行侧字段，真跑生成验证 QC 通过 + 无水印导出。**禁改 quality_scorer 任何阈值/维度**（防"为演示松闸"）
+  2. **产物文件名泄漏模板源公司**：两家样本产物都叫 `outputs/经纬测绘_对公成稿A_v16.docx` → Stage 3 小卡 **B12 输出命名用样本企业名**（先扫测试引用面再改）
+  3. QC「申报方案硬字段」维度把银行侧人工字段计入自动生成闸——校准属产品级决策，**演示后 backlog**，本冲刺不动
+  4. 演示 ops：真实生成一轮 ~3 分钟——幕 2 要么预生成要么用等待期讲流水线，写进 §7 彩排注意
+
+## Stage 2 指令（Codex 读此节执行 · B1→B2→B3→B9→B-null · 只动 `web/` 前端）
+
+> 边界：**禁 git 一切写操作**（commit 收归 CC）；**禁改后端 .py**（A 线已锁定资产）——若某卡确需后端配合，停下写明方案等 CC 裁决，不许顺手改。每卡完成在「卡报告」节追加一行（卡ID | 改动文件 | 验收命令与结果末行）。web 构建环境：pnpm；若 node_modules 符号链接损坏先 `pnpm install --force`；验收统一跑 `pnpm exec tsc --noEmit`（或项目等价 typecheck）+ `pnpm build` 必须过。浏览器实测由 CC 在 CP2 承担，Codex 以构建+代码级断言交卡。
+
+- **B1 报告页示例加载语义**（锚 `ReportWorkspace.tsx` handleDemoRun :527 / triggerV16Fill :228）：①示例卡点击=为该企业新起会话，不复用旧会话 ②「重新生成」重跑当前会话同一企业，无材料时报「请先选择示例或上传材料」，不许静默 fallback 到默认 docx/mock ③「真实数据/DEMO」pill 与会话 mode 字段单源同步。验收基准：主角=DP002 蓝汀家电（点 DP002→页头企业=蓝汀家电；重新生成→仍是蓝汀家电）
+- **B2 生成即时反馈**（锚 ReportWorkspace liveStages 渲染链）：点击后 1s 内进「生成中」视觉态（按钮菊花+五段流水第一段点亮+右栏骨架屏）；SSE 首事件前显示「正在连接生成服务…」；失败接 LiveFailError 显式横幅。注意真实生成 ~3 分钟，流水态要撑得住长跑
+- **B3 导航假数字全清**（锚 `web/src/components/shell/Masthead.tsx:22`）：硬编码「01/02·3/03·6/04·12」→ 去数据语义（纯序号或纯文字标签，推荐后者演示安全）；不接假数据源
+- **B9 (mock) 前缀清理**（锚 `web/src/lib/mock/agent-report-session.ts`）：正文去「(mock)」字面（模式标识由 ModePill/水印承担）；顺清 {T2} 类占位符残留
+- **B-null credit 页消费 null 防御**（源自 CP1-R3 裁决 2 / schema v1.1.0）：credit 前端所有消费 `approved_amount` 的位置（CreditWorkspace + decision graph/summary 渲染组件，自行 grep）——`amount_provided===false` 或 `approved_amount===null` 时显示「额度未提供 · 仅风险评估」，**不得渲染 ¥0 / 0 万元 / NaN**；`amount_provided===true && approved_amount===0` 是真实零授信，照常显示 0。以六个 scenario fixture（data/mock/workspace/credit/scenarios/）为对照自测
+
+完成停下报「CP2 就绪」，CC 本机浏览器实测 + 分卡 commit + push/deploy Wave-1。
 
 ## 砍卡登记
 
