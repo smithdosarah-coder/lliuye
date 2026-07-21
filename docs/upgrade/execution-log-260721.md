@@ -41,6 +41,11 @@
 - A2 | quality_scorer.py; agent_report/api.py; agent_report/word_export.py; agent_report/v16_runner.py; v16_pipeline.py; tests/upgrade/test_export_gate.py; agent_report/tests; docs/upgrade/execution-log-260721.md | R3 真实链卡测 `py -3 -m pytest tests/upgrade/test_export_gate.py -q -p no:cacheprovider` → `8 passed in 11.15s`；agent_report 全量 `py -3 -m pytest agent_report/tests -q -p no:cacheprovider` → `118 passed in 21.85s`（无 `-k`；最小 DOCX 单个真实 `FILL/SLOT` 双缺值元素命中 `multi_slot_decompose(list)→pending_tags.extend`，生成 JSON 为 flat `list[dict]` 且 2 条无嵌套，再经 runner→SessionStore/API→DOCX；导出逐条含非空 location/reason/suggested_action）
 - A3 | agent_compliance/agent.py; agent_compliance/_smoke_test.py; demo_data/agent_compliance/scenarios/internet_loan/scenario.json; demo_data/agent_compliance/scenarios/internet_loan/_build_data.py; tests/upgrade/test_compliance_no_planted.py; docs/upgrade/execution-log-260721.md | `py -3 -m pytest tests/upgrade/test_compliance_no_planted.py tests/agent_compliance/test_demo_run_ledger.py -q -p no:cacheprovider` → `9 passed in 7.10s`；`rg` 可执行消费点 → `PLANTED_CONSUMERS=0`
 - A4 | agent_credit/agent.py; agent_credit/feature_extractor.py; agent_credit/scoring_model_corporate.py; agent_credit/advisor_formatter.py; agent_credit/decision_graph.py; agent_credit/decision_engine.py; agent_credit/api.py; docs/contracts/agent-credit-decision-graph.md; data/mock/workspace/credit/scenarios/*.json; tests/upgrade/test_credit_no_magic.py; tests/upgrade/conftest.py; tests/agent_credit/test_decision_graph.py; tests/agent_credit/test_decision_engine_ledger.py; docs/upgrade/execution-log-260721.md | **R4 PASS（独立规格闸补正）**：断网 `py -3 -m pytest tests/upgrade -q -p no:cacheprovider` → `18 passed in 19.10s`；`py -3 -m pytest tests/agent_credit -q -p no:cacheprovider` → `34 passed in 1.02s`；实时图/缺额度图/六 fixture 统一形状断言，显式覆盖 false→null 与 true+0 合法零授信；fallback 复用 `SCHEMA_VERSION`；契约示例与 v1.1.0 语义一致
+- B1 | web/src/lib/mock/agent-report-session.ts; web/src/app/archive/report/_components/ReportWorkspace.tsx; web/tests/regression/report-stage2-r1.spec.ts; docs/upgrade/execution-log-260721.md | **R2 实现完成、隔离浏览器待宿主复跑**：`ReportSession.mode` required，root/status/live strip/panels 全由 `sessionData.mode` 镜像；上传 stub 按 `ReportFileSummary(name/type/size_bytes/...)`；新增 DP002 精确请求+done 后页头回归；隔离套件与 B-null 合计 `--list` → `6 tests in 2 files`，执行被 sandbox `spawn EPERM`，不得记 PASS
+- B2 | web/src/app/archive/report/_components/ReportWorkspace.tsx; web/src/app/globals.css; web/tests/regression/report-stage2-r1.spec.ts; web/tests/regression/report-b2-e2e.spec.ts; docs/upgrade/execution-log-260721.md | **R2 实现完成、隔离浏览器待宿主复跑**：即时元素均锁 `1000ms`，ingest active/连接文案/spinner/skeleton 齐备，受控 SSE 延迟 `2500ms` 且 `1800ms` 持续态；真链仅补 DP002 请求体、90s/165s 中点与最终页头（未计已跑数字）；隔离执行与 build 被 sandbox `spawn EPERM`，不得记 PASS
+- B3 | web/src/components/shell/Masthead.tsx; web/tests/regression/stage2-static-contract.spec.ts; docs/upgrade/execution-log-260721.md | **R2 代码闸通过、共享构建闸待宿主复跑**：B3/B9 静态契约全量 → `2 passed (905ms)`；全量 tsc → exit 0；`pnpm build` 编译成功后 sandbox `spawn EPERM`，不得记 PASS
+- B9 | web/src/lib/mock/agent-report-session.ts; web/tests/regression/stage2-static-contract.spec.ts; docs/upgrade/execution-log-260721.md | **R2 代码闸通过、共享构建闸待宿主复跑**：同上静态契约 `2 passed (905ms)`，正文 `(mock)`/`{Tn}`/`{{...}}` 三类均锁零；`pnpm build` 编译成功后 sandbox `spawn EPERM`，不得记 PASS
+- B-null | web/src/lib/credit-types.ts; web/src/lib/mock/agent-credit-session.ts; web/src/app/archive/credit/_components/_normalize.ts; web/src/app/archive/credit/_components/CreditWorkspace.tsx; web/tests/regression/credit-amount-contract.spec.ts; web/tests/regression/credit-b-null-ui.spec.ts; web/tests/e2e/_shared.ts; web/tests/e2e/admin-dual-track-concurrency.spec.ts; docs/upgrade/execution-log-260721.md | **R2 代码闸通过、隔离浏览器待宿主复跑**：判别联合+合并缺失优先+case nullable+全百分比 finite clamp；纯契约全量 → `5 passed (1.1s)`；六 fixture 锁文件名/schema/镜像与 2零4正；UI 三态用例已发现但执行 `spawn EPERM`；全量 tsc exit 0；只读核验默认密码为 `LIUYE` 并同步测试 helper，未声称联网验证；build 同为 sandbox `spawn EPERM`，不得记 PASS
 
 ### FIX-A4-R3 鼎盛分数漂移归因表
 
@@ -150,6 +155,15 @@ CC 本机起 api_server（8000，.env 真 LLM），登录态走 `/api/report/dem
 - **B-null credit 页消费 null 防御**（源自 CP1-R3 裁决 2 / schema v1.1.0）：credit 前端所有消费 `approved_amount` 的位置（CreditWorkspace + decision graph/summary 渲染组件，自行 grep）——`amount_provided===false` 或 `approved_amount===null` 时显示「额度未提供 · 仅风险评估」，**不得渲染 ¥0 / 0 万元 / NaN**；`amount_provided===true && approved_amount===0` 是真实零授信，照常显示 0。以六个 scenario fixture（data/mock/workspace/credit/scenarios/）为对照自测
 
 完成停下报「CP2 就绪」，CC 本机浏览器实测 + 分卡 commit + push/deploy Wave-1。
+
+### CP2 · 260721 · 判定：Stage 2 五卡 PASS 已 commit（d40751e / c97c3c2 / 6629688）—— Wave-1 push+deploy 启动
+
+- CC 亲验（非转述）：tsc exit 0；`pnpm build` 生产构建成功；四 spec 终验合跑 **26 passed 0 failed**（report-stage2-r1 / credit-amount-contract / credit-b-null-ui / stage2-static-contract，chromium+edge）
+- 插曲 1（判定纠偏）：B1 spec 首版 mock 用 `filename` 字段致红——CC 溯源后端 `agent_report/upload.py::parse_file_summary` 实锤真实契约为 `name/type`，判定为**测试 mock 错误而非产品 bug**（真实上传路径与契约本就对齐）；Codex 自行修正并补 credit-b-null-ui / stage2-static-contract 两 spec 后升卡报告 R2
+- 插曲 2：组合跑曾 6 例超时抖动（dev server 冷编译），Codex 末轮修稳，终验 26/26；3101 端口残留 dev server（PID 11556）已清
+- 真链 E2E（report-b2-e2e，300s 真实生成）本地未跑：真实链路已由 CC 的 DP001/DP002 亲跑覆盖（见「真实生成结论」），生产验证在部署后动线抽查完成
+- commit 分块说明：B1+B2+B9 文件域重叠（ReportWorkspace/mock session 共用）合为报告页簇一个 commit，B3 / B-null 独立
+- Wave-1 内容 = Stage 1 后端五卡 + Stage 2 前端五卡 + 全部 docs，deploy_to_ecs 结果记入下一 CP
 
 ## 砍卡登记
 
