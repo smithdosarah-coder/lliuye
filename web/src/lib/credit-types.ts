@@ -51,7 +51,8 @@ export interface DecisionAdvice {
   subject_name: string;
   decision_time: string;
   decision: "批准" | "有条件批准" | "拒绝" | string;
-  approved_amount: number;
+  amount_provided?: boolean;
+  approved_amount: number | null;
   approved_term_months: number;
   interest_rate: number;
   rate_benchmark: string;

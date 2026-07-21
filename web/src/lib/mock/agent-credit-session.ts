@@ -71,8 +71,9 @@ export type CaseRecall = {
 };
 
 export type LimitSuggestion = {
+  amountProvided: boolean;
   applied: number;
-  suggested: number;
+  suggested: number | null;
   floor: number;
   ceiling: number;
   tenorMonths: number;
@@ -330,6 +331,7 @@ const CORP_CASES: CaseRecall[] = [
 
 const CORP_LIMIT: LimitSuggestion = {
   applied: 800,
+  amountProvided: true,
   suggested: 720,
   floor: 600,
   ceiling: 800,
@@ -642,6 +644,7 @@ const SMALL_CASES: CaseRecall[] = [
 
 const SMALL_LIMIT: LimitSuggestion = {
   applied: 300,
+  amountProvided: true,
   suggested: 220,
   floor: 150,
   ceiling: 300,
@@ -936,6 +939,7 @@ const RETAIL_CASES: CaseRecall[] = [
 
 const RETAIL_LIMIT: LimitSuggestion = {
   applied: 50,
+  amountProvided: true,
   suggested: 50,
   floor: 30,
   ceiling: 60,
@@ -1332,6 +1336,7 @@ const ZHONGRUI_CASES: CaseRecall[] = [
 
 const ZHONGRUI_LIMIT: LimitSuggestion = {
   applied: 500,
+  amountProvided: true,
   suggested: 380,
   floor: 300,
   ceiling: 500,
@@ -1635,6 +1640,7 @@ const DINGSHENG_CASES: CaseRecall[] = [
 
 const DINGSHENG_LIMIT: LimitSuggestion = {
   applied: 300,
+  amountProvided: true,
   suggested: 0,
   floor: 0,
   ceiling: 0,
@@ -1924,6 +1930,7 @@ const WANGWU_CASES: CaseRecall[] = [
 
 const WANGWU_LIMIT: LimitSuggestion = {
   applied: 200,
+  amountProvided: true,
   suggested: 200,
   floor: 150,
   ceiling: 240,

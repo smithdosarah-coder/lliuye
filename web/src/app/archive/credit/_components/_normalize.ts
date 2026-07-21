@@ -69,14 +69,16 @@ export type BackendCreditDoneEnvelope = {
     company_name?: string;
     similarity?: number;
     decision?: string;
-    approved_amount?: number;
+    amount_provided?: boolean;
+    approved_amount?: number | null;
     approved_term?: number | null;
     interest_rate?: number | null;
     decision_reason?: string;
   }> | null;
   advice?: {
     decision?: string;
-    approved_amount?: number;
+    amount_provided?: boolean;
+    approved_amount?: number | null;
     approved_term_months?: number;
     interest_rate?: number;
     rate_benchmark?: string;
@@ -85,6 +87,16 @@ export type BackendCreditDoneEnvelope = {
     conditions?: string[];
     decision_reason?: string;
     stage_tab?: string;
+  } | null;
+  decision_graph?: {
+    decision_summary?: {
+      amount_provided?: boolean;
+      approved_amount?: number | null;
+    } | null;
+  } | null;
+  decision_summary?: {
+    amount_provided?: boolean;
+    approved_amount?: number | null;
   } | null;
   /* ALL IN Phase B step 4 (2026-05-09) · 后端 _build_data_sources_panel 字段
      · 4 evidence 类源 trust display (scoring_model / rule_engine_v2 / case_retriever / advisor_llm) */
@@ -202,17 +214,23 @@ function normalizeCases(
   /* V2 fix · codex DISAGREE issue 1: backend 显式 yield case_matches: [] 也是合法 done envelope
      (案例库未召回到 ≥0.75 相似 case · UI 应显示 "0 案例" · 不混 mock) · 仅 null/undefined 走 fallback */
   if (matches == null) return fallback;
-  return matches.map((m, i) => ({
-    id: m.case_id ?? `case-live-${i}`,
-    name: m.company_name ?? "(unknown)",
-    similarity: m.similarity ?? 0,
-    amount: m.approved_amount != null ? `${m.approved_amount} 万` : "—",
-    decision: decisionToCaseEnum(m.decision),
-    note:
-      m.decision_reason ??
-      `相似度 ${Math.round((m.similarity ?? 0) * 100)}% · ${m.decision ?? ""} ${m.approved_amount ?? 0} 万`,
-    tags: [],
-  }));
+  return matches.map((m, i) => {
+    const amountState = resolveAmountState(m.amount_provided, m.approved_amount);
+    const amountText = amountState.amountProvided
+      ? `${amountState.amount} 万`
+      : "额度未提供 · 仅风险评估";
+    return {
+      id: m.case_id ?? `case-live-${i}`,
+      name: m.company_name ?? "(unknown)",
+      similarity: m.similarity ?? 0,
+      amount: amountText,
+      decision: decisionToCaseEnum(m.decision),
+      note:
+        m.decision_reason ??
+        `相似度 ${Math.round((m.similarity ?? 0) * 100)}% · ${m.decision ?? ""} · ${amountText}`,
+      tags: [],
+    };
+  });
 }
 
 function normalizeDataSources(
@@ -235,20 +253,65 @@ function normalizeDataSources(
   };
 }
 
+export type AmountState =
+  | { amountProvided: true; amount: number }
+  | { amountProvided: false; amount: null };
+
+export function resolveAmountState(flag: unknown, amount: unknown): AmountState {
+  if (flag === false || typeof amount !== "number" || !Number.isFinite(amount)) {
+    return { amountProvided: false, amount: null };
+  }
+  return { amountProvided: true, amount };
+}
+
+function finiteClamp(value: number): number {
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
+}
+
+export function safePercent(value: number, total: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(total) || total === 0) return 0;
+  return finiteClamp((value / total) * 100);
+}
+
+export function safeRangePercent(value: number, min: number, max: number): number {
+  if (![value, min, max].every(Number.isFinite) || max === min) return 0;
+  return finiteClamp(((value - min) / (max - min)) * 100);
+}
+
+function mergeAmountState(
+  advice: BackendCreditDoneEnvelope["advice"],
+  summary: NonNullable<BackendCreditDoneEnvelope["decision_graph"]>["decision_summary"] | BackendCreditDoneEnvelope["decision_summary"],
+): AmountState {
+  const sources = [advice, summary].filter((item): item is NonNullable<typeof item> => item != null);
+  if (sources.some((item) => item.amount_provided === false)) {
+    return { amountProvided: false, amount: null };
+  }
+  const explicitAmounts = sources
+    .filter((item) => Object.hasOwn(item, "approved_amount"))
+    .map((item) => item.approved_amount);
+  if (explicitAmounts.some((amount) => typeof amount !== "number" || !Number.isFinite(amount))) {
+    return { amountProvided: false, amount: null };
+  }
+  const amount = explicitAmounts[0];
+  return resolveAmountState(sources.some((item) => item.amount_provided === true) ? true : undefined, amount);
+}
+
 function normalizeLimit(
   advice: BackendCreditDoneEnvelope["advice"],
   fallback: LimitSuggestion,
 ): LimitSuggestion {
   if (!advice) return fallback;
-  const suggested = advice.approved_amount ?? fallback.suggested;
+  const amountState = resolveAmountState(advice.amount_provided, advice.approved_amount);
+  const suggested = amountState.amount;
   const tenor = advice.approved_term_months ?? fallback.tenorMonths;
   // interest_rate 0.065 → bps 与 LPR 基准的差值需后端 rate_benchmark 解 · 此处简化
   const rateBps = advice.interest_rate != null ? Math.round(advice.interest_rate * 10000) - 320 : fallback.rateBps;
   return {
+    amountProvided: amountState.amountProvided,
     applied: fallback.applied,
     suggested,
-    floor: Math.min(fallback.floor, suggested),
-    ceiling: Math.max(fallback.ceiling, suggested),
+    floor: amountState.amountProvided ? Math.min(fallback.floor, suggested as number) : fallback.floor,
+    ceiling: amountState.amountProvided ? Math.max(fallback.ceiling, suggested as number) : fallback.ceiling,
     tenorMonths: tenor,
     tenorRange: fallback.tenorRange,
     rateBps,
@@ -276,7 +339,16 @@ export function normalizeCreditDone(
   const mode = STAGE_TAB_TO_MODE[stageTab] ?? fallback.mode;
 
   const profileBackend = env.profile ?? null;
-  const advice = env.advice ?? null;
+  const rawAdvice = env.advice ?? null;
+  const graphSummary = env.decision_graph?.decision_summary ?? env.decision_summary ?? null;
+  const mergedAmount = mergeAmountState(rawAdvice, graphSummary);
+  const advice = rawAdvice || graphSummary
+    ? {
+        ...(rawAdvice ?? {}),
+        amount_provided: mergedAmount.amountProvided,
+        approved_amount: mergedAmount.amount,
+      }
+    : null;
 
   // 派生 profile chips · 优先用 backend profile 字段 · 否则保留 fallback
   let chips = fallback.profile.chips;

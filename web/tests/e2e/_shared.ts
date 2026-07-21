@@ -36,7 +36,7 @@ export const STORAGE_STATE_PATH = path.resolve(
 const STORAGE_STATE_EXISTS = fs.existsSync(STORAGE_STATE_PATH);
 
 const ADMIN_USER_ID = process.env.E2E_ADMIN_USER_ID ?? "u_liuye";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "liuye";
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "LIUYE";
 
 /**
  * Module-level cache · 1 worker (per playwright.config.ts fullyParallel=false workers=1)
@@ -70,6 +70,11 @@ async function loginAndCacheCookie(): Promise<string> {
   }
   cachedAdminCookie = match[1];
   return cachedAdminCookie;
+}
+
+/** Reuse the authenticated backend cookie in additional browser contexts. */
+export async function getAdminCookieValue(): Promise<string> {
+  return loginAndCacheCookie();
 }
 
 export const adminTest = base;

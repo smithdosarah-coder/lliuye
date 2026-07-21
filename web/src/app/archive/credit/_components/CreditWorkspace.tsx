@@ -40,7 +40,7 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { PanelPinHandle } from "@/components/shell/PanelPinHandle";
 import { CustomerSelector } from "@/components/shared/CustomerSelector";
 import { LiveFailError, liveFailBannerText, streamSse } from "@/lib/api/_live";
-import { normalizeCreditDone } from "./_normalize";
+import { normalizeCreditDone, resolveAmountState, safePercent, safeRangePercent } from "./_normalize";
 import {
   CREDIT_GLOBAL_STATS,
   CREDIT_MODE_LABEL,
@@ -87,8 +87,9 @@ const EMPTY_SESSION: CreditSession = {
   overallScore: 0,
   decision: "pending",
   limit: {
+    amountProvided: false,
     applied: 0,
-    suggested: 0,
+    suggested: null,
     floor: 0,
     ceiling: 0,
     tenorMonths: 0,
@@ -818,7 +819,9 @@ function DashboardBand(p: {
 }) {
   const dims = p.radar;
   const overall = p.overall;
-  const cutPct = Math.round((p.limit.suggested / p.limit.applied) * 100);
+  const amountState = resolveAmountState(p.limit.amountProvided, p.limit.suggested);
+  const amountProvided = amountState.amountProvided;
+  const cutPct = amountProvided ? Math.round(safePercent(amountState.amount, p.limit.applied)) : 0;
   const redFail = p.redLines.filter((r) => r.status === "fail").length;
   const redWarn = p.redLines.filter((r) => r.status === "warn").length;
 
@@ -830,18 +833,18 @@ function DashboardBand(p: {
       unit: "分",
       caption: "综合 4 维 × 权重",
       detail: overall >= 75 ? "绿区" : overall >= 60 ? "关注区" : "红区",
-      pct: overall,
+      pct: safePercent(overall, 100),
       tone: overall >= 75 ? "good" : overall >= 60 ? "warn" : "bad",
     },
     {
       key: "limit",
       label: "建议额度",
-      value: p.limit.suggested,
-      unit: "万",
-      caption: `申请 ${p.limit.applied} 万`,
-      detail: cutPct < 100 ? `打折 ${cutPct}%` : "足额批",
-      pct: Math.min(cutPct, 100),
-      tone: cutPct >= 90 ? "good" : cutPct >= 70 ? "warn" : "bad",
+      value: amountProvided ? amountState.amount : "额度未提供 · 仅风险评估",
+      unit: amountProvided ? "万" : "",
+      caption: amountProvided ? `申请 ${p.limit.applied} 万` : "",
+      detail: amountProvided ? (cutPct < 100 ? `打折 ${cutPct}%` : "足额批") : "不做额度测算",
+      pct: amountProvided ? cutPct : 0,
+      tone: amountProvided ? (cutPct >= 90 ? "good" : cutPct >= 70 ? "warn" : "bad") : "neutral",
     },
     {
       key: "tenor",
@@ -850,7 +853,7 @@ function DashboardBand(p: {
       unit: "月",
       caption: `利率 ${(p.limit.rateBps / 100).toFixed(2)}%`,
       detail: `区间 ${p.limit.tenorRange[0]}–${p.limit.tenorRange[1]} 月`,
-      pct: Math.round((p.limit.tenorMonths / p.limit.tenorRange[1]) * 100),
+      pct: Math.round(safePercent(p.limit.tenorMonths, p.limit.tenorRange[1])),
       tone: "neutral",
     },
     {
@@ -860,9 +863,7 @@ function DashboardBand(p: {
       unit: `/ ${p.redLines.length}`,
       caption: `${redFail} 触发 · ${redWarn} 预警`,
       detail: redFail === 0 ? "无阻断" : "阻断",
-      pct: Math.round(
-        ((p.redLines.length - redFail - redWarn) / Math.max(p.redLines.length, 1)) * 100,
-      ),
+      pct: Math.round(safePercent(p.redLines.length - redFail - redWarn, p.redLines.length)),
       tone: redFail === 0 ? "good" : "bad",
     },
   ] as const;
@@ -876,7 +877,7 @@ function DashboardBand(p: {
       </div>
       <ol className="credit-band-list">
         {cards.map((c) => (
-          <li key={c.key} className="credit-band-card" data-tone={c.tone}>
+          <li key={c.key} className="credit-band-card" data-tone={c.tone} data-testid={`credit-dashboard-${c.key}`}>
             <div className="credit-band-dial" aria-hidden>
               <svg width="64" height="64" viewBox="0 0 64 64">
                 <circle cx="32" cy="32" r="26" className="track" />
@@ -885,7 +886,7 @@ function DashboardBand(p: {
                   cy="32"
                   r="26"
                   className="fill"
-                  strokeDasharray={`${(c.pct / 100) * 163.36} 163.36`}
+                  strokeDasharray={`${(safePercent(c.pct, 100) / 100) * 163.36} 163.36`}
                   transform="rotate(-90 32 32)"
                 />
               </svg>
@@ -1009,7 +1010,7 @@ function PrimaryProfileHero(p: {
             <div className="credit-hero__progress-track">
               <div
                 className="credit-hero__progress-fill"
-                style={{ width: `${p.progress.pct}%` } as CSSProperties}
+                style={{ width: `${safePercent(p.progress.pct, 100)}%` } as CSSProperties}
               />
             </div>
           </div>
@@ -1427,13 +1428,13 @@ function OutputPanel(p: {
       <div className="rpt-panel__head cr-out__head">
         <div className="rpt-panel__eyebrow">决策看板</div>
         <div className="cr-out__tabs" role="tablist">
-          <TabBtn active={p.tab === "radar"} onClick={() => p.onTabChange("radar")}>
+          <TabBtn testId="credit-output-tab-radar" active={p.tab === "radar"} onClick={() => p.onTabChange("radar")}>
             四维
           </TabBtn>
-          <TabBtn active={p.tab === "limit"} onClick={() => p.onTabChange("limit")}>
+          <TabBtn testId="credit-output-tab-limit" active={p.tab === "limit"} onClick={() => p.onTabChange("limit")}>
             额度
           </TabBtn>
-          <TabBtn active={p.tab === "cases"} onClick={() => p.onTabChange("cases")}>
+          <TabBtn testId="credit-output-tab-cases" active={p.tab === "cases"} onClick={() => p.onTabChange("cases")}>
             案例
           </TabBtn>
         </div>
@@ -1448,16 +1449,19 @@ function OutputPanel(p: {
 }
 
 function TabBtn({
+  testId,
   active,
   onClick,
   children,
 }: {
+  testId: string;
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
+      data-testid={testId}
       type="button"
       className="cr-out__tab"
       data-active={active ? "yes" : "no"}
@@ -1515,7 +1519,7 @@ function RadarView({ radar, overall }: { radar: CreditRadarDim[]; overall: numbe
             <div className="cr-rd__bar">
               <div
                 className="cr-rd__bar-fill"
-                style={{ width: `${d.score}%` } as CSSProperties}
+                style={{ width: `${safePercent(d.score, 100)}%` } as CSSProperties}
               />
             </div>
             <div className="cr-rd__note">{d.note}</div>
@@ -1534,35 +1538,37 @@ function RadarView({ radar, overall }: { radar: CreditRadarDim[]; overall: numbe
 }
 
 function LimitView({ limit, redLines }: { limit: LimitSuggestion; redLines: RedLine[] }) {
-  const amountPct = ((limit.suggested - limit.floor) / (limit.ceiling - limit.floor)) * 100;
-  const tenorPct =
-    ((limit.tenorMonths - limit.tenorRange[0]) /
-      (limit.tenorRange[1] - limit.tenorRange[0])) *
-    100;
-  const ratePct =
-    ((limit.rateBps - limit.rateRange[0]) / (limit.rateRange[1] - limit.rateRange[0])) * 100;
+  const amountState = resolveAmountState(limit.amountProvided, limit.suggested);
+  const amountProvided = amountState.amountProvided;
+  const amountPct = amountProvided
+    ? safeRangePercent(amountState.amount, limit.floor, limit.ceiling)
+    : 0;
+  const tenorPct = safeRangePercent(limit.tenorMonths, limit.tenorRange[0], limit.tenorRange[1]);
+  const ratePct = safeRangePercent(limit.rateBps, limit.rateRange[0], limit.rateRange[1]);
 
   return (
-    <div className="cr-lm">
+    <div className="cr-lm" data-testid="credit-limit-view">
       <div className="cr-lm__summary">
         <div className="cr-lm__kpi">
-          <span className="cr-lm__kpi-num">{limit.suggested}</span>
-          <span className="cr-lm__kpi-unit">万</span>
+          <span className="cr-lm__kpi-num">{amountProvided ? amountState.amount : "额度未提供 · 仅风险评估"}</span>
+          {amountProvided ? <span className="cr-lm__kpi-unit">万</span> : null}
         </div>
         <div className="cr-lm__kpi-sub">
-          建议额度 · 申请 {limit.applied} 万 · Δ {limit.suggested - limit.applied} 万
+          {amountProvided
+            ? `建议额度 · 申请 ${limit.applied} 万 · Δ ${amountState.amount - limit.applied} 万`
+            : ""}
         </div>
       </div>
 
-      <Gauge
+      {amountProvided ? <Gauge
         label="额度"
         unit="万"
         min={limit.floor}
         max={limit.ceiling}
-        value={limit.suggested}
+        value={amountState.amount}
         pct={amountPct}
         applied={limit.applied}
-      />
+      /> : null}
       <Gauge
         label="期限"
         unit="月"
@@ -1621,8 +1627,8 @@ function Gauge(p: {
   applied?: number;
   prefix?: string;
 }) {
-  const appliedPct =
-    p.applied !== undefined ? ((p.applied - p.min) / (p.max - p.min)) * 100 : null;
+  const pct = safeRangePercent(p.pct, 0, 100);
+  const appliedPct = p.applied !== undefined ? safeRangePercent(p.applied, p.min, p.max) : null;
   return (
     <div className="cr-lm__g">
       <div className="cr-lm__g-head">
@@ -1635,11 +1641,11 @@ function Gauge(p: {
       <div className="cr-lm__g-track">
         <div
           className="cr-lm__g-fill"
-          style={{ width: `${p.pct}%` } as CSSProperties}
+          style={{ width: `${pct}%` } as CSSProperties}
         />
         <div
           className="cr-lm__g-dot"
-          style={{ left: `calc(${p.pct}% - 6px)` } as CSSProperties}
+          style={{ left: `calc(${pct}% - 6px)` } as CSSProperties}
         />
         {appliedPct !== null ? (
           <div
@@ -1910,7 +1916,7 @@ function PipelineLane({
           <div className="credit-pipe__live-track">
             <div
               className="credit-pipe__live-fill"
-              style={{ width: `${progress.pct}%` } as CSSProperties}
+              style={{ width: `${safePercent(progress.pct, 100)}%` } as CSSProperties}
             />
           </div>
           <div className="credit-pipe__live-steps">
@@ -2177,7 +2183,9 @@ function CreditDecisionAdvicePanel(p: {
   const decision = String(advice.decision ?? "");
   const composite = advice.composite_score;
   const grade = String(advice.risk_grade ?? "");
-  const amount = advice.approved_amount;
+  const amountState = resolveAmountState(advice.amount_provided, advice.approved_amount);
+  const amount = amountState.amount;
+  const amountProvided = amountState.amountProvided;
   const term = advice.approved_term_months;
   const rate = advice.interest_rate;
   const benchmark = String(advice.rate_benchmark ?? "");
@@ -2258,8 +2266,13 @@ function CreditDecisionAdvicePanel(p: {
               <span className="credit-advice-live__verdict-score">{composite} 分</span>
             ) : null}
           </div>
-          <dl className="credit-advice-live__meta">
-            {typeof amount === "number" ? (
+          <dl className="credit-advice-live__meta" data-testid="credit-live-advice-amount">
+            {!amountProvided ? (
+              <div>
+                <dt>建议额度</dt>
+                <dd>额度未提供 · 仅风险评估</dd>
+              </div>
+            ) : typeof amount === "number" ? (
               <div>
                 <dt>建议额度</dt>
                 <dd>{amount} 万</dd>

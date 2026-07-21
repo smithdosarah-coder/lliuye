@@ -17,11 +17,12 @@
  *   - IM endpoint 响应被 demo SSE 阻塞 > 5s
  *   - 并发 demo 中 session 串 (e.g. credit page 看到 alert page 的数据)
  */
-import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS, REAL_PROD_BASE_URL, STORAGE_STATE_PATH } from "./_shared";
+import { adminTest as test, expect, E2E_TIMEOUT_MS, FIRST_PAINT_TIMEOUT_MS, getAdminCookieValue, REAL_PROD_BASE_URL, STORAGE_STATE_PATH } from "./_shared";
 
 test.describe.serial("B.4 SLO-2 主活 C · 双轨并发 verify", () => {
-  test("C1 · channel demo 跑 + IM 调 · IM 响应 < 5s", async ({ page, browser, adminCookieValue }) => {
+  test("C1 · channel demo 跑 + IM 调 · IM 响应 < 5s", async ({ page, browser }) => {
     test.setTimeout(E2E_TIMEOUT_MS + 30_000);
+    const adminCookieValue = await getAdminCookieValue();
 
     // Page1: 跑 channel demo medium (SSE 真流 ~30s)
     await page.goto("/archive/channel", { waitUntil: "networkidle" });
@@ -74,8 +75,9 @@ test.describe.serial("B.4 SLO-2 主活 C · 双轨并发 verify", () => {
     await ctx2.close();
   });
 
-  test("C2 · alert demo + credit demo 并发 · session 独立", async ({ browser, adminCookieValue }) => {
+  test("C2 · alert demo + credit demo 并发 · session 独立", async ({ browser }) => {
     test.setTimeout(E2E_TIMEOUT_MS * 2 + 30_000);
+    const adminCookieValue = await getAdminCookieValue();
 
     const url = new URL(REAL_PROD_BASE_URL);
     async function makeCtx() {
