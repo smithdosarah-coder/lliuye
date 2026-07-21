@@ -77,6 +77,7 @@ const AGENT_ACCENT = "--t-report";
    5 panel 消费时 .map / .find / .reduce 不 crash · 字段空 → 显空 / 0 / "—" 不显假数据.
    per channel ALL IN 模板 (de79725) + AGENT_IDENTITY-report.md §6 step 2 */
 const EMPTY_SESSION: ReportSession = {
+  mode: "live",
   id: "empty",
   clientName: "",
   amount: "",
@@ -119,6 +120,7 @@ export function ReportWorkspace() {
   const [mode, setMode] = useState<"mock" | "live">("live");
   const [businessLine, setBusinessLine] = useState<string>("corporate");
   const [templateChoice, setTemplateChoice] = useState<string>("");
+  const [currentDemo, setCurrentDemo] = useState<{ id: string; name: string } | null>(null);
 
   // v16 fill / demo/run 流式状态 · liveData = gate 3 (workspace-state-protocol §2)
   const [liveStages, setLiveStages] = useState<ReportV16StageEvent[]>([]);
@@ -137,7 +139,12 @@ export function ReportWorkspace() {
      liveData null 时 fallback EMPTY_SESSION (不 fallback 到 REPORT_SESSION mock · 防显假数据).
      5 panel + Hero + PipelineBand 都消费此 derived value */
   const derivedFromLive = liveToReportSession(liveData);
-  const sessionData: ReportSession = derivedFromLive ?? EMPTY_SESSION;
+  const sessionData: ReportSession = {
+    ...(derivedFromLive ?? (currentDemo
+      ? { ...EMPTY_SESSION, clientName: currentDemo.name, stage: generating ? "生成中" : "示例已选择" }
+      : EMPTY_SESSION)),
+    mode,
+  };
   const s = sessionData;
   const coverPct = Math.round((s.coverage.filled / Math.max(s.coverage.total, 1)) * 100);
   const [llmConnected, setLlmConnected] = useState<boolean | null>(null);
@@ -229,7 +236,12 @@ export function ReportWorkspace() {
     (opts?: { reportIdOverride?: string; explicitMock?: boolean }) => {
       if (generating) return;
       setGenerating(true);
-      setLiveStages([]);
+      setLiveStages([{
+        event: "stage",
+        stage: "ingest",
+        progress: 0,
+        message: "正在连接生成服务…",
+      } as ReportV16StageEvent]);
       setLiveData(null);
       setErrMsg(null);
       setLiveFailErr(null); // 重试时清旧 banner
@@ -267,6 +279,7 @@ export function ReportWorkspace() {
                   message: msg,
                 });
               }
+              setGenerating(false);
             }
           },
           onClose: () => setGenerating(false),
@@ -296,6 +309,7 @@ export function ReportWorkspace() {
       try {
         const resp = await uploadReportMaterials(files, businessLine);
         setReportId(resp.report_id);
+        setCurrentDemo(null);
         // user 反馈 2026-05-22 · 累加而非覆盖 · 客户经理多批次上传也都能看见
         setUploadedFiles((prev) => [...prev, ...resp.file_summary]);
         setMode("live");
@@ -330,10 +344,14 @@ export function ReportWorkspace() {
   /* PM 2026-05-09 ALL IN: handleApplyLaunch 仅留 live 路径 · 删 historyChoice mock 触发分支
      上传材料 + 选模板 (或默认按 business_line) → 真 v16 主管线 · 不 silent fallback mock */
   const handleApplyLaunch = useCallback(() => {
+    if (!reportId && uploadedFiles.length === 0) {
+      setErrMsg("请先选择示例或上传材料");
+      return;
+    }
     setMode("live");
     setStarted(true);
     setTimeout(() => triggerV16Fill({ explicitMock: false }), 0);
-  }, [triggerV16Fill]);
+  }, [reportId, triggerV16Fill, uploadedFiles.length]);
 
   // Q6-B · 真用户自定义 docx 模板上传 · 走专用 endpoint
   // - 后端自动跑 byte-level diff lint · 返 validation_report
@@ -528,8 +546,20 @@ export function ReportWorkspace() {
     (sampleId: string) => {
       if (generating) return;
       setGenerating(true);
-      setLiveStages([]);
+      const sample = REPORT_SAMPLE_OPTIONS.find((item) => item.id === sampleId);
+      setCurrentDemo({
+        id: sampleId,
+        name: sample?.label.replace(/^DP\d+\s*·\s*/, "") ?? sampleId,
+      });
+      setLiveStages([{
+        event: "stage",
+        stage: "ingest",
+        progress: 0,
+        message: "正在连接生成服务…",
+      } as ReportV16StageEvent]);
       setLiveData(null);
+      setReportId("");
+      setUploadedFiles([]);
       setErrMsg(null);
       setLiveFailErr(null);
       setStarted(true);
@@ -559,6 +589,7 @@ export function ReportWorkspace() {
                 status: err.code ?? "SSE error",
                 message: friendly,
               });
+              setGenerating(false);
             }
           },
           onClose: () => setGenerating(false),
@@ -578,6 +609,18 @@ export function ReportWorkspace() {
     },
     [generating, _formatDemoError],
   );
+
+  const handleRegenerate = useCallback(() => {
+    if (currentDemo) {
+      handleDemoRun(currentDemo.id);
+      return;
+    }
+    if (!reportId && uploadedFiles.length === 0) {
+      setErrMsg("请先选择示例或上传材料");
+      return;
+    }
+    triggerV16Fill({ explicitMock: false });
+  }, [currentDemo, handleDemoRun, reportId, uploadedFiles.length, triggerV16Fill]);
 
   /* G-10 闭环 · export PDF 真接 · 与 export Word 同源 payload · pdf 走 reportlab */
   const handleExportPdf = useCallback(async () => {
@@ -620,7 +663,7 @@ export function ReportWorkspace() {
       <div
         data-view="archive-report"
         data-started={started ? "yes" : "no"}
-        data-mode={mode}
+        data-mode={sessionData.mode}
         data-scanned={started ? "yes" : "no"} /* legacy attr · 保留向后兼容 */
       >
         <ReportHero
@@ -637,13 +680,13 @@ export function ReportWorkspace() {
         />
         <ReportLiveFailBanner
           err={liveFailErr}
-          onRetry={() => triggerV16Fill()}
+          onRetry={handleRegenerate}
           onDismiss={() => setLiveFailErr(null)}
         />
         {/* B-banner · LaunchBar errMsg 提到 workspace 顶部 · 与 ReportLiveFailBanner 同位 */}
         <ReportLaunchErrorBanner
           errMsg={errMsg}
-          onRetry={() => triggerV16Fill()}
+          onRetry={handleRegenerate}
           onDismiss={() => setErrMsg(null)}
         />
         {/* B.2.3 hotfix (主 CLI 2026-05-10 自验) · sample strip 上移到 LaunchBar 之前
@@ -657,7 +700,7 @@ export function ReportWorkspace() {
         ) : null}
         <ReportLaunchBar
           started={started}
-          mode={mode}
+          mode={sessionData.mode}
           reportId={reportId}
           businessLine={businessLine}
           templateChoice={templateChoice}
@@ -670,7 +713,7 @@ export function ReportWorkspace() {
           onSelectTemplate={handleSelectTemplate}
           onApplyLaunch={handleApplyLaunch}
           onBusinessLineChange={setBusinessLine}
-          onStartGenerate={() => triggerV16Fill()}
+          onStartGenerate={handleRegenerate}
           onExport={handleExportDocx}
           /* Q6-B · 模板上传 + dropdown 真接 */
           templateList={templateList}
@@ -690,7 +733,7 @@ export function ReportWorkspace() {
                 lastStage={lastStage}
                 done={liveData}
                 generating={generating}
-                mode={mode}
+                mode={sessionData.mode}
               />
             ) : null}
             <ReportPipelineBand sessionData={sessionData} />
@@ -701,8 +744,8 @@ export function ReportWorkspace() {
                   uploadedTemplate={uploadedTemplate}
                   sessionData={sessionData}
                 />
-                <MaterialPanel mode={mode} sessionData={sessionData} />
-                <TimelinePanel mode={mode} sessionData={sessionData} />
+                <MaterialPanel sessionData={sessionData} />
+                <TimelinePanel sessionData={sessionData} />
               </aside>
               <main className="rpt-main">
                 {/* PM 2026-05-09 ALL IN: 删 ScanCTA "生成报告 (mock 路径)" · ALL IN 后只走真 v16 主管线 · launch bar 已有 "开始生成" 真触发 */}
@@ -714,23 +757,21 @@ export function ReportWorkspace() {
                     sections={liveData.sections}
                     evidences={liveData.evidences}
                     onRefine={handleRefineSection}
-                    mode={mode}
+                    mode={sessionData.mode}
                   />
                 ) : null}
               </main>
               <aside className="rpt-aux">
-                <PreviewPanel
+                {generating && !liveData ? <ReportGeneratingSkeleton /> : <PreviewPanel
                   coverPct={coverPct}
-                  mode={mode}
                   sessionData={sessionData}
-                  isLive={derivedFromLive !== null}
                   selectedSection={selectedSection}
                   onSelectSection={setSelectedSection}
                   onExportDocx={handleExportDocx}
                   onExportPdf={handleExportPdf}
                   exporting={exporting}
                   exportingPdf={exportingPdf}
-                />
+                />}
                 {/* Sprint 5 D3 · Truth-First 字段清单 drawer (Codex+Claude R1 minimal · per CLAUDE.md §3.1 确定性 vs 概率性硬隔离)
                     审贷员可一眼看哪些字段是 Python 规则计算 (truth-first · 不可幻觉) vs LLM 生成 (概率 · 需 evidence) */}
                 {/* Phase B.2 (PM 2026-05-10) Step 7 信息密度: 折叠 default → 展开 default ·
@@ -780,7 +821,7 @@ export function ReportWorkspace() {
         )}
         <ReportStatusPill
           llmConnected={llmConnected}
-          mode={mode}
+          mode={sessionData.mode}
           reportId={reportId}
           generating={generating}
           stage={lastStage?.stage}
@@ -1115,7 +1156,7 @@ function TemplatePanel(props: {
 
 /* ── 左栏 · Material ────────────────────────────────── */
 
-function MaterialPanel({ mode, sessionData }: { mode: "mock" | "live"; sessionData: ReportSession }) {
+function MaterialPanel({ sessionData }: { sessionData: ReportSession }) {
   const mats = sessionData.materials;
   const parsed = mats.filter((m) => m.parsed).length;
   const pending = mats.length - parsed;
@@ -1123,7 +1164,7 @@ function MaterialPanel({ mode, sessionData }: { mode: "mock" | "live"; sessionDa
     <section
       className="rpt-panel rpt-panel--mat"
       data-testid="report-pilot-materials"
-      data-mode={mode}
+      data-mode={sessionData.mode}
     >
       <PanelPinHandle
         id="report:materials"
@@ -1201,14 +1242,14 @@ const TL_KIND_LABEL: Record<TimelineEvent["kind"], string> = {
   export: "导出",
 };
 
-function TimelinePanel({ mode, sessionData }: { mode: "mock" | "live"; sessionData: ReportSession }) {
+function TimelinePanel({ sessionData }: { sessionData: ReportSession }) {
   const evs = sessionData.timeline;
   const recent = sessionData.recentSessions;
   return (
     <section
       className="rpt-panel rpt-panel--tl"
       data-testid="report-pilot-timeline"
-      data-mode={mode}
+      data-mode={sessionData.mode}
     >
       <PanelPinHandle
         id="report:timeline"
@@ -1598,9 +1639,7 @@ function ReportComposer({ sessionData }: { sessionData: ReportSession }) {
 
 function PreviewPanel({
   coverPct,
-  mode,
   sessionData,
-  isLive,
   selectedSection,
   onSelectSection,
   onExportDocx,
@@ -1609,9 +1648,7 @@ function PreviewPanel({
   exportingPdf,
 }: {
   coverPct: number;
-  mode: "mock" | "live";
   sessionData: ReportSession;
-  isLive: boolean;
   selectedSection: string | null;
   onSelectSection: (id: string | null) => void;
   onExportDocx: () => void;
@@ -1667,7 +1704,7 @@ function PreviewPanel({
     <section
       className="rpt-panel rpt-panel--preview"
       data-testid="report-pilot-preview"
-      data-mode={isLive ? "live" : mode}
+      data-mode={s.mode}
       data-selected-section={selectedSection ?? ""}
     >
       <PanelPinHandle
@@ -2391,7 +2428,7 @@ function ReportLaunchBar(p: {
             disabled={!p.templateChoice && p.uploadedFiles.length === 0}
             style={{
               ..._LAUNCH_BTN_SECONDARY,
-              borderColor: "var(--t-report)",
+              border: "1px solid var(--t-report)",
               color: "var(--t-report)",
               opacity: !p.templateChoice && p.uploadedFiles.length === 0 ? 0.5 : 1,
             }}
@@ -2404,16 +2441,35 @@ function ReportLaunchBar(p: {
           <button
             type="button"
             data-testid="report-generate-btn"
+            aria-busy={p.generating}
             onClick={p.onStartGenerate}
             disabled={p.generating}
             style={{
               ..._LAUNCH_BTN_SECONDARY,
-              borderColor: "var(--t-report)",
+              border: "1px solid var(--t-report)",
               color: "var(--t-report)",
               opacity: p.generating ? 0.6 : 1,
             }}
           >
-            {p.generating ? "生成中…" : "重新生成"}
+            {p.generating ? (
+              <>
+                <span
+                  data-testid="report-generate-spinner"
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-block",
+                    width: 14,
+                    height: 14,
+                    marginRight: 6,
+                    border: "2px solid currentColor",
+                    borderRightColor: "transparent",
+                    borderRadius: "50%",
+                    animation: "report-generate-spin 0.8s linear infinite",
+                  }}
+                />
+                生成中…
+              </>
+            ) : "重新生成"}
           </button>
           <button
             type="button"
@@ -3097,6 +3153,35 @@ function ReportEmptySkeleton() {
   );
 }
 
+function ReportGeneratingSkeleton() {
+  return (
+    <section
+      data-testid="report-generating-skeleton"
+      aria-label="报告生成中 · 预览骨架"
+      style={{ padding: 18, border: "1px solid var(--ink-14)", borderRadius: "var(--r-md)" }}
+    >
+      <strong style={{ display: "block", marginBottom: 12 }}>报告生成中</strong>
+      <span style={{ display: "block", marginBottom: 14, color: "var(--ink-65)", fontSize: 12 }}>
+        正在连接生成服务… 真实生成约需 3 分钟，本页可持续等待。
+      </span>
+      {[72, 94, 86, 90, 64].map((width, index) => (
+        <span
+          key={index}
+          aria-hidden
+          style={{
+            display: "block",
+            width: `${width}%`,
+            height: index === 0 ? 18 : 11,
+            marginBottom: 10,
+            borderRadius: 4,
+            background: "color-mix(in srgb, var(--t-report) 14%, var(--ink-14))",
+          }}
+        />
+      ))}
+    </section>
+  );
+}
+
 const _STAGE_CN: Record<string, string> = {
   ingest: "材料解析",
   extract: "字段抽取",
@@ -3199,6 +3284,7 @@ function ReportLiveStrip(p: {
   return (
     <section
       data-testid="report-live-strip"
+      data-mode={p.mode}
       data-generating={p.generating ? "yes" : "no"}
       style={{
         margin: "12px 0",
@@ -3223,6 +3309,9 @@ function ReportLiveStrip(p: {
       >
         生成流程 {p.mode === "mock" ? "· 示例" : ""}
       </span>
+      {p.lastStage?.message ? (
+        <span data-testid="report-live-message">{p.lastStage.message}</span>
+      ) : null}
       {allStages.map((st) => {
         const isDone = seen.has(st);
         const isActive = p.lastStage?.stage === st && p.generating;

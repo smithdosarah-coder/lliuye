@@ -54,9 +54,10 @@ test.describe("Phase B.2 · report admin 真号 E2E 4 件套", () => {
     );
   });
 
-  test("加载示例企业 DP001 · 真后端 v16 → 4 chapter + QC 真评分 (4 件套留证)", async ({
+  test("加载示例企业 DP002 · 真后端 v16 → 4 chapter + QC 真评分 (4 件套留证)", async ({
     page,
   }) => {
+    test.setTimeout(300_000);
     /* Step 1 · 进入 workspace · default empty state */
     await page.goto("/archive/report", { waitUntil: "networkidle" });
     const workspace = page.locator('[data-view="archive-report"]');
@@ -85,10 +86,14 @@ test.describe("Phase B.2 · report admin 真号 E2E 4 件套", () => {
       (r) => r.url().includes("/api/report/demo/run") && r.status() === 200,
       { timeout: 180_000 } /* LLM 4 章生成 + QC 9 维 · ≥ 30s 真路径 */,
     );
+    const demoRunRequest = page.waitForRequest(
+      (r) => r.url().includes("/api/report/demo/run") && r.method() === "POST",
+    );
 
-    /* Step 4 · 点 DP001 龙峰精工 sample */
-    const dp001 = page.locator('[data-testid="report-sample-dp001"]');
-    await dp001.click();
+    /* Step 4 · 点 DP002 蓝汀家电 sample */
+    const dp002 = page.locator('[data-testid="report-sample-dp002"]');
+    await dp002.click();
+    expect((await demoRunRequest).postDataJSON()).toEqual({ sample_id: "DP002_蓝汀家电" });
 
     /* Step 5 · 等 SSE 启动 · workspace 进入 started 状态 */
     await expect(workspace).toHaveAttribute("data-started", "yes", { timeout: 10_000 });
@@ -96,6 +101,13 @@ test.describe("Phase B.2 · report admin 真号 E2E 4 件套", () => {
       path: "test-results/report-b2-03-demo-running.png",
       fullPage: true,
     });
+
+    await page.waitForTimeout(90_000);
+    await expect(page.locator('[data-testid="report-generate-btn"]')).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator('[data-testid="report-live-strip"]')).toHaveAttribute("data-generating", "yes");
+    await page.waitForTimeout(75_000);
+    await expect(page.locator('[data-testid="report-generate-btn"]')).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator('[data-testid="report-generating-skeleton"]')).toBeVisible();
 
     await demoRunResponse;
 
@@ -140,6 +152,7 @@ test.describe("Phase B.2 · report admin 真号 E2E 4 件套", () => {
 
     /* Step 10 · 验 done event 落 ReportSampleStrip 隐藏 (!liveData && !generating cond) */
     await expect(sampleStrip).not.toBeVisible();
+    await expect(page.locator(".rpt-hero-sub")).toContainText("蓝汀家电");
     await page.screenshot({
       path: "test-results/report-b2-05-final-state.png",
       fullPage: true,

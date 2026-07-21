@@ -101,3 +101,6 @@ body {
    驱动 (水墨宣纸→深墨 · 替代历史老主题 · per CLAUDE.md §7).
    page-photo-bg-css / hero-photo-* / editorial-eyebrow / 印章 system 已下架,
    未在仓内被任何 consumer 引用 (grep verified). */
+@keyframes report-generate-spin {
+  to { transform: rotate(360deg); }
+}

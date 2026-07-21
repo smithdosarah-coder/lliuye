@@ -131,6 +131,7 @@ export type RecentSession = {
 };
 
 export type ReportSession = {
+  mode: "mock" | "live";
   id: string;
   clientName: string;
   amount: string;
@@ -439,7 +440,7 @@ const CONVERSATION: ConversationMessage[] = [
     at: "刚刚",
     kind: "ai-question",
     content:
-      "§二.1 主营业务 — 残留占位符 {{主营业务}} 未被替换。从营业执照「经营范围」抽取改写，还是手工填？",
+      "§二.1 主营业务待补充：可从营业执照「经营范围」抽取改写，或由客户经理手工填写。",
     fieldRef: "§二.1 主营业务",
   },
 ];
@@ -476,7 +477,7 @@ const PREVIEW: PreviewSection[] = [
     content:
       "本企业主要经营食品、日用品批发与零售，下辖 3 个仓储点，覆盖福州、泉州、厦门三地。2025 年 1-12 月账面营业收入 5,210 万元，月均经营流水约 ¥412 万，环比稳定。主要客户集中在本地连锁超市与便利店渠道。",
     fields: [
-      { id: "f-2-1", label: "主营业务", state: "uncertain", value: "{{主营业务}}", qc: { level: "warn", detail: "残留占位符未被替换 · 可从营业执照经营范围抽取生成" }, source: "—" },
+      { id: "f-2-1", label: "主营业务", state: "uncertain", value: "待客户经理补充", qc: { level: "warn", detail: "可从营业执照经营范围抽取生成，生成前需复核" }, source: "—" },
       { id: "f-2-2", label: "经营模式", state: "filled", value: "批发 + 零售 双渠道", source: "授信审批历史档案" },
       { id: "f-2-3", label: "月均流水", state: "filled", value: "¥412 万", source: "经营流水近 12 月" },
       { id: "f-2-4", label: "主要客户", state: "filled", value: "本地连锁超市 / 便利店", source: "授信审批历史档案" },
@@ -624,6 +625,7 @@ export function liveToReportSession(live: V16DoneShape | null | undefined): Repo
   const info = 0;
 
   return {
+    mode: "live",
     id: live.session_id ?? live.report_id ?? `live-${Date.now()}`,
     clientName: company,
     amount: ((profile.revenue_yuan_2024 as string) || (profile.registered_capital_yuan as string) || "(待提取)") as string,
@@ -642,6 +644,7 @@ export function liveToReportSession(live: V16DoneShape | null | undefined): Repo
 }
 
 export const REPORT_SESSION: ReportSession = {
+  mode: "mock",
   id: "rs-001",
   clientName: "福建惠民商贸 · 续授信",
   amount: "¥560 万",
