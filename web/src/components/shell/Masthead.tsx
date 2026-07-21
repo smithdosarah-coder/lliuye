@@ -11,15 +11,14 @@ import { PersonaSwitcher } from "./PersonaSwitcher";
 type Tab = {
   href: string;
   cn: string;
-  n: string;
   match: (pathname: string) => boolean;
 };
 
 const TABS: Tab[] = [
-  { href: "/today",    cn: "今日",     n: "01",   match: (p) => p === "/" || p.startsWith("/today") },
-  { href: "/dispatch", cn: "对话",     n: "02·3", match: (p) => p.startsWith("/dispatch") },
-  { href: "/archive",  cn: "AI 助手",  n: "03·6", match: (p) => p.startsWith("/archive") || ["/credit","/channel","/alert","/compliance","/report","/riskctrl"].some((r) => p.startsWith(r)) },
-  { href: "/warroom",  cn: "任务",     n: "04·12", match: (p) => p.startsWith("/warroom") },
+  { href: "/today",    cn: "今日",     match: (p) => p === "/" || p.startsWith("/today") },
+  { href: "/dispatch", cn: "对话",     match: (p) => p.startsWith("/dispatch") },
+  { href: "/archive",  cn: "AI 助手",  match: (p) => p.startsWith("/archive") || ["/credit","/channel","/alert","/compliance","/report","/riskctrl"].some((r) => p.startsWith(r)) },
+  { href: "/warroom",  cn: "任务",     match: (p) => p.startsWith("/warroom") },
 ];
 
 export function Masthead() {
@@ -53,7 +52,6 @@ export function Masthead() {
             className={t.match(pathname) ? "on" : undefined}
           >
             <span className="cn">{t.cn}</span>
-            <span className="n">{t.n}</span>
           </Link>
         ))}
       </nav>
