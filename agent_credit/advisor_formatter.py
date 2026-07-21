@@ -31,6 +31,9 @@ from .reason_codes import derive_top_reason_codes
 from .risk_appetite_config import RiskAppetiteConfig
 
 
+MISSING_AMOUNT_NOTICE = "申请额度未提供，以下仅为风险评估"
+
+
 @dataclass
 class DecisionAdvice:
     advice_id: str = ""
@@ -40,6 +43,7 @@ class DecisionAdvice:
 
     decision: str = "拒绝"         # 批准 / 有条件批准 / 拒绝
     approved_amount: float = 0     # 万元
+    amount_provided: bool = True
     approved_term_months: int = 0
     interest_rate: float = 0.0
     rate_benchmark: str = ""
@@ -75,23 +79,26 @@ class DecisionAdvice:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2, default=str)
 
     def to_agent6_writeback(self) -> dict:
+        structured_fields = {
+            "decision": self.decision,
+            "amount_provided": self.amount_provided,
+            "approved_term_months": self.approved_term_months,
+            "interest_rate": self.interest_rate,
+            "rate_benchmark": self.rate_benchmark,
+            "risk_grade": self.risk_grade,
+            "composite_score": self.composite_score,
+            "conditions": list(self.conditions),
+            "red_line_hits": [
+                {"rule_id": r.get("rule_id", ""), "severity": r.get("severity", "")}
+                for r in (self.red_line_hits or [])
+            ],
+        }
+        if self.amount_provided:
+            structured_fields["approved_amount"] = self.approved_amount
         return {
             "target_section": "四、授信结论 - 审批意见",
             "anchor_pattern": "【审批意见】",
-            "structured_fields": {
-                "decision": self.decision,
-                "approved_amount": self.approved_amount,
-                "approved_term_months": self.approved_term_months,
-                "interest_rate": self.interest_rate,
-                "rate_benchmark": self.rate_benchmark,
-                "risk_grade": self.risk_grade,
-                "composite_score": self.composite_score,
-                "conditions": list(self.conditions),
-                "red_line_hits": [
-                    {"rule_id": r.get("rule_id", ""), "severity": r.get("severity", "")}
-                    for r in (self.red_line_hits or [])
-                ],
-            },
+            "structured_fields": structured_fields,
             "text": self.approval_section_text,
         }
 
@@ -213,11 +220,12 @@ class AdvisorFormatter:
 
         subject_name = profile.get("company_name", "") or features.get("meta.company_name", "")
         cases_summary = _summarize_cases(cases)
+        amount_provided = features.get("request.amount") is not None
 
         # LLM 1: 决策说明
         decision_reason = self._template_reason_corporate(
             subject_name, scoring, rule_hits, decision, amount, term)
-        if self.llm_chat and decision != "拒绝":
+        if self.llm_chat and decision != "拒绝" and amount_provided:
             try:
                 user_msg = CORPORATE_DECISION_USER.format(
                     company_summary=_corporate_summary(profile, features),
@@ -259,6 +267,8 @@ class AdvisorFormatter:
                     decision_reason = llm_out[:1500]
             except (RuntimeError, ValueError, TypeError, OSError, AttributeError):
                 pass
+        if not amount_provided:
+            decision_reason = MISSING_AMOUNT_NOTICE
 
         # LLM 2: 红线解释
         red_line_explanations: list[dict] = []
@@ -316,6 +326,7 @@ class AdvisorFormatter:
             decision_time=datetime.now().isoformat(timespec="seconds"),
             decision=decision,
             approved_amount=amount,
+            amount_provided=amount_provided,
             approved_term_months=term,
             interest_rate=rate,
             rate_benchmark=benchmark,
@@ -609,7 +620,10 @@ def _build_writeback_text_corporate(a: DecisionAdvice) -> str:
         "",
         f"- 结论：{a.decision}",
         f"- 综合评分：{a.composite_score}（{a.risk_grade} 级）",
-        f"- 建议额度：{a.approved_amount} 万元",
+        (
+            f"- 建议额度：{a.approved_amount} 万元"
+            if a.amount_provided else f"- {MISSING_AMOUNT_NOTICE}"
+        ),
         f"- 期限：{a.approved_term_months} 个月",
         f"- 利率：{a.interest_rate*100:.2f}%（{a.rate_benchmark}）",
         "",

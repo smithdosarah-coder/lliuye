@@ -105,7 +105,7 @@
     "stage_tab": "retail"
   },
   "decision_graph": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
     "appetite": {
@@ -118,6 +118,7 @@
     "built_at": "2026-05-01T10:33:00",
     "decision_summary": {
       "decision": "批准",
+      "amount_provided": true,
       "approved_amount": 50,
       "approved_term_months": 36,
       "interest_rate": 0.043,
@@ -130,6 +131,7 @@
         "id": "decision::final",
         "type": "decision",
         "decision": "批准",
+        "amount_provided": true,
         "approved_amount": 50,
         "approved_term_months": 36,
         "interest_rate": 0.043,

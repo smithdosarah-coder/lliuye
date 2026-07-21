@@ -191,7 +191,7 @@ def _build_done_envelope(
     BE2 (Phase B-3 · 2026-05-01): 新增 `decision_graph` 字段 · null 兼容旧前端。
     BE7 (Phase B-3 · 2026-05-01): 新增 `ledger` 字段。
     ALL IN Phase B step 4 (2026-05-09): 新增 `data_sources` 字段 (4 evidence 类源 trust display)。
-    Schema: docs/contracts/agent-credit-decision-graph.md v1.0
+    Schema: docs/contracts/agent-credit-decision-graph.md v1.1.0
     """
     return {
         "event": "done",

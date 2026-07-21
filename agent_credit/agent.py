@@ -76,25 +76,25 @@ def _profile_from_report_json(report_json: dict) -> dict:
     # 从 facts 优先取；缺的再从正文正则兜底
     full_text = "\n".join(sections.get(k, "") or "" for k in ("ch1", "ch2", "ch3", "ch4"))
 
-    def _grab_num(pat: str) -> float:
+    def _grab_num(pat: str) -> float | None:
         m = re.search(pat, full_text)
         if not m:
-            return 0.0
+            return None
         try:
             return float(m.group(1).replace(",", ""))
         except (ValueError, TypeError):
-            return 0.0
+            return None
 
-    def _amount_wan(raw: str) -> float:
+    def _amount_wan(raw: str) -> float | None:
         if not raw:
-            return 0.0
+            return None
         m = re.search(r"([0-9,.]+)", raw)
         if not m:
-            return 0.0
+            return None
         try:
             num = float(m.group(1).replace(",", ""))
         except (ValueError, TypeError):
-            return 0.0
+            return None
         if "亿" in raw:
             return num * 10000
         return num
@@ -105,13 +105,16 @@ def _profile_from_report_json(report_json: dict) -> dict:
         "establishment_date": facts.get("establishment_date", ""),
         "registered_capital": facts.get("registered_capital", ""),
         "legal_representative": facts.get("legal_representative", ""),
-        "employee_count": int(_grab_num(r"员工[人数：:]*\s*([0-9,]+)")) or 0,
+        "employee_count": (
+            int(employee_count) if (employee_count := _grab_num(r"员工[人数：:]*\s*([0-9,]+)")) is not None
+            else None
+        ),
         "financial": {
             "revenue": _amount_wan(facts.get("revenue_latest", "")),
             "net_profit": _amount_wan(facts.get("profit_latest", "")),
         },
         "request": {
-            "amount": _amount_wan(facts.get("credit_amount_requested", "")) or 300,
+            "amount": _amount_wan(facts.get("credit_amount_requested", "")),
             "term_months": 0,
             "purpose": "",
         },
@@ -315,9 +318,13 @@ class CreditDecisionAgent(BaseAgent):
                 )
             elif stage == "advising_done":
                 advice: DecisionAdvice = payload
+                amount_text = (
+                    f"额度 {advice.approved_amount} 万 / "
+                    if advice.amount_provided else "额度未提供 / "
+                )
                 yield self._tool_result(
                     "advisor_formatter",
-                    f"决策：{advice.decision} / 额度 {advice.approved_amount} 万 / "
+                    f"决策：{advice.decision} / {amount_text}"
                     f"利率 {advice.interest_rate*100:.2f}%"
                 )
             elif stage == "all_done":
@@ -383,7 +390,10 @@ class CreditDecisionAgent(BaseAgent):
             raise ValueError("advice 为空，无法回写")
         meta = {
             "决策": advice.decision,
-            "额度": f"{advice.approved_amount} 万元",
+            "额度": (
+                f"{advice.approved_amount} 万元"
+                if advice.amount_provided else "额度未提供·仅风险评估"
+            ),
             "期限": f"{advice.approved_term_months} 个月",
             "利率": f"{advice.interest_rate*100:.2f}% ({advice.rate_benchmark})",
             "评分": f"{advice.composite_score} / {advice.risk_grade} 级",
@@ -411,10 +421,14 @@ class CreditDecisionAgent(BaseAgent):
             return "未生成决策意见"
 
         icon = {"批准": "✅", "有条件批准": "⚠️", "拒绝": "❌"}.get(advice.decision, "❓")
+        amount_summary = (
+            f"**额度**：{advice.approved_amount} 万元"
+            if advice.amount_provided else "**额度**：未提供（仅风险评估）"
+        )
         lines = [
             f"# {icon} 授信决策 — {advice.subject_name}",
             "",
-            f"**决策**：{advice.decision}　|　**额度**：{advice.approved_amount} 万元"
+            f"**决策**：{advice.decision}　|　{amount_summary}"
             f"　|　**期限**：{advice.approved_term_months} 个月",
             f"**利率**：{advice.interest_rate*100:.2f}%（{advice.rate_benchmark}）"
             f"　|　**评分**：{advice.composite_score}（{advice.risk_grade}）",
@@ -434,7 +448,7 @@ class CreditDecisionAgent(BaseAgent):
                 f"| 担保 | {scoring.guarantee_score} |",
                 "",
             ]
-            if getattr(scoring, "amount_methods", None):
+            if advice.amount_provided and getattr(scoring, "amount_methods", None):
                 lines.append("## 额度测算（四法）")
                 for k, v in scoring.amount_methods.items():
                     lines.append(f"- {k}：{v} 万")
@@ -482,13 +496,21 @@ class CreditDecisionAgent(BaseAgent):
         cases = result.case_matches or []
         if cases:
             lines.append("## 相似历史案例（Top 3）")
-            lines.append("| 案例 | 相似度 | 决策 | 批复 | 利率 |")
-            lines.append("|------|-------|------|------|------|")
-            for c in cases[:3]:
-                lines.append(
-                    f"| {c.company_name} | {c.similarity*100:.0f}% | {c.decision} "
-                    f"| {c.approved_amount} 万 | {c.interest_rate*100:.2f}% |"
-                )
+            if advice.amount_provided:
+                lines.append("| 案例 | 相似度 | 决策 | 批复 | 利率 |")
+                lines.append("|------|-------|------|------|------|")
+                for c in cases[:3]:
+                    lines.append(
+                        f"| {c.company_name} | {c.similarity*100:.0f}% | {c.decision} "
+                        f"| {c.approved_amount} 万 | {c.interest_rate*100:.2f}% |"
+                    )
+            else:
+                lines.append("| 案例 | 相似度 | 决策 |")
+                lines.append("|------|-------|------|")
+                for c in cases[:3]:
+                    lines.append(
+                        f"| {c.company_name} | {c.similarity*100:.0f}% | {c.decision} |"
+                    )
             lines.append("")
 
         # 决策说明

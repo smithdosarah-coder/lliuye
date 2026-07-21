@@ -84,10 +84,32 @@ def corp_graph(corp_engine_result) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _assert_amount_shape(graph: dict, label: str) -> None:
+    decision_node = next(
+        node for node in graph["nodes"] if node["id"] == "decision::final"
+    )
+    for mirror_name, mirror in (
+        ("decision node", decision_node),
+        ("decision_summary", graph["decision_summary"]),
+    ):
+        assert "amount_provided" in mirror, f"{label}: {mirror_name} missing flag"
+        assert isinstance(mirror["amount_provided"], bool)
+        assert "approved_amount" in mirror, f"{label}: {mirror_name} missing amount"
+        if mirror["amount_provided"]:
+            assert isinstance(mirror["approved_amount"], (int, float))
+            assert not isinstance(mirror["approved_amount"], bool)
+        else:
+            assert mirror["approved_amount"] is None
+
+
+def test_generated_graph_amount_shape(corp_graph):
+    _assert_amount_shape(corp_graph, "generated corporate graph")
+
+
 def test_schema_version_pinned():
-    """Bumping SCHEMA_VERSION is a contract break — force-pin to 1.0.0
+    """Pin the current compatible schema contract version.
     so any unintentional bump fails CI loudly."""
-    assert SCHEMA_VERSION == "1.0.0"
+    assert SCHEMA_VERSION == "1.1.0"
 
 
 def test_envelope_keys_present(corp_graph):
@@ -353,6 +375,17 @@ def test_no_rule_hits_still_builds_decision_node():
     assert not any(e.type == "caused" for e in graph.edges)
 
 
+def test_generated_graph_missing_amount_is_explicit_null():
+    graph = build_decision_graph(
+        features={"meta.industry_code": "I65"},
+        scoring=_FakeCorpScoring(),
+        rule_hits=[],
+        advice=_FakeAdvice(amount_provided=False),
+        segment="corporate",
+    ).to_dict()
+    _assert_amount_shape(graph, "generated missing-amount graph")
+
+
 def test_dedup_edges_idempotent():
     """Re-emitting the same compared_to edge must not duplicate."""
     graph = build_decision_graph(
@@ -395,6 +428,12 @@ def test_demo_fixture_loads_and_matches_schema():
     )
     g = data["decision_graph"]
     assert g["schema_version"] == SCHEMA_VERSION
+    _assert_amount_shape(g, "corp-dingsheng-001")
+    decision_node = next(n for n in g["nodes"] if n["id"] == "decision::final")
+    assert g["decision_summary"]["amount_provided"] is True
+    assert g["decision_summary"]["approved_amount"] == 0
+    assert decision_node["amount_provided"] is True
+    assert decision_node["approved_amount"] == 0
 
     node_types = {n["type"] for n in g["nodes"]}
     assert {"feature", "rule", "rule_hit", "peer_benchmark",
@@ -463,6 +502,7 @@ def test_every_scenario_has_valid_graph(scenario_id):
     )
     assert g["segment"] in {"corporate", "retail"}
     assert g["engine"] == "agent3.decision_engine"
+    _assert_amount_shape(g, scenario_id)
 
     # Decision node exists
     decision_nodes = [n for n in g["nodes"] if n["type"] == "decision"]
@@ -579,8 +619,9 @@ class _FakeAdvice:
     def __init__(self, decision="拒绝", approved_amount=0,
                  approved_term_months=0, interest_rate=0,
                  rate_benchmark="—", risk_grade="D", composite_score=38,
-                 subject_name="测试公司"):
+                 subject_name="测试公司", amount_provided=True):
         self.decision = decision
+        self.amount_provided = amount_provided
         self.approved_amount = approved_amount
         self.approved_term_months = approved_term_months
         self.interest_rate = interest_rate

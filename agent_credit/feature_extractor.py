@@ -217,7 +217,12 @@ class FeatureExtractor:
         st_debt = float(fin.get("short_term_borrowing") or 0)
         ebitda = float(fin.get("ebitda") or 0)
 
-        request_amt = float(req.get("amount") or 0)
+        raw_request_amt = req.get("amount")
+        request_amt = (
+            float(raw_request_amt)
+            if raw_request_amt not in (None, "")
+            else None
+        )
         term_months = int(req.get("term_months") or 12)
 
         # ---- §3.1 反模式修复：所有比率走 financial_analyzer ----
@@ -238,9 +243,6 @@ class FeatureExtractor:
 
         gross_margin_gap = gross_margin - float(baseline.get("gross_margin_median", 0.25))
         consecutive_loss = (1 if net_profit < 0 else 0) + (1 if net_profit_prev < 0 else 0)
-        request_to_netasset = _safe_div(request_amt, net_assets) if net_assets else 0
-        cashflow_coverage = _safe_div(ocf, request_amt) if request_amt else 0
-
         # 同一份 indicators 下游 advisor_formatter 直接消费，避免重复构造
         try:
             from financial_analyzer import FinancialAnalyzer as _FA
@@ -268,11 +270,14 @@ class FeatureExtractor:
             "financial.short_term_borrowing": st_debt,
             "financial.ebitda": ebitda,
             "financial.consecutive_loss_years": consecutive_loss,
-            "financial.request_to_netasset": request_to_netasset,
             "financial.accounts_receivable": ar,
             # 下划线前缀：内部传递给 advisor_formatter，不进 features_snapshot
             "_financial_prompt_block": financial_prompt_block,
         })
+        if request_amt is not None:
+            features["financial.request_to_netasset"] = (
+                _safe_div(request_amt, net_assets) if net_assets else 0
+            )
 
         # ---- industry.* ----
         features.update({
@@ -294,22 +299,29 @@ class FeatureExtractor:
             est_years = max(0, 2026 - int(est_date)) if est_date.isdigit() else 3
         except (ValueError, TypeError):
             est_years = 3
-        employee_count = int(profile.get("employee_count") or 0)
+        raw_employee_count = profile.get("employee_count")
+        employee_count = (
+            int(raw_employee_count)
+            if raw_employee_count not in (None, "")
+            else None
+        )
         features.update({
             "operational.established_years": est_years,
             "operational.employee_count": employee_count,
             "operational.revenue_scale": revenue,
-            "operational.cashflow_coverage": cashflow_coverage,
             "operational.customer_concentration": float(rp.get("related_party_revenue_pct") or 0),
             "operational.supplier_concentration": 0.3,
             "operational.inventory_efficiency": _safe_div(revenue, inv) if inv else 8,
         })
+        if request_amt is not None:
+            features["operational.cashflow_coverage"] = (
+                _safe_div(ocf, request_amt) if request_amt else 0
+            )
 
         # ---- guarantee.* ----
         collateral_value = float(guar.get("collateral_value") or 0)
         collateral_type = (guar.get("collateral_type") or "").strip()
         has_collateral = 1 if collateral_value > 0 or guar.get("guarantor") else 0
-        coverage_ratio = _safe_div(collateral_value, request_amt) if request_amt else 0
         volatile_types = ("股权", "应收账款", "存货")
         is_volatile = 1 if any(v in collateral_type for v in volatile_types) else 0
         guarantor = (guar.get("guarantor") or "")
@@ -319,12 +331,15 @@ class FeatureExtractor:
         features.update({
             "guarantee.collateral_value": collateral_value,
             "guarantee.collateral_type": collateral_type,
-            "guarantee.coverage_ratio": coverage_ratio,
             "guarantee.has_any_collateral": has_collateral,
             "guarantee.collateral_is_volatile": is_volatile,
             "guarantee.guarantor_strength_score": guarantor_strength,
             "guarantee.combination_completeness": 0.8 if guar.get("type") and "+" in guar.get("type") else 0.5,
         })
+        if request_amt is not None:
+            features["guarantee.coverage_ratio"] = (
+                _safe_div(collateral_value, request_amt) if request_amt else 0
+            )
 
         # ---- external.* ----
         overdue_hist = (existing.get("overdue_history") or "").strip()
@@ -345,10 +360,11 @@ class FeatureExtractor:
 
         # ---- request.* ----
         features.update({
-            "request.amount": request_amt,
             "request.term_months": term_months,
             "request.purpose": req.get("purpose", ""),
         })
+        if request_amt is not None:
+            features["request.amount"] = request_amt
 
         # ---- meta ----
         features["meta.company_name"] = profile.get("company_name", "")

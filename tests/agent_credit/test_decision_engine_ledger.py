@@ -114,7 +114,7 @@ def test_evidence_chain_carries_decision_graph(fresh_ledger):
     row = get_decision(ledger_payload["decision_id"])
     ev = row["evidence_chain"]
     assert isinstance(ev, dict)
-    assert ev.get("schema_version") == "1.0.0"  # BE2 graph schema
+    assert ev.get("schema_version") == "1.1.0"  # nullable amount + explicit flag
     # Has at least one decision node (BE2 always emits one)
     types = {n["type"] for n in ev.get("nodes", [])}
     assert "decision" in types

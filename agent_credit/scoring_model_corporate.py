@@ -125,18 +125,25 @@ class CorporateScoringModel:
         sub = {
             "成立年限": _interp(f.get("operational.established_years", 3), SCORE_CURVES["established_years"]),
             "营收规模": _interp(f.get("operational.revenue_scale", 0), SCORE_CURVES["revenue_scale"]),
-            "现金流覆盖": _interp(f.get("operational.cashflow_coverage", 0.5), SCORE_CURVES["cashflow_coverage"]),
             "客户集中度": _interp(f.get("operational.customer_concentration", 0.2), SCORE_CURVES["customer_concentration"]),
-            "员工规模": _interp(max(f.get("operational.employee_count", 0), 1),
-                              [(5, 30), (20, 55), (50, 70), (100, 82), (500, 92)]),
         }
         weights = {"成立年限": 0.20, "营收规模": 0.20, "现金流覆盖": 0.25,
                    "客户集中度": 0.20, "员工规模": 0.15}
-        score = sum(sub[k] * weights[k] for k in sub)
+        employee_count = f.get("operational.employee_count")
+        if "operational.cashflow_coverage" in f:
+            sub["现金流覆盖"] = _interp(
+                f["operational.cashflow_coverage"], SCORE_CURVES["cashflow_coverage"]
+            )
+        if employee_count is not None:
+            sub["员工规模"] = _interp(
+                max(employee_count, 1),
+                [(5, 30), (20, 55), (50, 70), (100, 82), (500, 92)],
+            )
+        active_weight = sum(weights[k] for k in sub)
+        score = sum(sub[k] * weights[k] for k in sub) / active_weight
         return int(round(score)), {k: int(round(v)) for k, v in sub.items()}
 
     def _score_guarantee(self, f: dict) -> tuple[int, dict]:
-        coverage = f.get("guarantee.coverage_ratio", 0)
         has = f.get("guarantee.has_any_collateral", 0)
         if not has:
             return 15, {"有无担保": 15}
@@ -144,14 +151,18 @@ class CorporateScoringModel:
         if not (f.get("guarantee.collateral_type") or ""):
             type_score = 40
         sub = {
-            "覆盖率": _interp(coverage, SCORE_CURVES["coverage_ratio"]),
             "担保物类型": type_score,
             "保证人实力": _interp(f.get("guarantee.guarantor_strength_score", 50),
                                 SCORE_CURVES["guarantor_strength_score"]),
             "组合完整性": f.get("guarantee.combination_completeness", 0.5) * 100,
         }
         weights = {"覆盖率": 0.40, "担保物类型": 0.25, "保证人实力": 0.20, "组合完整性": 0.15}
-        score = sum(sub[k] * weights[k] for k in sub)
+        if "guarantee.coverage_ratio" in f:
+            sub["覆盖率"] = _interp(
+                f["guarantee.coverage_ratio"], SCORE_CURVES["coverage_ratio"]
+            )
+        active_weight = sum(weights[k] for k in sub)
+        score = sum(sub[k] * weights[k] for k in sub) / active_weight
         return int(round(score)), {k: int(round(v)) for k, v in sub.items()}
 
     # ------------------------------------------------------------------
@@ -159,6 +170,8 @@ class CorporateScoringModel:
     # ------------------------------------------------------------------
 
     def _estimate_amounts(self, f: dict, composite: int) -> dict:
+        if "request.amount" not in f:
+            return {}
         revenue = f.get("financial.revenue", 0) or 0  # 万
         net_assets = f.get("financial.net_assets", 0) or 0
         ocf = f.get("financial.operating_cash_flow", 0) or 0

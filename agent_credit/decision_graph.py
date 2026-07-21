@@ -14,7 +14,7 @@ without touching it. Builds a structured node/edge graph that lets the
   4. score dimension    — weight + weighted contribution + source
   5. decision           — final advice with caused-by anchors
 
-Schema contract: docs/contracts/agent-credit-decision-graph.md v1.0
+Schema contract: docs/contracts/agent-credit-decision-graph.md v1.1.0
                  SCHEMA_VERSION constant tracks it.
 
 Pure deterministic. No LLM. No ML. Optional `decision_graph` field on
@@ -31,7 +31,7 @@ from typing import Any, Iterable
 
 from .risk_appetite_config import RiskAppetiteConfig
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 ENGINE_NAME = "agent3.decision_engine"
 ENGINE_VERSION = "v3.1"
 DEFAULT_APPETITE_VERSION = "default-2026-04"
@@ -423,23 +423,26 @@ def _build_decision_node(
         anchor = f"软告警 {len(rule_hits)} 条 + 评分定档 → {decision}"
     else:
         anchor = f"评分定档 + 无红线 → {decision}"
+    payload = {
+        "decision": decision,
+        "amount_provided": bool(getattr(advice, "amount_provided", True)),
+        "approved_amount": (
+            _round(getattr(advice, "approved_amount", 0), 1)
+            if getattr(advice, "amount_provided", True) else None
+        ),
+        "approved_term_months": int(
+            getattr(advice, "approved_term_months", 0) or 0
+        ),
+        "interest_rate": _round(getattr(advice, "interest_rate", 0)),
+        "rate_benchmark": getattr(advice, "rate_benchmark", "") or "",
+        "risk_grade": getattr(advice, "risk_grade", "") or "",
+        "composite_score": int(getattr(advice, "composite_score", 0) or 0),
+        "rationale_anchor": anchor,
+    }
     return GraphNode(
         id="decision::final",
         type="decision",
-        payload={
-            "decision": decision,
-            "approved_amount": _round(getattr(advice, "approved_amount", 0), 1),
-            "approved_term_months": int(
-                getattr(advice, "approved_term_months", 0) or 0
-            ),
-            "interest_rate": _round(getattr(advice, "interest_rate", 0)),
-            "rate_benchmark": getattr(advice, "rate_benchmark", "") or "",
-            "risk_grade": getattr(advice, "risk_grade", "") or "",
-            "composite_score": int(
-                getattr(advice, "composite_score", 0) or 0
-            ),
-            "rationale_anchor": anchor,
-        },
+        payload=payload,
     )
 
 
@@ -686,7 +689,11 @@ def build_decision_graph(
     # ---- decision_summary mirror for at-a-glance access ----
     decision_summary = {
         "decision": getattr(advice, "decision", "") or "",
-        "approved_amount": _round(getattr(advice, "approved_amount", 0), 1),
+        "amount_provided": bool(getattr(advice, "amount_provided", True)),
+        "approved_amount": (
+            _round(getattr(advice, "approved_amount", 0), 1)
+            if getattr(advice, "amount_provided", True) else None
+        ),
         "approved_term_months": int(
             getattr(advice, "approved_term_months", 0) or 0
         ),
@@ -695,7 +702,6 @@ def build_decision_graph(
         "risk_grade": getattr(advice, "risk_grade", "") or "",
         "composite_score": int(getattr(advice, "composite_score", 0) or 0),
     }
-
     return DecisionGraph(
         schema_version=SCHEMA_VERSION,
         engine=ENGINE_NAME,

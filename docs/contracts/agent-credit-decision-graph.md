@@ -1,4 +1,4 @@
-# Agent3 Decision Graph · v1.0 (Phase B-3 · BE2 · 2026-05-01)
+# Agent3 Decision Graph · v1.1.0 (Phase B-3 · BE2 · 2026-07-21)
 
 > **Source**: `docs/research/BACKEND-DEEP-WORK-V2-1-FINAL-2026-05-01.md` BE2 + `two-way-debate-backend-r1-codex-2026-05-01.md` §3.2
 > **Pain root**: 审贷员痛 1.2.1 + 1.2.4 — AI 评分黑盒 + 缺同业对标可复核链
@@ -26,7 +26,7 @@ decision graph 是 **审贷员可复核证据图** · 它解释:
 
 ```jsonc
 {
-  "schema_version": "1.0.0",          // 本契约版本 · breaking change 必涨 major
+  "schema_version": "1.1.0",          // nullable 额度 + amount_provided 兼容升级
   "engine": "agent3.decision_engine",
   "engine_version": "v3.1",            // 与 PRD Agent3 v3.1 对齐
   "appetite": {
@@ -39,6 +39,7 @@ decision graph 是 **审贷员可复核证据图** · 它解释:
   "built_at": "2026-05-01T10:30:00",
   "decision_summary": {                // 与 DecisionAdvice 顶部字段同步 · 便于不展开 nodes 也能看一眼
     "decision": "拒绝",
+    "amount_provided": true,
     "approved_amount": 0,
     "approved_term_months": 0,
     "interest_rate": 0,
@@ -71,7 +72,23 @@ decision graph 是 **审贷员可复核证据图** · 它解释:
 | `peer_benchmark` | `peer_benchmark::<industry_code>::<metric>` | `industry_code`, `metric`, `value`, `source` | `industry_baselines_v2.json#I65#debt_ratio_median` |
 | `peer_gap` | `peer_gap::<metric>` | `metric`, `feature_value`, `peer_value`, `gap`, `direction`, `interpretation` | 派生 (feature - peer_benchmark) |
 | `score_dimension` | `score::<dimension>` | `dimension`, `score`, `weight`, `weighted`, `source` (+ `sub_scores` for corporate) | `scoring_model_corporate.py::_score_financial` |
-| `decision` | `decision::final` | `decision`, `approved_amount`, `risk_grade`, `rationale_anchor` | `advisor_formatter.py::_decide_corporate` |
+| `decision` | `decision::final` | `decision`, `amount_provided`, `approved_amount`（number 或 null）, `risk_grade`, `rationale_anchor` | `advisor_formatter.py::_decide_corporate` |
+
+### 2.1 额度字段语义（v1.1.0）
+
+`decision::final` payload 与顶层 `decision_summary` 必须保持相同、稳定的额度字段形状：
+
+- `amount_provided: true` 时，`approved_amount` 为数值（单位：万元）。
+- `amount_provided: false` 时，`approved_amount` 必须为 JSON `null`，不得用数值 `0` 表示“未提供”，也不得删除字段。
+- v1.0 消费方仍可读取 `approved_amount` 键；新增标志用于区分“真实零额度”和“申请额度未提供”。
+
+缺额度示例（两处镜像同形）：
+
+```json
+{"amount_provided": false, "approved_amount": null}
+```
+
+拒绝产生的真实零授信示例为 `{"amount_provided": true, "approved_amount": 0}`；数值 `0` 不等于“额度未提供”。
 
 **source 字段强约束**: 必须可定位到 file:method (例 `scoring_model_corporate.py::_score_financial`) 或 file:json_path (例 `red_line_rules_corporate.json#corp_rl_003`) · 不允许空字符串 · 不允许 `unknown`。
 
@@ -166,7 +183,7 @@ yield "all_done", DecisionPipelineResult(...)
 {
   // ... 现有字段全保留 ...
   "decision_graph": {                  // 可选 · 缺失时不影响现有流
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "engine": "agent3.decision_engine",
     "engine_version": "v3.1",
     "appetite": {"segment": "corporate", "version": "default-2026-04", "client_id": ""},
@@ -197,6 +214,10 @@ yield "all_done", DecisionPipelineResult(...)
 - `appetite.version` — risk_appetite JSON 内 `version` 键 (default `"default-2026-04"`) + `client_id` 区分自定义偏好
 
 升级 schema 时 · `decision_graph.SCHEMA_VERSION` 常量同步改 · tests/agent_credit/test_decision_graph.py::test_schema_version_pinned 守。
+
+### 8.1 Changelog
+
+- `1.1.0`（2026-07-21）：decision node payload 与 `decision_summary` 新增 `amount_provided: bool`；`approved_amount` 改为 `number | null`，缺额度时保持键存在且值为 `null`。
 
 ---
 

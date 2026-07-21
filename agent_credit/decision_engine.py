@@ -21,7 +21,7 @@ from .feature_extractor import FeatureExtractor
 from .rule_engine_v2 import RuleEngineV2, RedLineHit
 from .case_retriever import CaseRetriever, CaseMatch
 from .advisor_formatter import AdvisorFormatter, DecisionAdvice
-from .decision_graph import build_decision_graph, load_industry_baselines
+from .decision_graph import SCHEMA_VERSION, build_decision_graph, load_industry_baselines
 from .risk_appetite_config import RiskAppetiteConfig
 
 Segment = Literal["corporate", "retail"]
@@ -149,7 +149,7 @@ class DecisionEngine:
             yield "graph_done", advice.decision_graph
         except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as exc:
             advice.decision_graph = {
-                "schema_version": "1.0.0",
+                "schema_version": SCHEMA_VERSION,
                 "error": f"{type(exc).__name__}: {exc}",
                 "nodes": [],
                 "edges": [],
