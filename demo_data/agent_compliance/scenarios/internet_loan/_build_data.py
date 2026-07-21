@@ -8,7 +8,7 @@
     loans_q4.xlsx          100 条放款
     cooperations.xlsx      30 条合作
     models.xlsx            15 条模型上线
-    scenario.json          场景配置 + 预埋违规清单
+    scenario.json          场景配置（违规由规则引擎对下列输入真实检出，无预埋结论）
 """
 from __future__ import annotations
 import json
@@ -31,7 +31,7 @@ LOAN_HEADERS = [
     "期限(月)", "贷款用途", "合作方", "还款状态",
 ]
 
-# 预埋违规
+# 构造的可触发违规【输入】——由规则引擎真实检出，不是预埋结论
 PLANTED_LOANS: list[dict] = [
     # 严重 #1 期限超限
     {"放款单号": "LN20251108", "客户ID": "C5012", "放款日期": "2025-11-08",
@@ -220,7 +220,7 @@ def main():
     scenario = {
         "scenario_id": "internet_loan",
         "title": "互联网贷款合规专项巡检",
-        "description": "3 份政策 + 100 条放款 + 30 条合作 + 15 条模型，预埋 5 严重 8 一般 12 观察",
+        "description": "3 份政策 + 100 条放款 + 30 条合作 + 15 条模型；违规由规则引擎真实检出（无预埋结论）",
         "policies": [
             "policy_online_loan.md",
             "policy_supplement.md",
@@ -238,44 +238,8 @@ def main():
             "events": 145,   # 100 + 30 + 15
             "matrix_cells": 68 * 145,  # 9860
             "severe": 5,
-            "normal": 8,
-            "observation": 12,
-        },
-        "planted_violations": {
-            "severe": [
-                {
-                    "id": "V-S-1", "type": "个人消费贷款期限超限",
-                    "rule_hint": "个人消费贷款期限不得超过一年",
-                    "article_hint": "政策1·第6条 / 本行制度·第9条",
-                    "events": ["LN20251108", "LN20251211"],
-                },
-                {
-                    "id": "V-S-2", "type": "风控模型未独立验证",
-                    "rule_hint": "风控模型上线前必须独立验证",
-                    "article_hint": "政策1·第18条",
-                    "events": ["ML20251015"],
-                },
-                {
-                    "id": "V-S-3", "type": "联合贷款出资比例不足",
-                    "rule_hint": "单笔出资比例不得低于 30%",
-                    "article_hint": "政策2·第3条 / 本行制度·第11条",
-                    "events": ["COOP202510007", "COOP202511003"],
-                },
-                {
-                    "id": "V-S-4", "type": "个人消费贷款额度超限",
-                    "rule_hint": "单户授信额度不得超过 20 万元",
-                    "article_hint": "政策1·第8条 / 本行制度·第8条",
-                    "events": ["LN20251021"],
-                },
-                {
-                    "id": "V-S-5", "type": "模型上线超时未报送",
-                    "rule_hint": "模型上线 5 个工作日内书面报送",
-                    "article_hint": "本行制度·第12条",
-                    "events": ["ML20251122"],
-                },
-            ],
-            "normal": 8,
-            "observation": 12,
+            "normal": 1,
+            "observation": 1,
         },
     }
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""快速验证 Agent5 v2.0 的矩阵扫描产出 5/8/12。"""
+"""快速验证 Agent5 v2.0 的真实矩阵扫描产出。"""
 from __future__ import annotations
 
 import os
@@ -17,7 +17,6 @@ from agent_compliance.matrix_matcher import MatrixMatcher
 from agent_compliance.ledger_exporter import (
     export_ledger_excel, export_remediation_word,
 )
-from agent_compliance.agent import ComplianceRadarAgent
 
 
 def main():
@@ -50,20 +49,10 @@ def main():
         eids = [e["event_id"] for e in v.events]
         print(f"  {v.violation_id} {v.rule.rule_id} {v.rule.title}  events={eids}")
 
-    # Run through agent injector (covers non-severe)
-    agent = ComplianceRadarAgent()
-    # inject by invoking private method directly
-    import json
-    meta = json.loads((PROJECT_ROOT / "demo_data" / "agent_compliance"
-                        / "scenarios" / "internet_loan" / "scenario.json").read_text(encoding="utf-8"))
-    agent._inject_planted_non_severe(ledger, meta, rules, events)
-    print("\n=== AFTER INJECT ===")
-    print(f"severe={len(ledger.severe)} normal={len(ledger.normal)} observation={len(ledger.observation)}")
-
     assert len(ledger.severe) == 5, f"expected 5 severe, got {len(ledger.severe)}"
-    assert len(ledger.normal) == 8, f"expected 8 normal, got {len(ledger.normal)}"
-    assert len(ledger.observation) == 12, f"expected 12 observation, got {len(ledger.observation)}"
-    print("\n[OK] 5/8/12 hit matches planted counts")
+    assert len(ledger.normal) == 1, f"expected 1 normal, got {len(ledger.normal)}"
+    assert len(ledger.observation) == 1, f"expected 1 observation, got {len(ledger.observation)}"
+    print("\n[OK] 5/1/1 hits produced by real rules")
 
     # 导出 smoke
     xlsx = export_ledger_excel(ledger, rules, events,

@@ -5,8 +5,8 @@
   KB 装载 → rule_set_builder → event_extractor → matrix_matcher → ledger_exporter
 
 关键设计：
-  - 预置场景走「真实硬规则 + planted 非严重项 inject」，Demo 稳定
-  - 自定义上传：仅跑硬规则；需要更深判定时可启用 LLM 兜底（默认关闭以控制时长）
+  - 预置场景与自定义上传使用同一真实硬规则路径
+  - 需要更深判定时可启用 LLM 兜底（默认关闭以控制时长）
   - 与旧 ComplianceAgent（v1.0）并存：旧名被重定向到雷达版
 """
 from __future__ import annotations
@@ -23,14 +23,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from shared.base_agent import BaseAgent
-from shared.kb_scan.models import RuleItem, RuleType, RiskLevel
+from shared.kb_scan.models import RuleItem
 
 from .knowledge_base import ComplianceKnowledgeBase
 from .rule_set_builder import RuleSetBuilder
 from .event_extractor import EventExtractor
 from .matrix_matcher import (
-    MatrixMatcher, ComplianceLedger, ViolationRecord,
-    DEADLINE_MAP, SEVERITY_ORDER,
+    MatrixMatcher, ComplianceLedger,
 )
 from .ledger_exporter import export_ledger_excel, export_remediation_word
 
@@ -145,9 +144,6 @@ class ComplianceRadarAgent(BaseAgent):
         ledger = matcher.match(rules, events, progress_cb=_progress)
         t1 = time.time()
 
-        # 注入预埋的 normal + observation（Demo 稳定性）
-        self._inject_planted_non_severe(ledger, meta, rules, events)
-
         self.last_ledger = ledger
 
         yield self._tool_result(
@@ -261,68 +257,6 @@ class ComplianceRadarAgent(BaseAgent):
         if "internet_loan" in low or "互联网贷款" in msg:
             return "internet_loan"
         return None
-
-    # ---- 注入预埋 normal + observation（Demo 场景专属）----
-
-    def _inject_planted_non_severe(self,
-                                    ledger: ComplianceLedger,
-                                    meta: dict,
-                                    rules: list[RuleItem],
-                                    events: list[dict]) -> None:
-        """把 scenario.json.planted_violations 中的 normal/observation 条目注入 ledger。
-
-        以 rule_ref 关联到已抽出的 RuleItem；找不到时构造轻量 RuleItem 占位。
-        """
-        rule_by_id = {r.rule_id: r for r in rules}
-        event_by_id = {e["event_id"]: e for e in events}
-
-        planted = (meta.get("planted_violations") or {})
-
-        def _mk_violation(item: dict, severity: str, vi: int) -> ViolationRecord:
-            rid = item.get("rule_ref", "AUTO")
-            rule = rule_by_id.get(rid)
-            if rule is None:
-                rule = RuleItem(
-                    rule_id=rid,
-                    source_doc="scenario.json",
-                    source_page="",
-                    category="其他",
-                    title=item.get("title", "")[:40],
-                    content=item.get("reason", "")[:600],
-                    trigger_condition="",
-                    severity=RiskLevel.YELLOW if severity == "major" else RiskLevel.GREEN,
-                    rule_type=RuleType.BUILTIN,
-                )
-            ev_objs = [event_by_id[eid] for eid in item.get("events", []) if eid in event_by_id]
-            return ViolationRecord(
-                violation_id=f"VIO-{vi:03d}",
-                rule=rule,
-                events=ev_objs,
-                severity=severity,
-                match_reason=item.get("reason", ""),
-                evidence_chain=[{
-                    "event_id": e["event_id"],
-                    "evidence": f"{e['event_type']} {e['event_date']} "
-                                 f"{list(e.get('fields', {}).items())[:3]}",
-                    "reason": item.get("reason", ""),
-                } for e in ev_objs],
-                recommendation=item.get("recommendation", ""),
-                responsible_depts=item.get("depts", ["合规部"]),
-                deadline=DEADLINE_MAP.get(severity, "30 个工作日内完成"),
-            )
-
-        # 场景模式下，normal / observation 以 scenario.json 的预埋清单为准
-        # （硬规则检测到的非严重项会与 planted 重叠，清空后重放避免重复计数）
-        ledger.normal.clear()
-        ledger.observation.clear()
-
-        base_vi = len(ledger.severe)
-        for i, item in enumerate(planted.get("normal", []) or []):
-            ledger.normal.append(_mk_violation(item, "major", base_vi + 1 + i))
-        base_vi += len(ledger.normal)
-        for i, item in enumerate(planted.get("observation", []) or []):
-            ledger.observation.append(_mk_violation(item, "minor", base_vi + 1 + i))
-        ledger.hit_count = len(ledger.severe) + len(ledger.normal) + len(ledger.observation)
 
     # ---- Markdown 摘要 ----
 
