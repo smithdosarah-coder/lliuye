@@ -165,11 +165,25 @@ CC 本机起 api_server（8000，.env 真 LLM），登录态走 `/api/report/dem
 - commit 分块说明：B1+B2+B9 文件域重叠（ReportWorkspace/mock session 共用）合为报告页簇一个 commit，B3 / B-null 独立
 - Wave-1 内容 = Stage 1 后端五卡 + Stage 2 前端五卡 + 全部 docs，deploy_to_ecs 结果记入下一 CP
 
+### CP2-附录 · 260721 · 真链 E2E 生产实测（CC 亲跑）：链路全通 + 钓出 FIX-B1-R3
+
+- **生产 liuye.me 真链实锤**：Playwright 指生产跑 report-b2-e2e——登录→点 DP002→真实生成（SSE 流式正常）→章节真实落地（3 §，蓝汀家电真 LLM 内容：法人/门店/财务全真）→按钮退忙态→数据源徽章 live。**明天演示的完整路径已在演示环境本身验证**
+- **红门（真缺陷）**：完成后工作区页头 `.rpt-hero-sub` 仍显示旧会话「鼎盛商贸有限公司 · QC 阻断 · 1 项」，正文却是蓝汀家电——**B1 页头绑定漏网**：本地环境无历史会话测不出，生产会话存量暴露。spec 尾部断言保持红态作为 FIX-B1-R3 验收门
+- spec 修正（CC）：原尾部断言引用源码中不存在的 `data-section-id/chapter_1_background`（幻想锚点）→ 改为真实标记 `report-live-sections` + 「v16 章节流 · N 章」计数；定点 90s/165s 忙态断言改为启动即断言（热缓存真跑 61s，定点必误红）
+- **dev 环境两坑记录**（不修，绕行即可）：①Next dev rewrite 默认把 /api/report 指 8002，本地只起 8000 门户时需 `REPORT_BACKEND_URL=http://127.0.0.1:8000` ②Next dev 代理会缓冲 SSE 流（前端收不到增量事件，永远停在「正在连接」）——真链 E2E 只能对生产或 nginx 姿势跑，dev 下用 mock SSE 回归（report-stage2-r1 已覆盖）
+- 副产物：生产已留一个完成态 DP002 蓝汀家电会话（真实生成），可作明天幕 2/3 素材
+
+### FIX-B1-R3（Stage 3 首卡 · 演示穿帮级）
+
+1. 根因定位：ReportWorkspace 页头（`.rpt-hero-sub` 区域，:870 附近）的会话绑定——demo run 完成后页头仍取旧的 persisted/selected 会话，未切到刚完成的 live 会话。修法方向：页头与正文同源（live 会话完成即成为当前会话，单一状态源），禁止页头/正文两个来源
+2. 验收（红转绿）：`PLAYWRIGHT_BASE_URL=https://liuye.me pnpm exec playwright test tests/regression/report-b2-e2e.spec.ts --project=chromium` 全绿（由 CC 亲跑，Codex 交实现即可）；本地 mock 回归 report-stage2-r1 不许回退
+3. 注意：只动前端会话状态绑定，不碰后端 SessionStore
+
 ## Stage 3 指令（Codex 读此节执行 · 演示数据周边）
 
 > 边界同 Stage 2：**禁 git 写操作、禁改后端 .py、禁改 quality_scorer 任何阈值/维度**。卡规格正本在方案 §4（B4-B8、B10）与本 log「真实生成结论」节（B11、B12），此处只列执行序与分工修正。每卡完成追加卡报告行。
 
-- 执行序：**B11 → B12 → B4 → B6 → B8 → B10**（B11/B12 是幕 4 硬依赖，优先）
+- 执行序：**FIX-B1-R3 → B11 → B12 → B4 → B6 → B8 → B10**（FIX-B1-R3 是演示穿帮级最优先；B11/B12 是幕 4 硬依赖）
 - **B11 补录版通过样本**：新建 `data/mock/deep-pillar/DP006_蓝汀家电补录/`（复制 DP002，client_metadata 按 `templates/placeholder-schema.json` 补齐银行侧字段：PD 评级/白名单/申报金额/期限/业务品种/担保方式等）。Codex 只做样本数据与 sidecar 元数据；**真实生成验证（需 LLM+网络）由 CC 亲跑**——样本就绪即在卡报告注明"待 CC 真跑"
 - **B12 输出命名**：先 `rg` 扫 `经纬测绘_对公成稿A_v16.docx` 全部引用面（代码+测试+文档），列清单进卡报告；改动仅当引用面可控（≤5 处且全在本仓）才动手，否则停下等 CC 裁决
 - **B4 today 剧本化**：主角=DP002 蓝汀家电（不是龙峰精工，方案 §4 原文按旧主角写的，以本行为准）；企业名与动线呼应：蓝汀家电生成中/鼎盛商贸待决策
