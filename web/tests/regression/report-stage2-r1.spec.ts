@@ -67,6 +67,7 @@ test("B1/B2 · DP002 重试保持主角，延迟 SSE 立即且持续生成，err
   await expect(button).toHaveAttribute("aria-busy", "true", { timeout: 1_000 });
   await expect(page.locator('[data-testid="report-generate-spinner"]')).toBeVisible({ timeout: 1_000 });
   await expect(page.locator('[data-testid="report-generating-skeleton"]')).toBeVisible({ timeout: 1_000 });
+  await expect(page.locator('[data-testid="report-upload-cta"]')).toBeDisabled({ timeout: 1_000 });
   await expect(page.locator('[data-testid="report-live-strip"] [data-stage="ingest"][data-state="active"]')).toBeVisible({ timeout: 1_000 });
   await expect(page.locator('[data-testid="report-live-message"]')).toHaveText("正在连接生成服务…", { timeout: 1_000 });
   await page.waitForTimeout(1_800);
@@ -82,8 +83,39 @@ test("B1/B2 · DP002 重试保持主角，延迟 SSE 立即且持续生成，err
   expect(bodies.every((body) => body.includes("DP002_蓝汀家电"))).toBe(true);
 });
 
-test("B1 · DP002 受控成功后页头与请求体保持蓝汀家电", async ({ page, context }) => {
+test("B1 · DP002 成功归属当前 run，上传新材料后清旧结果并禁止旧结果导出", async ({ page, context }) => {
   let body: unknown;
+  let fillBody: Record<string, unknown> | null = null;
+  let uploadCount = 0;
+  let exportRequests = 0;
+  await context.route("**/api/report/upload?**", (route) => {
+    uploadCount += 1;
+    const batch = uploadCount === 1 ? "first" : "second";
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        report_id: `${batch}-report`,
+        session_id: `${batch}-session`,
+        business_line: "corporate",
+        file_summary: [{ name: `${batch}.txt`, type: "text/plain", size_bytes: 3, parsed_chars: 3, parse_status: "ok" }],
+        total_files: 1,
+        total_parsed_chars: 3,
+      }),
+    });
+  });
+  await context.route("**/api/report/v16/fill", (route) => {
+    fillBody = route.request().postDataJSON() as Record<string, unknown>;
+    return route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: 'event: error\ndata: {"event":"error","code":"CONTROLLED_STOP","message":"受控结束"}\n\n',
+    });
+  });
+  await context.route("**/api/report/export_docx", (route) => {
+    exportRequests += 1;
+    return route.fulfill({ status: 200, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", body: "stub" });
+  });
   await context.route("**/api/report/demo/run", async (route) => {
     body = route.request().postDataJSON();
     await route.fulfill({
@@ -93,8 +125,8 @@ test("B1 · DP002 受控成功后页头与请求体保持蓝汀家电", async ({
         event: "done",
         session_id: "session-dp002",
         report_id: "report-dp002",
-        profile: { company_name: "蓝汀家电" },
-        sections: [{ id: "chapter_1_background", title: "企业概况", content: "受控完成", status: "done" }],
+        profile: { company_name: "鼎盛商贸有限公司" },
+        sections: [{ id: "chapter_1_background", title: "企业概况", content: "蓝汀家电正文", status: "done" }],
         qc: { passed: true, score: 90 },
         stats: { total_fields: 1, auto_filled: 1, unfilled: 0 },
       })}\n\n`,
@@ -103,7 +135,37 @@ test("B1 · DP002 受控成功后页头与请求体保持蓝汀家电", async ({
   await page.goto("/archive/report", { waitUntil: "networkidle" });
   await page.locator('[data-testid="report-sample-dp002"]').click();
   await expect.poll(() => body).toEqual({ sample_id: "DP002_蓝汀家电" });
+  await expect(page.locator('[data-testid="report-live-sections"]')).toContainText("蓝汀家电正文");
   await expect(page.locator(".rpt-hero-sub")).toContainText("蓝汀家电");
+  await expect(page.locator(".rpt-hero-sub")).not.toContainText("鼎盛商贸有限公司");
   await expect(page.locator('[data-view="archive-report"]')).toHaveAttribute("data-mode", "mock");
   await expect(page.locator('[data-testid="report-status-pill"]')).toHaveAttribute("data-mode", "mock");
+
+  await page.locator('[data-testid="report-upload-cta"] + input[type="file"]').setInputFiles({
+    name: "first.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("one"),
+  });
+  await expect(page.locator('[data-testid="report-uploaded-material-row"]')).toHaveCount(1);
+  await expect(page.locator('[data-testid="report-uploaded-material-row"]')).toContainText("first.txt");
+  await expect(page.locator('[data-testid="report-live-sections"]')).toHaveCount(0);
+  await expect(page.locator(".rpt-hero-sub")).not.toContainText("蓝汀家电");
+  await expect(page.locator(".rpt-hero-sub")).not.toContainText("鼎盛商贸有限公司");
+  await page.locator('[data-testid="report-export-btn"]').click();
+  expect(exportRequests).toBe(0);
+  await expect(page.locator('[data-testid="report-launch-error-banner"]')).toContainText("请先生成报告");
+
+  await page.locator('[data-testid="report-upload-cta"] + input[type="file"]').setInputFiles({
+    name: "second.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("two"),
+  });
+  const materialRows = page.locator('[data-testid="report-uploaded-material-row"]');
+  await expect(materialRows.filter({ hasText: "second.txt" })).toHaveCount(1);
+  await expect(materialRows).toHaveCount(1);
+  await expect(materialRows.filter({ hasText: "first.txt" })).toHaveCount(0);
+
+  await page.locator('[data-testid="report-generate-btn"]').click();
+  await expect.poll(() => fillBody?.report_id).toBe("second-report");
+  await expect(page.locator('[data-testid="report-generate-btn"]')).toHaveAttribute("aria-busy", "false");
 });

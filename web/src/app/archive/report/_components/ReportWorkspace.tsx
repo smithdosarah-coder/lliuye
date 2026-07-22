@@ -139,11 +139,13 @@ export function ReportWorkspace() {
      liveData null 时 fallback EMPTY_SESSION (不 fallback 到 REPORT_SESSION mock · 防显假数据).
      5 panel + Hero + PipelineBand 都消费此 derived value */
   const derivedFromLive = liveToReportSession(liveData);
+  const baseSession = derivedFromLive ?? (currentDemo
+    ? { ...EMPTY_SESSION, clientName: currentDemo.name, stage: generating ? "生成中" : "示例已选择" }
+    : EMPTY_SESSION);
   const sessionData: ReportSession = {
-    ...(derivedFromLive ?? (currentDemo
-      ? { ...EMPTY_SESSION, clientName: currentDemo.name, stage: generating ? "生成中" : "示例已选择" }
-      : EMPTY_SESSION)),
+    ...baseSession,
     mode,
+    clientName: currentDemo?.name ?? baseSession.clientName,
   };
   const s = sessionData;
   const coverPct = Math.round((s.coverage.filled / Math.max(s.coverage.total, 1)) * 100);
@@ -152,6 +154,7 @@ export function ReportWorkspace() {
   // user 反馈 2026-05-22 · 已上传材料列表必须可见 (含 filename / size / parsed_chars / 删除按钮)
   // 不再只存 filename 字符串 · 而是完整 ReportFileSummary[] 让 UI 显 size + parse_status
   const [uploadedFiles, setUploadedFiles] = useState<ReportFileSummary[]>([]);
+  const [uploadingMaterials, setUploadingMaterials] = useState(false);
   const [uploadedTemplate, setUploadedTemplate] = useState<string>("");
   // Q6-B · 用户上传模板 + dropdown 双 section (builtin + user)
   const [templateList, setTemplateList] = useState<{ builtin: TemplateListItem[]; user: TemplateListItem[] }>({
@@ -234,7 +237,7 @@ export function ReportWorkspace() {
 
   const triggerV16Fill = useCallback(
     (opts?: { reportIdOverride?: string; explicitMock?: boolean }) => {
-      if (generating) return;
+      if (generating || uploadingMaterials) return;
       setGenerating(true);
       setLiveStages([{
         event: "stage",
@@ -299,19 +302,27 @@ export function ReportWorkspace() {
         },
       );
     },
-    [generating, reportId, businessLine, mode, templateChoice],
+    [generating, uploadingMaterials, reportId, businessLine, mode, templateChoice],
   );
 
   const handleUpload = useCallback(
     async (files: File[]) => {
-      if (!files.length) return;
+      if (!files.length || generating || uploadingMaterials) return;
+      setUploadingMaterials(true);
       setErrMsg(null);
       try {
         const resp = await uploadReportMaterials(files, businessLine);
+        abortRef.current?.abort();
+        abortRef.current = null;
+        setLiveData(null);
+        setLiveStages([]);
+        setSelectedSection(null);
+        setGenerating(false);
         setReportId(resp.report_id);
         setCurrentDemo(null);
-        // user 反馈 2026-05-22 · 累加而非覆盖 · 客户经理多批次上传也都能看见
-        setUploadedFiles((prev) => [...prev, ...resp.file_summary]);
+        // upload 每批返回新 report_id · UI 材料必须与当前 report_id 同源；
+        // 真正跨批 append 需后端契约支持，本卡不在前端伪装累加。
+        setUploadedFiles(resp.file_summary);
         setMode("live");
         setStarted(true);
         // 不自动触发 fill · 用户须显式点 "开始生成" CTA (empty-state §3)
@@ -325,9 +336,11 @@ export function ReportWorkspace() {
           status: statusMatch ? statusMatch[1] : "network",
           message: msg,
         });
+      } finally {
+        setUploadingMaterials(false);
       }
     },
-    [businessLine],
+    [businessLine, generating, uploadingMaterials],
   );
 
   /* B-2 click-to-fire · dropdown 仅 set 选择 state · "开始生成" CTA 显式触发 */
@@ -544,7 +557,7 @@ export function ReportWorkspace() {
 
   const handleDemoRun = useCallback(
     (sampleId: string) => {
-      if (generating) return;
+      if (generating || uploadingMaterials) return;
       setGenerating(true);
       const sample = REPORT_SAMPLE_OPTIONS.find((item) => item.id === sampleId);
       setCurrentDemo({
@@ -607,7 +620,7 @@ export function ReportWorkspace() {
         },
       );
     },
-    [generating, _formatDemoError],
+    [generating, uploadingMaterials, _formatDemoError],
   );
 
   const handleRegenerate = useCallback(() => {
@@ -695,7 +708,7 @@ export function ReportWorkspace() {
         {!liveData && !generating ? (
           <ReportSampleStrip
             onRun={handleDemoRun}
-            disabled={generating}
+            disabled={generating || uploadingMaterials}
           />
         ) : null}
         <ReportLaunchBar
@@ -705,6 +718,7 @@ export function ReportWorkspace() {
           businessLine={businessLine}
           templateChoice={templateChoice}
           uploadedFiles={uploadedFiles}
+          uploadingMaterials={uploadingMaterials}
           generating={generating}
           exporting={exporting}
           errMsg={errMsg}
@@ -2135,6 +2149,7 @@ function ReportLaunchBar(p: {
   templateChoice: string;
   /* user 反馈 2026-05-22 · 改 ReportFileSummary[] · UI 显 size + parse_status + 删除按钮 */
   uploadedFiles: ReportFileSummary[];
+  uploadingMaterials: boolean;
   generating: boolean;
   exporting: boolean;
   errMsg: string | null;
@@ -2186,15 +2201,21 @@ function ReportLaunchBar(p: {
           type="button"
           data-testid="report-upload-cta"
           onClick={() => inputRef.current?.click()}
-          style={_LAUNCH_BTN_PRIMARY}
+          disabled={p.generating || p.uploadingMaterials}
+          style={{
+            ..._LAUNCH_BTN_PRIMARY,
+            opacity: p.generating || p.uploadingMaterials ? 0.5 : 1,
+            cursor: p.generating || p.uploadingMaterials ? "wait" : "pointer",
+          }}
         >
-          ⇪ 上传材料文件
+          {p.uploadingMaterials ? "上传中…" : "⇪ 上传材料文件"}
         </button>
         <input
           ref={inputRef}
           type="file"
           multiple
           hidden
+          disabled={p.generating || p.uploadingMaterials}
           accept=".pdf,.docx,.doc,.xlsx,.xls,.txt,.jpg,.jpeg,.png"
           onChange={handleFileChange}
         />
