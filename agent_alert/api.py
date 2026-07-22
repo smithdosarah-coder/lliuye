@@ -321,6 +321,19 @@ def _resolve_fallback_banner(mode_label: str) -> dict[str, Any] | None:
             "retried": False,
         }
 
+    if mode_label == "alert_pool_fixture":
+        # /demo/run 示例扫描 · AlertPoolSyntheticProvider (scan_engine §use_alert_pool_fixture)
+        # 输入是内置 180 户样例池 · 扫描/规则匹配/证据链全真 (mock 输入不 mock 结果)
+        # 260721 前该模式未注册进本映射 → 误落 unknown 兜底吓人横幅
+        return {
+            "source": "示例数据池",
+            "reason": "alert_pool_fixture",
+            "severity": "info",
+            "message": "示例扫描 · 输入为内置 180 户样例池 · 扫描流程与规则命中全部真实执行",
+            "hint": "切「正式扫描」上传在贷客户名录 → 用真实客户池跑同一流程",
+            "retried": False,
+        }
+
     # ALL IN Phase B.2 (PM 2026-05-10 reframe): 3 fallback 路径不再返合成 mock 结果 ·
     # 改用 NullSearchProvider (返 []) · 仅内部规则真跑 · banner 必明示 trust model 降级.
     if mode_label == "tavily_disabled":
