@@ -746,8 +746,15 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
             # 决定 profile 来源: report_json > preset_name
             profile: dict | None = None
             if req.report_json:
-                from agent_credit.agent import _profile_from_report_json
-                profile = _profile_from_report_json(req.report_json)
+                # 两种合法形状：Agent6 交接 ReportJSON (facts/sections) 需转换；
+                # demo_data 扁平 profile (financial_anchors/request 顶层键) 本就是
+                # FeatureExtractor 可直接消费的形状——误走转换器会把公司名/额度/
+                # 财务锚点全部丢空 (260721 生产实锤: 鼎盛 500 万被判「额度未提供」)
+                if "facts" in req.report_json or "sections" in req.report_json:
+                    from agent_credit.agent import _profile_from_report_json
+                    profile = _profile_from_report_json(req.report_json)
+                else:
+                    profile = req.report_json
             elif req.preset_name:
                 profile = agent.load_preset_profile(req.preset_name, segment)  # type: ignore
             else:
