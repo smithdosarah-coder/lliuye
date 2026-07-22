@@ -1099,7 +1099,10 @@ async def riskctrl_demo_run(
             for r in rule_stats_raw
         ]
 
-        approved = int(result.approved)
+        # 与 /backtest 同口径（260721）：未命中任何规则 = 默认放行，通过桶含 no_hit，
+        # 否则三档不闭合。此处是 backtest 聚合的复制体——同病同修（收单源留待重构）
+        no_hit = int((result.metrics or {}).get("no_hit", 0))
+        approved = int(result.approved) + no_hit
         rejected = int(result.rejected)
         manual_review = int(result.manual_review)
         total = int(result.total_records) or (approved + rejected + manual_review) or 1
