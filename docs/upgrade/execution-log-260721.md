@@ -46,6 +46,8 @@
 - B3 | web/src/components/shell/Masthead.tsx; web/tests/regression/stage2-static-contract.spec.ts; docs/upgrade/execution-log-260721.md | **PASS（宿主验收）**：`node node_modules/@playwright/test/cli.js test tests/regression/credit-amount-contract.spec.ts tests/regression/stage2-static-contract.spec.ts --project=chromium` → `7 passed (1.2s)`（B-null 5、B3/B9 2）；Masthead 无计数/假导航数字；tsc exit 0；`pnpm build` exit 0（Compiled successfully，19/19 static pages）
 - B9 | web/src/lib/mock/agent-report-session.ts; web/tests/regression/stage2-static-contract.spec.ts; docs/upgrade/execution-log-260721.md | **PASS（宿主验收）**：同一静态/纯契约命令 → `7 passed (1.2s)`（B-null 5、B3/B9 2）；report mock 正文 `(mock)`/`{Tn}`/`{{...}}` 三类占位均为 0；tsc exit 0；`pnpm build` exit 0（Compiled successfully，19/19 static pages）
 - B-null | web/src/lib/credit-types.ts; web/src/lib/mock/agent-credit-session.ts; web/src/app/archive/credit/_components/_normalize.ts; web/src/app/archive/credit/_components/CreditWorkspace.tsx; web/tests/regression/credit-amount-contract.spec.ts; web/tests/regression/credit-b-null-ui.spec.ts; web/tests/e2e/_shared.ts; web/tests/e2e/admin-dual-track-concurrency.spec.ts; docs/upgrade/execution-log-260721.md | **PASS（宿主验收）**：`node node_modules/@playwright/test/cli.js test tests/regression/credit-b-null-ui.spec.ts --project=chromium` → `3 passed (21.8s)`（false+0/graph false-null、true+0、legacy flag 缺省+0 三态）；纯契约随静态套件 → `7 passed (1.2s)`，其中 B-null 5，显式覆盖六 fixture 文件名/schema 1.1.0/summary-node 镜像/2 个 true+0/4 个 true+正数；tsc exit 0；`pnpm build` exit 0（Compiled successfully，19/19 static pages）
+- FIX-B1-R3 | web/src/app/archive/report/_components/ReportWorkspace.tsx; web/tests/regression/report-stage2-r1.spec.ts; docs/upgrade/execution-log-260721.md | **PASS（宿主验收；规格 PASS、质量 APPROVED）**：三轮红灯关键证据——①旧 profile=鼎盛、正文=蓝汀，页头仍显示鼎盛导致同源断言红；②生成中上传按钮仍 enabled，且上传新材料后旧 `report-live-sections=1`；③跨 `report_id` 两批材料期望 `1` 行、实际 `2` 行（`expected 1, received 2`）。最终 `report-stage2-r1.spec.ts` → `3 passed (17.4s)`；tsc → exit 0；`npm run build` → 成功（19/19 static pages）。页头/正文归属当前 run、生成/上传互斥、新上传清旧结果与导出、多批材料/current report_id 同源均闭合；生产真链留 CC 实测
+- B11 | 未创建 DP006；docs/upgrade/execution-log-260721.md | **BLOCKED（待 CC 裁决；避免编造）**：`requested=6 ready=3 schema_absent=2 sidecar_absent=1 wrong_scope=1`；`template/generated hits=4/13 raw=3.08`，`token_types_present=3/6`。现有可核材料不足以诚实构造通过样本，因此未创建 `DP006_蓝汀家电补录`，待 CC 裁决
 
 ### FIX-A4-R3 鼎盛分数漂移归因表
 
@@ -194,6 +196,19 @@ CC 本机起 api_server（8000，.env 真 LLM），登录态走 `/api/report/dem
 - **B10 audit**：只验证 event-bus 本地可用性，不接线
 - 验收统一：tsc + `pnpm build` + 相关 spec；完成停下报「CP3 就绪」，CC 真跑 B11 生成 + 浏览器实测 + commit + Wave-2 deploy
 
+### Stage 3 执行器阻塞（B11/B12 预检）
+
+- **B11 阻塞根因**：sidecar-only 只能替换模板中已经存在的 token，不能把「申报方案硬字段」从当前 `4` 提升到验收要求的至少 `7`。继续仅造 sidecar 会制造不可核银行字段，违反不编造约束。需要 CC 二选一裁决：①提供可核银行字段并授权同步修改模板/schema；②修改 B11 卡的验收口径。`quality_scorer` 阈值与维度仍严格禁止改动
+- **严格执行序未越过阻塞**：B11 未获裁决前，后续 **B12/B4/B6/B8/B10 均未启动**
+- **B12 只读预检**：原始引用 `raw refs=7`；扣除任务叙述后真实 dependencies=`5`；输出名控制点为 `v16_pipeline.py:104-106`。在「禁改后端 `.py`」边界下，即使引用面可控也无法实施命名修复，仍需 CC 裁决是否授权该精确后端改动或调整卡范围
+
+### CP3-裁决 · 260721 · FIX-B1-R3 验收 commit（f38644d）；B11 砍卡；B12 收归 CC；B4-B10 解锁
+
+- **FIX-B1-R3 = PASS 已 commit**：CC 亲跑 `report-stage2-r1` → **6 passed**（chromium+edge，含新增「成功归属当前 run」用例）+ tsc exit 0。生产红门（report-b2-e2e 对 liuye.me）待 Wave-2 部署后由 CC 复跑转绿
+- **裁决 B11 = 砍卡（登记于砍卡登记）**：阻塞根因成立——sidecar 只能替换模板已有 token（4/13），要到 7/13 必须动模板+schema，演示前夜的模板手术风险不可接受；而「验收口径」不属于可调项（等于换个姿势松闸）。**Codex 拒绝编造不可核银行字段的行为予以点名确认——这正是本次升级要机器守住的线**。演示编排改定：幕 4 只演阻断水印稿（本就是 ★ 卖点），「补录后通过导出」以口播讲述，不实演。QC 硬字段维度校准维持演示后 backlog（见真实生成结论 #3）
+- **裁决 B12 = 收归 CC**：命名控制点在冻结的 `v16_pipeline.py:104-106`，后端改动本就是 CC 职权。CC 评估 5 处依赖后决定当晚实施或演示 ops 绕行（下载后改名再投屏），结果记于后续 CP
+- **B4/B6/B8/B10 与 B11 解耦，立即解锁**：四卡均不依赖补录样本，执行序改为 **B4 → B6 → B8 → B10**，主角口径不变（DP002 蓝汀家电为主、鼎盛商贸为授信页配角）
+
 ## 砍卡登记
 
-（暂无）
+- **B11 补录版通过样本** · 260721 CP3 砍卡：模板 token 面不支持（4/13），补齐需模板手术，演示前夜风险不可接受；幕 4 第二拍改口播。复活条件：演示后与 QC 硬字段维度校准一并做（治本是校准维度口径，不是造数据）
