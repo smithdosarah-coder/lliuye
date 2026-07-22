@@ -478,7 +478,10 @@ async def riskctrl_backtest(
         ]
 
         # samples 三档 (pass / review / block) · 由 backtest 结果派生
-        approved = int(result.approved)
+        # 未命中任何规则 = 默认放行（银行语义，backtesting.approval_rate 同口径）——
+        # 通过桶必须含 no_hit，否则三档不闭合（260721 生产实锤：通过 0% + 79% 样本消失）
+        no_hit = int((result.metrics or {}).get("no_hit", 0))
+        approved = int(result.approved) + no_hit
         rejected = int(result.rejected)
         manual_review = int(result.manual_review)
         total = int(result.total_records) or (approved + rejected + manual_review) or 1
