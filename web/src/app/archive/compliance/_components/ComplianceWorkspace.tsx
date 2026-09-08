@@ -918,16 +918,13 @@ function InputSourcePanel(p: {
                   type="button"
                   className="compliance-input-source__run"
                   onClick={p.onSampleRun}
-                  disabled={DEMO_FORM_MODE || p.scanRunning || !selected}
-                  title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+                  disabled={p.scanRunning || !selected}
                   data-testid="compli-sample-batch-run"
                 >
                   {p.scanRunning ? "扫描中…" : "运行示例扫描"}
                 </button>
                 <span className="compliance-input-source__run-hint">
-                  {DEMO_FORM_MODE
-                    ? DEMO_FORM_READONLY_MESSAGE
-                    : selected
+                  {selected
                     ? `将以 ${selected.policy_title} 真扫 ${selected.doc_count} 份制度库 (LLM 抽规则 → 矩阵命中 → 修订)`
                     : "请先选 scenario"}
                 </span>

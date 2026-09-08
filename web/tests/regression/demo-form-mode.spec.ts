@@ -163,23 +163,19 @@ test("B1 · visible mutation controls are disabled with one readable explanation
   }
 
   await page.goto("/archive/compliance", { waitUntil: "networkidle" });
-  await expect(page.locator('[data-testid="compli-sample-batch-run"]')).toBeDisabled();
-  await expect(page.locator(".compliance-input-source__run-hint")).toHaveText(READONLY_MESSAGE);
+  await expect(page.locator('[data-testid="compli-sample-batch-run"]')).toBeEnabled();
 
   await page.goto("/archive/credit", { waitUntil: "networkidle" });
-  await expect(page.locator('[data-testid="credit-demo-cta"]')).toBeDisabled();
-  await expect(page.locator('[data-testid="credit-demo-cta"]')).toContainText(READONLY_MESSAGE);
+  await expect(page.locator('[data-testid="credit-demo-cta"]')).toBeEnabled();
 
   await page.goto("/archive/alert", { waitUntil: "networkidle" });
-  await expect(page.locator('[data-testid="alert-scan-cta"]')).toBeDisabled();
-  await expect(page.locator('[data-testid="alert-scan-cta"]')).toContainText(READONLY_MESSAGE);
+  await expect(page.locator('[data-testid="alert-scan-cta"]')).toBeEnabled();
 
   await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
   await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toBeDisabled();
   await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toHaveText(READONLY_MESSAGE);
   await page.locator('[data-testid="riskctrl-mode-toggle-demo"]').click();
-  await expect(page.locator('[data-testid="riskctrl-demo-run-cta"]')).toBeDisabled();
-  await expect(page.locator('[data-testid="riskctrl-demo-run-cta"]')).toHaveText(READONLY_MESSAGE);
+  await expect(page.locator('[data-testid="riskctrl-demo-run-cta"]')).toBeEnabled();
 });
 
 test("F/G/H · today, warroom and audit use one customer directory and labeled shape data", async ({ page }) => {

@@ -50,17 +50,13 @@ def test_allowlist_helper_shapes():
     assert not api_server._demo_form_write_allowed("DELETE", "/api/im/threads/t1/read")
 
 
-def test_form_mode_blocks_get_endpoints_that_invoke_models(monkeypatch, client):
-    monkeypatch.setenv("DEMO_FORM_MODE", "1")
-    _login(client)
-    for path in ("/api/channel/personal_insight/cand-1", "/api/alert/drill/cust-1"):
-        r = client.get(path)
-        assert _is_readonly_block(r), (path, r.status_code, r.text[:200])
-    # 普通读接口不受影响
-    assert not _is_readonly_block(client.get("/api/im/threads"))
-
-
-def test_get_denylist_helper():
-    assert not api_server._demo_form_write_allowed("GET", "/api/channel/personal_insight/x")
-    assert not api_server._demo_form_write_allowed("GET", "/api/alert/drill/x")
-    assert api_server._demo_form_write_allowed("GET", "/api/alert/health")
+def test_form_mode_allows_agent_demo_runs_with_daily_cap(monkeypatch):
+    monkeypatch.setattr(api_server, "_DEMO_FORM_DEMO_RUN_COUNTS", {})
+    monkeypatch.setattr(api_server, "_DEMO_FORM_DEMO_RUN_DAILY_CAP", 2)
+    assert api_server._demo_form_write_allowed("POST", "/api/credit/demo/run")
+    assert api_server._demo_form_write_allowed("POST", "/api/credit/demo/run")
+    assert not api_server._demo_form_write_allowed("POST", "/api/credit/demo/run")  # 第 3 次超限
+    assert api_server._demo_form_write_allowed("POST", "/api/alert/demo/run")       # 其他路径独立计数
+    assert not api_server._demo_form_write_allowed("POST", "/api/report/demo/run")   # 报告生成仍封
+    assert not api_server._demo_form_write_allowed("POST", "/api/credit/decision")   # 正式决策仍封
+    assert api_server._demo_form_write_allowed("GET", "/api/alert/drill/x")           # 示例链路的读接口放行

@@ -2079,17 +2079,14 @@ function CreditEmptyState(p: {
             data-testid="credit-demo-cta"
             data-cta="demo"
             onClick={p.onRunDemo}
-            disabled={DEMO_FORM_MODE || p.decisionRunning || !p.onRunDemo}
-            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+            disabled={p.decisionRunning || !p.onRunDemo}
           >
             <span className="credit-empty__cta-rank">示例数据 · 内置客户</span>
             <span className="credit-empty__cta-title">
               {p.decisionRunning ? "运行中…" : `一键运行 · ${sampleName}`}
             </span>
             <span className="credit-empty__cta-sub">
-              {DEMO_FORM_MODE
-                ? DEMO_FORM_READONLY_MESSAGE
-                : "使用内置示例客户 · 评分、红线与建议全流程与正式模式一致"}
+              {"使用内置示例客户 · 评分、红线与建议全流程与正式模式一致"}
             </span>
           </button>
         )}

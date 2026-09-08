@@ -2188,8 +2188,7 @@ function AlertEmptyState(p: {
           data-testid="alert-scan-cta"
           data-cta="primary"
           onClick={p.onPrimary}
-          disabled={DEMO_FORM_MODE || p.scanRunning}
-          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+          disabled={p.scanRunning}
         >
           <span className="alert-empty__cta-rank">主操作</span>
           <span className="alert-empty__cta-title">{ctaTitle}</span>

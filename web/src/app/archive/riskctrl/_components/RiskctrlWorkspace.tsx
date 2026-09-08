@@ -739,11 +739,10 @@ function RiskTriggerBar(p: {
                 type="button"
                 className="riskctrl-trigger-bar__primary"
                 onClick={p.onDemoRun}
-                disabled={DEMO_FORM_MODE || p.scanRunning || !p.selectedDemoSeedId}
-                title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+                disabled={p.scanRunning || !p.selectedDemoSeedId}
                 data-testid="riskctrl-demo-run-cta"
               >
-                {DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : demoLabel}
+                {demoLabel}
               </button>
             </>
           ) : !p.demoSeedsError ? (

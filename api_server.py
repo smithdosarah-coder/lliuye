@@ -73,11 +73,29 @@ _DEMO_FORM_POST_ALLOWLIST = frozenset({
 _DEMO_FORM_POST_ALLOW_PATTERNS = (
     re.compile(r"^/api/im/threads/[^/]+/read$"),
 )
-# 用 GET 触发模型调用的读接口（Astra R2：获客个人画像走 LLMCaller、预警钻取走 llm_caller），形态模式下同样 403
-_DEMO_FORM_GET_DENY_PATTERNS = (
-    re.compile(r"^/api/channel/personal_insight/"),
-    re.compile(r"^/api/alert/drill/"),
+# 形态模式下允许的「示例运行」（投屏演示需要每个 Agent 都能跑；每天每路径上限防止链接外发后被刷）
+_DEMO_FORM_DEMO_RUN_PATTERNS = (
+    re.compile(r"^/api/(credit|alert|compliance|riskctrl|channel)/demo/run$"),
+    re.compile(r"^/api/riskctrl/backtest$"),
+    re.compile(r"^/api/channel/run$"),
 )
+_DEMO_FORM_DEMO_RUN_DAILY_CAP = int(os.environ.get("DEMO_FORM_DEMO_RUN_DAILY_CAP", "30"))
+_DEMO_FORM_DEMO_RUN_COUNTS: dict[tuple[str, str], int] = {}
+# 示例链路会顺带 GET 的读接口（预警钻取 / 获客画像）随示例运行一起放行；不再单独拒绝
+_DEMO_FORM_GET_DENY_PATTERNS: tuple = ()
+
+
+def _demo_form_demo_run_allowed(path: str) -> bool:
+    """示例运行放行，但按天计数封顶；超限返回 False（中间件回 403）。"""
+    if not any(p.match(path) for p in _DEMO_FORM_DEMO_RUN_PATTERNS):
+        return False
+    import datetime as _dt
+    key = (path, _dt.date.today().isoformat())
+    used = _DEMO_FORM_DEMO_RUN_COUNTS.get(key, 0)
+    if used >= _DEMO_FORM_DEMO_RUN_DAILY_CAP:
+        return False
+    _DEMO_FORM_DEMO_RUN_COUNTS[key] = used + 1
+    return True
 _DEMO_FORM_READONLY_DETAIL = {
     "error": {
         "code": "DEMO_FORM_READONLY",
@@ -95,7 +113,9 @@ def _demo_form_write_allowed(method: str, path: str) -> bool:
         return True
     if normalized_method == "POST" and path in _DEMO_FORM_POST_ALLOWLIST:
         return True
-    return normalized_method == "POST" and any(p.match(path) for p in _DEMO_FORM_POST_ALLOW_PATTERNS)
+    if normalized_method == "POST" and any(p.match(path) for p in _DEMO_FORM_POST_ALLOW_PATTERNS):
+        return True
+    return normalized_method == "POST" and _demo_form_demo_run_allowed(path)
 
 
 @app.middleware("http")
