@@ -836,7 +836,7 @@ def _decision_event_stream_v4(req: DecisionRequestV4):
                 decision_graph=last_graph,
                 ledger=last_ledger,
             ))
-        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+        except Exception as e:  # noqa: BLE001 · 含 openai SDK 异常（AuthenticationError 等）· 全部转 typed error event · 不让 SSE 裸断
             err_str = f"{type(e).__name__}: {e}"
             err = err_str
             traceback.print_exc()  # stderr log only · 不给 client (security · 不 leak 文件路径)

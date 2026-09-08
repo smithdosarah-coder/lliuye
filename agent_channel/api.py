@@ -340,6 +340,15 @@ async def channel_demo_run(
                     "请联系运维补全 Tavily/akshare 配置"
                 ),
             })
+        except Exception as e:  # noqa: BLE001 · 未分类异常也显 typed banner · 不让 SSE 裸断成「永远等待」
+            import logging
+            logging.getLogger("agent_channel.demo_run").exception("[channel.demo_run] pipeline failed")
+            yield sse_encode({
+                "event": "error",
+                "stage": "pipeline",
+                "code": "PIPELINE_ERROR",
+                "message": f"后端流程异常 · {type(e).__name__}: {str(e)[:160]} · 联系运维",
+            })
 
     return StreamingResponse(
         gen(),

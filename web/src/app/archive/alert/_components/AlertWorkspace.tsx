@@ -373,7 +373,7 @@ export default function AlertWorkspace() {
    * - "live": /api/alert/scan · 客户经理触发 · 真 KB + 真 Tavily
    * - "demo": /api/alert/demo/run · backend 自动加载 alert-pool 180 户 · 同走真 pipeline
    */
-  const [inputMode, setInputMode] = useState<InputMode>("live");
+  const [inputMode, setInputMode] = useState<InputMode>(DEMO_FORM_MODE ? "demo" : "live");
 
   /** Gate 4 · selectedClientId · TopCase 行 click → drill drawer (用 client_id 与 backend 对齐) */
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -1066,9 +1066,10 @@ function HeroSection(p: {
 }) {
   const isScanning = p.phase === "scanning";
   const isAfter = p.phase === "after";
-  const btnLabel = DEMO_FORM_MODE
-    ? DEMO_FORM_READONLY_MESSAGE
-    : isScanning ? "扫描中…" : isAfter ? "重新扫描" : "启动风险扫描";
+  /* 形态模式：示例扫描是放行的，跑完后按钮只做本地重置，不再显示「已停用生成」的矛盾文案 */
+  const btnLabel = isScanning
+    ? "扫描中…"
+    : isAfter ? "重新扫描" : DEMO_FORM_MODE ? "启动示例扫描" : "启动风险扫描";
   return (
     <header className="rpt-hero al-hero">
       <div className="rpt-hero__eyebrow">
@@ -1126,8 +1127,7 @@ function HeroSection(p: {
             type="button"
             className="al-hero__cta"
             data-phase={p.phase}
-            disabled={DEMO_FORM_MODE || isScanning}
-            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+            disabled={isScanning}
             onClick={isAfter ? p.onReset : p.onScan}
           >
             <span className="al-hero__cta-ic" aria-hidden>◈</span>
@@ -2072,7 +2072,7 @@ function AlertEmptyState(p: {
     : isDemo
     ? "启动示例扫描 · 内置 180 户样例"
     : "启动风险扫描 · 请先上传客户名录";
-  const ctaSub = DEMO_FORM_MODE
+  const ctaSub = DEMO_FORM_MODE && !isDemo
     ? DEMO_FORM_READONLY_MESSAGE
     : isDemo
       ? "对内置样例客户池执行完整扫描 · 流程与正式扫描一致"

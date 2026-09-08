@@ -39,6 +39,23 @@ def _resolve_api_key(conf: dict, explicit_key: str = "") -> str:
     return ""
 
 
+# 演示 / 应急开关 · LLM_DEFAULT_PROVIDER
+# 代码里大量调用点硬编码默认 provider="deepseek"（含 provider or "deepseek"）；当 DeepSeek 密钥失效、
+# 又不想逐处改调用方时，设 env LLM_DEFAULT_PROVIDER=<MODEL_CONFIG 里的 provider 名>（如 qwen_cloud），
+# 把这些默认 deepseek 调用整体改指到该 provider。显式选了其它 provider 的调用不受影响。
+# 显式传入的 api_key 属于原 provider（DeepSeek 的 key），一并丢弃、改按目标 provider 的 api_key_env 解析。
+_OVERRIDABLE_DEFAULT_PROVIDERS = frozenset({"deepseek"})
+
+
+def _apply_default_provider_override(provider: str, api_key: str) -> tuple[str, str]:
+    override = os.environ.get("LLM_DEFAULT_PROVIDER", "").strip()
+    if not override or override == provider or override not in MODEL_CONFIG:
+        return provider, api_key
+    if provider not in _OVERRIDABLE_DEFAULT_PROVIDERS:
+        return provider, api_key
+    return override, ""
+
+
 def _hash_messages(provider: str, model: str, messages: list[dict],
                    schema: dict | None, temperature: float) -> str:
     """消息哈希用于 cache key"""
@@ -58,6 +75,7 @@ class LLMClient:
 
     def __init__(self, provider: str = "deepseek", api_key: str = "",
                  cache_enabled: bool = True):
+        provider, api_key = _apply_default_provider_override(provider, api_key)
         self.provider = provider
         conf = MODEL_CONFIG.get(provider, MODEL_CONFIG["deepseek"])
         self.model = conf["model"]

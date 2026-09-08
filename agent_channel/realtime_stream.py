@@ -164,14 +164,17 @@ def run_channel_search_stream(
         # api_key 优先级：调用方显式传入 > env DEEPSEEK_API_KEY > 空（退化到无 LLM 路径）
         # 修根因：前端请求体默认 api_key="",此前直接送给 LLMClient → DeepSeek 401 →
         #         _extract_signal 全失败 → all_signals=0 → mock_fallback。
-        effective_key = (api_key or os.environ.get("DEEPSEEK_API_KEY") or "").strip()
-        if not effective_key:
-            logger.warning(
-                "[channel] no LLM api_key (neither request nor env DEEPSEEK_API_KEY) → LLM disabled, signal extraction will use naive fallback"
-            )
+        # 密钥按 provider 自己的 api_key_env 解析（LLMClient 内部完成；LLM_DEFAULT_PROVIDER 覆盖时同样生效）
+        # 旧逻辑只认 DEEPSEEK_API_KEY · 切换 provider 时会把 DeepSeek 的 key 硬塞给别家 → 401
         try:
-            llm = LLMClient(provider=provider or "deepseek", api_key=effective_key) if effective_key else None
-        except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError, ImportError) as e:
+            llm = LLMClient(provider=provider or "deepseek", api_key=(api_key or "").strip())
+            if not llm.api_key:
+                logger.warning(
+                    "[channel] no LLM api_key for provider=%s → LLM disabled, signal extraction will use naive fallback",
+                    llm.provider,
+                )
+                llm = None
+        except Exception as e:  # noqa: BLE001 · 客户端构造失败只降级为无 LLM 路径 · 不拖垮整条流
             logger.warning("[channel] LLMClient init failed: %s", e)
             llm = None
 
@@ -510,7 +513,7 @@ def _parallel_signal_search_core(
                     logger.warning("[channel.signal_search] route=%s TIMEOUT 15s, skipped", stype)
                     route_stats[stype] = (0, 0, "timeout_15s")
                     yield ("progress", stype, 0)
-                except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError) as e:
+                except Exception as e:  # noqa: BLE001 · 单路失败（含 LLM SDK 异常如 401）只记 0 · 不裸断 SSE
                     logger.warning("[channel.signal_search] route=%s future failed: %s", stype, e)
                     route_stats[stype] = (0, 0, f"exc:{type(e).__name__}")
                     yield ("progress", stype, 0)
@@ -599,7 +602,8 @@ def _extract_signal(
 
     try:
         raw = llm.simple_chat(system, user_prompt, temperature=0.1)
-    except (RuntimeError, ValueError, TypeError, OSError, AttributeError, KeyError):
+    except Exception as e:  # noqa: BLE001 · LLM SDK 异常（401/429/网络）→ 该条走 naive 抽取 · 不上抛
+        logger.warning("[channel._extract_signal] llm failed: %s: %s", type(e).__name__, str(e)[:120])
         return None
 
     text = (raw or "").strip()
