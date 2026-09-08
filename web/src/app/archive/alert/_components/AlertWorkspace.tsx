@@ -36,6 +36,7 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind } from "@/lib/api/_data-source";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import {
   ALERT_GLOBAL_STATS,
@@ -1065,7 +1066,9 @@ function HeroSection(p: {
 }) {
   const isScanning = p.phase === "scanning";
   const isAfter = p.phase === "after";
-  const btnLabel = isScanning ? "扫描中…" : isAfter ? "重新扫描" : "启动风险扫描";
+  const btnLabel = DEMO_FORM_MODE
+    ? DEMO_FORM_READONLY_MESSAGE
+    : isScanning ? "扫描中…" : isAfter ? "重新扫描" : "启动风险扫描";
   return (
     <header className="rpt-hero al-hero">
       <div className="rpt-hero__eyebrow">
@@ -1123,7 +1126,8 @@ function HeroSection(p: {
             type="button"
             className="al-hero__cta"
             data-phase={p.phase}
-            disabled={isScanning}
+            disabled={DEMO_FORM_MODE || isScanning}
+            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
             onClick={isAfter ? p.onReset : p.onScan}
           >
             <span className="al-hero__cta-ic" aria-hidden>◈</span>
@@ -2068,9 +2072,11 @@ function AlertEmptyState(p: {
     : isDemo
     ? "启动示例扫描 · 内置 180 户样例"
     : "启动风险扫描 · 请先上传客户名录";
-  const ctaSub = isDemo
-    ? "对内置样例客户池执行完整扫描 · 流程与正式扫描一致"
-    : "外部信号与行内规则双路交叉 · 输出分级榜单与处置建议";
+  const ctaSub = DEMO_FORM_MODE
+    ? DEMO_FORM_READONLY_MESSAGE
+    : isDemo
+      ? "对内置样例客户池执行完整扫描 · 流程与正式扫描一致"
+      : "外部信号与行内规则双路交叉 · 输出分级榜单与处置建议";
 
   return (
     <div className="alert-empty" data-testid="alert-empty-skeleton" data-input-mode={p.inputMode}>
@@ -2100,7 +2106,8 @@ function AlertEmptyState(p: {
           data-testid="alert-input-mode-live"
           data-active={p.inputMode === "live" ? "yes" : "no"}
           onClick={() => p.onInputModeChange("live")}
-          disabled={p.scanRunning}
+          disabled={DEMO_FORM_MODE || p.scanRunning}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           aria-pressed={p.inputMode === "live"}
         >
           正式扫描 · 上传在贷客户名录
@@ -2181,7 +2188,8 @@ function AlertEmptyState(p: {
           data-testid="alert-scan-cta"
           data-cta="primary"
           onClick={p.onPrimary}
-          disabled={p.scanRunning}
+          disabled={DEMO_FORM_MODE || p.scanRunning}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
         >
           <span className="alert-empty__cta-rank">主操作</span>
           <span className="alert-empty__cta-title">{ctaTitle}</span>

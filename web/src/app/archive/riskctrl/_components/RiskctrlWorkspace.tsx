@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ChangeEvent } from "react";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider } from "@/components/evidence";
 /* Phase B.2 ALL IN reframe (2026-05-10) · 删 RISKCTRL_EVIDENCE fixture import (硬线 · 禁止 fixtures.ts 任何 import)
@@ -660,7 +661,8 @@ function RiskTriggerBar(p: {
           data-active={p.mode === "real" ? "yes" : "no"}
           data-testid="riskctrl-mode-toggle-real"
           onClick={() => p.onModeChange("real")}
-          disabled={p.scanRunning}
+          disabled={DEMO_FORM_MODE || p.scanRunning}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
         >
           正式模式
           <span className="riskctrl-mode-toggle__sub">输入自己的策略与样本</span>
@@ -685,10 +687,11 @@ function RiskTriggerBar(p: {
           type="button"
           className="riskctrl-trigger-bar__primary"
           onClick={p.onPrimaryDslGen}
-          disabled={p.scanRunning}
+          disabled={DEMO_FORM_MODE || p.scanRunning}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           data-testid="riskctrl-dsl-gen-cta"
         >
-          {realLabel}
+          {DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : realLabel}
         </button>
       ) : (
         <div className="riskctrl-demo-controls" data-testid="riskctrl-demo-controls">
@@ -736,10 +739,11 @@ function RiskTriggerBar(p: {
                 type="button"
                 className="riskctrl-trigger-bar__primary"
                 onClick={p.onDemoRun}
-                disabled={p.scanRunning || !p.selectedDemoSeedId}
+                disabled={DEMO_FORM_MODE || p.scanRunning || !p.selectedDemoSeedId}
+                title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
                 data-testid="riskctrl-demo-run-cta"
               >
-                {demoLabel}
+                {DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : demoLabel}
               </button>
             </>
           ) : !p.demoSeedsError ? (

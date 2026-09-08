@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 import { usePinDrop, type PinDropPayload } from "@/components/composer/use-pin-drop";
 import { EvidenceProvider, type EvidenceItem as EvidenceItemShared } from "@/components/evidence";
 
@@ -2058,14 +2059,17 @@ function CreditEmptyState(p: {
             data-testid="credit-decision-cta"
             data-cta="primary"
             onClick={p.onPrimary}
-            disabled={p.decisionRunning}
+            disabled={DEMO_FORM_MODE || p.decisionRunning}
+            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           >
             <span className="credit-empty__cta-rank">真实数据 · 主操作</span>
             <span className="credit-empty__cta-title">
               {p.decisionRunning ? "决策中…" : "从 Agent6 报告起决策"}
             </span>
             <span className="credit-empty__cta-sub">
-              选择已完成的尽调报告 · 自动带入企业画像 · 生成决策建议
+              {DEMO_FORM_MODE
+                ? DEMO_FORM_READONLY_MESSAGE
+                : "选择已完成的尽调报告 · 自动带入企业画像 · 生成决策建议"}
             </span>
           </button>
         ) : (
@@ -2075,14 +2079,17 @@ function CreditEmptyState(p: {
             data-testid="credit-demo-cta"
             data-cta="demo"
             onClick={p.onRunDemo}
-            disabled={p.decisionRunning || !p.onRunDemo}
+            disabled={DEMO_FORM_MODE || p.decisionRunning || !p.onRunDemo}
+            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           >
             <span className="credit-empty__cta-rank">示例数据 · 内置客户</span>
             <span className="credit-empty__cta-title">
               {p.decisionRunning ? "运行中…" : `一键运行 · ${sampleName}`}
             </span>
             <span className="credit-empty__cta-sub">
-              使用内置示例客户 · 评分、红线与建议全流程与正式模式一致
+              {DEMO_FORM_MODE
+                ? DEMO_FORM_READONLY_MESSAGE
+                : "使用内置示例客户 · 评分、红线与建议全流程与正式模式一致"}
             </span>
           </button>
         )}

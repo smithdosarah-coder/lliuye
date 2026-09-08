@@ -1454,7 +1454,7 @@ async def report_export_docx(
 
     # profile / sections / qc 只信任服务端 session；请求字段仅为旧客户端兼容保留。
     if sid:
-        sess = _session_or_demo_form(sid)
+        sess = _session_or_demo_form(sid, _user)
         if sess:
             payload.update(_trusted_export_fields(sess))
 
@@ -1600,11 +1600,12 @@ class ReportDemoRunRequest(BaseModel):
     client_metadata: dict | None = None
 
 
-def _hydrate_demo_form_session() -> str:
+def _hydrate_demo_form_session(owner_user_id: str = "") -> str:
     """形态模式：把预置的完成态会话注册进内存 SessionStore，返回新 session_id。"""
     payload = _load_demo_form_payload()
     sid = store.create({
         "mode": "demo_form",
+        "owner_user_id": owner_user_id,
         "source_docx": payload.get("source_docx"),
         "enterprise_profile": payload.get("profile") or {},
         "pending_questions": payload.get("pending_questions") or [],
@@ -1623,13 +1624,16 @@ def _hydrate_demo_form_session() -> str:
     return sid
 
 
-def _session_or_demo_form(sid: str):
+def _session_or_demo_form(sid: str, user: dict[str, Any]):
     """导出用：会话过期（30 分钟 GC）且处于形态模式时，从预置文件重建，访客搁置页面后仍可导出。"""
     sess = store.get(sid)
-    if sess is not None or not _demo_form_mode_enabled():
-        return sess
-    new_sid = _hydrate_demo_form_session()
-    return store.get(new_sid)
+    if sess is not None:
+        return _owned_session_or_404(sid, user)
+    if not _demo_form_mode_enabled():
+        return None
+    owner_user_id = str(user.get("sub") or user.get("user_id") or "").strip()
+    new_sid = _hydrate_demo_form_session(owner_user_id)
+    return _owned_session_or_404(new_sid, user)
 
 
 @app.get("/api/report/demo/default")
@@ -1939,7 +1943,7 @@ async def report_export_pdf(
     }
 
     if sid:
-        sess = _session_or_demo_form(sid)
+        sess = _session_or_demo_form(sid, _user)
         if sess:
             payload.update(_trusted_export_fields(sess))
 

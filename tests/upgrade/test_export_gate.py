@@ -40,6 +40,7 @@ def _session(qc=_MISSING) -> str:
     if qc is not _MISSING:
         done_payload["qc"] = qc
     return store.create({
+        "owner_user_id": "u_test",
         "enterprise_profile": {"company_name": "闸门测试企业"},
         "pending_questions": [],
         "done_payload": done_payload,
@@ -151,6 +152,7 @@ def test_pending_tags_real_generator_to_api_export_docx_end_to_end(tmp_path, cli
         assert item.get("suggested_action")
 
     sid = store.create({
+        "owner_user_id": "u_test",
         "enterprise_profile": {"company_name": "真实 pending 企业"},
         "pending_questions": pending,
         "done_payload": {

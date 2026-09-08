@@ -177,3 +177,37 @@ def test_downloads_require_login_and_owner_session(monkeypatch, tmp_path, client
         assert missing.status_code == 404
     finally:
         store.delete(session_id)
+
+
+def test_export_allowlist_still_enforces_session_owner(monkeypatch, client):
+    monkeypatch.setenv("DEMO_FORM_MODE", "1")
+    session_id = store.create({
+        "owner_user_id": "u_liuye",
+        "enterprise_profile": {"company_name": "属主隔离测试企业"},
+        "done_payload": {
+            "sections": [{
+                "id": "chapter_1_background",
+                "title": "一、企业背景",
+                "content": "仅属主可导出的正文",
+                "status": "done",
+            }],
+            "qc": {"passed": True, "fatal_fail": False},
+            "stats": {},
+            "pending_questions": [],
+        },
+        "qc_payload": {"passed": True, "fatal_fail": False},
+    })
+
+    try:
+        client.cookies.set(COOKIE_NAME, issue("u_wangzhe", "rm"))
+        for endpoint in ("/api/report/export_docx", "/api/report/export_pdf"):
+            denied = client.post(endpoint, json={"session_id": session_id})
+            assert denied.status_code == 404, denied.text
+
+        client.cookies.set(COOKIE_NAME, issue("u_liuye", "admin"))
+        docx = client.post("/api/report/export_docx", json={"session_id": session_id})
+        pdf = client.post("/api/report/export_pdf", json={"session_id": session_id})
+        assert docx.status_code == 200, docx.text
+        assert pdf.status_code == 200, pdf.text
+    finally:
+        store.delete(session_id)

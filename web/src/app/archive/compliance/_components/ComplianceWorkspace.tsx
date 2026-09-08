@@ -42,6 +42,7 @@ import { MessagePinHandle } from "@/components/shell/MessagePinHandle";
 import { EvidenceProvider } from "@/components/evidence";
 import { DataSourceBadge } from "@/components/shared/DataSourceBadge";
 import { type DataSourceKind, normalizeDataSource } from "@/lib/api/_data-source";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 
 /** 截断消息文本作 pin title · 尾部加 …（与 channel 同构） */
 function msgTitle(raw: string): string {
@@ -917,13 +918,16 @@ function InputSourcePanel(p: {
                   type="button"
                   className="compliance-input-source__run"
                   onClick={p.onSampleRun}
-                  disabled={p.scanRunning || !selected}
+                  disabled={DEMO_FORM_MODE || p.scanRunning || !selected}
+                  title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
                   data-testid="compli-sample-batch-run"
                 >
                   {p.scanRunning ? "扫描中…" : "运行示例扫描"}
                 </button>
                 <span className="compliance-input-source__run-hint">
-                  {selected
+                  {DEMO_FORM_MODE
+                    ? DEMO_FORM_READONLY_MESSAGE
+                    : selected
                     ? `将以 ${selected.policy_title} 真扫 ${selected.doc_count} 份制度库 (LLM 抽规则 → 矩阵命中 → 修订)`
                     : "请先选 scenario"}
                 </span>
@@ -945,10 +949,13 @@ function InputSourcePanel(p: {
             type="button"
             className="compliance-input-source__run compliance-input-source__run--secondary"
             onClick={p.onUploadRun}
-            disabled={p.scanRunning}
+            disabled={DEMO_FORM_MODE || p.scanRunning}
+            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
             data-testid="compli-upload-run"
           >
-            {p.scanRunning ? "比对运行中…" : "开始政策比对 · 用已上传的"}
+            {DEMO_FORM_MODE
+              ? DEMO_FORM_READONLY_MESSAGE
+              : p.scanRunning ? "比对运行中…" : "开始政策比对 · 用已上传的"}
           </button>
         </div>
       )}
@@ -1072,14 +1079,19 @@ function UploadRail(p: {
             type="button"
             className="compliance-upload-btn"
             onClick={startCompare}
-            disabled={running}
+            disabled={DEMO_FORM_MODE || running}
+            title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
             data-state={running ? "running" : done ? "done" : "idle"}
             data-testid="compli-policy-scan-cta"
           >
-            {running ? "比对中…" : done ? "重新比对" : "开始政策比对"}
+            {DEMO_FORM_MODE
+              ? DEMO_FORM_READONLY_MESSAGE
+              : running ? "比对中…" : done ? "重新比对" : "开始政策比对"}
           </button>
           <div className="compliance-upload-btn-sub">
-            {done ? "已完成 · 可在矩阵 tab 查看对照" : "Cmd/Ctrl ↵ 触发"}
+            {DEMO_FORM_MODE
+              ? DEMO_FORM_READONLY_MESSAGE
+              : done ? "已完成 · 可在矩阵 tab 查看对照" : "Cmd/Ctrl ↵ 触发"}
           </div>
         </div>
       </div>
