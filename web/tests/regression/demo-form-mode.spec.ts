@@ -1,5 +1,7 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
 
+const READONLY_MESSAGE = "演示环境为只读形态 · 已停用生成、上传与写入";
+
 test.skip(
   process.env.NEXT_PUBLIC_DEMO_FORM_MODE !== "1",
   "requires NEXT_PUBLIC_DEMO_FORM_MODE=1 at next build/dev start",
@@ -97,6 +99,31 @@ async function stubShell(context: BrowserContext) {
     contentType: "application/json",
     body: JSON.stringify(DEFAULT_SESSION),
   }));
+  await context.route("**/api/compliance/demo/scenarios", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      scenarios: [{
+        scenario_id: "online_loan",
+        label: "互联网贷款合规",
+        policy_title: "互联网贷款监管办法",
+        doc_count: 3,
+      }],
+    }),
+  }));
+  await context.route("**/api/riskctrl/demo/seeds", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      seeds: [{
+        seed_id: "credit_v15",
+        label: "授信评分样例",
+        difficulty: "中",
+        strategy_intent: "验证形态模式禁用一键运行",
+        csv_path: "data/mock/riskctrl/credit_v15.csv",
+      }],
+    }),
+  }));
 }
 
 test.beforeEach(async ({ context }) => stubShell(context));
@@ -105,7 +132,7 @@ test("B/C/D/E · report loads the completed coherent session and exposes no gene
   await page.goto("/archive/report", { waitUntil: "networkidle" });
 
   await expect(page.locator('[data-testid="report-demo-form-notice"]')).toContainText(
-    "演示环境已停用生成接口 · 下方为已完成的示例会话",
+    READONLY_MESSAGE,
   );
   await expect(page.locator('[data-testid="report-sample-dp002"]')).toHaveCount(0);
   await expect(page.locator('[data-testid="report-upload-cta"]')).toHaveCount(0);
@@ -124,6 +151,35 @@ test("B/C/D/E · report loads the completed coherent session and exposes no gene
   await expect(page.locator(".doc-title")).toContainText("对公成稿 A");
   await expect(page.locator('[data-testid="report-qc-dimensions"]')).toContainText("申报方案硬字段 3.08 / 5.0");
   await expect(page.locator("body")).not.toContainText("分 0.0");
+});
+
+test("B1 · visible mutation controls are disabled with one readable explanation", async ({ page }) => {
+  await page.goto("/dispatch", { waitUntil: "networkidle" });
+  await expect(page.locator(".dpx-composer")).toContainText(READONLY_MESSAGE);
+  const composerInput = page.locator(".dpx-composer-input");
+  if (await composerInput.count()) {
+    await expect(composerInput).toBeDisabled();
+    await expect(page.locator(".dpx-composer-send")).toBeDisabled();
+  }
+
+  await page.goto("/archive/compliance", { waitUntil: "networkidle" });
+  await expect(page.locator('[data-testid="compli-sample-batch-run"]')).toBeDisabled();
+  await expect(page.locator(".compliance-input-source__run-hint")).toHaveText(READONLY_MESSAGE);
+
+  await page.goto("/archive/credit", { waitUntil: "networkidle" });
+  await expect(page.locator('[data-testid="credit-demo-cta"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="credit-demo-cta"]')).toContainText(READONLY_MESSAGE);
+
+  await page.goto("/archive/alert", { waitUntil: "networkidle" });
+  await expect(page.locator('[data-testid="alert-scan-cta"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="alert-scan-cta"]')).toContainText(READONLY_MESSAGE);
+
+  await page.goto("/archive/riskctrl", { waitUntil: "networkidle" });
+  await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="riskctrl-dsl-gen-cta"]')).toHaveText(READONLY_MESSAGE);
+  await page.locator('[data-testid="riskctrl-mode-toggle-demo"]').click();
+  await expect(page.locator('[data-testid="riskctrl-demo-run-cta"]')).toBeDisabled();
+  await expect(page.locator('[data-testid="riskctrl-demo-run-cta"]')).toHaveText(READONLY_MESSAGE);
 });
 
 test("F/G/H · today, warroom and audit use one customer directory and labeled shape data", async ({ page }) => {

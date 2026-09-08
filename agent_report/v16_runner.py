@@ -495,6 +495,7 @@ def _run_v16_in_thread(
     output_dir: Path,
     emit: "queue.Queue[str]",
     client_metadata: dict | None = None,
+    owner_user_id: str = "",
 ) -> None:
     """工作线程 · 真跑 v16_pipeline.run_pipeline · 把 stage/done/error push 队列.
 
@@ -625,6 +626,7 @@ def _run_v16_in_thread(
             }
             session_id = _store.create({
                 "mode": "real_v16",
+                "owner_user_id": owner_user_id,
                 "source_docx": str(source_docx),
                 "enterprise_profile": profile,
                 "pending_questions": pending_questions,
@@ -739,6 +741,7 @@ async def real_v16_stream(
     classified_json: Path,
     output_dir: Path,
     client_metadata: dict | None = None,
+    owner_user_id: str = "",
 ) -> AsyncIterator[str]:
     """真路径 SSE 流 · 启动后台线程 · 主协程从队列消费.
 
@@ -754,6 +757,7 @@ async def real_v16_stream(
             output_dir=output_dir,
             emit=emit,
             client_metadata=client_metadata,
+            owner_user_id=owner_user_id,
         ),
         daemon=True,
     )
@@ -811,6 +815,7 @@ async def fill_stream(
     output_dir: Path,
     explicit_mock: bool = False,
     client_metadata: dict | None = None,
+    owner_user_id: str = "",
 ) -> AsyncIterator[str]:
     """v16 fill 主入口 · 自动选 mock / real.
 
@@ -841,6 +846,7 @@ async def fill_stream(
             classified_json=classified_json,
             output_dir=output_dir,
             client_metadata=client_metadata,
+            owner_user_id=owner_user_id,
         ):
             yield evt
 

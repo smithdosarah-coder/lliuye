@@ -51,6 +51,7 @@ import {
   type TemplateValidationReport,
 } from "@/lib/api/report";
 import { ClaimText, EvidenceProvider } from "@/components/evidence";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 /* PM 2026-05-09 ALL IN Phase B.1 fix: 删 REPORT_EVIDENCE / REPORT_GLOBAL_STATS fixtures import
    假证据/假统计走 EMPTY 兜底 · 后端真出 evidences 时前端消费 (per shared/evidence_drawer schema). */
 import {
@@ -73,7 +74,6 @@ const EMPTY_GLOBAL_STATS = { weeklyProcessed: "—", successRate: "—", avgDura
 const AGENT_KEY = "report";
 const AGENT_HREF = "/archive/report";
 const AGENT_ACCENT = "--t-report";
-const DEMO_FORM_MODE = process.env.NEXT_PUBLIC_DEMO_FORM_MODE === "1";
 const DEMO_FORM_COMPLETE_STAGES: ReportV16StageEvent[] = [
   ["ingest", "材料解析完成"],
   ["extract", "字段抽取完成"],
@@ -763,7 +763,7 @@ export function ReportWorkspace() {
               fontSize: 12,
             }}
           >
-            演示环境已停用生成接口 · 下方为已完成的示例会话
+            {DEMO_FORM_READONLY_MESSAGE}
           </div>
         ) : <ReportLaunchBar
           started={started}
