@@ -185,7 +185,8 @@ export function ComposerBar() {
     /* W-FIX · 2026-04-28 · live-fallback-banner-spec §1 规则 1
        · 持久化到后端 · 失败必显式 banner (禁止 silent fallback)
        · seed mode (无 backend) → skip · 本地 optimistic 即可 */
-    if (liveMode !== "seed" && thread) {
+    // 形态模式：会话为前端示例数据，后端无对应线程（会返回 NOT_IN_THREAD），消息只做本地即时显示、不落库
+    if (liveMode !== "seed" && thread && !DEMO_FORM_MODE) {
       void sendMessageRest({
         threadId: thread.id,
         content: value,
