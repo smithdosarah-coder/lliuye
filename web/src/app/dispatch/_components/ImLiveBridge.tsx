@@ -15,6 +15,7 @@
 import { useEffect } from "react";
 
 import { listMessages, listThreads } from "@/lib/api/im";
+import { DEMO_FORM_MODE } from "@/lib/demo-form";
 import { getImWsClient, type WsOutboundEvent } from "@/lib/im/websocket";
 import type { ImMessage } from "@/lib/store";
 
@@ -36,6 +37,11 @@ export function ImLiveBridge() {
     let cancelled = false;
 
     async function bootstrap() {
+      if (DEMO_FORM_MODE) {
+        // 形态模式：对话页固定使用示例会话，不用后端线程列表替换（线上后端只有零星测试线程）
+        setLiveMode("seed");
+        return;
+      }
       try {
         const next = await listThreads();
         if (cancelled) return;
