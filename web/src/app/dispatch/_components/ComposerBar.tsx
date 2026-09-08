@@ -17,7 +17,7 @@ import {
   ImApiError,
 } from "@/lib/api/im";
 import { getImWsClient } from "@/lib/im/websocket";
-import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
+import { DEMO_FORM_MODE, DEMO_FORM_AGENT_BLOCKED_MESSAGE, DEMO_FORM_COMPOSER_HINT } from "@/lib/demo-form";
 import {
   byUserId,
   publishEvent,
@@ -111,7 +111,7 @@ export function ComposerBar() {
   if (!thread) {
     return (
       <div className="dpx-composer dpx-composer-disabled">
-        {DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : "选中一个对话以发送消息。"}
+        选中一个对话以发送消息。
       </div>
     );
   }
@@ -153,15 +153,16 @@ export function ComposerBar() {
 
   function handleSubmit(e?: FormEvent) {
     e?.preventDefault();
-    if (DEMO_FORM_MODE) {
-      flash(DEMO_FORM_READONLY_MESSAGE);
-      return;
-    }
     const value = text.trim();
     if (!value || !thread) return;
 
     const slash = parseSlash(value);
     if (slash) {
+      if (DEMO_FORM_MODE) {
+        // 形态模式：斜杠命令会触发智能体运行，停用；人对人消息照常
+        flash(DEMO_FORM_AGENT_BLOCKED_MESSAGE);
+        return;
+      }
       runCommand(slash.cmd, slash.args, value);
       setText("");
       return;
@@ -223,6 +224,11 @@ export function ComposerBar() {
     /* B.4 SLO-1 · /api/im/send 真接 DeepSeek + 显式错误处理 (替 silent fallback)
        · 通过 sendLlmTurn helper · 含 30s timeout + ImApiError typed 错误
        · 失败 setImLlmError → MessageStream ImBanners 显引导文案 (503/timeout/网络) */
+    if (DEMO_FORM_MODE) {
+      // 形态模式：只发人对人消息（/api/im/messages），不走 @智能体 → DeepSeek
+      if (targetAgent) flash(DEMO_FORM_AGENT_BLOCKED_MESSAGE);
+      return;
+    }
     void sendLlmTurn({
       message: value,
       threadId: thread.id,
@@ -365,11 +371,6 @@ export function ComposerBar() {
   }
 
   function handleDrop(e: DragEvent<HTMLFormElement>) {
-    if (DEMO_FORM_MODE) {
-      e.preventDefault();
-      flash(DEMO_FORM_READONLY_MESSAGE);
-      return;
-    }
     const panelRaw = e.dataTransfer.getData(PANEL_PIN_MIME);
     const cardRaw = e.dataTransfer.getData(CARD_PIN_MIME);
     if (!panelRaw && !cardRaw) return;
@@ -471,8 +472,6 @@ export function ComposerBar() {
           placeholder={`在「${thread.title}」留言，或输入 / 调用命令`}
           value={text}
           rows={1}
-          disabled={DEMO_FORM_MODE}
-          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           onChange={(e) => {
             setText(e.target.value);
             if (thread) maybeEmitTyping(thread.id);
@@ -483,8 +482,7 @@ export function ComposerBar() {
         <button
           type="submit"
           className="dpx-composer-send"
-          disabled={DEMO_FORM_MODE || !text.trim()}
-          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+          disabled={!text.trim()}
         >
           发送
         </button>
@@ -492,7 +490,7 @@ export function ComposerBar() {
       <div className="dpx-composer-foot">
         <span className="hint">
           {DEMO_FORM_MODE ? (
-            DEMO_FORM_READONLY_MESSAGE
+            DEMO_FORM_COMPOSER_HINT
           ) : (
             <>回车发送 · Shift + 回车换行 · 输入 <kbd>/</kbd> 看快捷命令（共 {SLASH_COMMANDS.length}）</>
           )}

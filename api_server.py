@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -65,7 +66,18 @@ _DEMO_FORM_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _DEMO_FORM_POST_ALLOWLIST = frozenset({
     "/api/report/export_docx",
     "/api/report/export_pdf",
+    # 人对人 IM：持久化消息 + 已读回执，不调模型（面试录音承诺「登录后能跟同事沟通」）；
+    # /api/im/send（@智能体 → DeepSeek）不在此列，仍 403。
+    "/api/im/messages",
 })
+_DEMO_FORM_POST_ALLOW_PATTERNS = (
+    re.compile(r"^/api/im/threads/[^/]+/read$"),
+)
+# 用 GET 触发模型调用的读接口（Astra R2：获客个人画像走 LLMCaller、预警钻取走 llm_caller），形态模式下同样 403
+_DEMO_FORM_GET_DENY_PATTERNS = (
+    re.compile(r"^/api/channel/personal_insight/"),
+    re.compile(r"^/api/alert/drill/"),
+)
 _DEMO_FORM_READONLY_DETAIL = {
     "error": {
         "code": "DEMO_FORM_READONLY",
@@ -78,10 +90,12 @@ def _demo_form_write_allowed(method: str, path: str) -> bool:
     """Return whether a request may pass the read-only showcase boundary."""
     normalized_method = method.upper()
     if normalized_method in _DEMO_FORM_SAFE_METHODS:
-        return True
+        return not any(p.match(path) for p in _DEMO_FORM_GET_DENY_PATTERNS)
     if normalized_method == "POST" and path.startswith("/api/auth/"):
         return True
-    return normalized_method == "POST" and path in _DEMO_FORM_POST_ALLOWLIST
+    if normalized_method == "POST" and path in _DEMO_FORM_POST_ALLOWLIST:
+        return True
+    return normalized_method == "POST" and any(p.match(path) for p in _DEMO_FORM_POST_ALLOW_PATTERNS)
 
 
 @app.middleware("http")

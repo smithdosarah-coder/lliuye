@@ -155,11 +155,11 @@ test("B/C/D/E · report loads the completed coherent session and exposes no gene
 
 test("B1 · visible mutation controls are disabled with one readable explanation", async ({ page }) => {
   await page.goto("/dispatch", { waitUntil: "networkidle" });
-  await expect(page.locator(".dpx-composer")).toContainText(READONLY_MESSAGE);
+  // 形态模式：人对人 IM 照常可发（录音承诺「登录后能跟同事沟通」），只停用 @智能体
   const composerInput = page.locator(".dpx-composer-input");
   if (await composerInput.count()) {
-    await expect(composerInput).toBeDisabled();
-    await expect(page.locator(".dpx-composer-send")).toBeDisabled();
+    await expect(composerInput).toBeEnabled();
+    await expect(page.locator(".dpx-composer")).toContainText("@智能体 已停用");
   }
 
   await page.goto("/archive/compliance", { waitUntil: "networkidle" });
