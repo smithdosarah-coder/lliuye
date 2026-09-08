@@ -1,5 +1,5 @@
 /**
- * <CustomerLink customerId="cust_zrgs">中锐工商</CustomerLink>
+ * <CustomerLink customerId="cust_zrgs">晨锐工商</CustomerLink>
  *
  * 任何 view（dispatch / warroom / today / archive 工作区）点客户名
  * → 滑出右侧 CustomerDrawer（AppShell 内已全局挂载）。

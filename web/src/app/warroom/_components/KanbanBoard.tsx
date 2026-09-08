@@ -23,6 +23,7 @@ export function KanbanBoard() {
   const subscribe = useTicketStore((s) => s.subscribeHandoffRequested);
   const filteredFn = useTicketStore((s) => s.filtered);
   const tickets = useTicketStore((s) => s.tickets);
+  const ensureDemoFormSeeds = useTicketStore((s) => s.ensureDemoFormSeeds);
 
   const { filters } = useWarroomFilters();
 
@@ -31,6 +32,10 @@ export function KanbanBoard() {
   useEffect(() => {
     return subscribe();
   }, [subscribe]);
+
+  useEffect(() => {
+    ensureDemoFormSeeds();
+  }, [ensureDemoFormSeeds]);
 
   const visible = useMemo(() => filteredFn(filters), [filteredFn, filters, tickets]);
 

@@ -235,6 +235,15 @@ export type ReportV16DoneEvent = {
     score?: number;
     fatal_fail?: boolean;
     halluc_count?: number;
+    warn_count?: number;
+    dimensions?: Array<{
+      name?: string;
+      raw_score?: number;
+      pass_threshold?: number;
+      threshold?: number;
+      passed?: boolean;
+      status?: string;
+    }>;
   };
   stats?: Record<string, unknown>;
   pending_questions?: ReportV16PendingQuestion[];
@@ -243,6 +252,39 @@ export type ReportV16DoneEvent = {
   evidences?: ReportV16Evidence[];
   /** ALL IN Phase B step 6 · 报告对象企业归一 · 含 entity_key (per entity-resolution-contract v1.1 §5) */
   profile?: ReportProfile;
+  template?: {
+    id: string;
+    name: string;
+    kind: "预置" | "自定义";
+    version: string;
+    fieldTotal: number;
+    recentUsed: number;
+  };
+  materials?: Array<{
+    id: string;
+    name: string;
+    kind: "pdf" | "docx" | "xlsx" | "img";
+    pages: number;
+    bytes: string;
+    parsed: boolean;
+    parseNote: string;
+    linkedSections: string[];
+  }>;
+  timeline?: Array<{
+    id: string;
+    at: string;
+    kind: "template.select" | "material.upload" | "material.parsed" | "ai.question" | "user.reply" | "section.done" | "qc.run" | "export";
+    priority: "p0" | "p1" | "p2" | "done";
+    label: string;
+    detail?: string;
+  }>;
+  conversation?: Array<{
+    id: string;
+    at: string;
+    kind: "ai-question" | "user-reply" | "user-command" | "ai-response" | "system-event" | "ai-thinking";
+    content: string;
+    fieldRef?: string;
+  }>;
 };
 
 
@@ -257,6 +299,17 @@ export type ReportV16DoneEvent = {
 export function reportDoneDataSource(done: ReportV16DoneEvent): DataSourceKind {
   if (done.data_source) return normalizeDataSource(done.data_source);
   return done.mock_pipeline ? "mock_forced" : "live";
+}
+
+/** Load the deployment-seeded completed session used by demo-form mode. */
+export async function fetchReportDemoDefault(): Promise<ReportV16DoneEvent> {
+  const url = `${API_BASE}/api/report/demo/default`;
+  const resp = await fetch(url, { method: "GET", credentials: "include" });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw _parseTypedError(text, resp.status);
+  }
+  return (await resp.json()) as ReportV16DoneEvent;
 }
 
 export type ReportV16ErrorEvent = {

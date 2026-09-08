@@ -33,7 +33,7 @@ export type FeedItem = {
 };
 
 export const TODAY_FEED: FeedItem[] = [
-  { id: "fd-01", av: "林",  who: "林楠",       org: "宁海汇通",   msg: "下周一前给一版额度与期限建议，周会要拍板。",             time: "08:42",    urgent: true,  unread: true },
+  { id: "fd-01", av: "林",  who: "林楠",       org: "鼎川精密",   msg: "下周一前给一版额度与期限建议，周会要拍板。",             time: "08:42",    urgent: true,  unread: true },
   { id: "fd-02", av: "王",  avVariant: "warn", who: "王审贷",     org: "QC 终审",    msg: "财务段两处数字不一致，请 12:00 前给修订稿。",             time: "08:31",    urgent: true,  unread: true },
   { id: "fd-03", av: "SYS", avVariant: "sys",  who: "合规 agent", org: "政策扫描",   msg: "3 号文发布，命中在贷客户 14 家。",                         time: "08:05",    urgent: true,  unread: true },
   { id: "fd-04", av: "陈",  who: "陈诺",       org: "风控",       msg: "DSL v3.1 回测 KS 0.41，已推 staging 等复核。",             time: "07:58",                   unread: true },
@@ -43,7 +43,7 @@ export const TODAY_FEED: FeedItem[] = [
   { id: "fd-08", av: "孙",  who: "孙璐",       org: "合规官",     msg: "5 号文对票据质押的新定义跟业务矩阵第 7 条冲突。",           time: "昨 18:14",                 unread: true },
   { id: "fd-09", av: "周",  who: "周迎",       org: "审贷",       msg: "第二家的原料依赖度给分偏高，能回一下你的理由吗？",           time: "昨 17:30",                 unread: true },
   { id: "fd-10", av: "SYS", avVariant: "sys",  who: "获客 agent", org: "早报",       msg: "匹配 12 家 look-alike，4 家命中 ≥ 3 类信号。",             time: "昨 16:02" },
-  { id: "fd-11", av: "吴",  who: "吴嘉",       org: "宁海汇通",   msg: "三月营业数据更新版发你了，毛利好看一点。",                   time: "昨 14:20" },
+  { id: "fd-11", av: "吴",  who: "吴嘉",       org: "鼎川精密",   msg: "三月营业数据更新版发你了，毛利好看一点。",                   time: "昨 14:20" },
   { id: "fd-12", av: "郑",  who: "郑文",       org: "风险经理",   msg: "季度风险组会纪要已发群里，记得看一眼。",                     time: "昨 11:45" },
   { id: "fd-13", av: "SYS", avVariant: "sys",  who: "平台",       org: "账号",       msg: "RBAC 权限本周刷新为\"客户经理 + 审贷代理\"。",             time: "前天" },
   { id: "fd-14", av: "冯",  who: "冯慎",       org: "支行长",     msg: "下周北部湾演示，把 Agent3 放第二个讲。",                     time: "前天" },
@@ -60,8 +60,8 @@ export type InFlightItem = {
 };
 
 export const TODAY_IN_FLIGHT: InFlightItem[] = [
-  { id: "i1", agent: "report",     title: "报告助手 · 宁海汇通",   status: "生成中 · ETA 09:12", progress: 78, href: "/archive/report" },
-  { id: "i2", agent: "alert",      title: "预警助手 · 星河医药",   status: "运行 2:34",          progress: 42, href: "/archive/alert" },
+  { id: "i1", agent: "report",     title: "报告助手 · 鼎川精密",   status: "生成中 · ETA 09:12", progress: 78, href: "/archive/report" },
+  { id: "i2", agent: "alert",      title: "预警助手 · 云融科技",   status: "运行 2:34",          progress: 42, href: "/archive/alert" },
   { id: "i3", agent: "compliance", title: "合规助手 · §214 筛查",  status: "4 户命中 · 待出意见",                href: "/warroom" },
 ];
 
@@ -74,9 +74,9 @@ export type TaskItem = {
 };
 
 export const TODAY_TASKS: TaskItem[] = [
-  { id: "t1", title: "宁海汇通 · 终审会前补 3 项材料", prio: "P0", due: "今日 14:00", href: "/warroom" },
+  { id: "t1", title: "鼎川精密 · 终审会前补 3 项材料", prio: "P0", due: "今日 14:00", href: "/warroom" },
   { id: "t2", title: "海创智能装备 · 预审材料 7/9",    prio: "P1", due: "本周内",     href: "/warroom" },
-  { id: "t3", title: "星河医药 · 黄色预警复核",        prio: "P1", due: "明日",       href: "/warroom" },
+  { id: "t3", title: "云融科技 · 黄色预警复核",        prio: "P1", due: "明日",       href: "/warroom" },
 ];
 
 // A-017: Today .card.warm.sheet-card (agent · 正在跑) — shell.html:2047-2131 spec
@@ -98,8 +98,8 @@ export type IdleSheet = {
 };
 
 export const TODAY_RUNNING_SHEETS: RunningSheet[] = [
-  { id: "r1", tag: "报告助手 · Agent 6", state: "running · 78%", title: "宁海汇通 · 授信报告生成中", sub: "材料解析完成，进入财务段", eta: "ETA 09:12", pct: 78 },
-  { id: "r2", tag: "预警助手 · Agent 4", state: "running · 42%", title: "星河医药 · 舆情与征信扫描中", sub: "外路第 3 轮 · 内路队列 12", eta: "ETA 09:48", pct: 42 },
+  { id: "r1", tag: "报告助手 · Agent 6", state: "running · 78%", title: "鼎川精密 · 授信报告生成中", sub: "材料解析完成，进入财务段", eta: "ETA 09:12", pct: 78 },
+  { id: "r2", tag: "预警助手 · Agent 4", state: "running · 42%", title: "云融科技 · 舆情与征信扫描中", sub: "外路第 3 轮 · 内路队列 12", eta: "ETA 09:48", pct: 42 },
   { id: "r3", tag: "合规助手 · Agent 5", state: "running · 56%", title: "§214 新政 · 业务矩阵筛查", sub: "已命中 4 户 · 意见待出", eta: "ETA 10:30", pct: 56 },
 ];
 
@@ -125,10 +125,10 @@ export type BoardNote = {
 };
 
 export const TODAY_BOARD_NOTES: BoardNote[] = [
-  { id: "nt-01", variant: "p0",   pri: "P0 · 加急", due: "今日 12:00", title: "宁海汇通 QC 终审签字",     src: "报告助手交付 · 审贷会前截点" },
+  { id: "nt-01", variant: "p0",   pri: "P0 · 加急", due: "今日 12:00", title: "鼎川精密 QC 终审签字",     src: "报告助手交付 · 审贷会前截点" },
   { id: "nt-02", variant: "p0",   pri: "P0 · 加急", due: "今日 14:00", title: "§214 新政 · 合规意见",     src: "合规助手命中 4 户 · 待判" },
   { id: "nt-03", variant: "p1",   pri: "P1",         due: "今日 17:00", title: "风险月会纪要 · 初稿",       src: "华东线分行 · 9 人参会" },
-  { id: "nt-04", variant: "p1",   pri: "P1",         due: "明日",       title: "星河医药 · 贷后复核",       src: "预警助手入榜 · 黄色观察" },
+  { id: "nt-04", variant: "p1",   pri: "P1",         due: "明日",       title: "云融科技 · 贷后复核",       src: "预警助手入榜 · 黄色观察" },
   { id: "nt-05", variant: "p2",   pri: "P2",         due: "周五",       title: "小微样本筛选 · DSL 起草",   src: "风控助手输入待备齐" },
   { id: "nt-06", variant: "p2",   pri: "P2",         due: "下周一",     title: "河东纺织访谈纪要",         src: "客户经理口述 · 需整理" },
   { id: "nt-07", variant: "done", pri: "已完成",     due: "09:30",      title: "华东线晨会议程确认",       src: "5 位参会 · 已同步日历" },
@@ -193,9 +193,8 @@ export const TODAY_BELT: BeltCol[] = [
   },
 ];
 
-export type BeltRule = { lbl: string; rt: string };
+export type BeltRule = { lbl: string };
 
 export const TODAY_BELT_RULE: BeltRule = {
   lbl: "今日账册",
-  rt: "2026 · 04 · 18 · 08:47",
 };

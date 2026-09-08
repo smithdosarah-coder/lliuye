@@ -27,6 +27,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -37,6 +38,7 @@ from quality_scorer import DIMENSION_GATES
 _DEFAULT_FONT = "Microsoft YaHei"
 NA = "—"
 QUALITY_GATE_WATERMARK = "质量闸未过 · 内部草稿 · 不得作为审批依据"
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 _BUSINESS_LABEL = {
     "corporate": "对公授信",
@@ -237,12 +239,17 @@ def export(payload: dict, output_path: str | Path | None = None) -> bytes:
         section.right_margin = Cm(2.2)
 
     gate_blocked = qc.get("passed") is not True
+    for section in doc.sections:
+        header = section.header.paragraphs[0]
+        header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        company_run = header.add_run(company_name)
+        _set_font(company_run, size=9, bold=True, color=(65, 65, 65))
+        if gate_blocked:
+            company_run.add_break()
+            gate_run = header.add_run(QUALITY_GATE_WATERMARK)
+            _set_font(gate_run, size=10, bold=True, color=(175, 60, 45))
+
     if gate_blocked:
-        for section in doc.sections:
-            header = section.header.paragraphs[0]
-            header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = header.add_run(QUALITY_GATE_WATERMARK)
-            _set_font(run, size=10, bold=True, color=(175, 60, 45))
 
         _add_paragraph(
             doc,
@@ -268,7 +275,7 @@ def export(payload: dict, output_path: str | Path | None = None) -> bytes:
     )
     _add_paragraph(
         doc,
-        f"客户经理：{rm}    日期：{datetime.now().strftime('%Y-%m-%d %H:%M')}    "
+        f"客户经理：{rm}    日期：{datetime.now(SHANGHAI_TZ).strftime('%Y-%m-%d %H:%M')}    "
         f"业务线：{biz_cn}",
         size=9.5,
         align=WD_ALIGN_PARAGRAPH.CENTER,
@@ -488,7 +495,7 @@ def build_filename(payload: dict) -> str:
         company = "客户"
     rid = (payload.get("report_id") or payload.get("session_id") or "").strip()
     if not rid:
-        rid = datetime.now().strftime("%Y%m%d%H%M%S")
+        rid = datetime.now(SHANGHAI_TZ).strftime("%Y%m%d%H%M%S")
     rid = re.sub(r'[\\/:*?"<>|\s]+', "_", rid)[:32]
     return f"agent6_报告_{company}_{rid}.docx"
 

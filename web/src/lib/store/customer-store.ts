@@ -33,8 +33,8 @@ interface CustomerState {
 const seed: Customer[] = [
   {
     id: "cust_zrgs",
-    name: "中锐工商实业有限公司",
-    shortName: "中锐工商",
+    name: "晨锐工商实业有限公司",
+    shortName: "晨锐工商",
     industry: "批发零售",
     region: "华东",
     tags: ["授信中", "华东大客"],

@@ -29,6 +29,7 @@ import {
   deleteReportTemplate,
   exportReportDocx,
   exportReportPdf,
+  fetchReportDemoDefault,
   listReportTemplates,
   refineReportSection,
   renameReportTemplate,
@@ -72,6 +73,20 @@ const EMPTY_GLOBAL_STATS = { weeklyProcessed: "—", successRate: "—", avgDura
 const AGENT_KEY = "report";
 const AGENT_HREF = "/archive/report";
 const AGENT_ACCENT = "--t-report";
+const DEMO_FORM_MODE = process.env.NEXT_PUBLIC_DEMO_FORM_MODE === "1";
+const DEMO_FORM_COMPLETE_STAGES: ReportV16StageEvent[] = [
+  ["ingest", "材料解析完成"],
+  ["extract", "字段抽取完成"],
+  ["infer", "证据汇集完成"],
+  ["write", "章节生成完成"],
+  ["audit", "QC 终审完成"],
+].map(([stage, message], index) => ({
+  event: "stage",
+  stage: stage as ReportV16StageEvent["stage"],
+  progress: (index + 1) / 5,
+  message,
+  pipeline: "v16",
+}));
 
 /* PM 2026-05-09 ALL IN 真产品 · sessionData fallback 用此空对象 · 不再 fallback 到 REPORT_SESSION mock.
    5 panel 消费时 .map / .find / .reduce 不 crash · 字段空 → 显空 / 0 / "—" 不显假数据.
@@ -98,6 +113,7 @@ const EMPTY_SESSION: ReportSession = {
   preview: [],
   coverage: { filled: 0, total: 0, marked: 0 },
   qcCounts: { block: 0, warn: 0, info: 0 },
+  qcDimensions: [],
   recentSessions: [],
 };
 
@@ -186,6 +202,29 @@ export function ReportWorkspace() {
       })
       .catch(() => {
         if (!cancelled) setLlmConnected(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 形态展示只读取部署时生成的完成态 session，不触发任何实时生成。
+  useEffect(() => {
+    if (!DEMO_FORM_MODE) return;
+    let cancelled = false;
+    setStarted(true);
+    fetchReportDemoDefault()
+      .then((done) => {
+        if (cancelled) return;
+        setLiveData(done);
+        setLiveStages(DEMO_FORM_COMPLETE_STAGES);
+        setReportId(done.session_id);
+        setTemplateChoice(done.source_docx ?? "samples/经纬测绘_对公成稿A.docx");
+        setMode("live");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setErrMsg(error instanceof Error ? error.message : String(error));
       });
     return () => {
       cancelled = true;
@@ -693,25 +732,40 @@ export function ReportWorkspace() {
         />
         <ReportLiveFailBanner
           err={liveFailErr}
-          onRetry={handleRegenerate}
+          onRetry={DEMO_FORM_MODE ? () => window.location.reload() : handleRegenerate}
           onDismiss={() => setLiveFailErr(null)}
         />
         {/* B-banner · LaunchBar errMsg 提到 workspace 顶部 · 与 ReportLiveFailBanner 同位 */}
         <ReportLaunchErrorBanner
           errMsg={errMsg}
-          onRetry={handleRegenerate}
+          onRetry={DEMO_FORM_MODE ? () => window.location.reload() : handleRegenerate}
           onDismiss={() => setErrMsg(null)}
         />
         {/* B.2.3 hotfix (主 CLI 2026-05-10 自验) · sample strip 上移到 LaunchBar 之前
             · PM 第一眼看到 1-click 示例企业 (5 真 batch) · 不需先滚到下方
             · 业务线按钮 + 上传 + 生成 留 LaunchBar · sample CTA 独立 hero 段 */}
-        {!liveData && !generating ? (
+        {!DEMO_FORM_MODE && !liveData && !generating ? (
           <ReportSampleStrip
             onRun={handleDemoRun}
             disabled={generating || uploadingMaterials}
           />
         ) : null}
-        <ReportLaunchBar
+        {DEMO_FORM_MODE ? (
+          <div
+            data-testid="report-demo-form-notice"
+            role="status"
+            style={{
+              margin: "12px 0",
+              padding: "10px 14px",
+              border: "1px solid var(--ink-14)",
+              borderRadius: "var(--r-md)",
+              color: "var(--ink-65)",
+              fontSize: 12,
+            }}
+          >
+            演示环境已停用生成接口 · 下方为已完成的示例会话
+          </div>
+        ) : <ReportLaunchBar
           started={started}
           mode={sessionData.mode}
           reportId={reportId}
@@ -738,7 +792,7 @@ export function ReportWorkspace() {
           /* CRUD 完整 (2026-05-21) · 删 / 重命名 user 模板 */
           onDeleteUserTemplate={handleDeleteUserTemplate}
           onRenameUserTemplate={handleRenameUserTemplate}
-        />
+        />}
         {started ? (
           <>
             {liveStages.length > 0 || liveData ? (
@@ -757,14 +811,15 @@ export function ReportWorkspace() {
                   onUploadTemplate={handleUploadTemplate}
                   uploadedTemplate={uploadedTemplate}
                   sessionData={sessionData}
+                  readOnly={DEMO_FORM_MODE}
                 />
-                <MaterialPanel sessionData={sessionData} />
+                <MaterialPanel sessionData={sessionData} readOnly={DEMO_FORM_MODE} />
                 <TimelinePanel sessionData={sessionData} />
               </aside>
               <main className="rpt-main">
                 {/* PM 2026-05-09 ALL IN: 删 ScanCTA "生成报告 (mock 路径)" · ALL IN 后只走真 v16 主管线 · launch bar 已有 "开始生成" 真触发 */}
                 <ConversationPanel sessionData={sessionData}>
-                  <ReportComposer sessionData={sessionData} />
+                  {!DEMO_FORM_MODE ? <ReportComposer sessionData={sessionData} /> : null}
                 </ConversationPanel>
                 {liveData?.sections && liveData.sections.length > 0 ? (
                   <ReportLiveSections
@@ -772,6 +827,7 @@ export function ReportWorkspace() {
                     evidences={liveData.evidences}
                     onRefine={handleRefineSection}
                     mode={sessionData.mode}
+                    readOnly={DEMO_FORM_MODE}
                   />
                 ) : null}
               </main>
@@ -878,7 +934,11 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
           <h1 className="rpt-hero-title">
             报告 <em>Report Press.</em>
           </h1>
-          <CustomerSelector className="rpt-hero__customer" />
+          {DEMO_FORM_MODE ? (
+            <div className="rpt-hero__customer" data-testid="report-demo-form-customer">
+              当前会话 · {s.clientName || "正在加载"}
+            </div>
+          ) : <CustomerSelector className="rpt-hero__customer" />}
           {/* Phase B.2 (PM 2026-05-10) Step 7 信息密度: empty state 文案明确动作 ·
               不再显 "·  ·  · 字段覆盖 0%" 一串空 separator · 客户经理直观知下一步做啥 */}
           <div className="rpt-hero-sub">
@@ -888,10 +948,23 @@ function ReportHero({ coverPct, sessionData, isLive, dataSourceKind }: {
               </>
             ) : (
               <span style={{ color: "var(--ink-65)", fontStyle: "italic" }}>
-                尚未开始 · 请<strong>上传客户材料</strong>（主入口）或<strong>加载示例企业</strong>（下方 5 家）开始生成
+                {DEMO_FORM_MODE
+                  ? "正在加载已完成的示例会话…"
+                  : <>
+                      尚未开始 · 请<strong>上传客户材料</strong>（主入口）或<strong>加载示例企业</strong>（下方 5 家）开始生成
+                    </>}
               </span>
             )}
           </div>
+          {s.qcDimensions.length > 0 ? (
+            <div data-testid="report-qc-dimensions" style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {s.qcDimensions.filter((dimension) => dimension.failed).map((dimension) => (
+                <span key={dimension.name} style={{ color: "var(--t-alert)", fontSize: 12 }}>
+                  {dimension.name} {dimension.rawScore.toFixed(2)} / {dimension.threshold.toFixed(1)}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
       {/* Phase B.1.3 · DataSourceBadge SSOT trust 标记保留 · ModePill 双控删 */}
@@ -1032,6 +1105,7 @@ function TemplatePanel(props: {
   onUploadTemplate?: (files: File[]) => void;
   uploadedTemplate?: string;
   sessionData: ReportSession;
+  readOnly?: boolean;
 }) {
   const tpl = props.sessionData.template;
   const avail = props.sessionData.availableTemplates;
@@ -1111,7 +1185,7 @@ function TemplatePanel(props: {
             </div>
           </div>
         </div>
-        <div className="rpt-tpl-actions">
+        {!props.readOnly ? <div className="rpt-tpl-actions">
           <button
             className="rpt-btn rpt-btn--ghost"
             type="button"
@@ -1129,7 +1203,7 @@ function TemplatePanel(props: {
           />
           {/* B-cta · 模板库 disabled placeholder button 删除 (CLAUDE.md "no fake placeholder buttons")
               原 disabled + tooltip 是 "Stage X 计划" 占位 · 用户视觉上 = 摆设 · 此次去掉 */}
-        </div>
+        </div> : null}
         {props.uploadedTemplate ? (
           <div
             data-testid="report-uploaded-template-name"
@@ -1146,7 +1220,7 @@ function TemplatePanel(props: {
             ✓ 已上传 {props.uploadedTemplate}
           </div>
         ) : null}
-        <div className="rpt-tpl-avail">
+        {!props.readOnly ? <div className="rpt-tpl-avail">
           <div className="rpt-tpl-avail-lbl">其他可选</div>
           {avail
             .filter((t) => t.id !== tpl.id)
@@ -1162,7 +1236,7 @@ function TemplatePanel(props: {
                 </span>
               </button>
             ))}
-        </div>
+        </div> : null}
       </div>
     </section>
   );
@@ -1170,7 +1244,7 @@ function TemplatePanel(props: {
 
 /* ── 左栏 · Material ────────────────────────────────── */
 
-function MaterialPanel({ sessionData }: { sessionData: ReportSession }) {
+function MaterialPanel({ sessionData, readOnly = false }: { sessionData: ReportSession; readOnly?: boolean }) {
   const mats = sessionData.materials;
   const parsed = mats.filter((m) => m.parsed).length;
   const pending = mats.length - parsed;
@@ -1199,11 +1273,11 @@ function MaterialPanel({ sessionData }: { sessionData: ReportSession }) {
         <span className="rpt-panel-meta">{pending} 待处理</span>
       </div>
       <div className="rpt-panel-body rpt-mat-body">
-        <button type="button" className="rpt-mat-drop" aria-label="上传材料">
+        {!readOnly ? <button type="button" className="rpt-mat-drop" aria-label="上传材料">
           <span className="rpt-mat-drop-ic" aria-hidden>⇪</span>
           <span className="rpt-mat-drop-lbl">拖拽上传 · 或点击浏览</span>
           <span className="rpt-mat-drop-sub">pdf · docx · xlsx · img ≤ 30 MB</span>
-        </button>
+        </button> : null}
         <div className="rpt-mat-grid">
           {mats.map((m) => (
             <article
@@ -1256,6 +1330,23 @@ const TL_KIND_LABEL: Record<TimelineEvent["kind"], string> = {
   export: "导出",
 };
 
+function formatSessionTime(value: string): string {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return value;
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (diffMinutes < 1) return "刚刚";
+  if (diffMinutes < 60) return `${diffMinutes} 分钟前`;
+  if (diffMinutes < 24 * 60) return `${Math.floor(diffMinutes / 60)} 小时前`;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(timestamp));
+}
+
 function TimelinePanel({ sessionData }: { sessionData: ReportSession }) {
   const evs = sessionData.timeline;
   const recent = sessionData.recentSessions;
@@ -1300,12 +1391,13 @@ function TimelinePanel({ sessionData }: { sessionData: ReportSession }) {
               <span className="rpt-tl-bar" aria-hidden />
               <div className="rpt-tl-row">
                 <span className="rpt-tl-kind">{TL_KIND_LABEL[ev.kind]}</span>
-                <span className="rpt-tl-at">{ev.at}</span>
+                <span className="rpt-tl-at">{formatSessionTime(ev.at)}</span>
               </div>
               <div className="rpt-tl-label">{ev.label}</div>
               {ev.detail && <div className="rpt-tl-detail">{ev.detail}</div>}
             </li>
           ))}
+          {evs.length === 0 ? <li className="rpt-tl-ev">本会话暂无事件</li> : null}
         </ol>
       </div>
     </section>
@@ -1345,6 +1437,7 @@ function ConversationPanel({ children, sessionData }: { children?: React.ReactNo
           {msgs.map((m) => (
             <ConversationItem key={m.id} msg={m} />
           ))}
+          {msgs.length === 0 ? <li className="rpt-msg rpt-msg--system">本会话暂无对话</li> : null}
         </ol>
       </div>
       {children}
@@ -3368,7 +3461,7 @@ function ReportLiveStrip(p: {
           }}
         >
           QC {p.done.qc?.passed ? "✓ 通过" : "△ 阻断"}
-          {p.done.qc?.score !== undefined ? ` · ${p.done.qc.score}` : ""}
+          {p.done.qc?.passed && p.done.qc?.score !== undefined ? ` · ${p.done.qc.score}` : ""}
         </span>
       ) : null}
     </section>
@@ -3380,6 +3473,7 @@ function ReportLiveSections(p: {
   evidences?: ReportV16Evidence[];
   onRefine: (sectionId: string, userEdit: string) => void;
   mode: "mock" | "live";
+  readOnly?: boolean;
 }) {
   const [activeId, setActiveId] = useState<string | null>(
     p.sections[0]?.id ?? null,
@@ -3551,7 +3645,7 @@ function ReportLiveSections(p: {
           </p>
         </div>
       ) : null}
-      <div style={{ marginTop: 10 }}>
+      {!p.readOnly ? <div style={{ marginTop: 10 }}>
         <textarea
           data-testid="report-refine-input"
           rows={2}
@@ -3593,7 +3687,7 @@ function ReportLiveSections(p: {
             重写本章
           </button>
         </div>
-      </div>
+      </div> : null}
     </section>
   );
 }

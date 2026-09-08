@@ -17,6 +17,7 @@ import {
   ImApiError,
 } from "@/lib/api/im";
 import { getImWsClient } from "@/lib/im/websocket";
+import { DEMO_FORM_MODE, DEMO_FORM_READONLY_MESSAGE } from "@/lib/demo-form";
 import {
   byUserId,
   publishEvent,
@@ -110,7 +111,7 @@ export function ComposerBar() {
   if (!thread) {
     return (
       <div className="dpx-composer dpx-composer-disabled">
-        选中一个对话以发送消息。
+        {DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : "选中一个对话以发送消息。"}
       </div>
     );
   }
@@ -152,6 +153,10 @@ export function ComposerBar() {
 
   function handleSubmit(e?: FormEvent) {
     e?.preventDefault();
+    if (DEMO_FORM_MODE) {
+      flash(DEMO_FORM_READONLY_MESSAGE);
+      return;
+    }
     const value = text.trim();
     if (!value || !thread) return;
 
@@ -360,6 +365,11 @@ export function ComposerBar() {
   }
 
   function handleDrop(e: DragEvent<HTMLFormElement>) {
+    if (DEMO_FORM_MODE) {
+      e.preventDefault();
+      flash(DEMO_FORM_READONLY_MESSAGE);
+      return;
+    }
     const panelRaw = e.dataTransfer.getData(PANEL_PIN_MIME);
     const cardRaw = e.dataTransfer.getData(CARD_PIN_MIME);
     if (!panelRaw && !cardRaw) return;
@@ -461,6 +471,8 @@ export function ComposerBar() {
           placeholder={`在「${thread.title}」留言，或输入 / 调用命令`}
           value={text}
           rows={1}
+          disabled={DEMO_FORM_MODE}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
           onChange={(e) => {
             setText(e.target.value);
             if (thread) maybeEmitTyping(thread.id);
@@ -468,13 +480,22 @@ export function ComposerBar() {
           }}
           onKeyDown={handleKeyDown}
         />
-        <button type="submit" className="dpx-composer-send" disabled={!text.trim()}>
+        <button
+          type="submit"
+          className="dpx-composer-send"
+          disabled={DEMO_FORM_MODE || !text.trim()}
+          title={DEMO_FORM_MODE ? DEMO_FORM_READONLY_MESSAGE : undefined}
+        >
           发送
         </button>
       </div>
       <div className="dpx-composer-foot">
         <span className="hint">
-          回车发送 · Shift + 回车换行 · 输入 <kbd>/</kbd> 看快捷命令（共 {SLASH_COMMANDS.length}）
+          {DEMO_FORM_MODE ? (
+            DEMO_FORM_READONLY_MESSAGE
+          ) : (
+            <>回车发送 · Shift + 回车换行 · 输入 <kbd>/</kbd> 看快捷命令（共 {SLASH_COMMANDS.length}）</>
+          )}
         </span>
       </div>
     </form>

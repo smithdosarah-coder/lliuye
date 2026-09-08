@@ -97,7 +97,7 @@ const TODO: KCard[] = [
 const WIP: KCard[] = [
   {
     id: "w-01", column: "wip",
-    title: "宁海汇通 · QC 终审",
+    title: "鼎川精密 · QC 终审",
     pill: { label: "P0", variant: "P0" },
     meta: ["报告", { cn: "运行中" }, "ETA 09:12"],
     body: [{ text: "证据优先第 3 轮，" }, { text: "32 项", em: true }, { text: " 标注\u201C未能自动填写\u201D。" }],
@@ -105,7 +105,7 @@ const WIP: KCard[] = [
   },
   {
     id: "w-02", column: "wip",
-    title: "星河医药 · 预警",
+    title: "云融科技 · 预警",
     pill: { label: "加急", variant: "urg" },
     meta: ["预警", { cn: "运行中" }],
     body: [{ text: "二次交叉命中：外网舆情 + 内部交易。" }, { text: "黄色", em: true }, { text: "。" }],

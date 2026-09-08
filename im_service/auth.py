@@ -23,6 +23,7 @@ W-FIX2-A2-im-cookie-auth (2026-04-29):
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 
@@ -73,10 +74,17 @@ def _demo_decode(token: str) -> Optional[str]:
     return None
 
 
+def _legacy_demo_token_enabled() -> bool:
+    """Legacy bearer tokens require explicit opt-in and never work in form mode."""
+    if os.environ.get("DEMO_FORM_MODE", "").strip() == "1":
+        return False
+    return os.environ.get("ALLOW_LEGACY_DEMO_TOKEN", "").strip() == "1"
+
+
 def decode_token(token: str) -> str:
     """主入口 · 返 user_id · 失败抛 TokenInvalidError.
 
-    优先尝试真 auth_service (生产) · 失败回退 demo decoder。
+    优先尝试真 auth_service (生产) · 显式启用时才回退 legacy demo decoder。
     """
     if not token or not isinstance(token, str):
         raise TokenInvalidError("token 不能为空")
@@ -85,9 +93,10 @@ def decode_token(token: str) -> str:
     if real_uid:
         return real_uid
 
-    demo_uid = _demo_decode(token)
-    if demo_uid:
-        return demo_uid
+    if _legacy_demo_token_enabled():
+        demo_uid = _demo_decode(token)
+        if demo_uid:
+            return demo_uid
 
     raise TokenInvalidError(f"token 解析失败: {token[:16]}...")
 

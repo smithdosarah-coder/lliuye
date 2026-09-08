@@ -134,8 +134,7 @@ export function MorningBrief() {
       cid === currentUser.id || shared.includes(currentUser.id);
 
     const active = customers.filter(
-      (c) =>
-        mine(c.assignedTo, c.sharedWith) && isSameDay(c.lastActivityAt, now),
+      (c) => currentUser.role === "admin" || mine(c.assignedTo, c.sharedWith),
     ).length;
 
     const alerts = history.filter(

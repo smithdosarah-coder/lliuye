@@ -22,7 +22,7 @@ const seedThreads: ImThread[] = [
   /* === GROUPS · 含 agent 的协作群 ============================ */
   {
     id: "thr_zrgs",
-    title: "中锐工商 · 尽调与授信",
+    title: "晨锐工商 · 尽调与授信",
     customerId: "cust_zrgs",
     participants: ["u_wangzhe", "u_lihua"],
     lastMessageAt: "2026-04-20T09:18:00+08:00",
@@ -100,7 +100,7 @@ const seedMessages: Record<string, ImMessage[]> = {
       threadId: "thr_zrgs",
       from: "u_wangzhe",
       kind: "text",
-      content: "中锐这单材料补全了，麻烦 Agent6 先把尽调报告草稿出一版，下午要上会。",
+      content: "晨锐这单材料补全了，麻烦 Agent6 先把尽调报告草稿出一版，下午要上会。",
       createdAt: "2026-04-20T08:40:00+08:00",
     },
     {
@@ -204,7 +204,7 @@ const seedMessages: Record<string, ImMessage[]> = {
       threadId: "dm_lihua",
       from: "u_wangzhe",
       kind: "text",
-      content: "中锐先讲，鼎川续贷放第二个，云融预警最后留时间讨论。",
+      content: "晨锐先讲，鼎川续贷放第二个，云融预警最后留时间讨论。",
       createdAt: "2026-04-20T09:25:00+08:00",
     },
   ],

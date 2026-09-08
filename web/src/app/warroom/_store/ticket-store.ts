@@ -64,6 +64,10 @@ const genId = () =>
   `tkt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 const nowIso = () => new Date().toISOString();
+const DEMO_FORM_MODE = process.env.NEXT_PUBLIC_DEMO_FORM_MODE === "1";
+const demoReason = (reason: string) => DEMO_FORM_MODE ? `【示例】${reason}` : reason;
+const demoPayload = (payload: Record<string, unknown>) =>
+  DEMO_FORM_MODE ? { ...payload, demoFormExample: true } : payload;
 
 /** First-run seed —— 让 kanban 首次加载不为空，便于 demo 观察。
  *  用户清空后不会重填（persist 以 localStorage 是否存在为准）。 */
@@ -73,8 +77,8 @@ const seed = (): HandoffTicket[] => [
     fromAgent: "report",
     toAgent: "credit",
     customerId: "cust_zrgs",
-    reason: "报告定稿 → 交审贷官出授信决策",
-    payload: { reportId: "rpt_zrgs_20260420", finalized: true },
+    reason: demoReason("报告定稿 → 交审贷官出授信决策"),
+    payload: demoPayload({ reportId: "rpt_zrgs_20260420", finalized: true }),
     status: "requested",
     requestedBy: "u_wangzhe",
     assignedTo: "u_lihua",
@@ -86,8 +90,8 @@ const seed = (): HandoffTicket[] => [
     fromAgent: "channel",
     toAgent: "report",
     customerId: "cust_haiyuan",
-    reason: "锁定 look-alike 候选客户后，发起尽调报告",
-    payload: { candidateId: "cand_haiyuan_01" },
+    reason: demoReason("锁定 look-alike 候选客户后，发起尽调报告"),
+    payload: demoPayload({ candidateId: "cand_haiyuan_01" }),
     status: "accepted",
     requestedBy: "u_wangzhe",
     assignedTo: "u_wangzhe",
@@ -99,8 +103,8 @@ const seed = (): HandoffTicket[] => [
     fromAgent: "alert",
     toAgent: "compliance",
     customerId: "cust_yunrong",
-    reason: "预警命中 → 合规官复核",
-    payload: { alertId: "alt_yunrong_7", severity: "yellow" },
+    reason: demoReason("预警命中 → 合规官复核"),
+    payload: demoPayload({ alertId: "alt_yunrong_7", severity: "yellow" }),
     status: "in_progress",
     requestedBy: "u_chenkai",
     assignedTo: "u_zhoumin",
@@ -112,8 +116,8 @@ const seed = (): HandoffTicket[] => [
     fromAgent: "credit",
     toAgent: "report",
     customerId: "cust_dingchuan",
-    reason: "授信打回 → 审贷意见回写报告",
-    payload: { reportId: "rpt_dingchuan_0417", issues: ["财报 P.24 披露不全"] },
+    reason: demoReason("授信打回 → 审贷意见回写报告"),
+    payload: demoPayload({ reportId: "rpt_dingchuan_0417", issues: ["财报 P.24 披露不全"] }),
     status: "completed",
     requestedBy: "u_lihua",
     assignedTo: "u_wangzhe",
@@ -146,6 +150,8 @@ interface TicketStoreState {
   archive: (id: string) => void;
   /** 测试 / 手动清空 */
   reset: () => void;
+  /** 形态模式下恢复 4 张带明确“示例”标识的预置卡。 */
+  ensureDemoFormSeeds: () => void;
 
   byStatus: (status: HandoffStatus) => HandoffTicket[];
   byId: (id: string) => HandoffTicket | undefined;
@@ -244,6 +250,18 @@ export const useTicketStore = create<TicketStoreState>()(
         set((s) => ({ tickets: s.tickets.filter((t) => t.id !== id) })),
 
       reset: () => set({ tickets: [] }),
+
+      ensureDemoFormSeeds: () => {
+        if (!DEMO_FORM_MODE) return;
+        const examples = seed();
+        const exampleIds = new Set(examples.map((ticket) => ticket.id));
+        set((state) => ({
+          tickets: [
+            ...examples,
+            ...state.tickets.filter((ticket) => !exampleIds.has(ticket.id)),
+          ],
+        }));
+      },
 
       byStatus: (status) => get().tickets.filter((t) => t.status === status),
       byId: (id) => get().tickets.find((t) => t.id === id),

@@ -145,6 +145,7 @@ export type ReportSession = {
   preview: PreviewSection[];
   coverage: { filled: number; total: number; marked: number };
   qcCounts: { block: number; warn: number; info: number };
+  qcDimensions: { name: string; rawScore: number; threshold: number; failed: boolean }[];
   recentSessions: RecentSession[];
 };
 
@@ -562,8 +563,8 @@ const PREVIEW: PreviewSection[] = [
 
 const RECENT: RecentSession[] = [
   { id: "rs-001", clientName: "福建惠民商贸 · 续授信", updated: "刚刚（当前）", progress: 0.86, stage: "QC 终审中" },
-  { id: "rs-002", clientName: "宁海汇通精工 · 首贷", updated: "3 分钟前", progress: 0.72, stage: "段落生成" },
-  { id: "rs-003", clientName: "苏州星河医药 · 增信", updated: "9 分钟前", progress: 0.58, stage: "字段抽取" },
+  { id: "rs-002", clientName: "鼎川精密 · 首贷", updated: "3 分钟前", progress: 0.72, stage: "段落生成" },
+  { id: "rs-003", clientName: "云融科技 · 增信", updated: "9 分钟前", progress: 0.58, stage: "字段抽取" },
   { id: "rs-004", clientName: "东阳塑橡 · 周转续签", updated: "18 分钟前", progress: 0.41, stage: "材料解析" },
   { id: "rs-005", clientName: "瀚蓝智控 · 新增额度", updated: "1 小时前", progress: 1.0, stage: "已完成" },
 ];
@@ -573,17 +574,29 @@ const RECENT: RecentSession[] = [
    让 5 panel (Hero / Material / Timeline / Preview / FieldChip) 单点从 sessionData 派生 ·
    不再静态 REPORT_SESSION 占主源 (避免 demo/live 切换无视觉变化).
 
-   Backend 暂不暴露 materials / fields / timeline 真原型 · 这些字段先保留 mock 形态
-   (REPORT_SESSION fallback) · 真原型由 v16_runner 后续 stage 扩展契约 (Phase B). */
+   Backend 已暴露 template / materials / timeline / conversation；当前会话严格消费
+   done envelope，不再把静态 REPORT_SESSION 拼入 live 会话。field-level 仍待后续扩展。 */
 
 type V16DoneShape = {
   session_id?: string;
   report_id?: string;
   sections?: { id: string; title: string; content?: string; status?: string; word_count?: number }[];
   profile?: Record<string, unknown>;
-  qc?: { passed?: boolean; score?: number; fatal_fail?: boolean; halluc_count?: number; warn_count?: number };
+  qc?: {
+    passed?: boolean;
+    score?: number;
+    fatal_fail?: boolean;
+    halluc_count?: number;
+    warn_count?: number;
+    dimensions?: { name?: string; raw_score?: number; pass_threshold?: number; threshold?: number; passed?: boolean; status?: string }[];
+    fatal_reasons?: string[];
+  };
   stats?: Record<string, unknown>;
   pending_questions?: { id: string; label?: string }[];
+  template?: ReportTemplate;
+  materials?: ReportMaterial[];
+  timeline?: TimelineEvent[];
+  conversation?: ConversationMessage[];
 };
 
 const _ANCHORS = ["§一", "§二", "§三", "§四", "§五", "§六"];
@@ -620,7 +633,21 @@ export function liveToReportSession(live: V16DoneShape | null | undefined): Repo
   const totalFields = (stats.total_fields as number) ?? sections.reduce((a, b) => a + (b.word_count ?? 0), 0);
   const autoFilled = (stats.auto_filled as number) ?? totalFields;
   const unfilled = (stats.unfilled as number) ?? Math.max(totalFields - autoFilled, 0);
-  const block = qc.fatal_fail ? 1 : 0;
+  // 阈值优先取维度自带字段；后端 fatal_reasons 形如「维度「X」raw_score 3.08 < 闸值 5.0」时从中回推，保证阻断态能显示 raw / 闸值
+  const reasonThresholds = new Map<string, number>();
+  for (const reason of qc.fatal_reasons ?? []) {
+    const m = /维度「(.+?)」\s*raw_score\s*([\d.]+)\s*<\s*闸值\s*([\d.]+)/.exec(String(reason));
+    if (m) reasonThresholds.set(m[1], Number(m[3]));
+  }
+  const qcDimensions = (qc.dimensions ?? []).flatMap((dimension) => {
+    const rawScore = dimension.raw_score;
+    const threshold = dimension.pass_threshold ?? dimension.threshold ?? reasonThresholds.get(dimension.name ?? "");
+    if (typeof rawScore !== "number" || typeof threshold !== "number") return [];
+    const failed = rawScore < threshold || dimension.passed === false || ["fail", "failed", "blocked"].includes(String(dimension.status ?? "").toLowerCase());
+    return [{ name: dimension.name || "未命名维度", rawScore, threshold, failed }];
+  });
+  const failedDimensions = qcDimensions.filter((dimension) => dimension.failed).length;
+  const block = failedDimensions || (qc.fatal_fail ? 1 : 0);
   const warn = (qc.warn_count as number) ?? 0;
   const info = 0;
 
@@ -631,15 +658,22 @@ export function liveToReportSession(live: V16DoneShape | null | undefined): Repo
     amount: ((profile.revenue_yuan_2024 as string) || (profile.registered_capital_yuan as string) || "(待提取)") as string,
     stage: qc.passed ? "已 QC 通过" : qc.fatal_fail ? "QC 阻断 · 待补材料" : `QC ${qc.score ?? "-"}`,
     updated: "刚刚",
-    template: TEMPLATES[0],
+    template: live.template ?? TEMPLATES[0],
     availableTemplates: TEMPLATES,
-    materials: MATERIALS, // backend 暂不提供 · keep mock fallback (Phase B 扩展)
-    timeline: TIMELINE,   // backend 暂不提供 · keep mock fallback (Phase B 扩展)
-    conversation: CONVERSATION,
+    materials: live.materials ?? [],
+    timeline: live.timeline ?? [],
+    conversation: live.conversation ?? [],
     preview: previewSections.length > 0 ? previewSections : PREVIEW,
     coverage: { filled: autoFilled, total: Math.max(totalFields, 1), marked: unfilled },
     qcCounts: { block, warn, info },
-    recentSessions: RECENT,
+    qcDimensions,
+    recentSessions: [{
+      id: live.session_id ?? live.report_id ?? "current",
+      clientName: company,
+      updated: "当前",
+      progress: 1,
+      stage: qc.passed ? "已完成" : "QC 阻断",
+    }],
   };
 }
 
@@ -658,5 +692,6 @@ export const REPORT_SESSION: ReportSession = {
   preview: PREVIEW,
   coverage: { filled: 432, total: 460, marked: 18 },
   qcCounts: { block: 2, warn: 2, info: 1 },
+  qcDimensions: [],
   recentSessions: RECENT,
 };

@@ -43,11 +43,13 @@ export function PriorityQueue() {
 
   const ordered = useMemo(() => {
     if (!currentUser) return [];
-    const mine = customers.filter(
-      (c) =>
-        c.assignedTo === currentUser.id ||
-        c.sharedWith.includes(currentUser.id),
-    );
+    const mine = currentUser.role === "admin"
+      ? customers
+      : customers.filter(
+          (c) =>
+            c.assignedTo === currentUser.id ||
+            c.sharedWith.includes(currentUser.id),
+        );
     return [...mine]
       .sort((a, b) => {
         const dw = STAGE_WEIGHT[b.stage] - STAGE_WEIGHT[a.stage];

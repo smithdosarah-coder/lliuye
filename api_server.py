@@ -32,8 +32,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Response, WebSocket
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).parent
@@ -59,6 +60,42 @@ except Exception:  # noqa: BLE001
     pass
 
 app = FastAPI(title="Zhongan Credit AI — Portal API", version="2.2")
+
+_DEMO_FORM_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+_DEMO_FORM_POST_ALLOWLIST = frozenset({
+    "/api/report/export_docx",
+    "/api/report/export_pdf",
+})
+_DEMO_FORM_READONLY_DETAIL = {
+    "error": {
+        "code": "DEMO_FORM_READONLY",
+        "message": "演示环境为只读形态 · 已停用生成、上传与写入",
+    },
+}
+
+
+def _demo_form_write_allowed(method: str, path: str) -> bool:
+    """Return whether a request may pass the read-only showcase boundary."""
+    normalized_method = method.upper()
+    if normalized_method in _DEMO_FORM_SAFE_METHODS:
+        return True
+    if normalized_method == "POST" and path.startswith("/api/auth/"):
+        return True
+    return normalized_method == "POST" and path in _DEMO_FORM_POST_ALLOWLIST
+
+
+@app.middleware("http")
+async def enforce_demo_form_readonly(request: Request, call_next):
+    """Fail closed for every mutating portal route in read-only showcase mode."""
+    if (
+        os.environ.get("DEMO_FORM_MODE", "").strip() == "1"
+        and not _demo_form_write_allowed(request.method, request.url.path)
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": _DEMO_FORM_READONLY_DETAIL},
+        )
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,

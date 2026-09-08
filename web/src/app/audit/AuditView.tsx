@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NoPermission } from "@/components/shell/NoPermission";
 import { AGENTS, type AgentKey } from "@/lib/agents";
-import { byUserId, useAuthStore, useEventBus } from "@/lib/store";
+import { byUserId, publishEvent, useAuthStore, useCustomerStore, useEventBus } from "@/lib/store";
 import type { AgentEvent, AgentId } from "@/lib/store/types";
 
 const AGENT_LABEL: Record<AgentId, string> = {
@@ -39,6 +39,25 @@ const ID_TO_KEY: Record<AgentId, AgentKey> = {
   riskctrl: "riskctrl",
 };
 
+const DEMO_FORM_MODE = process.env.NEXT_PUBLIC_DEMO_FORM_MODE === "1";
+const DEMO_AUDIT_SEEDS: Array<{
+  type: AgentEvent["type"];
+  agent: AgentId;
+  customerId: string;
+  actor: string;
+  minutesAgo: number;
+}> = [
+  { type: "report.completed", agent: "report", customerId: "cust_zrgs", actor: "system", minutesAgo: 2 },
+  { type: "credit.redline_hit", agent: "credit", customerId: "cust_dingchuan", actor: "u_lihua", minutesAgo: 5 },
+  { type: "credit.decided", agent: "credit", customerId: "cust_dingchuan", actor: "u_lihua", minutesAgo: 8 },
+  { type: "alert.raised", agent: "alert", customerId: "cust_yunrong", actor: "system", minutesAgo: 12 },
+  { type: "compliance.conflict_found", agent: "compliance", customerId: "cust_tongxin", actor: "u_zhoumin", minutesAgo: 16 },
+  { type: "channel.lookalike_picked", agent: "channel", customerId: "cust_haiyuan", actor: "u_wangzhe", minutesAgo: 20 },
+  { type: "handoff.requested", agent: "report", customerId: "cust_zrgs", actor: "u_wangzhe", minutesAgo: 24 },
+  { type: "handoff.accepted", agent: "credit", customerId: "cust_zrgs", actor: "u_lihua", minutesAgo: 28 },
+  { type: "comment.added", agent: "report", customerId: "cust_zrgs", actor: "u_wangzhe", minutesAgo: 32 },
+];
+
 function fmtTime(iso: string): string {
   try {
     const d = new Date(iso);
@@ -55,15 +74,40 @@ export function AuditView() {
   const can = useAuthStore((s) => s.can);
   const currentUser = useAuthStore((s) => s.currentUser);
   const history = useEventBus((s) => s.history);
+  const customers = useCustomerStore((s) => s.customers);
   const [agentFilter, setAgentFilter] = useState<AgentId | "">("");
+  const canView = can({ kind: "audit.view" });
+
+  useEffect(() => {
+    if (!DEMO_FORM_MODE || !canView) return;
+    const alreadySeeded = useEventBus.getState().history.some(
+      (event) => (event.payload as { demoFormExample?: boolean }).demoFormExample === true,
+    );
+    if (alreadySeeded) return;
+    for (const seed of DEMO_AUDIT_SEEDS) {
+      publishEvent({
+        type: seed.type,
+        agent: seed.agent,
+        customerId: seed.customerId,
+        actor: seed.actor,
+        createdAt: new Date(Date.now() - seed.minutesAgo * 60_000).toISOString(),
+        payload: { demoFormExample: true },
+        correlationId: `demo-form-${seed.agent}-${seed.minutesAgo}`,
+      } as Parameters<typeof publishEvent>[0]);
+    }
+  }, [canView]);
 
   // URL 直访兜底：即使 entry 按钮隐藏，合规官 / admin 之外的 persona 手敲 /audit 也挡住
-  if (!can({ kind: "audit.view" })) return <NoPermission />;
-
   const filtered = useMemo(() => {
     const list = agentFilter ? history.filter((e) => e.agent === agentFilter) : history;
     return list.slice(0, 50);
   }, [history, agentFilter]);
+  const customerNames = useMemo(
+    () => new Map(customers.map((customer) => [customer.id, customer.shortName ?? customer.name])),
+    [customers],
+  );
+
+  if (!canView) return <NoPermission />;
 
   return (
     <>
@@ -113,18 +157,19 @@ export function AuditView() {
           {filtered.map((e) => {
             const actor = byUserId(e.actor);
             const agentDef = AGENTS.find((a) => a.key === ID_TO_KEY[e.agent]);
+            const isExample = (e.payload as { demoFormExample?: boolean }).demoFormExample === true;
             return (
               <li key={e.id} className="audit-row" data-agent={e.agent}>
                 <span className="ts">{fmtTime(e.createdAt)}</span>
                 <span className="agent-tag" data-agent={e.agent}>
                   {agentDef?.code ?? e.agent.toUpperCase()} · {AGENT_LABEL[e.agent]}
                 </span>
-                <span className="type">{EVENT_LABEL[e.type]}</span>
+                <span className="type">{isExample ? "示例 · " : ""}{EVENT_LABEL[e.type]}</span>
                 <span className="actor">
                   {actor ? `${actor.name}` : e.actor}
                 </span>
                 <span className="cust">
-                  {e.customerId ? `客户 ${e.customerId}` : "—"}
+                  {e.customerId ? `客户 ${customerNames.get(e.customerId) ?? e.customerId}` : "—"}
                 </span>
                 {e.correlationId && (
                   <span className="corr mono">corr={e.correlationId}</span>

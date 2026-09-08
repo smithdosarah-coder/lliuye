@@ -71,20 +71,20 @@ export type CaseFile = {
 export const DISPATCH_THREADS: Thread[] = [
   {
     id: "th-ninghai",
-    name: "#宁海汇通 · 授信",
+    name: "#鼎川精密 · 授信",
     meta: "08:41",
     last: [{ text: "赵岩：" }, { text: "已打开，正在看第三页…", em: true }],
-    activeTitleCn: "宁海汇通科技",
+    activeTitleCn: "鼎川精密制造股份有限公司",
     activeTitleEm: "· 授信",
     activeCount: "3 人 · 1 AGENT",
     unread: 2,
   },
   {
     id: "th-xinghe",
-    name: "#星河医药 · 政策",
+    name: "#云融科技 · 政策",
     meta: "08:12",
     last: [{ text: "秦茉：" }, { text: "新政 §214，待你确认处置", em: true }],
-    activeTitleCn: "星河医药",
+    activeTitleCn: "云融科技发展集团",
     activeTitleEm: "· 政策",
     activeCount: "4 人 · 1 AGENT",
     unread: 1,
@@ -175,7 +175,7 @@ export const DISPATCH_MESSAGES: Record<string, Msg[]> = {
     {
       id: "m-nh-3",
       who: "报告助手",
-      whoEm: "宁海汇通",
+      whoEm: "鼎川精密",
       time: "08:39",
       body: [{ text: "已解析 P.24 股东往来款 ¥8.2M。三点观察待你审核 —" }],
       memo: NINGHAI_MEMO,
@@ -183,7 +183,7 @@ export const DISPATCH_MESSAGES: Record<string, Msg[]> = {
   ],
   "th-xinghe": [
     { id: "m-xh-1", who: "秦茉",       whoEm: "合规",   time: "08:05", body: [{ text: "§214 新政下发，涉票据质押的新定义。" }] },
-    { id: "m-xh-2", who: "合规助手",   whoEm: "政策",   time: "08:07", body: [{ text: "业务矩阵命中 4 户，其中 " }, { text: "星河医药", em: true }, { text: " 位列首位。" }] },
+    { id: "m-xh-2", who: "合规助手",   whoEm: "政策",   time: "08:07", body: [{ text: "业务矩阵命中 4 户，其中 " }, { text: "云融科技", em: true }, { text: " 位列首位。" }] },
     { id: "m-xh-3", who: "你",                           time: "08:12", me: true, body: [{ text: "先出合规意见草稿，今日 14:00 前我签字。" }] },
   ],
   "th-huadong": [
@@ -210,7 +210,7 @@ export const DISPATCH_MESSAGES: Record<string, Msg[]> = {
 export const DISPATCH_CASEFILES: Record<string, CaseFile> = {
   "th-ninghai": {
     title: "卷宗",
-    titleEm: "· 宁海汇通",
+    titleEm: "· 鼎川精密",
     n: "#0487",
     rows: [
       { k: "卷宗号",     vNum: "2026",    vEm: "· 0487",       sub: [{ text: "审贷四部 · 华东一线" }] },
@@ -222,7 +222,7 @@ export const DISPATCH_CASEFILES: Record<string, CaseFile> = {
   },
   "th-xinghe": {
     title: "卷宗",
-    titleEm: "· 星河医药",
+    titleEm: "· 云融科技",
     n: "#0511",
     rows: [
       { k: "卷宗号",   vNum: "2026",    vEm: "· 0511",              sub: [{ text: "合规一部 · §214 新政组" }] },
@@ -239,7 +239,7 @@ export const DISPATCH_CASEFILES: Record<string, CaseFile> = {
     rows: [
       { k: "参会",     vNum: "9",      vUnitCn: "人",       sub: [{ text: "线上 · Teams 视频。" }] },
       { k: "主持",     vNum: "林楠",                        sub: [{ text: "审贷员 · 本周值班。" }] },
-      { k: "议题",     vNum: "3",      vUnitCn: "项",       sub: [{ text: "晨报 / 宁海汇通 / §214 处置。" }] },
+      { k: "议题",     vNum: "3",      vUnitCn: "项",       sub: [{ text: "晨报 / 鼎川精密 / §214 处置。" }] },
       { k: "时长",     vNum: "45",     vUnitCn: "分钟",      sub: [{ text: "含 5 分钟客户案例插播。" }] },
       { k: "纪要输出", vNum: "否",                           sub: [{ text: "行长不在线 · " }, { text: "下次再记", em: true }, { text: "。" }] },
     ],
@@ -249,7 +249,7 @@ export const DISPATCH_CASEFILES: Record<string, CaseFile> = {
     titleEm: "· 海创智能装备",
     n: "#LA-12",
     rows: [
-      { k: "候选数",     vNum: "12", vUnitCn: "家",   sub: [{ text: "look-alike · 自 " }, { text: "宁海汇通", em: true }, { text: "。" }] },
+      { k: "候选数",     vNum: "12", vUnitCn: "家",   sub: [{ text: "look-alike · 自 " }, { text: "鼎川精密", em: true }, { text: "。" }] },
       { k: "强信号命中", vNum: "4",  vUnitCn: "家",   sub: [{ text: "≥ 3 类信号 (招聘/舆情/征信)。" }] },
       { k: "已排产",     vNum: "3",  vUnitCn: "家",   sub: [{ text: "明天路演首讲用。" }] },
       { k: "授信建议",   vNum: "预审",                 sub: [{ text: "先过 Agent3 初筛再发意向。" }] },
@@ -262,7 +262,7 @@ export const DISPATCH_CASEFILES: Record<string, CaseFile> = {
     n: "DM",
     rows: [
       { k: "岗位",     vNum: "审贷员",                        sub: [{ text: "华东审贷四部 · 本周值班。" }] },
-      { k: "本月交易", vNum: "23",    vUnitCn: "条",          sub: [{ text: "其中 " }, { text: "宁海汇通", em: true }, { text: " 是最大一笔。" }] },
+      { k: "本月交易", vNum: "23",    vUnitCn: "条",          sub: [{ text: "其中 " }, { text: "鼎川精密", em: true }, { text: " 是最大一笔。" }] },
       { k: "最近共事", vNum: "14",    vUnitCn: "次",          sub: [{ text: "平均响应 28 分钟。" }] },
       { k: "待办",     vNum: "1",     vUnitCn: "项",          sub: [{ text: "额度建议 · " }, { text: "周一前", em: true }, { text: "。" }] },
       { k: "联系",     vNum: "飞书",  vEm: "+ 电话",          sub: [{ text: "工作时间应答 ≤ 10 分钟。" }] },

@@ -39,6 +39,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,7 +53,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from agent_report.enterprise_profile import EnterpriseProfile, PendingQuestion  # noqa: E402
 from agent_report.session_store import store, audit_log, hash_input  # noqa: E402
 from agent_report import mock_fixtures  # noqa: E402
-from auth_service.dependencies import require_action  # noqa: E402
+from auth_service.dependencies import require_action, require_user  # noqa: E402
 # ALL IN Phase B step 5 · per candidate-identity-contract v1.1 §3 (report 行: section.id) +
 # §4.2 SSE event emit 必经 helper · 不允许直接 emit raw dict
 from shared.entity_resolver import ensure_list_unique_ids  # noqa: E402
@@ -102,9 +103,46 @@ SESSIONS_DIR = OUTPUTS_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
 DOWNLOAD_DIR = OUTPUTS_DIR  # 历史 docx(mock fallback 用)
 TEMPLATE_DEFAULT = PROJECT_ROOT / "templates_cache" / "福建普惠授信申报及审查审批意见表2025新版.docx"
+DEMO_FORM_SESSION_FILE = OUTPUTS_DIR / "demo-form" / "report-default-session.json"
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # session 目录 TTL(分钟)—— 过期连材料+docx 一起清
 SESSION_DIR_TTL_MINUTES = 30
+
+
+def _demo_form_mode_enabled() -> bool:
+    return os.environ.get("DEMO_FORM_MODE", "").strip() == "1"
+
+
+def _load_demo_form_payload() -> dict[str, Any]:
+    """Load the deployment-generated default report without inventing data."""
+    try:
+        payload = json.loads(DEMO_FORM_SESSION_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {
+                "code": "DEMO_FORM_SESSION_MISSING",
+                "message": "形态展示会话尚未预置 · 请管理员先运行 scripts/seed_demo_form_session.py",
+            }},
+        ) from exc
+    except (OSError, ValueError, TypeError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {
+                "code": "DEMO_FORM_SESSION_INVALID",
+                "message": f"形态展示会话无法读取 · {type(exc).__name__}",
+            }},
+        ) from exc
+    if not isinstance(payload, dict) or not payload.get("sections") or not payload.get("profile"):
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {
+                "code": "DEMO_FORM_SESSION_INVALID",
+                "message": "形态展示会话缺少 profile 或正文 · 请重新执行 seed 脚本",
+            }},
+        )
+    return payload
 
 
 def _cleanup_expired_sessions() -> None:
@@ -119,6 +157,17 @@ def _cleanup_expired_sessions() -> None:
                 shutil.rmtree(sub, ignore_errors=True)
         except Exception:
             pass
+
+
+def _owned_session_or_404(session_id: str, user: dict[str, Any]) -> dict[str, Any]:
+    """Return a session only when it belongs to the authenticated user."""
+    sess = store.get(session_id)
+    user_id = str(user.get("sub") or user.get("user_id") or "").strip()
+    owner_user_id = str(sess.get("owner_user_id") or "").strip() if sess else ""
+    if not sess or not user_id or owner_user_id != user_id:
+        # Do not disclose whether another user's session exists.
+        raise HTTPException(404, f"session {session_id} 不存在或已过期")
+    return sess
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +396,11 @@ async def _refine_stream(req: "RefineRequest", sess: dict) -> AsyncIterator[str]
 
 
 @app.get("/api/report/downloads/{session_id}/{filename}")
-async def download_session(session_id: str, filename: str):
+async def download_session(
+    session_id: str,
+    filename: str,
+    user: dict = Depends(require_user),
+):
     """下载某 session 生成的 docx.
 
     安全:
@@ -357,6 +410,7 @@ async def download_session(session_id: str, filename: str):
     # session_id 白名单:只允 UUID4 (hex + dash)
     if not re.fullmatch(r"[0-9a-fA-F\-]{8,64}", session_id):
         raise HTTPException(400, "非法 session_id")
+    _owned_session_or_404(session_id, user)
     safe_name = os.path.basename(filename)
     sess_dir = (SESSIONS_DIR / session_id).resolve()
     # 确保在 SESSIONS_DIR 下
@@ -1076,6 +1130,7 @@ async def report_v16_fill(
                 output_dir=output_dir,
                 explicit_mock=bool(req.mock),
                 client_metadata=resolved_metadata,
+                owner_user_id=str(_user.get("sub") or ""),
             ):
                 yield evt
         except Exception as e:
@@ -1399,7 +1454,7 @@ async def report_export_docx(
 
     # profile / sections / qc 只信任服务端 session；请求字段仅为旧客户端兼容保留。
     if sid:
-        sess = store.get(sid)
+        sess = _session_or_demo_form(sid)
         if sess:
             payload.update(_trusted_export_fields(sess))
 
@@ -1475,13 +1530,14 @@ async def report_export_docx(
 # ---------------------------------------------------------------------------
 
 @app.get("/api/report/downloads/{report_id}")
-async def download_report_alias(report_id: str):
+async def download_report_alias(
+    report_id: str,
+    user: dict = Depends(require_user),
+):
     """报告 alias 端点 · 从 session 找 ``report_docx_path`` 直返."""
     if not re.fullmatch(r"[0-9a-fA-F\-]{8,64}", report_id):
         raise HTTPException(400, "非法 report_id")
-    sess = store.get(report_id)
-    if sess is None:
-        raise HTTPException(404, f"session {report_id} 不存在或已过期")
+    sess = _owned_session_or_404(report_id, user)
     docx_path = sess.get("report_docx_path")
     if not docx_path or not os.path.exists(docx_path):
         raise HTTPException(404, f"session {report_id} 暂无 docx 产物 · 请先 fill 或 export")
@@ -1544,6 +1600,75 @@ class ReportDemoRunRequest(BaseModel):
     client_metadata: dict | None = None
 
 
+def _hydrate_demo_form_session() -> str:
+    """形态模式：把预置的完成态会话注册进内存 SessionStore，返回新 session_id。"""
+    payload = _load_demo_form_payload()
+    sid = store.create({
+        "mode": "demo_form",
+        "source_docx": payload.get("source_docx"),
+        "enterprise_profile": payload.get("profile") or {},
+        "pending_questions": payload.get("pending_questions") or [],
+        "qc_payload": payload.get("qc") or {},
+    })
+    hydrated = dict(payload)
+    hydrated.update({
+        "event": "done",
+        "report_id": sid,
+        "session_id": sid,
+        "pipeline": "v16",
+        "mock_pipeline": False,
+        "data_source": "live",
+    })
+    store.update(sid, {"done_payload": hydrated})
+    return sid
+
+
+def _session_or_demo_form(sid: str):
+    """导出用：会话过期（30 分钟 GC）且处于形态模式时，从预置文件重建，访客搁置页面后仍可导出。"""
+    sess = store.get(sid)
+    if sess is not None or not _demo_form_mode_enabled():
+        return sess
+    new_sid = _hydrate_demo_form_session()
+    return store.get(new_sid)
+
+
+@app.get("/api/report/demo/default")
+async def report_demo_default(
+    _user: dict = Depends(require_action("report", "invoke")),
+):
+    """Hydrate the pre-seeded completed session used by the read-only showcase."""
+    if not _demo_form_mode_enabled():
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {
+                "code": "DEMO_FORM_MODE_DISABLED",
+                "message": "形态展示模式未开启",
+            }},
+        )
+    payload = _load_demo_form_payload()
+    # Give each server process a valid in-memory export/refine session while the
+    # persisted payload remains the cold-start source of truth.
+    sid = store.create({
+        "mode": "demo_form",
+        "owner_user_id": str(_user.get("sub") or ""),
+        "source_docx": payload.get("source_docx"),
+        "enterprise_profile": payload.get("profile") or {},
+        "pending_questions": payload.get("pending_questions") or [],
+        "qc_payload": payload.get("qc") or {},
+    })
+    hydrated = dict(payload)
+    hydrated.update({
+        "event": "done",
+        "report_id": sid,
+        "session_id": sid,
+        "pipeline": "v16",
+        "mock_pipeline": False,
+        "data_source": "live",
+    })
+    store.update(sid, {"done_payload": hydrated})
+    return hydrated
+
+
 @app.post("/api/report/demo/run")
 async def report_demo_run(
     req: ReportDemoRunRequest,
@@ -1564,6 +1689,15 @@ async def report_demo_run(
       503 DEMO_TEMPLATE_MISSING     · 默认对公模板 docx 缺失
       其他: SSE error event (stage=ingest · code=V16_REAL_PATH_FAILED)
     """
+    if _demo_form_mode_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {
+                "code": "DEMO_FORM_GENERATION_DISABLED",
+                "message": "演示环境已停用生成接口 · 下方为已完成的示例会话",
+            }},
+        )
+
     # 1. sample_id 白名单 (防路径穿越)
     if not _SAMPLE_ID_RE.match(req.sample_id):
         raise HTTPException(
@@ -1670,6 +1804,7 @@ async def report_demo_run(
                 output_dir=output_dir,
                 explicit_mock=False,  # PM 真意: demo = 真后端跑 · 不切 mock
                 client_metadata=resolved_metadata,
+                owner_user_id=str(_user.get("sub") or ""),
             ):
                 yield evt
         except Exception as e:
@@ -1804,7 +1939,7 @@ async def report_export_pdf(
     }
 
     if sid:
-        sess = store.get(sid)
+        sess = _session_or_demo_form(sid)
         if sess:
             payload.update(_trusted_export_fields(sess))
 
@@ -1888,7 +2023,7 @@ async def report_export_pdf(
     flow.append(Paragraph(f"{title} · 授信调查报告", h1))
     flow.append(Spacer(1, 12))
     flow.append(Paragraph(
-        f"业务线: {payload.get('business_line', '-')} · 客户经理: {payload.get('client_manager', '-')} · 生成时间: {datetime.now().isoformat(timespec='minutes')}",
+        f"业务线: {payload.get('business_line', '-')} · 客户经理: {payload.get('client_manager', '-')} · 生成时间: {datetime.now(SHANGHAI_TZ).isoformat(timespec='minutes')}",
         body,
     ))
     flow.append(Spacer(1, 18))
@@ -1914,17 +2049,19 @@ async def report_export_pdf(
         "— 以上为 AI 协作预览稿 · 未经人工终审不得作为正式决策依据 —", foot,
     ))
 
-    def _draw_gate_header(canvas, _doc):
-        if not gate_blocked:
-            return
+    def _draw_session_header(canvas, _doc):
         canvas.saveState()
-        canvas.setFont(cn_font, 10)
-        canvas.setFillColorRGB(0.69, 0.24, 0.18)
-        canvas.drawCentredString(A4[0] / 2, A4[1] - 28, QUALITY_GATE_WATERMARK)
+        canvas.setFont(cn_font, 9)
+        canvas.setFillColorRGB(0.25, 0.25, 0.25)
+        canvas.drawCentredString(A4[0] / 2, A4[1] - 24, str(title))
+        if gate_blocked:
+            canvas.setFont(cn_font, 10)
+            canvas.setFillColorRGB(0.69, 0.24, 0.18)
+            canvas.drawCentredString(A4[0] / 2, A4[1] - 36, QUALITY_GATE_WATERMARK)
         canvas.restoreState()
 
     try:
-        doc.build(flow, onFirstPage=_draw_gate_header, onLaterPages=_draw_gate_header)
+        doc.build(flow, onFirstPage=_draw_session_header, onLaterPages=_draw_session_header)
     except Exception as e:
         audit_log({
             "timestamp": datetime.now().isoformat(timespec="seconds"),

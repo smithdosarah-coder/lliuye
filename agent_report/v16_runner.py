@@ -20,6 +20,7 @@ Mock 路径:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -182,6 +183,104 @@ def _load_profile_for_real(report_id: str) -> dict:
         return dict(mock_fixtures.load_preset_profile(report_id) or {})
     except Exception:
         return {}
+
+
+def _profile_from_client_metadata(
+    client_metadata: dict[str, Any] | None,
+    *,
+    fallback_report_id: str,
+) -> dict[str, Any]:
+    """Build the public session profile from this run's customer metadata.
+
+    The template identifies the document shape, not the customer. Falling back
+    to a profile keyed by ``source_docx.stem`` caused a DP002 run to inherit the
+    template/sample customer during export. Keep the legacy fixture only as a
+    structural fallback and let run-scoped metadata own customer identity.
+    """
+    meta = client_metadata if isinstance(client_metadata, dict) else {}
+    profile = {} if meta else _load_profile_for_real(fallback_report_id)
+    company_name = str(
+        meta.get("CLIENT_FULL_NAME")
+        or meta.get("CLIENT_LONG_CORE_NAME")
+        or meta.get("CLIENT_CORE_NAME")
+        or ""
+    ).strip()
+    uscc = str(meta.get("CLIENT_USCC") or "").strip()
+    mapped = {
+        "company_name": company_name,
+        "unified_credit_code": uscc,
+        "uscc": uscc,
+        "legal_representative": meta.get("CLIENT_LEGAL_REP"),
+        "established_date": meta.get("CLIENT_ESTABLISHMENT_DATE"),
+        "registered_capital_yuan": meta.get("CLIENT_REGISTERED_CAPITAL"),
+        "registered_address": meta.get("CLIENT_REGISTERED_ADDRESS"),
+        "business_scope": meta.get("CLIENT_BUSINESS_SCOPE"),
+        "industry": meta.get("CLIENT_INDUSTRY_FULL"),
+    }
+    profile.update({key: value for key, value in mapped.items() if value not in (None, "")})
+    if company_name:
+        entity_key = resolve_entity(name=company_name, uscc=uscc or None)
+        profile["entity_key"] = {
+            "uscc": entity_key.uscc,
+            "name_normalized": entity_key.name_normalized,
+            "confidence": entity_key.confidence,
+        }
+    return profile
+
+
+def _material_manifest(material_dir: Path) -> list[dict[str, Any]]:
+    """Expose only the files actually consumed by this report session."""
+    kind_by_suffix = {
+        ".pdf": "pdf",
+        ".doc": "docx",
+        ".docx": "docx",
+        ".xls": "xlsx",
+        ".xlsx": "xlsx",
+        ".png": "img",
+        ".jpg": "img",
+        ".jpeg": "img",
+    }
+    rows: list[dict[str, Any]] = []
+    try:
+        files = sorted((path for path in material_dir.iterdir() if path.is_file()), key=lambda path: path.name)
+    except OSError:
+        return rows
+    for index, path in enumerate(files, start=1):
+        if path.name == "client_metadata.json":
+            continue
+        size = path.stat().st_size
+        rows.append({
+            "id": f"material-{index}",
+            "name": path.name,
+            "kind": kind_by_suffix.get(path.suffix.lower(), "docx"),
+            "pages": 0,
+            "bytes": f"{size / 1024:.1f} KB",
+            "parsed": True,
+            "parseNote": "本会话材料 · 已用于生成",
+            "linkedSections": [],
+        })
+    return rows
+
+
+def _template_descriptor(source_docx: Path) -> dict[str, Any]:
+    stem = source_docx.stem
+    if stem == "经纬测绘_对公成稿A":
+        return {
+            "id": "tpl-corporate-a",
+            "name": "对公成稿 A",
+            "kind": "预置",
+            "version": "经纬测绘",
+            "fieldTotal": 0,
+            "recentUsed": 0,
+        }
+    return {
+        "id": f"tpl-{hashlib.sha256(stem.encode('utf-8')).hexdigest()[:12]}",
+        "name": stem,
+        "kind": "预置",
+        "version": "当前模板",
+        "fieldTotal": 0,
+        "recentUsed": 0,
+    }
 
 
 # ============================================================================
@@ -478,10 +577,15 @@ def _run_v16_in_thread(
         qc = summary.get("qc") or {}
         passed = qc.get("passed")
         score = qc.get("score")
-        emit.put(_stage(
-            STAGE_AUDIT, 1.0,
-            f"QC {('通过' if passed else '阻断')} · 分 {score}",
-        ))
+        # 阻断态不显示被汇总归零的总分，改报未达闸值的维度数（demo-form D 项：闸结果要可读）
+        fatal_dims = len(qc.get("fatal_reasons") or []) or sum(
+            1 for d in (qc.get("dimensions") or []) if d.get("passed") is False
+        )
+        audit_label = (
+            f"QC 通过 · 分 {score}" if passed
+            else (f"QC 阻断 · {fatal_dims} 项未达闸值" if fatal_dims else "QC 阻断")
+        )
+        emit.put(_stage(STAGE_AUDIT, 1.0, audit_label))
 
         # done 事件 · 聚合 summary
         output_docx = summary.get("output_docx")
@@ -496,7 +600,10 @@ def _run_v16_in_thread(
         # V2 fix issue 2 (codex DISAGREE) · real done 加 top-level sections + profile + UUID session_id
         # 让前端 PreviewPanel/MaterialPanel/TimelinePanel 从真产物 hydrate · 不再 fallback 静态 mock
         sections = _extract_sections_from_docx(Path(output_docx)) if output_docx else []
-        profile = _load_profile_for_real(str(source_docx.stem))
+        profile = _profile_from_client_metadata(
+            client_metadata,
+            fallback_report_id=str(source_docx.stem),
+        )
 
         # 持久 done_payload 进 SessionStore · UUID = session_id 契约 (refine_section / export 都靠它)
         # SessionStore 内部 RLock 线程安全 · 工作线程调用合法
@@ -551,6 +658,8 @@ def _run_v16_in_thread(
             "output_docx_path": output_docx,
             "sections": sections,
             "profile": profile,
+            "template": _template_descriptor(source_docx),
+            "materials": _material_manifest(material_dir),
             "qc": qc_payload,
             "stats": stats_payload,
             "pending_questions": pending_questions,

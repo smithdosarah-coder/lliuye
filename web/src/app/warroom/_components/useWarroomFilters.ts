@@ -64,7 +64,8 @@ export function useWarroomFilters(): {
     [params],
   );
 
-  const scope = parseScope(raw.scope ?? null) ?? (currentUser ? "mine" : "all");
+  const scope = parseScope(raw.scope ?? null)
+    ?? (currentUser?.role === "admin" ? "all" : currentUser ? "mine" : "all");
 
   const filters: TicketFilters = useMemo(
     () => ({

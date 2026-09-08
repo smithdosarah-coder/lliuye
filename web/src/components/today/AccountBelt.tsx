@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+"use client";
+
+import { Fragment, useEffect, useState } from "react";
 import { TODAY_BELT, TODAY_BELT_RULE } from "@/lib/mock/today";
 
 /**
@@ -7,12 +9,32 @@ import { TODAY_BELT, TODAY_BELT_RULE } from "@/lib/mock/today";
  * - .belt: 4 col grid, 每栏 k / v(digits+unit) / note
  */
 export function AccountBelt() {
+  const [ledgerTime, setLedgerTime] = useState("—");
+  useEffect(() => {
+    const render = () => {
+      const parts = new Intl.DateTimeFormat("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date());
+      const value = (type: Intl.DateTimeFormatPartTypes) =>
+        parts.find((part) => part.type === type)?.value ?? "--";
+      setLedgerTime(`${value("year")} · ${value("month")} · ${value("day")} · ${value("hour")}:${value("minute")}`);
+    };
+    render();
+    const timer = window.setInterval(render, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   return (
     <>
       <div className="rule">
         <span className="lbl">{TODAY_BELT_RULE.lbl}</span>
         <span className="ln" />
-        <span className="rt">{TODAY_BELT_RULE.rt}</span>
+        <span className="rt">{ledgerTime}</span>
       </div>
 
       <div className="belt">

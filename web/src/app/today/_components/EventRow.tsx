@@ -18,21 +18,11 @@ const FADE_AFTER_MS = 10 * 60_000;
 
 function formatEventTime(iso: string, now: Date): string {
   const d = new Date(iso);
-  const diff = now.getTime() - d.getTime();
+  const diff = Math.max(0, now.getTime() - d.getTime());
   if (diff < 60_000) return "刚刚";
-  if (diff < FADE_AFTER_MS) return `${Math.floor(diff / 60_000)} 分前`;
-  if (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  ) {
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${hh}:${mm}`;
-  }
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${mo}-${day}`;
+  if (diff < 60 * 60_000) return `${Math.floor(diff / 60_000)} 分前`;
+  if (diff < 24 * 60 * 60_000) return `${Math.floor(diff / (60 * 60_000))} 小时前`;
+  return `${Math.floor(diff / (24 * 60 * 60_000))} 天前`;
 }
 
 function agentRouteOf(agent: AgentEvent["agent"]): string {

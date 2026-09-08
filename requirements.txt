@@ -50,3 +50,7 @@ cryptography>=42.0
 # python-docx 已上面声明 (运行时本身就要 · template_decomposer.py 用)
 pytest>=8.0
 pytest-asyncio>=0.24
+
+# demo-form 260908: PDF export + tests (were installed by hand on ECS before)
+reportlab>=4.0
+pypdf>=4.0

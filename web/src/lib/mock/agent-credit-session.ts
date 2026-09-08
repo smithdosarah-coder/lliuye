@@ -1192,13 +1192,13 @@ export const CREDIT_SESSIONS: Record<CreditMode, CreditSession> = {
 export const CREDIT_SESSION: CreditSession = CORP_SESSION;
 
 /* ══════════════════════════════════════════════════════
- * 对公 · 中锐网络科技 · SaaS · 关联交易软红线 · approved-cut
+ * 对公 · 晨锐网络科技 · SaaS · 关联交易软红线 · approved-cut
  * （难度: hard · 关联交易 32% 软红线可豁免 · 应收账款 140 天）
  * ════════════════════════════════════════════════════ */
 
 const ZHONGRUI_QUERY: CreditQuery = {
   id: "cr-zr-saas-0428",
-  customer: "中锐网络科技股份有限公司",
+  customer: "晨锐网络科技有限公司",
   customerCode: "CR-2026-04-28-0103",
   product: "对公经营贷",
   applyAmount: "500 万",
@@ -1356,7 +1356,7 @@ const ZHONGRUI_CONVERSATION: ConversationMessage[] = [
     id: "crz-msg-1",
     at: "1 小时前",
     kind: "system-event",
-    content: "审贷 session 启动 · 客户：中锐网络科技 · 产品：对公经营贷 · 申请 500 万 / 24 月",
+    content: "审贷 session 启动 · 客户：晨锐网络科技 · 产品：对公经营贷 · 申请 500 万 / 24 月",
   },
   {
     id: "crz-msg-2",
@@ -1481,7 +1481,7 @@ const ZHONGRUI_PROFILE: CreditProfile = {
 const ZHONGRUI_SESSION: CreditSession = {
   id: "cs-zhongrui-network",
   mode: "corp",
-  objective: "中锐网络科技 · 对公经营贷 500 万 · 关联交易软红线豁免决策",
+  objective: "晨锐网络科技 · 对公经营贷 500 万 · 关联交易软红线豁免决策",
   stage: "待主审豁免 · 决议草稿已生成",
   updated: "10 分钟前",
   profile: ZHONGRUI_PROFILE,
@@ -2079,7 +2079,7 @@ export const CREDIT_MOCK_SESSIONS: CreditSession[] = [
   CORP_SESSION,        // medium · 福建惠民商贸 · approved-cut B+
   SMALL_SESSION,       // medium · 厦门瑞鼎机电 · pending B
   RETAIL_SESSION,      // medium · 张三 · approved 720
-  ZHONGRUI_SESSION,    // hard   · 中锐网络 · 关联交易软红线 approved-cut
+  ZHONGRUI_SESSION,    // hard   · 晨锐网络 · 关联交易软红线 approved-cut
   DINGSHENG_SESSION,   // extreme · 鼎盛商贸 · 双红线 rejected
   WANGWU_SESSION,      // simple · 王五装修 · 810 approved
 ];
