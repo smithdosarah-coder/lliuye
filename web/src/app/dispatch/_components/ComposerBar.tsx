@@ -426,7 +426,7 @@ export function ComposerBar() {
       refs: refsPayload,
     });
 
-    if (liveMode !== "seed") {
+    if (liveMode !== "seed" && thread && !DEMO_FORM_MODE) {
       void sendMessageRest({
         threadId,
         content: title,

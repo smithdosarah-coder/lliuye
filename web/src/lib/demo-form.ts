@@ -5,6 +5,6 @@ export const DEMO_FORM_READONLY_MESSAGE =
 
 // 形态模式下人对人 IM 照常（不调模型），只停用 @智能体 → DeepSeek 的路径
 export const DEMO_FORM_AGENT_BLOCKED_MESSAGE =
-  "演示环境已停用 @智能体 · 同事之间可正常互发消息";
+  "演示环境已停用 @智能体 · 消息仅本地演示，不落库";
 export const DEMO_FORM_COMPOSER_HINT =
-  "演示环境：可与同事互发消息 · @智能体 已停用";
+  "演示环境：消息仅本地演示，不落库 · @智能体 已停用";

@@ -1600,6 +1600,9 @@ class ReportDemoRunRequest(BaseModel):
     client_metadata: dict | None = None
 
 
+_DEMO_FORM_REHYDRATED: dict[tuple[str, str], str] = {}
+
+
 def _hydrate_demo_form_session(owner_user_id: str = "") -> str:
     """形态模式：把预置的完成态会话注册进内存 SessionStore，返回新 session_id。"""
     payload = _load_demo_form_payload()
@@ -1632,7 +1635,12 @@ def _session_or_demo_form(sid: str, user: dict[str, Any]):
     if not _demo_form_mode_enabled():
         return None
     owner_user_id = str(user.get("sub") or user.get("user_id") or "").strip()
+    # 同一过期 sid 只重建一次：复用映射，避免每次导出都新建内存会话（Astra R2 非阻断③）
+    cached = _DEMO_FORM_REHYDRATED.get((sid, owner_user_id))
+    if cached and store.get(cached) is not None:
+        return _owned_session_or_404(cached, user)
     new_sid = _hydrate_demo_form_session(owner_user_id)
+    _DEMO_FORM_REHYDRATED[(sid, owner_user_id)] = new_sid
     return _owned_session_or_404(new_sid, user)
 
 
